@@ -458,21 +458,21 @@ class ASTBuilder(object):
             self.error("expected \"with [expr] as [var]\"", with_var_node)
         return self.handle_expr(with_var_node.children[1])
 
-    def handle_classdef(self, classdef_node):
+    def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.children[1]
         name = name_node.value
         self.check_forbidden_name(name, name_node)
         if len(classdef_node.children) == 4:
             body = self.handle_suite(classdef_node.children[3])
-            return ast.ClassDef(name, None, body, classdef_node.lineno,
-                                classdef_node.column)
+            return ast.ClassDef(name, None, body, decorators,
+                                classdef_node.lineno, classdef_node.column)
         if classdef_node.children[3].type == tokens.RPAR:
             body = self.handle_suite(classdef_node.children[5])
-            return ast.ClassDef(name, None, body, classdef_node.lineno,
-                                classdef_node.column)
+            return ast.ClassDef(name, None, body, decorators,
+                                classdef_node.lineno, classdef_node.column)
         bases = self.handle_class_bases(classdef_node.children[3])
         body = self.handle_suite(classdef_node.children[6])
-        return ast.ClassDef(name, bases, body, classdef_node.lineno,
+        return ast.ClassDef(name, bases, body, decorators, classdef_node.lineno,
                             classdef_node.column)
 
     def handle_class_bases(self, bases_node):
@@ -480,20 +480,27 @@ class ASTBuilder(object):
             return [self.handle_expr(bases_node.children[0])]
         return self.get_expression_list(bases_node)
 
-    def handle_funcdef(self, funcdef_node):
-        if len(funcdef_node.children) == 6:
-            decorators = self.handle_decorators(funcdef_node.children[0])
-            name_index = 2
-        else:
-            decorators = None
-            name_index = 1
-        name_node = funcdef_node.children[name_index]
+    def handle_funcdef(self, funcdef_node, decorators=None):
+        name_node = funcdef_node.children[1]
         name = name_node.value
         self.check_forbidden_name(name, name_node)
-        args = self.handle_arguments(funcdef_node.children[name_index + 1])
-        body = self.handle_suite(funcdef_node.children[name_index + 3])
+        args = self.handle_arguments(funcdef_node.children[2])
+        body = self.handle_suite(funcdef_node.children[4])
         return ast.FunctionDef(name, args, body, decorators,
                                funcdef_node.lineno, funcdef_node.column)
+
+    def handle_decorated(self, decorated_node):
+        decorators = self.handle_decorators(decorated_node.children[0])
+        definition = decorated_node.children[1]
+        if definition.type == syms.funcdef:
+            node = self.handle_funcdef(definition, decorators)
+        elif definition.type == syms.classdef:
+            node = self.handle_classdef(definition, decorators)
+        else:
+            raise AssertionError("unkown decorated")
+        node.lineno = decorated_node.lineno
+        node.col_offset = decorated_node.column
+        return node
 
     def handle_decorators(self, decorators_node):
         return [self.handle_decorator(dec) for dec in decorators_node.children]
@@ -648,6 +655,8 @@ class ASTBuilder(object):
                 return self.handle_funcdef(stmt)
             elif stmt_type == syms.classdef:
                 return self.handle_classdef(stmt)
+            elif stmt_type == syms.decorated:
+                return self.handle_decorated(stmt)
             else:
                 raise AssertionError("unhandled compound statement")
         else:

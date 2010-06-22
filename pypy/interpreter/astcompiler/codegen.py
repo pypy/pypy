@@ -255,8 +255,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_FunctionDef(self, func):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
-        if func.decorators:
-            self.visit_sequence(func.decorators)
+        if func.decorator_list:
+            self.visit_sequence(func.decorator_list)
         if func.args.defaults:
             self.visit_sequence(func.args.defaults)
             num_defaults = len(func.args.defaults)
@@ -266,8 +266,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                               func.lineno)
         self._make_function(code, num_defaults)
         # Apply decorators.
-        if func.decorators:
-            for i in range(len(func.decorators)):
+        if func.decorator_list:
+            for i in range(len(func.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store)
 
@@ -283,6 +283,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
+        if cls.decorator_list:
+            self.visit_sequence(cls.decorator_list)
         self.load_const(self.space.wrap(cls.name))
         if cls.bases:
             bases_count = len(cls.bases)
@@ -294,6 +296,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_function(code, 0)
         self.emit_op_arg(ops.CALL_FUNCTION, 0)
         self.emit_op(ops.BUILD_CLASS)
+        if cls.decorator_list:
+            for i in range(len(cls.decorator_list)):
+                self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(cls.name, ast.Store)
 
     def _op_for_augassign(self, op):

@@ -211,18 +211,18 @@ class stmt(AST):
 
 class FunctionDef(stmt):
 
-    __slots__ = ('name', 'args', 'body', 'w_body', 'decorators', 'w_decorators')
+    __slots__ = ('name', 'args', 'body', 'w_body', 'decorator_list', 'w_decorator_list')
 
     _lineno_mask = 16
     _col_offset_mask = 32
 
-    def __init__(self, name, args, body, decorators, lineno, col_offset):
+    def __init__(self, name, args, body, decorator_list, lineno, col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.w_body = None
-        self.decorators = decorators
-        self.w_decorators = None
+        self.decorator_list = decorator_list
+        self.w_decorator_list = None
         stmt.__init__(self, lineno, col_offset)
         self.initialization_state = 63
 
@@ -232,13 +232,13 @@ class FunctionDef(stmt):
     def mutate_over(self, visitor):
         if self.body:
             visitor._mutate_sequence(self.body)
-        if self.decorators:
-            visitor._mutate_sequence(self.decorators)
+        if self.decorator_list:
+            visitor._mutate_sequence(self.decorator_list)
         return visitor.visit_FunctionDef(self)
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['name', 'args', 'body', 'decorators', 'lineno', 'col_offset'], 'FunctionDef')
+            missing_field(space, self.initialization_state, ['name', 'args', 'body', 'decorator_list', 'lineno', 'col_offset'], 'FunctionDef')
         else:
             pass
         self.args.sync_app_attrs(space)
@@ -252,33 +252,35 @@ class FunctionDef(stmt):
         if self.body is not None:
             for node in self.body:
                 node.sync_app_attrs(space)
-        w_list = self.w_decorators
+        w_list = self.w_decorator_list
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.decorators = [space.interp_w(expr, w_obj) for w_obj in list_w]
+                self.decorator_list = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
-                self.decorators = None
-        if self.decorators is not None:
-            for node in self.decorators:
+                self.decorator_list = None
+        if self.decorator_list is not None:
+            for node in self.decorator_list:
                 node.sync_app_attrs(space)
 
 
 class ClassDef(stmt):
 
-    __slots__ = ('name', 'bases', 'w_bases', 'body', 'w_body')
+    __slots__ = ('name', 'bases', 'w_bases', 'body', 'w_body', 'decorator_list', 'w_decorator_list')
 
-    _lineno_mask = 8
-    _col_offset_mask = 16
+    _lineno_mask = 16
+    _col_offset_mask = 32
 
-    def __init__(self, name, bases, body, lineno, col_offset):
+    def __init__(self, name, bases, body, decorator_list, lineno, col_offset):
         self.name = name
         self.bases = bases
         self.w_bases = None
         self.body = body
         self.w_body = None
+        self.decorator_list = decorator_list
+        self.w_decorator_list = None
         stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 31
+        self.initialization_state = 63
 
     def walkabout(self, visitor):
         visitor.visit_ClassDef(self)
@@ -288,11 +290,13 @@ class ClassDef(stmt):
             visitor._mutate_sequence(self.bases)
         if self.body:
             visitor._mutate_sequence(self.body)
+        if self.decorator_list:
+            visitor._mutate_sequence(self.decorator_list)
         return visitor.visit_ClassDef(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['name', 'bases', 'body', 'lineno', 'col_offset'], 'ClassDef')
+        if (self.initialization_state & ~0) ^ 63:
+            missing_field(space, self.initialization_state, ['name', 'bases', 'body', 'decorator_list', 'lineno', 'col_offset'], 'ClassDef')
         else:
             pass
         w_list = self.w_bases
@@ -314,6 +318,16 @@ class ClassDef(stmt):
                 self.body = None
         if self.body is not None:
             for node in self.body:
+                node.sync_app_attrs(space)
+        w_list = self.w_decorator_list
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.decorator_list = [space.interp_w(expr, w_obj) for w_obj in list_w]
+            else:
+                self.decorator_list = None
+        if self.decorator_list is not None:
+            for node in self.decorator_list:
                 node.sync_app_attrs(space)
 
 
@@ -2583,14 +2597,16 @@ class GenericASTVisitor(ASTVisitor):
         node.args.walkabout(self)
         if node.body:
             self.visit_sequence(node.body)
-        if node.decorators:
-            self.visit_sequence(node.decorators)
+        if node.decorator_list:
+            self.visit_sequence(node.decorator_list)
 
     def visit_ClassDef(self, node):
         if node.bases:
             self.visit_sequence(node.bases)
         if node.body:
             self.visit_sequence(node.body)
+        if node.decorator_list:
+            self.visit_sequence(node.decorator_list)
 
     def visit_Return(self, node):
         if node.value:
@@ -3067,28 +3083,28 @@ def FunctionDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
-def FunctionDef_get_decorators(space, w_self):
+def FunctionDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'decorators' has not been set")
+        w_err = space.wrap("attribute 'decorator_list' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
-    if w_self.w_decorators is None:
-        if w_self.decorators is None:
+    if w_self.w_decorator_list is None:
+        if w_self.decorator_list is None:
             w_list = space.newlist([])
         else:
-            list_w = [space.wrap(node) for node in w_self.decorators]
+            list_w = [space.wrap(node) for node in w_self.decorator_list]
             w_list = space.newlist(list_w)
-        w_self.w_decorators = w_list
-    return w_self.w_decorators
+        w_self.w_decorator_list = w_list
+    return w_self.w_decorator_list
 
-def FunctionDef_set_decorators(space, w_self, w_new_value):
-    w_self.w_decorators = w_new_value
+def FunctionDef_set_decorator_list(space, w_self, w_new_value):
+    w_self.w_decorator_list = w_new_value
     w_self.initialization_state |= 8
 
-_FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorators', 'lineno', 'col_offset'])
+_FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorator_list', 'lineno', 'col_offset'])
 def FunctionDef_init(space, w_self, args):
     w_self = space.descr_self_interp_w(FunctionDef, w_self)
     w_self.w_body = None
-    w_self.w_decorators = None
+    w_self.w_decorator_list = None
     args_w, kwargs_w = args.unpack()
     if args_w:
         if len(args_w) != 6:
@@ -3104,11 +3120,11 @@ FunctionDef_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
 FunctionDef.typedef = typedef.TypeDef("FunctionDef",
     stmt.typedef,
-    _fields=_FieldsWrapper(['name', 'args', 'body', 'decorators']),
+    _fields=_FieldsWrapper(['name', 'args', 'body', 'decorator_list']),
     name=typedef.GetSetProperty(FunctionDef_get_name, FunctionDef_set_name, cls=FunctionDef),
     args=typedef.GetSetProperty(FunctionDef_get_args, FunctionDef_set_args, cls=FunctionDef),
     body=typedef.GetSetProperty(FunctionDef_get_body, FunctionDef_set_body, cls=FunctionDef),
-    decorators=typedef.GetSetProperty(FunctionDef_get_decorators, FunctionDef_set_decorators, cls=FunctionDef),
+    decorator_list=typedef.GetSetProperty(FunctionDef_get_decorator_list, FunctionDef_set_decorator_list, cls=FunctionDef),
     __new__=interp2app(get_AST_new(FunctionDef)),
     __init__=interp2app(FunctionDef_init),
 )
@@ -3158,15 +3174,33 @@ def ClassDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
-_ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'body', 'lineno', 'col_offset'])
+def ClassDef_get_decorator_list(space, w_self):
+    if not w_self.initialization_state & 8:
+        w_err = space.wrap("attribute 'decorator_list' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_decorator_list is None:
+        if w_self.decorator_list is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.decorator_list]
+            w_list = space.newlist(list_w)
+        w_self.w_decorator_list = w_list
+    return w_self.w_decorator_list
+
+def ClassDef_set_decorator_list(space, w_self, w_new_value):
+    w_self.w_decorator_list = w_new_value
+    w_self.initialization_state |= 8
+
+_ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'body', 'decorator_list', 'lineno', 'col_offset'])
 def ClassDef_init(space, w_self, args):
     w_self = space.descr_self_interp_w(ClassDef, w_self)
     w_self.w_bases = None
     w_self.w_body = None
+    w_self.w_decorator_list = None
     args_w, kwargs_w = args.unpack()
     if args_w:
-        if len(args_w) != 5:
-            w_err = space.wrap("ClassDef constructor takes 0 or 5 positional arguments")
+        if len(args_w) != 6:
+            w_err = space.wrap("ClassDef constructor takes 0 or 6 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ClassDef_field_unroller:
@@ -3178,10 +3212,11 @@ ClassDef_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
 ClassDef.typedef = typedef.TypeDef("ClassDef",
     stmt.typedef,
-    _fields=_FieldsWrapper(['name', 'bases', 'body']),
+    _fields=_FieldsWrapper(['name', 'bases', 'body', 'decorator_list']),
     name=typedef.GetSetProperty(ClassDef_get_name, ClassDef_set_name, cls=ClassDef),
     bases=typedef.GetSetProperty(ClassDef_get_bases, ClassDef_set_bases, cls=ClassDef),
     body=typedef.GetSetProperty(ClassDef_get_body, ClassDef_set_body, cls=ClassDef),
+    decorator_list=typedef.GetSetProperty(ClassDef_get_decorator_list, ClassDef_set_decorator_list, cls=ClassDef),
     __new__=interp2app(get_AST_new(ClassDef)),
     __init__=interp2app(ClassDef_init),
 )

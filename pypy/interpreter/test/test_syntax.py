@@ -313,6 +313,18 @@ def g():
 @dec2
 def g(): pass""" in ns
         assert record == [2, 1]
+        del record[:]
+        exec """@dec1
+@dec2
+class x: pass""" in ns
+        assert record == [2, 1]
+
+    def test_class_decorators(self):
+        s = """@func
+class x: pass"""
+        ns = {"func" : lambda cls: 4}
+        exec s in ns
+        assert ns["x"] == 4
 
 
 class AppTestPrintFunction:

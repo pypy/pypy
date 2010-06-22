@@ -467,6 +467,7 @@ class TestAstBuilder:
             assert len(cls.body) == 1
             assert isinstance(cls.body[0], ast.Pass)
             assert cls.bases is None
+            assert cls.decorator_list is None
         for input in ("class X(Y): pass", "class X(Y,): pass"):
             cls = self.get_first_stmt(input)
             assert len(cls.bases) == 1
@@ -474,6 +475,7 @@ class TestAstBuilder:
             assert isinstance(base, ast.Name)
             assert base.ctx == ast.Load
             assert base.id == "Y"
+            assert cls.decorator_list is None
         cls = self.get_first_stmt("class X(Y, Z): pass")
         assert len(cls.bases) == 2
         for b in cls.bases:
@@ -486,7 +488,7 @@ class TestAstBuilder:
         assert func.name == "f"
         assert len(func.body) == 1
         assert isinstance(func.body[0], ast.Pass)
-        assert func.decorators is None
+        assert func.decorator_list is None
         args = func.args
         assert isinstance(args, ast.arguments)
         assert args.args is None
@@ -568,50 +570,53 @@ class TestAstBuilder:
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "non-default argument follows default argument"
 
-    def test_decorator(self):
-        func = self.get_first_stmt("@dec\ndef f(): pass")
-        assert isinstance(func, ast.FunctionDef)
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Name)
-        assert dec.id == "dec"
-        assert dec.ctx == ast.Load
-        func = self.get_first_stmt("@mod.hi.dec\ndef f(): pass")
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Attribute)
-        assert dec.ctx == ast.Load
-        assert dec.attr == "dec"
-        assert isinstance(dec.value, ast.Attribute)
-        assert dec.value.attr == "hi"
-        assert isinstance(dec.value.value, ast.Name)
-        assert dec.value.value.id == "mod"
-        func = self.get_first_stmt("@dec\n@dec2\ndef f(): pass")
-        assert len(func.decorators) == 2
-        for dec in func.decorators:
+    def test_decorators(self):
+        to_examine = (("def f(): pass", ast.FunctionDef),
+                      ("class x: pass", ast.ClassDef))
+        for stmt, node in to_examine:
+            definition = self.get_first_stmt("@dec\n%s" % (stmt,))
+            assert isinstance(definition, node)
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
             assert isinstance(dec, ast.Name)
+            assert dec.id == "dec"
             assert dec.ctx == ast.Load
-        assert func.decorators[0].id == "dec"
-        assert func.decorators[1].id == "dec2"
-        func = self.get_first_stmt("@dec()\ndef f(): pass")
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Call)
-        assert isinstance(dec.func, ast.Name)
-        assert dec.func.id == "dec"
-        assert dec.args is None
-        assert dec.keywords is None
-        assert dec.starargs is None
-        assert dec.kwargs is None
-        func = self.get_first_stmt("@dec(a, b)\ndef f(): pass")
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Call)
-        assert dec.func.id == "dec"
-        assert len(dec.args) == 2
-        assert dec.keywords is None
-        assert dec.starargs is None
-        assert dec.kwargs is None
+            definition = self.get_first_stmt("@mod.hi.dec\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
+            assert isinstance(dec, ast.Attribute)
+            assert dec.ctx == ast.Load
+            assert dec.attr == "dec"
+            assert isinstance(dec.value, ast.Attribute)
+            assert dec.value.attr == "hi"
+            assert isinstance(dec.value.value, ast.Name)
+            assert dec.value.value.id == "mod"
+            definition = self.get_first_stmt("@dec\n@dec2\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 2
+            for dec in definition.decorator_list:
+                assert isinstance(dec, ast.Name)
+                assert dec.ctx == ast.Load
+            assert definition.decorator_list[0].id == "dec"
+            assert definition.decorator_list[1].id == "dec2"
+            definition = self.get_first_stmt("@dec()\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
+            assert isinstance(dec, ast.Call)
+            assert isinstance(dec.func, ast.Name)
+            assert dec.func.id == "dec"
+            assert dec.args is None
+            assert dec.keywords is None
+            assert dec.starargs is None
+            assert dec.kwargs is None
+            definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
+            assert isinstance(dec, ast.Call)
+            assert dec.func.id == "dec"
+            assert len(dec.args) == 2
+            assert dec.keywords is None
+            assert dec.starargs is None
+            assert dec.kwargs is None
 
     def test_augassign(self):
         aug_assigns = (
