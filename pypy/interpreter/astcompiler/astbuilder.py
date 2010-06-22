@@ -186,10 +186,6 @@ class ASTBuilder(object):
             if import_name_type == syms.import_as_name:
                 name = import_name.children[0].value
                 if len(import_name.children) == 3:
-                    # 'as' is not yet a keyword in Python 2.5, so the grammar
-                    # just specifies a NAME token.  We check it manually here.
-                    if import_name.children[1].value != "as":
-                        self.error("must use 'as' in import", import_name)
                     as_name = import_name.children[2].value
                     self.check_forbidden_name(as_name, import_name.children[2])
                 else:
@@ -200,8 +196,6 @@ class ASTBuilder(object):
                 if len(import_name.children) == 1:
                     import_name = import_name.children[0]
                     continue
-                if import_name.children[1].value != "as":
-                    self.error("must use 'as' in import", import_name)
                 alias = self.alias_for_import_name(import_name.children[0])
                 asname_node = import_name.children[2]
                 alias.asname = asname_node.value
@@ -446,17 +440,11 @@ class ASTBuilder(object):
         body = self.handle_suite(with_node.children[-1])
         if len(with_node.children) == 5:
             target_node = with_node.children[2]
-            target = self.handle_with_var(target_node)
+            target = self.handle_expr(target_node.children[1])
             self.set_context(target, ast.Store)
         else:
             target = None
         return ast.With(test, target, body, with_node.lineno, with_node.column)
-
-    def handle_with_var(self, with_var_node):
-        # The grammar doesn't require 'as', so check it manually.
-        if with_var_node.children[0].value != "as":
-            self.error("expected \"with [expr] as [var]\"", with_var_node)
-        return self.handle_expr(with_var_node.children[1])
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.children[1]
