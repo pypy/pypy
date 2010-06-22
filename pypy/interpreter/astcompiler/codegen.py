@@ -617,7 +617,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.error("* not valid in __future__ imports", imp)
             for alias in imp.names:
                 assert isinstance(alias, ast.alias)
-                if alias.name not in future.futureFlags_2_5.compiler_features:
+                if alias.name not in future.futureFlags_2_7.compiler_features:
                     if alias.name == "braces":
                         self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
