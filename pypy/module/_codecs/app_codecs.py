@@ -53,7 +53,7 @@ def raw_unicode_escape_decode( data, errors='strict'):
     res = u''.join(res)
     return res, len(data)
 
-def utf_7_decode( data, errors='strict'):
+def utf_7_decode( data, errors='strict', final=False):
     """None
     """
     res = PyUnicode_DecodeUTF7(data, len(data), errors)
