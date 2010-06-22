@@ -336,6 +336,25 @@ print("Hello,", "person", file=s)
         exec s in ns
         assert ns["s"].getvalue() == "Hello, person\n"
 
+
+class AppTestUnicodeLiterals:
+
+    def test_simple(self):
+        s = """from __future__ import unicode_literals
+x = 'u'
+y = r'u'
+z = u'u'
+b = b'u'
+c = br'u'"""
+        ns = {}
+        exec s in ns
+        assert isinstance(ns["x"], unicode)
+        assert isinstance(ns["y"], unicode)
+        assert isinstance(ns["z"], unicode)
+        assert isinstance(ns["b"], str)
+        assert isinstance(ns["c"], str)
+
+
 class AppTestWith:
     def test_with_simple(self):
 

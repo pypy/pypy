@@ -1,4 +1,4 @@
-from pypy.interpreter.astcompiler import ast, misc
+from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.interpreter.astcompiler import asthelpers # Side effects
 from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
@@ -1060,7 +1060,10 @@ class ASTBuilder(object):
         elif first_child_type == tokens.STRING:
             space = self.space
             encoding = self.compile_info.encoding
-            sub_strings_w = [parsestring.parsestr(space, encoding, s.value)
+            flags = self.compile_info.flags
+            unicode_literals = flags & consts.CO_FUTURE_UNICODE_LITERALS
+            sub_strings_w = [parsestring.parsestr(space, encoding, s.value,
+                                                  unicode_literals)
                              for s in atom_node.children]
             # This implements implicit string concatenation.
             if len(sub_strings_w) > 1:

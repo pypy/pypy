@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import unicodehelper
 
-def parsestr(space, encoding, s):
+def parsestr(space, encoding, s, unicode_literals=False):
     # compiler.transformer.Transformer.decode_literal depends on what 
     # might seem like minor details of this function -- changes here 
     # must be reflected there.
@@ -11,7 +11,7 @@ def parsestr(space, encoding, s):
     ps = 0
     quote = s[ps]
     rawmode = False
-    unicode = False
+    unicode = unicode_literals
 
     # string decoration handling
     o = ord(quote)
@@ -20,6 +20,7 @@ def parsestr(space, encoding, s):
         if quote == 'b' or quote == 'B':
             ps += 1
             quote = s[ps]
+            unicode = False
         elif quote == 'u' or quote == 'U':
             ps += 1
             quote = s[ps]
