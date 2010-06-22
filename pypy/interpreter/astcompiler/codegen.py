@@ -11,7 +11,6 @@ from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
-from pypy.interpreter.pyparser import future
 from pypy.interpreter.error import OperationError
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX
 
@@ -615,9 +614,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                                "of file", imp)
             if star_import:
                 self.error("* not valid in __future__ imports", imp)
+            compiler = space.createcompiler()
             for alias in imp.names:
                 assert isinstance(alias, ast.alias)
-                if alias.name not in future.futureFlags_2_7.compiler_features:
+                if alias.name not in compiler.future_flags.compiler_features:
                     if alias.name == "braces":
                         self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
