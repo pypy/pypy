@@ -4,6 +4,8 @@ Also gives access to opcodes of the host Python PyPy was bootstrapped with
 (module attributes with the `host_` prefix).
 """
 
+from pypy.module.sys.version import CPYTHON_VERSION_DIR
+
 # load opcode.py as pythonopcode from our own lib
 
 __all__ = ['opmap', 'opname', 'HAVE_ARGUMENT',
@@ -107,7 +109,8 @@ from opcode import (
 
 def load_pypy_opcode():
     import py
-    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.5.2/opcode.py')
+    lib_python = 'lib-python/modified-%s/opcode.py' % (CPYTHON_VERSION_DIR,)
+    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath(lib_python)
     d = {}
     execfile(str(opcode_path), d)
     for name in __all__:
