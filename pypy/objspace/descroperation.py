@@ -250,7 +250,12 @@ class DescrOperation:
                                       "'%s' object is not iterable",
                                       typename)
             return space.newseqiter(w_obj)
-        return space.get_and_call_function(w_descr, w_obj)
+        w_iter = space.get_and_call_function(w_descr, w_obj)
+        w_next = space.lookup(w_iter, 'next')
+        if w_next is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("iter() returned non-iterator"))
+        return w_iter
 
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, 'next')

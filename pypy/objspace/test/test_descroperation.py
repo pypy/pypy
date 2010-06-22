@@ -457,6 +457,12 @@ class AppTest_Descroperation:
         else:
             assert False, "did not raise"
 
+    def test_invalid_iterator(self):
+        class x(object):
+            def __iter__(self):
+                return self
+        raises(TypeError, iter, x())
+
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}
