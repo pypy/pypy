@@ -27,6 +27,7 @@ class Module(MixedModule):
         'execfile'      : 'app_io.execfile',
         'raw_input'     : 'app_io.raw_input',
         'input'         : 'app_io.input',
+        'print'         : 'app_io.print_',
 
         'apply'         : 'app_functional.apply',
         #'range'         : 'app_functional.range',

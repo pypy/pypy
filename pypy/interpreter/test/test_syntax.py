@@ -315,6 +315,27 @@ def g(): pass""" in ns
         assert record == [2, 1]
 
 
+class AppTestPrintFunction:
+
+    def test_simple_print(self):
+        import __builtin__
+        s = """from __future__ import print_function
+x = print
+"""
+        ns = {}
+        exec s in ns
+        assert ns["x"] is getattr(__builtin__, "print")
+
+    def test_print(self):
+        s = """from __future__ import print_function
+import StringIO
+s = StringIO.StringIO()
+print("Hello,", "person", file=s)
+"""
+        ns = {}
+        exec s in ns
+        assert ns["s"].getvalue() == "Hello, person\n"
+
 class AppTestWith:
     def test_with_simple(self):
 

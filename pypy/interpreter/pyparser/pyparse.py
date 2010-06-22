@@ -129,7 +129,10 @@ class PythonParser(parser.Parser):
 
         flags = compile_info.flags
 
-        self.grammar = pygram.python_grammar
+        if flags & consts.CO_FUTURE_PRINT_FUNCTION:
+            self.grammar = pygram.python_grammar_no_print
+        else:
+            self.grammar = pygram.python_grammar
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)

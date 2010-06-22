@@ -495,6 +495,44 @@ def fn(): pass
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
 
+    def test_print_function(self):
+        import __builtin__
+        import sys
+        import StringIO
+        pr = getattr(__builtin__, "print")
+        save = sys.stdout
+        out = sys.stdout = StringIO.StringIO()
+        try:
+            pr("Hello,", "person!")
+        finally:
+            sys.stdout = save
+        assert out.getvalue() == "Hello, person!\n"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out)
+        assert out.getvalue() == "Hello, person!\n"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out, end="")
+        assert out.getvalue() == "Hello, person!"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out, sep="X")
+        assert out.getvalue() == "Hello,Xperson!\n"
+        out = StringIO.StringIO()
+        pr(u"Hello,", u"person!", file=out)
+        result = out.getvalue()
+        assert isinstance(result, unicode)
+        assert result == u"Hello, person!\n"
+        pr("Hello", file=None) # This works.
+        out = StringIO.StringIO()
+        pr(None, file=out)
+        assert out.getvalue == "None"
+
+    def test_print_exceptions(self):
+        import __builtin__
+        pr = getattr(__builtin__, "print")
+        raises(TypeError, pr, x=3)
+        raises(TypeError, pr, end=3)
+        raises(TypeError, pr, sep=42)
+
 class AppTestBuiltinOptimized(object):
     def setup_class(cls):
         from pypy.conftest import gettestobjspace
