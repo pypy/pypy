@@ -734,7 +734,7 @@ class Formatter(BaseFormatter):
         if tp == "%":
             tp = "f"
             value *= 100
-        if self._precision = -1:
+        if self._precision == -1:
             self._precision = 6
 
     def format_float(self, w_float):
