@@ -524,7 +524,7 @@ def fn(): pass
         pr("Hello", file=None) # This works.
         out = StringIO.StringIO()
         pr(None, file=out)
-        assert out.getvalue == "None"
+        assert out.getvalue() == "None\n"
 
     def test_print_exceptions(self):
         import __builtin__
