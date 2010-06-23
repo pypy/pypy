@@ -874,25 +874,47 @@ class __extend__(pyframe.PyFrame):
         block = FinallyBlock(self, next_instr + offsettoend)
         self.append_block(block)
 
+    def SETUP_WITH(self, offsettoend, next_instr):
+        w_manager = self.peekvalue()
+        w_descr = self.space.lookup(w_manager, "__exit__")
+        if w_descr is None:
+            raise OperationError(self.space.w_AttributeError,
+                                 self.space.wrap("__exit__"))
+        w_exit = self.space.get(w_descr, w_manager)
+        self.settopvalue(w_exit)
+        w_enter = self.space.lookup(w_manager, "__enter__")
+        if w_enter is None:
+            raise OperationError(self.space.w_AttributeError,
+                                 self.space.wrap("__enter__"))
+        w_result = self.space.get_and_call_function(w_enter, w_manager)
+        block = FinallyBlock(self, next_instr + offsettoend)
+        self.append_block(block)
+        self.pushvalue(w_result)
+
     def WITH_CLEANUP(self, oparg, next_instr):
-        # see comment in END_FINALLY for stack state
-        w_exitfunc = self.popvalue()
-        w_unroller = self.peekvalue(2)
+        self.dropvalues(2)
+        w_unroller = self.popvalue()
         unroller = self.space.interpclass_w(w_unroller)
-        if isinstance(unroller, SApplicationException):
+        w_exit = self.popvalue()
+        is_app_exc = (unroller is not None and
+                      isinstance(unroller, SApplicationException))
+        if is_app_exc:
             operr = unroller.operr
-            w_result = self.space.call_function(w_exitfunc,
-                                                operr.w_type,
-                                                operr.get_w_value(self.space),
-                                                operr.application_traceback)
-            if self.space.is_true(w_result):
-                # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None, 2)
+            w_type = operr.w_type
+            w_value = operr.get_w_value(self.space)
+            w_tb = self.space.wrap(operr.application_traceback)
         else:
-            self.space.call_function(w_exitfunc,
-                                     self.space.w_None,
-                                     self.space.w_None,
-                                     self.space.w_None)
+            w_type = w_value = w_tb = self.space.w_None
+        w_suppress = self.space.call_function(w_exit, w_type, w_value, w_tb)
+        if is_app_exc and self.space.is_true(w_suppress):
+            self.pushvalue(self.space.w_None)
+            self.pushvalue(self.space.w_None)
+            self.pushvalue(self.space.w_None)
+        else:
+            self.pushvalue(w_unroller)
+            self.pushvalue(w_value)
+            self.pushvalue(w_type)
+        print self.valuestack_w
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):

@@ -314,7 +314,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if jump_op == ops.FOR_ITER:
                     target_depth -= 2
                 elif (jump_op == ops.SETUP_FINALLY or
-                      jump_op == ops.SETUP_EXCEPT):
+                      jump_op == ops.SETUP_EXCEPT or
+                      jump_op == ops.SETUP_WITH):
                     target_depth += 3
                     if target_depth > max_depth:
                         max_depth = target_depth
@@ -500,6 +501,7 @@ _static_opcode_stack_effects = {
     ops.WITH_CLEANUP : -1,
     ops.POP_BLOCK : 0,
     ops.END_FINALLY : -3,
+    ops.SETUP_WITH : 1,
     ops.SETUP_FINALLY : 0,
     ops.SETUP_EXCEPT : 0,
 

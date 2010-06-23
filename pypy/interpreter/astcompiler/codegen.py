@@ -707,35 +707,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(wih.lineno, True)
         body_block = self.new_block()
         cleanup = self.new_block()
-        exit_storage = self.current_temporary_name()
-        temp_result = None
-        if wih.optional_vars:
-            temp_result = self.current_temporary_name()
         wih.context_expr.walkabout(self)
-        self.emit_op(ops.DUP_TOP)
-        self.emit_op_name(ops.LOAD_ATTR, self.names, "__exit__")
-        self.name_op(exit_storage, ast.Store)
-        self.emit_op_name(ops.LOAD_ATTR, self.names, "__enter__")
-        self.emit_op_arg(ops.CALL_FUNCTION, 0)
-        if wih.optional_vars:
-            self.name_op(temp_result, ast.Store)
-        else:
-            self.emit_op(ops.POP_TOP)
-        self.emit_jump(ops.SETUP_FINALLY, cleanup)
+        self.emit_jump(ops.SETUP_WITH, cleanup)
         self.use_next_block(body_block)
         self.push_frame_block(F_BLOCK_FINALLY, body_block)
         if wih.optional_vars:
-            self.name_op(temp_result, ast.Load)
-            self.name_op(temp_result, ast.Del)
             wih.optional_vars.walkabout(self)
+        else:
+            self.emit_op(ops.POP_TOP)
         self.visit_sequence(wih.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body_block)
         self.load_const(self.space.w_None)
         self.use_next_block(cleanup)
         self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
-        self.name_op(exit_storage, ast.Load)
-        self.name_op(exit_storage, ast.Del)
         self.emit_op(ops.WITH_CLEANUP)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
