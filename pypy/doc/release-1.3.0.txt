@@ -6,7 +6,7 @@ Hello.
 
 We're please to announce release of PyPy 1.3. This release has two major
 points. First of all, we stabilized the JIT compiler since 1.2 release,
-answered user issues, fixed bugs and generally improved speed.
+answered user issues, fixed bugs, and generally improved speed.
 
 The other point is that we're pleased to announce alpha support for loading
 CPython extension modules written in C. While the main point of the release
