@@ -81,6 +81,7 @@ class TestSymbolTable:
         self.check_unknown(scp, "y", "x")
         self.check_unknown(gscp, "z")
         assert gscp.lookup("y") == symtable.SCOPE_LOCAL
+        assert gscp.lookup(".0") == symtable.SCOPE_LOCAL
         scp, gscp = self.gen_scope("(x for x in z if x)")
         self.check_unknown(scp, "x")
         assert gscp.lookup("x") == symtable.SCOPE_LOCAL

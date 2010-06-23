@@ -436,6 +436,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         outer.iter.walkabout(self)
         new_scope = FunctionScope("genexp", genexp.lineno, genexp.col_offset)
         self.push_scope(new_scope, genexp)
+        self.implicit_arg(0)
         outer.target.walkabout(self)
         if outer.ifs:
             self.visit_sequence(outer.ifs)
