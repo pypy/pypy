@@ -851,7 +851,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.ROT_THREE)
             op_kind = compare_operations(comp.ops[i - 1])
             self.emit_op_arg(ops.COMPARE_OP, op_kind)
-            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup)
+            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
         comp.comparators[-1].walkabout(self)
