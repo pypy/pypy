@@ -887,7 +887,7 @@ class __extend__(pyframe.PyFrame):
             raise OperationError(self.space.w_AttributeError,
                                  self.space.wrap("__enter__"))
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = FinallyBlock(self, next_instr + offsettoend)
+        block = WithBlock(self, next_instr + offsettoend)
         self.append_block(block)
         self.pushvalue(w_result)
 
@@ -1315,6 +1315,15 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
         return self.handlerposition   # jump to the handler
+
+
+class WithBlock(FinallyBlock):
+
+    def really_handle(self, frame, unroller):
+        if (frame.space.full_exceptions and
+            isinstance(unroller, SApplicationException)):
+            unroller.operr.normalize_exception(frame.space)
+        return FinallyBlock.really_handle(self, frame, unroller)
 
 
 block_classes = {'SETUP_LOOP': LoopBlock,
