@@ -390,6 +390,30 @@ if 1:
 
         assert acontext.calls == '__enter__ __exit__'.split()
 
+    def test_compound_with(self):
+        s = """class Context:
+    def __init__(self, var):
+        self.record = []
+        self.var = a
+    def __enter__(self):
+        self.record.append(("__enter__", self.var))
+        return self.var
+    def __exit__(self):
+        self.record.append(("__exit__", self.var))
+c1 = Context("blah")
+c2 = Context("bling")
+with c1 as v1, c2 as v2:
+    pass
+    """
+        ns = {}
+        exec s in ns
+        assert ns["v1"] == "blah"
+        assert ns["v2"] == "bling"
+        assert ns["c1"].record == [("__enter__", "blah"), ("__exit__", "blah")]
+        assert ns["c2"].record == [("__exit___", "bling"),
+                                   ("__exit__", "bling")]
+
+
     def test_start_with_blank_line(self):
         s = """
 if 1:

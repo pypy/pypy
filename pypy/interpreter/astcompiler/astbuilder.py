@@ -436,15 +436,23 @@ class ASTBuilder(object):
                               try_node.column)
 
     def handle_with_stmt(self, with_node):
-        test = self.handle_expr(with_node.children[1])
         body = self.handle_suite(with_node.children[-1])
-        if len(with_node.children) == 5:
-            target_node = with_node.children[2]
-            target = self.handle_expr(target_node.children[1])
-            self.set_context(target, ast.Store)
-        else:
-            target = None
-        return ast.With(test, target, body, with_node.lineno, with_node.column)
+        i = len(with_node.children) - 1
+        while True:
+            i -= 2
+            item = with_node.children[i]
+            test = self.handle_expr(item.children[0])
+            if len(item.children) == 3:
+                target = self.handle_expr(item.children[2])
+                self.set_context(target, ast.Store)
+            else:
+                target = None
+            wi = ast.With(test, target, body, with_node.lineno,
+                          with_node.column)
+            if i == 1:
+                break
+            body = [wi]
+        return wi
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.children[1]
