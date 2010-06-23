@@ -662,10 +662,15 @@ class W_InstanceObject(Wrappable):
         if w_func is not None:
             space.call_function(w_func)
 
+    def descr_exit(self, space, w_type, w_value, w_tb):
+        w_func = self.getattr(space, space.wrap('__exit__'), False)
+        if w_func is not None:
+            return space.call_function(w_func, w_type, w_value, w_tb)
+
 rawdict = {}
 
 # unary operations
-for op in "neg pos abs invert int long float oct hex".split():
+for op in "neg pos abs invert int long float oct hex enter".split():
     specialname = "__%s__" % (op, )
     # fool the gateway logic by giving it a real unbound method
     meth = new.instancemethod(
@@ -755,6 +760,8 @@ W_InstanceObject.typedef = TypeDef("instance",
     __weakref__ = make_weakref_descr(W_InstanceObject),
     __del__ = interp2app(W_InstanceObject.descr_del,
                          unwrap_spec=['self', ObjSpace]),
+    __exit__ = interp2app(W_InstanceObject.descr_exit,
+                          unwrap_spec=['self', ObjSpace, W_Root, W_Root, W_Root]),
     **rawdict
 )
 

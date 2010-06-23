@@ -767,6 +767,19 @@ class AppTestOldstyle(object):
         finally:
             warnings.simplefilter('default', RuntimeWarning)
 
+    def test_context_manager(self):
+        class Context:
+            def __enter__(self):
+                self.got_enter = True
+                return 23
+            def __exit__(self, exc, value, tp):
+                self.got_exit = True
+        c = Context()
+        with c as a:
+            assert c.got_enter
+            assert a == 23
+        assert c.got_exit
+
 class AppTestOldStyleSharing(AppTestOldstyle):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
