@@ -321,14 +321,8 @@ class TestSymbolTable:
             assert exc.msg == "return outside function"
 
     def test_tmpnames(self):
-        scp = self.mod_scope("[x for x in y]")
-        assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
         scp = self.mod_scope("with x: pass")
         assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
         scp = self.mod_scope("with x as y: pass")
-        assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
-        assert scp.lookup("_[2]") == symtable.SCOPE_LOCAL
-        # Just in case.
-        scp = self.mod_scope("with [x for y in z]: pass")
         assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
         assert scp.lookup("_[2]") == symtable.SCOPE_LOCAL

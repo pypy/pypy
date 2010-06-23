@@ -303,18 +303,29 @@ class PythonCodeMaker(ast.ASTVisitor):
             return max_depth
         block.marked = True
         block.initial_depth = depth
+        done = False
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth >= max_depth:
                 max_depth = depth
             if instr.has_jump:
+                target_depth = depth
+                jump_op = instr.opcode
+                if jump_op == ops.FOR_ITER:
+                    target_depth -= 2
+                elif (jump_op == ops.SETUP_FINALLY or
+                      jump_op == ops.SETUP_EXCEPT):
+                    target_depth += 3
+                    if target_depth > max_depth:
+                        max_depth = target_depth
                 max_depth = self._recursive_stack_depth_walk(instr.jump[0],
-                                                             depth, max_depth)
-                if instr.opcode == ops.JUMP_ABSOLUTE or \
-                        instr.opcode == ops.JUMP_FORWARD:
+                                                             target_depth,
+                                                             max_depth)
+                if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
+                    done = True
                     break
-        if block.next_block:
+        if block.next_block and not done:
             max_depth = self._recursive_stack_depth_walk(block.next_block,
                                                          depth, max_depth)
         block.marked = False
@@ -488,9 +499,9 @@ _static_opcode_stack_effects = {
 
     ops.WITH_CLEANUP : -1,
     ops.POP_BLOCK : 0,
-    ops.END_FINALLY : -1,
-    ops.SETUP_FINALLY : 3,
-    ops.SETUP_EXCEPT : 3,
+    ops.END_FINALLY : -3,
+    ops.SETUP_FINALLY : 0,
+    ops.SETUP_EXCEPT : 0,
 
     ops.LOAD_LOCALS : 1,
     ops.RETURN_VALUE : -1,
@@ -525,13 +536,15 @@ _static_opcode_stack_effects = {
     ops.LOAD_CONST : 1,
 
     ops.IMPORT_STAR : -1,
-    ops.IMPORT_NAME : 0,
+    ops.IMPORT_NAME : -1,
     ops.IMPORT_FROM : 1,
 
     ops.JUMP_FORWARD : 0,
     ops.JUMP_ABSOLUTE : 0,
-    ops.JUMP_IF_TRUE : 0,
-    ops.JUMP_IF_FALSE : 0,
+    ops.JUMP_IF_TRUE_OR_POP : 0,
+    ops.JUMP_IF_FALSE_OR_POP : 0,
+    ops.POP_JUMP_IF_TRUE : -1,
+    ops.POP_JUMP_IF_FALSE : -1,
 }
 
 
@@ -548,7 +561,7 @@ def _compute_BUILD_LIST(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):
-    return -arg
+    return -arg - 1
 
 def _compute_MAKE_FUNCTION(arg):
     return -arg

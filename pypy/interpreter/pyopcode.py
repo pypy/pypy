@@ -768,11 +768,7 @@ class __extend__(pyframe.PyFrame):
         modulename = self.space.str_w(w_modulename)
         w_fromlist = self.popvalue()
 
-        # CPython 2.5 adds an extra argument consumed by this opcode
-        if self.pycode.magic >= 0xa0df294:
-            w_flag = self.popvalue()
-        else:
-            w_flag = None
+        w_flag = self.popvalue()
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
@@ -828,6 +824,32 @@ class __extend__(pyframe.PyFrame):
         w_cond = self.peekvalue()
         if self.space.is_true(w_cond):
             next_instr += stepby
+        return next_instr
+
+    def POP_JUMP_IF_FALSE(self, target, next_instr):
+        w_value = self.popvalue()
+        if not self.space.is_true(w_value):
+            return target
+        return next_instr
+
+    def POP_JUMP_IF_TRUE(self, target, next_instr):
+        w_value = self.popvalue()
+        if self.space.is_true(w_value):
+            return target
+        return next_instr
+
+    def JUMP_IF_FALSE_OR_POP(self, target, next_instr):
+        w_value = self.peekvalue()
+        if not self.space.is_true(w_value):
+            return target
+        self.popvalue()
+        return next_instr
+
+    def JUMP_IF_TRUE_OR_POP(self, target, next_instr):
+        w_value = self.peekvalue()
+        if self.space.is_true(w_value):
+            return target
+        self.popvalue()
         return next_instr
 
     def GET_ITER(self, oparg, next_instr):
@@ -968,7 +990,7 @@ class __extend__(pyframe.PyFrame):
 
     def LIST_APPEND(self, oparg, next_instr):
         w = self.popvalue()
-        v = self.popvalue()
+        v = self.peekvalue(oparg)
         self.space.call_method(v, 'append', w)
 
     def SET_LINENO(self, lineno, next_instr):
@@ -1014,13 +1036,48 @@ class __extend__(pyframe.PyFrame):
     STOP_CODE = MISSING_OPCODE
 
     def BUILD_MAP(self, itemcount, next_instr):
-        if itemcount != 0:
-            raise BytecodeCorruption
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
 
     def STORE_MAP(self, zero, next_instr):
         raise BytecodeCorruption
+
+
+class __extends__(pyframe.CPythonFrame):
+
+    def BUILD_MAP(self, itemcount, next_instr):
+        if sys.version_info >= (2, 6):
+            # We could pre-allocate a dict here
+            # but for the moment this code is not translated.
+            pass
+        else:
+            if itemcount != 0:
+                raise BytecodeCorruption
+        w_dict = self.space.newdict()
+        self.pushvalue(w_dict)
+
+    def LIST_APPEND(self, oparg, next_instr):
+        w_value = self.popvalue()
+        w_list = self.peekvalue(oparg + 1)
+        self.space.call_method(w_list, "append", w_value)
+
+    def STORE_MAP(self, zero, next_instr):
+        if sys.version_info >= (2, 6):
+            w_key = self.popvalue()
+            w_value = self.popvalue()
+            w_dict = self.peekvalue()
+            self.space.setitem(w_dict, w_key, w_value)
+        else:
+            raise BytecodeCorruption
+
+    def LIST_APPEND(self, oparg, next_instr):
+        w = self.popvalue()
+        if sys.version_info < (2, 7):
+            v = self.popvalue()
+        else:
+            v = self.peekvalue(oparg - 1)
+        self.space.call_method(v, 'append', w)
+
 
 ### ____________________________________________________________ ###
 

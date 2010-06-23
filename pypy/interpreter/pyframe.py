@@ -12,6 +12,7 @@ from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit, rstack
 from pypy.tool import stdlib_opcode
+from pypy.tool.stdlib_opcode import host_bytecode_spec
 
 # Define some opcodes used
 g = globals()
@@ -135,7 +136,8 @@ class PyFrame(eval.Frame):
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
-        assert isinstance(self, self.space.FrameClass)
+        assert (isinstance(self, self.space.FrameClass) or
+                not self.space.config.translating)
         executioncontext = self.space.getexecutioncontext()
         executioncontext.enter(self)
         try:
@@ -628,6 +630,18 @@ class PyFrame(eval.Frame):
         if space.config.objspace.honor__builtins__:
             return space.wrap(self.builtin is not space.builtin)
         return space.w_False
+
+class CPythonFrame(PyFrame):
+    """
+    Execution of host (CPython) opcodes.
+    """
+
+    bytecode_spec = host_bytecode_spec
+    opcode_method_names = host_bytecode_spec.method_names
+    opcodedesc = host_bytecode_spec.opcodedesc
+    opdescmap = host_bytecode_spec.opdescmap
+    HAVE_ARGUMENT = host_bytecode_spec.HAVE_ARGUMENT
+
 
 # ____________________________________________________________
 
