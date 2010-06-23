@@ -16,9 +16,26 @@ for production environments.
 Highlight of this release
 =========================
 
-XXX a rough list
-- cpyext (some details, in particular: the extension module must be
-  recompiled, and typically "bug-fixed" w.r.t. refcounting)
-- bugfixes
-- blackhole-improvements
-- minor jit improvements
+* We introduce support for CPython extension modules written in C. As of now,
+  this support is in alpha and it's very unlikely untried modules will work
+  out of the box, due to missing functions or refcounting details. The support
+  is disable by default, so you have to do::
+
+   import cpyext
+
+  before trying to import any .so file. Also, libraries are source-compatible
+  and not binary-compatible. That means you need to recompile binaries, using
+  for example::
+
+   python setup.py build
+
+  Details may vary, depending on your build system. Make sure you include
+  the above line at the beginning of setup.py or put it in your PYTHONSTARTUP.
+
+  This is alpha feature, it'll likely segfault, you have been warned.
+
+* JIT bugfixes. A lot of bugs reported for JIT and not only has been fixed
+  and it's stability greatly improved since 1.2 release.
+
+* Various JIT improvements. Various small improvements have been added to the
+  JIT code, together with great speedup of compiling time.
