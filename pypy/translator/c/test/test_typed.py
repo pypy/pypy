@@ -783,3 +783,9 @@ class TestTypedTestCase(CompilationTestCase):
                 del a[:]
     
         f = self.getcompiled(func_swap, [])
+
+    def test_returns_unicode(self):
+        def func(i):
+            return u'hello' + unichr(i)
+        f = self.getcompiled(func, [int])
+        assert f(0x1234) == u'hello\u1234'
