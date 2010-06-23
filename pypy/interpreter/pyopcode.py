@@ -814,18 +814,6 @@ class __extend__(pyframe.PyFrame):
         next_instr += jumpby
         return next_instr
 
-    def JUMP_IF_FALSE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if not self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
-
-    def JUMP_IF_TRUE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
-
     def POP_JUMP_IF_FALSE(self, target, next_instr):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
@@ -1030,6 +1018,7 @@ class __extend__(pyframe.PyFrame):
         ofs = self.last_instr
         c = self.pycode.co_code[ofs]
         name = self.pycode.co_name
+        self.pycode.dump()
         raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                  (ofs, ord(c), name) )
 
@@ -1043,7 +1032,19 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption
 
 
-class __extends__(pyframe.CPythonFrame):
+class __extend__(pyframe.CPythonFrame):
+
+    def JUMP_IF_FALSE(self, stepby, next_instr):
+        w_cond = self.peekvalue()
+        if not self.space.is_true(w_cond):
+            next_instr += stepby
+        return next_instr
+
+    def JUMP_IF_TRUE(self, stepby, next_instr):
+        w_cond = self.peekvalue()
+        if self.space.is_true(w_cond):
+            next_instr += stepby
+        return next_instr
 
     def BUILD_MAP(self, itemcount, next_instr):
         if sys.version_info >= (2, 6):
