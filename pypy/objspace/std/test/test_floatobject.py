@@ -95,7 +95,14 @@ class AppTestAppFloatTest:
         inf = 1e200*1e200
         assert float("inf")  == inf
         assert float("-INf") == -inf
-        assert 'nan' in str(float("-nAn")).lower()
+        assert str(inf) == "inf"
+        assert str(-inf) == "-inf"
+        assert str(float("nan")) == "nan"
+        assert str(float("-nAn")) == "nan"
+        assert repr(inf) == "inf"
+        assert repr(-inf) == "-inf"
+        assert repr(float("nan")) == "nan"
+        assert repr(float("-nAn")) == "nan"
 
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
