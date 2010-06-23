@@ -212,13 +212,6 @@ class TestInterpreter:
             '''
         assert self.codetest(code, 'callme', [1, 2, 3]) == 6
 
-    def test_list_comprehension(self):
-        code = '''
-            def f():
-                return [dir() for i in [1]][0]
-        '''
-        assert self.codetest(code, 'f', [])[0] == '_[1]'
-
     def test_import_statement(self):
         for x in range(10):
             import os
