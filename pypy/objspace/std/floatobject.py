@@ -90,9 +90,9 @@ def float2string(space, w_float, format):
     else:
         s = formatd(format, x)
         # We want float numbers to be recognizable as such,
-	# i.e., they should contain a decimal point or an exponent.
-	# However, %g may print the number as an integer;
-	# in such cases, we append ".0" to the string.
+        # i.e., they should contain a decimal point or an exponent.
+        # However, %g may print the number as an integer;
+        # in such cases, we append ".0" to the string.
         for c in s:
             if c in '.eE':
                 break
