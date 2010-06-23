@@ -160,7 +160,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             kwds["compile_extra"] = ["/we4013"]
         else:
             kwds["link_files"] = [str(api_library + '.so')]
-            kwds["compile_extra"] = ["-Werror=implicit-function-declaration"]
+            if sys.platform == 'linux2':
+                kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
         return compile_module(name, **kwds)
 
 
