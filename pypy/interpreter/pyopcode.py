@@ -914,7 +914,6 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_unroller)
             self.pushvalue(w_value)
             self.pushvalue(w_type)
-        print self.valuestack_w
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):
