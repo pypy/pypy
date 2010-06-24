@@ -7,6 +7,7 @@ test suite on top of PyPy
 import py
 import sys
 import pypy
+import re
 from pypy.interpreter.gateway import ApplevelClass 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module as PyPyModule 
@@ -747,7 +748,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
                     outcome = 'ERROUT' 
                     test_stderr += ("-" * 80 + "\n") + out
             else:
-                if 'FAIL' in test_stdout or 'ERROR' in test_stderr:
+                if 'FAIL' in test_stdout or re.search('[^:]ERROR', test_stderr):
                     outcome = 'FAIL'
                     exit_status = 2  
         elif timedout: 
