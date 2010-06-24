@@ -75,19 +75,38 @@ class TestSymbolTable:
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
         self.check_unknown(scp, "y")
 
-    def test_genexp(self):
-        scp, gscp = self.gen_scope("(y[1] for y in z)")
+    def check_comprehension(self, template):
+        def brack(s):
+            return template % (s,)
+        scp, gscp = self.gen_scope(brack("y[1] for y in z"))
         assert scp.lookup("z") == symtable.SCOPE_GLOBAL_IMPLICIT
         self.check_unknown(scp, "y", "x")
         self.check_unknown(gscp, "z")
         assert gscp.lookup("y") == symtable.SCOPE_LOCAL
         assert gscp.lookup(".0") == symtable.SCOPE_LOCAL
-        scp, gscp = self.gen_scope("(x for x in z if x)")
+        scp, gscp = self.gen_scope(brack("x for x in z if x"))
         self.check_unknown(scp, "x")
         assert gscp.lookup("x") == symtable.SCOPE_LOCAL
-        scp, gscp = self.gen_scope("(x for y in g for f in n if f[h])")
+        scp, gscp = self.gen_scope(brack("x for y in g for f in n if f[h]"))
         self.check_unknown(scp, "f")
         assert gscp.lookup("f") == symtable.SCOPE_LOCAL
+
+    def test_genexp(self):
+        self.check_comprehension("(%s)")
+
+    def test_setcomp(self):
+        self.check_comprehension("{%s}")
+
+    def test_dictcomp(self):
+        scp, gscp = self.gen_scope("{x : x[3] for x in y}")
+        assert scp.lookup("y") == symtable.SCOPE_GLOBAL_IMPLICIT
+        self.check_unknown(scp, "a", "b", "x")
+        self.check_unknown(gscp, "y")
+        assert gscp.lookup("x") == symtable.SCOPE_LOCAL
+        assert gscp.lookup(".0") == symtable.SCOPE_LOCAL
+        scp, gscp = self.gen_scope("{x : x[1] for x in y if x[23]}")
+        self.check_unknown(scp, "x")
+        assert gscp.lookup("x") == symtable.SCOPE_LOCAL
 
     def test_arguments(self):
         scp = self.func_scope("def f(): pass")

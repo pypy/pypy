@@ -1002,6 +1002,17 @@ class __extend__(pyframe.PyFrame):
         v = self.peekvalue(oparg)
         self.space.call_method(v, 'append', w)
 
+    def SET_ADD(self, oparg, next_instr):
+        w_value = self.popvalue()
+        w_set = self.peekvalue(oparg)
+        self.space.call_method(w_set, 'add', w_value)
+
+    def MAP_ADD(self, oparg, next_instr):
+        w_key = self.popvalue()
+        w_value = self.popvalue()
+        w_dict = self.peekvalue(oparg)
+        self.space.setitem(w_dict, w_key, w_value)
+
     def SET_LINENO(self, lineno, next_instr):
         pass
 
@@ -1048,6 +1059,10 @@ class __extend__(pyframe.PyFrame):
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
+
+    def BUILD_SET(self, itemcount, next_instr):
+        w_set = self.space.call_function(self.space.w_set)
+        self.pushvalue(w_set)
 
     def STORE_MAP(self, zero, next_instr):
         raise BytecodeCorruption

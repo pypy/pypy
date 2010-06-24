@@ -367,6 +367,24 @@ c = br'u'"""
         assert isinstance(ns["c"], str)
 
 
+class AppTestComprehensions:
+
+    def test_dictcomps(self):
+        d = eval("{x : x for x in range(10)}")
+        assert isinstance(d, dict)
+        assert d == dict(zip(range(10), range(10)))
+        d = eval("{x : x for x in range(10) if x % 2}")
+        l = [x for x in range(10) if x % 2]
+        assert d == dict(zip(l, l))
+
+    def test_setcomps(self):
+        s = eval("{x for x in range(10)}")
+        assert isinstance(s, set)
+        assert s == set(range(10))
+        s = eval("{x for x in range(10) if x % 2}")
+        assert s == set(x for x in range(10) if x % 2)
+
+
 class AppTestWith:
     def test_with_simple(self):
 
@@ -394,11 +412,11 @@ if 1:
         s = """class Context:
     def __init__(self, var):
         self.record = []
-        self.var = a
+        self.var = var
     def __enter__(self):
         self.record.append(("__enter__", self.var))
         return self.var
-    def __exit__(self):
+    def __exit__(self, tp, value, tb):
         self.record.append(("__exit__", self.var))
 c1 = Context("blah")
 c2 = Context("bling")
@@ -410,7 +428,7 @@ with c1 as v1, c2 as v2:
         assert ns["v1"] == "blah"
         assert ns["v2"] == "bling"
         assert ns["c1"].record == [("__enter__", "blah"), ("__exit__", "blah")]
-        assert ns["c2"].record == [("__exit___", "bling"),
+        assert ns["c2"].record == [("__enter__", "bling"),
                                    ("__exit__", "bling")]
 
 

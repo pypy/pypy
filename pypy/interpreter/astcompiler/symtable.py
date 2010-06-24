@@ -430,19 +430,30 @@ class SymtableBuilder(ast.GenericASTVisitor):
         lamb.body.walkabout(self)
         self.pop_scope()
 
-    def visit_GeneratorExp(self, genexp):
-        outer = genexp.generators[0]
+    def _visit_comprehension(self, node, comps, *consider):
+        outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         outer.iter.walkabout(self)
-        new_scope = FunctionScope("genexp", genexp.lineno, genexp.col_offset)
-        self.push_scope(new_scope, genexp)
+        new_scope = FunctionScope("genexp", node.lineno, node.col_offset)
+        self.push_scope(new_scope, node)
         self.implicit_arg(0)
         outer.target.walkabout(self)
         if outer.ifs:
             self.visit_sequence(outer.ifs)
-        self.visit_sequence(genexp.generators[1:])
-        genexp.elt.walkabout(self)
+        self.visit_sequence(comps[1:])
+        for item in consider:
+            item.walkabout(self)
         self.pop_scope()
+
+    def visit_GeneratorExp(self, genexp):
+        self._visit_comprehension(genexp, genexp.generators, genexp.elt)
+
+    def visit_SetComp(self, setcomp):
+        self._visit_comprehension(setcomp, setcomp.generators, setcomp.elt)
+
+    def visit_DictComp(self, dictcomp):
+        self._visit_comprehension(dictcomp, dictcomp.generators,
+                                  dictcomp.value, dictcomp.key)
 
     def visit_With(self, wih):
         self.scope.new_temporary_name()

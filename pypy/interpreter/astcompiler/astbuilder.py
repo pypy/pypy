@@ -957,7 +957,7 @@ class ASTBuilder(object):
             if argument.type == syms.argument:
                 if len(argument.children) == 1:
                     arg_count += 1
-                elif argument.children[1].type == syms.gen_for:
+                elif argument.children[1].type == syms.comp_for:
                     generator_count += 1
                 else:
                     keyword_count += 1
@@ -983,7 +983,7 @@ class ASTBuilder(object):
                         self.error("non-keyword arg after keyword arg",
                                    expr_node)
                     args.append(self.handle_expr(expr_node))
-                elif argument.children[1].type == syms.gen_for:
+                elif argument.children[1].type == syms.comp_for:
                     args.append(self.handle_genexp(argument))
                 else:
                     keyword_node = argument.children[0]
@@ -1101,15 +1101,26 @@ class ASTBuilder(object):
                                 atom_node.column)
             return self.handle_listcomp(second_child)
         elif first_child_type == tokens.LBRACE:
-            if len(atom_node.children) == 2:
-                return ast.Dict(None, None, atom_node.lineno, atom_node.column)
-            second_child = atom_node.children[1]
+            maker = atom_node.children[1]
+            if maker.type == tokens.RBRACE:
+                return ast.Dict(None, None, maker.lineno, maker.column)
+            n_maker_children = len(maker.children)
+            if n_maker_children == 1 or maker.children[1].type == tokens.COMMA:
+                elts = []
+                for i in range(0, n_maker_children, 2):
+                    elts.append(self.handle_expr(maker.children[i]))
+                return ast.Set(elts, maker.lineno, maker.column)
+            if maker.children[1].type == syms.comp_for:
+                return self.handle_setcomp(maker)
+            if (n_maker_children > 3 and
+                maker.children[3].type == syms.comp_for):
+                return self.handle_dictcomp(maker)
             keys = []
             values = []
-            for i in range(0, len(second_child.children), 4):
-                keys.append(self.handle_expr(second_child.children[i]))
-                values.append(self.handle_expr(second_child.children[i + 2]))
-            return ast.Dict(keys, values, atom_node.lineno, atom_node.column)
+            for i in range(0, n_maker_children, 4):
+                keys.append(self.handle_expr(maker.children[i]))
+                values.append(self.handle_expr(maker.children[i + 2]))
+            return ast.Dict(keys, values, maker.lineno, maker.column)
         elif first_child_type == tokens.BACKQUOTE:
             expr = self.handle_testlist(atom_node.children[1])
             return ast.Repr(expr, atom_node.lineno, atom_node.column)
@@ -1118,13 +1129,13 @@ class ASTBuilder(object):
 
     def handle_testlist_gexp(self, gexp_node):
         if len(gexp_node.children) > 1 and \
-                gexp_node.children[1].type == syms.gen_for:
+                gexp_node.children[1].type == syms.comp_for:
             return self.handle_genexp(gexp_node)
         return self.handle_testlist(gexp_node)
 
     def count_comp_fors(self, comp_node, for_type, if_type):
         count = 0
-        current_for = comp_node.children[1]
+        current_for = comp_node
         while True:
             count += 1
             if len(current_for.children) == 5:
@@ -1155,55 +1166,69 @@ class ASTBuilder(object):
                 return count
             iter_node = first_child.children[2]
 
-    @specialize.arg(5)
-    def comprehension_helper(self, comp_node, for_type, if_type, iter_type,
-                             handle_source_expression):
-        elt = self.handle_expr(comp_node.children[0])
+    @specialize.arg(2)
+    def comprehension_helper(self, comp_node,
+                             handle_source_expr_meth="handle_expr",
+                             for_type=syms.comp_for, if_type=syms.comp_if,
+                             iter_type=syms.comp_iter):
+        handle_source_expression = getattr(self, handle_source_expr_meth)
         fors_count = self.count_comp_fors(comp_node, for_type, if_type)
         comps = []
-        comp_for = comp_node.children[1]
         for i in range(fors_count):
-            for_node = comp_for.children[1]
+            for_node = comp_node.children[1]
             for_targets = self.handle_exprlist(for_node, ast.Store)
-            expr = handle_source_expression(comp_for.children[3])
+            expr = handle_source_expression(comp_node.children[3])
             assert isinstance(expr, ast.expr)
             if len(for_node.children) == 1:
                 comp = ast.comprehension(for_targets[0], expr, None)
             else:
-                target = ast.Tuple(for_targets, ast.Store, comp_for.lineno,
-                                   comp_for.column)
+                target = ast.Tuple(for_targets, ast.Store, comp_node.lineno,
+                                   comp_node.column)
                 comp = ast.comprehension(target, expr, None)
-            if len(comp_for.children) == 5:
-                comp_for = comp_iter = comp_for.children[4]
+            if len(comp_node.children) == 5:
+                comp_node = comp_iter = comp_node.children[4]
                 assert comp_iter.type == iter_type
                 ifs_count = self.count_comp_ifs(comp_iter, for_type)
                 if ifs_count:
                     ifs = []
                     for j in range(ifs_count):
-                        comp_for = comp_if = comp_iter.children[0]
+                        comp_node = comp_if = comp_iter.children[0]
                         ifs.append(self.handle_expr(comp_if.children[1]))
                         if len(comp_if.children) == 3:
-                            comp_for = comp_iter = comp_if.children[2]
+                            comp_node = comp_iter = comp_if.children[2]
                     comp.ifs = ifs
-                if comp_for.type == iter_type:
-                    comp_for = comp_for.children[0]
+                if comp_node.type == iter_type:
+                    comp_node = comp_node.children[0]
             assert isinstance(comp, ast.comprehension)
             comps.append(comp)
-        return elt, comps
+        return comps
 
     def handle_genexp(self, genexp_node):
-        elt, comps = self.comprehension_helper(genexp_node, syms.gen_for,
-                                               syms.gen_if, syms.gen_iter,
-                                               self.handle_expr)
+        elt = self.handle_expr(genexp_node.children[0])
+        comps = self.comprehension_helper(genexp_node.children[1])
         return ast.GeneratorExp(elt, comps, genexp_node.lineno,
                                 genexp_node.column)
 
     def handle_listcomp(self, listcomp_node):
-        elt, comps = self.comprehension_helper(listcomp_node, syms.list_for,
-                                               syms.list_if, syms.list_iter,
-                                               self.handle_testlist)
+        elt = self.handle_expr(listcomp_node.children[0])
+        comps = self.comprehension_helper(listcomp_node.children[1],
+                                          "handle_testlist",
+                                          syms.list_for, syms.list_if,
+                                          syms.list_iter)
         return ast.ListComp(elt, comps, listcomp_node.lineno,
                             listcomp_node.column)
+
+    def handle_setcomp(self, set_maker):
+        elt = self.handle_expr(set_maker.children[0])
+        comps = self.comprehension_helper(set_maker.children[1])
+        return ast.SetComp(elt, comps, set_maker.lineno, set_maker.column)
+
+    def handle_dictcomp(self, dict_maker):
+        key = self.handle_expr(dict_maker.children[0])
+        value = self.handle_expr(dict_maker.children[2])
+        comps = self.comprehension_helper(dict_maker.children[3])
+        return ast.DictComp(key, value, comps, dict_maker.lineno,
+                            dict_maker.column)
 
     def handle_exprlist(self, exprlist, context):
         exprs = []

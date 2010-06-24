@@ -1393,6 +1393,44 @@ class Dict(expr):
                 node.sync_app_attrs(space)
 
 
+class Set(expr):
+
+    __slots__ = ('elts', 'w_elts')
+
+    _lineno_mask = 2
+    _col_offset_mask = 4
+
+    def __init__(self, elts, lineno, col_offset):
+        self.elts = elts
+        self.w_elts = None
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 7
+
+    def walkabout(self, visitor):
+        visitor.visit_Set(self)
+
+    def mutate_over(self, visitor):
+        if self.elts:
+            visitor._mutate_sequence(self.elts)
+        return visitor.visit_Set(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 7:
+            missing_field(space, self.initialization_state, ['elts', 'lineno', 'col_offset'], 'Set')
+        else:
+            pass
+        w_list = self.w_elts
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.elts = [space.interp_w(expr, w_obj) for w_obj in list_w]
+            else:
+                self.elts = None
+        if self.elts is not None:
+            for node in self.elts:
+                node.sync_app_attrs(space)
+
+
 class ListComp(expr):
 
     __slots__ = ('elt', 'generators', 'w_generators')
@@ -1420,6 +1458,87 @@ class ListComp(expr):
         else:
             pass
         self.elt.sync_app_attrs(space)
+        w_list = self.w_generators
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.generators = [space.interp_w(comprehension, w_obj) for w_obj in list_w]
+            else:
+                self.generators = None
+        if self.generators is not None:
+            for node in self.generators:
+                node.sync_app_attrs(space)
+
+
+class SetComp(expr):
+
+    __slots__ = ('elt', 'generators', 'w_generators')
+
+    _lineno_mask = 4
+    _col_offset_mask = 8
+
+    def __init__(self, elt, generators, lineno, col_offset):
+        self.elt = elt
+        self.generators = generators
+        self.w_generators = None
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 15
+
+    def walkabout(self, visitor):
+        visitor.visit_SetComp(self)
+
+    def mutate_over(self, visitor):
+        self.elt = self.elt.mutate_over(visitor)
+        return visitor.visit_SetComp(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 15:
+            missing_field(space, self.initialization_state, ['elt', 'generators', 'lineno', 'col_offset'], 'SetComp')
+        else:
+            pass
+        self.elt.sync_app_attrs(space)
+        w_list = self.w_generators
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.generators = [space.interp_w(comprehension, w_obj) for w_obj in list_w]
+            else:
+                self.generators = None
+        if self.generators is not None:
+            for node in self.generators:
+                node.sync_app_attrs(space)
+
+
+class DictComp(expr):
+
+    __slots__ = ('key', 'value', 'generators', 'w_generators')
+
+    _lineno_mask = 8
+    _col_offset_mask = 16
+
+    def __init__(self, key, value, generators, lineno, col_offset):
+        self.key = key
+        self.value = value
+        self.generators = generators
+        self.w_generators = None
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 31
+
+    def walkabout(self, visitor):
+        visitor.visit_DictComp(self)
+
+    def mutate_over(self, visitor):
+        self.key = self.key.mutate_over(visitor)
+        self.value = self.value.mutate_over(visitor)
+        return visitor.visit_DictComp(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 31:
+            missing_field(space, self.initialization_state, ['key', 'value', 'generators', 'lineno', 'col_offset'], 'DictComp')
+        else:
+            pass
+        self.key.sync_app_attrs(space)
+        self.value.sync_app_attrs(space)
         w_list = self.w_generators
         if w_list is not None:
             list_w = space.listview(w_list)
@@ -2529,7 +2648,13 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Dict(self, node):
         return self.default_visitor(node)
+    def visit_Set(self, node):
+        return self.default_visitor(node)
     def visit_ListComp(self, node):
+        return self.default_visitor(node)
+    def visit_SetComp(self, node):
+        return self.default_visitor(node)
+    def visit_DictComp(self, node):
         return self.default_visitor(node)
     def visit_GeneratorExp(self, node):
         return self.default_visitor(node)
@@ -2743,8 +2868,23 @@ class GenericASTVisitor(ASTVisitor):
         if node.values:
             self.visit_sequence(node.values)
 
+    def visit_Set(self, node):
+        if node.elts:
+            self.visit_sequence(node.elts)
+
     def visit_ListComp(self, node):
         node.elt.walkabout(self)
+        if node.generators:
+            self.visit_sequence(node.generators)
+
+    def visit_SetComp(self, node):
+        node.elt.walkabout(self)
+        if node.generators:
+            self.visit_sequence(node.generators)
+
+    def visit_DictComp(self, node):
+        node.key.walkabout(self)
+        node.value.walkabout(self)
         if node.generators:
             self.visit_sequence(node.generators)
 
@@ -4689,6 +4829,49 @@ Dict.typedef = typedef.TypeDef("Dict",
 )
 Dict.typedef.acceptable_as_base_class = False
 
+def Set_get_elts(space, w_self):
+    if not w_self.initialization_state & 1:
+        w_err = space.wrap("attribute 'elts' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_elts is None:
+        if w_self.elts is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.elts]
+            w_list = space.newlist(list_w)
+        w_self.w_elts = w_list
+    return w_self.w_elts
+
+def Set_set_elts(space, w_self, w_new_value):
+    w_self.w_elts = w_new_value
+    w_self.initialization_state |= 1
+
+_Set_field_unroller = unrolling_iterable(['elts', 'lineno', 'col_offset'])
+def Set_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(Set, w_self)
+    w_self.w_elts = None
+    args_w, kwargs_w = args.unpack()
+    if args_w:
+        if len(args_w) != 3:
+            w_err = space.wrap("Set constructor takes 0 or 3 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _Set_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+Set_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+
+Set.typedef = typedef.TypeDef("Set",
+    expr.typedef,
+    _fields=_FieldsWrapper(['elts']),
+    elts=typedef.GetSetProperty(Set_get_elts, Set_set_elts, cls=Set),
+    __new__=interp2app(get_AST_new(Set)),
+    __init__=interp2app(Set_init),
+)
+Set.typedef.acceptable_as_base_class = False
+
 def ListComp_get_elt(space, w_self):
     if not w_self.initialization_state & 1:
         w_err = space.wrap("attribute 'elt' has not been set")
@@ -4742,6 +4925,125 @@ ListComp.typedef = typedef.TypeDef("ListComp",
     __init__=interp2app(ListComp_init),
 )
 ListComp.typedef.acceptable_as_base_class = False
+
+def SetComp_get_elt(space, w_self):
+    if not w_self.initialization_state & 1:
+        w_err = space.wrap("attribute 'elt' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.elt)
+
+def SetComp_set_elt(space, w_self, w_new_value):
+    w_self.elt = space.interp_w(expr, w_new_value, False)
+    w_self.initialization_state |= 1
+
+def SetComp_get_generators(space, w_self):
+    if not w_self.initialization_state & 2:
+        w_err = space.wrap("attribute 'generators' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_generators is None:
+        if w_self.generators is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.generators]
+            w_list = space.newlist(list_w)
+        w_self.w_generators = w_list
+    return w_self.w_generators
+
+def SetComp_set_generators(space, w_self, w_new_value):
+    w_self.w_generators = w_new_value
+    w_self.initialization_state |= 2
+
+_SetComp_field_unroller = unrolling_iterable(['elt', 'generators', 'lineno', 'col_offset'])
+def SetComp_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(SetComp, w_self)
+    w_self.w_generators = None
+    args_w, kwargs_w = args.unpack()
+    if args_w:
+        if len(args_w) != 4:
+            w_err = space.wrap("SetComp constructor takes 0 or 4 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _SetComp_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+SetComp_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+
+SetComp.typedef = typedef.TypeDef("SetComp",
+    expr.typedef,
+    _fields=_FieldsWrapper(['elt', 'generators']),
+    elt=typedef.GetSetProperty(SetComp_get_elt, SetComp_set_elt, cls=SetComp),
+    generators=typedef.GetSetProperty(SetComp_get_generators, SetComp_set_generators, cls=SetComp),
+    __new__=interp2app(get_AST_new(SetComp)),
+    __init__=interp2app(SetComp_init),
+)
+SetComp.typedef.acceptable_as_base_class = False
+
+def DictComp_get_key(space, w_self):
+    if not w_self.initialization_state & 1:
+        w_err = space.wrap("attribute 'key' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.key)
+
+def DictComp_set_key(space, w_self, w_new_value):
+    w_self.key = space.interp_w(expr, w_new_value, False)
+    w_self.initialization_state |= 1
+
+def DictComp_get_value(space, w_self):
+    if not w_self.initialization_state & 2:
+        w_err = space.wrap("attribute 'value' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.value)
+
+def DictComp_set_value(space, w_self, w_new_value):
+    w_self.value = space.interp_w(expr, w_new_value, False)
+    w_self.initialization_state |= 2
+
+def DictComp_get_generators(space, w_self):
+    if not w_self.initialization_state & 4:
+        w_err = space.wrap("attribute 'generators' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_generators is None:
+        if w_self.generators is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.generators]
+            w_list = space.newlist(list_w)
+        w_self.w_generators = w_list
+    return w_self.w_generators
+
+def DictComp_set_generators(space, w_self, w_new_value):
+    w_self.w_generators = w_new_value
+    w_self.initialization_state |= 4
+
+_DictComp_field_unroller = unrolling_iterable(['key', 'value', 'generators', 'lineno', 'col_offset'])
+def DictComp_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(DictComp, w_self)
+    w_self.w_generators = None
+    args_w, kwargs_w = args.unpack()
+    if args_w:
+        if len(args_w) != 5:
+            w_err = space.wrap("DictComp constructor takes 0 or 5 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _DictComp_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+DictComp_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+
+DictComp.typedef = typedef.TypeDef("DictComp",
+    expr.typedef,
+    _fields=_FieldsWrapper(['key', 'value', 'generators']),
+    key=typedef.GetSetProperty(DictComp_get_key, DictComp_set_key, cls=DictComp),
+    value=typedef.GetSetProperty(DictComp_get_value, DictComp_set_value, cls=DictComp),
+    generators=typedef.GetSetProperty(DictComp_get_generators, DictComp_set_generators, cls=DictComp),
+    __new__=interp2app(get_AST_new(DictComp)),
+    __init__=interp2app(DictComp_init),
+)
+DictComp.typedef.acceptable_as_base_class = False
 
 def GeneratorExp_get_elt(space, w_self):
     if not w_self.initialization_state & 1:

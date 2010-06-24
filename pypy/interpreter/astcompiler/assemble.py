@@ -440,6 +440,8 @@ _static_opcode_stack_effects = {
     ops.UNARY_INVERT : 0,
 
     ops.LIST_APPEND : -1,
+    ops.SET_ADD : -1,
+    ops.MAP_ADD : -2,
 
     ops.BINARY_POWER : -1,
     ops.BINARY_MULTIPLY : -1,
@@ -511,6 +513,7 @@ _static_opcode_stack_effects = {
     ops.YIELD_VALUE : 0,
     ops.BUILD_CLASS : -2,
     ops.BUILD_MAP : 1,
+    ops.BUILD_SET : 1,
     ops.COMPARE_OP : -1,
 
     ops.LOOKUP_METHOD : 1,

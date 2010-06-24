@@ -110,6 +110,47 @@ slice_operations = misc.dict_to_switch({
 })
 
 
+class __extend__(ast.GeneratorExp):
+
+    def build_container(self, codegen):
+        pass
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.elt.walkabout(codegen)
+        codegen.emit_op(ops.YIELD_VALUE)
+        codegen.emit_op(ops.POP_TOP)
+
+
+class __extend__(ast.SetComp):
+
+    def build_container(self, codegen):
+        codegen.emit_op_arg(ops.BUILD_SET, 0)
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.elt.walkabout(codegen)
+        codegen.emit_op_arg(ops.SET_ADD, index)
+
+
+class __extend__(ast.DictComp):
+
+    def build_container(self, codegen):
+        codegen.emit_op_arg(ops.BUILD_MAP, 0)
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.value.walkabout(codegen)
+        self.key.walkabout(codegen)
+        codegen.emit_op_arg(ops.MAP_ADD, index)
+
+
 # These are frame blocks.
 F_BLOCK_LOOP = 0
 F_BLOCK_EXCEPT = 1
@@ -1015,16 +1056,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.BUILD_LIST, 0)
         self._listcomp_generator(lc.generators, 0, lc.elt)
 
-    def _genexp_generator(self, generators, gen_index, elt):
+    def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()
         skip = self.new_block()
         if_cleanup = self.new_block()
         anchor = self.new_block()
-        end = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
-        self.emit_jump(ops.SETUP_LOOP, end)
-        self.push_frame_block(F_BLOCK_LOOP, start)
         if gen_index == 0:
             self.argcount = 1
             self.emit_op_arg(ops.LOAD_FAST, 0)
@@ -1044,29 +1082,33 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             ifs_count = 0
         gen_index += 1
         if gen_index < len(generators):
-            self._genexp_generator(generators, gen_index, elt)
+            self._comp_generator(node, generators, gen_index)
         else:
-            elt.walkabout(self)
-            self.emit_op(ops.YIELD_VALUE)
-            self.emit_op(ops.POP_TOP)
-            self.use_next_block(skip)
+            node.accept_comp_iteration(self, gen_index)
         self.use_next_block(if_cleanup)
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
         self.use_next_block(anchor)
-        self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_LOOP, start)
-        self.use_next_block(end)
 
-    def visit_GeneratorExp(self, genexp):
-        code = self.sub_scope(GenExpCodeGenerator, "<genexp>", genexp,
-                              genexp.lineno)
-        self.update_position(genexp.lineno)
+    def _compile_comprehension(self, node, name, sub_scope):
+        code = self.sub_scope(sub_scope, name, node, node.lineno)
+        self.update_position(node.lineno)
         self._make_function(code)
-        first_comp = genexp.generators[0]
+        first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
         first_comp.iter.walkabout(self)
         self.emit_op(ops.GET_ITER)
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
+
+    def visit_GeneratorExp(self, genexp):
+        self._compile_comprehension(genexp, "<genexp>", GenExpCodeGenerator)
+
+    def visit_SetComp(self, setcomp):
+        self._compile_comprehension(setcomp, "<setcomp>",
+                                    ComprehensionCodeGenerator)
+
+    def visit_DictComp(self, dictcomp):
+        self._compile_comprehension(dictcomp, "<dictcomp>",
+                                    ComprehensionCodeGenerator)
 
     def visit_Repr(self, rep):
         self.update_position(rep.lineno)
@@ -1259,15 +1301,25 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class GenExpCodeGenerator(AbstractFunctionCodeGenerator):
+class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
 
-    def _compile(self, genexp):
-        assert isinstance(genexp, ast.GeneratorExp)
-        self.update_position(genexp.lineno)
-        self._genexp_generator(genexp.generators, 0, genexp.elt)
+    def _compile(self, node):
+        self.update_position(node.lineno)
+        node.build_container(self)
+        self._comp_generator(node, node.get_generators(), 0)
+        self._end_comp()
+
+    def _end_comp(self):
+        self.emit_op(ops.RETURN_VALUE)
+
+
+class GenExpCodeGenerator(ComprehensionCodeGenerator):
+
+    def _end_comp(self):
+        pass
 
     def _get_code_flags(self):
-        flags = AbstractFunctionCodeGenerator._get_code_flags(self)
+        flags = ComprehensionCodeGenerator._get_code_flags(self)
         return flags | consts.CO_GENERATOR
 
 

@@ -718,6 +718,19 @@ class TestAstBuilder:
         assert v1.ctx == ast.Load
         assert isinstance(v2, ast.Num)
 
+    def test_set(self):
+        s = self.get_first_expr("{1}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 1
+        assert isinstance(s.elts[0], ast.Num)
+        assert self.space.eq_w(s.elts[0].n, self.space.wrap(1))
+        s = self.get_first_expr("{0, 1, 2, 3, 4, 5}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 6
+        for i, elt in enumerate(s.elts):
+            assert isinstance(elt, ast.Num)
+            assert self.space.eq_w(elt.n, self.space.wrap(i))
+
     def test_set_context(self):
         tup = self.get_ast("(a, b) = c").body[0].targets[0]
         assert all(elt.ctx == ast.Store for elt in tup.elts)
@@ -735,10 +748,13 @@ class TestAstBuilder:
             ("(x for y in g)", "generator expression"),
             ("(yield x)", "yield expression"),
             ("[x for y in g]", "list comprehension"),
+            ("{x for x in z}", "set comprehension"),
+            ("{x : x for x in z}", "dict comprehension"),
             ("'str'", "literal"),
             ("()", "()"),
             ("23", "literal"),
             ("{}", "literal"),
+            ("{1, 2, 3}", "literal"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
             ("`x`", "repr")
@@ -1161,3 +1177,45 @@ class TestAstBuilder:
 
     def test_listcomp(self):
         self.check_comprehension("[%s]", ast.ListComp)
+
+    def test_setcomp(self):
+        self.check_comprehension("{%s}", ast.SetComp)
+
+    def test_dictcomp(self):
+        gen = self.get_first_expr("{x : z for x in y}")
+        assert isinstance(gen, ast.DictComp)
+        assert isinstance(gen.key, ast.Name)
+        assert gen.key.ctx == ast.Load
+        assert isinstance(gen.value, ast.Name)
+        assert gen.value.ctx == ast.Load
+        assert len(gen.generators) == 1
+        comp = gen.generators[0]
+        assert isinstance(comp, ast.comprehension)
+        assert comp.ifs is None
+        assert isinstance(comp.target, ast.Name)
+        assert isinstance(comp.iter, ast.Name)
+        assert comp.target.ctx == ast.Store
+        gen = self.get_first_expr("{x : z for x in y if w}")
+        comp = gen.generators[0]
+        assert len(comp.ifs) == 1
+        test = comp.ifs[0]
+        assert isinstance(test, ast.Name)
+        gen = self.get_first_expr("{x : z for x, in y if w}")
+        tup = gen.generators[0].target
+        assert isinstance(tup, ast.Tuple)
+        assert len(tup.elts) == 1
+        assert tup.ctx == ast.Store
+        gen = self.get_first_expr("{a : b for w in x for m in p if g}")
+        gens = gen.generators
+        assert len(gens) == 2
+        comp1, comp2 = gens
+        assert comp1.ifs is None
+        assert len(comp2.ifs) == 1
+        assert isinstance(comp2.ifs[0], ast.Name)
+        gen = self.get_first_expr("{x : z for x in y if m if g}")
+        comps = gen.generators
+        assert len(comps) == 1
+        assert len(comps[0].ifs) == 2
+        if1, if2 = comps[0].ifs
+        assert isinstance(if1, ast.Name)
+        assert isinstance(if2, ast.Name)
