@@ -96,11 +96,8 @@ class Module(MixedModule):
         if space.config.translating and not we_are_translated():
             # don't get the filesystemencoding at translation time
             assert self.filesystemencoding is None
-        else:
-            from pypy.module.sys.interp_encoding import _getfilesystemencoding
-            self.filesystemencoding = _getfilesystemencoding(space)
 
-    def getmodule(self, name): 
+    def getmodule(self, name):
         space = self.space
         w_modules = self.get('modules') 
         try: 
