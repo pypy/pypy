@@ -5,11 +5,14 @@ from pypy.rlib import runicode
 def test_unichr():
     a = runicode.UNICHR(0xffff)
     assert a == u'\uffff'
-    a = runicode.UNICHR(0x10000)
-    if sys.maxunicode < 0x10000:
-        assert len(a) == 2      # surrogates
+    if runicode.MAXUNICODE > 0xffff:
+        a = runicode.UNICHR(0x10000)
+        if sys.maxunicode < 0x10000:
+            assert len(a) == 2      # surrogates
+        else:
+            assert len(a) == 1
     else:
-        assert len(a) == 1
+        py.test.raises(ValueError, runicode.UNICHR, 0x10000)
 
 
 class UnicodeTests(object):
@@ -228,7 +231,7 @@ class TestEncoding(UnicodeTests):
 
 class TestTranslation(object):
     def setup_class(cls):
-        if len(runicode.UNICHR(0x10000)) == 2:
+        if runicode.MAXUNICODE != sys.maxunicode:
             py.test.skip("these tests cannot run on the llinterp")
 
     def test_utf8(self):
