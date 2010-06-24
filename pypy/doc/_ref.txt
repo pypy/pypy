@@ -46,11 +46,10 @@
 .. _`pypy/interpreter/astcompiler/ast.py`: ../../pypy/interpreter/astcompiler/ast.py
 .. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
 .. _`lib/`:
-.. _`pypy/lib/`: ../../pypy/lib
-.. _`lib/app_test/`: ../../pypy/lib/app_test
-.. _`lib/distributed/`: ../../pypy/lib/distributed
-.. _`pypy/lib/stackless.py`: ../../pypy/lib/stackless.py
-.. _`pypy/lib/test2`: ../../pypy/lib/test2
+.. _`lib_pypy/`: ../../lib_pypy
+.. _`lib/distributed/`: ../../lib_pypy/distributed
+.. _`lib_pypy/stackless.py`: ../../lib_pypy/stackless.py
+.. _`lib_pypy/pypy_test/`: ../../lib_pypy/pypy_test
 .. _`module/`:
 .. _`pypy/module`:
 .. _`pypy/module/`: ../../pypy/module

@@ -106,8 +106,8 @@ from opcode import (
     opmap as host_opmap, HAVE_ARGUMENT as host_HAVE_ARGUMENT)
 
 def load_pypy_opcode():
-    import py
-    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.5.2/opcode.py')
+    from pypy.tool.lib_pypy import LIB_PYTHON_MODIFIED
+    opcode_path = LIB_PYTHON_MODIFIED.join('opcode.py')
     d = {}
     execfile(str(opcode_path), d)
     for name in __all__:

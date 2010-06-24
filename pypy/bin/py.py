@@ -11,6 +11,7 @@ try:
 except ImportError:
     pass
 
+import pypy
 from pypy.tool import option
 from optparse import make_option
 from pypy.interpreter import main, interactive, error, gateway
@@ -83,6 +84,14 @@ def main_(argv=None):
     space._starttime = starttime
     space.setitem(space.sys.w_dict, space.wrap('executable'),
                   space.wrap(argv[0]))
+
+    # call pypy_initial_path: the side-effect is that it sets sys.prefix and
+    # sys.exec_prefix
+    srcdir = os.path.dirname(os.path.dirname(pypy.__file__))
+    space.appexec([space.wrap(srcdir)], """(srcdir):
+        import sys
+        sys.pypy_initial_path(srcdir)
+    """)
 
     # set warning control options (if any)
     warn_arg = interactiveconfig.warn

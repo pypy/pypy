@@ -207,18 +207,18 @@ occurred might be hard-coded in the executable.
 For installation purposes, note that the executable needs to be able to
 find its version of the Python standard library in the following three
 directories: ``lib-python/2.5.2``, ``lib-python/modified-2.5.2`` and
-``pypy/lib``.  They are located by "looking around" starting from the
+``lib_pypy``.  They are located by "looking around" starting from the
 directory in which the executable resides.  The current logic is to try
 to find a ``PREFIX`` from which the directories
 ``PREFIX/lib-python/2.5.2`` and ``PREFIX/lib-python/modified.2.5.2`` and
-``PREFIX/pypy/lib`` can all be found.  The prefixes that are tried are::
+``PREFIX/lib_pypy`` can all be found.  The prefixes that are tried are::
 
     .
-    ./share/pypy-1.2
+    ./lib/pypy1.2
     ..
-    ../share/pypy-1.2
+    ../lib/pypy1.2
     ../..
-    ../../share/pypy-1.2
+    ../../lib/pypy-1.2
     ../../..
     etc.
 

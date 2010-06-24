@@ -1,0 +1,15 @@
+test_bitfields.py # bitfields not supported
+test_byteswap.py  # __ctype_be__ and __ctypes_le__ not implemented
+test_errcheck.py  # empty
+test_init.py      # obscure
+test_internals.py # uses gc.getrefcounts
+test_keeprefs.py  # implementation details: ._objects
+test_macholib.py  # OS X specific
+test_objects.py   # implementation details: ._objects
+test_python_api.py # CPython specific
+test_refcounts.py  # CPython specific
+test_repr.py       # not implemented
+test_unaligned_structures.py # _pack_ not implemented
+test_values.py     # some strange stuff
+test_varsize_struct.py # resize not implemented
+test_win32.py # Windows specific

@@ -30,9 +30,8 @@ class Module(MixedModule):
         'stderr'                : 'state.getio(space).w_stderr',
         '__stderr__'            : 'state.getio(space).w_stderr',
         'pypy_objspaceclass'    : 'space.wrap(repr(space))',
-        #'pypy_prefix': added by pypy_initial_path() when it succeeds, pointing
-        # to the trunk of a checkout or to the dir /usr/share/pypy-1.1 .
-
+        #'prefix'               : # added by pypy_initial_path() when it 
+        #'exec_prefix'          : # succeeds, pointing to trunk or /usr
         'path'                  : 'state.get(space).w_path', 
         'modules'               : 'state.get(space).w_modules', 
         'argv'                  : 'state.get(space).w_argv', 

@@ -2,7 +2,7 @@
 
 """A sample implementation of SHA-1 in RPython.
 
-   See also the pure Python implementation in pypy/lib/sha.py, which might
+   See also the pure Python implementation in lib_pypy/sha.py, which might
    or might not be faster than this one on top of CPython.
 
    Framework adapted from Dinu Gherman's MD5 implementation by

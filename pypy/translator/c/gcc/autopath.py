@@ -37,8 +37,7 @@ def __dirinfo(part):
         partdir = head
         head, tail = os.path.split(head)
         if tail == part:
-            # check if "../py/__init__.py" exists
-            checkfile = os.path.join(partdir, os.pardir, 'py', '__init__.py')
+            checkfile = os.path.join(partdir, os.pardir, 'pypy', '__init__.py')
             if not os.path.exists(checkfile):
                 error = "Cannot find %r" % (os.path.normpath(checkfile),)
             break
@@ -127,7 +126,7 @@ _myname = 'autopath.py'
 # set guaranteed attributes
 
 pypydir, this_dir = __dirinfo('pypy')
-import py
+import py # note: py is imported only AFTER the path has been set
 libpythondir = str(py.path.local(pypydir).dirpath().join('lib-python', '2.5.2'))
 libpythonmodifieddir = str(py.path.local(libpythondir).dirpath().join('modified-2.5.2'))
 

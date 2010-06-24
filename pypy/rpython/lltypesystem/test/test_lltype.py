@@ -1,7 +1,7 @@
 import py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 def isweak(p, T):
     try:

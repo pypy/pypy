@@ -207,13 +207,6 @@ Directory                      explanation/links
 `interpreter/astcompiler/`_    interpreter-level bytecode compiler, via an AST
                                representation
 
-`lib/`_                        PyPy's wholesale reimplementations of CPython modules_
-                               and experimental new application-level modules
-
-`lib/app_test/`_               tests for the reimplementations, running on top of CPython
-
-`lib/distributed/`_            distributed execution prototype, based on `transparent proxies`_
-
 `module/`_                     contains `mixed modules`_ implementing core modules with 
                                both application and interpreter level code.
                                Not all are finished and working.  Use the ``--withmod-xxx``

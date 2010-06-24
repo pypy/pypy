@@ -225,7 +225,8 @@ class PyPyTarget(object):
         return PyPyJitPolicy()
     
     def get_entry_point(self, config):
-        from pypy.lib.ctypes_config_cache import rebuild
+        from pypy.tool.lib_pypy import import_from_lib_pypy
+        rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
         rebuild.try_rebuild()
 
         space = make_objspace(config)

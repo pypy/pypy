@@ -631,7 +631,7 @@ sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 
 If we don't just modify an original CPython module but need to rewrite
-it from scratch we put it into `pypy/lib/`_ as a pure application level
+it from scratch we put it into `lib_pypy/`_ as a pure application level
 module.
 
 When we need access to interpreter-level objects we put the module into
@@ -653,7 +653,7 @@ here are examples for the possible locations::
 
     >>>> import operator
     >>>> operator.__file__
-    '/home/hpk/pypy-dist/pypy/lib/operator.py'
+    '/home/hpk/pypy-dist/lib_pypy/operator.py'
 
     >>>> import opcode
     >>>> opcode.__file__
@@ -682,7 +682,7 @@ Here is the order in which PyPy looks up Python modules:
     list of directories, specified in the ``PYTHONPATH`` environment
     variable.
 
-*pypy/lib/*
+*lib_pypy/*
 
     contains pure Python reimplementation of modules.
 
@@ -794,14 +794,14 @@ creation of a new config option (such as --withmod-mymodule and
 --withoutmod-mymodule (the later being the default)) for py.py and
 translate.py.
 
-Testing modules in ``pypy/lib``
+Testing modules in ``lib_pypy/``
 --------------------------------
 
-You can go to the `pypy/lib/test2`_ directory and invoke the testing tool
-("py.test" or "python ../../test_all.py") to run tests against the
-pypy/lib hierarchy.  Note, that tests in `pypy/lib/test2`_ are allowed
+You can go to the `lib_pypy/pypy_test/`_ directory and invoke the testing tool
+("py.test" or "python ../../pypy/test_all.py") to run tests against the
+lib_pypy hierarchy.  Note, that tests in `lib_pypy/pypy_test/`_ are allowed
 and encouraged to let their tests run at interpreter level although
-`pypy/lib/`_ modules eventually live at PyPy's application level.
+`lib_pypy/`_ modules eventually live at PyPy's application level.
 This allows us to quickly test our python-coded reimplementations
 against CPython.
 

@@ -2,7 +2,7 @@
 """
 RPython implementation of MD5 checksums.
 
-See also the pure Python implementation in pypy/lib/md5.py, which might
+See also the pure Python implementation in lib_pypy/md5.py, which might
 or might not be faster than this one on top of CPython.
 
 This is an implementation of the MD5 hash function,

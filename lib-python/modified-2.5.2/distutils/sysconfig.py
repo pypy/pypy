@@ -19,5 +19,7 @@ import sys
 
 if '__pypy__' in sys.builtin_module_names:
     from distutils.sysconfig_pypy import *
+    from distutils.sysconfig_pypy import _config_vars # needed by setuptools
 else:
     from distutils.sysconfig_cpython import *
+    from distutils.sysconfig_pypy import _config_vars # needed by setuptools

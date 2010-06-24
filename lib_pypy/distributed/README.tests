@@ -1,0 +1,2 @@
+Tests for distributed are app-level tests, so they are kept under
+pypy/module/test_lib_pypy/
