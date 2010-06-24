@@ -181,7 +181,7 @@ For usage reference, see the documentation on the `Stackless Python`_
 website.
 
 Note that Tasklets and Channels are implemented at application-level in
-`pypy/lib/stackless.py`_ on top of coroutines_.  You can refer to this
+`lib_pypy/stackless.py`_ on top of coroutines_.  You can refer to this
 module for more details and API documentation.
 
 The stackless.py code tries to resemble the stackless C code as much

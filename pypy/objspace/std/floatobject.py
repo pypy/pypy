@@ -77,23 +77,34 @@ def long__Float(space, w_floatobj):
 def float_w__Float(space, w_float):
     return w_float.floatval
 
-def should_not_look_like_an_int(s):
-    for c in s:
-        if c in '.eE':
-            break
+def float2string(space, w_float, format):
+    x = w_float.floatval
+    # we special-case explicitly inf and nan here
+    if isinf(x):
+        if x > 0.0:
+            s = "inf"
+        else:
+            s = "-inf"
+    elif isnan(x):
+        s = "nan"
     else:
-        s += '.0'
-    return s
+        s = formatd(format, x)
+        # We want float numbers to be recognizable as such,
+        # i.e., they should contain a decimal point or an exponent.
+        # However, %g may print the number as an integer;
+        # in such cases, we append ".0" to the string.
+        for c in s:
+            if c in '.eE':
+                break
+        else:
+            s += '.0'
+    return space.wrap(s)
 
 def repr__Float(space, w_float):
-    x = w_float.floatval
-    s = formatd("%.17g", x)
-    return space.wrap(should_not_look_like_an_int(s))
+    return float2string(space, w_float, "%.17g")
 
 def str__Float(space, w_float):
-    x = w_float.floatval
-    s = formatd("%.12g", x)
-    return space.wrap(should_not_look_like_an_int(s))
+    return float2string(space, w_float, "%.12g")
 
 # ____________________________________________________________
 # A mess to handle all cases of float comparison without relying

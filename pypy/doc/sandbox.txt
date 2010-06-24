@@ -72,7 +72,8 @@ the fact that it's PyPy that we are translating.  Any RPython program
 should do.  I've successfully tried it on the JS interpreter.  The
 controller is only called "pypy_interact" because it emulates a file
 hierarchy that makes pypy-c-sandbox happy - it contains (read-only)
-virtual directories like /bin/lib-python and /bin/pypy/lib and it
+virtual directories like /bin/lib/pypy1.2/lib-python and
+/bin/lib/pypy1.2/lib_pypy and it
 pretends that the executable is /bin/pypy-c.
 
 Howto

@@ -55,4 +55,6 @@ def getfilesystemencoding(space):
     """Return the encoding used to convert Unicode filenames in
     operating system filenames.
     """
+    if space.sys.filesystemencoding is None:
+        space.sys.filesystemencoding = _getfilesystemencoding(space)
     return space.wrap(space.sys.filesystemencoding)

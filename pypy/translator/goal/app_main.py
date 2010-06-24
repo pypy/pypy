@@ -182,12 +182,27 @@ def get_argument(option, argv, i):
                                    option)
         return argv[i], i
 
+def get_library_path(executable):
+    search = executable
+    while 1:
+        dirname = resolvedirof(search)
+        if dirname == search:
+            # not found!  let's hope that the compiled-in path is ok
+            print >> sys.stderr, ('debug: WARNING: library path not found, '
+                                  'using compiled-in sys.path')
+            newpath = sys.path[:]
+            break
+        newpath = sys.pypy_initial_path(dirname)
+        if newpath is None:
+            search = dirname    # walk to the parent directory
+            continue
+        break      # found!
+    return newpath
 
 def setup_initial_paths(executable, nanos):
     # a substituted os if we are translated
     global os
     os = nanos
-    AUTOSUBPATH = 'share' + os.sep + 'pypy-%d.%d'
     # find the full path to the executable, assuming that if there is no '/'
     # in the provided one then we must look along the $PATH
     if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
@@ -204,24 +219,7 @@ def setup_initial_paths(executable, nanos):
                     break
     sys.executable = os.path.abspath(executable)
 
-    # set up a sys.path that depends on the local machine
-    autosubpath = AUTOSUBPATH % sys.pypy_version_info[:2]
-    search = executable
-    while 1:
-        dirname = resolvedirof(search)
-        if dirname == search:
-            # not found!  let's hope that the compiled-in path is ok
-            print >> sys.stderr, ('debug: WARNING: library path not found, '
-                                  'using compiled-in sys.path')
-            newpath = sys.path[:]
-            break
-        newpath = sys.pypy_initial_path(dirname)
-        if newpath is None:
-            newpath = sys.pypy_initial_path(os.path.join(dirname, autosubpath))
-            if newpath is None:
-                search = dirname    # walk to the parent directory
-                continue
-        break      # found!
+    newpath = get_library_path(executable)
     path = os.getenv('PYTHONPATH')
     if path:
         newpath = path.split(os.pathsep) + newpath

@@ -334,11 +334,8 @@ class SysModuleTest(unittest.TestCase):
         if test.test_support.have_unicode:
             self.assert_(isinstance(sys.maxunicode, int))
         self.assert_(isinstance(sys.platform, basestring))
-        if hasattr(sys, 'prefix'):
-            self.assert_(isinstance(sys.prefix, basestring))
-            self.assert_(isinstance(sys.exec_prefix, basestring))
-        else:
-            self.assert_(isinstance(sys.pypy_prefix, basestring))  # PyPy only
+        self.assert_(isinstance(sys.prefix, basestring))
+        self.assert_(isinstance(sys.exec_prefix, basestring))
         self.assert_(isinstance(sys.version, basestring))
         vi = sys.version_info
         self.assert_(isinstance(vi, tuple))

@@ -486,3 +486,59 @@ class TestNonInteractive:
         data = child_out_err.read(11)
         assert data == '\x00(STDOUT)\n\x00'    # from stdout
         child_out_err.close()
+
+
+class AppTestAppMain:
+
+    def setup_class(self):
+        # ------------------------------------
+        # setup code for test_get_library_path
+        # ------------------------------------
+        from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
+        libroot = 'lib/pypy%d.%d' % PYPY_VERSION[:2]
+        cpy_ver = '%d.%d.%d' % CPYTHON_VERSION[:3]
+        
+        goal_dir = os.path.dirname(app_main)
+        # build a directory hierarchy like which contains both bin/pypy-c and
+        # lib/pypy1.2/*
+        prefix = udir.join('pathtest')
+        fake_exe = prefix.join('bin/pypy-c').ensure(file=1)
+        pypyxy = prefix.join(libroot).ensure(dir=1)
+        expected_path = [str(pypyxy.join(subdir).ensure(dir=1))
+                         for subdir in ('lib_pypy',
+                                        'lib-python/modified-%s' % cpy_ver,
+                                        'lib-python/%s' % cpy_ver)]
+        
+        self.w_goal_dir = self.space.wrap(goal_dir)
+        self.w_fake_exe = self.space.wrap(str(fake_exe))
+        self.w_expected_path = self.space.wrap(expected_path)
+        self.w_trunkdir = self.space.wrap(os.path.dirname(autopath.pypydir))
+
+    def test_get_library_path(self):
+        import sys
+        import os
+        sys.path.append(self.goal_dir)
+        try:
+            import app_main
+            app_main.os = os
+            newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
+            assert newpath == sys.path
+            newpath = app_main.get_library_path(self.fake_exe)
+            assert newpath == self.expected_path
+        finally:
+            sys.path.pop()
+
+    def test_trunk_can_be_prefix(self):
+        import sys
+        import os
+        sys.path.append(self.goal_dir)
+        try:
+            import app_main
+            app_main.os = os
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
+            newpath = app_main.get_library_path(pypy_c)
+            assert len(newpath) == 3
+            for p in newpath:
+                assert p.startswith(self.trunkdir)
+        finally:
+            sys.path.pop()

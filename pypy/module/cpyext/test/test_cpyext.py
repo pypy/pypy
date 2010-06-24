@@ -15,7 +15,7 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
 from pypy.translator.goal import autopath
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -160,7 +160,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             kwds["compile_extra"] = ["/we4013"]
         else:
             kwds["link_files"] = [str(api_library + '.so')]
-            kwds["compile_extra"] = ["-Werror=implicit-function-declaration"]
+            if sys.platform == 'linux2':
+                kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
         return compile_module(name, **kwds)
 
 

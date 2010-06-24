@@ -8,7 +8,8 @@ from pypy.config.config import ConflictConfigError
 modulepath = py.path.local(__file__).dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
                if p.check(dir=True, dotfile=False)
-               and p.join('__init__.py').check()]
+               and p.join('__init__.py').check()
+               and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
     ["exceptions", "_file", "sys", "__builtin__", "posix", "signal"]

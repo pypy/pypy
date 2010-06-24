@@ -157,11 +157,11 @@ mobile device and use "scp" or rsync for transfering files.
 You can just copy your whole pypy-trunk directory over to your mobile 
 device - however, only these should be needed::
 
-    pypy/lib
-    lib-python
+    lib/pypy1.2/lib_pypy
+    lib/pypy1.2/lib-python
     pypy/translator/goal/pypy-c
 
-It is neccessary that the ``pypy-c`` can find a "lib-python" and "pypy/lib" directory
+It is neccessary that the ``pypy-c`` can find a "lib-python" and "lib_pypy" directory
 if you want to successfully startup the interpreter on the device. 
 
 Start ``pypy-c`` on the device. If you see an error like "setupterm: could not find terminal" 

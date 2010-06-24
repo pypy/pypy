@@ -18,7 +18,8 @@ def _easy_install_get_site_dirs():
     # return a list of 'site' dirs for easy_install
     from pkg_resources import normalize_path
     sitedirs = filter(None,os.environ.get('PYTHONPATH','').split(os.pathsep))
-    sitedirs.append(os.path.join(sys.pypy_prefix, 'site-packages'))
+    pypylib = 'pypy%d.%d' % sys.pypy_version_info[:2]
+    sitedirs.append(os.path.join(sys.prefix, 'lib', pypylib, 'site-packages'))
     sitedirs = map(normalize_path, sitedirs)
     return sitedirs
 

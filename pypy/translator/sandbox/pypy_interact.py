@@ -26,6 +26,7 @@ import autopath
 from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from pypy.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from pypy.translator.sandbox.vfs import Dir, RealDir, RealFile
+from pypy.tool.lib_pypy import LIB_ROOT
 
 class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
     debug = True
@@ -50,17 +51,15 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
             tmpdirnode = Dir({})
         else:
             tmpdirnode = RealDir(self.tmpdir, exclude=exclude)
-        pypydist = os.path.dirname(os.path.abspath(autopath.pypydir))
+        libroot = str(LIB_ROOT)
 
         return Dir({
             'bin': Dir({
                 'pypy-c': RealFile(self.executable),
-                'lib-python': RealDir(os.path.join(pypydist, 'lib-python'),
+                'lib-python': RealDir(os.path.join(libroot, 'lib-python'),
+                                      exclude=exclude), 
+                'lib_pypy': RealDir(os.path.join(libroot, 'lib_pypy'),
                                       exclude=exclude),
-                'pypy': Dir({
-                    'lib': RealDir(os.path.join(pypydist, 'pypy', 'lib'),
-                                   exclude=exclude),
-                    }),
                 }),
              'tmp': tmpdirnode,
              })

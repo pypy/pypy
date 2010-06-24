@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gcheader import header2obj
 from pypy.translator.tool.reftracker import BaseRefTrackerPage, MARKER
 from pypy.tool.uid import uid
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 
 class LLRefTrackerPage(BaseRefTrackerPage):

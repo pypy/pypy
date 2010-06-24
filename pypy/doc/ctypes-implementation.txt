@@ -48,9 +48,9 @@ implementation by writing their version of ``_rawffi``.
 High-level parts
 =================
 
-The reused ``ctypes`` package lives in ``pypy/lib/ctypes``. ``_ctypes``
+The reused ``ctypes`` package lives in ``lib_pypy/ctypes``. ``_ctypes``
 implementing the same interface as ``_ctypes`` in CPython is in
-``pypy/lib/_ctypes``.
+``lib_pypy/_ctypes``.
 
 Discussion and limitations
 =============================
@@ -123,8 +123,8 @@ this should produce a pypy-c executable in the ``goal`` directory.
 
 To run the tests then::
 
-   $ cd ../.. # back to pypy/
-   $ ./translator/goal/pypy-c test_all.py lib/app_test/ctypes_tests
+   $ cd ../../.. # back to pypy-trunk
+   $ ./pypy/translator/goal/pypy-c pypy/test_all.py lib/pypy1.2/lib_pypy/pypy_test/ctypes_tests
 
 There should be 36 skipped tests and all other tests should pass.
 

@@ -10,10 +10,8 @@ from pypy.tool.autopath import pypydir
 
 # pytest settings
 pytest_plugins = "resultlog",
-rsyncdirs = ['.', '../lib-python', '../demo']
+rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
-
-collect_ignore = ['./lib/py']
 
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
@@ -220,8 +218,10 @@ class PyPyModule(py.test.collect.Module):
 
     def accept_regular_test(self):
         if option.runappdirect:
-            # only collect regular tests if we are in an 'app_test' directory
-            return "app_test" in self.listnames()
+            # only collect regular tests if we are in an 'app_test' directory,
+            # or in test_lib_pypy
+            names = self.listnames()
+            return "app_test" in names or "test_lib_pypy" in names
         else:
             return True
 
@@ -232,7 +232,7 @@ class PyPyModule(py.test.collect.Module):
             return True
         return False
 
-    def classnamefilter(self, name): 
+    def classnamefilter(self, name):
         if name.startswith('Test'):
             return self.accept_regular_test()
         if name.startswith('AppTest'):

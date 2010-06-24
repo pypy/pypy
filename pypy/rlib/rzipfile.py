@@ -12,7 +12,8 @@ except (ImportError, CompilationError):
     rzlib = None
 
 # XXX hack to get crc32 to work
-from pypy.lib.binascii import crc_32_tab
+from pypy.tool.lib_pypy import import_from_lib_pypy
+crc_32_tab = import_from_lib_pypy('binascii').crc_32_tab
 
 rcrc_32_tab = [r_uint(i) for i in crc_32_tab]
 

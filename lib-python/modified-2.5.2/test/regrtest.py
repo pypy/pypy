@@ -348,11 +348,8 @@ def main(tests=None, testdir=None, verbose=0, quiet=False, generate=False,
         random.shuffle(tests)
     if trace:
         import trace
-        if hasattr(sys, 'prefix'):
-            ignoredirs = [sys.prefix, sys.exec_prefix]
-        else:
-            ignoredirs = [sys.pypy_prefix]     # PyPy only
-        tracer = trace.Trace(ignoredirs=ignoredirs, trace=False, count=True)
+        tracer = trace.Trace(ignoredirs=[sys.prefix, sys.exec_prefix],
+                             trace=False, count=True)
     test_support.verbose = verbose      # Tell tests to be moderately quiet
     test_support.use_resources = use_resources
     save_modules = sys.modules.keys()

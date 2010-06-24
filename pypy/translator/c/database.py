@@ -16,7 +16,7 @@ from pypy.translator.c.support import log, barebonearray
 from pypy.translator.c.extfunc import do_the_getting
 from pypy import conftest
 from pypy.translator.c import gc
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 
 class NoCorrespondingNode(Exception):

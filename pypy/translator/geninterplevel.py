@@ -62,7 +62,7 @@ from pypy.tool.sourcetools import render_docstr, NiceCompile
 
 from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
      uniquemodulename, C_IDENTIFIER, NameManager
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 import pypy # __path__
 import py.path
@@ -496,21 +496,22 @@ else:
             need_extra_path = True
         name = self.uniquename('mod_%s' % value.__name__)
         if need_extra_path:
-            self.initcode.append1('import pypy')
-            self.initcode.append1('import sys')
-            self.initcode.append1('import os')
-            self.initcode.append1('for pkgdir in pypy.__path__:\n'
-                                  '    libdir = os.path.join(pkgdir, "lib")\n'
-                                  '    if os.path.isdir(libdir):\n'
-                                  '        break\n'
-                                  'else:\n'
-                                  '    raise Exception, "cannot find pypy/lib directory"\n'
-                                  'sys.path.insert(0, libdir)\n')
-            self.initcode.append1('try:\n'
-                                  '    import %s as _tmp\n'
-                                  'finally:\n'
-                                  '    if libdir in sys.path:\n'
-                                  '        sys.path.remove(libdir)\n' % value.__name__)
+            assert False
+            ## self.initcode.append1('import pypy')
+            ## self.initcode.append1('import sys')
+            ## self.initcode.append1('import os')
+            ## self.initcode.append1('for pkgdir in pypy.__path__:\n'
+            ##                       '    libdir = os.path.join(pkgdir, "lib")\n'
+            ##                       '    if os.path.isdir(libdir):\n'
+            ##                       '        break\n'
+            ##                       'else:\n'
+            ##                       '    raise Exception, "cannot find pypy/lib directory"\n'
+            ##                       'sys.path.insert(0, libdir)\n')
+            ## self.initcode.append1('try:\n'
+            ##                       '    import %s as _tmp\n'
+            ##                       'finally:\n'
+            ##                       '    if libdir in sys.path:\n'
+            ##                       '        sys.path.remove(libdir)\n' % value.__name__)
         else:
             self.initcode.append1('import %s as _tmp' % value.__name__)
         self.initcode.append1('%s = space.wrap(_tmp)' % (name))
@@ -1473,6 +1474,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     dic = initfunc(space)
     # and now use the members of the dict
     """
+    from pypy.tool.lib_pypy import LIB_PYPY
     # create something like a module
     if type(sourcetext) is str:
         code = py.code.Source(sourcetext).compile()
@@ -1484,12 +1486,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         dic['__file__'] = filename
 
     # XXX allow the app-level code to contain e.g. "import _formatting"
-    for pkgdir in pypy.__path__:
-        libdir = os.path.join(pkgdir, "lib")
-        if os.path.isdir(libdir):
-            break
-    else:
-        raise Exception, "cannot find pypy/lib directory"
+    libdir = str(LIB_PYPY)
     sys.path.insert(0, libdir)
     try:
         if faked_set:

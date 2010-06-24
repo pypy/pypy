@@ -809,7 +809,6 @@ def build_eci(building_bridge, export_symbols, code):
         kwds["includes"] = ['Python.h'] # this is our Python.h
 
     # Generate definitions for global structures
-    struct_file = udir.join('pypy_structs.c')
     structs = ["#include <Python.h>"]
     for name, (typ, expr) in GLOBALS.iteritems():
         if name.endswith('#'):
@@ -819,7 +818,7 @@ def build_eci(building_bridge, export_symbols, code):
             structs.append('PyObject* %s = (PyObject*)&_%s;' % (name, name))
         elif typ == 'PyDateTime_CAPI*':
             structs.append('%s %s = NULL;' % (typ, name))
-    struct_file.write('\n'.join(structs))
+    struct_source = '\n'.join(structs)
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -833,9 +832,8 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "bufferobject.c",
                                source_dir / "object.c",
                                source_dir / "cobject.c",
-                               struct_file,
                                ],
-        separate_module_sources = [code],
+        separate_module_sources = [code, struct_source],
         export_symbols=export_symbols_eci,
         compile_extra=compile_extra,
         **kwds

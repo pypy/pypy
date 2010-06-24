@@ -9,7 +9,7 @@ from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 from types import NoneType
 from sys import maxint
 import weakref

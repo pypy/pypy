@@ -7,7 +7,7 @@ import py
 from pypy.tool.uid import uid, Hashable
 from pypy.tool.descriptor import roproperty
 from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 """
     memory size before and after introduction of __slots__

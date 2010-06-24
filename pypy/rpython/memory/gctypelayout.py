@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 
 class GCData(object):

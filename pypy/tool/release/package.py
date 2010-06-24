@@ -46,14 +46,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
         raise PyPyCNotFound('Please compile pypy first, using translate.py')
     builddir = udir.ensure("build", dir=True)
     pypydir = builddir.ensure(name, dir=True)
+    # Careful: to copy lib_pypy, copying just the svn-tracked files
+    # would not be enough: there are also ctypes_config_cache/_*_cache.py.
     shutil.copytree(str(basedir.join('lib-python')),
                     str(pypydir.join('lib-python')),
-                    ignore=ignore_patterns('.svn', '*.pyc', '*~'))
-    # Careful: to copy pypy/lib, copying just the svn-tracked files
-    # would not be enough: there are also ctypes_config_cache/_*_cache.py.
-    pypydir.ensure('pypy', dir=True)
-    shutil.copytree(str(basedir.join('pypy', 'lib')),
-                    str(pypydir.join('pypy', 'lib')),
+                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
+    shutil.copytree(str(basedir.join('lib_pypy')),
+                    str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))

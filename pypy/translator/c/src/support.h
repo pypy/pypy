@@ -26,7 +26,7 @@
 	PyString_FromStringAndSize(_RPyString_AsString(rpystr), RPyString_Size(rpystr))
 
 #define PyUnicode_FromRPyUnicode(rpystr) \
-	PyUnicode_FromUnicode(_RPyUnicode_AsUnicode(rpystr), RPyUnicode_Size(rpystr))
+	_PyUnicode_FromRPyUnicode(_RPyUnicode_AsUnicode(rpystr), RPyUnicode_Size(rpystr))
 
 #define PyString_ToRPyString(s, rpystr)                            \
 	memcpy(_RPyString_AsString(rpystr), PyString_AS_STRING(s), \
@@ -128,6 +128,7 @@ int check_self_nonzero(PyObject* fname, PyObject* self);
 PyObject *PyTuple_GetItem_WithIncref(PyObject *tuple, int index);
 int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o);
 int PySequence_Contains_with_exc(PyObject *seq, PyObject *ob);
+PyObject* _PyUnicode_FromRPyUnicode(wchar_t *items, long length);
 
 /* implementations */
 
@@ -499,6 +500,17 @@ int PySequence_Contains_with_exc(PyObject *seq, PyObject *ob)
 	if (ret < 0) 
 		CFAIL();
 	return ret;
+}
+
+PyObject* _PyUnicode_FromRPyUnicode(wchar_t *items, long length)
+{
+    PyObject *u = PyUnicode_FromUnicode(NULL, length);
+    long i;
+    for (i=0; i<length; i++) {
+        /* xxx possibly silently truncate the unichars */
+        PyUnicode_AS_UNICODE(u)[i] = items[i];
+    }
+    return u;
 }
 
 #endif /* PYPY_STANDALONE */

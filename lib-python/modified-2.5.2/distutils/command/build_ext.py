@@ -167,7 +167,7 @@ class build_ext (Command):
         # for Release and Debug builds.
         # also Python's library directory must be appended to library_dirs
         if os.name == 'nt':
-            self.library_dirs.append(os.path.join(sys.pypy_prefix, 'pypy', '_interfaces'))
+            self.library_dirs.append(os.path.join(sys.prefix, 'pypy', '_interfaces'))
             if self.debug:
                 self.build_temp = os.path.join(self.build_temp, "Debug")
             else:

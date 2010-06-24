@@ -6,7 +6,6 @@ for the outer process, which can run CPython or PyPy.
 
 import py
 import sys, os, posixpath, errno, stat, time
-from pypy.lib import marshal   # see below
 from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
 from pypy.rlib.rarithmetic import r_longlong
@@ -26,12 +25,14 @@ log = py.log.Producer("sandlib")
 py.log.setconsumer("sandlib", MyAnsiLog())
 
 
-# Note: we use pypy.lib.marshal instead of the built-in marshal
+# Note: we use lib_pypy/marshal.py instead of the built-in marshal
 # for two reasons.  The built-in module could be made to segfault
 # or be attackable in other ways by sending malicious input to
 # load().  Also, marshal.load(f) blocks with the GIL held when
 # f is a pipe with no data immediately avaialble, preventing the
 # _waiting_thread to run.
+from pypy.tool.lib_pypy import import_from_lib_pypy
+marshal = import_from_lib_pypy('marshal')
 
 def read_message(f, timeout=None):
     # warning: 'timeout' is not really reliable and should only be used

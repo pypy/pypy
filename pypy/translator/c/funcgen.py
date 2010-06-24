@@ -13,7 +13,7 @@ from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.innerloop import find_inner_loops
-from pypy.lib.identity_dict import identity_dict
+from pypy.tool.identity_dict import identity_dict
 
 
 PyObjPtr = Ptr(PyObject)
