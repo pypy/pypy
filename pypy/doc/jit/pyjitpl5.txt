@@ -8,15 +8,15 @@ This document describes the fifth generation of PyPy's JIT.
 Implementation of the JIT
 =========================
 
-The JIT's `theory`_ is great in principle, but actual code is a different
+The JIT's `theory`_ is great in principle, the but actual code is a different
 story. This section tries to give a high level overview of how PyPy's JIT is
-implemented.  It's helpful to have a basic understanding of how the PyPy
-`translation tool chain`_ works before digging into the sources.
+implemented.  It's helpful to have an understanding of how the PyPy `translation
+tool chain`_ works before digging into the sources.
 
-Almost all JIT specific code is found in the two pypy/jit subdirectories,
-metainterp, and backend.  The metainterp directory holds platform independent
-code including the translation generator, the tracer, and the optimizer.  Code
-in the backend directory is responsible for generating machine code.
+Almost all JIT specific code is found in pypy/jit subdirectories.  Translation
+time code is in the codewriter directory.  The metainterp directory holds
+platform independent code including the the tracer and the optimizer.  Code in
+the backend directory is responsible for generating machine code.
 
 .. _`theory`: overview.html
 .. _`translation tool chain`: ../translation.html
@@ -34,7 +34,7 @@ the Python interpreter, this is the JUMP_ABSOLUTE bytecode.  The Python
 interpreter defines its hints in pypy/module/pypyjit/interp_jit.py in a few
 overriden methods of the defaut interpreter loop.
 
-The interpreter wishing to use the PyPy's JIT must define a list of *green*
+An interpreter wishing to use the PyPy's JIT must define a list of *green*
 variables and a list of *red* variables.  The *green* variables are loop
 constants.  They are used to identify the current loop.  Red variables are for
 everything else used in the execution loop.  For example, the Python interpreter
@@ -58,11 +58,11 @@ interpreter upon exiting from the JIT.  The location of the can_enter_jit hint
 is replaced with a call to a function, maybe_compile_and_run in warmstate.py,
 that checks if current loop is "hot" and should be compiled.
 
-Next, starting with the portal graph, metainterp/codewriter.py converts the
-graphs of the interpreter into JIT bytecode.  Since this bytecode is stored in
-the final binary, it's designed to be concise rather than fast.  The bytecode
-codewriter doesn't "see" (what it sees is defined by the JIT's policy) every
-part of the interpreter.  In these cases, it simply inserts an opaque call.
+Next, starting with the portal graph, codewriter/*.py converts the graphs of the
+interpreter into JIT bytecode.  Since this bytecode is stored in the final
+binary, it's designed to be concise rather than fast.  The bytecode codewriter
+doesn't "see" (what it sees is defined by the JIT's policy) every part of the
+interpreter.  In these cases, it simply inserts an opaque call.
 
 Finally, translation finishes, including the bytecode of the interpreter in the
 final binary, and interpreter is ready to use the runtime component of the JIT.
