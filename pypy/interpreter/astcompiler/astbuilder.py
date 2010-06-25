@@ -538,6 +538,8 @@ class ASTBuilder(object):
             argument = arguments_node.children[i]
             arg_type = argument.type
             if arg_type == syms.fpdef:
+                parenthesized = False
+                complex_args = False
                 while True:
                     if i + 1 < child_count and \
                             arguments_node.children[i + 1].type == tokens.EQUAL:
@@ -546,13 +548,19 @@ class ASTBuilder(object):
                         i += 2
                         have_default = True
                     elif have_default:
-                        msg = "non-default argument follows default argument"
+                        if parenthesized and not complex_args:
+                            msg = "parenthesized arg with default"
+                        else:
+                            msg = ("non-default argument follows default "
+                                   "argument")
                         self.error(msg, arguments_node)
                     if len(argument.children) == 3:
                         sub_arg = argument.children[1]
                         if len(sub_arg.children) != 1:
+                            complex_args = True
                             args.append(self.handle_arg_unpacking(sub_arg))
                         else:
+                            parenthesized = True
                             argument = sub_arg.children[0]
                             continue
                     if argument.children[0].type == tokens.NAME:

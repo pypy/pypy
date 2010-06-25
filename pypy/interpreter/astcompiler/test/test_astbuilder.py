@@ -580,6 +580,9 @@ class TestAstBuilder:
         input = "def f(a=b, c): pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "non-default argument follows default argument"
+        input = "def f((x)=23): pass"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "parenthesized arg with default"
 
     def test_decorators(self):
         to_examine = (("def f(): pass", ast.FunctionDef),
