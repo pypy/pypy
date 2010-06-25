@@ -384,6 +384,14 @@ class AppTestComprehensions:
         s = eval("{x for x in range(10) if x % 2}")
         assert s == set(x for x in range(10) if x % 2)
 
+    def test_set_literal(self):
+        s = eval("{1}")
+        assert isinstance(s, set)
+        assert s == set((1,))
+        s = eval("{0, 1, 2, 3}")
+        assert isinstance(s, set)
+        assert s == set(range(4))
+
 
 class AppTestWith:
     def test_with_simple(self):

@@ -939,6 +939,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 d.keys[i].walkabout(self)
                 self.emit_op(ops.STORE_SUBSCR)
 
+    def visit_Set(self, s):
+        self.update_position(s.lineno)
+        self.visit_sequence(s.elts)
+        self.emit_op_arg(ops.BUILD_SET, len(s.elts))
+
     def visit_Name(self, name):
         self.update_position(name.lineno)
         self.name_op(name.id, name.ctx)
