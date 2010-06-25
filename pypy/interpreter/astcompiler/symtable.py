@@ -89,7 +89,7 @@ class Scope(object):
         self.has_exec = True
 
     def note_import_star(self, imp):
-        """Called when a start import is found."""
+        """Called when a star import is found."""
         pass
 
     def mangle(self, name):
