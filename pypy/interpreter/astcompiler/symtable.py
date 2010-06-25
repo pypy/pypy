@@ -107,7 +107,7 @@ class Scope(object):
         """Decide on the scope of a name."""
         if flags & SYM_GLOBAL:
             if flags & SYM_PARAM:
-                err = "name '%s' is both local and global" % (name,)
+                err = "name '%s' is local and global" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
             globs[name] = None

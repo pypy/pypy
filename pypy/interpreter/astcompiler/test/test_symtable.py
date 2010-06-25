@@ -269,7 +269,7 @@ class TestSymbolTable:
         assert xscp.lookup("y") == symtable.SCOPE_GLOBAL_EXPLICIT
         assert zscp.lookup("y") == symtable.SCOPE_FREE
         exc = py.test.raises(SyntaxError, self.func_scope, input).value
-        assert exc.msg == "name 'x' is both local and global"
+        assert exc.msg == "name 'x' is local and global"
 
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
