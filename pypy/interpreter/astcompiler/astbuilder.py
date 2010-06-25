@@ -116,7 +116,7 @@ class ASTBuilder(object):
         try:
             misc.check_forbidden_name(name)
         except misc.ForbiddenNameAssignment, e:
-            self.error("assignment to %s" % (e.name,), node)
+            self.error("cannot assign to %s" % (e.name,), node)
 
     def set_context(self, expr, ctx):
         """Set the context of an expression to Store or Del if possible."""
@@ -125,7 +125,7 @@ class ASTBuilder(object):
         except ast.UnacceptableExpressionContext, e:
             self.error_ast(e.msg, e.node)
         except misc.ForbiddenNameAssignment, e:
-            self.error_ast("assignment to %s" % (e.name,), e.node)
+            self.error_ast("cannot assign to %s" % (e.name,), e.node)
 
     def handle_print_stmt(self, print_node):
         dest = None
