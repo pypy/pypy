@@ -79,3 +79,13 @@ class AppTestNestedScope:
 
         g = f()
         raises(ValueError, "g.func_closure[0].cell_contents")
+
+    def test_leaking_class_locals(self):
+        def f(x):
+            class X:
+                x = 12
+                def f(self):
+                    return x
+                locals()
+            return X
+        assert f(1).x == 12
