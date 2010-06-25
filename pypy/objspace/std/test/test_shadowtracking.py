@@ -209,6 +209,7 @@ class AppTestMethodCaching(AppTestShadowTracking):
         a = A()
         names = [name for name in A.__dict__.keys()
                       if not name.startswith('_')]
+        names.sort()
         names_repeated = names * 10
         result = []
         __pypy__.reset_method_cache_counter()
