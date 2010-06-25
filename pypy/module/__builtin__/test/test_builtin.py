@@ -186,7 +186,8 @@ class AppTestBuiltinApp:
         raises(StopIteration, enum.next)
         raises(TypeError, enumerate, 1)
         raises(TypeError, enumerate, None)
-        
+        enum = enumerate(range(5), 2)
+        assert list(enum) == zip(range(2, 7), range(5))
 
     def test_xrange_args(self):
 ##        # xrange() attributes are deprecated and were removed in Python 2.3.
