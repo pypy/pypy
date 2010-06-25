@@ -168,7 +168,7 @@ class MsvcPlatform(Platform):
             # Tell the linker to generate a manifest file
             temp_manifest = ofile.dirpath().join(
                 ofile.purebasename + '.manifest')
-            args += ["/MANIFESTFILE:%s" % (temp_manifest,)]
+            args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
 
         self._execute_c_compiler(self.link, args, exe_name)
 
@@ -277,7 +277,7 @@ class MsvcPlatform(Platform):
                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS)')
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFESTFILE:$*.manifest',
+                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
 
@@ -290,7 +290,7 @@ class MsvcPlatform(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFESTFILE:$*.manifest',
+                   ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
 
