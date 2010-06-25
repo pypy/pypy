@@ -982,6 +982,9 @@ class ASTBuilder(object):
                     if keywords:
                         self.error("non-keyword arg after keyword arg",
                                    expr_node)
+                    if variable_arg:
+                        self.error("only named arguments may follow "
+                                   "*expression", expr_node)
                     args.append(self.handle_expr(expr_node))
                 elif argument.children[1].type == syms.comp_for:
                     args.append(self.handle_genexp(argument))

@@ -992,6 +992,8 @@ class TestAstBuilder:
         assert exc.msg == "keyword can't be an expression"
         exc = py.test.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated"
+        exc = py.test.raises(SyntaxError, self.get_ast, "f(x, *a, b)").value
+        assert exc.msg == "only named arguments may follow *expression"
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")
