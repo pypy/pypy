@@ -13,8 +13,8 @@ modules written in C. While the main purpose of this release is increased
 stability, this feature is in alpha stage and it is not yet suited for
 production environments.
 
-Highlight of this release
-=========================
+Highlights of this release
+==========================
 
 * We introduced support for CPython extension modules written in C. As of now,
   this support is in alpha, and it's very unlikely unaltered C extensions will
