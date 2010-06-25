@@ -618,9 +618,6 @@ class FunctionGcRootTracker(object):
             return InsnRet(self.CALLEE_SAVE_REGISTERS)
         return InsnStop()
     
-    def visit_jmpl(self, *args, **kwargs):
-        return self.visit_jmp(*args, **kwargs)
-
     def register_jump_to(self, label):
         if not isinstance(self.insns[-1], InsnStop):
             self.labels[label].previous_insns.append(self.insns[-1])
