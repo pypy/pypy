@@ -433,6 +433,9 @@ class W_ReversedIterator(Wrappable):
 
     def __init__(self, space, w_sequence):
         self.remaining = space.int_w(space.len(w_sequence)) - 1
+        if space.lookup(w_sequence, "__getitem__") is None:
+            msg = "reversed() argument must be a sequence"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         self.w_sequence = w_sequence
 
     def descr___iter__(self, space):
