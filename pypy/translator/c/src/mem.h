@@ -29,7 +29,7 @@ extern long pypy_asm_stackwalk(void*, void*);
    dependency that we want. */
 
 #define pypy_asm_gcroot(p) ({void*_r; \
-               asm ("/* GCROOT %0 */" : "=g" (_r) : \
+               asm ("/* GCROOT %0 */" : "=r" (_r) : \
                     "0" (p), "m" (__gcnoreorderhack)); \
                _r; })
 

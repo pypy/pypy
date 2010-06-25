@@ -1,3 +1,5 @@
+import sys
+
 LOC_REG       = 0
 LOC_ESP_PLUS  = 1
 LOC_EBP_PLUS  = 2
