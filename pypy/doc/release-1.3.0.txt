@@ -39,3 +39,6 @@ Highlight of this release
 
 * Various small improvements have been added to the JIT code, as well as a great
   speedup of compiling time.
+
+Cheers,
+Maciej Fijalkowski, Armin Rigo, Alex Gaynor, Amaury Forgeot d'Arc and the PyPy team
