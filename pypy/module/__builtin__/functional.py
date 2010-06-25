@@ -374,11 +374,12 @@ class W_Enumerate(Wrappable):
         self.w_iter = w_iter
         self.w_index = w_start
 
-    def descr___new__(space, w_subtype, w_iterable, start=0):
+    def descr___new__(space, w_subtype, w_iterable, w_start=None):
         self = space.allocate_instance(W_Enumerate, w_subtype)
-        self.__init__(space.iter(w_iterable), space.wrap(start))
+        if w_start is None:
+            w_start = space.wrap(0)
+        self.__init__(space.iter(w_iterable), w_start)
         return space.wrap(self)
-    descr___new__.unwrap_spec = [ObjSpace, W_Root, W_Root, int]
 
     def descr___iter__(self, space):
         return space.wrap(self)
