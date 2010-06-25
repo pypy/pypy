@@ -780,6 +780,12 @@ class AppTestOldstyle(object):
             assert a == 23
         assert c.got_exit
 
+    def test_reverse(self):
+        class X:
+            def __reversed__(self):
+                return [1, 2]
+        assert reversed(X()) == [1, 2]
+
 class AppTestOldStyleSharing(AppTestOldstyle):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})

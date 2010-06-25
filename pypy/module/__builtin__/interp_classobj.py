@@ -670,7 +670,7 @@ class W_InstanceObject(Wrappable):
 rawdict = {}
 
 # unary operations
-for op in "neg pos abs invert int long float oct hex enter".split():
+for op in "neg pos abs invert int long float oct hex enter reversed".split():
     specialname = "__%s__" % (op, )
     # fool the gateway logic by giving it a real unbound method
     meth = new.instancemethod(
