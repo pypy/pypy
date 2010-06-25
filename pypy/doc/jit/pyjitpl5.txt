@@ -8,7 +8,7 @@ This document describes the fifth generation of PyPy's JIT.
 Implementation of the JIT
 =========================
 
-The JIT's `theory`_ is great in principle, the but actual code is a different
+The JIT's `theory`_ is great in principle, but the actual code is a different
 story. This section tries to give a high level overview of how PyPy's JIT is
 implemented.  It's helpful to have an understanding of how the PyPy `translation
 tool chain`_ works before digging into the sources.
