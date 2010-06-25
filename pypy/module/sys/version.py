@@ -7,8 +7,7 @@ import os
 CPYTHON_VERSION            = (2, 5, 2, "beta", 42)
 CPYTHON_API_VERSION        = 1012
 
-# when changing the pypy version, remind to also change the name of trunk/lib/pypyX.Y
-PYPY_VERSION               = (1, 2, 0, "beta", '?')
+PYPY_VERSION               = (1, 3, 0, "beta", '?')
 # the last item is replaced by the svn revision ^^^
 
 TRIM_URL_UP_TO = 'svn/pypy/'
