@@ -1,3 +1,4 @@
+import sys
 import py
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.rte import Support
