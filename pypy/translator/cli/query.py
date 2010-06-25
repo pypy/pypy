@@ -2,7 +2,7 @@ import sys
 import cPickle as pickle
 import os.path
 import py
-from py.compat import subprocess
+import subprocess
 from pypy.tool.udir import udir
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.rte import Query

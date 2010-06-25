@@ -2,7 +2,7 @@ import sys
 import shutil
 
 import py
-from py.compat import subprocess
+import subprocess
 from pypy.config.config import Config
 from pypy.translator.oosupport.genoo import GenOO
 from pypy.translator.cli import conftest

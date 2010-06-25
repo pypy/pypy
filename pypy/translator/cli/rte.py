@@ -7,7 +7,7 @@ import os.path
 import shutil
 
 import py
-from py.compat import subprocess
+import subprocess
 from pypy.translator.cli.sdk import SDK
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("cli")
