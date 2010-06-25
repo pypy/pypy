@@ -442,6 +442,7 @@ _static_opcode_stack_effects = {
     ops.LIST_APPEND : -1,
     ops.SET_ADD : -1,
     ops.MAP_ADD : -2,
+    ops.STORE_MAP : -2,
 
     ops.BINARY_POWER : -1,
     ops.BINARY_MULTIPLY : -1,

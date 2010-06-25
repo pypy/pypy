@@ -1069,8 +1069,11 @@ class __extend__(pyframe.PyFrame):
                 self.space.call_function(w_add, w_item)
         self.pushvalue(w_set)
 
-    def STORE_MAP(self, zero, next_instr):
-        raise BytecodeCorruption
+    def STORE_MAP(self, oparg, next_instr):
+        w_key = self.popvalue()
+        w_value = self.popvalue()
+        w_dict = self.peekvalue()
+        self.space.setitem(w_dict, w_key, w_value)
 
 
 class __extend__(pyframe.CPythonFrame):

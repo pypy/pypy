@@ -933,11 +933,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.BUILD_MAP, 0)
         if d.values:
             for i in range(len(d.values)):
-                self.emit_op(ops.DUP_TOP)
                 d.values[i].walkabout(self)
-                self.emit_op(ops.ROT_TWO)
                 d.keys[i].walkabout(self)
-                self.emit_op(ops.STORE_SUBSCR)
+                self.emit_op(ops.STORE_MAP)
 
     def visit_Set(self, s):
         self.update_position(s.lineno)
