@@ -641,6 +641,7 @@ class FunctionGcRootTracker(object):
         self.register_jump_to(label)
         return []
 
+    visit_jmpl = visit_jmp
     visit_je = conditional_jump
     visit_jne = conditional_jump
     visit_jg = conditional_jump
