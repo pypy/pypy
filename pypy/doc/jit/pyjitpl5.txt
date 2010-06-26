@@ -58,7 +58,7 @@ interpreter upon exiting from the JIT.  The location of the can_enter_jit hint
 is replaced with a call to a function, maybe_compile_and_run in warmstate.py,
 that checks if current loop is "hot" and should be compiled.
 
-Next, starting with the portal graph, codewriter/*.py converts the graphs of the
+Next, starting with the portal graph, codewriter/\*.py converts the graphs of the
 interpreter into JIT bytecode.  Since this bytecode is stored in the final
 binary, it's designed to be concise rather than fast.  The bytecode codewriter
 doesn't "see" (what it sees is defined by the JIT's policy) every part of the
