@@ -56,4 +56,4 @@ on the `development mailing list`_.
 .. _`Documentation`: docindex.html 
 .. _`Getting Started`: getting-started.html
 .. _papers: extradoc.html
-.. _`Release 1.3`: release-1.3.0.html
+.. _`Release 1.3`: http://pypy.org/download.html
