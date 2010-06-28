@@ -181,6 +181,8 @@ def descr__doc(space, w_type):
         return space.wrap("""type(object) -> the object's type
 type(name, bases, dict) -> a new type""")
     w_type = _check(space, w_type)
+    if not w_type.is_heaptype():
+        return w_type.w_doc
     w_result = w_type.getdictvalue(space, '__doc__')
     if w_result is None:
         return space.w_None

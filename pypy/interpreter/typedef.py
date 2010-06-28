@@ -19,6 +19,7 @@ class TypeDef:
         self.base = __base
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
+        self.doc = rawdict.pop('__doc__', None)
         if __base is not None:
             self.hasdict     |= __base.hasdict
             self.weakrefable |= __base.weakrefable

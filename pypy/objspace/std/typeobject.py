@@ -96,6 +96,7 @@ class W_TypeObject(W_Object):
         w_self.hasdict = False
         w_self.needsdel = False
         w_self.weakrefable = False
+        w_self.w_doc = space.w_None
         w_self.weak_subclasses = []
         w_self.__flags__ = 0           # or _HEAPTYPE or _CPYTYPE
         w_self.instancetypedef = overridetypedef
@@ -594,11 +595,12 @@ def setup_user_defined_type(w_self):
 def setup_builtin_type(w_self):
     w_self.hasdict = w_self.instancetypedef.hasdict
     w_self.weakrefable = w_self.instancetypedef.weakrefable
+    w_self.w_doc = w_self.space.wrap(w_self.instancetypedef.doc)
     ensure_common_attributes(w_self)
 
 def ensure_common_attributes(w_self):
     ensure_static_new(w_self)
-    ensure_doc_attr(w_self)
+    w_self.dict_w.setdefault('__doc__', w_self.w_doc)
     if w_self.is_heaptype():
         ensure_module_attr(w_self)
     w_self.mro_w = []      # temporarily
@@ -611,10 +613,6 @@ def ensure_static_new(w_self):
         w_new = w_self.dict_w['__new__']
         if isinstance(w_new, Function):
             w_self.dict_w['__new__'] = StaticMethod(w_new)
-
-def ensure_doc_attr(w_self):
-    # make sure there is a __doc__ in dict_w
-    w_self.dict_w.setdefault('__doc__', w_self.space.w_None)
 
 def ensure_module_attr(w_self):
     # initialize __module__ in the dict (user-defined types only)
