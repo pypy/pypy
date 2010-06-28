@@ -236,7 +236,7 @@ testmap = [
     RegrTest('test_enumerate.py', core=True),
     RegrTest('test_eof.py', core=True),
     RegrTest('test_epoll.py'),
-    RegrTest('test_errno.py'),
+    RegrTest('test_errno.py', usemodules="errno"),
     RegrTest('test_exceptions.py', core=True),
     RegrTest('test_extcall.py', core=True),
     RegrTest('test_fcntl.py', usemodules='fcntl', skip=skip_win32),
