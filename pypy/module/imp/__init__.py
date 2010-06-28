@@ -25,6 +25,7 @@ class Module(MixedModule):
         'init_frozen':     'interp_imp.init_frozen',
         'is_builtin':      'interp_imp.is_builtin',
         'is_frozen':       'interp_imp.is_frozen',
+        'reload':          'interp_imp.reload',
 
         'lock_held':       'interp_imp.lock_held',
         'acquire_lock':    'interp_imp.acquire_lock',
