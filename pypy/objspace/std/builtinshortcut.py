@@ -39,6 +39,7 @@ KNOWN_MISSING = ['getattr',   # mostly non-builtins or optimized by CALL_METHOD
                  'abs', 'hex', 'oct',             # rare stuff?
                  'pos', 'divmod', 'cmp',          # rare stuff?
                  'float', 'long', 'coerce',       # rare stuff?
+                 'isinstance', 'issubtype',
                  ]
 # We cannot support {get,set,del}slice right now because
 # DescrOperation.{get,set,del}slice do a bit more work than just call

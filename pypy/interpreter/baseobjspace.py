@@ -870,10 +870,6 @@ class ObjSpace(object):
                 return self.w_True
         return self.w_False
 
-    def isinstance(self, w_obj, w_type):
-        w_objtype = self.type(w_obj)
-        return self.issubtype(w_objtype, w_type)
-
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
 
@@ -904,7 +900,7 @@ class ObjSpace(object):
     # it with exception_
 
     def exception_is_valid_obj_as_class_w(self, w_obj):
-        if not self.is_true(self.isinstance(w_obj, self.w_type)):
+        if not self.isinstance_w(w_obj, self.w_type):
             return False
         if not self.full_exceptions:
             return True
@@ -1201,7 +1197,8 @@ ObjSpace.MethodTable = [
     ('is_',             'is',        2, []),
     ('id',              'id',        1, []),
     ('type',            'type',      1, []),
-    ('issubtype',       'issubtype', 2, []),  # not for old-style classes
+    ('isinstance',      'isinstance', 2, ['__instancecheck__']),
+    ('issubtype',       'issubtype', 2, ['__subclasscheck__']),  # not for old-style classes
     ('repr',            'repr',      1, ['__repr__']),
     ('str',             'str',       1, ['__str__']),
     ('format',          'format',    2, ['__format__']),

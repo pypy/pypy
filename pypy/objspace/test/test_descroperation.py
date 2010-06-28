@@ -463,6 +463,33 @@ class AppTest_Descroperation:
                 return self
         raises(TypeError, iter, x())
 
+    def test_isinstance_and_issubclass(self):
+        class Meta(type):
+            def __instancecheck__(cls, instance):
+                if cls is A:
+                    return True
+                return False
+            def __subclasscheck__(cls, sub):
+                if cls is B:
+                    return True
+                return False
+        class A:
+            __metaclass__ = Meta
+        class B(A):
+            pass
+        a = A()
+        b = B()
+        assert isinstance(a, A)
+        assert not isinstance(a, B)
+        assert isinstance(b, A)
+        assert not isinstance(b, B)
+        assert isinstance(4, A)
+        assert not issubclass(A, A)
+        assert not issubclass(B, A)
+        assert issubclass(A, B)
+        assert issubclass(B, B)
+        assert issubclass(23, B)
+
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}

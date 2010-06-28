@@ -321,7 +321,7 @@ class W_TypeObject(W_Object):
             raise operationerrfmt(space.w_TypeError,
                 "X is not a type object ('%s')",
                 space.type(w_subtype).getname(space, '?'))
-        if not space.is_true(space.issubtype(w_subtype, w_self)):
+        if not w_subtype.issubtype(w_self):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s): %s is not a subtype of %s",
                 w_self.name, w_subtype.name, w_subtype.name, w_self.name)
@@ -357,6 +357,17 @@ class W_TypeObject(W_Object):
 
     def is_cpytype(w_self):
         return w_self.__flags__ & _CPYTYPE
+
+    def issubtype(w_self, w_type):
+        w_self = hint(w_self, promote=True)
+        w_type = hint(w_type, promote=True)
+        if w_self.space.config.objspace.std.withtypeversion and we_are_jitted():
+            version_tag1 = w_self.version_tag()
+            version_tag2 = w_type.version_tag()
+            if version_tag1 is not None and version_tag2 is not None:
+                res = _pure_issubtype(w_self, w_type, version_tag1, version_tag2)
+                return res
+        return _issubtype(w_self, w_type)
 
     def get_module(w_self):
         space = w_self.space
@@ -700,24 +711,18 @@ def call__Type(space, w_type, __args__):
                                  space.wrap("__init__() should return None"))
     return w_newobject
 
-def _issubtype(w_type1, w_type2):
-    return w_type2 in w_type1.mro_w
+def _issubtype(w_sub, w_type):
+    return w_type in w_sub.mro_w
 
 @purefunction_promote()
-def _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2):
-    return _issubtype(w_type1, w_type2)
+def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
+    return _issubtype(w_sub, w_type)
 
-def issubtype__Type_Type(space, w_type1, w_type2):
-    w_type1 = hint(w_type1, promote=True)
-    w_type2 = hint(w_type2, promote=True)
-    if space.config.objspace.std.withtypeversion and we_are_jitted():
-        version_tag1 = w_type1.version_tag()
-        version_tag2 = w_type2.version_tag()
-        if version_tag1 is not None and version_tag2 is not None:
-            res = _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2)
-            return space.newbool(res)
-    res = _issubtype(w_type1, w_type2)
-    return space.newbool(res)
+def issubtype__Type_Type(space, w_type, w_sub):
+    return space.newbool(w_sub.issubtype(w_type))
+
+def isinstance__Type_ANY(space, w_type, w_inst):
+    return space.newbool(space.type(w_inst).issubtype(w_type))
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()

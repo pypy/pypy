@@ -174,6 +174,7 @@ Table = [
     ('id',              id),
     ('type',            new_style_type),
     ('type',            type),
+    ('isinstance',      isinstance),
     ('issubtype',       issubclass),
     ('repr',            repr),
     ('str',             str),

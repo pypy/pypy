@@ -464,10 +464,19 @@ class DescrOperation:
             raise OperationError(space.w_TypeError,
                                  space.wrap("coercion should return None or 2-tuple"))
         return w_res
-    
 
+    def issubtype(space, w_sub, w_type):
+        w_check = space.lookup(w_type, "__subclasscheck__")
+        if w_check is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("issubclass not supported here"))
+        return space.get_and_call_function(w_check, w_type, w_sub)
 
-    # xxx ord
+    def isinstance(space, w_inst, w_type):
+        w_check = space.lookup(w_type, "__instancecheck__")
+        if w_check is not None:
+            return space.get_and_call_function(w_check, w_type, w_inst)
+        return space.issubtype(space.type(w_inst), w_type)
 
 
 
