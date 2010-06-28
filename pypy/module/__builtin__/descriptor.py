@@ -195,8 +195,8 @@ class C(object):
     setter = interp2app(W_Property.setter),
     deleter = interp2app(W_Property.deleter),
 )
-# This allows us to have a __doc__ of the property type and a __doc__ descriptor
-# for the instances.
+# This allows there to be a __doc__ of the property type and a __doc__
+# descriptor for the instances.
 W_Property.typedef.rawdict['__doc__'] = interp_attrproperty_w('w_doc',
                                                               W_Property)
 
