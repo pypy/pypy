@@ -727,14 +727,14 @@ class W_UnicodeEncodeError(W_UnicodeError):
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
-                    return "%r codec can't encode character u'\\x%02x' in position %d: %s"%(
+                    return "'%s' codec can't encode character u'\\x%02x' in position %d: %s"%(
                         self.encoding, badchar, self.start, self.reason)
                 if badchar <= 0xffff:
-                    return "%r codec can't encode character u'\\u%04x' in position %d: %s"%(
+                    return "'%s' codec can't encode character u'\\u%04x' in position %d: %s"%(
                         self.encoding, badchar, self.start, self.reason)
-                return "%r codec can't encode character u'\\U%08x' in position %d: %s"%(
+                return "'%s' codec can't encode character u'\\U%08x' in position %d: %s"%(
                     self.encoding, badchar, self.start, self.reason)
-            return "%r codec can't encode characters in position %d-%d: %s" % (
+            return "'%s' codec can't encode characters in position %d-%d: %s" % (
                 self.encoding, self.start, self.end - 1, self.reason)
         """)
     descr_str.unwrap_spec = ['self', ObjSpace]
