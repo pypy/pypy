@@ -34,6 +34,14 @@ class AppTestExc(object):
         del x.message
         assert not hasattr(x, "message")
 
+    def test_unicode_message(self):
+        assert unicode(Exception(u"\xe1")) == u"\xe1"
+        class E(BaseException):
+            def __str__(self):
+                return u"\xe1"
+        e = E()
+        assert unicode(e) == u"\xe1"
+
     def test_kwargs(self):
         from exceptions import Exception
         class X(Exception):

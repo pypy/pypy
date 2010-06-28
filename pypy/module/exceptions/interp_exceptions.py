@@ -117,6 +117,22 @@ class W_BaseException(Wrappable):
             return space.str(space.newtuple(self.args_w))
     descr_str.unwrap_spec = ['self', ObjSpace]
 
+    def descr_unicode(self, space):
+        w_str = space.lookup(self, "__str__")
+        w_base_str = space.wrap(W_BaseException.typedef.rawdict["__str__"])
+        if not space.is_w(w_str, w_base_str):
+            w_as_str = space.get_and_call_function(w_str, space.wrap(self))
+            return space.call_function(space.w_unicode, w_as_str)
+        lgt = len(self.args_w)
+        if lgt == 0:
+            return space.wrap(u"")
+        if lgt == 1:
+            return space.call_function(space.w_unicode, self.args_w[0])
+        else:
+            w_tup = space.newtuple(self.args_w)
+            return space.call_function(space.w_unicode, w_tup)
+    descr_unicode.unwrap_spec = ['self', ObjSpace]
+
     def descr_repr(self, space):
         if self.args_w:
             args_repr = space.str_w(space.repr(space.newtuple(self.args_w)))
@@ -202,6 +218,7 @@ W_BaseException.typedef = TypeDef(
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
+    __unicode__ = interp2app(W_BaseException.descr_unicode),
     __repr__ = interp2app(W_BaseException.descr_repr),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
                               cls=W_BaseException),
