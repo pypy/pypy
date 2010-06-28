@@ -633,10 +633,10 @@ class W_UnicodeDecodeError(W_UnicodeError):
     def descr_str(self, space):
         return space.appexec([self], """(self):
             if self.end == self.start + 1:
-                return "%r codec can't decode byte 0x%02x in position %d: %s"%(
+                return "'%s' codec can't decode byte 0x%02x in position %d: %s"%(
                     self.encoding,
                     ord(self.object[self.start]), self.start, self.reason)
-            return "%r codec can't decode bytes in position %d-%d: %s" % (
+            return "'%s' codec can't decode bytes in position %d-%d: %s" % (
                 self.encoding, self.start, self.end - 1, self.reason)
         """)
     descr_str.unwrap_spec = ['self', ObjSpace]
