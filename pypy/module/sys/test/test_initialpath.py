@@ -12,21 +12,7 @@ def build_hierarchy(prefix):
     return a, b, c
 
 
-def test_stdlib_in_pypyxy(tmpdir):
-    pypyxy = tmpdir.join('lib', 'pypy%d.%d' % PYPY_VERSION[:2])
-    dirs = build_hierarchy(pypyxy)
-    path = getinitialpath(str(tmpdir))
-    assert path == map(str, dirs)
-
-
 def test_stdlib_in_prefix(tmpdir):
     dirs = build_hierarchy(tmpdir)
     path = getinitialpath(str(tmpdir))
     assert path == map(str, dirs)
-
-def test_stdlib_precedence(tmpdir):
-    pypyxy = tmpdir.join('lib', 'pypy%d.%d' % PYPY_VERSION[:2])
-    dirs1 = build_hierarchy(tmpdir)
-    dirs2 = build_hierarchy(pypyxy)
-    path = getinitialpath(str(tmpdir))
-    assert path == map(str, dirs2)

@@ -457,16 +457,14 @@ class AppTestAppMain:
         # setup code for test_get_library_path
         # ------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        libroot = 'lib/pypy%d.%d' % PYPY_VERSION[:2]
         cpy_ver = '%d.%d.%d' % CPYTHON_VERSION[:3]
         
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
         # lib/pypy1.2/*
-        prefix = udir.join('pathtest')
+        prefix = udir.join('pathtest').ensure(dir=1)
         fake_exe = prefix.join('bin/pypy-c').ensure(file=1)
-        pypyxy = prefix.join(libroot).ensure(dir=1)
-        expected_path = [str(pypyxy.join(subdir).ensure(dir=1))
+        expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
                                         'lib-python/modified-%s' % cpy_ver,
                                         'lib-python/%s' % cpy_ver)]
