@@ -158,6 +158,30 @@ class W_BaseException(Wrappable):
         space.call_method(w_olddict, 'update', w_dict)
     descr_setstate.unwrap_spec = ['self', ObjSpace, W_Root]
 
+    def descr_message_get(space, self):
+        w_dict = self.w_dict
+        if w_dict is not None:
+            w_msg = space.finditem(w_dict, space.wrap("message"))
+            if w_msg is not None:
+                return w_msg
+        if self.w_message is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("message was deleted"))
+        return self.w_message
+
+    def descr_message_set(space, self, w_new):
+        space.setitem(self.getdict(), space.wrap("message"), w_new)
+
+    def descr_message_del(space, self):
+        w_dict = self.w_dict
+        if w_dict is not None:
+            try:
+                space.delitem(w_dict, space.wrap("message"))
+            except OperationError, e:
+                if not e.match(space.w_KeyError):
+                    raise
+        self.w_message = None
+
 def _new(cls, basecls=None):
     if basecls is None:
         basecls = cls
@@ -182,7 +206,9 @@ W_BaseException.typedef = TypeDef(
     __getitem__ = interp2app(W_BaseException.descr_getitem),
     __reduce__ = interp2app(W_BaseException.descr_reduce),
     __setstate__ = interp2app(W_BaseException.descr_setstate),
-    message = readwrite_attrproperty_w('w_message', W_BaseException),
+    message = GetSetProperty(W_BaseException.descr_message_get,
+                            W_BaseException.descr_message_set,
+                            W_BaseException.descr_message_del),
     args = GetSetProperty(W_BaseException.descr_getargs,
                           W_BaseException.descr_setargs),
 )

@@ -31,6 +31,8 @@ class AppTestExc(object):
         assert x[1:2] == (2,)
         x.message = "xyz"
         assert x.message == "xyz"
+        del x.message
+        assert not hasattr(x, "message")
 
     def test_kwargs(self):
         from exceptions import Exception
