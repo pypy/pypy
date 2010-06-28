@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
 from pypy.interpreter import gateway
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import StdTypeDef, no_hash_descr
@@ -100,6 +101,9 @@ def descr___format__(space, w_obj, w_format_spec):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     return space.format(w_as_str, w_format_spec)
 
+def descr___subclasshook__(space, __args__):
+    return space.w_NotImplemented
+
 
 app = gateway.applevel(r'''
 def reduce_1(obj, proto):
@@ -191,6 +195,8 @@ object_typedef = StdTypeDef("object",
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),
     __format__ = gateway.interp2app(descr___format__, unwrap_spec=[ObjSpace,
                                    gateway.W_Root, gateway.W_Root]),
+    __subclasshook__ = gateway.interp2app(descr___subclasshook__, unwrap_spec=
+    [ObjSpace, Arguments]),
     __init__ = gateway.interp2app(descr__init__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )

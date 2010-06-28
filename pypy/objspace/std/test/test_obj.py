@@ -63,3 +63,8 @@ class AppTestObject:
         res = format(x(), u"")
         assert res == u"Pickle"
         assert isinstance(res, unicode)
+
+    def test_subclasshook(self):
+        class x(object):
+            pass
+        assert x().__subclasshook__(object()) is NotImplemented
