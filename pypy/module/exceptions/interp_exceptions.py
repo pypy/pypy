@@ -499,7 +499,7 @@ class W_SyntaxError(W_StandardError):
         self.w_lineno   = space.w_None
         self.w_offset   = space.w_None
         self.w_text     = space.w_None
-        self.w_msg      = space.wrap('')
+        self.w_msg      = space.w_None
         self.w_print_file_and_line = space.w_None # what's that?
         W_BaseException.__init__(self, space)
 

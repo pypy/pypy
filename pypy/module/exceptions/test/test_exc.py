@@ -131,6 +131,8 @@ class AppTestExc(object):
 
     def test_syntax_error(self):
         from exceptions import SyntaxError
+        s = SyntaxError()
+        assert s.msg is None
         s = SyntaxError(3)
         assert str(s) == '3'
         assert str(SyntaxError("a", "b", 123)) == "a"
