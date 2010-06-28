@@ -5,6 +5,7 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
 
@@ -160,4 +161,31 @@ def hash__Tuple(space, w_tuple):
 def getnewargs__Tuple(space, w_tuple):
     return space.newtuple([W_TupleObject(w_tuple.wrappeditems)])
 
-register_all(vars())
+def tuple_count__Tuple_ANY(space, w_tuple, w_obj):
+    count = 0
+    for w_item in w_tuple.wrappeditems:
+        if space.eq_w(w_item, w_obj):
+            count += 1
+    return space.wrap(count)
+
+def tuple_index__Tuple_ANY_ANY_ANY(space, w_tuple, w_obj, w_start, w_stop):
+    start = slicetype._Eval_SliceIndex(space, w_start)
+    stop = slicetype._Eval_SliceIndex(space, w_stop)
+    length = len(w_tuple.wrappeditems)
+    if start < 0:
+        start += length
+        if start < 0:
+            start = 0
+    if stop < 0:
+        stop += length
+        if stop < 0:
+            stop = 0
+    for i in range(start, min(stop, length)):
+        w_item = w_tuple.wrappeditems[i]
+        if space.eq_w(w_item, w_obj):
+            return space.wrap(i)
+    raise OperationError(space.w_ValueError,
+                         space.wrap("tuple.index(x): x not in tuple"))
+
+from pypy.objspace.std import tupletype
+register_all(vars(), tupletype)
