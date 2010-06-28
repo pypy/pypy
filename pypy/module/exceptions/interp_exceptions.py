@@ -167,6 +167,8 @@ class W_BaseException(Wrappable):
         if self.w_message is None:
             raise OperationError(space.w_AttributeError,
                                  space.wrap("message was deleted"))
+        space.warn("BaseException.message has been deprecated as of Python 2.6",
+                   space.w_DeprecationWarning)
         return self.w_message
 
     def descr_message_set(space, self, w_new):
