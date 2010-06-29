@@ -62,11 +62,12 @@ class BaseCompiledMixin(object):
         warmrunnerdesc = WarmRunnerDesc(t, translate_support_code=True,
                                         CPUClass=self.CPUClass,
                                         **kwds)
-        warmrunnerdesc.state.set_param_threshold(3)          # for tests
-        warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
-        warmrunnerdesc.state.set_param_trace_limit(trace_limit)
-        warmrunnerdesc.state.set_param_inlining(inline)
-        warmrunnerdesc.state.set_param_optimizer(OPTIMIZER_FULL)
+        for jd in warmrunnerdesc.jitdrivers_sd:
+            jd.warmstate.set_param_threshold(3)          # for tests
+            jd.warmstate.set_param_trace_eagerness(2)    # for tests
+            jd.warmstate.set_param_trace_limit(trace_limit)
+            jd.warmstate.set_param_inlining(inline)
+            jd.warmstate.set_param_optimizer(OPTIMIZER_FULL)
         mixlevelann = warmrunnerdesc.annhelper
         entry_point_graph = mixlevelann.getgraph(entry_point, [s_list_of_strings],
                                                  annmodel.SomeInteger())
