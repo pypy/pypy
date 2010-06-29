@@ -636,10 +636,14 @@ class RegAlloc(object):
         self._consider_call(op, guard_op)
 
     def consider_call_assembler(self, op, guard_op):
-        descr = op.descr
         portal_calldescr = self.assembler.cpu.portal_calldescr
         size = portal_calldescr.get_result_size(self.translate_support_code)
-        vable_index = self.assembler.cpu.index_of_virtualizable
+        #
+        descr = op.descr
+        assert isinstance(descr, LoopToken)
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None
+        vable_index = jd.index_of_virtualizable
         if vable_index >= 0:
             self.rm._sync_var(op.args[vable_index])
             vable = self.fm.loc(op.args[vable_index], 1)

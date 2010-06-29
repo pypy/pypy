@@ -128,8 +128,9 @@ class WarmspotTests(object):
 
         from pypy.jit.metainterp import optimize
 
-        assert warmrunnerdescr.state.optimize_loop is optimize.optimize_loop
-        assert warmrunnerdescr.state.optimize_bridge is optimize.optimize_bridge
+        state = warmrunnerdescr.jitdrivers_sd[0].warmstate
+        assert state.optimize_loop is optimize.optimize_loop
+        assert state.optimize_bridge is optimize.optimize_bridge
 
     def test_static_debug_level(self, capfd):
         py.test.skip("debug_level is being deprecated")
@@ -294,7 +295,7 @@ class TestWarmspotDirect(object):
             def __init__(self, no):
                 self.no = no
             
-            def handle_fail(self, metainterp_sd):
+            def handle_fail(self, metainterp_sd, jitdrivers_sd):
                 if self.no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
                 if self.no == 1:
@@ -355,12 +356,13 @@ class TestWarmspotDirect(object):
 
     def test_call_helper(self):
         from pypy.rpython.llinterp import LLException
-        
-        assert self.desc.assembler_call_helper(0, 0) == 3
-        assert self.desc.assembler_call_helper(1, 0) == 10
-        assert self.desc.assembler_call_helper(2, 0) == 10
+
+        [jd] = self.desc.jitdrivers_sd
+        assert jd._assembler_call_helper(0, 0) == 3
+        assert jd._assembler_call_helper(1, 0) == 10
+        assert jd._assembler_call_helper(2, 0) == 10
         try:
-            self.desc.assembler_call_helper(3, 0)
+            jd._assembler_call_helper(3, 0)
         except LLException, lle:
             assert lle[0] == self.exc_vtable
         else:

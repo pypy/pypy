@@ -60,37 +60,38 @@ class Assembler(object):
         self.code.append(chr(reg.index))
 
     def emit_const(self, const, kind, allow_short=False):
-        if const not in self.constants_dict:
-            value = const.value
-            TYPE = lltype.typeOf(value)
-            if kind == 'int':
-                if isinstance(TYPE, lltype.Ptr):
-                    assert TYPE.TO._gckind == 'raw'
-                    self.see_raw_object(value)
-                    value = llmemory.cast_ptr_to_adr(value)
-                    TYPE = llmemory.Address
-                if TYPE == llmemory.Address:
-                    value = heaptracker.adr2int(value)
-                elif not isinstance(value, ComputedIntSymbolic):
-                    value = lltype.cast_primitive(lltype.Signed, value)
-                    if allow_short and -128 <= value <= 127:
-                        # emit the constant as a small integer
-                        self.code.append(chr(value & 0xFF))
-                        return True
-                constants = self.constants_i
-            elif kind == 'ref':
-                value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-                constants = self.constants_r
-            elif kind == 'float':
-                assert TYPE == lltype.Float
-                constants = self.constants_f
-            else:
-                raise NotImplementedError(const)
+        value = const.value
+        TYPE = lltype.typeOf(value)
+        if kind == 'int':
+            if isinstance(TYPE, lltype.Ptr):
+                assert TYPE.TO._gckind == 'raw'
+                self.see_raw_object(value)
+                value = llmemory.cast_ptr_to_adr(value)
+                TYPE = llmemory.Address
+            if TYPE == llmemory.Address:
+                value = heaptracker.adr2int(value)
+            elif not isinstance(value, ComputedIntSymbolic):
+                value = lltype.cast_primitive(lltype.Signed, value)
+                if allow_short and -128 <= value <= 127:
+                    # emit the constant as a small integer
+                    self.code.append(chr(value & 0xFF))
+                    return True
+            constants = self.constants_i
+        elif kind == 'ref':
+            value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
+            constants = self.constants_r
+        elif kind == 'float':
+            assert TYPE == lltype.Float
+            constants = self.constants_f
+        else:
+            raise NotImplementedError(const)
+        key = (kind, Constant(value))
+        if key not in self.constants_dict:
             constants.append(value)
-            self.constants_dict[const] = 256 - len(constants)
+            self.constants_dict[key] = 256 - len(constants)
         # emit the constant normally, as one byte that is an index in the
         # list of constants
-        self.code.append(chr(self.constants_dict[const]))
+        self.code.append(chr(self.constants_dict[key]))
         return False
 
     def write_insn(self, insn):

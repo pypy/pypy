@@ -315,27 +315,12 @@ class BlackholeInterpreter(object):
     def get_tmpreg_f(self):
         return self.tmpreg_f
 
-    def final_result_i(self):
-        assert self._return_type == 'i'
-        return self.get_tmpreg_i()
-
-    def final_result_r(self):
-        assert self._return_type == 'r'
-        return self.get_tmpreg_r()
-
-    def final_result_f(self):
-        assert self._return_type == 'f'
-        return self.get_tmpreg_f()
-
-    def final_result_v(self):
-        assert self._return_type == 'v'
-
     def _final_result_anytype(self):
         "NOT_RPYTHON"
-        if self._return_type == 'i': return self.final_result_i()
-        if self._return_type == 'r': return self.final_result_r()
-        if self._return_type == 'f': return self.final_result_f()
-        if self._return_type == 'v': return self.final_result_v()
+        if self._return_type == 'i': return self.get_tmpreg_i()
+        if self._return_type == 'r': return self.get_tmpreg_r()
+        if self._return_type == 'f': return self.get_tmpreg_f()
+        if self._return_type == 'v': return None
         raise ValueError(self._return_type)
 
     def cleanup_registers(self):
@@ -774,12 +759,12 @@ class BlackholeInterpreter(object):
     # ----------
     # the main hints and recursive calls
 
-    @arguments()
-    def bhimpl_can_enter_jit():
+    @arguments("i")
+    def bhimpl_can_enter_jit(jdindex):
         pass
 
-    @arguments("self", "I", "R", "F", "I", "R", "F")
-    def bhimpl_jit_merge_point(self, *args):
+    @arguments("self", "i", "I", "R", "F", "I", "R", "F")
+    def bhimpl_jit_merge_point(self, jdindex, *args):
         if self.nextblackholeinterp is None:    # we are the last level
             CRN = self.builder.metainterp_sd.ContinueRunningNormally
             raise CRN(*args)
@@ -793,55 +778,55 @@ class BlackholeInterpreter(object):
             # call the interpreter main loop from here, and just return its
             # result.
             sd = self.builder.metainterp_sd
-            if sd.result_type == 'void':
-                self.bhimpl_recursive_call_v(*args)
+            result_type = sd.jitdrivers_sd[jdindex].result_type
+            if result_type == 'v':
+                self.bhimpl_recursive_call_v(jdindex, *args)
                 self.bhimpl_void_return()
-            elif sd.result_type == 'int':
-                x = self.bhimpl_recursive_call_i(*args)
+            elif result_type == 'i':
+                x = self.bhimpl_recursive_call_i(jdindex, *args)
                 self.bhimpl_int_return(x)
-            elif sd.result_type == 'ref':
-                x = self.bhimpl_recursive_call_r(*args)
+            elif result_type == 'r':
+                x = self.bhimpl_recursive_call_r(jdindex, *args)
                 self.bhimpl_ref_return(x)
-            elif sd.result_type == 'float':
-                x = self.bhimpl_recursive_call_f(*args)
+            elif result_type == 'f':
+                x = self.bhimpl_recursive_call_f(jdindex, *args)
                 self.bhimpl_float_return(x)
             assert False
 
-    def get_portal_runner(self):
-        metainterp_sd = self.builder.metainterp_sd
-        fnptr = llmemory.cast_ptr_to_adr(metainterp_sd._portal_runner_ptr)
-        fnptr = heaptracker.adr2int(fnptr)
-        calldescr = metainterp_sd.portal_code.calldescr
+    def get_portal_runner(self, jdindex):
+        jitdriver_sd = self.builder.metainterp_sd.jitdrivers_sd[jdindex]
+        fnptr = heaptracker.adr2int(jitdriver_sd.portal_runner_adr)
+        calldescr = jitdriver_sd.mainjitcode.calldescr
         return fnptr, calldescr
 
-    @arguments("self", "I", "R", "F", "I", "R", "F", returns="i")
-    def bhimpl_recursive_call_i(self, greens_i, greens_r, greens_f,
-                                      reds_i,   reds_r,   reds_f):
-        fnptr, calldescr = self.get_portal_runner()
+    @arguments("self", "i", "I", "R", "F", "I", "R", "F", returns="i")
+    def bhimpl_recursive_call_i(self, jdindex, greens_i, greens_r, greens_f,
+                                               reds_i,   reds_r,   reds_f):
+        fnptr, calldescr = self.get_portal_runner(jdindex)
         return self.cpu.bh_call_i(fnptr, calldescr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
                                   greens_f + reds_f)
-    @arguments("self", "I", "R", "F", "I", "R", "F", returns="r")
-    def bhimpl_recursive_call_r(self, greens_i, greens_r, greens_f,
-                                      reds_i,   reds_r,   reds_f):
-        fnptr, calldescr = self.get_portal_runner()
+    @arguments("self", "i", "I", "R", "F", "I", "R", "F", returns="r")
+    def bhimpl_recursive_call_r(self, jdindex, greens_i, greens_r, greens_f,
+                                               reds_i,   reds_r,   reds_f):
+        fnptr, calldescr = self.get_portal_runner(jdindex)
         return self.cpu.bh_call_r(fnptr, calldescr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
                                   greens_f + reds_f)
-    @arguments("self", "I", "R", "F", "I", "R", "F", returns="f")
-    def bhimpl_recursive_call_f(self, greens_i, greens_r, greens_f,
-                                      reds_i,   reds_r,   reds_f):
-        fnptr, calldescr = self.get_portal_runner()
+    @arguments("self", "i", "I", "R", "F", "I", "R", "F", returns="f")
+    def bhimpl_recursive_call_f(self, jdindex, greens_i, greens_r, greens_f,
+                                               reds_i,   reds_r,   reds_f):
+        fnptr, calldescr = self.get_portal_runner(jdindex)
         return self.cpu.bh_call_f(fnptr, calldescr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
                                   greens_f + reds_f)
-    @arguments("self", "I", "R", "F", "I", "R", "F")
-    def bhimpl_recursive_call_v(self, greens_i, greens_r, greens_f,
-                                      reds_i,   reds_r,   reds_f):
-        fnptr, calldescr = self.get_portal_runner()
+    @arguments("self", "i", "I", "R", "F", "I", "R", "F")
+    def bhimpl_recursive_call_v(self, jdindex, greens_i, greens_r, greens_f,
+                                               reds_i,   reds_r,   reds_f):
+        fnptr, calldescr = self.get_portal_runner(jdindex)
         return self.cpu.bh_call_v(fnptr, calldescr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
@@ -1178,11 +1163,11 @@ class BlackholeInterpreter(object):
             self._done_with_this_frame()
         kind = self._return_type
         if kind == 'i':
-            caller._setup_return_value_i(self.final_result_i())
+            caller._setup_return_value_i(self.get_tmpreg_i())
         elif kind == 'r':
-            caller._setup_return_value_r(self.final_result_r())
+            caller._setup_return_value_r(self.get_tmpreg_r())
         elif kind == 'f':
-            caller._setup_return_value_f(self.final_result_f())
+            caller._setup_return_value_f(self.get_tmpreg_f())
         else:
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
@@ -1248,15 +1233,15 @@ class BlackholeInterpreter(object):
         # rare case: we only get there if the blackhole interps all returned
         # normally (in general we get a ContinueRunningNormally exception).
         sd = self.builder.metainterp_sd
-        if sd.result_type == 'void':
-            self.final_result_v()
+        kind = self._return_type
+        if kind == 'v':
             raise sd.DoneWithThisFrameVoid()
-        elif sd.result_type == 'int':
-            raise sd.DoneWithThisFrameInt(self.final_result_i())
-        elif sd.result_type == 'ref':
-            raise sd.DoneWithThisFrameRef(self.cpu, self.final_result_r())
-        elif sd.result_type == 'float':
-            raise sd.DoneWithThisFrameFloat(self.final_result_f())
+        elif kind == 'i':
+            raise sd.DoneWithThisFrameInt(self.get_tmpreg_i())
+        elif kind == 'r':
+            raise sd.DoneWithThisFrameRef(self.cpu, self.get_tmpreg_r())
+        elif kind == 'f':
+            raise sd.DoneWithThisFrameFloat(self.get_tmpreg_f())
         else:
             assert False
 
@@ -1290,12 +1275,14 @@ def _run_forever(blackholeinterp, current_exc):
             blackholeinterp.builder.release_interp(blackholeinterp)
         blackholeinterp = blackholeinterp.nextblackholeinterp
 
-def resume_in_blackhole(metainterp_sd, resumedescr, all_virtuals=None):
+def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
+                        all_virtuals=None):
     from pypy.jit.metainterp.resume import blackhole_from_resumedata
     debug_start('jit-blackhole')
     metainterp_sd.profiler.start_blackhole()
     blackholeinterp = blackhole_from_resumedata(
         metainterp_sd.blackholeinterpbuilder,
+        jitdriver_sd,
         resumedescr,
         all_virtuals)
     current_exc = blackholeinterp._prepare_resume_from_failure(

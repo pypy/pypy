@@ -832,13 +832,16 @@ class Frame(object):
                     raise Exception("Nonsense type %s" % TYPE)
 
             failindex = self.cpu._execute_token(loop_token)
+            jd = loop_token.outermost_jitdriver_sd
+            assert jd is not None, ("call_assembler(): the loop_token needs "
+                                    "to have 'outermost_jitdriver_sd'")
+            if jd.index_of_virtualizable != -1:
+                vable = args[jd.index_of_virtualizable]
+            else:
+                vable = lltype.nullptr(llmemory.GCREF.TO)
+            assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
             try:
-                if self.cpu.index_of_virtualizable != -1:
-                    return self.cpu.assembler_helper_ptr(failindex,
-                        args[self.cpu.index_of_virtualizable])
-                else:
-                    return self.cpu.assembler_helper_ptr(failindex,
-                        lltype.nullptr(llmemory.GCREF.TO))
+                return assembler_helper_ptr(failindex, vable)
             except LLException, lle:
                 assert _last_exception is None, "exception left behind"
                 _last_exception = lle

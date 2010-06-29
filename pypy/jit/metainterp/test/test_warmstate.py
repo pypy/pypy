@@ -4,10 +4,9 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.warmstate import wrap, unwrap
 from pypy.jit.metainterp.warmstate import equal_whatever, hash_whatever
-from pypy.jit.metainterp.warmstate import WarmEnterState
+from pypy.jit.metainterp.warmstate import WarmEnterState, JitCell
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
-from pypy.rlib.jit import BaseJitCell
 
 
 def test_unwrap():
@@ -58,14 +57,12 @@ def test_hash_equal_whatever_ootype():
 
 
 def test_make_jitcell_getter_default():
-    class FakeWarmRunnerDesc:
-        green_args_spec = [lltype.Signed, lltype.Float]
-    class FakeJitCell(BaseJitCell):
-        pass
-    state = WarmEnterState(FakeWarmRunnerDesc())
-    get_jitcell = state._make_jitcell_getter_default(FakeJitCell)
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed, lltype.Float]
+    state = WarmEnterState(None, FakeJitDriverSD())
+    get_jitcell = state._make_jitcell_getter_default()
     cell1 = get_jitcell(42, 42.5)
-    assert isinstance(cell1, FakeJitCell)
+    assert isinstance(cell1, JitCell)
     cell2 = get_jitcell(42, 42.5)
     assert cell1 is cell2
     cell3 = get_jitcell(41, 42.5)
@@ -73,10 +70,10 @@ def test_make_jitcell_getter_default():
     assert cell1 is not cell3 is not cell4 is not cell1
 
 def test_make_jitcell_getter():
-    class FakeWarmRunnerDesc:
-        green_args_spec = [lltype.Float]
-        get_jitcell_at_ptr = None
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Float]
+        _get_jitcell_at_ptr = None
+    state = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = state.make_jitcell_getter()
     cell1 = get_jitcell(1.75)
     cell2 = get_jitcell(1.75)
@@ -87,8 +84,6 @@ def test_make_jitcell_getter_custom():
     from pypy.rpython.typesystem import LowLevelTypeSystem
     class FakeRTyper:
         type_system = LowLevelTypeSystem.instance
-    class FakeJitCell(BaseJitCell):
-        pass
     celldict = {}
     def getter(x, y):
         return celldict.get((x, y))
@@ -102,14 +97,14 @@ def test_make_jitcell_getter_custom():
                                          lltype.Float], lltype.Void))
     class FakeWarmRunnerDesc:
         rtyper = FakeRTyper()
-        cpu = None
-        get_jitcell_at_ptr = llhelper(GETTER, getter)
-        set_jitcell_at_ptr = llhelper(SETTER, setter)
+    class FakeJitDriverSD:
+        _get_jitcell_at_ptr = llhelper(GETTER, getter)
+        _set_jitcell_at_ptr = llhelper(SETTER, setter)
     #
-    state = WarmEnterState(FakeWarmRunnerDesc())
-    get_jitcell = state._make_jitcell_getter_custom(FakeJitCell)
+    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    get_jitcell = state._make_jitcell_getter_custom()
     cell1 = get_jitcell(5, 42.5)
-    assert isinstance(cell1, FakeJitCell)
+    assert isinstance(cell1, JitCell)
     assert cell1.x == 5
     assert cell1.y == 42.5
     cell2 = get_jitcell(5, 42.5)
@@ -127,10 +122,11 @@ def test_make_set_future_values():
             future_values[j] = "float", value
     class FakeWarmRunnerDesc:
         cpu = FakeCPU()
-        red_args_types = ["int", "float"]
+    class FakeJitDriverSD:
+        _red_args_types = ["int", "float"]
         virtualizable_info = None
     #
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     set_future_values = state.make_set_future_values()
     set_future_values(5, 42.5)
     assert future_values == {
@@ -140,19 +136,19 @@ def test_make_set_future_values():
     assert set_future_values is state.make_set_future_values()
 
 def test_make_unwrap_greenkey():
-    class FakeWarmRunnerDesc:
-        green_args_spec = [lltype.Signed, lltype.Float]
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed, lltype.Float]
+    state = WarmEnterState(None, FakeJitDriverSD())
     unwrap_greenkey = state.make_unwrap_greenkey()
     greenargs = unwrap_greenkey([ConstInt(42), ConstFloat(42.5)])
     assert greenargs == (42, 42.5)
     assert type(greenargs[0]) is int
 
 def test_attach_unoptimized_bridge_from_interp():
-    class FakeWarmRunnerDesc:
-        green_args_spec = [lltype.Signed, lltype.Float]
-        get_jitcell_at_ptr = None
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed, lltype.Float]
+        _get_jitcell_at_ptr = None
+    state = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = state.make_jitcell_getter()
     state.attach_unoptimized_bridge_from_interp([ConstInt(5),
                                                  ConstFloat(2.25)],
@@ -162,14 +158,14 @@ def test_attach_unoptimized_bridge_from_interp():
     assert cell1.entry_loop_token == "entry loop token"
 
 def test_make_jitdriver_callbacks_1():
-    class FakeWarmRunnerDesc:
-        can_inline_ptr = None
-        get_printable_location_ptr = None
-        confirm_enter_jit_ptr = None
-        green_args_spec = [lltype.Signed, lltype.Float]
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed, lltype.Float]
+        _can_inline_ptr = None
+        _get_printable_location_ptr = None
+        _confirm_enter_jit_ptr = None
     class FakeCell:
         dont_trace_here = False
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    state = WarmEnterState(None, FakeJitDriverSD())
     def jit_getter(*args):
         return FakeCell()
     state.jit_getter = jit_getter
@@ -190,11 +186,12 @@ def test_make_jitdriver_callbacks_2():
         dont_trace_here = False
     class FakeWarmRunnerDesc:
         rtyper = None
-        green_args_spec = [lltype.Signed, lltype.Float]
-        can_inline_ptr = llhelper(CAN_INLINE, can_inline)
-        get_printable_location_ptr = None
-        confirm_enter_jit_ptr = None
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed, lltype.Float]
+        _can_inline_ptr = llhelper(CAN_INLINE, can_inline)
+        _get_printable_location_ptr = None
+        _confirm_enter_jit_ptr = None
+    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     def jit_getter(*args):
         return FakeCell()
     state.jit_getter = jit_getter
@@ -211,12 +208,13 @@ def test_make_jitdriver_callbacks_3():
                                               lltype.Ptr(rstr.STR)))
     class FakeWarmRunnerDesc:
         rtyper = None
-        green_args_spec = [lltype.Signed, lltype.Float]
-        can_inline_ptr = None
-        get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
-        confirm_enter_jit_ptr = None
-        get_jitcell_at_ptr = None
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed, lltype.Float]
+        _can_inline_ptr = None
+        _get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
+        _confirm_enter_jit_ptr = None
+        _get_jitcell_at_ptr = None
+    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
     res = state.get_location_str([ConstInt(5), ConstFloat(42.5)])
     assert res == "hi there"
@@ -231,13 +229,14 @@ def test_make_jitdriver_callbacks_4():
                                             lltype.Signed], lltype.Bool))
     class FakeWarmRunnerDesc:
         rtyper = None
-        green_args_spec = [lltype.Signed, lltype.Float]
-        can_inline_ptr = None
-        get_printable_location_ptr = None
-        confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
-        get_jitcell_at_ptr = None
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed, lltype.Float]
+        _can_inline_ptr = None
+        _get_printable_location_ptr = None
+        _confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
+        _get_jitcell_at_ptr = None
 
-    state = WarmEnterState(FakeWarmRunnerDesc())
+    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
     res = state.confirm_enter_jit(5, 42.5, 3)
     assert res is True

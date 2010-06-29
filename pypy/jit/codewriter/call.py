@@ -16,21 +16,22 @@ from pypy.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 
 class CallControl(object):
     virtualref_info = None     # optionally set from outside
-    virtualizable_info = None  # optionally set from outside
-    portal_runner_ptr = None   # optionally set from outside
 
-    def __init__(self, cpu=None, portal_graph=None):
+    def __init__(self, cpu=None, jitdrivers_sd=[]):
+        assert isinstance(jitdrivers_sd, list)   # debugging
         self.cpu = cpu
-        self.portal_graph = portal_graph
+        self.jitdrivers_sd = jitdrivers_sd
         self.jitcodes = {}             # map {graph: jitcode}
         self.unfinished_graphs = []    # list of graphs with pending jitcodes
-        self.jitdriver = None
         if hasattr(cpu, 'rtyper'):     # for tests
             self.rtyper = cpu.rtyper
             translator = self.rtyper.annotator.translator
             self.raise_analyzer = RaiseAnalyzer(translator)
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
+        #
+        for index, jd in enumerate(jitdrivers_sd):
+            jd.index = index
 
     def find_all_graphs(self, policy):
         try:
@@ -41,8 +42,8 @@ class CallControl(object):
         def is_candidate(graph):
             return policy.look_inside_graph(graph)
 
-        assert self.portal_graph is not None
-        todo = [self.portal_graph]
+        assert len(self.jitdrivers_sd) > 0
+        todo = [jd.portal_graph for jd in self.jitdrivers_sd]
         if hasattr(self, 'rtyper'):
             for oopspec_name, ll_args, ll_res in support.inline_calls_to:
                 c_func, _ = support.builtin_func_for_spec(self.rtyper,
@@ -122,7 +123,7 @@ class CallControl(object):
     def guess_call_kind(self, op, is_candidate=None):
         if op.opname == 'direct_call':
             funcptr = op.args[0].value
-            if funcptr is self.portal_runner_ptr:
+            if self.jitdriver_sd_from_portal_runner_ptr(funcptr) is not None:
                 return 'recursive'
             funcobj = get_funcobj(funcptr)
             if getattr(funcobj, 'graph', None) is None:
@@ -142,6 +143,11 @@ class CallControl(object):
     def is_candidate(self, graph):
         # used only after find_all_graphs()
         return graph in self.candidate_graphs
+
+    def grab_initial_jitcodes(self):
+        for jd in self.jitdrivers_sd:
+            jd.mainjitcode = self.get_jitcode(jd.portal_graph)
+            jd.mainjitcode.is_portal = True
 
     def enum_pending_graphs(self):
         while self.unfinished_graphs:
@@ -241,12 +247,32 @@ class CallControl(object):
         return (effectinfo is None or
                 effectinfo.extraeffect >= EffectInfo.EF_CAN_RAISE)
 
-    def found_jitdriver(self, jitdriver):
-        if self.jitdriver is None:
-            self.jitdriver = jitdriver
-        else:
-            assert self.jitdriver is jitdriver
+    def jitdriver_sd_from_portal_graph(self, graph):
+        for jd in self.jitdrivers_sd:
+            if jd.portal_graph is graph:
+                return jd
+        return None
 
-    def getjitdriver(self):
-        assert self.jitdriver is not None, "order dependency issue?"
-        return self.jitdriver
+    def jitdriver_sd_from_portal_runner_ptr(self, funcptr):
+        for jd in self.jitdrivers_sd:
+            if funcptr is jd.portal_runner_ptr:
+                return jd
+        return None
+
+    def jitdriver_sd_from_jitdriver(self, jitdriver):
+        for jd in self.jitdrivers_sd:
+            if jd.jitdriver is jitdriver:
+                return jd
+        return None
+
+    def get_vinfo(self, VTYPEPTR):
+        seen = set()
+        for jd in self.jitdrivers_sd:
+            if jd.virtualizable_info is not None:
+                if jd.virtualizable_info.is_vtypeptr(VTYPEPTR):
+                    seen.add(jd.virtualizable_info)
+        if seen:
+            assert len(seen) == 1
+            return seen.pop()
+        else:
+            return None

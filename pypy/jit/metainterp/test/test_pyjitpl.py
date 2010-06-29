@@ -17,9 +17,8 @@ def test_portal_trace_positions():
     portal.setup(None)
     class FakeStaticData:
         cpu = None
-        portal_code = portal
 
-    metainterp = pyjitpl.MetaInterp(FakeStaticData())
+    metainterp = pyjitpl.MetaInterp(FakeStaticData(), None)
     metainterp.framestack = []
     class FakeHistory:
         operations = []
@@ -59,7 +58,7 @@ def test_remove_consts_and_duplicates():
         assert isinstance(box, referencebox.clonebox().__class__)
         assert box.value == referencebox.value
         return True
-    metainterp = pyjitpl.MetaInterp(FakeStaticData())
+    metainterp = pyjitpl.MetaInterp(FakeStaticData(), None)
     metainterp.history = History()
     b1 = BoxInt(1)
     b2 = BoxInt(2)

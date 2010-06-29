@@ -14,29 +14,30 @@ from pypy.tool.udir import udir
 class CodeWriter(object):
     callcontrol = None    # for tests
 
-    def __init__(self, cpu=None, maingraph=None):
+    def __init__(self, cpu=None, jitdrivers_sd=[]):
         self.cpu = cpu
         self.assembler = Assembler()
-        self.portal_graph = maingraph
-        self.callcontrol = CallControl(cpu, maingraph)
+        self.callcontrol = CallControl(cpu, jitdrivers_sd)
+        self._seen_files = set()
 
     def transform_func_to_jitcode(self, func, values, type_system='lltype'):
         """For testing."""
         rtyper = support.annotate(func, values, type_system=type_system)
         graph = rtyper.annotator.translator.graphs[0]
         jitcode = JitCode("test")
-        self.transform_graph_to_jitcode(graph, jitcode, True, True)
+        self.transform_graph_to_jitcode(graph, jitcode, True)
         return jitcode
 
-    def transform_graph_to_jitcode(self, graph, jitcode, portal, verbose):
+    def transform_graph_to_jitcode(self, graph, jitcode, verbose):
         """Transform a graph into a JitCode containing the same bytecode
         in a different format.
         """
+        portal_jd = self.callcontrol.jitdriver_sd_from_portal_graph(graph)
         graph = copygraph(graph, shallowvars=True)
         #
         # step 1: mangle the graph so that it contains the final instructions
         # that we want in the JitCode, but still as a control flow graph
-        transform_graph(graph, self.cpu, self.callcontrol, portal)
+        transform_graph(graph, self.cpu, self.callcontrol, portal_jd)
         #
         # step 2: perform register allocation on it
         regallocs = {}
@@ -59,16 +60,14 @@ class CodeWriter(object):
         self.assembler.assemble(ssarepr, jitcode)
         #
         # print the resulting assembler
-        self.print_ssa_repr(ssarepr, portal, verbose)
+        self.print_ssa_repr(ssarepr, portal_jd, verbose)
 
     def make_jitcodes(self, verbose=False):
         log.info("making JitCodes...")
-        maingraph = self.portal_graph
-        self.mainjitcode = self.callcontrol.get_jitcode(maingraph)
+        self.callcontrol.grab_initial_jitcodes()
         count = 0
         for graph, jitcode in self.callcontrol.enum_pending_graphs():
-            self.transform_graph_to_jitcode(graph, jitcode,
-                                            graph is maingraph, verbose)
+            self.transform_graph_to_jitcode(graph, jitcode, verbose)
             count += 1
             if not count % 500:
                 log.info("Produced %d jitcodes" % count)
@@ -76,33 +75,35 @@ class CodeWriter(object):
         log.info("there are %d JitCode instances." % count)
 
     def setup_vrefinfo(self, vrefinfo):
+        # must be called at most once
+        assert self.callcontrol.virtualref_info is None
         self.callcontrol.virtualref_info = vrefinfo
 
-    def setup_virtualizable_info(self, vinfo):
-        self.callcontrol.virtualizable_info = vinfo
-
-    def setup_portal_runner_ptr(self, portal_runner_ptr):
-        self.callcontrol.portal_runner_ptr = portal_runner_ptr
+    def setup_jitdriver(self, jitdriver_sd):
+        # Must be called once per jitdriver.  Usually jitdriver_sd is an
+        # instance of pypy.jit.metainterp.jitdriver.JitDriverStaticData.
+        self.callcontrol.jitdrivers_sd.append(jitdriver_sd)
 
     def find_all_graphs(self, policy):
         return self.callcontrol.find_all_graphs(policy)
 
-    def print_ssa_repr(self, ssarepr, portal, verbose):
+    def print_ssa_repr(self, ssarepr, portal_jitdriver, verbose):
         if verbose:
             print '%s:' % (ssarepr.name,)
             print format_assembler(ssarepr)
         else:
             dir = udir.ensure("jitcodes", dir=1)
-            if portal:
-                name = "00_portal_runner"
+            if portal_jitdriver:
+                name = "%02d_portal_runner" % (portal_jitdriver.index,)
             elif ssarepr.name and ssarepr.name != '?':
                 name = ssarepr.name
             else:
                 name = 'unnamed' % id(ssarepr)
             i = 1
             extra = ''
-            while dir.join(name+extra).check(exists=1):
+            while name+extra in self._seen_files:
                 i += 1
                 extra = '.%d' % i
+            self._seen_files.add(name+extra)
             dir.join(name+extra).write(format_assembler(ssarepr))
             log.dot()

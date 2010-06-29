@@ -51,14 +51,14 @@ class FakeMetaInterpStaticData:
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
 
-    state = FakeState()
     stats = Stats()
     profiler = jitprof.EmptyProfiler()
     def log(self, msg, event_kind=None):
         pass
 
 class FakeMetaInterp:
-    pass
+    class jitdriver_sd:
+        warmstate = FakeState()
 
 def test_compile_new_loop():
     cpu = FakeCPU()

@@ -3,10 +3,6 @@ from pypy.jit.metainterp import history, compile
 
 class AbstractCPU(object):
     supports_floats = False
-    _got_exception = None
-    # assembler_helper_ptr - a pointer to helper to call after a direct
-    #                        assembler call
-    portal_calldescr = None
     done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
     done_with_this_frame_ref_v = -1

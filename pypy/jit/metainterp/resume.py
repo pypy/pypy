@@ -709,11 +709,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
 # ---------- when resuming for blackholing, get direct values ----------
 
-def blackhole_from_resumedata(blackholeinterpbuilder, storage,
+def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
                               all_virtuals=None):
     resumereader = ResumeDataDirectReader(blackholeinterpbuilder.cpu, storage,
                                           all_virtuals)
-    vinfo = blackholeinterpbuilder.metainterp_sd.virtualizable_info
+    vinfo = jitdriver_sd.virtualizable_info
     vrefinfo = blackholeinterpbuilder.metainterp_sd.virtualref_info
     resumereader.consume_vref_and_vable(vrefinfo, vinfo)
     #
@@ -745,10 +745,9 @@ def blackhole_from_resumedata(blackholeinterpbuilder, storage,
     resumereader.done()
     return firstbh
 
-def force_from_resumedata(metainterp_sd, storage):
+def force_from_resumedata(metainterp_sd, storage, vinfo=None):
     resumereader = ResumeDataDirectReader(metainterp_sd.cpu, storage)
     resumereader.handling_async_forcing()
-    vinfo = metainterp_sd.virtualizable_info
     vrefinfo = metainterp_sd.virtualref_info
     resumereader.consume_vref_and_vable(vrefinfo, vinfo)
     return resumereader.virtuals

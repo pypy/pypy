@@ -35,6 +35,12 @@ class FakePolicy:
     def look_inside_graph(self, graph):
         return graph.name != 'dont_look'
 
+class FakeJitDriverSD:
+    def __init__(self, portal_graph):
+        self.portal_graph = portal_graph
+        self.portal_runner_ptr = "???"
+        self.virtualizable_info = None
+
 
 def test_loop():
     def f(a, b):
@@ -70,11 +76,11 @@ def test_call():
     def fff(a, b):
         return ggg(b) - ggg(a)
     rtyper = support.annotate(fff, [35, 42])
-    maingraph = rtyper.annotator.translator.graphs[0]
-    cw = CodeWriter(FakeCPU(rtyper), maingraph)
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cw = CodeWriter(FakeCPU(rtyper), [jitdriver_sd])
     cw.find_all_graphs(FakePolicy())
     cw.make_jitcodes(verbose=True)
-    jitcode = cw.mainjitcode
+    jitcode = jitdriver_sd.mainjitcode
     print jitcode.dump()
     [jitcode2] = cw.assembler.descrs
     print jitcode2.dump()
@@ -100,7 +106,7 @@ def test_integration():
     blackholeinterp.setarg_i(0, 6)
     blackholeinterp.setarg_i(1, 100)
     blackholeinterp.run()
-    assert blackholeinterp.final_result_i() == 100+6+5+4+3
+    assert blackholeinterp.get_tmpreg_i() == 100+6+5+4+3
 
 def test_instantiate():
     class A1:     id = 651
@@ -117,7 +123,7 @@ def test_instantiate():
         return x().id + y().id + dont_look(n)
     rtyper = support.annotate(f, [35])
     maingraph = rtyper.annotator.translator.graphs[0]
-    cw = CodeWriter(FakeCPU(rtyper), maingraph)
+    cw = CodeWriter(FakeCPU(rtyper), [FakeJitDriverSD(maingraph)])
     cw.find_all_graphs(FakePolicy())
     cw.make_jitcodes(verbose=True)
     #
@@ -144,10 +150,10 @@ def test_int_abs():
     def f(n):
         return abs(n)
     rtyper = support.annotate(f, [35])
-    maingraph = rtyper.annotator.translator.graphs[0]
-    cw = CodeWriter(FakeCPU(rtyper), maingraph)
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cw = CodeWriter(FakeCPU(rtyper), [jitdriver_sd])
     cw.find_all_graphs(FakePolicy())
     cw.make_jitcodes(verbose=True)
     #
-    s = cw.mainjitcode.dump()
+    s = jitdriver_sd.mainjitcode.dump()
     assert "inline_call_ir_i <JitCode '_ll_1_int_abs__Signed'>" in s
