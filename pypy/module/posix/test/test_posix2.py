@@ -349,6 +349,10 @@ class AppTestPosix:
             os = self.posix
             raises(OSError, 'os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])')
 
+        def test_execv_no_args(self):
+            os = self.posix
+            raises(ValueError, os.execv, "notepad", [])
+
         def test_execv_raising2(self):
             os = self.posix
             def t(n):
