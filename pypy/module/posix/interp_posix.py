@@ -83,6 +83,12 @@ def ftruncate(space, fd, length):
     """Truncate a file to a specified length."""
     try:
         os.ftruncate(fd, length)
+    except IOError, e:
+        # Python 2.6 raises an IOError here. Let's not repeat that mistake.
+        w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
+                                      space.wrap(e.strerror),
+                                      space.wrap(e.filename))
+        raise OperationError(space.w_OSError, w_error)
     except OSError, e: 
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
