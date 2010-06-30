@@ -68,18 +68,26 @@ __setslice__ = setslice
 
 class attrgetter(object):
 
-    def __init__(self, attr, *args):
-        self.attrs = args
-        self.attr = attr
+    def __init__(self, attr, *attrs):
+        self.attrs = (attr,) + attrs
+
+    def _resolve_attr(self, obj, attr):
+        last = 0
+        while True:
+            try:
+                dot = attr.find(".", last)
+            except AttributeError:
+                raise TypeError
+            if dot > 0:
+                obj = getattr(obj, attr[last:dot])
+                last = dot + 1
+            else:
+                return getattr(obj, attr[last:])
 
     def __call__(self, obj):
-        result = getattr(obj, self.attr)
-
-        if self.attrs:
-            list = [result] + [getattr(obj, attr) for attr in self.attrs]
-            return tuple(list)
-
-        return result
+        if len(self.attrs) == 1:
+            return self._resolve_attr(obj, self.attrs[0])
+        return tuple(self._resolve_attr(obj, attr) for attr in self.attrs)
 
 class itemgetter(object):
 

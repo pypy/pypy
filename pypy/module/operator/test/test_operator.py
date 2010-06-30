@@ -35,6 +35,16 @@ class AppTestOperator:
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')
         raises(TypeError, operator.itemgetter(2, 'x', 5), data)
 
+    def test_dotted_attrgetter(self):
+        from operator import attrgetter
+        class A:
+            pass
+        a = A()
+        a.name = "hello"
+        a.child = A()
+        a.child.name = "world"
+        assert attrgetter("child.name")(a) == "world"
+
     def test_concat(self):
         class Seq1:
             def __init__(self, lst):
