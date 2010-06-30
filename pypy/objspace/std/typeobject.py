@@ -15,7 +15,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
 _CPYTYPE = 1 # used for non-heap types defined in C
-_ABSTRACT = 1 << 2
+_ABSTRACT = 1 << 20
 
 # from compiler/misc.py
 
