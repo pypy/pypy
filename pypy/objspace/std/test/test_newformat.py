@@ -215,3 +215,15 @@ class AppTestLongFormatting(BaseIntegralFormattingTest):
 
     def setup_class(cls):
         cls.w_i = cls.space.w_long
+
+
+class AppTestFloatFormatting:
+
+    def test_alternate(self):
+        raises(ValueError, format, 1.0, "#")
+
+    def test_simple(self):
+        assert format(0.0, "f") == "0.000000"
+
+    def test_sign(self):
+        assert format(-1.23, "1") == "-1.23"

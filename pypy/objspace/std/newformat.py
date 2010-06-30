@@ -419,15 +419,15 @@ class Formatter(BaseFormatter):
         self._calc_padding(string, length)
         return space.wrap(self._pad(string))
 
-    def _get_locale(self, locale_kind):
+    def _get_locale(self, tp):
         space = self.space
-        if locale_kind == CURRENT_LOCALE:
+        if tp == "n":
             dec, thousands, grouping = rlocale.numeric_formatting()
-        elif locale_kind == DEFAULT_LOCALE:
+        elif self._thousands_sep:
             dec = "."
             thousands = ","
             grouping = "\3\0"
-        elif locale_kind == NO_LOCALE:
+        else:
             dec = "."
             thousands = ""
             grouping = "\256"
@@ -445,7 +445,7 @@ class Formatter(BaseFormatter):
         spec.n_digits = n_number - n_remainder - has_dec
         spec.n_prefix = n_prefix
         spec.n_lpadding = 0
-        spec.n_decimal = 1 if has_dec else 0
+        spec.n_decimal = int(has_dec)
         spec.n_remainder = n_remainder
         spec.n_spadding = 0
         spec.n_rpadding = 0
@@ -548,7 +548,7 @@ class Formatter(BaseFormatter):
 
 
     def _fill_number(self, spec, num, to_digits, n_digits, to_prefix, fill_char,
-                     upper):
+                     to_remainder, upper):
         out = self._builder()
         if spec.n_lpadding:
             out.append_multiple_char(fill_char, spec.n_lpadding)
@@ -563,16 +563,16 @@ class Formatter(BaseFormatter):
             out.append_multiple_char(fill_char, spec.n_spadding)
         if spec.n_digits != 0:
             if self._loc_thousands:
-                num = self._grouped_digits
+                digits = self._grouped_digits
             else:
-                num = num[to_digits:]
+                digits = num[to_digits:to_digits + spec.n_digits]
             if upper:
-                num = self._upcase_string(num)
-            out.append(num)
+                digits = self._upcase_string(digits)
+            out.append(digits)
         if spec.n_decimal:
             out.append(".")
         if spec.n_remainder:
-            out.append(num[0])
+            out.append(num[to_remainder:])
         if spec.n_rpadding:
             out.append_multiple_char(fill_char, spec.n_rpadding)
         return self.space.wrap(out.build())
@@ -598,6 +598,7 @@ class Formatter(BaseFormatter):
                 result = chr(value)
             n_digits = 1
             n_remainder = 1
+            to_remainder = 0
             n_prefix = 0
             to_prefix = 0
             to_numeric = 0
@@ -628,20 +629,15 @@ class Formatter(BaseFormatter):
                 to_prefix += 1
             n_digits = len(result) - skip_leading
             n_remainder = 0
+            to_remainder = 0
             to_numeric = skip_leading
-        if tp == "n":
-            locale_kind = CURRENT_LOCALE
-        elif self._thousands_sep:
-            locale_kind = DEFAULT_LOCALE
-        else:
-            locale_kind = NO_LOCALE
-        self._get_locale(locale_kind)
+        self._get_locale(tp)
         spec = self._calc_num_width(n_prefix, sign_char, to_numeric, n_digits,
                                     n_remainder, False, result)
         fill = " " if self._fill_char == "\0" else self._fill_char
         upper = self._type == "X"
         return self._fill_number(spec, result, to_numeric, n_digits, to_prefix,
-                                 fill, upper)
+                                 fill, to_remainder, upper)
 
     def _long_to_base(self, base, value):
         prefix = ""
@@ -718,24 +714,63 @@ class Formatter(BaseFormatter):
               tp == "G" or
               tp == "%"):
             w_float = space.float(w_num)
-            self._format_float(w_float)
+            return self._format_float(w_float)
         else:
             self._unknown_presentation("int" if kind == INT_KIND else "long")
 
+    def _parse_number(self, s, i):
+        length = len(s)
+        while i < length and "0" <= s[i] <= "9":
+            i += 1
+        rest = i
+        dec_point = i < length and s[i] == "."
+        if dec_point:
+            rest += 1
+        return dec_point, rest
+
     def _format_float(self, w_float):
         space = self.space
+        flags = 0
+        default_precision = 6
         if self._alternate:
             msg = "alternate form not allowed in float formats"
             raise OperationError(space.w_ValueError, space.wrap(msg))
         tp = self._type
         if tp == "\0":
             tp = "g"
+            default_prec = 12
+            flags |= rarithmetic.DTSF_ADD_DOT_0
+        elif tp == "n":
+            tp = "g"
         value = space.float_w(w_float)
         if tp == "%":
             tp = "f"
             value *= 100
+            add_pct = True
+        else:
+            add_pct = False
         if self._precision == -1:
-            self._precision = 6
+            self._precision = default_precision
+        result, special = rarithmetic.double_to_string(value, tp,
+                                                       self._precision, flags)
+        if add_pct:
+            result += "%"
+        n_digits = len(result)
+        if result[0] == "-":
+            sign = "-"
+            to_number = 1
+            n_digits -= 1
+        else:
+            sign = "\0"
+            to_number = 0
+        have_dec_point, to_remainder = self._parse_number(result, to_number)
+        n_remainder = len(result) - to_remainder
+        self._get_locale(tp)
+        spec = self._calc_num_width(0, sign, to_number, n_digits,
+                                    n_remainder, have_dec_point, result)
+        fill = " " if self._fill_char == "\0" else self._fill_char
+        return self._fill_number(spec, result, to_number, None, 0, fill,
+                                 to_remainder, False)
 
     def format_float(self, w_float):
         space = self.space

@@ -465,6 +465,22 @@ def formatd_overflow(alt, prec, kind, x):
 
     return formatd(fmt, x)
 
+DTSF_ADD_DOT_0 = 1
+
+DIST_FINITE = 1
+DIST_NAN = 2
+DIST_INFINITY = 3
+
+def double_to_string(value, tp, precision, flags):
+    if isnan(value):
+        special = DIST_NAN
+    elif isinf(value):
+        special = DIST_INFINITY
+    else:
+        special = DIST_FINITE
+    result = formatd_overflow(False, precision, tp, value)
+    return result, special
+
 # the 'float' C type
 
 class r_singlefloat(object):

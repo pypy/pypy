@@ -1,7 +1,7 @@
 import operator, new
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std import model
+from pypy.objspace.std import model, newformat
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
@@ -105,6 +105,9 @@ def repr__Float(space, w_float):
 
 def str__Float(space, w_float):
     return float2string(space, w_float, "%.12g")
+
+def format__Float_ANY(space, w_float, w_spec):
+    return newformat.get_formatter(space, w_spec).format_float(w_float)
 
 # ____________________________________________________________
 # A mess to handle all cases of float comparison without relying
