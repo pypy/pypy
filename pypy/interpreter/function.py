@@ -430,8 +430,11 @@ class Method(Wrappable):
         self.w_class = w_class         # possibly space.w_None
 
     def descr_method__new__(space, w_subtype, w_function, w_instance, w_class=None):
-        if space.is_w( w_instance, space.w_None ):
+        if space.is_w(w_instance, space.w_None):
             w_instance = None
+        if w_instance is None and space.is_w(w_class, space.w_None):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("unbound methods must have class"))
         method = space.allocate_instance(Method, w_subtype)
         Method.__init__(method, space, w_function, w_instance, w_class)
         return space.wrap(method)

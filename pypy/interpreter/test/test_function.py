@@ -482,6 +482,11 @@ class AppTestMethod:
         raises(TypeError, m, MyInst(None))
         raises(TypeError, m, MyInst(42))
 
+    def test_invalid_creation(self):
+        import new
+        def f(): pass
+        raises(TypeError, new.instancemethod, f, None)
+
 
 class TestMethod: 
     def setup_method(self, method):
