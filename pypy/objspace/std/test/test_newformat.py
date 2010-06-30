@@ -227,3 +227,10 @@ class AppTestFloatFormatting:
 
     def test_sign(self):
         assert format(-1.23, "1") == "-1.23"
+
+    def test_digit_separator(self):
+        assert format(-1234., "012,f") == "-1,234.000000"
+
+    def test_dont_switch_to_g(self):
+        skip("must fix when float formatting is figured out")
+        assert len(format(1.1234e90, "f")) == 98

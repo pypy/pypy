@@ -467,7 +467,7 @@ class Formatter(BaseFormatter):
         if self._fill_char == "0" and self._align == "=":
             spec.n_min_width = self._width - extra_length
         if self._loc_thousands:
-            self._group_digits(spec, digits)
+            self._group_digits(spec, digits[to_number:])
             n_grouped_digits = len(self._grouped_digits)
         else:
             n_grouped_digits = spec.n_digits
@@ -500,7 +500,7 @@ class Formatter(BaseFormatter):
         buf = []
         grouping = self._loc_grouping
         min_width = spec.n_min_width
-        i = 0
+        grouping_state = 0
         count = 0
         left = spec.n_digits
         n_ts = len(self._loc_thousands)
@@ -508,11 +508,11 @@ class Formatter(BaseFormatter):
         done = False
         groupings = len(grouping)
         while True:
-            group = ord(grouping[i])
+            group = ord(grouping[grouping_state])
             if group > 0:
                 if group == 256:
                     break
-                i += 1
+                grouping_state += 1
                 previous = group
             else:
                 group = previous
