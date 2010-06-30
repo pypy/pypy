@@ -250,3 +250,16 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
+
+
+class IntegerCanBeNegative(Exception):
+    pass
+
+def _check_nonneg(ann, bk):
+    from pypy.annotation.model import SomeInteger
+    s_nonneg = SomeInteger(nonneg=True)
+    if not s_nonneg.contains(ann):
+        raise IntegerCanBeNegative
+
+def check_nonneg(x):
+    check_annotation(x, _check_nonneg)

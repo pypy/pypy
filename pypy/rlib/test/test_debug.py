@@ -3,6 +3,7 @@ import py
 from pypy.rlib.debug import check_annotation, make_sure_not_resized
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rlib.debug import have_debug_prints
+from pypy.rlib.debug import check_nonneg, IntegerCanBeNegative
 from pypy.rlib import debug
 from pypy.rpython.test.test_llinterp import interpret
 
@@ -29,6 +30,16 @@ def test_check_annotation():
         return x
 
     py.test.raises(Error, "interpret(g, [3])")
+
+def test_check_nonneg():
+    def f(x):
+        assert x >= 5
+        check_nonneg(x)
+    interpret(f, [9])
+
+    def g(x):
+        check_nonneg(x-1)
+    py.test.raises(IntegerCanBeNegative, interpret, g, [9])
 
 def test_make_sure_not_resized():
     from pypy.annotation.listdef import TooLateForChange
