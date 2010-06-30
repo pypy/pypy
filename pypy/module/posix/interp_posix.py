@@ -550,19 +550,21 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    args_w = space.unpackiterable(w_args)
-    if len(args_w) < 1:
-        w_msg = space.wrap("execv() must have at least one argument")
-        raise OperationError(space.w_ValueError, w_msg)
     try:
-        os.execv(command, [space.str_w(w_arg) for w_arg in args_w])
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            w_msg = space.wrap("execv() must have at least one argument")
+            raise OperationError(space.w_ValueError, w_msg)
+        args = [space.str_w(w_arg) for w_arg in args_w]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         msg = "execv() arg 2 must be an iterable of strings"
         raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    try:
+        os.execv(command, args)
     except OSError, e:
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror(space, e)
 execv.unwrap_spec = [ObjSpace, str, W_Root]
 
 def execve(space, command, w_args, w_env):

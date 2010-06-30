@@ -355,15 +355,13 @@ class AppTestPosix:
 
         def test_execv_raising2(self):
             os = self.posix
-            def t(n):
+            for n in 3, [3, "a"]:
                 try:
                     os.execv("xxx", n)
                 except TypeError,t:
-                    assert t.args[0] == "execv() arg 2 must be an iterable of strings"
+                    assert str(t) == "execv() arg 2 must be an iterable of strings"
                 else:
                     py.test.fail("didn't raise")
-            t(3)
-            t([3, "a"])
 
         def test_execve(self):
             os = self.posix
