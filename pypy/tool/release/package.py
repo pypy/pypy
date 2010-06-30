@@ -57,11 +57,11 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
-    # we want to put there all *.h from module/cpyext/include
+    # we want to put there all *.h and *.inl from trunk/include
     # and from pypy/_interfaces
-    for n in basedir.join('pypy', 'module', 'cpyext', 'include').listdir('*.h'):
-        shutil.copy(str(n), str(pypydir.join('include')))
-    for n in basedir.join('pypy', '_interfaces').listdir('*.h'):
+    includedir = basedir.join('include')
+    headers = includedir.listdir('*.h') + includedir.listdir('*.inl')
+    for n in headers:
         shutil.copy(str(n), str(pypydir.join('include')))
     pypydir.ensure('bin', dir=True)
     archive_pypy_c = pypydir.join('bin', rename_pypy_c)
