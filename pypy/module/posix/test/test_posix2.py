@@ -248,6 +248,7 @@ class AppTestPosix:
         fd = posix.open(path, posix.O_RDONLY, 0777)
         f = posix.fdopen(fd, "r")
         f.close()
+        raises(OSError, posix.fdopen, fd)
 
     def test_fdopen_hackedbuiltins(self):
         "Same test, with __builtins__.file removed"

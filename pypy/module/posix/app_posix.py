@@ -72,7 +72,12 @@ def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
     Return an open file object connected to a file descriptor."""
-
+    # Validate fd
+    import fcntl
+    try:
+        fcntl.fcntl(fd, fcntl.F_GETFD)
+    except IOError, e:
+        raise OSError(e.errno, e.strerror, e.filename)
     return _fdopen(fd, mode, buffering)
 
 
