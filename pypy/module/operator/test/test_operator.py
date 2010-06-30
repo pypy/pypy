@@ -171,3 +171,13 @@ class AppTestOperator:
         assert operator.irepeat(a, 1) is a
         assert a == [0, 1, 2, 0, 1, 2]
 
+    def test_methodcaller(self):
+        from operator import methodcaller
+        class X(object):
+            def method(self, arg1=2, arg2=3):
+                return arg1, arg2
+        x = X()
+        assert methodcaller("method")(x) == (2, 3)
+        assert methodcaller("method", 4)(x) == (4, 3)
+        assert methodcaller("method", 4, 5)(x) == (4, 5)
+        assert methodcaller("method", 4, arg2=42)(x) == (4, 42)

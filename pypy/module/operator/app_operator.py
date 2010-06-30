@@ -80,7 +80,7 @@ class attrgetter(object):
             return tuple(list)
 
         return result
-    
+
 class itemgetter(object):
 
     def __init__(self, item, *args):
@@ -96,3 +96,12 @@ class itemgetter(object):
 
         return result
 
+class methodcaller(object):
+
+    def __init__(self, method_name, *args, **kwargs):
+        self.method_name = method_name
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, obj):
+        return getattr(obj, self.method_name)(*self.args, **self.kwargs)
