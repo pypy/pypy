@@ -206,6 +206,30 @@ def descr_set__module(space, w_type, w_value):
     w_type.mutated()
     w_type.dict_w['__module__'] = w_value
 
+def descr_get___abstractmethods__(space, w_type):
+    w_type = _check(space, w_type)
+    try:
+        return w_type.dict_w["__abstractmethods__"]
+    except KeyError:
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("__abstractmethods__"))
+
+def descr_set___abstractmethods__(space, w_type, w_new):
+    w_type = _check(space, w_type)
+    w_type.dict_w["__abstractmethods__"] = w_new
+    w_type.mutated()
+    w_type.set_abstract(space.is_true(w_new))
+
+def descr_del___abstractmethods__(space, w_type):
+    w_type = _check(space, w_type)
+    try:
+        del w_type.dict_w["__abstractmethods__"]
+    except KeyError:
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("__abstractmethods__"))
+    w_type.mutated()
+    w_type.set_abstract(False)
+
 def descr___subclasses__(space, w_type):
     """Return the list of immediate subclasses."""
     w_type = _check(space, w_type)
@@ -224,6 +248,9 @@ type_typedef = StdTypeDef("type",
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
+    __abstractmethods__ = GetSetProperty(descr_get___abstractmethods__,
+                                         descr_set___abstractmethods__,
+                                         descr_del___abstractmethods__),
     __subclasses__ = gateway.interp2app(descr___subclasses__),
     __weakref__ = weakref_descr,
     )

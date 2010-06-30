@@ -103,6 +103,14 @@ class TestTypeObject:
 
 class AppTestTypeObject:
 
+    def test_abstract_methods(self):
+        class X(object):
+            pass
+        X.__abstractmethods__ = ("meth",)
+        raises(TypeError, X)
+        del X.__abstractmethods__
+        X()
+
     def test_call_type(self):
         assert type(42) is int
         C = type('C', (object,), {'x': lambda: 42})

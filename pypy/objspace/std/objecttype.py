@@ -47,7 +47,16 @@ def descr_set___class__(space, w_obj, w_newcls):
         raise operationerrfmt(space.w_TypeError,
                               "__class__ assignment: '%s' object layout differs from '%s'",
                               w_oldcls.getname(space, '?'), w_newcls.getname(space, '?'))
-    
+
+
+app = gateway.applevel("""
+def _abstract_method_error(typ):
+    methods = ", ".join(sorted(typ.__abstractmethods__))
+    err = "Can't instantiate abstract class %s with abstract methods %s"
+    raise TypeError(err % (methods, typ.__name__))
+""")
+_abstract_method_error = app.interphook("_abstract_method_error")
+
 
 def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.objectobject import W_ObjectObject
@@ -63,6 +72,8 @@ def descr__new__(space, w_type, __args__):
             raise OperationError(space.w_TypeError,
                                  space.wrap("default __new__ takes "
                                             "no parameters"))
+    if w_type.is_abstract():
+        _abstract_method_error(space, w_type)
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
     return w_obj
 

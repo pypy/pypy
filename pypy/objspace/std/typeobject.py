@@ -15,6 +15,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
 _CPYTYPE = 1 # used for non-heap types defined in C
+_ABSTRACT = 1 << 2
 
 # from compiler/misc.py
 
@@ -357,6 +358,15 @@ class W_TypeObject(W_Object):
 
     def is_cpytype(w_self):
         return w_self.__flags__ & _CPYTYPE
+
+    def is_abstract(w_self):
+        return w_self.__flags__ & _ABSTRACT
+
+    def set_abstract(w_self, abstract):
+        if abstract:
+            w_self.__flags__ |= _ABSTRACT
+        else:
+            w_self.__flags__ &= ~_ABSTRACT
 
     def issubtype(w_self, w_type):
         w_self = hint(w_self, promote=True)
