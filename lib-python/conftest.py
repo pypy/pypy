@@ -371,7 +371,7 @@ testmap = [
     RegrTest('test_popen.py'),
     RegrTest('test_popen2.py'),
     RegrTest('test_poplib.py'),
-    RegrTest('test_posix.py'),
+    RegrTest('test_posix.py', usemodules="_rawffi"),
     RegrTest('test_posixpath.py'),
     RegrTest('test_pow.py', core=True),
     RegrTest('test_pprint.py', core=True),
