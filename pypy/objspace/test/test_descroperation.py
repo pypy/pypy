@@ -13,6 +13,22 @@ class Test_DescrOperation:
         space.call_method(l, 'append', space.w_False)
         assert space.nonzero(l) is space.w_True
 
+    def test_isinstance_and_issubtype_ignore_special(self):
+        space = self.space
+        w_tup = space.appexec((), """():
+        class Meta(type):
+            def __subclasscheck__(mcls, cls):
+                return False
+        class Base:
+            __metaclass__ = Meta
+        class Sub(Base):
+            pass
+        return Base, Sub""")
+        w_base, w_sub = space.unpackiterable(w_tup)
+        assert space.is_true(space.issubtype(w_sub, w_base))
+        w_inst = space.call_function(w_sub)
+        assert space.isinstance_w(w_inst, w_base)
+
 
 class AppTest_Descroperation:
     OPTIONS = {}
