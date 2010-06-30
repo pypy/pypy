@@ -207,7 +207,7 @@ object_typedef = StdTypeDef("object",
     __format__ = gateway.interp2app(descr___format__, unwrap_spec=[ObjSpace,
                                    gateway.W_Root, gateway.W_Root]),
     __subclasshook__ = gateway.interp2app(descr___subclasshook__, unwrap_spec=
-    [ObjSpace, Arguments]),
+    [ObjSpace, Arguments], as_classmethod=True),
     __init__ = gateway.interp2app(descr__init__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )
