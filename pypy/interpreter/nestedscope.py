@@ -123,7 +123,7 @@ class __extend__(pyframe.PyFrame):
         super_fast2locals(self)
         # cellvars are values exported to inner scopes
         # freevars are values coming from outer scopes 
-        freevarnames = self.pycode.co_cellvars
+        freevarnames = list(self.pycode.co_cellvars)
         if self.pycode.co_flags & consts.CO_OPTIMIZED:
             freevarnames.extend(self.pycode.co_freevars)
         for i in range(len(freevarnames)):

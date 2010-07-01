@@ -89,3 +89,14 @@ class AppTestNestedScope:
                 locals()
             return X
         assert f(1).x == 12
+
+    def test_nested_scope_locals_mutating_cellvars(self):
+        def f():
+            x = 12
+            def m():
+                locals()
+                x
+                locals()
+                return x
+            return m
+        assert f()() == 12
