@@ -220,6 +220,12 @@ class Marshaller(_Base):
         self.space.marshal_w(w_obj, self)
 
     def dump_w_obj(self, w_obj):
+        space = self.space
+        if (space.type(w_obj).is_heaptype() and
+            not space.eq_w(space.getattr(w_obj, space.wrap("__module__")),
+                           space.wrap("array"))):
+            w_err = space.wrap("only builtins can be marshaled")
+            raise OperationError(space.w_ValueError, w_err)
         try:
             self.put_w_obj(w_obj)
         except rstackovf.StackOverflow:

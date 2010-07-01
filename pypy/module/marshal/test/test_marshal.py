@@ -171,6 +171,14 @@ class AppTestMarshal:
 
         self.marshal_check(unichr(sys.maxunicode))
 
+    def test_reject_subtypes(self):
+        import marshal
+        types = (float, complex, int, long, tuple, list, dict, set, frozenset)
+        for cls in types:
+            class subtype(cls):
+                pass
+            raises(ValueError, marshal.dumps, subtype)
+
 
 class AppTestRope(AppTestMarshal):
     def setup_class(cls):
