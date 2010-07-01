@@ -11,6 +11,7 @@ class Module(MixedModule):
        'pi'             : 'interp_math.get(space).w_pi', 
        'pow'            : 'interp_math.pow',
        'cosh'           : 'interp_math.cosh',
+       'copysign'       : 'interp_math.copysign',
        'ldexp'          : 'interp_math.ldexp',
        'hypot'          : 'interp_math.hypot',
        'tan'            : 'interp_math.tan',
@@ -34,5 +35,7 @@ class Module(MixedModule):
        'modf'           : 'interp_math.modf',
        'exp'            : 'interp_math.exp',
        'acos'           : 'interp_math.acos',
+       'isinf'          : 'interp_math.isinf',
+       'isnan'          : 'interp_math.isnan',
 }
 

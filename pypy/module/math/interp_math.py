@@ -1,5 +1,6 @@
-
 import math
+
+from pypy.rlib import rarithmetic
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 
@@ -45,6 +46,22 @@ def math2(space, f, x, snd):
                              space.wrap("math domain error"))
     return space.wrap(r)
 math2._annspecialcase_ = 'specialize:arg(1)'
+
+def copysign(space, x, y):
+    """Return x with the sign of y."""
+    # No exceptions possible.
+    return space.wrap(rarithmetic.copysign(x, y))
+copysign.unwrap_spec = [ObjSpace, float, float]
+
+def isinf(space, x):
+    """Return True if x is infinity."""
+    return space.wrap(rarithmetic.isinf(x))
+isinf.unwrap_spec = [ObjSpace, float, float]
+
+def isnan(space, x):
+    """Return True if x is not a number."""
+    return space.wrap(rarithmetic.isnan(x))
+isnan.unwrap_spec = [ObjSpace, float, float]
 
 def pow(space, x, y):
     """pow(x,y)
