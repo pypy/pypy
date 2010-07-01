@@ -3,7 +3,124 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 """
 
 import math
-from pypy.rlib.rarithmetic import r_longlong, isinf, isnan, INFINITY, NAN
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, isinf, isnan, INFINITY, NAN
+
+
+def py3round(x):
+    """Python 3 round function semantics, in Python 2 code.
+
+    We want to round x to the nearest int, but:
+      - return an int, not a float
+      - do round-half-to-even, not round-half-away-from-zero.
+
+    We assume that x is finite and nonnegative.
+
+    """
+    int_part = r_ulonglong(x)
+    frac_part = x - int_part
+    if frac_part > 0.5 or frac_part == 0.5 and (int_part & 1):
+        int_part += 1
+    return int_part
+
+
+def float_pack(x, size):
+    """Convert a Python float x into a 64-bit unsigned integer
+    with the same byte representation."""
+
+    if size == 8:
+        MIN_EXP = -1021  # = sys.float_info.min_exp
+        MAX_EXP = 1024   # = sys.float_info.max_exp
+        MANT_DIG = 53    # = sys.float_info.mant_dig
+    elif size == 4:
+        MIN_EXP = -125   # C's FLT_MIN_EXP
+        MAX_EXP = 128    # FLT_MAX_EXP
+        MANT_DIG = 24    # FLT_MANT_DIG
+    else:
+        raise ValueError("invalid size value")
+
+    sign = math.copysign(1.0, x) < 0.0
+    if isinf(x):
+        mant = 0
+        exp = MAX_EXP - MIN_EXP + 2
+    elif isnan(x):
+        mant = 1 << (MANT_DIG-2)
+        exp = MAX_EXP - MIN_EXP + 2
+    elif x == 0.0:
+        mant = 0
+        exp = 0
+    else:
+        m, e = math.frexp(abs(x))
+        if e < MIN_EXP:
+            # Subnormal result (or possibly smallest normal, after rounding).
+            if e < MIN_EXP - MANT_DIG:
+                # Underflow to zero; not possible when size == 8.
+                mant = r_ulonglong(0)
+            else:
+                # For size == 8, can substitute 'int' for 'py3round', both
+                # here and below: the argument will always be integral.
+                mant = py3round(m * (1 << e - (MIN_EXP - MANT_DIG)))
+            exp = 0
+        elif e > MAX_EXP:
+            # Overflow to infinity: not possible when size == 8.
+            raise OverflowError("float too large to pack with f format")
+        else:
+            mant = py3round(m * (1 << MANT_DIG))
+            exp = e - MIN_EXP
+    # N.B. It's important that the + mant really is an addition, not just a
+    # bitwise 'or'.  In extreme cases, mant may have MANT_DIG+1 significant
+    # bits, as a result of rounding.
+    return ((sign << 8*size - 1) | (exp << MANT_DIG - 1)) + mant
+
+
+def float_unpack(Q, size):
+    """Convert a 32-bit or 64-bit integer created
+    by float_pack into a Python float."""
+
+    if size == 8:
+        MIN_EXP = -1021  # = sys.float_info.min_exp
+        MAX_EXP = 1024   # = sys.float_info.max_exp
+        MANT_DIG = 53    # = sys.float_info.mant_dig
+    elif size == 4:
+        MIN_EXP = -125   # C's FLT_MIN_EXP
+        MAX_EXP = 128    # FLT_MAX_EXP
+        MANT_DIG = 24    # FLT_MANT_DIG
+    else:
+        raise ValueError("invalid size value")
+
+    # extract pieces
+    sign = Q >> 8*size - 1
+    Q -= sign << 8*size - 1
+    exp = Q >> MANT_DIG - 1
+    Q -= exp << MANT_DIG - 1
+    mant = Q
+
+    if exp == MAX_EXP - MIN_EXP + 2:
+        # nan or infinity
+        result = float('nan') if mant else float('inf')
+    elif exp == 0:
+        # subnormal or zero
+        result = math.ldexp(float(mant), MIN_EXP - MANT_DIG)
+    else:
+        # normal
+        exp -= 1
+        mant += 1 << MANT_DIG - 1
+        result = math.ldexp(float(mant), exp + MIN_EXP - MANT_DIG)
+    return -result if sign else result
+
+
+def pack_float8(result, x):
+    unsigned = float_pack(x, 8)
+    for i in range(8):
+        result.append(chr((unsigned >> (i * 8)) & 0xFF))
+
+
+def unpack_float8(s):
+    unsigned = r_ulonglong(0)
+    for i in range(8):
+        unsigned |= ord(s[7 - i]) << (i * 8)
+    print unsigned
+    return float_unpack(unsigned, 8)
+
 
 def pack_float(result, number, size, bigendian):
     """Append to 'result' the 'size' characters of the 32-bit or 64-bit
