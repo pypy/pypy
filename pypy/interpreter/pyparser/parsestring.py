@@ -160,11 +160,17 @@ def PyString_DecodeEscape(space, s, recode_encoding):
             span = ps
             span += (span < end) and (s[span] in '01234567')
             span += (span < end) and (s[span] in '01234567')
-            lis.append(chr(int(s[prevps : span], 8)))
+            octal = s[prevps : span]
+            # emulate a strange wrap-around behavior of CPython:
+            # \400 is the same as \000 because 0400 == 256
+            num = int(octal, 8) & 0xFF
+            lis.append(chr(num))
             ps = span
         elif ch == 'x':
             if ps+2 <= end and isxdigit(s[ps]) and isxdigit(s[ps + 1]):
-                lis.append(chr(int(s[ps : ps + 2], 16)))
+                hexa = s[ps : ps + 2]
+                num = int(hexa, 16)
+                lis.append(chr(num))
                 ps += 2
             else:
                 raise_app_valueerror(space, 'invalid \\x escape')

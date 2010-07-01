@@ -271,7 +271,6 @@ class AppTestPartialEvaluation:
         assert u"\u0663".encode("raw-unicode-escape") == "\u0663"
 
     def test_escape_decode(self):
-        
         test = 'a\n\\b\x00c\td\u2045'.encode('string_escape')
         assert test.decode('string_escape') =='a\n\\b\x00c\td\u2045'
         assert '\\077'.decode('string_escape') == '?'
@@ -279,6 +278,14 @@ class AppTestPartialEvaluation:
         assert '\\253'.decode('string_escape') == chr(0253)
         assert '\\312'.decode('string_escape') == chr(0312)
 
+    def test_escape_decode_wrap_around(self):
+        assert '\\400'.decode('string_escape') == chr(0)
+
+    def test_escape_decode_ignore_invalid(self):
+        assert '\\9'.decode('string_escape') == '\\9'
+        assert '\\01'.decode('string_escape') == chr(01)
+        assert '\\0f'.decode('string_escape') == chr(0) + 'f'
+        assert '\\08'.decode('string_escape') == chr(0) + '8'
 
     def test_decode_utf8_different_case(self):
         constant = u"a"

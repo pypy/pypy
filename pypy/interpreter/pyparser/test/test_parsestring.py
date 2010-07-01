@@ -22,6 +22,15 @@ class TestParsetring:
         s = r'"\123"'
         w_ret = parsestring.parsestr(space, None, s)
         assert space.str_w(w_ret) == chr(0123)
+        s = r'"\400"'
+        w_ret = parsestring.parsestr(space, None, s)
+        assert space.str_w(w_ret) == chr(0)
+        s = r'"\9"'
+        w_ret = parsestring.parsestr(space, None, s)
+        assert space.str_w(w_ret) == '\\9'
+        s = r'"\08"'
+        w_ret = parsestring.parsestr(space, None, s)
+        assert space.str_w(w_ret) == chr(0) + '8'
         s = r'"\x"'
         space.raises_w(space.w_ValueError, parsestring.parsestr, space, None, s)
         s = r'"\x7"'
