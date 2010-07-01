@@ -169,11 +169,11 @@ register(TYPE_INT64, unmarshal_Int64)
 
 def pack_float(f):
     result = []
-    ieee.pack_float(result, f, 8, False)
+    ieee.pack_float8(result, f)
     return ''.join(result)
 
 def unpack_float(s):
-    return ieee.unpack_float(s, False)
+    return ieee.unpack_float8(s)
 
 def marshal_w__Float(space, w_float, m):
     if m.version > 1:
