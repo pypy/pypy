@@ -36,8 +36,6 @@ math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_isnan = llexternal('isnan', [rffi.DOUBLE], rffi.INT)
-math_isinf = llexternal('isinf', [rffi.DOUBLE], rffi.INT)
 
 # ____________________________________________________________
 #
