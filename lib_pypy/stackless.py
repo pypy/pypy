@@ -114,7 +114,7 @@ from collections import deque
 
 import operator
 __all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
-                TaskletExit greenlet'.split()
+                greenlet'.split()
 
 _global_task_id = 0
 _squeue = None
@@ -153,11 +153,11 @@ def _scheduler_switch(current, next):
     _last_task = next
     assert not next.blocked
     if next is not current:
-        next.switch()
+        try:
+            next.switch()
+        except CoroutineExit:
+            raise TaskletExit
     return current
-
-
-class TaskletExit(Exception):pass
 
 def set_schedule_callback(callback):
     global _schedule_callback
@@ -435,6 +435,7 @@ class tasklet(coroutine):
         the tasklet will silently die.
         """
         if not self.is_zombie:
+            # Killing the tasklet by throwing TaskletExit exception.
             coroutine.kill(self)
             _scheduler_remove(self)
             self.alive = False

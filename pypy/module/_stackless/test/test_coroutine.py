@@ -84,8 +84,7 @@ class AppTest_Coroutine:
         assert not co.is_alive
 
     def test_kill_running(self):
-        skip("kill is not really working (there is only CoroutineExit, "
-             "which is not an app-level exception)")
+        coroutineexit = []
         import _stackless as stackless
         main = stackless.coroutine.getcurrent()
         result = []
@@ -96,6 +95,9 @@ class AppTest_Coroutine:
                 result.append(1)
                 main.switch()
                 x = 3
+            except CoroutineExit:
+                coroutineexit.append(True)
+                raise
             finally:
                 result.append(x)
             result.append(4)
@@ -107,6 +109,7 @@ class AppTest_Coroutine:
         co.kill()
         assert not co.is_alive
         assert result == [1, 2]
+        assert coroutineexit == [True]
 
     def test_bogus_bind(self):
         import _stackless as stackless

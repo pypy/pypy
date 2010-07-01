@@ -32,6 +32,8 @@ The type of a switch is determined by the target's costate.
 from pypy.rlib.rstack import yield_current_frame_to_caller, resume_point
 from pypy.rlib.objectmodel import we_are_translated
 
+from pypy.interpreter.error import OperationError
+
 try:
     from greenlet import greenlet
     main_greenlet = greenlet.getcurrent()
@@ -158,6 +160,7 @@ def make_coroutine_classes(baseclass):
             self.costate = state
             self.parent = None
             self.thunk = None
+            self.coroutine_exit = False
 
         def __repr__(self):
             'NOT_RPYTHON'
@@ -236,11 +239,12 @@ def make_coroutine_classes(baseclass):
                     self = state.current
                     self.finish(exc)
             except CoroutineExit:
-                # ignore a shutdown exception
                 pass
             except Exception, e:
-                # redirect all unhandled exceptions to the parent
-                syncstate.push_exception(e)
+                if self.coroutine_exit is False:
+                    # redirect all unhandled exceptions to the parent
+                    syncstate.push_exception(e)
+
             while self.parent is not None and self.parent.frame is None:
                 # greenlet behavior is fine
                 self.parent = self.parent.parent
@@ -257,10 +261,13 @@ def make_coroutine_classes(baseclass):
             syncstate.switched(incoming_frame)
 
         def kill(self):
+            self._kill(CoroutineExit())
+
+        def _kill(self, exc):
             if self.frame is None:
                 return
             state = self.costate
-            syncstate.push_exception(CoroutineExit())
+            syncstate.push_exception(exc)
             # careful here - if setting self.parent to state.current would
             # create a loop, break it.  The assumption is that 'self'
             # will die, so that state.current's chain of parents can be

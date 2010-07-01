@@ -226,6 +226,36 @@ class Test_Stackless:
         t.kill()
         assert not t.alive
 
+    def test_catch_taskletexit(self):
+        # Tests if TaskletExit can be caught in the tasklet being killed.
+        global taskletexit
+        taskletexit = False
+        
+        def f():
+            try:
+                stackless.schedule()
+            except TaskletExit:
+                global TaskletExit
+                taskletexit = True
+                raise
+            
+            t =  stackless.tasklet(f)()
+            t.run()
+            assert t.alive
+            t.kill()
+            assert not t.alive
+            assert taskletexit
+            
+    def test_autocatch_taskletexit(self):
+        # Tests if TaskletExit is caught correctly in stackless.tasklet.setup(). 
+        def f():
+            stackless.schedule()
+        
+        t = stackless.tasklet(f)()
+        t.run()
+        t.kill()
+
+
     # tests inspired from simple stackless.com examples
 
     def test_construction(self):
