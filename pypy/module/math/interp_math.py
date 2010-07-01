@@ -56,12 +56,12 @@ copysign.unwrap_spec = [ObjSpace, float, float]
 def isinf(space, x):
     """Return True if x is infinity."""
     return space.wrap(rarithmetic.isinf(x))
-isinf.unwrap_spec = [ObjSpace, float, float]
+isinf.unwrap_spec = [ObjSpace, float]
 
 def isnan(space, x):
     """Return True if x is not a number."""
     return space.wrap(rarithmetic.isnan(x))
-isnan.unwrap_spec = [ObjSpace, float, float]
+isnan.unwrap_spec = [ObjSpace, float]
 
 def pow(space, x, y):
     """pow(x,y)
