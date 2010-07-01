@@ -2,7 +2,6 @@ from pypy.tool.udir import udir
 
 def make_check(space):
     return space.appexec([], """():
-        import sys
         import marshal, StringIO
         def marshal_check(case):
             s = marshal.dumps(case)

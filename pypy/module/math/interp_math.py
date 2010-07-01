@@ -46,6 +46,13 @@ def math2(space, f, x, snd):
     return space.wrap(r)
 math2._annspecialcase_ = 'specialize:arg(1)'
 
+def copysign(space, x, y):
+    """copysign(x, y)
+
+    Return x with the sign of y."""
+    return math2(space, math.copysign, x, y)
+copysign.unwrap_spec = [ObjSpace, float, float]
+
 def pow(space, x, y):
     """pow(x,y)
        
