@@ -175,7 +175,17 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                                                    # from bool to int, notice that isinstance( , bool|int)
                                                    # is quite border case for RPython
                 r.const = False
+        # XXX HACK HACK HACK
+        # XXX HACK HACK HACK
+        # XXX HACK HACK HACK
         bk = getbookkeeper()
+        if variables is None:
+            fn, block, i = bk.position_key
+            op = block.operations[i]
+            assert op.opname == "simple_call" 
+            assert len(op.args) == 3
+            assert op.args[0] == Constant(isinstance)
+            variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
         r.knowntypedata = {}
