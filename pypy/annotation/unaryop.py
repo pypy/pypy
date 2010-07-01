@@ -23,6 +23,7 @@ def immutablevalue(x):
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
+                        'isinstance',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
                         'ord', 'int', 'float', 'long',
                         'hash', 'id',    # <== not supported any more
@@ -65,6 +66,13 @@ class __extend__(SomeObject):
         if obj.is_constant() and s_cls.is_constant():
             return immutablevalue(issubclass(obj.const, s_cls.const))
         return s_Bool
+
+    def isinstance(obj, s_cls):
+        bk = getbookkeeper()
+        fn, block, i = bk.position_key
+        op = block.operations[i]
+        v = op.args[0]
+        return builtin.builtin_isinstance(obj, s_cls, [v])
 
     def len(obj):
         return SomeInteger(nonneg=True)
