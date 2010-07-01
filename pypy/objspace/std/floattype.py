@@ -1,4 +1,5 @@
 from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.strutil import ParseStringError
@@ -35,6 +36,18 @@ def descr__new__(space, w_floattype, w_x=0.0):
     W_FloatObject.__init__(w_obj, value)
     return w_obj
 
+
+_float_format = float.__getformat__("float")
+_double_format = float.__getformat__("double")
+def descr___getformat__(space, w_cls, kind):
+    if kind == "float":
+        return space.wrap(_float_format)
+    elif kind == "double":
+        return space.wrap(_double_format)
+    raise OperationError(space.w_ValueError,
+                         space.wrap("only float and double are valid"))
+
+
 # ____________________________________________________________
 
 float_typedef = StdTypeDef("float",
@@ -42,4 +55,7 @@ float_typedef = StdTypeDef("float",
 
 Convert a string or number to a floating point number, if possible.''',
     __new__ = gateway.interp2app(descr__new__),
+    __getformat__ = gateway.interp2app(descr___getformat__,
+                                       unwrap_spec=[ObjSpace, W_Root, str],
+                                       as_classmethod=True),
     )

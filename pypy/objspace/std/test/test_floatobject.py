@@ -317,6 +317,11 @@ class AppTestAppFloatTest:
                 assert not (nan <  x)
                 assert not (nan >  x)
 
+    def test___getformat__(self):
+        float.__getformat__("float")
+        float.__getformat__("double")
+        raises(ValueError, float.__getformat__, "random")
+
     def test_multimethod_slice(self):
         assert 5 .__add__(3.14) is NotImplemented
         assert 3.25 .__add__(5) == 8.25
