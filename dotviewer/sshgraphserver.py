@@ -21,7 +21,7 @@ def ssh_graph_server(sshargs):
     remoteport = random.randrange(10000, 20000)
     #  ^^^ and just hope there is no conflict
 
-    args = ['ssh', '-C', '-R%d:127.0.0.1:%d' % (remoteport, localport)]
+    args = ['ssh', '-S', 'none', '-C', '-R%d:127.0.0.1:%d' % (remoteport, localport)]
     args = args + sshargs + ['python -u -c "exec input()"']
     print ' '.join(args[:-1])
     p = subprocess.Popen(args, bufsize=0,
