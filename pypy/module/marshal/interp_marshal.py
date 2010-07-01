@@ -222,8 +222,7 @@ class Marshaller(_Base):
     def dump_w_obj(self, w_obj):
         space = self.space
         if (space.type(w_obj).is_heaptype() and
-            not space.eq_w(space.getattr(w_obj, space.wrap("__module__")),
-                           space.wrap("array"))):
+            space.lookup(w_obj, "__buffer__") is None):
             w_err = space.wrap("only builtins can be marshaled")
             raise OperationError(space.w_ValueError, w_err)
         try:
