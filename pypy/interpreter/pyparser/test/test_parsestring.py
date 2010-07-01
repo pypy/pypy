@@ -54,7 +54,6 @@ class TestParsetring:
         assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'")
 
     def test_simple_enc_roundtrip(self):
-        #py.test.skip("crashes in app_codecs, but when cheating using .encode at interp-level passes?!")
         space = self.space
         s = "'\x81'"
         s = s.decode("koi8-u").encode("utf8")
