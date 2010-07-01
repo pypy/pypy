@@ -372,3 +372,10 @@ def test_isnan():
 def test_int_real_union():
     from pypy.rpython.lltypesystem.rffi import r_int_real
     assert compute_restype(r_int_real, r_int_real) is r_int_real
+
+def test_copysign():
+    assert copysign(1, 1) == 1
+    assert copysign(-1, 1) == 1
+    assert copysign(-1, -1) == -1
+    assert copysign(1, -1) == -1
+    assert copysign(1, -0.) == -1

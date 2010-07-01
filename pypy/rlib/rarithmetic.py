@@ -53,14 +53,25 @@ LONG_TEST = _Ltest
 INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
 
-def isinf(x):
-    return x != 0.0 and x / 2 == x
+try:
+    from math import isinf, isnan, copysign
+except ImportError:
+    def isinf(x):
+        return x != 0.0 and x / 2 == x
 
-# To get isnan, working x-platform and both on 2.3 and 2.4, is a
-# horror.  I think this works (for reasons I don't really want to talk
-# about), and probably when implemented on top of pypy, too.
-def isnan(v):
-    return v != v*1.0 or (v == 1.0 and v == 2.0)
+    # To get isnan, working x-platform and both on 2.3 and 2.4, is a
+    # horror.  I think this works (for reasons I don't really want to talk
+    # about), and probably when implemented on top of pypy, too.
+    def isnan(v):
+        return v != v*1.0 or (v == 1.0 and v == 2.0)
+
+    def copysign(x, y):
+        """Return x with the sign of y"""
+        if y > 0. or (y == 0. and math.atan2(y, -1.) > 0.):
+            return math.fabs(x)
+        else:
+            return -math.fabs(x)
+
 
 def intmask(n):
     if isinstance(n, int):
