@@ -1,30 +1,10 @@
-from pypy.interpreter import gateway
+from pypy.module._codecs import interp_codecs
 
-app = gateway.applevel(r'''
-    def PyUnicode_DecodeUnicodeEscape(data):
-        import _codecs
-        return _codecs.unicode_escape_decode(data)[0]
+def PyUnicode_AsEncodedString(space, w_data, w_encoding):
+    return interp_codecs.encode(space, w_data, w_encoding)
 
-    def PyUnicode_DecodeRawUnicodeEscape(data):
-        import _codecs
-        return _codecs.raw_unicode_escape_decode(data)[0]
-
-    def PyUnicode_DecodeUTF8(data):
-        import _codecs
-        return _codecs.utf_8_decode(data)[0]
-
-    def PyUnicode_AsEncodedString(data, encoding):
-        import _codecs
-        return _codecs.encode(data, encoding)
-
-    def PyUnicode_EncodeUTF8(data):
-        import _codecs
-        return _codecs.utf_8_encode(data)[0]
-
-''')
-
-PyUnicode_DecodeUnicodeEscape = app.interphook('PyUnicode_DecodeUnicodeEscape')
-PyUnicode_DecodeRawUnicodeEscape = app.interphook('PyUnicode_DecodeRawUnicodeEscape')
-PyUnicode_DecodeUTF8 = app.interphook('PyUnicode_DecodeUTF8')
-PyUnicode_AsEncodedString = app.interphook('PyUnicode_AsEncodedString')
-PyUnicode_EncodeUTF8 = app.interphook('PyUnicode_EncodeUTF8') 
+# These functions take and return unwrapped rpython strings and unicodes
+PyUnicode_DecodeUnicodeEscape = interp_codecs.make_raw_decoder('unicode_escape')
+PyUnicode_DecodeRawUnicodeEscape = interp_codecs.make_raw_decoder('raw_unicode_escape')
+PyUnicode_DecodeUTF8 = interp_codecs.make_raw_decoder('utf_8')
+PyUnicode_EncodeUTF8 = interp_codecs.make_raw_encoder('utf_8')

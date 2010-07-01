@@ -12,6 +12,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash
 from pypy.rlib.rstring import string_repeat
+from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -892,101 +893,11 @@ def unicode_translate__Unicode_ANY(space, w_self, w_table):
                     space.wrap("character mapping must return integer, None or unicode"))
     return W_UnicodeObject(u''.join(result))
 
-# Move this into the _codecs module as 'unicodeescape_string (Remember to cater for quotes)'
 def repr__Unicode(space, w_unicode):
-    hexdigits = "0123456789abcdef"
     chars = w_unicode._value
     size = len(chars)
-    
-    singlequote = doublequote = False
-    for c in chars:
-        if c == u'\'':
-            singlequote = True
-        elif c == u'"':
-            doublequote = True
-    if singlequote and not doublequote:
-        quote = '"'
-    else:
-        quote = '\''
-    result = ['u', quote]
-    j = 0
-    while j<len(chars):
-        ch = chars[j]
-        code = ord(ch)
-        if code >= 0x10000:
-            # Resize if needed
-            result.extend(['\\', "U",
-                           hexdigits[(code >> 28) & 0xf],
-                           hexdigits[(code >> 24) & 0xf],
-                           hexdigits[(code >> 20) & 0xf],
-                           hexdigits[(code >> 16) & 0xf],
-                           hexdigits[(code >> 12) & 0xf],
-                           hexdigits[(code >>  8) & 0xf],
-                           hexdigits[(code >>  4) & 0xf],
-                           hexdigits[(code >>  0) & 0xf],
-                           ])
-            j += 1
-            continue
-        if code >= 0xD800 and code < 0xDC00:
-            if j < size - 1:
-                ch2 = chars[j+1]
-                code2 = ord(ch2)
-                if code2 >= 0xDC00 and code2 <= 0xDFFF:
-                    code = (((code & 0x03FF) << 10) | (code2 & 0x03FF)) + 0x00010000
-                    result.extend(['\\', "U",
-                                   hexdigits[(code >> 28) & 0xf],
-                                   hexdigits[(code >> 24) & 0xf],
-                                   hexdigits[(code >> 20) & 0xf],
-                                   hexdigits[(code >> 16) & 0xf],
-                                   hexdigits[(code >> 12) & 0xf],
-                                   hexdigits[(code >>  8) & 0xf],
-                                   hexdigits[(code >>  4) & 0xf],
-                                   hexdigits[(code >>  0) & 0xf],
-                                  ])
-                    j += 2
-                    continue
-                
-        if code >= 0x100:
-            result.extend(['\\', "u",
-                           hexdigits[(code >> 12) & 0xf],
-                           hexdigits[(code >>  8) & 0xf],
-                           hexdigits[(code >>  4) & 0xf],
-                           hexdigits[(code >>  0) & 0xf],
-                          ])
-            j += 1
-            continue
-        if code == ord('\\') or code == ord(quote):
-            result.append('\\')
-            result.append(chr(code))
-            j += 1
-            continue
-        if code == ord('\t'):
-            result.append('\\')
-            result.append('t')
-            j += 1
-            continue
-        if code == ord('\r'):
-            result.append('\\')
-            result.append('r')
-            j += 1
-            continue
-        if code == ord('\n'):
-            result.append('\\')
-            result.append('n')
-            j += 1
-            continue
-        if code < ord(' ') or code >= 0x7f:
-            result.extend(['\\', "x",
-                           hexdigits[(code >> 4) & 0xf], 
-                           hexdigits[(code >> 0) & 0xf],
-                          ])
-            j += 1
-            continue
-        result.append(chr(code))
-        j += 1
-    result.append(quote)
-    return space.wrap(''.join(result))
-        
+    s = unicode_encode_unicode_escape(chars, size, "strict", quotes=True)
+    return space.wrap(s)
 
 def mod__Unicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)

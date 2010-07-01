@@ -56,6 +56,7 @@ class AbstractStringBuilder(object):
         self.l.append(s)
 
     def append_slice(self, s, start, end):
+        assert 0 <= start <= end <= len(s)
         self.l.append(s[start:end])
 
     def append_multiple_char(self, c, times):
