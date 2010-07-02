@@ -8,6 +8,7 @@ from pypy.tool import stdlib_opcode as ops
 
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import rarithmetic
 
 
 class Instruction(object):
@@ -209,7 +210,35 @@ class PythonCodeMaker(ast.ASTVisitor):
         # To avoid confusing equal but separate types, we hash store the type of
         # the constant in the dictionary.
         if w_key is None:
-            w_key = space.newtuple([obj, space.type(obj)])
+            # We have to keep the difference between -0.0 and 0.0 floats.
+            w_type = space.type(obj)
+            if space.is_w(w_type, space.w_float):
+                val = space.float_w(obj)
+                if val == 0.0 and rarithmetic.copysign(1., val) < 0:
+                    w_key = space.newtuple([obj, space.w_float, space.w_None])
+                else:
+                    w_key = space.newtuple([obj, space.w_float])
+            elif space.is_w(w_type, space.w_complex):
+                w_real = space.getattr(obj, space.wrap("real"))
+                w_imag = space.getattr(obj, space.wrap("imag"))
+                real = space.float_w(w_real)
+                imag = space.float_w(w_imag)
+                real_negzero = (real == 0.0 and
+                                rarithmetic.copysign(1., real) < 0)
+                imag_negzero = (imag == 0.0 and
+                                rarithmetic.copysign(1., imag) < 0)
+                if real_negzero and imag_negzero:
+                    tup = [obj, space.w_complex, space.w_None, space.w_None,
+                           space.w_None]
+                elif imag_negzero:
+                    tup = [obj, space.w_complex, space.w_None, space.w_None]
+                elif real_negzero:
+                    tup = [obj, space.w_complex, space.w_None]
+                else:
+                    tup = [obj, space.w_complex]
+                w_key = space.newtuple(tup)
+            else:
+                w_key = space.newtuple([obj, w_type])
         w_len = space.finditem(self.w_consts, w_key)
         if w_len is None:
             w_len = space.len(self.w_consts)

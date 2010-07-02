@@ -704,6 +704,20 @@ class TestECCompiler(BaseTestCompiler):
         self.compiler = self.space.getexecutioncontext().compiler
 
 
+class AppTestCompiler:
+
+    def test_zeros_not_mixed(self):
+        import math
+        code = compile("x = -0.0; y = 0.0", "<test>", "exec")
+        consts = code.co_consts
+        assert len(consts) == 3
+        assert math.copysign(1, consts[0]) != math.copysign(1, consts[1])
+        ns = {}
+        exec "z1, z2 = 0j, -0j" in ns
+        assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
+        assert math.atan2(ns["z2"].imag, -1.) == math.atan2(-0., -1.)
+
+
 ##class TestPythonAstCompiler(BaseTestCompiler):
 ##    def setup_method(self, method):
 ##        self.compiler = PythonAstCompiler(self.space, "2.4")
