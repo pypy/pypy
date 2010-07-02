@@ -1,6 +1,9 @@
 #! /usr/bin/env python
 
-import os, py, sys
+import os
+import sys
+import struct
+import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import llmemory
@@ -8,7 +11,6 @@ from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.tool.udir import udir
-from pypy.rlib.rstruct import ieee
 
 # ____________________________________________________________
 #
@@ -428,7 +430,8 @@ class DefinedConstantDouble(CConfigEntry):
     def build_result(self, info, config_result):
         if info["defined"]:
             data = [chr(info["value_%d" % (i,)]) for i in range(8)]
-            return ieee.unpack_float8(''.join(data))
+            # N.B. This depends on IEEE 754 being implemented.
+            return struct.unpack("d", ''.join(data))[0]
         return None
 
 class DefinedConstantString(CConfigEntry):
