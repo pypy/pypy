@@ -822,13 +822,13 @@ def hexescape(builder, s, pos, digits,
         else:
             # when we get here, chr is a 32-bit unicode character
             if chr <= MAXUNICODE:
-                builder.append(unichr(chr))
+                builder.append(UNICHR(chr))
                 pos += digits
 
             elif chr <= 0x10ffff:
                 chr -= 0x10000L
                 builder.append(unichr(0xD800 + (chr >> 10)))
-                builder.append(unichr(0xDC00 +  (chr & 0x03FF)))
+                builder.append(unichr(0xDC00 + (chr & 0x03FF)))
                 pos += digits
             else:
                 message = "illegal Unicode character"
@@ -943,7 +943,7 @@ def str_decode_unicode_escape(s, size, errors, final=False,
                         continue
                     pos = look + 1
                     if code <= MAXUNICODE:
-                        builder.append(unichr(code))
+                        builder.append(UNICHR(code))
                     else:
                         code -= 0x10000L
                         builder.append(unichr(0xD800 + (code >> 10)))
