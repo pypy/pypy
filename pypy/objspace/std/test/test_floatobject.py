@@ -158,6 +158,7 @@ class AppTestAppFloatTest:
         assert pw(-1.0, 2.0) == 1.0
         assert pw(-1.0, 3.0) == -1.0
         assert pw(-1.0, 1e200) == 1.0
+        assert pw(0.0, float("-inf")) == float("inf")
 
     def test_pow_neg_base(self):
         def pw(x, y):

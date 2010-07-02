@@ -433,9 +433,13 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
                      return space.wrap(1.0)
                 else:
                      return space.wrap( -1.0)
-        elif x == 0.0 and y < 0.0:
-            raise OperationError(space.w_ZeroDivisionError,
-                space.wrap("0.0 cannot be raised to a negative power"))
+        elif x == 0.0:
+            if y < 0.0:
+                if isinf(y):
+                    return space.wrap(float("inf"))
+                raise OperationError(space.w_ZeroDivisionError,
+                                     space.wrap("0.0 cannot be raised to "
+                                                "a negative power"))
         raise OperationError(space.w_ValueError,
                              space.wrap("float power"))
     return W_FloatObject(z)
