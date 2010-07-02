@@ -103,6 +103,7 @@ class AppTestAppFloatTest:
         assert repr(inf) == "inf"
         assert repr(-inf) == "-inf"
         assert repr(float("nan")) == "nan"
+        assert repr(float("+nan")) == "nan"
         assert repr(float("-nAn")) == "nan"
 
     def test_float_unicode(self):
