@@ -180,7 +180,7 @@ def interp_string_to_float(space, s):
     low = s.lower()
     if low == "-inf":
         return -INFINITY
-    elif low == "inf":
+    elif low == "inf" or low == "+inf":
         return INFINITY
     elif low == "nan" or low == "-nan":
         return NAN

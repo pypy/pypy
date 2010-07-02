@@ -94,6 +94,7 @@ class AppTestAppFloatTest:
         assert 42.25 == float("42.25")
         inf = 1e200*1e200
         assert float("inf")  == inf
+        assert float("+inf") == inf
         assert float("-INf") == -inf
         assert str(inf) == "inf"
         assert str(-inf) == "-inf"
