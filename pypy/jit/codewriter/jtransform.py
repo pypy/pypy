@@ -420,9 +420,14 @@ class Transformer(object):
             return SpaceOperation('new_array', [arraydescr, op.args[2]],
                                   op.result)
 
+    def rewrite_op_free(self, op):
+        assert op.args[1].value == 'raw'
+        ARRAY = op.args[0].concretetype.TO
+        return self._do_builtin_call(op, 'raw_free', [op.args[0]],
+                                     extra = (ARRAY,), extrakey = ARRAY)
+
     def rewrite_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
-        assert ARRAY._gckind == 'gc'
         if self._array_of_voids(ARRAY):
             return []
         if op.args[0] in self.vable_array_vars:     # for virtualizables
@@ -436,13 +441,12 @@ class Transformer(object):
         # normal case follows
         arraydescr = self.cpu.arraydescrof(ARRAY)
         kind = getkind(op.result.concretetype)
-        return SpaceOperation('getarrayitem_gc_%s' % kind[0],
+        return SpaceOperation('getarrayitem_%s_%s' % (ARRAY._gckind, kind[0]),
                               [op.args[0], arraydescr, op.args[1]],
                               op.result)
 
     def rewrite_op_setarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
-        assert ARRAY._gckind == 'gc'
         if self._array_of_voids(ARRAY):
             return []
         if op.args[0] in self.vable_array_vars:     # for virtualizables
@@ -455,7 +459,7 @@ class Transformer(object):
                                     op.args[1], op.args[2]], None)]
         arraydescr = self.cpu.arraydescrof(ARRAY)
         kind = getkind(op.args[2].concretetype)
-        return SpaceOperation('setarrayitem_gc_%s' % kind[0],
+        return SpaceOperation('setarrayitem_%s_%s' % (ARRAY._gckind, kind[0]),
                               [op.args[0], arraydescr, op.args[1], op.args[2]],
                               None)
 

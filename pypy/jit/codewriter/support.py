@@ -297,6 +297,11 @@ class LLtypeHelpers:
             return lltype.malloc(ARRAY, n, flavor='raw')
         return _ll_1_raw_malloc
 
+    def build_ll_1_raw_free(ARRAY):
+        def _ll_1_raw_free(p):
+            lltype.free(p, flavor='raw')
+        return _ll_1_raw_free
+
 class OOtypeHelpers:
 
     # ---------- dict ----------
