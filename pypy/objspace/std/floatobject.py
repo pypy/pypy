@@ -475,15 +475,15 @@ def float_as_integer_ratio__Float(space, w_float):
         float_part *= 2.0
         exp -= 1
     w_num = W_LongObject.fromfloat(float_part)
-    w_dem = space.newlong(1)
+    w_den = space.newlong(1)
     w_exp = space.newlong(abs(exp))
-    w_exp = space.lshift(w_dem, w_exp)
+    w_exp = space.lshift(w_den, w_exp)
     if exp > 0:
         w_num = space.mul(w_num, w_exp)
     else:
-        w_dem = w_exp
+        w_den = w_exp
     # Try to return int.
-    return space.newtuple([space.int(w_num), space.int(w_dem)])
+    return space.newtuple([space.int(w_num), space.int(w_den)])
 
 from pypy.objspace.std import floattype
 register_all(vars(), floattype)
