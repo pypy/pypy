@@ -132,6 +132,12 @@ class AppTestAppFloatTest:
         raises(OverflowError, float('-inf').as_integer_ratio)
         raises(ValueError, float('nan').as_integer_ratio)
 
+    def test_float_conversion(self):
+        class X(float):
+            def __float__(self):
+                return 42.
+        assert float(X()) == 42.
+
     def test_round(self):
         assert 1.0 == round(1.0)
         assert 1.0 == round(1.1)
