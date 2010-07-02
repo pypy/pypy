@@ -109,6 +109,10 @@ class AppTestAppFloatTest:
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
         assert 42.75 == float(unichr(0x00A0)+unicode("42.75")+unichr(0x2000))
+        class FloatUnicode(unicode):
+            def __float__(self):
+                return float(unicode(self)) + 1
+        assert float(FloatUnicode("8")) == 9.0
 
     def test_float_long(self):
         assert 42.0 == float(42L)

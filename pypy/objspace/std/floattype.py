@@ -16,7 +16,14 @@ float_hex = SMM("hex", 1)
 def descr__new__(space, w_floattype, w_x=0.0):
     from pypy.objspace.std.floatobject import W_FloatObject
     w_value = w_x     # 'x' is the keyword argument name in CPython
-    if space.is_true(space.isinstance(w_value, space.w_str)):
+    w_special = space.lookup(w_x, "__float__")
+    if w_special is not None:
+        w_obj = space.get_and_call_function(w_special, w_x)
+        if not space.isinstance_w(w_obj, space.w_float):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("__float__ returned non-float"))
+        return w_obj
+    elif space.is_true(space.isinstance(w_value, space.w_str)):
         strvalue = space.str_w(w_value)
         try:
             value = interp_string_to_float(space, strvalue)
