@@ -26,9 +26,16 @@ def test_dir_structure():
         assert prefix.join('README').check()
         th = tarfile.open(str(builddir.join('test.tar.bz2')))
         assert th.getmember('test/lib_pypy/syslog.py')
-        assert th.getmember('test/include/Python.h')
-        assert th.getmember('test/include/modsupport.inl')
-        assert th.getmember('test/include/pypy_decl.h')
+
+        # the headers file could be not there, because they are copied into
+        # trunk/include only during translation
+        includedir = py.path.local(pypydir).dirpath().join('include')
+        def check_include(name):
+            if includedir.join(name).check(file=True):
+                assert th.getmember('test/include/%s' % name)
+        check_include('Python.h')
+        check_include('modsupport.inl')
+        check_include('pypy_decl.h')
     finally:
         if fake_pypy_c:
             pypy_c.remove()
