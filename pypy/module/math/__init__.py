@@ -37,5 +37,6 @@ class Module(MixedModule):
        'acos'           : 'interp_math.acos',
        'isinf'          : 'interp_math.isinf',
        'isnan'          : 'interp_math.isnan',
+       'trunc'          : 'interp_math.trunc',
 }
 

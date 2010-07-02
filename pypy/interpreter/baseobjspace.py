@@ -1213,6 +1213,7 @@ ObjSpace.MethodTable = [
     ('getslice',        'getslice',  3, ['__getslice__']),
     ('setslice',        'setslice',  4, ['__setslice__']),
     ('delslice',        'delslice',  3, ['__delslice__']),
+    ('trunc',           'trunc',     1, ['__trunc__']),
     ('pos',             'pos',       1, ['__pos__']),
     ('neg',             'neg',       1, ['__neg__']),
     ('nonzero',         'truth',     1, ['__nonzero__']),

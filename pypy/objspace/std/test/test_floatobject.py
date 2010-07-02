@@ -322,6 +322,17 @@ class AppTestAppFloatTest:
         float.__getformat__("double")
         raises(ValueError, float.__getformat__, "random")
 
+    def test_trunc(self):
+        import math
+        assert math.trunc(1.5) == 1
+        assert math.trunc(-1.5) == -1
+        assert math.trunc(1.999999) == 1
+        assert math.trunc(-1.999999) == -1
+        assert math.trunc(-0.999999) == -0
+        assert math.trunc(-100.999) == -100
+        raises(OverflowError, math.trunc, float("inf"))
+
+
     def test_multimethod_slice(self):
         assert 5 .__add__(3.14) is NotImplemented
         assert 3.25 .__add__(5) == 8.25

@@ -188,6 +188,7 @@ Table = [
     ('nonzero',         operator.truth),
     ('is_true',         bool),
     ('is_true',         operator.truth),
+    ('trunc',           unsupported),
     ('abs' ,            abs),
     ('hex',             hex),
     ('oct',             oct),

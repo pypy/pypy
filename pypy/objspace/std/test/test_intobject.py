@@ -285,6 +285,11 @@ class TestW_IntObject:
 
 class AppTestInt:
 
+    def test_trunc(self):
+        import math
+        assert math.trunc(1) == 1
+        assert math.trunc(-1) == -1
+
     def test_int_callable(self):
         assert 43 == int(43)
 

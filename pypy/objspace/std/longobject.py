@@ -77,6 +77,7 @@ def long__Long(space, w_long1):
         return w_long1
     l = w_long1.num
     return W_LongObject(l)
+trunc__Long = long__Long
 
 def long__Int(space, w_intobj):
     return W_LongObject.fromint(space, w_intobj.intval)

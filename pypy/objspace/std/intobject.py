@@ -305,6 +305,7 @@ def int__Int(space, w_int1):
     return wrapint(space, a)
 get_integer = int__Int
 pos__Int = int__Int
+trunc__Int = int__Int
 
 def index__Int(space, w_int1):
     return get_integer(space, w_int1)

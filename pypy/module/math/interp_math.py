@@ -47,6 +47,11 @@ def math2(space, f, x, snd):
     return space.wrap(r)
 math2._annspecialcase_ = 'specialize:arg(1)'
 
+def trunc(space, w_x):
+    """Truncate x."""
+    return space.trunc(w_x)
+trunc.unwrap_spec = [ObjSpace, W_Root]
+
 def copysign(space, x, y):
     """Return x with the sign of y."""
     # No exceptions possible.

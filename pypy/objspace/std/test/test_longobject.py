@@ -40,6 +40,12 @@ class TestW_LongObject:
 
 
 class AppTestLong:
+
+    def test_trunc(self):
+        import math
+        assert math.trunc(1L) == 1L
+        assert math.trunc(-1L) == -1L
+
     def test_add(self):
         assert int(123L + 12443L) == 123 + 12443
         assert -20 + 2 + 3L + True == -14L
