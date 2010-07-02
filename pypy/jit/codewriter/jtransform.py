@@ -403,7 +403,12 @@ class Transformer(object):
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def rewrite_op_malloc_varsize(self, op):
-        assert op.args[1].value == {'flavor': 'gc'}
+        if op.args[1].value['flavor'] == 'raw':
+            ARRAY = op.args[0].value
+            return self._do_builtin_call(op, 'raw_malloc',
+                                         [op.args[2]],
+                                         extra = (ARRAY,),
+                                         extrakey = ARRAY)
         if op.args[0].value == rstr.STR:
             return SpaceOperation('newstr', [op.args[2]], op.result)
         elif op.args[0].value == rstr.UNICODE:

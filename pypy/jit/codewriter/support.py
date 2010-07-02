@@ -282,6 +282,9 @@ class LLtypeHelpers:
 
     # ---------- malloc with del ----------
 
+    def _ll_2_raw_malloc(TP, size):
+        return lltype.malloc(TP, size, flavor='raw')
+
     def build_ll_0_alloc_with_del(RESULT, vtable):
         def _ll_0_alloc_with_del():
             p = lltype.malloc(RESULT.TO)
@@ -289,6 +292,10 @@ class LLtypeHelpers:
             return p
         return _ll_0_alloc_with_del
 
+    def build_ll_1_raw_malloc(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw')
+        return _ll_1_raw_malloc
 
 class OOtypeHelpers:
 
