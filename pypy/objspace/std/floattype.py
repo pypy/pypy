@@ -42,11 +42,7 @@ def descr__new__(space, w_floattype, w_x=0.0):
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
     else:
-        w_obj = space.float(w_value)
-        if space.is_w(w_floattype, space.w_float):
-            return w_obj  # 'float(x)' should return
-                          # whatever x.__float__() returned
-        value = space.float_w(w_obj)
+        value = space.float_w(w_x)
     w_obj = space.allocate_instance(W_FloatObject, w_floattype)
     W_FloatObject.__init__(w_obj, value)
     return w_obj
