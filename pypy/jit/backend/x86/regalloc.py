@@ -783,12 +783,14 @@ class RegAlloc(object):
             arglocs.append(self.loc(op.args[0]))
             return self._call(op, arglocs)
         # boehm GC (XXX kill the following code at some point)
-        scale_of_field, basesize, _ = self._unpack_arraydescr(op.descr)
-        return self._malloc_varsize(basesize, 0, scale_of_field, op.args[0],
-                                    op.result)
+        scale_of_field, basesize, ofs_length, _ = (
+            self._unpack_arraydescr(op.descr))
+        return self._malloc_varsize(basesize, ofs_length, scale_of_field,
+                                    op.args[0], op.result)
 
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
         ofs = arraydescr.get_base_size(self.translate_support_code)
         size = arraydescr.get_item_size(self.translate_support_code)
         ptr = arraydescr.is_array_of_pointers()
@@ -796,7 +798,7 @@ class RegAlloc(object):
         while (1 << scale) < size:
             scale += 1
         assert (1 << scale) == size
-        return scale, ofs, ptr
+        return scale, ofs, ofs_length, ptr
 
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
@@ -831,7 +833,7 @@ class RegAlloc(object):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op):
-        scale, ofs, ptr = self._unpack_arraydescr(op.descr)
+        scale, ofs, _, ptr = self._unpack_arraydescr(op.descr)
         base_loc  = self.rm.make_sure_var_in_reg(op.args[0], op.args)
         if scale == 0:
             need_lower_byte = True
@@ -858,7 +860,7 @@ class RegAlloc(object):
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op):
-        scale, ofs, _ = self._unpack_arraydescr(op.descr)
+        scale, ofs, _, _ = self._unpack_arraydescr(op.descr)
         base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args)
         self.rm.possibly_free_vars(op.args)
