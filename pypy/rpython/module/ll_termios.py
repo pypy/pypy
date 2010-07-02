@@ -85,7 +85,7 @@ def tcsetattr_llimpl(fd, when, attributes):
     c_struct.c_c_lflag, ispeed, ospeed, cc = attributes
     try:
         for i in range(NCCS):
-            c_struct.c_c_cc[i] = rffi.r_uchar(ord(cc[i]))
+            c_struct.c_c_cc[i] = rffi.r_uchar(ord(cc[i][0]))
         error = c_cfsetispeed(c_struct, ispeed)
         if error == -1:
             raise termios.error(error, 'tcsetattr failed')

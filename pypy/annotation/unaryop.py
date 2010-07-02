@@ -5,7 +5,7 @@ Unary operations on SomeValues.
 from types import MethodType
 from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
-     SomeDict, SomeTuple, SomeImpossibleValue, \
+     SomeDict, SomeTuple, SomeImpossibleValue, SomeUnicodeCodePoint, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
      s_ImpossibleValue, s_Bool, s_None, \
@@ -494,9 +494,6 @@ class __extend__(SomeString,
     def getanyitem(str):
         return str.basecharclass()
 
-    def ord(str):
-        return SomeInteger(nonneg=True)
-
     def method_split(str, patt): # XXX
         getbookkeeper().count("str_split", str, patt)
         return getbookkeeper().newlist(str.basestringclass())
@@ -541,10 +538,15 @@ class __extend__(SomeString):
         return SomeUnicodeString()
     method_decode.can_only_throw = [UnicodeDecodeError]
 
-class __extend__(SomeChar):
+class __extend__(SomeChar, SomeUnicodeCodePoint):
 
     def len(chr):
         return immutablevalue(1)
+
+    def ord(str):
+        return SomeInteger(nonneg=True)
+
+class __extend__(SomeChar):
 
     def method_isspace(chr):
         return s_Bool

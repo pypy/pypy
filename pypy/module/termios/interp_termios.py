@@ -60,8 +60,8 @@ def tcgetattr(space, fd):
     # last one need to be chosen carefully
     cc_w = [space.wrap(i) for i in cc]
     if lflag & termios.ICANON:
-        cc_w[termios.VMIN] = space.wrap(ord(cc[termios.VMIN]))
-        cc_w[termios.VTIME] = space.wrap(ord(cc[termios.VTIME]))
+        cc_w[termios.VMIN] = space.wrap(ord(cc[termios.VMIN][0]))
+        cc_w[termios.VTIME] = space.wrap(ord(cc[termios.VTIME][0]))
     w_cc = space.newlist(cc_w)
     l_w.append(w_cc)
     return space.newlist(l_w)
