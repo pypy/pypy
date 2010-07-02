@@ -642,16 +642,8 @@ def make_string_mappings(strtype):
         allows for the process to be performed without an extra copy.
         Make sure to call keep_buffer_alive_until_here on the returned values.
         """
-        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                            itemoffsetof(STRTYPE.chars, 0))
-        gc_buf = rgc.malloc_nonmovable(STRTYPE, count)
-        if gc_buf:
-            realbuf = cast_ptr_to_adr(gc_buf) + str_chars_offset
-            raw_buf = cast(TYPEP, realbuf)
-            return raw_buf, gc_buf
-        else:
-            raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-            return raw_buf, lltype.nullptr(STRTYPE)
+        raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+        return raw_buf, lltype.nullptr(STRTYPE)
     alloc_buffer._always_inline_ = True # to get rid of the returned tuple
 
     # (char*, str, int, int) -> None
