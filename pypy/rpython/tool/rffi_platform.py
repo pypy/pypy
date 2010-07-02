@@ -8,6 +8,7 @@ from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.tool.udir import udir
+from pypy.rlib.rstruct import ieee
 
 # ____________________________________________________________
 #
@@ -43,6 +44,12 @@ def getdefined(macro, c_header_source):
     class CConfig:
         _compilation_info_ = eci_from_header(c_header_source)
         DEFINED = Defined(macro)
+    return configure(CConfig)['DEFINED']
+
+def getdefineddouble(macro, c_header_source):
+    class CConfig:
+        _compilation_info_ = eci_from_header(c_header_source)
+        DEFINED = DefinedConstantDouble(macro)
     return configure(CConfig)['DEFINED']
 
 def has(name, c_header_source, include_dirs=None):
@@ -398,6 +405,30 @@ class DefinedConstantInteger(CConfigEntry):
     def build_result(self, info, config_result):
         if info["defined"]:
             return info['value']
+        return None
+
+class DefinedConstantDouble(CConfigEntry):
+
+    def __init__(self, macro):
+        self.name = self.macro = macro
+
+    def prepare_code(self):
+        yield '#ifdef %s' % (self.macro,)
+        yield 'int i;'
+        yield 'double x = %s;' % (self.macro,)
+        yield 'unsigned char *p = (unsigned char *)&x;'
+        yield 'dump("defined", 1);'
+        yield 'for (i = 0; i < 8; i++) {'
+        yield ' printf("value_%d: %d\\n", i, p[i]);'
+        yield '}'
+        yield '#else'
+        yield 'dump("defined", 0);'
+        yield '#endif'
+
+    def build_result(self, info, config_result):
+        if info["defined"]:
+            data = [chr(info["value_%d" % (i,)]) for i in range(8)]
+            return ieee.unpack_float8(''.join(data))
         return None
 
 class DefinedConstantString(CConfigEntry):
