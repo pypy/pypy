@@ -7,6 +7,7 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
+from pypy.module.sys import system
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
 from pypy.rlib.rarithmetic import formatd, LONG_BIT, FL_MAXINT, FL_MININT
 from pypy.rlib.rbigint import rbigint
@@ -85,6 +86,44 @@ def trunc__Float(space, w_floatobj):
 
 def float_w__Float(space, w_float):
     return w_float.floatval
+
+def _char_from_hex(number):
+    return "0123456789abcdef"[number]
+
+TOHEX_NBITS = system.DBL_MANT_DIG + 3 - (system.DBL_MANT_DIG + 2) % 4
+
+def float_hex__Float(space, w_float):
+    value = w_float.floatval
+    if isinf(value) or isnan(value):
+        return str__Float(space, w_float)
+    if value == 0.0:
+        if math.copysign(1., value) == -1.:
+            return space.wrap("-0x0.0p+0")
+        else:
+            return space.wrap("0x0.0p+0")
+    mant, exp = math.frexp(value)
+    shift = 1 - max(system.DBL_MIN_EXP - exp, 0)
+    mant = math.ldexp(mant, shift)
+    mant = abs(mant)
+    exp -= shift
+    result = ['\0'] * ((TOHEX_NBITS - 1) // 4 + 2)
+    result[0] = _char_from_hex(int(mant))
+    mant -= int(mant)
+    result[1] = "."
+    for i in range((TOHEX_NBITS - 1) // 4):
+        mant *= 16.0
+        result[i + 2] = _char_from_hex(int(mant))
+        mant -= int(mant)
+    if exp < 0:
+        sign = "-"
+    else:
+        sign = "+"
+    exp = abs(exp)
+    s = ''.join(result)
+    if value < 0.0:
+        return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+    else:
+        return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
 def float2string(space, w_float, format):
     x = w_float.floatval
@@ -417,7 +456,8 @@ def nonzero__Float(space, w_float):
 def getnewargs__Float(space, w_float):
     return space.newtuple([W_FloatObject(w_float.floatval)])
 
-register_all(vars())
+from pypy.objspace.std import floattype
+register_all(vars(), floattype)
 
 # pow delegation for negative 2nd arg
 def pow_neg__Long_Long_None(space, w_int1, w_int2, thirdarg):
