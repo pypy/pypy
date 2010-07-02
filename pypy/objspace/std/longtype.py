@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, typedef
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 
@@ -65,6 +65,12 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     W_LongObject.__init__(w_obj, w_value.num)
     return w_obj
 
+def descr_get_numerator(space, w_obj):
+    return space.long(w_obj)
+
+def descr_get_denominator(space, w_obj):
+    return space.newlong(1)
+
 # ____________________________________________________________
 
 long_typedef = StdTypeDef("long",
@@ -76,4 +82,6 @@ string representation of a floating point number!)  When converting a
 string, use the optional base.  It is an error to supply a base when
 converting a non-string.''',
     __new__ = gateway.interp2app(descr__new__),
+    numerator = typedef.GetSetProperty(descr_get_numerator),
+    denominator = typedef.GetSetProperty(descr_get_denominator),
     )

@@ -1,4 +1,4 @@
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, typedef
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.strutil import (string_to_int, string_to_w_long,
@@ -134,6 +134,12 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
         W_IntObject.__init__(w_obj, value)
         return w_obj
 
+def descr_get_numerator(space, w_obj):
+    return space.int(w_obj)
+
+def descr_get_denominator(space, w_obj):
+    return space.wrap(1)
+
 # ____________________________________________________________
 
 int_typedef = StdTypeDef("int",
@@ -146,4 +152,6 @@ the optional base.  It is an error to supply a base when converting a
 non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
     __new__ = gateway.interp2app(descr__new__),
+    numerator = typedef.GetSetProperty(descr_get_numerator),
+    denominator = typedef.GetSetProperty(descr_get_denominator),
     )

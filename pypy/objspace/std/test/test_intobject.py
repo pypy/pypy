@@ -293,6 +293,12 @@ class AppTestInt:
     def test_int_callable(self):
         assert 43 == int(43)
 
+    def test_numerator_denominator(self):
+        assert (1).numerator == 1
+        assert (1).denominator == 1
+        assert (42).numerator == 42
+        assert (42).denominator == 1
+
     def test_int_string(self):
         assert 42 == int("42")
         assert 10000000000 == long("10000000000")

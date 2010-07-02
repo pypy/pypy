@@ -65,6 +65,12 @@ class AppTestLong:
         a = 31415926L // 10000000L
         assert a == 3L
 
+    def test_numerator_denominator(self):
+        assert (1L).numerator == 1L
+        assert (1L).denominator == 1L
+        assert (42L).numerator == 42L
+        assert (42L).denominator == 1L
+
     def test_compare(self):
         for BIG in (1L, 1L << 62, 1L << 9999):
             assert 0 == 0L
