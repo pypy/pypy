@@ -104,8 +104,12 @@ def copy_header_files(dstdir):
     for name in ("pypy_decl.h", "pypy_macros.h"):
         headers.append(udir.join(name))
     for header in headers:
-        header.copy(dstdir)
         target = dstdir.join(header.basename)
+        try:
+            header.copy(dstdir)
+        except py.error.EACCES:
+            target.remove()   # maybe it was a read-only file
+            header.copy(dstdir)
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
