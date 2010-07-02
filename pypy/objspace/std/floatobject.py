@@ -460,6 +460,31 @@ def nonzero__Float(space, w_float):
 def getnewargs__Float(space, w_float):
     return space.newtuple([W_FloatObject(w_float.floatval)])
 
+def float_as_integer_ratio__Float(space, w_float):
+    value = w_float.floatval
+    if isinf(value):
+        w_msg = space.wrap("cannot pass infinity to as_integer_ratio()")
+        raise OperationError(space.w_OverflowError, w_msg)
+    elif isnan(value):
+        w_msg = space.wrap("cannot pass nan to as_integer_ratio()")
+        raise OperationError(space.w_ValueError, w_msg)
+    float_part, exp = math.frexp(value)
+    for i in range(300):
+        if float_part == math.floor(float_part):
+            break
+        float_part *= 2.0
+        exp -= 1
+    w_num = W_LongObject.fromfloat(float_part)
+    w_dem = space.newlong(1)
+    w_exp = space.newlong(abs(exp))
+    w_exp = space.lshift(w_dem, w_exp)
+    if exp > 0:
+        w_num = space.mul(w_num, w_exp)
+    else:
+        w_dem = w_exp
+    # Try to return int.
+    return space.newtuple([space.int(w_num), space.int(w_dem)])
+
 from pypy.objspace.std import floattype
 register_all(vars(), floattype)
 

@@ -118,8 +118,20 @@ class AppTestAppFloatTest:
         assert 42.0 == float(42L)
         assert 10000000000.0 == float(10000000000L)
         raises(OverflowError, float, 10**400)
-        
-        
+
+    def test_as_integer_ratio(self):
+        for f, ratio in [
+                (0.875, (7, 8)),
+                (-0.875, (-7, 8)),
+                (0.0, (0, 1)),
+                (11.5, (23, 2)),
+            ]:
+            assert f.as_integer_ratio() == ratio
+
+        raises(OverflowError, float('inf').as_integer_ratio)
+        raises(OverflowError, float('-inf').as_integer_ratio)
+        raises(ValueError, float('nan').as_integer_ratio)
+
     def test_round(self):
         assert 1.0 == round(1.0)
         assert 1.0 == round(1.1)

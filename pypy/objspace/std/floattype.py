@@ -10,6 +10,7 @@ from pypy.objspace.std.strutil import interp_string_to_float
 from pypy.module.sys import system
 
 
+float_as_integer_ratio = SMM("as_integer_ratio", 1)
 float_hex = SMM("hex", 1)
 
 
