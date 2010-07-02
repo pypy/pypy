@@ -73,6 +73,8 @@ class Module(MixedModule):
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
+
+        'float_info'            : 'system.get_float_info(space)',
         }
 
     if sys.platform == 'win32':

@@ -114,6 +114,22 @@ class AppTestAppSysTests:
         import sys
         assert sys.getfilesystemencoding() == self.filesystemenc
 
+    def test_float_info(self):
+        import sys
+        fi = sys.float_info
+        assert isinstance(fi.epsilon, float)
+        assert isinstance(fi.dig, int)
+        assert isinstance(fi.mant_dig, int)
+        assert isinstance(fi.max, float)
+        assert isinstance(fi.max_exp, int)
+        assert isinstance(fi.max_10_exp, int)
+        assert isinstance(fi.min, float)
+        assert isinstance(fi.min_exp, int)
+        assert isinstance(fi.min_10_exp, int)
+        assert isinstance(fi.radix, int)
+        assert isinstance(fi.rounds, int)
+
+
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
