@@ -12,6 +12,7 @@ from pypy.module.sys import system
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
 from pypy.rlib.rarithmetic import formatd, LONG_BIT, FL_MAXINT, FL_MININT
 from pypy.rlib.rbigint import rbigint
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.tool.sourcetools import func_with_new_name
 
 import math
@@ -444,7 +445,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         raise OperationError(space.w_ValueError,
                              space.wrap("float power"))
     # Should the result be negated?
-    if (sys.version_info < (2, 7) and z == 0.0 and x < 0.0 and
+    if (not we_are_translated() and sys.version_info < (2, 7) and
+        z == 0.0 and x < 0.0 and
         not isinf(x) and not isinf(y) and
         math.fmod(abs(y), 2.0) == 1.0):
         z = -z
