@@ -1199,6 +1199,10 @@ def do_getarrayitem_gc_int(array, index):
     array = array._obj.container
     return cast_to_int(array.getitem(index))
 
+def do_getarrayitem_raw_int(array, index):
+    array = array.adr.ptr._obj
+    return cast_to_int(array.getitem(index))
+
 def do_getarrayitem_gc_float(array, index):
     array = array._obj.container
     return cast_to_float(array.getitem(index))
@@ -1250,6 +1254,12 @@ def do_setarrayitem_gc_int(array, index, newvalue):
     ITEMTYPE = lltype.typeOf(array).OF
     newvalue = cast_from_int(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
+
+def do_setarrayitem_raw_int(array, index, newvalue):
+    array = array.adr.ptr
+    ITEMTYPE = lltype.typeOf(array).TO.OF
+    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    array._obj.setitem(index, newvalue)
 
 def do_setarrayitem_gc_float(array, index, newvalue):
     array = array._obj.container

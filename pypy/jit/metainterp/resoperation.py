@@ -199,6 +199,7 @@ _oplist = [
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
     'GETARRAYITEM_GC/2d',
+    'GETARRAYITEM_RAW/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     'NEW/0d',
@@ -209,7 +210,7 @@ _oplist = [
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
-    'SETARRAYITEM_RAW/3d',#only added by backend.llsupport.gc.rewrite_assembler
+    'SETARRAYITEM_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'ARRAYCOPY/7d',      # removed before it's passed to the backend
