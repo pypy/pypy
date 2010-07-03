@@ -1,4 +1,5 @@
-import operator, new
+import operator
+import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import model, newformat
@@ -442,6 +443,11 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
                                                 "a negative power"))
         raise OperationError(space.w_ValueError,
                              space.wrap("float power"))
+    # Should the result be negated?
+    if (sys.version_info < (2, 7) and z == 0.0 and x < 0.0 and
+        not isinf(x) and not isinf(y) and
+        math.fmod(abs(y), 2.0) == 1.0):
+        z = -z
     return W_FloatObject(z)
 
 

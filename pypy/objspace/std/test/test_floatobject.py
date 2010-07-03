@@ -185,10 +185,14 @@ class AppTestAppFloatTest:
         assert pw(0.0, float("-inf")) == float("inf")
 
     def test_pow_neg_base(self):
+        import math
         def pw(x, y):
             return x ** y
         assert pw(-2.0, 2.0) == 4
-        
+        res = pw(-2.0, -2001.0)
+        assert res == -0.0
+        assert math.copysign(1., res) == -1.
+
     def test_float_cmp(self):
         assert 12.5 == 12.5
         assert 12.5 != -3.2
