@@ -167,8 +167,6 @@ class ExtFuncEntry(ExtRegistryEntry):
         return signature_args
 
     def compute_result_annotation(self, *args_s):
-        if hasattr(self, 'ann_hook'):
-            self.ann_hook()
         self.normalize_args(*args_s)   # check arguments
         return self.signature_result
 
@@ -235,7 +233,6 @@ class ExtFuncEntry(ExtRegistryEntry):
 def register_external(function, args, result=None, export_name=None,
                        llimpl=None, ooimpl=None,
                        llfakeimpl=None, oofakeimpl=None,
-                       annotation_hook=None,
                        sandboxsafe=False):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
@@ -244,7 +241,6 @@ def register_external(function, args, result=None, export_name=None,
     export_name: the name of the function as it will be seen by the backends
     llimpl, ooimpl: optional; if provided, these RPython functions are called instead of the target function
     llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
-    annotationhook: optional; a callable that is called during annotation, useful for genc hacks
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
 
@@ -271,8 +267,6 @@ def register_external(function, args, result=None, export_name=None,
             lltypefakeimpl = staticmethod(llfakeimpl)
         if oofakeimpl:
             ootypefakeimpl = staticmethod(oofakeimpl)
-        if annotation_hook:
-            ann_hook = staticmethod(annotation_hook)
 
     if export_name:
         FunEntry.__name__ = export_name
