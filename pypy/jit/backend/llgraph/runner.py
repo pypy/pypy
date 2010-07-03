@@ -325,6 +325,9 @@ class LLtypeCPU(BaseCPU):
     def bh_getarrayitem_gc_f(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_float(array, index)
+    def bh_getarrayitem_raw_f(self, arraydescr, array, index):
+        assert isinstance(arraydescr, Descr)
+        return llimpl.do_getarrayitem_raw_float(array, index)
 
     def bh_getfield_gc_i(self, struct, fielddescr):
         assert isinstance(fielddescr, Descr)
@@ -385,6 +388,10 @@ class LLtypeCPU(BaseCPU):
     def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_gc_float(array, index, newvalue)
+
+    def bh_setarrayitem_raw_f(self, arraydescr, array, index, newvalue):
+        assert isinstance(arraydescr, Descr)
+        llimpl.do_setarrayitem_raw_float(array, index, newvalue)
 
     def bh_setfield_gc_i(self, struct, fielddescr, newvalue):
         assert isinstance(fielddescr, Descr)

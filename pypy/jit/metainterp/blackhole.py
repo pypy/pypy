@@ -993,6 +993,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", "i", returns="i")
     def bhimpl_getarrayitem_raw_i(cpu, array, arraydescr, index):
         return cpu.bh_getarrayitem_raw_i(arraydescr, array, index)
+    @arguments("cpu", "i", "d", "i", returns="f")
+    def bhimpl_getarrayitem_raw_f(cpu, array, arraydescr, index):
+        return cpu.bh_getarrayitem_raw_f(arraydescr, array, index)
 
     @arguments("cpu", "r", "d", "i", "i")
     def bhimpl_setarrayitem_gc_i(cpu, array, arraydescr, index, newvalue):
@@ -1007,6 +1010,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", "i", "i")
     def bhimpl_setarrayitem_raw_i(cpu, array, arraydescr, index, newvalue):
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, newvalue)
+    @arguments("cpu", "i", "d", "i", "f")
+    def bhimpl_setarrayitem_raw_f(cpu, array, arraydescr, index, newvalue):
+        cpu.bh_setarrayitem_raw_f(arraydescr, array, index, newvalue)
 
     # note, there is no 'r' here, since it can't happen
 
