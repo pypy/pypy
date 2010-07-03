@@ -23,7 +23,7 @@ def descr__new__(space, w_floattype, w_x=0.0):
         if not space.isinstance_w(w_obj, space.w_float):
             raise OperationError(space.w_TypeError,
                                  space.wrap("__float__ returned non-float"))
-        if space.is_w(w_floattype, space.gettypeobject(float_typedef)):
+        if space.is_w(w_floattype, space.w_float):
             return w_obj
         value = space.float_w(w_obj)
     elif space.is_true(space.isinstance(w_value, space.w_str)):
