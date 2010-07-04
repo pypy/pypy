@@ -54,13 +54,10 @@ INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
 
 def isinf(x):
-    return x != 0.0 and x / 2 == x
+    return x == INFINITY or x == -INFINITY
 
-# To get isnan, working x-platform and both on 2.3 and 2.4, is a
-# horror.  I think this works (for reasons I don't really want to talk
-# about), and probably when implemented on top of pypy, too.
 def isnan(v):
-    return v != v*1.0 or (v == 1.0 and v == 2.0)
+    return v != v
 
 def intmask(n):
     if isinstance(n, int):
