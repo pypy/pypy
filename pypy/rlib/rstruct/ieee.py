@@ -125,7 +125,6 @@ def float_pack(x, size):
 
 def pack_float8(result, x):
     unsigned = float_pack(x, 8)
-    print unsigned
     for i in range(8):
         result.append(chr((unsigned >> (i * 8)) & 0xFF))
 
