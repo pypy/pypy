@@ -38,5 +38,6 @@ class Module(MixedModule):
        'isinf'          : 'interp_math.isinf',
        'isnan'          : 'interp_math.isnan',
        'trunc'          : 'interp_math.trunc',
+       'fsum'           : 'interp_math.fsum',
 }
 

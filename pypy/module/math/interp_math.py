@@ -299,3 +299,68 @@ def acos(space, x):
     """
     return math1(space, math.acos, x)
 acos.unwrap_spec = [ObjSpace, float]
+
+def fsum(space, w_iterable):
+    """Sum an iterable of floats, trying to keep precision."""
+    w_iter = space.iter(w_iterable)
+    inf_sum = special_sum = 0.0
+    partials = []
+    while True:
+        try:
+            w_value = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        v = space.float_w(w_value)
+        original = v
+        added = 0
+        for y in partials:
+            if abs(v) < abs(y):
+                v, y = y, v
+            hi = v + y
+            yr = hi - v
+            lo = y - yr
+            if lo != 0.0:
+                partials[added] = lo
+                added += 1
+            v = hi
+        del partials[added:]
+        if v != 0.0:
+            if rarithmetic.isinf(v) or rarithmetic.isnan(v):
+                if (not rarithmetic.isinf(original) and
+                    not rarithmetic.isnan(original)):
+                    raise OperationError(space.w_OverflowError,
+                                         space.wrap("intermediate overflow"))
+                if isinf(original):
+                    inf_sum += original
+                special_sum += original
+                del partials[:]
+            else:
+                partials.append(v)
+    if special_sum != 0.0:
+        if rarithmetic.isnan(special_sum):
+            raise OperationError(space.w_ValueError, space.wrap("-inf + inf"))
+        return space.wrap(special_sum)
+    hi = 0.0
+    if partials:
+        hi = partials[-1]
+        j = 0
+        for j in range(len(partials) - 2, -1, -1):
+            v = hi
+            y = partials[j]
+            assert abs(y) < abs(v)
+            hi = v + y
+            yr = hi - v
+            lo = y - yr
+            if lo != 0.0:
+                break
+        if j > 0 and (lo < 0.0 and partials[j - 1] < 0.0 or
+                      lo > 0.0 and partials[j - 1] > 0.0):
+            y = lo * 2.0
+            v = hi + y
+            yr = v - hi
+            if y == yr:
+                hi = v
+    return space.wrap(hi)
+fsum.unwrap_spec = [ObjSpace, W_Root]
