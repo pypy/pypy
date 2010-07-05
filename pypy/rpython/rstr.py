@@ -80,17 +80,6 @@ class __extend__(AbstractStringRepr):
             # defaults to checking the length
             return super(AbstractStringRepr, self).rtype_is_true(hop)
 
-    def rtype_ord(self, hop):
-        string_repr = hop.args_r[0].repr
-        v_str, = hop.inputargs(string_repr)
-        c_zero = inputconst(Signed, 0)
-        v_chr = hop.gendirectcall(self.ll.ll_stritem_nonneg, v_str, c_zero)
-        if string_repr is hop.rtyper.type_system.rstr.string_repr:
-            return hop.genop('cast_char_to_int', [v_chr], resulttype=Signed)
-        else:
-            assert string_repr is hop.rtyper.type_system.rstr.unicode_repr
-            return hop.genop('cast_unichar_to_int', [v_chr], resulttype=Signed)
-
     def rtype_method_startswith(self, hop):
         str1_repr, str2_repr = self._str_reprs(hop)
         v_str, v_value = hop.inputargs(str1_repr, str2_repr)

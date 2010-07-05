@@ -14,9 +14,8 @@ class VirtualizableInfo:
     TOKEN_NONE            = 0      # must be 0 -- see also x86.call_assembler
     TOKEN_TRACING_RESCALL = -1
 
-    def __init__(self, warmrunnerdesc):
+    def __init__(self, warmrunnerdesc, VTYPEPTR):
         self.warmrunnerdesc = warmrunnerdesc
-        jitdriver = warmrunnerdesc.jitdriver
         cpu = warmrunnerdesc.cpu
         if cpu.ts.name == 'ootype':
             import py
@@ -24,11 +23,6 @@ class VirtualizableInfo:
         self.cpu = cpu
         self.BoxArray = cpu.ts.BoxRef
         #
-        assert len(jitdriver.virtualizables) == 1    # for now
-        [vname] = jitdriver.virtualizables
-        index = len(jitdriver.greens) + jitdriver.reds.index(vname)
-        self.index_of_virtualizable = index
-        VTYPEPTR = warmrunnerdesc.JIT_ENTER_FUNCTYPE.ARGS[index]
         while 'virtualizable2_accessor' not in deref(VTYPEPTR)._hints:
             VTYPEPTR = cpu.ts.get_superclass(VTYPEPTR)
         self.VTYPEPTR = VTYPEPTR

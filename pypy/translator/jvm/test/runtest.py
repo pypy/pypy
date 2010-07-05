@@ -2,7 +2,7 @@ import os
 import platform
 
 import py
-from py.compat import subprocess
+import subprocess
 from pypy.tool.udir import udir
 from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
 from pypy.rpython.lltypesystem.lltype import typeOf

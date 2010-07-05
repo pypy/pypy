@@ -1,7 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import hlstr, cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
 from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
@@ -120,6 +120,16 @@ def set_future_value(cpu, j, value, typecode):
     else:
         assert False
 
+class JitCell(BaseJitCell):
+    # the counter can mean the following things:
+    #     counter >=  0: not yet traced, wait till threshold is reached
+    #     counter == -1: there is an entry bridge for this cell
+    #     counter == -2: tracing is currently going on for this cell
+    counter = 0
+    compiled_merge_points = None
+    dont_trace_here = False
+    entry_loop_token = None
+
 # ____________________________________________________________
 
 
@@ -127,9 +137,10 @@ class WarmEnterState(object):
     THRESHOLD_LIMIT = sys.maxint // 2
     default_jitcell_dict = None
 
-    def __init__(self, warmrunnerdesc):
+    def __init__(self, warmrunnerdesc, jitdriver_sd):
         "NOT_RPYTHON"
         self.warmrunnerdesc = warmrunnerdesc
+        self.jitdriver_sd = jitdriver_sd
         try:
             self.profiler = warmrunnerdesc.metainterp_sd.profiler
         except AttributeError:       # for tests
@@ -176,8 +187,7 @@ class WarmEnterState(object):
         cell = self.jit_cell_at_key(greenkey)
         cell.dont_trace_here = True
         debug_start("jit-disableinlining")
-        sd = self.warmrunnerdesc.metainterp_sd
-        loc = sd.state.get_location_str(greenkey)
+        loc = self.get_location_str(greenkey)
         debug_print("disabled inlining", loc)
         debug_stop("jit-disableinlining")
 
@@ -195,8 +205,10 @@ class WarmEnterState(object):
             return self.maybe_compile_and_run
 
         metainterp_sd = self.warmrunnerdesc.metainterp_sd
-        vinfo = self.warmrunnerdesc.virtualizable_info
-        num_green_args = self.warmrunnerdesc.num_green_args
+        jitdriver_sd = self.jitdriver_sd
+        vinfo = jitdriver_sd.virtualizable_info
+        index_of_virtualizable = jitdriver_sd.index_of_virtualizable
+        num_green_args = jitdriver_sd.num_green_args
         get_jitcell = self.make_jitcell_getter()
         set_future_values = self.make_set_future_values()
         self.make_jitdriver_callbacks()
@@ -206,7 +218,6 @@ class WarmEnterState(object):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
-            globaldata = metainterp_sd.globaldata
             if NonConstant(False):
                 # make sure we always see the saner optimizer from an
                 # annotation point of view, otherwise we get lots of
@@ -214,7 +225,7 @@ class WarmEnterState(object):
                 self.set_param_optimizer(OPTIMIZER_FULL)
 
             if vinfo is not None:
-                virtualizable = args[vinfo.index_of_virtualizable]
+                virtualizable = args[num_green_args + index_of_virtualizable]
                 virtualizable = vinfo.cast_to_vtype(virtualizable)
             else:
                 virtualizable = None
@@ -234,11 +245,12 @@ class WarmEnterState(object):
                     return
                 # bound reached; start tracing
                 from pypy.jit.metainterp.pyjitpl import MetaInterp
-                metainterp = MetaInterp(metainterp_sd)
+                metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
                 # set counter to -2, to mean "tracing in effect"
                 cell.counter = -2
                 try:
-                    loop_token = metainterp.compile_and_run_once(*args)
+                    loop_token = metainterp.compile_and_run_once(jitdriver_sd,
+                                                                 *args)
                 finally:
                     if cell.counter == -2:
                         cell.counter = 0
@@ -264,7 +276,8 @@ class WarmEnterState(object):
                 metainterp_sd.profiler.end_running()
                 if vinfo is not None:
                     vinfo.reset_vable_token(virtualizable)
-                loop_token = fail_descr.handle_fail(metainterp_sd)
+                loop_token = fail_descr.handle_fail(metainterp_sd,
+                                                    jitdriver_sd)
        
         maybe_compile_and_run._dont_inline_ = True
         self.maybe_compile_and_run = maybe_compile_and_run
@@ -277,8 +290,8 @@ class WarmEnterState(object):
         if hasattr(self, 'unwrap_greenkey'):
             return self.unwrap_greenkey
         #
-        warmrunnerdesc = self.warmrunnerdesc
-        green_args_spec = unrolling_iterable(warmrunnerdesc.green_args_spec)
+        jitdriver_sd = self.jitdriver_sd
+        green_args_spec = unrolling_iterable(jitdriver_sd._green_args_spec)
         #
         def unwrap_greenkey(greenkey):
             greenargs = ()
@@ -302,20 +315,10 @@ class WarmEnterState(object):
         if hasattr(self, 'jit_getter'):
             return self.jit_getter
         #
-        class JitCell(BaseJitCell):
-            # the counter can mean the following things:
-            #     counter >=  0: not yet traced, wait till threshold is reached
-            #     counter == -1: there is an entry bridge for this cell
-            #     counter == -2: tracing is currently going on for this cell
-            counter = 0
-            compiled_merge_points = None
-            dont_trace_here = False
-            entry_loop_token = None
-        #
-        if self.warmrunnerdesc.get_jitcell_at_ptr is None:
-            jit_getter = self._make_jitcell_getter_default(JitCell)
+        if self.jitdriver_sd._get_jitcell_at_ptr is None:
+            jit_getter = self._make_jitcell_getter_default()
         else:
-            jit_getter = self._make_jitcell_getter_custom(JitCell)
+            jit_getter = self._make_jitcell_getter_custom()
         #
         unwrap_greenkey = self.make_unwrap_greenkey()
         #
@@ -327,10 +330,10 @@ class WarmEnterState(object):
         #
         return jit_getter
 
-    def _make_jitcell_getter_default(self, JitCell):
+    def _make_jitcell_getter_default(self):
         "NOT_RPYTHON"
-        warmrunnerdesc = self.warmrunnerdesc
-        green_args_spec = unrolling_iterable(warmrunnerdesc.green_args_spec)
+        jitdriver_sd = self.jitdriver_sd
+        green_args_spec = unrolling_iterable(jitdriver_sd._green_args_spec)
         #
         def comparekey(greenargs1, greenargs2):
             i = 0
@@ -361,11 +364,11 @@ class WarmEnterState(object):
             return cell
         return get_jitcell
 
-    def _make_jitcell_getter_custom(self, JitCell):
+    def _make_jitcell_getter_custom(self):
         "NOT_RPYTHON"
         rtyper = self.warmrunnerdesc.rtyper
-        get_jitcell_at_ptr = self.warmrunnerdesc.get_jitcell_at_ptr
-        set_jitcell_at_ptr = self.warmrunnerdesc.set_jitcell_at_ptr
+        get_jitcell_at_ptr = self.jitdriver_sd._get_jitcell_at_ptr
+        set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
         lltohlhack = {}
         #
         def get_jitcell(*greenargs):
@@ -415,9 +418,10 @@ class WarmEnterState(object):
             return self.set_future_values
 
         warmrunnerdesc = self.warmrunnerdesc
+        jitdriver_sd   = self.jitdriver_sd
         cpu = warmrunnerdesc.cpu
-        vinfo = warmrunnerdesc.virtualizable_info
-        red_args_types = unrolling_iterable(warmrunnerdesc.red_args_types)
+        vinfo = jitdriver_sd.virtualizable_info
+        red_args_types = unrolling_iterable(jitdriver_sd._red_args_types)
         #
         def set_future_values(*redargs):
             i = 0
@@ -428,8 +432,9 @@ class WarmEnterState(object):
                 set_future_values_from_vinfo(*redargs)
         #
         if vinfo is not None:
-            i0 = len(warmrunnerdesc.red_args_types)
-            num_green_args = warmrunnerdesc.num_green_args
+            i0 = len(jitdriver_sd._red_args_types)
+            num_green_args = jitdriver_sd.num_green_args
+            index_of_virtualizable = jitdriver_sd.index_of_virtualizable
             vable_static_fields = unrolling_iterable(
                 zip(vinfo.static_extra_types, vinfo.static_fields))
             vable_array_fields = unrolling_iterable(
@@ -439,8 +444,7 @@ class WarmEnterState(object):
             #
             def set_future_values_from_vinfo(*redargs):
                 i = i0
-                virtualizable = redargs[vinfo.index_of_virtualizable -
-                                        num_green_args]
+                virtualizable = redargs[index_of_virtualizable]
                 virtualizable = vinfo.cast_to_vtype(virtualizable)
                 for typecode, fieldname in vable_static_fields:
                     x = getattr(virtualizable, fieldname)
@@ -464,8 +468,9 @@ class WarmEnterState(object):
         if hasattr(self, 'get_location_str'):
             return
         #
-        can_inline_ptr = self.warmrunnerdesc.can_inline_ptr
+        can_inline_ptr = self.jitdriver_sd._can_inline_ptr
         unwrap_greenkey = self.make_unwrap_greenkey()
+        jit_getter = self.make_jitcell_getter()
         if can_inline_ptr is None:
             def can_inline_callable(*greenargs):
                 # XXX shouldn't it be False by default?
@@ -477,7 +482,7 @@ class WarmEnterState(object):
                 fn = support.maybe_on_top_of_llinterp(rtyper, can_inline_ptr)
                 return fn(*greenargs)
         def can_inline(*greenargs):
-            cell = self.jit_getter(*greenargs)
+            cell = jit_getter(*greenargs)
             if cell.dont_trace_here:
                 return False
             return can_inline_callable(*greenargs)
@@ -486,21 +491,25 @@ class WarmEnterState(object):
             greenargs = unwrap_greenkey(greenkey)
             return can_inline(*greenargs)
         self.can_inline_callable = can_inline_greenkey
-        
-        get_jitcell = self.make_jitcell_getter()
+
         def get_assembler_token(greenkey):
             greenargs = unwrap_greenkey(greenkey)
-            cell = get_jitcell(*greenargs)
+            cell = jit_getter(*greenargs)
             if cell.counter >= 0:
                 return None
             return cell.entry_loop_token
         self.get_assembler_token = get_assembler_token
         
         #
-        get_location_ptr = self.warmrunnerdesc.get_printable_location_ptr
+        get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
+            missing = '(no jitdriver.get_printable_location!)'
+            missingll = llstr(missing)
             def get_location_str(greenkey):
-                return '(no jitdriver.get_printable_location!)'
+                if we_are_translated():
+                    return missingll
+                else:
+                    return missing
         else:
             rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
@@ -514,7 +523,7 @@ class WarmEnterState(object):
                 return res
         self.get_location_str = get_location_str
         #
-        confirm_enter_jit_ptr = self.warmrunnerdesc.confirm_enter_jit_ptr
+        confirm_enter_jit_ptr = self.jitdriver_sd._confirm_enter_jit_ptr
         if confirm_enter_jit_ptr is None:
             def confirm_enter_jit(*args):
                 return True

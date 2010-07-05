@@ -127,6 +127,25 @@ def test_assemble_list():
     assert assembler.insns == {'foobar/IR': 0}
     assert jitcode.constants_i == [42]
 
+def test_assemble_list_semibug():
+    # the semibug is that after forcing 42 into the dict of constants,
+    # it would be reused for all future 42's, even ones that can be
+    # encoded directly.
+    ssarepr = SSARepr("test")
+    ssarepr.insns = [
+        ('foobar', ListOfKind('int', [Constant(42, lltype.Signed)])),
+        ('foobar', ListOfKind('int', [Constant(42, lltype.Signed)])),
+        ('baz', Constant(42, lltype.Signed)),
+        ]
+    assembler = Assembler()
+    jitcode = assembler.assemble(ssarepr)
+    assert jitcode.code == ("\x00\x01\xFF"
+                            "\x00\x01\xFF"
+                            "\x01\x2A")
+    assert assembler.insns == {'foobar/I': 0,
+                               'baz/c': 1}
+    assert jitcode.constants_i == [42]
+
 def test_assemble_descr():
     class FooDescr(AbstractDescr):
         pass

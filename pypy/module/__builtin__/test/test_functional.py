@@ -6,6 +6,9 @@ class AppTestMap:
    def test_trivial_map_one_seq(self):
       assert map(lambda x: x+2, [1, 2, 3, 4]) == [3, 4, 5, 6]
 
+   def test_trivial_map_one_seq_2(self):
+      assert map(str, [1, 2, 3, 4]) == ['1', '2', '3', '4']
+
    def test_trivial_map_two_seq(self):
       assert map(lambda x,y: x+y,
                            [1, 2, 3, 4],[1, 2, 3, 4]) == (

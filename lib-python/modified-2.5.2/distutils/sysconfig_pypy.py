@@ -13,12 +13,7 @@ python_build = False
 
 def get_python_inc(plat_specific=0, prefix=None):
     from os.path import join as j
-    cand = j(sys.pypy_prefix, 'include')
-    if os.path.exists(cand):
-        return cand
-    if plat_specific:
-        return j(sys.prefix, "pypy", "_interfaces")
-    return j(sys.prefix, 'pypy', 'module', 'cpyext', 'include')
+    return j(sys.prefix, 'include')
 
 def get_python_version():
     """Return a string containing the major and minor Python version,
@@ -47,8 +42,7 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
             "calls to get_python_lib(standard_lib=1) cannot succeed")
     if prefix is None:
         prefix = PREFIX
-    pypylib = 'pypy%d.%d' % sys.pypy_version_info[:2]
-    return os.path.join(prefix, 'lib', pypylib, 'site-packages')
+    return os.path.join(prefix, 'site-packages')
 
 
 _config_vars = None

@@ -1698,16 +1698,22 @@ class LLtypeBackendTest(BaseBackendTest):
             assert self.cpu.get_latest_value_int(0) == 10
             called.append(failindex)
             return 4 + 9
-        self.cpu.index_of_virtualizable = -1
-        self.cpu.assembler_helper_ptr = llhelper(lltype.Ptr(lltype.FuncType
-            ([lltype.Signed, llmemory.GCREF], lltype.Signed)), assembler_helper)
-        
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
         ops = '''
         [i0, i1]
         i2 = int_add(i0, i1)
         finish(i2)'''
         loop = parse(ops)
         looptoken = LoopToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed, lltype.Signed]
         RES = lltype.Signed
@@ -1739,9 +1745,15 @@ class LLtypeBackendTest(BaseBackendTest):
             assert self.cpu.get_latest_value_float(0) == 1.2 + 3.2
             called.append(failindex)
             return 13.5
-        self.cpu.index_of_virtualizable = -1
-        self.cpu.assembler_helper_ptr = llhelper(lltype.Ptr(lltype.FuncType
-            ([lltype.Signed, llmemory.GCREF], lltype.Float)), assembler_helper)
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
+                                             lltype.Float))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
         ARGS = [lltype.Float, lltype.Float]
         RES = lltype.Float
         self.cpu.portal_calldescr = self.cpu.calldescrof(
@@ -1753,6 +1765,7 @@ class LLtypeBackendTest(BaseBackendTest):
         finish(f2)'''
         loop = parse(ops)
         looptoken = LoopToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         self.cpu.set_future_value_float(0, 1.2)
         self.cpu.set_future_value_float(1, 2.3)

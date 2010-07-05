@@ -1,3 +1,4 @@
+import py
 from pypy.conftest import gettestobjspace
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
@@ -68,3 +69,13 @@ class TestConversion(BaseApiTest):
         api.PyPy_GetWrapped(space.w_None)
         api.PyPy_GetReference(space.w_None)
 
+
+def test_copy_header_files(tmpdir):
+    api.copy_header_files(tmpdir)
+    def check(name):
+        f = tmpdir.join(name)
+        assert f.check(file=True)
+        py.test.raises(py.error.EACCES, "f.open('w')") # check that it's not writable
+    check('Python.h')
+    check('modsupport.inl')
+    check('pypy_decl.h')

@@ -17,6 +17,7 @@ from pypy.translator.c.gcc.instruction import LOC_ESP_PLUS
 
 class FunctionGcRootTracker(object):
     skip = 0
+    COMMENT = "([#;].*)?"
 
     @classmethod
     def init_regexp(cls):
@@ -25,10 +26,10 @@ class FunctionGcRootTracker(object):
         cls.r_globllabel    = re.compile(cls.LABEL+r"=[.][+]%d\s*$"%cls.OFFSET_LABELS)
 
         cls.r_insn          = re.compile(r"\t([a-z]\w*)\s")
-        cls.r_unaryinsn     = re.compile(r"\t[a-z]\w*\s+("+cls.OPERAND+")\s*$")
+        cls.r_unaryinsn     = re.compile(r"\t[a-z]\w*\s+("+cls.OPERAND+")\s*" + cls.COMMENT + "$")
         cls.r_binaryinsn    = re.compile(r"\t[a-z]\w*\s+(?P<source>"+cls.OPERAND+"),\s*(?P<target>"+cls.OPERAND+")\s*$")
 
-        cls.r_jump          = re.compile(r"\tj\w+\s+"+cls.LABEL+"\s*$")
+        cls.r_jump          = re.compile(r"\tj\w+\s+"+cls.LABEL+"\s*" + cls.COMMENT + "$")
         cls.r_jmp_switch    = re.compile(r"\tjmp\t[*]"+cls.LABEL+"[(]")
         cls.r_jmp_source    = re.compile(r"\d*[(](%[\w]+)[,)]")
 
@@ -616,7 +617,7 @@ class FunctionGcRootTracker(object):
             # tail-calls are equivalent to RET for us
             return InsnRet(self.CALLEE_SAVE_REGISTERS)
         return InsnStop()
-
+    
     def register_jump_to(self, label):
         if not isinstance(self.insns[-1], InsnStop):
             self.labels[label].previous_insns.append(self.insns[-1])
@@ -641,6 +642,7 @@ class FunctionGcRootTracker(object):
         self.register_jump_to(label)
         return []
 
+    visit_jmpl = visit_jmp
     visit_je = conditional_jump
     visit_jne = conditional_jump
     visit_jg = conditional_jump

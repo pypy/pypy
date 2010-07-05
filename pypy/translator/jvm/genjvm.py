@@ -6,7 +6,7 @@ import sys
 import os
 
 import py
-from py.compat import subprocess
+import subprocess
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.translator.oosupport.genoo import GenOO

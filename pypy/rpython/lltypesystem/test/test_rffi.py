@@ -707,6 +707,7 @@ class TestRffiInternals:
             lltype.UniChar:  ctypes.c_wchar,
             lltype.Char:     ctypes.c_ubyte,
             DOUBLE:     ctypes.c_double,
+            FLOAT:      ctypes.c_float,
             SIGNEDCHAR: ctypes.c_byte,
             UCHAR:      ctypes.c_ubyte,
             SHORT:      ctypes.c_short,

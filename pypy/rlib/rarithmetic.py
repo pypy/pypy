@@ -57,13 +57,10 @@ try:
     from math import isinf, isnan, copysign
 except ImportError:
     def isinf(x):
-        return x != 0.0 and x / 2 == x
+        return x == INFINITY or x == -INFINITY
 
-    # To get isnan, working x-platform and both on 2.3 and 2.4, is a
-    # horror.  I think this works (for reasons I don't really want to talk
-    # about), and probably when implemented on top of pypy, too.
     def isnan(v):
-        return v != v*1.0 or (v == 1.0 and v == 2.0)
+        return v != v
 
     def copysign(x, y):
         """Return x with the sign of y"""

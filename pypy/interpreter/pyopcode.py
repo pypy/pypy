@@ -14,6 +14,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit, rstackovf, rstack
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.debug import check_nonneg
 from pypy.tool.stdlib_opcode import (bytecode_spec, host_bytecode_spec,
                                      unrolling_all_opcode_descs, opmap,
                                      host_opmap)
@@ -186,7 +187,7 @@ class __extend__(pyframe.PyFrame):
                 lo = ord(co_code[next_instr])
                 hi = ord(co_code[next_instr+1])
                 next_instr += 2
-                oparg = (hi << 8) | lo
+                oparg = (hi * 256) | lo
             else:
                 oparg = 0
 
@@ -197,7 +198,7 @@ class __extend__(pyframe.PyFrame):
                 lo = ord(co_code[next_instr+1])
                 hi = ord(co_code[next_instr+2])
                 next_instr += 3
-                oparg = (oparg << 16) | (hi << 8) | lo
+                oparg = (oparg * 65536) | (hi * 256) | lo
 
             if opcode == self.opcodedesc.RETURN_VALUE.index:
                 w_returnvalue = self.popvalue()
@@ -323,7 +324,9 @@ class __extend__(pyframe.PyFrame):
     ##
 
     def NOP(self, oparg, next_instr):
-        pass
+        # annotation-time check: if it fails, it means that the decoding
+        # of oparg failed to produce an integer which is annotated as non-neg
+        check_nonneg(oparg)
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly

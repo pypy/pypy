@@ -176,8 +176,8 @@ def addsitedir(sitedir, known_paths=None):
 def addsitepackages(known_paths):
     """Add site-packages to sys.path, in a PyPy-specific way."""
     if hasattr(sys, 'pypy_version_info'):
-        pypylib = 'pypy%d.%d' % sys.pypy_version_info[:2]
-        sitedir = os.path.join(sys.prefix, 'lib', pypylib, 'site-packages')
+        from distutils.sysconfig import get_python_lib
+        sitedir = get_python_lib(standard_lib=False)
         if os.path.isdir(sitedir):
             addsitedir(sitedir, known_paths)
     return None

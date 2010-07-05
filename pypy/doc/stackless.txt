@@ -124,10 +124,17 @@ It provides the following methods and attributes:
 
 * ``coro.kill()``
 
-    Kill ``coro`` by sending an exception to it.  (At the moment, the
-    exception is not visible to app-level, which means that you cannot
-    catch it, and that ``try: finally:`` clauses are not honored.  This
-    will be fixed in the future.)
+    Kill ``coro`` by sending a CoroutineExit exception and switching
+    execution immediately to it. This exception can be caught in the 
+    coroutine itself and can be raised from any call to ``coro.switch()``. 
+    This exception isn't propagated to the parent coroutine.
+
+* ``coro.throw(type, value)``
+
+    Insert an exception in ``coro`` an resume switches execution
+    immediately to it. In the coroutine itself, this exception
+    will come from any call to ``coro.switch()`` and can be caught. If the
+    exception isn't caught, it will be propagated to the parent coroutine.
 
 Example
 ~~~~~~~

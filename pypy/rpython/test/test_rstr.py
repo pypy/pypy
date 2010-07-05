@@ -131,7 +131,7 @@ class AbstractTestRstr(BaseRtypingTest):
             s = c * mul
             res = 0
             for i in range(len(s)):
-                res = res*10 + ord(const(s[i])) - ord(const('0'))
+                res = res*10 + ord(const(s[i])[0]) - ord(const('0')[0])
             c2 = c
             c2 *= mul
             res = 10 * res + (c2 == s)
@@ -577,7 +577,7 @@ class AbstractTestRstr(BaseRtypingTest):
             sum = 0
             for num in l:
                  if len(num):
-                     sum += ord(num) - ord(const('0'))
+                     sum += ord(num[0]) - ord(const('0')[0])
             return sum + len(l) * 100
         for i in range(5):
             res = self.interpret(fn, [i])

@@ -68,11 +68,8 @@ class FakeCallControl:
         return FakeDescr()
     def calldescr_canraise(self, calldescr):
         return calldescr is not self._descr_cannot_raise
-    def found_jitdriver(self, jitdriver):
-        assert isinstance(jitdriver, JitDriver)
-        self.jitdriver = jitdriver
-    def getjitdriver(self):
-        return self.jitdriver
+    def get_vinfo(self, VTYPEPTR):
+        return None
 
 class FakeCallControlWithVRefInfo:
     class virtualref_info:
@@ -118,13 +115,13 @@ class TestFlatten:
         return self.rtyper.annotator.translator.graphs
 
     def encoding_test(self, func, args, expected,
-                      transform=False, liveness=False, cc=None):
+                      transform=False, liveness=False, cc=None, jd=None):
         graphs = self.make_graphs(func, args)
         #graphs[0].show()
         if transform:
             from pypy.jit.codewriter.jtransform import transform_graph
             cc = cc or FakeCallControl()
-            transform_graph(graphs[0], FakeCPU(self.rtyper), cc)
+            transform_graph(graphs[0], FakeCPU(self.rtyper), cc, jd)
         ssarepr = flatten_graph(graphs[0], fake_regallocs(),
                                 _include_all_exc_links=not transform)
         if liveness:
@@ -584,13 +581,21 @@ class TestFlatten:
         def f(x, y):
             myjitdriver.jit_merge_point(x=x, y=y)
             myjitdriver.can_enter_jit(x=y, y=x)
+        class FakeJitDriverSD:
+            jitdriver = myjitdriver
+            index = 27
+        jd = FakeJitDriverSD()
+        class MyFakeCallControl(FakeCallControl):
+            def jitdriver_sd_from_jitdriver(self, jitdriver):
+                assert jitdriver == myjitdriver
+                return jd
         self.encoding_test(f, [4, 5], """
             -live- %i0, %i1
             int_guard_value %i0
-            jit_merge_point I[%i0], R[], F[], I[%i1], R[], F[]
-            can_enter_jit
+            jit_merge_point $27, I[%i0], R[], F[], I[%i1], R[], F[]
+            can_enter_jit $27
             void_return
-        """, transform=True, liveness=True)
+        """, transform=True, liveness=True, cc=MyFakeCallControl(), jd=jd)
 
     def test_keepalive(self):
         S = lltype.GcStruct('S')

@@ -1,6 +1,6 @@
 
 from pypy.jit.tl.tinyframe.tinyframe import main
-from pypy.jit.metainterp.policy import JitPolicy
+from pypy.jit.codewriter.policy import JitPolicy
 
 def jitpolicy(driver):
     return JitPolicy()

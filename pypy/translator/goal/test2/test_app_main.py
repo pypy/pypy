@@ -8,19 +8,6 @@ from pypy.tool.udir import udir
 
 banner = sys.version.splitlines()[0]
 
-def relpath(path):
-    # force 'path' to be a relative path, for testing purposes
-    curdir = py.path.local()
-    p = py.path.local(path)
-    result = []
-    while not p.relto(curdir):
-        result.append(os.pardir)
-        if curdir == curdir.dirpath():
-            return str(path)     # no relative path found, give up
-        curdir = curdir.dirpath()
-    result.append(p.relto(curdir))
-    return os.path.join(*result)
-
 app_main = os.path.join(autopath.this_dir, os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
 
@@ -30,7 +17,8 @@ def getscript(source):
     p = udir.join('demo_test_app_main_%d.py' % (_counter,))
     _counter += 1
     p.write(str(py.code.Source(source)))
-    return relpath(p)
+    # return relative path for testing purposes 
+    return py.path.local().bestrelpath(p) 
 
 
 demo_script = getscript("""
@@ -495,16 +483,14 @@ class AppTestAppMain:
         # setup code for test_get_library_path
         # ------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        libroot = 'lib/pypy%d.%d' % PYPY_VERSION[:2]
         cpy_ver = '%d.%d.%d' % CPYTHON_VERSION[:3]
         
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
         # lib/pypy1.2/*
-        prefix = udir.join('pathtest')
+        prefix = udir.join('pathtest').ensure(dir=1)
         fake_exe = prefix.join('bin/pypy-c').ensure(file=1)
-        pypyxy = prefix.join(libroot).ensure(dir=1)
-        expected_path = [str(pypyxy.join(subdir).ensure(dir=1))
+        expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
                                         'lib-python/modified-%s' % cpy_ver,
                                         'lib-python/%s' % cpy_ver)]

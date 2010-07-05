@@ -33,7 +33,7 @@ def target(driver, args):
 
 # ____________________________________________________________
 
-from pypy.jit.metainterp.policy import JitPolicy
+from pypy.jit.codewriter.policy import JitPolicy
 
 def jitpolicy(driver):
     return JitPolicy()

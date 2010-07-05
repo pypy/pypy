@@ -294,7 +294,6 @@ class LLtypeCPU(BaseCPU):
         return llimpl.grab_exc_value()
 
     def arraydescrof(self, A):
-        assert isinstance(A, lltype.GcArray)
         assert A.OF != lltype.Void
         size = symbolic.get_size(A)
         token = history.getkind(A.OF)
@@ -317,12 +316,18 @@ class LLtypeCPU(BaseCPU):
     def bh_getarrayitem_gc_i(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_int(array, index)
+    def bh_getarrayitem_raw_i(self, arraydescr, array, index):
+        assert isinstance(arraydescr, Descr)
+        return llimpl.do_getarrayitem_raw_int(array, index)
     def bh_getarrayitem_gc_r(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_ptr(array, index)
     def bh_getarrayitem_gc_f(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_float(array, index)
+    def bh_getarrayitem_raw_f(self, arraydescr, array, index):
+        assert isinstance(arraydescr, Descr)
+        return llimpl.do_getarrayitem_raw_float(array, index)
 
     def bh_getfield_gc_i(self, struct, fielddescr):
         assert isinstance(fielddescr, Descr)
@@ -372,6 +377,10 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_gc_int(array, index, newvalue)
 
+    def bh_setarrayitem_raw_i(self, arraydescr, array, index, newvalue):
+        assert isinstance(arraydescr, Descr)
+        llimpl.do_setarrayitem_raw_int(array, index, newvalue)
+
     def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_gc_ptr(array, index, newvalue)
@@ -379,6 +388,10 @@ class LLtypeCPU(BaseCPU):
     def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_gc_float(array, index, newvalue)
+
+    def bh_setarrayitem_raw_f(self, arraydescr, array, index, newvalue):
+        assert isinstance(arraydescr, Descr)
+        llimpl.do_setarrayitem_raw_float(array, index, newvalue)
 
     def bh_setfield_gc_i(self, struct, fielddescr, newvalue):
         assert isinstance(fielddescr, Descr)

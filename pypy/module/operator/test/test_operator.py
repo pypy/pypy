@@ -164,7 +164,6 @@ class AppTestOperator:
 
     def test_irepeat(self):
         import operator
-        import py
 
         class X(object):
             def __index__(self):

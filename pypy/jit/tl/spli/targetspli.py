@@ -31,7 +31,7 @@ def target(drver, args):
 
 def jitpolicy(driver):
     """Returns the JIT policy to use when translating."""
-    from pypy.jit.metainterp.policy import JitPolicy
+    from pypy.jit.codewriter.policy import JitPolicy
     return JitPolicy()
 
 if __name__ == '__main__':

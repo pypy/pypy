@@ -1,5 +1,5 @@
 import sys, time
-from py.compat import subprocess
+import subprocess
 from pypy.tool.killsubprocess import killsubprocess
 
 def waitdead(process):

@@ -359,8 +359,8 @@ class Unmarshaller(_Base):
         return self.reader.read(n)
 
     def get1(self):
-        # convince typer to use a char
-        return chr(ord(self.get(1)))
+        # the [0] is used to convince the annotator to return a char
+        return self.get(1)[0]
 
     def atom_str(self, typecode):
         self.start(typecode)

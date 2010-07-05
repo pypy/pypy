@@ -40,6 +40,13 @@ def pytest_addoption(parser):
            default="host", callback=_set_platform,
            help="set up tests to use specified platform as compile/run target")
 
+def pytest_sessionstart():
+    # have python subprocesses avoid startup customizations by default
+    try:
+        del os.environ['PYTHONSTARTUP']
+    except KeyError:
+        pass
+
 def pytest_funcarg__space(request):
     spaceconfig = getattr(request.cls, 'spaceconfig', {})
     return gettestobjspace(**spaceconfig)

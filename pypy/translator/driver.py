@@ -729,7 +729,7 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
                               'Compiling JVM source')
 
     def copy_jvm_jar(self):
-        from py.compat import subprocess
+        import subprocess
         basename = self.exe_name % self.get_info()
         root = udir.join('pypy')
         manifest = self.create_manifest(root)
@@ -764,7 +764,7 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
         return filename
 
     def create_classlist(self, root, additional_jars=[]):
-        from py.compat import subprocess
+        import subprocess
         # first, uncompress additional jars
         for jarfile in additional_jars:
             oldpwd = root.chdir()

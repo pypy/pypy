@@ -16,6 +16,8 @@ import py
 from pypy.tool.udir import udir
 from pypy.tool.release.package import package
 import tarfile
+import os
+import shutil
 
 BASEURL = 'http://buildbot.pypy.org/nightly/'
 
@@ -47,28 +49,39 @@ def main(branch, release):
     to_download = browse_nightly(branch)
     tmpdir = udir.join('download')
     tmpdir.ensure(dir=True)
-    for (kind, platform), (rev, name) in to_download.iteritems():
-        if platform == 'win32':
-            print 'Ignoring %s, windows unsupported' % name
-        else:
-            print "Downloading %s at rev %d" % (name, rev)
-            url = BASEURL + branch + "/" + name
-            data = urllib2.urlopen(url).read()
-            tmpdir.join(name).write(data, mode="wb")
-            t = tarfile.open(str(tmpdir.join(name)))
-            data = t.extractfile('pypy-c').read()
-            pypy_c = tmpdir.join('pypy-c')
-            pypy_c.write(data, mode="wb")
-            if kind == 'jit':
-                kind = ''
+    alltars = []
+    try:
+        os.chdir(str(tmpdir))
+        for (kind, platform), (rev, name) in to_download.iteritems():
+            if platform == 'win32':
+                print 'Ignoring %s, windows unsupported' % name
             else:
-                kind = '-' + kind
-            name = 'pypy-%s%s-%s' % (release, kind, platform)
-            builddir = package(py.path.local(autopath.pypydir).join('..'),
-                               name=name,
-                               override_pypy_c=pypy_c)
-            print "Build %s/%s.tar.bz2" % (builddir, name)
-    print "\nLook into %s for packages" % builddir
+                print "Downloading %s at rev %d" % (name, rev)
+                url = BASEURL + branch + "/" + name
+                data = urllib2.urlopen(url).read()
+                tmpdir.join(name).write(data, mode="wb")
+                t = tarfile.open(str(tmpdir.join(name)))
+                dirname = t.getmembers()[0].name
+                t.extractall(path=str(tmpdir))
+                os.system('mv %s %s' % (str(tmpdir.join(dirname)),
+                                        str(tmpdir.join('pypy-%s' % release))))
+                if kind == 'jit':
+                    kind = ''
+                else:
+                    kind = '-' + kind
+                olddir = os.getcwd()
+                name = 'pypy-%s-%s%s.tar.bz2' % (release, platform, kind)
+                print "Building %s" % name
+                t = tarfile.open(name, 'w:bz2')
+                t.add('pypy-%s' % release)
+                alltars.append(name)
+                t.close()
+                shutil.rmtree(str(tmpdir.join('pypy-1.3')))
+        for name in alltars:
+            print "Uploading %s" % name
+            os.system('scp %s codespeak.net:/www/pypy.org/htdocs/download' % name)
+    finally:
+        os.chdir(olddir)
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

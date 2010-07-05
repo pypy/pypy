@@ -402,7 +402,7 @@ class AbstractFuncPtr(object):
                     restype = ffi_type_sint32
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
-                
+
         res = c_ffi_prep_cif(self.ll_cif, cc,
                              rffi.cast(rffi.UINT, argnum), restype,
                              self.ll_argtypes)

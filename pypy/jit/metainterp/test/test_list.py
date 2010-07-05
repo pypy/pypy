@@ -143,6 +143,51 @@ class ListTests:
         assert res == 7
         self.check_loops(call=0)
 
+    def test_fold_getitem_1(self):
+        jitdriver = JitDriver(greens = ['pc', 'n', 'l'], reds = ['total'])
+        def f(n):
+            l = [100, n, 300, n, 500]
+            total = 0
+            pc = n
+            while True:
+                jitdriver.can_enter_jit(l=l, pc=pc, n=n, total=total)
+                jitdriver.jit_merge_point(l=l, pc=pc, n=n, total=total)
+                total += l[pc]
+                if total > 10000:
+                    return total
+                pc -= 1
+                if pc < 0:
+                    pc = n
+
+        res = self.meta_interp(f, [4], listops=True)
+        assert res == f(4)
+        self.check_loops(call=0)
+
+    def test_fold_getitem_2(self):
+        jitdriver = JitDriver(greens = ['pc', 'n', 'l'], reds = ['total', 'x'])
+        class X:
+            pass
+        def f(n):
+            l = [100, n, 300, n, 500]
+            total = 0
+            x = X()
+            x.pc = n
+            while True:
+                pc = x.pc
+                jitdriver.can_enter_jit(l=l, pc=pc, n=n, total=total, x=x)
+                jitdriver.jit_merge_point(l=l, pc=pc, n=n, total=total, x=x)
+                x.pc = pc
+                total += l[x.pc]
+                if total > 10000:
+                    return total
+                x.pc -= 1
+                if x.pc < 0:
+                    x.pc = n
+
+        res = self.meta_interp(f, [4], listops=True)
+        assert res == f(4)
+        self.check_loops(call=0, getfield_gc=0)
+
 class TestOOtype(ListTests, OOJitMixin):
     pass
 

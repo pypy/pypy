@@ -52,13 +52,19 @@ def test_graphs_from_no_target():
 
 # ____________________________________________________________
 
+class FakeJitDriverSD:
+    def __init__(self, portal_graph):
+        self.portal_graph = portal_graph
+        self.portal_runner_ptr = "???"
+
 def test_find_all_graphs():
     def g(x):
         return x + 2
     def f(x):
         return g(x) + 1
     rtyper = support.annotate(f, [7])
-    cc = CallControl(portal_graph=rtyper.annotator.translator.graphs[0])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(jitdrivers_sd=[jitdriver_sd])
     res = cc.find_all_graphs(FakePolicy())
     funcs = set([graph.func for graph in res])
     assert funcs == set([f, g])
@@ -69,7 +75,8 @@ def test_find_all_graphs_without_g():
     def f(x):
         return g(x) + 1
     rtyper = support.annotate(f, [7])
-    cc = CallControl(portal_graph=rtyper.annotator.translator.graphs[0])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(jitdrivers_sd=[jitdriver_sd])
     class CustomFakePolicy:
         def look_inside_graph(self, graph):
             assert graph.name == 'g'
@@ -83,10 +90,11 @@ def test_find_all_graphs_without_g():
 def test_guess_call_kind_and_calls_from_graphs():
     class portal_runner_obj:
         graph = object()
+    class FakeJitDriverSD:
+        portal_runner_ptr = portal_runner_obj
     g = object()
     g1 = object()
-    cc = CallControl()
-    cc.portal_runner_ptr = portal_runner_obj
+    cc = CallControl(jitdrivers_sd=[FakeJitDriverSD()])
     cc.candidate_graphs = [g, g1]
 
     op = SpaceOperation('direct_call', [Constant(portal_runner_obj)],

@@ -229,11 +229,15 @@ class SomeUnicodeString(SomeObject):
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
+    can_be_None = False
+    def __init__(self):    # no 'can_be_None' argument here
+        pass
 
 class SomeUnicodeCodePoint(SomeUnicodeString):
     "Stands for an object known to be a unicode codepoint."
-    def can_be_none(self):
-        return False
+    can_be_None = False
+    def __init__(self):    # no 'can_be_None' argument here
+        pass
 
 SomeString.basestringclass = SomeString
 SomeString.basecharclass = SomeChar

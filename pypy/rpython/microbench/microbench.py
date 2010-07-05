@@ -3,7 +3,7 @@
 import sys
 import autopath
 from time import clock
-from py.compat import subprocess
+import subprocess
 from pypy.translator.interactive import Translation
 
 LOOPS = 10000000

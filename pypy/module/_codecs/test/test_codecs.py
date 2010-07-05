@@ -1,7 +1,5 @@
 import autopath
 from pypy.conftest import gettestobjspace
-from pypy.module._codecs.app_codecs import unicode_escape_encode,\
-     charmap_encode, unicode_escape_decode
 
 
 class AppTestCodecs:
@@ -14,26 +12,16 @@ class AppTestCodecs:
         raises(TypeError, _codecs.register, 1)
 
     def test_bigU_codecs(self):
-        import sys
-        oldmaxunicode = sys.maxunicode
-        if sys.maxunicode <= 0xffff:
-            return # this test cannot run on UCS2 builds
         u = u'\U00010001\U00020002\U00030003\U00040004\U00050005'
         for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
                          'raw_unicode_escape',
                          'unicode_escape', 'unicode_internal'):
             assert unicode(u.encode(encoding),encoding) == u
-        sys.maxunicode = oldmaxunicode
 
     def test_ucs4(self):
-        import sys
-        oldmaxunicode = sys.maxunicode
-        if sys.maxunicode <= 0xffff:
-            sys.maxunicode = 0xffffffff
         x = u'\U00100000'
         y = x.encode("raw-unicode-escape").decode("raw-unicode-escape")
         assert x == y 
-        sys.maxunicode = oldmaxunicode
 
     def test_named_unicode(self):
         assert unicode('\\N{SPACE}','unicode-escape') == u" "
@@ -118,12 +106,20 @@ class AppTestCodecs:
 
     def test_charmap_decode(self):
         from _codecs import charmap_decode
+        import sys
         assert charmap_decode('', 'strict', 'blablabla') == ('', 0)
         assert charmap_decode('xxx') == ('xxx', 3)
         assert charmap_decode('xxx', 'strict', {ord('x'): u'XX'}) == ('XXXXXX', 3)
         map = tuple([unichr(i) for i in range(256)])
         assert charmap_decode('xxx\xff', 'strict', map) == (u'xxx\xff', 4)
 
+        raises(TypeError, charmap_decode, '\xff', "replace",  {0xff: 0x10001})
+
+    def test_unicode_escape(self):
+        from _codecs import unicode_escape_encode, unicode_escape_decode
+        assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
+        assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
+        assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
 
 class AppTestPartialEvaluation:
 
@@ -275,7 +271,6 @@ class AppTestPartialEvaluation:
         assert u"\u0663".encode("raw-unicode-escape") == "\u0663"
 
     def test_escape_decode(self):
-        
         test = 'a\n\\b\x00c\td\u2045'.encode('string_escape')
         assert test.decode('string_escape') =='a\n\\b\x00c\td\u2045'
         assert '\\077'.decode('string_escape') == '?'
@@ -283,6 +278,14 @@ class AppTestPartialEvaluation:
         assert '\\253'.decode('string_escape') == chr(0253)
         assert '\\312'.decode('string_escape') == chr(0312)
 
+    def test_escape_decode_wrap_around(self):
+        assert '\\400'.decode('string_escape') == chr(0)
+
+    def test_escape_decode_ignore_invalid(self):
+        assert '\\9'.decode('string_escape') == '\\9'
+        assert '\\01'.decode('string_escape') == chr(01)
+        assert '\\0f'.decode('string_escape') == chr(0) + 'f'
+        assert '\\08'.decode('string_escape') == chr(0) + '8'
 
     def test_decode_utf8_different_case(self):
         constant = u"a"
@@ -377,6 +380,9 @@ class AppTestPartialEvaluation:
 
     def test_charmap_decode_1(self):
         import codecs
+        assert codecs.charmap_encode(u'xxx') == ('xxx', 3)
+        assert codecs.charmap_encode(u'xxx', 'strict', {ord('x'): 'XX'}) == ('XXXXXX', 3)
+
         res = codecs.charmap_decode("\x00\x01\x02", "replace", u"ab")
         assert res == (u"ab\ufffd", 3)
         res = codecs.charmap_decode("\x00\x01\x02", "replace", u"ab\ufffe")
@@ -464,6 +470,9 @@ class AppTestPartialEvaluation:
         assert '\xff'.decode('utf-7', 'ignore') == ''
         assert '\x00'.decode('unicode-internal', 'ignore') == ''
 
+    def test_backslahreplace(self):
+        assert u'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == 'a\\xac\u1234\u20ac\u8000'
+
     def test_badhandler(self):
         import codecs
         results = ( 42, u"foo", (1,2,3), (u"foo", 1, 3), (u"foo", None), (u"foo",), ("foo", 1, 3), ("foo", None), ("foo",) )
@@ -527,8 +536,25 @@ class AppTestPartialEvaluation:
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == 'xxx'
 
+        import codecs
+        raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
+        raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
+
+    def test_charmap_encode_replace(self):
+        charmap = dict([ (ord(c), 2*c.upper()) for c in "abcdefgh"])
+        charmap[ord("?")] = "XYZ"
+        import codecs
+        sin = u"abcDEF"
+        sout = codecs.charmap_encode(sin, "replace", charmap)[0]
+        assert sout == "AABBCCXYZXYZXYZ"
+
     def test_charmap_decode_2(self):
         assert 'foo'.decode('charmap') == 'foo'
+
+    def test_charmap_build(self):
+        import codecs
+        assert codecs.charmap_build(u'123456') == {49: 0, 50: 1, 51: 2,
+                                                   52: 3, 53: 4, 54: 5}
 
     def test_utf7_start_end_in_exception(self):
         try:
@@ -536,6 +562,9 @@ class AppTestPartialEvaluation:
         except UnicodeDecodeError, exc:
             assert exc.start == 0
             assert exc.end == 3
+
+    def test_utf7_surrogate(self):
+        raises(UnicodeDecodeError, '+3ADYAA-'.decode, 'utf-7')
 
     def test_utf_16_encode_decode(self):
         import codecs
@@ -546,6 +575,8 @@ class AppTestPartialEvaluation:
     def test_unicode_escape(self):        
         assert u'\\'.encode('unicode-escape') == '\\\\'
         assert '\\\\'.decode('unicode-escape') == u'\\'
+        assert u'\ud801'.encode('unicode-escape') == '\\ud801'
+        assert u'\u0013'.encode('unicode-escape') == '\\x13'
 
     def test_mbcs(self):
         import sys
@@ -555,14 +586,3 @@ class AppTestPartialEvaluation:
         assert u'caf\xe9'.encode('mbcs') == 'caf\xe9'
         assert u'\u040a'.encode('mbcs') == '?' # some cyrillic letter
         assert 'cafx\e9'.decode('mbcs') == u'cafx\e9'
-
-
-class TestDirect:
-    def test_charmap_encode(self):
-        assert charmap_encode(u'xxx') == ('xxx', 3)
-        assert charmap_encode(u'xxx', 'strict', {ord('x'): 'XX'}) ==  ('XXXXXX', 6)
-
-    def test_unicode_escape(self):
-        assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
-        assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
-        assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)

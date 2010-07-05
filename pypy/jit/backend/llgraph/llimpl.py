@@ -832,13 +832,16 @@ class Frame(object):
                     raise Exception("Nonsense type %s" % TYPE)
 
             failindex = self.cpu._execute_token(loop_token)
+            jd = loop_token.outermost_jitdriver_sd
+            assert jd is not None, ("call_assembler(): the loop_token needs "
+                                    "to have 'outermost_jitdriver_sd'")
+            if jd.index_of_virtualizable != -1:
+                vable = args[jd.index_of_virtualizable]
+            else:
+                vable = lltype.nullptr(llmemory.GCREF.TO)
+            assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
             try:
-                if self.cpu.index_of_virtualizable != -1:
-                    return self.cpu.assembler_helper_ptr(failindex,
-                        args[self.cpu.index_of_virtualizable])
-                else:
-                    return self.cpu.assembler_helper_ptr(failindex,
-                        lltype.nullptr(llmemory.GCREF.TO))
+                return assembler_helper_ptr(failindex, vable)
             except LLException, lle:
                 assert _last_exception is None, "exception left behind"
                 _last_exception = lle
@@ -1196,8 +1199,16 @@ def do_getarrayitem_gc_int(array, index):
     array = array._obj.container
     return cast_to_int(array.getitem(index))
 
+def do_getarrayitem_raw_int(array, index):
+    array = array.adr.ptr._obj
+    return cast_to_int(array.getitem(index))
+
 def do_getarrayitem_gc_float(array, index):
     array = array._obj.container
+    return cast_to_float(array.getitem(index))
+
+def do_getarrayitem_raw_float(array, index):
+    array = array.adr.ptr._obj
     return cast_to_float(array.getitem(index))
 
 def do_getarrayitem_gc_ptr(array, index):
@@ -1248,11 +1259,23 @@ def do_setarrayitem_gc_int(array, index, newvalue):
     newvalue = cast_from_int(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
+def do_setarrayitem_raw_int(array, index, newvalue):
+    array = array.adr.ptr
+    ITEMTYPE = lltype.typeOf(array).TO.OF
+    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    array._obj.setitem(index, newvalue)
+
 def do_setarrayitem_gc_float(array, index, newvalue):
     array = array._obj.container
     ITEMTYPE = lltype.typeOf(array).OF
     newvalue = cast_from_float(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
+
+def do_setarrayitem_raw_float(array, index, newvalue):
+    array = array.adr.ptr
+    ITEMTYPE = lltype.typeOf(array).TO.OF
+    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    array._obj.setitem(index, newvalue)
 
 def do_setarrayitem_gc_ptr(array, index, newvalue):
     array = array._obj.container

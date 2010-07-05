@@ -13,6 +13,7 @@ class JitCode(AbstractDescr):
         self.name = name
         self.fnaddr = fnaddr
         self.calldescr = calldescr
+        self.is_portal = False
         self._called_from = called_from   # debugging
         self._ssarepr     = None          # debugging
 
@@ -24,11 +25,11 @@ class JitCode(AbstractDescr):
         self.constants_i = constants_i or self._empty_i
         self.constants_r = constants_r or self._empty_r
         self.constants_f = constants_f or self._empty_f
-        # encode the three num_regs into a single integer
+        # encode the three num_regs into a single char each
         assert num_regs_i < 256 and num_regs_r < 256 and num_regs_f < 256
-        self.num_regs_encoded = ((num_regs_i << 16) |
-                                 (num_regs_f << 8) |
-                                 (num_regs_r << 0))
+        self.c_num_regs_i = chr(num_regs_i)
+        self.c_num_regs_r = chr(num_regs_r)
+        self.c_num_regs_f = chr(num_regs_f)
         self.liveness = make_liveness_cache(liveness)
         self._startpoints = startpoints   # debugging
         self._alllabels = alllabels       # debugging
@@ -37,13 +38,13 @@ class JitCode(AbstractDescr):
         return heaptracker.adr2int(self.fnaddr)
 
     def num_regs_i(self):
-        return self.num_regs_encoded >> 16
-
-    def num_regs_f(self):
-        return (self.num_regs_encoded >> 8) & 0xFF
+        return ord(self.c_num_regs_i)
 
     def num_regs_r(self):
-        return self.num_regs_encoded & 0xFF
+        return ord(self.c_num_regs_r)
+
+    def num_regs_f(self):
+        return ord(self.c_num_regs_f)
 
     def has_liveness_info(self, pc):
         return pc in self.liveness
