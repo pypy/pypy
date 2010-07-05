@@ -36,6 +36,10 @@ class AppTestMath:
                     raise AssertionError("%s(%s): got %s" % (
                         fnname, ', '.join(map(str, args)), got))
 
+    def test_ldexp(self):
+        import math
+        assert math.ldexp(float("inf"), -10**20) == float("inf")
+
     def test_fsum(self):
         # Python version of math.fsum, for comparison.  Uses a
         # different algorithm based on frexp, ldexp and integer

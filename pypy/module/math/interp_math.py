@@ -1,4 +1,5 @@
 import math
+import sys
 
 from pypy.rlib import rarithmetic
 from pypy.interpreter.error import OperationError
@@ -84,11 +85,25 @@ def cosh(space, x):
     return math1(space, math.cosh, x)
 cosh.unwrap_spec = [ObjSpace, float]
 
-def ldexp(space, x,  i): 
+def ldexp(space, x,  w_i): 
     """ldexp(x, i) -> x * (2**i)
     """
-    return math2(space, math.ldexp, x,  i)
-ldexp.unwrap_spec = [ObjSpace, float, int]
+    if (space.isinstance_w(w_i, space.w_int) or
+        space.isinstance_w(w_i, space.w_long)):
+        try:
+            exp = space.int_w(w_i)
+        except OperationError, e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+            if space.is_true(space.lt(w_i, space.wrap(0))):
+                exp = -sys.maxint
+            else:
+                exp = sys.maxint
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("integer required for second argument"))
+    return math2(space, math.ldexp, x, exp)
+ldexp.unwrap_spec = [ObjSpace, float, W_Root]
 
 def hypot(space, x, y): 
     """hypot(x,y)
