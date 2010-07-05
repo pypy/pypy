@@ -32,6 +32,13 @@ class AppTestBuiltinApp:
         raises(ValueError, chr, -1)
         raises(TypeError, chr, 'a')
 
+    def test_bin(self):
+        assert bin(0) == "0b0"
+        assert bin(-1) == "-0b1"
+        assert bin(2L) == "0b10"
+        assert bin(-2L) == "-0b10"
+        raises(TypeError, bin, 0.)
+
     def test_unichr(self):
         import sys
         assert unichr(65) == u'A'

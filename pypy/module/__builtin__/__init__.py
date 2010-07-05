@@ -37,6 +37,8 @@ class Module(MixedModule):
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
+        'bin'           : 'app_operation.bin',
+
         '__filestub'    : 'app_file_stub.file',
     }
 
