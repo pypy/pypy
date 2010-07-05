@@ -786,6 +786,8 @@ def sizeof(tp):
         return r_wchar_t.BITS/8
     if tp is lltype.Float:
         return 8
+    if tp is lltype.SingleFloat:
+        return 4
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return ULONG._type.BITS/8
