@@ -3,7 +3,6 @@
 Run this to rebuild _pyexpat_cache.py.
 """
 
-import autopath
 import ctypes
 from ctypes import c_char_p, c_int, c_void_p, c_char
 from ctypes_configure import configure, dumpcache

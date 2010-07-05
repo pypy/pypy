@@ -3,7 +3,6 @@
 Run this to rebuild _hashlib_cache.py.
 """
 
-import autopath
 from ctypes import *
 from ctypes_configure import configure, dumpcache
 

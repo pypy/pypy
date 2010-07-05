@@ -3,7 +3,6 @@
 Run this to rebuild _syslog_cache.py.
 """
 
-import autopath
 from ctypes_configure.configure import (configure,
     ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger)
 from ctypes_configure.dumpcache import dumpcache

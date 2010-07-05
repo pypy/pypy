@@ -3,7 +3,6 @@
 Run this to rebuild _locale_cache.py.
 """
 
-import autopath
 from ctypes_configure.configure import (configure, ExternalCompilationInfo,
     ConstantInteger, DefinedConstantInteger, SimpleType, check_eci)
 from ctypes_configure.dumpcache import dumpcache

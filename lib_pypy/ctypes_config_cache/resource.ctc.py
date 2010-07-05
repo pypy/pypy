@@ -3,7 +3,6 @@
 Run this to rebuild _resource_cache.py.
 """
 
-import autopath
 
 from ctypes import sizeof
 from ctypes_configure.dumpcache import dumpcache
