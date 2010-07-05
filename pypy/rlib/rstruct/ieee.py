@@ -5,6 +5,7 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 import math
 
 from pypy.rlib import rarithmetic
+from pypy.rlib.rarithmetic import r_ulonglong
 
 
 def round_to_nearest(x):
@@ -47,7 +48,7 @@ def float_unpack(Q, size):
 
     # extract pieces
     sign = Q >> BITS - 1
-    exp = (Q & ((1 << BITS - 1) - (1 << MANT_DIG - 1))) >> MANT_DIG - 1
+    exp = int((Q & ((1 << BITS - 1) - (1 << MANT_DIG - 1))) >> MANT_DIG - 1)
     mant = Q & ((1 << MANT_DIG - 1) - 1)
 
     if exp == MAX_EXP - MIN_EXP + 2:
@@ -120,7 +121,7 @@ def float_pack(x, size):
     assert 0 <= mant < 1 << MANT_DIG - 1
     assert 0 <= exp <= MAX_EXP - MIN_EXP + 2
     assert 0 <= sign <= 1
-    return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
+    return r_ulonglong(((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant)
 
 
 def pack_float8(result, x):
