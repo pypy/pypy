@@ -41,9 +41,6 @@ class AppTestMath:
         assert math.ldexp(float("inf"), -10**20) == float("inf")
 
     def test_fsum(self):
-        # Python version of math.fsum, for comparison.  Uses a
-        # different algorithm based on frexp, ldexp and integer
-        # arithmetic.
         import math
 
         test_values = [
@@ -77,3 +74,14 @@ class AppTestMath:
                 py.test.fail("test %d failed: got ValueError, expected %r "
                           "for math.fsum(%.100r)" % (i, expected, vals))
             assert actual == expected
+
+    def test_factorial(self):
+        import math
+        assert math.factorial(0) == 1
+        assert math.factorial(1) == 1
+        assert math.factorial(2) == 2
+        assert math.factorial(5) == 120
+        assert math.factorial(5.) == 120
+        raises(ValueError, math.factorial, -1)
+        raises(ValueError, math.factorial, -1.)
+        raises(ValueError, math.factorial, 1.1)

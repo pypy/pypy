@@ -39,5 +39,6 @@ class Module(MixedModule):
        'isnan'          : 'interp_math.isnan',
        'trunc'          : 'interp_math.trunc',
        'fsum'           : 'interp_math.fsum',
+       'factorial'      : 'interp_math.factorial',
 }
 
