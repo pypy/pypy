@@ -24,6 +24,23 @@ def _prodi(x):
     return complex(real, imag)
 
 
+def phase(x):
+    x = complex(x)
+    return math.atan2(x.imag, x.real)
+
+
+def polar(x):
+    x = complex(x)
+    phi = math.atan2(x.imag, x.real)
+    r = abs(x)
+    return r, phi
+
+
+def rect(r, phi):
+    r, phi = complex(r), complex(phi)
+    return complex(r * math.cos(phi), r * math.sin(phi))
+
+
 def acos(x):
     """acos(x)
 
