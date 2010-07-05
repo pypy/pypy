@@ -85,3 +85,135 @@ class AppTestMath:
         raises(ValueError, math.factorial, -1)
         raises(ValueError, math.factorial, -1.)
         raises(ValueError, math.factorial, 1.1)
+
+    def test_mtestfile(self):
+        import math
+        import abc
+        import os
+        def _parse_mtestfile(fname):
+            """Parse a file with test values
+
+            -- starts a comment
+            blank lines, or lines containing only a comment, are ignored
+            other lines are expected to have the form
+              id fn arg -> expected [flag]*
+
+            """
+            with open(fname) as fp:
+                for line in fp:
+                    # strip comments, and skip blank lines
+                    if '--' in line:
+                        line = line[:line.index('--')]
+                    if not line.strip():
+                        continue
+
+                    lhs, rhs = line.split('->')
+                    id, fn, arg = lhs.split()
+                    rhs_pieces = rhs.split()
+                    exp = rhs_pieces[0]
+                    flags = rhs_pieces[1:]
+
+                    yield (id, fn, float(arg), float(exp), flags)
+        def to_ulps(x):
+            """Convert a non-NaN float x to an integer, in such a way that
+            adjacent floats are converted to adjacent integers.  Then
+            abs(ulps(x) - ulps(y)) gives the difference in ulps between two
+            floats.
+
+            The results from this function will only make sense on platforms
+            where C doubles are represented in IEEE 754 binary64 format.
+
+            """
+            n = struct.unpack('<q', struct.pack('<d', x))[0]
+            if n < 0:
+                n = ~(n+2**63)
+            return n
+
+        def ulps_check(expected, got, ulps=20):
+            """Given non-NaN floats `expected` and `got`,
+            check that they're equal to within the given number of ulps.
+
+            Returns None on success and an error message on failure."""
+
+            ulps_error = to_ulps(got) - to_ulps(expected)
+            if abs(ulps_error) <= ulps:
+                return None
+            return "error = {} ulps; permitted error = {} ulps".format(ulps_error,
+                                                                       ulps)
+
+        def acc_check(expected, got, rel_err=2e-15, abs_err = 5e-323):
+            """Determine whether non-NaN floats a and b are equal to within a
+            (small) rounding error.  The default values for rel_err and
+            abs_err are chosen to be suitable for platforms where a float is
+            represented by an IEEE 754 double.  They allow an error of between
+            9 and 19 ulps."""
+
+            # need to special case infinities, since inf - inf gives nan
+            if math.isinf(expected) and got == expected:
+                return None
+
+            error = got - expected
+
+            permitted_error = max(abs_err, rel_err * abs(expected))
+            if abs(error) < permitted_error:
+                return None
+            return "error = {}; permitted error = {}".format(error,
+                                                             permitted_error)
+
+        ALLOWED_ERROR = 20  # permitted error, in ulps
+        fail_fmt = "{}:{}({!r}): expected {!r}, got {!r}"
+
+        failures = []
+        math_testcases = os.path.join(os.path.dirname(abc.__file__), "test",
+                                      "math_testcases.txt")
+        for id, fn, arg, expected, flags in _parse_mtestfile(math_testcases):
+            func = getattr(math, fn)
+
+            if 'invalid' in flags or 'divide-by-zero' in flags:
+                expected = 'ValueError'
+            elif 'overflow' in flags:
+                expected = 'OverflowError'
+
+            try:
+                got = func(arg)
+            except ValueError:
+                got = 'ValueError'
+            except OverflowError:
+                got = 'OverflowError'
+
+            accuracy_failure = None
+            if isinstance(got, float) and isinstance(expected, float):
+                if math.isnan(expected) and math.isnan(got):
+                    continue
+                if not math.isnan(expected) and not math.isnan(got):
+                    if fn == 'lgamma':
+                        # we use a weaker accuracy test for lgamma;
+                        # lgamma only achieves an absolute error of
+                        # a few multiples of the machine accuracy, in
+                        # general.
+                        accuracy_failure = acc_check(expected, got,
+                                                  rel_err = 5e-15,
+                                                  abs_err = 5e-15)
+                    elif fn == 'erfc':
+                        # erfc has less-than-ideal accuracy for large
+                        # arguments (x ~ 25 or so), mainly due to the
+                        # error involved in computing exp(-x*x).
+                        #
+                        # XXX Would be better to weaken this test only
+                        # for large x, instead of for all x.
+                        accuracy_failure = ulps_check(expected, got, 2000)
+
+                    else:
+                        accuracy_failure = ulps_check(expected, got, 20)
+                    if accuracy_failure is None:
+                        continue
+
+            if isinstance(got, str) and isinstance(expected, str):
+                if got == expected:
+                    continue
+
+            fail_msg = fail_fmt.format(id, fn, arg, expected, got)
+            if accuracy_failure is not None:
+                fail_msg += ' ({})'.format(accuracy_failure)
+            failures.append(fail_msg)
+        assert not failures
