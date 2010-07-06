@@ -105,14 +105,11 @@ class SomeStringBuilder(SomeObject):
         assert isinstance(s_str, SomeString)
         assert isinstance(s_start, SomeInteger)
         assert isinstance(s_end, SomeInteger)
-        assert s_start.nonneg
-        assert s_end.nonneg
         return s_None
 
     def method_append_multiple_char(self, s_char, s_times):
         assert isinstance(s_char, SomeChar)
         assert isinstance(s_times, SomeInteger)
-        assert s_times.nonneg
         return s_None
 
     def method_build(self):
@@ -130,14 +127,11 @@ class SomeUnicodeBuilder(SomeObject):
         assert isinstance(s_str, SomeUnicodeString)
         assert isinstance(s_start, SomeInteger)
         assert isinstance(s_end, SomeInteger)
-        assert s_start.nonneg
-        assert s_end.nonneg
         return s_None
 
     def method_append_multiple_char(self, s_char, s_times):
         assert isinstance(s_char, SomeUnicodeCodePoint)
         assert isinstance(s_times, SomeInteger)
-        assert s_times.nonneg
         return s_None
 
     def method_build(self):
