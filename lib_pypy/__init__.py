@@ -3,6 +3,5 @@
 # Without this check, you would be able to do 'import __init__' from a pypy
 # prompt
 
-import sys; print sys.path
 if __name__ != 'lib_pypy':
     raise ImportError, '__init__'
