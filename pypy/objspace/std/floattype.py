@@ -80,6 +80,7 @@ def _hex_digit(s, j, co_end, float_digits):
 def descr_fromhex(space, w_cls, s):
     length = len(s)
     i = 0
+    value = 0.0
     while i < length and s[i].isspace():
         i += 1
     if i == length:
