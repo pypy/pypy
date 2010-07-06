@@ -123,6 +123,7 @@ class AppTestMath:
         import math
         import abc
         import os
+        import struct
         def _parse_mtestfile(fname):
             """Parse a file with test values
 

@@ -132,6 +132,17 @@ except ImportError:
         else:
             return math.log(1. + x)
 
+try:
+    from math import expm1 # Added in Python 2.7.
+except ImportError:
+    def expm1(x):
+        if abs(x) < .7:
+            u = math.exp(x)
+            if u == 1.:
+                return x
+            return (u - 1.) * x / math.log(u)
+        return math.exp(x) - 1.
+
 def intmask(n):
     if isinstance(n, int):
         return int(n)   # possibly bool->int

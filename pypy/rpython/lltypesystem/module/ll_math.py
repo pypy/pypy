@@ -319,7 +319,7 @@ unary_math_functions = [
     'acosh', 'asinh', 'atanh',   # -- added in Python 2.6
     ]
 unary_math_functions_can_overflow = [
-    'cosh', 'exp', 'log1p', 'sinh',
+    'cosh', 'exp', 'log1p', 'sinh', 'expm1',
     ]
 
 for name in unary_math_functions:

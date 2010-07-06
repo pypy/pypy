@@ -416,3 +416,8 @@ def atanh(space, x):
     """Inverse hyperbolic tangent"""
     return math1(space, rarithmetic.atanh, x)
 atanh.unwrap_spec = [ObjSpace, float]
+
+def expm1(space, x):
+    """exp(x) - 1"""
+    return math1(space, rarithmetic.expm1, x)
+expm1.unwrap_spec = [ObjSpace, float]

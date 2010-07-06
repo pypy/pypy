@@ -44,5 +44,6 @@ class Module(MixedModule):
        'acosh'          : 'interp_math.acosh',
        'atanh'          : 'interp_math.atanh',
        'log1p'          : 'interp_math.log1p',
+       'expm1'          : 'interp_math.expm1',
 }
 
