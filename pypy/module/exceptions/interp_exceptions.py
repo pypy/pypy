@@ -196,7 +196,7 @@ class W_BaseException(Wrappable):
             try:
                 space.delitem(w_dict, space.wrap("message"))
             except OperationError, e:
-                if not e.match(space.w_KeyError):
+                if not e.match(space, space.w_KeyError):
                     raise
         self.w_message = None
 

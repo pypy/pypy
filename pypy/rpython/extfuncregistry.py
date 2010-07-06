@@ -33,6 +33,9 @@ register_external(rarithmetic.isinf, [float], bool,
 register_external(rarithmetic.isnan, [float], bool,
                   export_name="ll_math.ll_math_isnan", sandboxsafe=True,
                   llimpl=ll_math.ll_math_isnan)
+register_external(rarithmetic.copysign, [float, float], float,
+                  export_name="ll_math.ll_math_copysign", sandboxsafe=True,
+                  llimpl=ll_math.ll_math_copysign)
 
 complex_math_functions = [
     ('frexp', [float],        (float, int)),

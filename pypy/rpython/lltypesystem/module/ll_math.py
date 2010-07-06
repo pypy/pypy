@@ -79,6 +79,9 @@ def ll_math_isinf(y):
     return bool(math_isinf(y))
 
 
+ll_math_copysign = math_copysign
+
+
 def ll_math_atan2(y, x):
     """wrapper for atan2 that deals directly with special cases before
     delegating to the platform libm for the remaining cases.  This
