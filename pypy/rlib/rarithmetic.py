@@ -35,8 +35,8 @@ mark where overflow checking is required.
 """
 import math
 from pypy.rpython import extregistry
-
 from pypy.rlib import objectmodel
+
 # set up of machine internals
 _bits = 0
 _itest = 1
@@ -54,7 +54,8 @@ INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
 
 try:
-    from math import isinf, isnan, copysign
+    # Try to get math functions added in 2.6.
+    from math import isinf, isnan, copysign, acosh, asinh, atanh, log1p
 except ImportError:
     def isinf(x):
         return x == INFINITY or x == -INFINITY
@@ -69,6 +70,67 @@ except ImportError:
         else:
             return -math.fabs(x)
 
+    _2_to_m28 = 3.7252902984619141E-09; # 2**-28
+    _2_to_p28 = 268435456.0; # 2**28
+    _ln2 = 6.93147180559945286227E-01
+
+    def acosh(x):
+        if isnan(x):
+            return NAN
+        if x < 1.:
+            raise ValueError("math domain error")
+        if x >= _2_to_p28:
+            if isinf(x):
+                return x
+            else:
+                return math.log(x) + _ln2
+        if x == 1.:
+            return 0.
+        if x >= 2.:
+            t = x * x
+            return math.log(2. * x - 1. / (x + math.sqrt(t - 1.0)))
+        t = x - 1.0
+        return log1p(t + math.sqrt(2. * t + t * t))
+
+    def asinh(x):
+        absx = abs(x)
+        if isnan(x) or isinf(x):
+            return x
+        if absx < _2_to_m28:
+            return x
+        if absx > _2_to_p28:
+            w = math.log(absx) + _ln2
+        elif absx > 2.:
+            w = math.log(2. * absx + 1. // (math.sqrt(x * x + 1.) + absx))
+        else:
+            t = x * x
+            w = log1p(absx + t // (1. + math.sqrt(1. + t)))
+        return copysign(w, x)
+
+    def atanh(x):
+        if isnan(x):
+            return x
+        absx = abs(x)
+        if absx >= 1.:
+            raise ValueError("math domain error")
+        if absx < _2_to_m28:
+            return x
+        if absx < .5:
+            t = absx + absx
+            t = .5 * log1p(t + t * absx // (1. - absx))
+        else:
+            t = .5 * log1p((absx + absx) // (1. - absx))
+        return copysign(t, x)
+
+    def log1p(x):
+        from pypy.rlib import rfloat
+        if abs(x) < rfloat.DBL_EPSILON // 2.:
+            return x
+        elif -.5 <= x <= 1.:
+            y = 1. + x
+            return math.log(y) - ((y - 1.) - x) // y
+        else:
+            return math.log(1. + x)
 
 def intmask(n):
     if isinstance(n, int):

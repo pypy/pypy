@@ -396,3 +396,23 @@ def factorial(space, w_x):
     for i in range(1, x + 1):
         w_res = space.mul(w_res, space.wrap(i))
     return w_res
+
+def log1p(space, x):
+    """Find log(x + 1)."""
+    return math1(space, rarithmetic.log1p, x)
+log1p.unwrap_spec = [ObjSpace, float]
+
+def acosh(space, x):
+    """Inverse hyperbolic cosine"""
+    return math1(space, rarithmetic.acosh, x)
+acosh.unwrap_spec = [ObjSpace, float]
+
+def asinh(space, x):
+    """Inverse hyperbolic sine"""
+    return math1(space, rarithmetic.asinh, x)
+asinh.unwrap_spec = [ObjSpace, float]
+
+def atanh(space, x):
+    """Inverse hyperbolic tangent"""
+    return math1(space, rarithmetic.atanh, x)
+atanh.unwrap_spec = [ObjSpace, float]

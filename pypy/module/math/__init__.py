@@ -40,5 +40,9 @@ class Module(MixedModule):
        'trunc'          : 'interp_math.trunc',
        'fsum'           : 'interp_math.fsum',
        'factorial'      : 'interp_math.factorial',
+       'asinh'          : 'interp_math.asinh',
+       'acosh'          : 'interp_math.acosh',
+       'atanh'          : 'interp_math.atanh',
+       'log1p'          : 'interp_math.log1p',
 }
 

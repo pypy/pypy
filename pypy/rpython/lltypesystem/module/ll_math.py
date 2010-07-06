@@ -316,7 +316,7 @@ unary_math_functions = [
     'acos', 'asin', 'atan',
     'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
     'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
-    # 'log1p', 'acosh', 'asinh', 'atanh',   -- added in Python 2.6
+    'acosh', 'asinh', 'atanh',   # -- added in Python 2.6
     ]
 unary_math_functions_can_overflow = [
     'cosh', 'exp', 'log1p', 'sinh', # why log1p? CPython does it

@@ -8,6 +8,10 @@ class AppTestMath:
         cls.space = gettestobjspace(usemodules=['math'])
         cls.w_cases = cls.space.wrap(test_direct.MathTests.TESTCASES)
         cls.w_consistent_host = cls.space.wrap(test_direct.consistent_host)
+        cls.w_ftest = cls.space.appexec((), """():
+        def ftest(actual, expected):
+            assert abs(actual - expected) < 10E-5
+        return ftest""")
 
     def test_all_cases(self):
         if not self.consistent_host:
@@ -85,6 +89,35 @@ class AppTestMath:
         raises(ValueError, math.factorial, -1)
         raises(ValueError, math.factorial, -1.)
         raises(ValueError, math.factorial, 1.1)
+
+    def test_log1p(self):
+        import math
+        self.ftest(math.log1p(1/math.e-1), -1)
+        self.ftest(math.log1p(0), 0)
+        self.ftest(math.log1p(math.e-1), 1)
+        self.ftest(math.log1p(1), math.log(2))
+
+    def test_acosh(self):
+        import math
+        self.ftest(math.acosh(1), 0)
+        self.ftest(math.acosh(2), 1.3169578969248168)
+        assert math.isinf(math.asinh(float("inf")))
+        raises(ValueError, math.acosh, 0)
+
+    def test_asinh(self):
+        import math
+        self.ftest(math.asinh(0), 0)
+        self.ftest(math.asinh(1), 0.88137358701954305)
+        self.ftest(math.asinh(-1), -0.88137358701954305)
+        assert math.isinf(math.asinh(float("inf")))
+
+    def test_atanh(self):
+        import math
+        self.ftest(math.atanh(0), 0)
+        self.ftest(math.atanh(0.5), 0.54930614433405489)
+        self.ftest(math.atanh(-0.5), -0.54930614433405489)
+        raises(ValueError, math.atanh, 1.)
+        assert math.isnan(math.atanh(float("nan")))
 
     def test_mtestfile(self):
         import math
