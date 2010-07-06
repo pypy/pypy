@@ -36,6 +36,8 @@ math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+math_isinf = llexternal('isinf', [rffi.DOUBLE], rffi.INT)
+math_isnan = llexternal('isnan', [rffi.DOUBLE], rffi.INT)
 
 # ____________________________________________________________
 #
@@ -67,6 +69,14 @@ def _likely_raise(errno, x):
 # ____________________________________________________________
 #
 # Custom implementations
+
+
+def ll_math_isnan(y):
+    return bool(math_isnan(y))
+
+
+def ll_math_isinf(y):
+    return bool(math_isinf(y))
 
 
 def ll_math_atan2(y, x):

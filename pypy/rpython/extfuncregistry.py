@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem.module import ll_math
 from pypy.rpython.ootypesystem.module import ll_math as oo_math
 from pypy.rpython.module import ll_os
 from pypy.rpython.module import ll_time
+from pypy.rlib import rarithmetic
 try:
     import termios
 except ImportError:
@@ -21,9 +22,17 @@ else:
 # and are part of math.h
 for name in ll_math.unary_math_functions:
     llimpl = getattr(ll_math, 'll_math_%s' % name, None)
-    register_external(getattr(math, name), [float], float,
+    f = getattr(math, name)
+    register_external(f, [float], float,
                       export_name="ll_math.ll_math_%s" % name,
                        sandboxsafe=True, llimpl=llimpl)
+
+register_external(rarithmetic.isinf, [float], bool,
+                  export_name="ll_math.ll_math_isinf", sandboxsafe=True,
+                  llimpl=ll_math.ll_math_isinf)
+register_external(rarithmetic.isnan, [float], bool,
+                  export_name="ll_math.ll_math_isnan", sandboxsafe=True,
+                  llimpl=ll_math.ll_math_isnan)
 
 complex_math_functions = [
     ('frexp', [float],        (float, int)),
