@@ -140,7 +140,25 @@ def test_get_array_descr():
     assert isinstance(descr2.get_item_size(True), Symbolic)
     assert isinstance(descr3.get_item_size(True), Symbolic)
     assert isinstance(descr4.get_item_size(True), Symbolic)
-
+    CA = rffi.CArray(lltype.Signed)
+    descr = get_array_descr(c0, CA)
+    assert not descr.is_array_of_floats()
+    assert descr.get_base_size(False) == 0
+    assert descr.get_ofs_length(False) == -1
+    CA = rffi.CArray(lltype.Ptr(lltype.GcStruct('S')))
+    descr = get_array_descr(c0, CA)
+    assert descr.is_array_of_pointers()
+    assert descr.get_base_size(False) == 0
+    assert descr.get_ofs_length(False) == -1
+    CA = rffi.CArray(lltype.Ptr(lltype.Struct('S')))
+    descr = get_array_descr(c0, CA)
+    assert descr.get_base_size(False) == 0
+    assert descr.get_ofs_length(False) == -1
+    CA = rffi.CArray(lltype.Float)
+    descr = get_array_descr(c0, CA)
+    assert descr.is_array_of_floats()
+    assert descr.get_base_size(False) == 0
+    assert descr.get_ofs_length(False) == -1
 
 def test_get_call_descr_not_translated():
     c0 = GcCache(False)
