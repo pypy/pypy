@@ -739,7 +739,7 @@ class RPythonCallsSpace:
     """
     w_tuple = SomeTuple
     def newtuple(self, items_s):
-        if items_s == [Ellipsis]:
+        if len(items_s) == 1 and items_s[0] is Ellipsis:
             res = SomeObject()   # hack to get a SomeObject as the *arg
             res.from_ellipsis = True
             return res
