@@ -729,3 +729,32 @@ class TestFlatten:
             int_between %i0, %i1, %i2 -> %i3
             int_return %i3
         """, transform=True)
+
+    def test_force_cast(self):
+        py.test.skip("later")
+        from pypy.rpython.lltypesystem import rffi
+        def f(n):
+            c = chr(n)
+            return rffi.cast(rffi.INT, c)
+        self.encoding_test(f, [42], """
+            int_return %i0
+        """, transform=True)
+        def g(n):
+            return rffi.cast(rffi.UCHAR, n)
+        self.encoding_test(g, [42], """
+            int_and %i0, $255 -> %i1
+            int_return %i1
+        """, transform=True)
+        def h(n):
+            return rffi.cast(rffi.SCHAR, n)
+        self.encoding_test(h, [42], """
+            ...
+        """, transform=True)
+
+    def test_force_cast_pointer(self):
+        from pypy.rpython.lltypesystem import rffi
+        def h(p):
+            return rffi.cast(rffi.VOIDP, p)
+        self.encoding_test(h, [lltype.nullptr(rffi.CCHARP.TO)], """
+            int_return %i0
+        """, transform=True)

@@ -667,7 +667,7 @@ class Transformer(object):
             return self._rewrite_symmetric(op)
 
     def _is_gc(self, v):
-        return v.concretetype.TO._gckind == 'gc'
+        return getattr(getattr(v.concretetype, "TO", None), "_gckind", "?") == 'gc'
 
     def _rewrite_cmp_ptrs(self, op):
         if self._is_gc(op.args[0]):
@@ -700,6 +700,17 @@ class Transformer(object):
         if self._is_gc(op.args[0]):
             #return op
             raise NotImplementedError("cast_ptr_to_int")
+
+    def rewrite_op_force_cast(self, op):
+        from pypy.rpython.lltypesystem.rffi import size_and_sign
+        from pypy.rlib.rarithmetic import intmask
+        assert not self._is_gc(op.args[0])
+        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
+        size2, unsigned2 = size_and_sign(op.result.concretetype)
+        if size1 == size2 and unsigned1 == unsigned2:
+            return
+        raise NotImplementedError("cast not supported yet: %s" % (op, ))
+
 
     # ----------
     # Renames, from the _old opname to the _new one.
