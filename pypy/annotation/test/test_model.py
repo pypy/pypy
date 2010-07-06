@@ -200,6 +200,15 @@ def test_ooclass_array_contains():
     s2.const=cls
     assert s1.contains(s2)
 
+def test_nan():
+    f1 = SomeFloat()
+    f1.const = float("nan")
+    f2 = SomeFloat()
+    f2.const = float("nan")
+    assert f1.contains(f1)
+    assert f2.contains(f1)
+    assert f1.contains(f2)
+
 if __name__ == '__main__':
     for name, value in globals().items():
         if name.startswith('test_'):
