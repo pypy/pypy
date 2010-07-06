@@ -61,6 +61,12 @@ def test_array_token():
         assert basesize >= WORD # at least the 'length', maybe some gc headers
         assert itemsize == WORD
         assert ofs_length == basesize - WORD
+        A = rffi.CArray(lltype.Signed)
+        arraytok = get_array_token(A, translate_support_code)
+        basesize, itemsize, ofs_length = convert(arraytok)
+        assert basesize == 0
+        assert itemsize == WORD
+        assert ofs_length == -1
 
 def test_varsized_struct_size():    
     S1 = lltype.GcStruct('S1', ('parent', S),

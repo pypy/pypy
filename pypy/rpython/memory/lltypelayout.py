@@ -111,6 +111,8 @@ def convert_offset_to_int(offset):
     elif isinstance(offset, llmemory.ItemOffset):
         return sizeof(offset.TYPE) * offset.repeat
     elif isinstance(offset, llmemory.ArrayItemsOffset):
+        if offset.TYPE._hints.get('nolength', None):
+            return 0
         return get_fixed_size(lltype.Signed)
     elif isinstance(offset, llmemory.GCHeaderOffset):
         return sizeof(offset.gcheaderbuilder.HDR)
