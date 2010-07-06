@@ -123,8 +123,8 @@ class TemplateFormatter(object):
                 if c == "!":
                     i += 1
                     if i == end:
-                        raise OperationError(space.w_ValueError,
-                                             space.wrap("expected conversion"))
+                        w_msg = self.space.wrap("expected conversion")
+                        raise OperationError(self.space.w_ValueError, w_msg)
                     conversion = s[i]
                 else:
                     conversion = None

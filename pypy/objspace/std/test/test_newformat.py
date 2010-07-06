@@ -73,6 +73,7 @@ class BaseStringFormatTests:
 
     def test_invalid_conversion(self):
         raises(ValueError, self.s("{!x}").format, 3)
+        raises(ValueError, self.s("{!}").format)
 
     def test_recursive(self):
         assert self.s("{:{}}").format(42, "#o") == self.s("0o52")
