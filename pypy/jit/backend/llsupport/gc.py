@@ -1,3 +1,4 @@
+import sys
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
@@ -618,7 +619,7 @@ def get_ll_description(gcdescr, translator=None, rtyper=None):
     else:
         name = "boehm"
     try:
-        cls = globals()['GcLLDescr_' + name]
+        cls = getattr(sys.modules[__name__], 'GcLLDescr_' + name)
     except KeyError:
         raise NotImplementedError("GC transformer %r not supported by "
                                   "the JIT backend" % (name,))
