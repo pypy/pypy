@@ -8,11 +8,11 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.module.sys import system
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
 from pypy.rlib.rarithmetic import formatd, LONG_BIT, FL_MAXINT, FL_MININT
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 
 import math
@@ -92,7 +92,7 @@ def float_w__Float(space, w_float):
 def _char_from_hex(number):
     return "0123456789abcdef"[number]
 
-TOHEX_NBITS = system.DBL_MANT_DIG + 3 - (system.DBL_MANT_DIG + 2) % 4
+TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
 
 def float_hex__Float(space, w_float):
     value = w_float.floatval
@@ -104,7 +104,7 @@ def float_hex__Float(space, w_float):
         else:
             return space.wrap("0x0.0p+0")
     mant, exp = math.frexp(value)
-    shift = 1 - max(system.DBL_MIN_EXP - exp, 0)
+    shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
     mant = math.ldexp(mant, shift)
     mant = abs(mant)
     exp -= shift

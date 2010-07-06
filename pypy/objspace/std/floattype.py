@@ -1,13 +1,13 @@
 import math
 import sys
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib import rfloat
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import ParseStringError
 from pypy.objspace.std.strutil import interp_string_to_float
-from pypy.module.sys import system
 
 
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
@@ -127,8 +127,8 @@ def descr_fromhex(space, w_cls, s):
         if not total_digits:
             raise OperationError(space.w_ValueError,
                                  space.wrap("invalid hex string"))
-        const_one = system.DBL_MIN_EXP - system.DBL_MANT_DIG + sys.maxint // 2
-        const_two = sys.maxint // 2 + 1 - system.DBL_MAX_EXP
+        const_one = rfloat.DBL_MIN_EXP - rfloat.DBL_MANT_DIG + sys.maxint // 2
+        const_two = sys.maxint // 2 + 1 - rfloat.DBL_MAX_EXP
         if total_digits > min(const_one, const_two) // 4:
             raise OperationError(space.w_ValueError, space.wrap("way too long"))
         if i < length and (s[i] == "p" or s[i] == "P"):
@@ -165,13 +165,13 @@ def descr_fromhex(space, w_cls, s):
             while digit:
                 top_exp += 1
                 digit //= 2
-            if top_exp < system.DBL_MIN_EXP - system.DBL_MANT_DIG:
+            if top_exp < rfloat.DBL_MIN_EXP - rfloat.DBL_MANT_DIG:
                 value = 0.0
-            elif top_exp > system.DBL_MAX_EXP:
+            elif top_exp > rfloat.DBL_MAX_EXP:
                 raise OperationError(space.w_OverflowError,
                                      space.wrap("too large"))
             else:
-                lsb = max(top_exp, system.DBL_MIN_EXP) - system.DBL_MANT_DIG
+                lsb = max(top_exp, rfloat.DBL_MIN_EXP) - rfloat.DBL_MANT_DIG
                 value = 0
                 if exp >= lsb:
                     for j in range(total_digits - 1, -1, -1):
@@ -199,8 +199,8 @@ def descr_fromhex(space, w_cls, s):
                                     break
                         if round_up:
                             value += 2 * half_eps
-                            mant_dig = system.DBL_MANT_DIG
-                            if (top_exp == system.DBL_MAX_EXP and
+                            mant_dig = rfloat.DBL_MANT_DIG
+                            if (top_exp == rfloat.DBL_MAX_EXP and
                                 value == math.ldexp(2 * half_eps, mant_dig)):
                                 raise OperationError(space.w_OverflowError,
                                                      space.wrap("too large"))
