@@ -347,7 +347,7 @@ def fsum(space, w_iterable):
                     not rarithmetic.isnan(original)):
                     raise OperationError(space.w_OverflowError,
                                          space.wrap("intermediate overflow"))
-                if isinf(original):
+                if rarithmetic.isinf(original):
                     inf_sum += original
                 special_sum += original
                 del partials[:]
