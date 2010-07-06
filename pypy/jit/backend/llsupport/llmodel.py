@@ -311,6 +311,12 @@ class AbstractLLCPU(AbstractCPU):
         items[itemindex] = newvalue
         # --- end of GC unsafe code ---
 
+    bh_setarrayitem_raw_i = bh_setarrayitem_gc_i
+    bh_setarrayitem_raw_f = bh_setarrayitem_gc_f
+
+    bh_getarrayitem_raw_i = bh_getarrayitem_gc_i
+    bh_getarrayitem_raw_f = bh_getarrayitem_gc_f
+
     def bh_strlen(self, string):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
         return len(s.chars)

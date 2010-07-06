@@ -815,6 +815,7 @@ class Assembler386(object):
                 raise NotImplementedError()
 
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
+    genop_getarrayitem_raw = genop_getarrayitem_gc
 
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
