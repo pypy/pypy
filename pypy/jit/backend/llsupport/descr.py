@@ -151,7 +151,6 @@ class BaseArrayDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<%s>' % self._clsname
 
-
 class NonGcPtrArrayDescr(BaseArrayDescr):
     _clsname = 'NonGcPtrArrayDescr'
     def get_item_size(self, translate_support_code):
@@ -161,9 +160,34 @@ class GcPtrArrayDescr(NonGcPtrArrayDescr):
     _clsname = 'GcPtrArrayDescr'
     _is_array_of_pointers = True
 
+_CA = rffi.CArray(lltype.Signed)
+
+class BaseArrayNoLengthDescr(BaseArrayDescr):
+    def get_base_size(self, translate_support_code):
+        basesize, _, _ = symbolic.get_array_token(_CA, translate_support_code)
+        return basesize
+
+    def get_ofs_length(self, translate_support_code):
+        _, _, ofslength = symbolic.get_array_token(_CA, translate_support_code)
+        return ofslength
+
+class NonGcPtrArrayNoLengthDescr(BaseArrayNoLengthDescr):
+    _clsname = 'NonGcPtrArrayNoLengthDescr'
+    def get_item_size(self, translate_support_code):
+        return symbolic.get_size_of_ptr(translate_support_code)
+
+class GcPtrArrayNoLengthDescr(NonGcPtrArrayNoLengthDescr):
+    _clsname = 'GcPtrArrayNoLengthDescr'
+    _is_array_of_pointers = True
+
 def getArrayDescrClass(ARRAY):
     return getDescrClass(ARRAY.OF, BaseArrayDescr, GcPtrArrayDescr,
                          NonGcPtrArrayDescr, 'Array', 'get_item_size',
+                         '_is_array_of_floats')
+
+def getArrayNoLengthDescrClass(ARRAY):
+    return getDescrClass(ARRAY.OF, BaseArrayNoLengthDescr, GcPtrArrayNoLengthDescr,
+                         NonGcPtrArrayNoLengthDescr, 'ArrayNoLength', 'get_item_size',
                          '_is_array_of_floats')
 
 def get_array_descr(gccache, ARRAY):
@@ -171,7 +195,10 @@ def get_array_descr(gccache, ARRAY):
     try:
         return cache[ARRAY]
     except KeyError:
-        arraydescr = getArrayDescrClass(ARRAY)()
+        if ARRAY._hints.get('nolength', False):
+            arraydescr = getArrayNoLengthDescrClass(ARRAY)()
+        else:
+            arraydescr = getArrayDescrClass(ARRAY)()
         # verify basic assumption that all arrays' basesize and ofslength
         # are equal
         basesize, itemsize, ofslength = symbolic.get_array_token(ARRAY, False)

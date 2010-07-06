@@ -129,7 +129,13 @@ def strcoll(space, w_s1, w_s2):
        space.is_true(space.isinstance(w_s2, space.w_str)):
 
         s1, s2 = space.str_w(w_s1), space.str_w(w_s2)
-        return space.wrap(_strcoll(rffi.str2charp(s1), rffi.str2charp(s2)))
+        s1_c = rffi.str2charp(s1)
+        s2_c = rffi.str2charp(s2)
+        try:
+            return space.wrap(_strcoll(s1_c, s2_c))
+        finally:
+            rffi.free_charp(s1_c)
+            rffi.free_charp(s2_c)
 
     #if not space.is_true(space.isinstance(w_s1, space.w_unicode)) and \
     #   not space.is_true(space.isinstance(w_s2, space.w_unicode)):
@@ -140,7 +146,12 @@ def strcoll(space, w_s1, w_s2):
 
     s1_c = rffi.unicode2wcharp(s1)
     s2_c = rffi.unicode2wcharp(s2)
-    result = _wcscoll(s1_c, s2_c)
+    try:
+        result = _wcscoll(s1_c, s2_c)
+    finally:
+        rffi.free_wcharp(s1_c)
+        rffi.free_wcharp(s2_c)
+
     return space.wrap(result)
 
 strcoll.unwrap_spec = [ObjSpace, W_Root, W_Root]
@@ -153,13 +164,21 @@ def strxfrm(space, s):
     n1 = len(s) + 1
 
     buf = lltype.malloc(rffi.CCHARP.TO, n1, flavor="raw", zero=True)
-    n2 = _strxfrm(buf, rffi.str2charp(s), n1) + 1
+    s_c = rffi.str2charp(s)
+    try:
+        n2 = _strxfrm(buf, s_c, n1) + 1
+    finally:
+        rffi.free_charp(s_c)
     if n2 > n1:
         # more space needed
         lltype.free(buf, flavor="raw")
         buf = lltype.malloc(rffi.CCHARP.TO, intmask(n2),
                             flavor="raw", zero=True)
-        _strxfrm(buf, rffi.str2charp(s), n2)
+        s_c = rffi.str2charp(s)
+        try:
+            _strxfrm(buf, s_c, n2)
+        finally:
+            rffi.free_charp(s_c)
 
     val = rffi.charp2str(buf)
     lltype.free(buf, flavor="raw")
@@ -191,7 +210,11 @@ if rlocale.HAVE_LIBINTL:
     def gettext(space, msg):
         """gettext(msg) -> string
         Return translation of msg."""
-        return space.wrap(rffi.charp2str(_gettext(rffi.str2charp(msg))))
+        msg_c = rffi.str2charp(msg)
+        try:
+            return space.wrap(rffi.charp2str(_gettext(msg_c)))
+        finally:
+            rffi.free_charp(msg_c)
 
     gettext.unwrap_spec = [ObjSpace, str]
 
@@ -202,10 +225,20 @@ if rlocale.HAVE_LIBINTL:
         Return translation of msg in domain."""
         if space.is_w(w_domain, space.w_None):
             domain = None
-            result = _dgettext(domain, rffi.str2charp(msg))
+            msg_c = rffi.str2charp(msg)
+            try:
+                result = _dgettext(domain, msg_c)
+            finally:
+                rffi.free_charp(msg_c)
         else:
             domain = space.str_w(w_domain)
-            result = _dgettext(rffi.str2charp(domain), rffi.str2charp(msg))
+            domain_c = rffi.str2charp(domain)
+            msg_c = rffi.str2charp(msg)
+            try:
+                result = _dgettext(domain_c, msg_c)
+            finally:
+                rffi.free_charp(domain_c)
+                rffi.free_charp(msg_c)
 
         return space.wrap(rffi.charp2str(result))
 
@@ -220,12 +253,21 @@ if rlocale.HAVE_LIBINTL:
 
         if space.is_w(w_domain, space.w_None):
             domain = None
-            result = _dcgettext(domain, rffi.str2charp(msg),
-                                rffi.cast(rffi.INT, category))
+            msg_c = rffi.str2charp(msg)
+            try:
+                result = _dcgettext(domain, msg_c, rffi.cast(rffi.INT, category))
+            finally:
+                rffi.free_charp(msg_c)
         else:
             domain = space.str_w(w_domain)
-            result = _dcgettext(rffi.str2charp(domain), rffi.str2charp(msg),
-                                rffi.cast(rffi.INT, category))
+            domain_c = rffi.str2charp(domain)
+            msg_c = rffi.str2charp(msg)
+            try:
+                result = _dcgettext(domain_c, msg_c,
+                                    rffi.cast(rffi.INT, category))
+            finally:
+                rffi.free_charp(domain_c)
+                rffi.free_charp(msg_c)
 
         return space.wrap(rffi.charp2str(result))
 
@@ -243,7 +285,11 @@ if rlocale.HAVE_LIBINTL:
             result = _textdomain(domain)
         else:
             domain = space.str_w(w_domain)
-            result = _textdomain(rffi.str2charp(domain))
+            domain_c = rffi.str2charp(domain)
+            try:
+                result = _textdomain(domain_c)
+            finally:
+                rffi.free_charp(domain_c)
 
         return space.wrap(rffi.charp2str(result))
 
@@ -258,11 +304,20 @@ if rlocale.HAVE_LIBINTL:
 
         if space.is_w(w_dir, space.w_None):
             dir = None
-            dirname = _bindtextdomain(rffi.str2charp(domain), dir)
+            domain_c = rffi.str2charp(domain)
+            try:
+                dirname = _bindtextdomain(domain_c, dir)
+            finally:
+                rffi.free_charp(domain_c)
         else:
             dir = space.str_w(w_dir)
-            dirname = _bindtextdomain(rffi.str2charp(domain),
-                                        rffi.str2charp(dir))
+            domain_c = rffi.str2charp(domain)
+            dir_c = rffi.str2charp(dir)
+            try:
+                dirname = _bindtextdomain(domain_c, dir_c)
+            finally:
+                rffi.free_charp(domain_c)
+                rffi.free_charp(dir_c)
 
         if not dirname:
             errno = rposix.get_errno()
@@ -281,12 +336,20 @@ if rlocale.HAVE_LIBINTL:
 
             if space.is_w(w_codeset, space.w_None):
                 codeset = None
-                result = _bind_textdomain_codeset(
-                                            rffi.str2charp(domain), codeset)
+                domain_c = rffi.str2charp(domain)
+                try:
+                    result = _bind_textdomain_codeset(domain_c, codeset)
+                finally:
+                    rffi.free_charp(domain_c)
             else:
                 codeset = space.str_w(w_codeset)
-                result = _bind_textdomain_codeset(rffi.str2charp(domain),
-                                                rffi.str2charp(codeset))
+                domain_c = rffi.str2charp(domain)
+                codeset_c = rffi.str2charp(codeset)
+                try:
+                    result = _bind_textdomain_codeset(domain_c, codeset_c)
+                finally:
+                    rffi.free_charp(domain_c)
+                    rffi.free_charp(codeset_c)
 
             if not result:
                 return space.w_None

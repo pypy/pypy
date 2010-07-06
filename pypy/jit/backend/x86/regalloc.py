@@ -867,6 +867,7 @@ class RegAlloc(object):
         result_loc = self.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, ofs_loc, imm(scale), imm(ofs)], result_loc)
 
+    consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
 
     def consider_int_is_true(self, op, guard_op):

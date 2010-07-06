@@ -36,8 +36,11 @@ def get_array_token(T, translate_support_code):
             ofs_length = (llmemory.offsetof(T, T._arrayfld) +
                           llmemory.ArrayLengthOffset(SUBARRAY))
         else:
+            if T._hints.get('nolength', None):
+                ofs_length = -1
+            else:
+                ofs_length = llmemory.ArrayLengthOffset(T)
             itemsize = llmemory.sizeof(T.OF)
-            ofs_length = llmemory.ArrayLengthOffset(T)
     else:
         if isinstance(T, lltype.Struct):
             assert T._arrayfld is not None, "%r is not variable-sized" % (T,)
@@ -48,8 +51,11 @@ def get_array_token(T, translate_support_code):
         else:
             before_array_part = 0
         carray = ll2ctypes.get_ctypes_type(T)
-        assert carray.length.size == WORD
-        ofs_length = before_array_part + carray.length.offset
+        if T._hints.get('nolength', None):
+            ofs_length = -1
+        else:
+            assert carray.length.size == WORD
+            ofs_length = before_array_part + carray.length.offset
         basesize = before_array_part + carray.items.offset
         carrayitem = ll2ctypes.get_ctypes_type(T.OF)
         itemsize = ctypes.sizeof(carrayitem)

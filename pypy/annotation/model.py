@@ -34,7 +34,7 @@ from pypy.tool import descriptor
 from pypy.tool.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
-from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.rarithmetic import r_singlefloat, isnan
 import inspect, weakref
 
 DEBUG = False    # set to False to disable recording of debugging information
@@ -161,6 +161,13 @@ class SomeFloat(SomeObject):
     knowntype = float   # if we don't know if it's a float or an int,
                         # pretend it's a float.
     immutable = True
+
+    def __eq__(self, other):
+        # NaN unpleasantness.
+        if (self.is_constant() and other.is_constant() and
+            isnan(self.const) and isnan(other.const)):
+            return True
+        return super(SomeFloat, self).__eq__(other)
 
     def can_be_none(self):
         return False
