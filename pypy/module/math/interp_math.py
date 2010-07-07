@@ -10,9 +10,16 @@ class State:
         self.w_e = space.wrap(math.e)
         self.w_pi = space.wrap(math.pi)
 def get(space): 
-    return space.fromcache(State) 
+    return space.fromcache(State)
 
-def math1(space, f, x):
+def _get_double(space, w_x):
+    if space.is_w(space.type(w_x), space.w_float):
+        return space.float_w(w_x)
+    else:
+        return space.float_w(space.float(w_x))
+
+def math1(space, f, w_x):
+    x = _get_double(space, w_x)
     try:
         y = f(x)
     except OverflowError:
@@ -24,7 +31,8 @@ def math1(space, f, x):
     return space.wrap(y)
 math1._annspecialcase_ = 'specialize:arg(1)'
 
-def math1_w(space, f, x):
+def math1_w(space, f, w_x):
+    x = _get_double(space, w_x)
     try:
         r = f(x)
     except OverflowError:
@@ -36,7 +44,9 @@ def math1_w(space, f, x):
     return r
 math1_w._annspecialcase_ = 'specialize:arg(1)'
 
-def math2(space, f, x, snd):
+def math2(space, f, w_x, w_snd):
+    x = _get_double(space, w_x)
+    snd = _get_double(space, w_snd)
     try:
         r = f(x, snd)
     except OverflowError:
@@ -53,41 +63,44 @@ def trunc(space, w_x):
     return space.trunc(w_x)
 trunc.unwrap_spec = [ObjSpace, W_Root]
 
-def copysign(space, x, y):
+def copysign(space, w_x, w_y):
     """Return x with the sign of y."""
     # No exceptions possible.
+    x = _get_double(space, w_x)
+    y = _get_double(space, w_y)
     return space.wrap(rarithmetic.copysign(x, y))
-copysign.unwrap_spec = [ObjSpace, float, float]
+copysign.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-def isinf(space, x):
+def isinf(space, w_x):
     """Return True if x is infinity."""
-    return space.wrap(rarithmetic.isinf(x))
-isinf.unwrap_spec = [ObjSpace, float]
+    return space.wrap(rarithmetic.isinf(_get_double(space, w_x)))
+isinf.unwrap_spec = [ObjSpace, W_Root]
 
-def isnan(space, x):
+def isnan(space, w_x):
     """Return True if x is not a number."""
-    return space.wrap(rarithmetic.isnan(x))
-isnan.unwrap_spec = [ObjSpace, float]
+    return space.wrap(rarithmetic.isnan(_get_double(space, w_x)))
+isnan.unwrap_spec = [ObjSpace, W_Root]
 
-def pow(space, x, y):
+def pow(space, w_x, w_y):
     """pow(x,y)
-       
+
        Return x**y (x to the power of y).
     """
-    return math2(space, math.pow, x, y)
-pow.unwrap_spec = [ObjSpace, float, float]
+    return math2(space, math.pow, w_x, w_y)
+pow.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-def cosh(space, x): 
+def cosh(space, w_x):
     """cosh(x)
-       
+
        Return the hyperbolic cosine of x.
     """
-    return math1(space, math.cosh, x)
-cosh.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.cosh, w_x)
+cosh.unwrap_spec = [ObjSpace, W_Root]
 
-def ldexp(space, x,  w_i): 
+def ldexp(space, w_x,  w_i):
     """ldexp(x, i) -> x * (2**i)
     """
+    x = _get_double(space, w_x)
     if (space.isinstance_w(w_i, space.w_int) or
         space.isinstance_w(w_i, space.w_long)):
         try:
@@ -102,76 +115,84 @@ def ldexp(space, x,  w_i):
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("integer required for second argument"))
-    return math2(space, math.ldexp, x, exp)
-ldexp.unwrap_spec = [ObjSpace, float, W_Root]
+    try:
+        r = math.ldexp(x, exp)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("math range error"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("math domain error"))
+    return space.wrap(r)
+ldexp.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-def hypot(space, x, y): 
+def hypot(space, w_x, w_y):
     """hypot(x,y)
-       
+
        Return the Euclidean distance, sqrt(x*x + y*y).
     """
-    return math2(space, math.hypot, x, y)
-hypot.unwrap_spec = [ObjSpace, float, float]
+    return math2(space, math.hypot, w_x, w_y)
+hypot.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-def tan(space, x): 
+def tan(space, w_x):
     """tan(x)
-       
+
        Return the tangent of x (measured in radians).
     """
-    return math1(space, math.tan, x)
-tan.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.tan, w_x)
+tan.unwrap_spec = [ObjSpace, W_Root]
 
-def asin(space, x): 
+def asin(space, w_x):
     """asin(x)
-       
+
        Return the arc sine (measured in radians) of x.
     """
-    return math1(space, math.asin, x)
-asin.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.asin, w_x)
+asin.unwrap_spec = [ObjSpace, W_Root]
 
-def fabs(space, x): 
+def fabs(space, w_x):
     """fabs(x)
-       
+
        Return the absolute value of the float x.
     """
-    return math1(space, math.fabs, x)
-fabs.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.fabs, w_x)
+fabs.unwrap_spec = [ObjSpace, W_Root]
 
-def floor(space, x): 
+def floor(space, w_x):
     """floor(x)
-       
+
        Return the floor of x as a float.
        This is the largest integral value <= x.
     """
-    return math1(space, math.floor, x)
-floor.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.floor, w_x)
+floor.unwrap_spec = [ObjSpace, W_Root]
 
-def sqrt(space, x): 
+def sqrt(space, w_x):
     """sqrt(x)
-       
+
        Return the square root of x.
     """
-    return math1(space, math.sqrt, x)
-sqrt.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.sqrt, w_x)
+sqrt.unwrap_spec = [ObjSpace, W_Root]
 
-def frexp(space, x): 
+def frexp(space, w_x):
     """frexp(x)
-       
+
        Return the mantissa and exponent of x, as pair (m, e).
        m is a float and e is an int, such that x = m * 2.**e.
        If x is 0, m and e are both 0.  Else 0.5 <= abs(m) < 1.0.
     """
-    mant, expo = math1_w(space, math.frexp, x)
+    mant, expo = math1_w(space, math.frexp, w_x)
     return space.newtuple([space.wrap(mant), space.wrap(expo)])
-frexp.unwrap_spec = [ObjSpace, float]
+frexp.unwrap_spec = [ObjSpace, W_Root]
 
 degToRad = math.pi / 180.0
 
-def degrees(space, x): 
+def degrees(space, w_x):
     """degrees(x) -> converts angle x from radians to degrees
     """
-    return space.wrap(x / degToRad)
-degrees.unwrap_spec = [ObjSpace, float]
+    return space.wrap(_get_double(space, w_x) / degToRad)
+degrees.unwrap_spec = [ObjSpace, W_Root]
 
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
@@ -181,11 +202,11 @@ def _log_any(space, w_x, base):
             num = space.bigint_w(w_x)
             result = num.log(base)
         else:
-            x = space.float_w(w_x)
+            x = _get_double(space, w_x)
             if base == 10.0:
                 result = math.log10(x)
             else:
-                result = math.log(x) 
+                result = math.log(x)
                 if base != 0.0:
                     den = math.log(base)
                     result /= den
@@ -204,116 +225,116 @@ def log(space, w_x, w_base=NoneNotWrapped):
     if w_base is None:
         base = 0.0
     else:
-        base = space.float_w(w_base)
+        base = _get_double(space, w_base)
         if base <= 0.0:
             # just for raising the proper errors
             return math1(space, math.log, base)
     return _log_any(space, w_x, base)
 log.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-def log10(space, w_x): 
+def log10(space, w_x):
     """log10(x) -> the base 10 logarithm of x.
-    """ 
+    """
     return _log_any(space, w_x, 10.0)
 log10.unwrap_spec = [ObjSpace, W_Root]
 
-def fmod(space, x, y): 
+def fmod(space, w_x, w_y):
     """fmod(x,y)
-       
+
        Return fmod(x, y), according to platform C.  x % y may differ.
     """
-    return math2(space, math.fmod, x, y)
-fmod.unwrap_spec = [ObjSpace, float, float]
+    return math2(space, math.fmod, w_x, w_y)
+fmod.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-def atan(space, x): 
+def atan(space, w_x):
     """atan(x)
-       
+
        Return the arc tangent (measured in radians) of x.
     """
-    return math1(space, math.atan, x)
-atan.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.atan, w_x)
+atan.unwrap_spec = [ObjSpace, W_Root]
 
-def ceil(space, x): 
+def ceil(space, w_x):
     """ceil(x)
-       
+
        Return the ceiling of x as a float.
        This is the smallest integral value >= x.
     """
-    return math1(space, math.ceil, x)
-ceil.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.ceil, w_x)
+ceil.unwrap_spec = [ObjSpace, W_Root]
 
-def sinh(space, x): 
+def sinh(space, w_x):
     """sinh(x)
-       
+
        Return the hyperbolic sine of x.
     """
-    return math1(space, math.sinh, x)
-sinh.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.sinh, w_x)
+sinh.unwrap_spec = [ObjSpace, W_Root]
 
-def cos(space, x): 
+def cos(space, w_x):
     """cos(x)
-       
+
        Return the cosine of x (measured in radians).
     """
-    return math1(space, math.cos, x)
-cos.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.cos, w_x)
+cos.unwrap_spec = [ObjSpace, W_Root]
 
-def tanh(space, x): 
+def tanh(space, w_x):
     """tanh(x)
-       
+
        Return the hyperbolic tangent of x.
     """
-    return math1(space, math.tanh, x)
-tanh.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.tanh, w_x)
+tanh.unwrap_spec = [ObjSpace, W_Root]
 
-def radians(space, x): 
+def radians(space, w_x):
     """radians(x) -> converts angle x from degrees to radians
     """
-    return space.wrap(x * degToRad)
-radians.unwrap_spec = [ObjSpace, float]
+    return space.wrap(_get_double(space, w_x) * degToRad)
+radians.unwrap_spec = [ObjSpace, W_Root]
 
-def sin(space, x): 
+def sin(space, w_x):
     """sin(x)
-       
+
        Return the sine of x (measured in radians).
     """
-    return math1(space, math.sin, x)
-sin.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.sin, w_x)
+sin.unwrap_spec = [ObjSpace, W_Root]
 
-def atan2(space, y,  x): 
+def atan2(space, w_y, w_x):
     """atan2(y, x)
-       
+
        Return the arc tangent (measured in radians) of y/x.
        Unlike atan(y/x), the signs of both x and y are considered.
     """
-    return math2(space, math.atan2, y,  x)
-atan2.unwrap_spec = [ObjSpace, float, float]
+    return math2(space, math.atan2, w_y,  w_x)
+atan2.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
-def modf(space, x): 
+def modf(space, w_x):
     """modf(x)
-       
+
        Return the fractional and integer parts of x.  Both results carry the sign
        of x.  The integer part is returned as a real.
     """
-    frac, intpart = math1_w(space, math.modf, x)
+    frac, intpart = math1_w(space, math.modf, w_x)
     return space.newtuple([space.wrap(frac), space.wrap(intpart)])
-modf.unwrap_spec = [ObjSpace, float]
+modf.unwrap_spec = [ObjSpace, W_Root]
 
-def exp(space, x): 
+def exp(space, w_x):
     """exp(x)
-       
+
        Return e raised to the power of x.
     """
-    return math1(space, math.exp, x)
-exp.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.exp, w_x)
+exp.unwrap_spec = [ObjSpace, W_Root]
 
-def acos(space, x): 
+def acos(space, w_x):
     """acos(x)
-       
+
        Return the arc cosine (measured in radians) of x.
     """
-    return math1(space, math.acos, x)
-acos.unwrap_spec = [ObjSpace, float]
+    return math1(space, math.acos, w_x)
+acos.unwrap_spec = [ObjSpace, W_Root]
 
 def fsum(space, w_iterable):
     """Sum an iterable of floats, trying to keep precision."""
@@ -327,7 +348,7 @@ def fsum(space, w_iterable):
             if not e.match(space, space.w_StopIteration):
                 raise
             break
-        v = space.float_w(w_value)
+        v = _get_double(space, w_value)
         original = v
         added = 0
         for y in partials:
@@ -397,50 +418,50 @@ def factorial(space, w_x):
         w_res = space.mul(w_res, space.wrap(i))
     return w_res
 
-def log1p(space, x):
+def log1p(space, w_x):
     """Find log(x + 1)."""
-    return math1(space, rarithmetic.log1p, x)
-log1p.unwrap_spec = [ObjSpace, float]
+    return math1(space, rarithmetic.log1p, w_x)
+log1p.unwrap_spec = [ObjSpace, W_Root]
 
-def acosh(space, x):
+def acosh(space, w_x):
     """Inverse hyperbolic cosine"""
-    return math1(space, rarithmetic.acosh, x)
-acosh.unwrap_spec = [ObjSpace, float]
+    return math1(space, rarithmetic.acosh, w_x)
+acosh.unwrap_spec = [ObjSpace, W_Root]
 
-def asinh(space, x):
+def asinh(space, w_x):
     """Inverse hyperbolic sine"""
-    return math1(space, rarithmetic.asinh, x)
-asinh.unwrap_spec = [ObjSpace, float]
+    return math1(space, rarithmetic.asinh, w_x)
+asinh.unwrap_spec = [ObjSpace, W_Root]
 
-def atanh(space, x):
+def atanh(space, w_x):
     """Inverse hyperbolic tangent"""
-    return math1(space, rarithmetic.atanh, x)
-atanh.unwrap_spec = [ObjSpace, float]
+    return math1(space, rarithmetic.atanh, w_x)
+atanh.unwrap_spec = [ObjSpace, W_Root]
 
-def expm1(space, x):
+def expm1(space, w_x):
     """exp(x) - 1"""
-    return math1(space, rarithmetic.expm1, x)
-expm1.unwrap_spec = [ObjSpace, float]
+    return math1(space, rarithmetic.expm1, w_x)
+expm1.unwrap_spec = [ObjSpace, W_Root]
 
-def erf(space, x):
+def erf(space, w_x):
     """The error function"""
-    return math1(space, _erf, x)
-erf.unwrap_spec = [ObjSpace, float]
+    return math1(space, _erf, w_x)
+erf.unwrap_spec = [ObjSpace, W_Root]
 
-def erfc(space, x):
+def erfc(space, w_x):
     """The complementary error function"""
-    return math1(space, _erfc, x)
-erfc.unwrap_spec = [ObjSpace, float]
+    return math1(space, _erfc, w_x)
+erfc.unwrap_spec = [ObjSpace, W_Root]
 
-def gamma(space, x):
+def gamma(space, w_x):
     """Compute the gamma function for x."""
-    return math1(space, _gamma, x)
-gamma.unwrap_spec = [ObjSpace, float]
+    return math1(space, _gamma, w_x)
+gamma.unwrap_spec = [ObjSpace, W_Root]
 
-def lgamma(space, x):
+def lgamma(space, w_x):
     """Compute the natural logarithm of the gamma function for x."""
-    return math1(space, _lgamma, x)
-lgamma.unwrap_spec = [ObjSpace, float]
+    return math1(space, _lgamma, w_x)
+lgamma.unwrap_spec = [ObjSpace, W_Root]
 
 # Implementation of the error function, the complimentary error function, the
 # gamma function, and the natural log of the gamma function.  This exist in
