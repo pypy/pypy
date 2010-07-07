@@ -260,7 +260,7 @@ class AppTestStruct(object):
         assert pack("<f", 12.5) == '\x00\x00HA'
         assert unpack("!f", 'AH\x00\x00') == (12.5,)
         assert unpack("<f", '\x00\x00H\xc1') == (-12.5,)
-        raises(self.struct.error, pack, "<f", 10e100)
+        raises(OverflowError, pack, "<f", 10e100)
 
     def test_bool(self):
         pack = self.struct.pack

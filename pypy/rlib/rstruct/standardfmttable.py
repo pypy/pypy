@@ -6,7 +6,7 @@ The format table for standard sizes and alignments.
 # values when packing.
 
 import struct
-from pypy.rlib.rstruct.error import StructError
+from pypy.rlib.rstruct.error import StructError, StructOverflowError
 from pypy.rlib.rstruct import ieee
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
@@ -65,9 +65,9 @@ def make_float_packer(size):
         fl = fmtiter.accept_float_arg()
         try:
             return ieee.pack_float(fmtiter.result, fl, size, fmtiter.bigendian)
-        except ValueError:
+        except OverflowError:
             assert size == 4
-            raise StructError("float too large to pack with format f")
+            raise StructOverflowError("float too large for format 'f'")
     return packer
 
 # ____________________________________________________________
