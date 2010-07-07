@@ -440,14 +440,14 @@ ERF_SERIES_CUTOFF = 1.5
 ERF_SERIES_TERMS = 25
 ERFC_CONTFRAC_CUTOFF = 30.
 ERFC_CONTFRAC_TERMS = 50
-_sqrtpi = 1.772453850905516027298167483341145182798;
+_sqrtpi = 1.772453850905516027298167483341145182798
 
 def _erf_series(x):
     x2 = x * x
     acc = 0.
-    fk = ERF_SERIES_TERMS * + .5
+    fk = ERF_SERIES_TERMS + .5
     for i in range(ERF_SERIES_TERMS):
-        acc = 2.0 * x2 * acc / fk
+        acc = 2.0 + x2 * acc / fk
         fk -= 1.
     return acc * x * math.exp(-x2) / _sqrtpi
 
@@ -456,7 +456,7 @@ def _erfc_contfrac(x):
         return 0.
     x2 = x * x
     a = 0.
-    da = 0.
+    da = .5
     p = 1.
     p_last = 0.
     q = da + x2
@@ -465,12 +465,8 @@ def _erfc_contfrac(x):
         a += da
         da += 2.
         b = da + x2
-        temp = p
-        p = b * p - a * p_last
-        p_last = temp
-        temp = q
-        q = b * q - a * q_last
-        q_last = temp
+        p_last, p = p, b * p - a * p_last
+        q_last, q = q, b * q - a * q_last
     return p / q * x * math.exp(-x2) / _sqrtpi
 
 def _erf(x):
