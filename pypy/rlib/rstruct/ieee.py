@@ -123,14 +123,17 @@ def float_pack(x, size):
     return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
 
 
-def pack_float8(result, x):
-    unsigned = float_pack(x, 8)
-    for i in range(8):
+def pack_float(result, x, size, be):
+    unsigned = float_pack(x, size)
+    for i in range(size):
         result.append(chr((unsigned >> (i * 8)) & 0xFF))
+    if be:
+        result.reverse()
 
 
-def unpack_float8(s):
+def unpack_float(s, be):
     unsigned = 0
-    for i in range(8):
-        unsigned |= ord(s[i]) << (i * 8)
-    return float_unpack(unsigned, 8)
+    for i in range(len(s)):
+        c = ord(s[len(s) - 1 - i if be else i])
+        unsigned |= c << (i * 8)
+    return float_unpack(unsigned, len(s))
