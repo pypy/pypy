@@ -101,10 +101,10 @@ except ImportError:
         if absx > _2_to_p28:
             w = math.log(absx) + _ln2
         elif absx > 2.:
-            w = math.log(2. * absx + 1. // (math.sqrt(x * x + 1.) + absx))
+            w = math.log(2. * absx + 1. / (math.sqrt(x * x + 1.) + absx))
         else:
             t = x * x
-            w = log1p(absx + t // (1. + math.sqrt(1. + t)))
+            w = log1p(absx + t / (1. + math.sqrt(1. + t)))
         return copysign(w, x)
 
     def atanh(x):
@@ -117,9 +117,9 @@ except ImportError:
             return x
         if absx < .5:
             t = absx + absx
-            t = .5 * log1p(t + t * absx // (1. - absx))
+            t = .5 * log1p(t + t * absx / (1. - absx))
         else:
-            t = .5 * log1p((absx + absx) // (1. - absx))
+            t = .5 * log1p((absx + absx) / (1. - absx))
         return copysign(t, x)
 
     def log1p(x):
@@ -128,7 +128,7 @@ except ImportError:
             return x
         elif -.5 <= x <= 1.:
             y = 1. + x
-            return math.log(y) - ((y - 1.) - x) // y
+            return math.log(y) - ((y - 1.) - x) / y
         else:
             return math.log(1. + x)
 
