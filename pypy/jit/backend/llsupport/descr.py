@@ -23,10 +23,10 @@ class GcCache(object):
         self._cache_call = {}
 
     def init_size_descr(self, STRUCT, sizedescr):
-        pass
+        assert isinstance(STRUCT, lltype.GcStruct)
 
     def init_array_descr(self, ARRAY, arraydescr):
-        pass
+        assert isinstance(ARRAY, lltype.GcArray)
 
 
 # ____________________________________________________________
@@ -205,7 +205,8 @@ def get_array_descr(gccache, ARRAY):
         assert basesize == arraydescr.get_base_size(False)
         assert itemsize == arraydescr.get_item_size(False)
         assert ofslength == arraydescr.get_ofs_length(False)
-        gccache.init_array_descr(ARRAY, arraydescr)
+        if isinstance(ARRAY, lltype.GcArray):
+            gccache.init_array_descr(ARRAY, arraydescr)
         cache[ARRAY] = arraydescr
         return arraydescr
 
