@@ -47,5 +47,7 @@ class Module(MixedModule):
        'expm1'          : 'interp_math.expm1',
        'erf'            : 'interp_math.erf',
        'erfc'           : 'interp_math.erfc',
+       'gamma'          : 'interp_math.gamma',
+       'lgamma'         : 'interp_math.lgamma',
 }
 
