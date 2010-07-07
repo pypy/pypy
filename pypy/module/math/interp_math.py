@@ -421,3 +421,74 @@ def expm1(space, x):
     """exp(x) - 1"""
     return math1(space, rarithmetic.expm1, x)
 expm1.unwrap_spec = [ObjSpace, float]
+
+def erf(space, x):
+    """The error function"""
+    return math1(space, _erf, x)
+erf.unwrap_spec = [ObjSpace, float]
+
+def erfc(space, x):
+    """The complementary error function"""
+    return math1(space, _erfc, x)
+erfc.unwrap_spec = [ObjSpace, float]
+
+# Implementation of the error function, the complimentary error function, the
+# gamma function, and the natural log of the gamma function.  This exist in
+# libm, but I hear those implementations are horrible.
+
+ERF_SERIES_CUTOFF = 1.5
+ERF_SERIES_TERMS = 25
+ERFC_CONTFRAC_CUTOFF = 30.
+ERFC_CONTFRAC_TERMS = 50
+_sqrtpi = 1.772453850905516027298167483341145182798;
+
+def _erf_series(x):
+    x2 = x * x
+    acc = 0.
+    fk = ERF_SERIES_TERMS * + .5
+    for i in range(ERF_SERIES_TERMS):
+        acc = 2.0 * x2 * acc / fk
+        fk -= 1.
+    return acc * x * math.exp(-x2) / _sqrtpi
+
+def _erfc_contfrac(x):
+    if x >= ERFC_CONTFRAC_CUTOFF:
+        return 0.
+    x2 = x * x
+    a = 0.
+    da = 0.
+    p = 1.
+    p_last = 0.
+    q = da + x2
+    q_last = 1.
+    for i in range(ERFC_CONTFRAC_TERMS):
+        a += da
+        da += 2.
+        b = da + x2
+        temp = p
+        p = b * p - a * p_last
+        p_last = temp
+        temp = q
+        q = b * q - a * q_last
+        q_last = temp
+    return p / q * x * math.exp(-x2) / _sqrtpi
+
+def _erf(x):
+    if rarithmetic.isnan(x):
+        return x
+    absx = abs(x)
+    if absx < ERF_SERIES_CUTOFF:
+        return _erf_series(x)
+    else:
+        cf = _erfc_contfrac(absx)
+        return 1. - cf if x > 0. else cf - 1.
+
+def _erfc(x):
+    if rarithmetic.isnan(x):
+        return x
+    absx = abs(x)
+    if absx < ERF_SERIES_CUTOFF:
+        return 1. - _erf_series(x)
+    else:
+        cf = _erfc_contfrac(absx)
+        return cf if x > 0. else 2. - cf
