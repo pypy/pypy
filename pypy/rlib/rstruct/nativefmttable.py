@@ -77,6 +77,7 @@ def setup():
                'P': 'char *',
                'f': 'float',
                'd': 'double',
+               '?': '_Bool',
                }
 
     pre_include_bits = []
