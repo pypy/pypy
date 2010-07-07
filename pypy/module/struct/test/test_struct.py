@@ -272,6 +272,30 @@ class AppTestStruct(object):
         assert pack("@?", True) == '\x01'
         assert pack("@?", False) == '\x00'
 
+    def test_transitiveness(self):
+        c = 'a'
+        b = 1
+        h = 255
+        i = 65535
+        l = 65536
+        f = 3.1415
+        d = 3.1415
+        t = True
+
+        for prefix in ('', '@', '<', '>', '=', '!'):
+            for format in ('xcbhilfd?', 'xcBHILfd?'):
+                format = prefix + format
+                s = self.struct.pack(format, c, b, h, i, l, f, d, t)
+                cp, bp, hp, ip, lp, fp, dp, tp = self.struct.unpack(format, s)
+                assert cp == c
+                assert bp == b
+                assert hp == h
+                assert ip == i
+                assert lp == l
+                assert int(100 * fp) == int(100 * f)
+                assert int(100 * dp) == int(100 * d)
+                assert tp == t
+
     def test_struct_error(self):
         """
         Check the various ways to get a struct.error.  Note that CPython
