@@ -150,7 +150,7 @@ def unpack_char(fmtiter):
 
 @specialize.argtype(0)
 def unpack_bool(fmtiter):
-    fmtiter.appendobj(bool(int(fmtiter.read(1))))
+    fmtiter.appendobj(bool(ord(fmtiter.read(1))))
 
 @specialize.argtype(0)
 def unpack_string(fmtiter, count):

@@ -269,6 +269,8 @@ class AppTestStruct(object):
         assert pack(">?", True) == '\x01'
         assert pack("!?", False) == '\x00'
         assert pack(">?", False) == '\x00'
+        assert pack("@?", True) == '\x01'
+        assert pack("@?", False) == '\x00'
 
     def test_struct_error(self):
         """

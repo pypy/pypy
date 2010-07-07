@@ -59,6 +59,13 @@ def unpack_float(fmtiter):
     doubleval = float(floatval)
     fmtiter.appendobj(doubleval)
 
+def pack_bool(fmtiter):
+    truth = fmtiter.accept_bool_arg()
+    fmtiter.result.append('\x01' if truth else '\x00')
+
+def unpack_bool(fmtiter):
+    fmtiter.appendobj(bool(ord(fmtiter.read(1))))
+
 # ____________________________________________________________
 #
 # Use rffi_platform to get the native sizes and alignments from the C compiler
@@ -81,13 +88,16 @@ def setup():
                }
 
     pre_include_bits = []
-    for fmtchar, ctype in INSPECT.items():
+    field_names = dict.fromkeys(INSPECT)
+    for fmtchar, ctype in INSPECT.iteritems():
+        field_name = ctype.replace(" ", "_").replace("*", "star")
+        field_names[fmtchar] = field_name
         pre_include_bits.append("""
             struct about_%s {
                 char pad;
                 %s field;
             };
-        """ % (fmtchar, ctype))
+        """ % (field_name, ctype))
 
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
@@ -95,14 +105,14 @@ def setup():
         )
 
     for fmtchar, ctype in INSPECT.items():
-        setattr(CConfig, fmtchar, rffi_platform.Struct(
-            "struct about_%s" % (fmtchar,),
+        setattr(CConfig, field_names[fmtchar], rffi_platform.Struct(
+            "struct about_%s" % (field_names[fmtchar],),
             [('field', lltype.FixedSizeArray(rffi.CHAR, 1))]))
 
     cConfig = rffi_platform.configure(CConfig)
 
     for fmtchar, ctype in INSPECT.items():
-        S = cConfig[fmtchar]
+        S = cConfig[field_names[fmtchar]]
         alignment = rffi.offsetof(S, 'c_field')
         size = rffi.sizeof(S.c_field)
         signed = 'a' <= fmtchar <= 'z'
@@ -113,6 +123,9 @@ def setup():
         elif fmtchar == 'd':
             pack = pack_double
             unpack = unpack_double
+        elif fmtchar == '?':
+            pack = pack_bool
+            unpack = unpack_bool
         else:
             cpython_checks_range = fmtchar in 'bBhH'
             pack = std.make_int_packer(size, signed, cpython_checks_range)
