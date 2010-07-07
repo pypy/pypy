@@ -57,10 +57,14 @@ def pack_pascal(fmtiter, count):
         fmtiter.result.append('\x00')
 
 def make_float_packer(size):
-    return lambda fmtiter: ieee.pack_float(fmtiter.result,
-                                           fmtiter.accept_float_arg(),
-                                           size,
-                                           fmtiter.bigendian)
+    def packer(fmtiter):
+        fl = fmtiter.accept_float_arg()
+        try:
+            return ieee.pack_float(fmtiter.result, fl, size, fmtiter.bigendian)
+        except ValueError:
+            assert size == 4
+            raise StructError("float too large to pack with format f")
+    return packer
 
 # ____________________________________________________________
 
@@ -155,10 +159,11 @@ def unpack_pascal(fmtiter, count):
     fmtiter.appendobj(data[1:end])
 
 def make_float_unpacker(size):
-    return specialize.argtype(0)(
-        lambda fmtiter: fmtiter.appendobj(ieee.unpack_float(
-        fmtiter.read(size),
-        fmtiter.bigendian)))
+    @specialize.argtype(0)
+    def unpacker(fmtiter):
+        data = fmtiter.read(size)
+        fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
+    return unpacker
 
 # ____________________________________________________________
 
