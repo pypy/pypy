@@ -98,6 +98,10 @@ class PackFormatIterator(FormatIterator):
             w_obj = self.accept_obj_arg()
             return self.space.r_ulonglong_w(w_obj)
 
+    def accept_bool_arg(self):
+        w_obj = self.accept_obj_arg()
+        return self.space.is_true(w_obj)
+
     def accept_str_arg(self):
         w_obj = self.accept_obj_arg()
         return self.space.str_w(w_obj)

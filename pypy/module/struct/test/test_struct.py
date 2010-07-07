@@ -262,6 +262,14 @@ class AppTestStruct(object):
         assert unpack("<f", '\x00\x00H\xc1') == (-12.5,)
         raises(self.struct.error, pack, "<f", 10e100)
 
+    def test_bool(self):
+        pack = self.struct.pack
+        unpack = self.struct.unpack
+        assert pack("!?", True) == '\x01'
+        assert pack(">?", True) == '\x01'
+        assert pack("!?", False) == '\x00'
+        assert pack(">?", False) == '\x00'
+
     def test_struct_error(self):
         """
         Check the various ways to get a struct.error.  Note that CPython

@@ -31,6 +31,10 @@ def pack_char(fmtiter):
     c = string[0]   # string->char conversion for the annotator
     fmtiter.result.append(c)
 
+def pack_bool(fmtiter):
+    c = '\x01' if fmtiter.accept_bool_arg() else '\x00'
+    fmtiter.result.append(c)
+
 def pack_string(fmtiter, count):
     string = fmtiter.accept_str_arg()
     if len(string) < count:
@@ -145,6 +149,10 @@ def unpack_char(fmtiter):
     fmtiter.appendobj(fmtiter.read(1))
 
 @specialize.argtype(0)
+def unpack_bool(fmtiter):
+    fmtiter.appendobj(bool(int(fmtiter.read(1))))
+
+@specialize.argtype(0)
 def unpack_string(fmtiter, count):
     fmtiter.appendobj(fmtiter.read(count))
 
@@ -225,7 +233,8 @@ standard_fmttable = {
                     'unpack' : make_float_unpacker(4)},
     'd':{ 'size' : 8, 'pack' : make_float_packer(8),
                     'unpack' : make_float_unpacker(8)},
-    }    
+    '?':{ 'size' : 1, 'pack' : pack_bool, 'unpack' : unpack_bool},
+    }
 
 for c, size in [('b', 1), ('h', 2), ('i', 4), ('l', 4), ('q', 8)]:
     standard_fmttable[c] = {'size': size,
