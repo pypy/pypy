@@ -271,26 +271,29 @@ def test_ovfcheck_float_to_int():
     assert ovfcheck_float_to_int(13.0) == 13
     assert ovfcheck_float_to_int(-1.0) == -1
     assert ovfcheck_float_to_int(-13.0) == -13
-    #  strange things happening for float to int on 64 bit
-    maxint32 = 2 ** 31 - 1
-    assert ovfcheck_float_to_int(float(maxint32-1)) == maxint32-1
-    #assert ovfcheck_float_to_int(float(maxint32)) == maxint32
-    assert ovfcheck_float_to_int(float(-maxint32)) == -maxint32
-    #assert ovfcheck_float_to_int(float(-maxint32-1)) == -maxint32-1
 
-    try:
-        ovfcheck_float_to_int(float(-sys.maxint-1)-1)
-    except OverflowError:
-        pass
-    else:
-        assert False
+    # strange things happening for float to int on 64 bit:
+    # int(float(i)) != i  because of rounding issues
+    x = sys.maxint
+    while int(float(x)) > sys.maxint:
+        x -= 1
+    assert ovfcheck_float_to_int(float(x)) == int(float(x))
 
-    try:
-        ovfcheck_float_to_int(float(sys.maxint)+1)
-    except OverflowError:
-        pass
-    else:
-        assert False
+    x = sys.maxint + 1
+    while int(float(x)) <= sys.maxint:
+        x += 1
+    py.test.raises(OverflowError, ovfcheck_float_to_int, x)
+
+    x = -sys.maxint-1
+    while int(float(x)) < -sys.maxint-1:
+        x += 1
+    assert ovfcheck_float_to_int(float(x)) == int(float(x))
+
+    x = -sys.maxint-1
+    while int(float(x)) >= -sys.maxint-1:
+        x -= 1
+    py.test.raises(OverflowError, ovfcheck_float_to_int, x)
+
 
 def test_abs():
     assert type(abs(r_longlong(1))) is r_longlong

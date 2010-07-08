@@ -113,14 +113,14 @@ def ovfcheck_lshift(a, b):
     "NOT_RPYTHON"
     return _local_ovfcheck(int(long(a) << b))
 
-FL_MAXINT = float(LONG_TEST-1)
-FL_MININT = float(-LONG_TEST)
-
 def ovfcheck_float_to_int(x):
-    _, intp = math.modf(x)
-    if FL_MININT < intp < FL_MAXINT:
-        return int(intp)
-    raise OverflowError
+    try:
+        result = int(int(x))  # -2147483648.0 => -2147483648L => -2147483648
+    except (OverflowError, ValueError): # ValueError for int(nan) on Py>=2.6
+        raise OverflowError
+    if type(result) is not int:
+        raise OverflowError
+    return result
 
 def compute_restype(self_type, other_type):
     if self_type is other_type:
