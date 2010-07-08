@@ -118,7 +118,7 @@ def ovfcheck_float_to_int(x):
         result = int(int(x))  # -2147483648.0 => -2147483648L => -2147483648
     except (OverflowError, ValueError): # ValueError for int(nan) on Py>=2.6
         raise OverflowError
-    if type(result) is not int:
+    if not objectmodel.we_are_translated() and type(result) is not int:
         raise OverflowError
     return result
 
