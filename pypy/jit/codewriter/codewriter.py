@@ -14,11 +14,12 @@ from pypy.tool.udir import udir
 class CodeWriter(object):
     callcontrol = None    # for tests
 
-    def __init__(self, cpu=None, jitdrivers_sd=[]):
+    def __init__(self, cpu=None, jitdrivers_sd=[], debug=False):
         self.cpu = cpu
         self.assembler = Assembler()
         self.callcontrol = CallControl(cpu, jitdrivers_sd)
         self._seen_files = set()
+        self.debug = debug
 
     def transform_func_to_jitcode(self, func, values, type_system='lltype'):
         """For testing."""
@@ -60,7 +61,8 @@ class CodeWriter(object):
         self.assembler.assemble(ssarepr, jitcode)
         #
         # print the resulting assembler
-        self.print_ssa_repr(ssarepr, portal_jd, verbose)
+        if self.debug:
+            self.print_ssa_repr(ssarepr, portal_jd, verbose)
 
     def make_jitcodes(self, verbose=False):
         log.info("making JitCodes...")
