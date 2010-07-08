@@ -33,7 +33,7 @@ mark where overflow checking is required.
 
 
 """
-import math
+import sys, math
 from pypy.rpython import extregistry
 
 from pypy.rlib import objectmodel
@@ -113,14 +113,23 @@ def ovfcheck_lshift(a, b):
     "NOT_RPYTHON"
     return _local_ovfcheck(int(long(a) << b))
 
-def ovfcheck_float_to_int(x):
-    try:
-        result = int(int(x))  # -2147483648.0 => -2147483648L => -2147483648
-    except (OverflowError, ValueError): # ValueError for int(nan) on Py>=2.6
+# Strange things happening for float to int on 64 bit:
+# int(float(i)) != i  because of rounding issues.
+# These are the minimum and maximum float value that can
+# successfully be casted to an int.
+if sys.maxint == 2147483647:
+    def ovfcheck_float_to_int(x):
+        if -2147483649.0 < x < 2147483648.0:
+            return int(x)
         raise OverflowError
-    if not objectmodel.we_are_translated() and type(result) is not int:
+else:
+    # The following values are not quite +/-sys.maxint.
+    # Note the "<= x <" here, as opposed to "< x <" above.
+    # This is justified by test_typed in translator/c/test.
+    def ovfcheck_float_to_int(x):
+        if -9223372036854776832.0 <= x < 9223372036854775296.0:
+            return int(x)
         raise OverflowError
-    return result
 
 def compute_restype(self_type, other_type):
     if self_type is other_type:

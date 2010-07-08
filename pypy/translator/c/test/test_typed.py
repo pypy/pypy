@@ -789,3 +789,37 @@ class TestTypedTestCase(CompilationTestCase):
             return u'hello' + unichr(i)
         f = self.getcompiled(func, [int])
         assert f(0x1234) == u'hello\u1234'
+
+    def test_ovfcheck_float_to_int(self):
+        from pypy.rlib.rarithmetic import ovfcheck_float_to_int
+
+        def func(fl):
+            try:
+                return ovfcheck_float_to_int(fl)
+            except OverflowError:
+                return -666
+        f = self.getcompiled(func, [float])
+        assert f(-123.0) == -123
+
+        for frac in [0.0, 0.01, 0.99]:
+            # strange things happening for float to int on 64 bit:
+            # int(float(i)) != i  because of rounding issues
+            x = sys.maxint
+            while int(x + frac) > sys.maxint:
+                x -= 1
+            assert f(x + frac) == int(x + frac)
+
+            x = sys.maxint
+            while int(x - frac) <= sys.maxint:
+                x += 1
+            assert f(x - frac) == -666
+
+            x = -sys.maxint-1
+            while int(x - frac) < -sys.maxint-1:
+                x += 1
+            assert f(x - frac) == int(x - frac)
+
+            x = -sys.maxint-1
+            while int(x + frac) >= -sys.maxint-1:
+                x -= 1
+            assert f(x + frac) == -666
