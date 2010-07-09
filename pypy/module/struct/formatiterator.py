@@ -76,7 +76,12 @@ class PackFormatIterator(FormatIterator):
             if not e.match(space, space.w_TypeError):
                 raise e
             if not space.is_true(space.isinstance(w_obj, space.w_float)):
+                # CPython silliness. Have a warning, and then raise the error.
+                space.warn("integer argument expected, got non-integer",
+                           space.w_DeprecationWarning)
                 raise e
+            space.warn("struct: integer argument expected, got float",
+                       space.w_DeprecationWarning)
             return space.int(w_obj)   # wrapped float -> wrapped int or long
 
     else:
