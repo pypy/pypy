@@ -421,11 +421,9 @@ class Frame(object):
         global _last_exception
         assert _last_exception is None, "exception left behind"
         verbose = True
-        operations = self.loop.operations
-        opindex = 0
+        self.opindex = 0
         while True:
-            self.opindex = opindex
-            op = operations[opindex]
+            op = self.loop.operations[self.opindex]
             args = [self.getenv(v) for v in op.args]
             if not op.is_final():
                 try:
@@ -439,8 +437,8 @@ class Frame(object):
                         args = [self.getenv(v) for v in op.fail_args if v]
                         assert len(op.jump_target.inputargs) == len(args)
                         self.env = dict(zip(op.jump_target.inputargs, args))
-                        operations = op.jump_target.operations
-                        opindex = 0
+                        self.loop = op.jump_target
+                        self.opindex = 0
                         continue
                     else:
                         self._populate_fail_args(op)
@@ -465,14 +463,13 @@ class Frame(object):
                         raise Exception("op.result.concretetype is %r"
                                         % (RESTYPE,))
                     self.env[op.result] = x
-                opindex += 1
+                self.opindex += 1
                 continue
             if op.opnum == rop.JUMP:
                 assert len(op.jump_target.inputargs) == len(args)
                 self.env = dict(zip(op.jump_target.inputargs, args))
                 self.loop = op.jump_target
-                operations = self.loop.operations
-                opindex = 0
+                self.opindex = 0
                 _stats.exec_jumps += 1
             elif op.opnum == rop.FINISH:
                 if self.verbose:
