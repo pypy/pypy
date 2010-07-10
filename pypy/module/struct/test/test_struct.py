@@ -55,6 +55,13 @@ class AppTestStruct(object):
         assert calcsize('=bQ3i') == 1 + 8 + 3*4
 
 
+    def test_index(self):
+        class X(object):
+            def __index__(self):
+                return 3
+        assert self.struct.unpack("i", self.struct.pack("i", X()))[0] == 3
+
+
     def test_deprecation_warning(self):
         import warnings
         for code in 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q':
