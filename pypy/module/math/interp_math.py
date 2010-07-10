@@ -522,7 +522,7 @@ def _erfc(x):
 
 def _sinpi(x):
     y = math.fmod(abs(x), 2.)
-    n = int(round(2. * y))
+    n = int(rarithmetic.round_away(2. * y))
     if n == 0:
         r = math.sin(math.pi * y)
     elif n == 1:
