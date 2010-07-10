@@ -55,6 +55,7 @@ class MathTests:
         ('pow', (10.0, 40000.0), OverflowError),
         ('ldexp', (10.0, 40000), OverflowError),
         ('log', (0.0,), ValueError),
+        ('log', (-1.,), ValueError),
         ('log10', (0.0,), ValueError),
         ]
 

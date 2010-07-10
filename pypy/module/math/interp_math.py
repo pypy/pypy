@@ -228,7 +228,7 @@ def log(space, w_x, w_base=NoneNotWrapped):
         base = _get_double(space, w_base)
         if base <= 0.0:
             # just for raising the proper errors
-            return math1(space, math.log, base)
+            return math1(space, math.log, w_base)
     return _log_any(space, w_x, base)
 log.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
