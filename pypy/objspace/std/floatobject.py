@@ -9,7 +9,8 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
-from pypy.rlib.rarithmetic import formatd, LONG_BIT, FL_MAXINT, FL_MININT
+from pypy.rlib.rarithmetic import (formatd, LONG_BIT, FL_MAXINT, FL_MININT,
+                                   INFINITY)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
@@ -438,7 +439,7 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         elif x == 0.0:
             if y < 0.0:
                 if isinf(y):
-                    return space.wrap(float("inf"))
+                    return space.wrap(INFINITY)
                 raise OperationError(space.w_ZeroDivisionError,
                                      space.wrap("0.0 cannot be raised to "
                                                 "a negative power"))

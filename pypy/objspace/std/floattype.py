@@ -1,7 +1,7 @@
 import math
 import sys
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib import rfloat
+from pypy.rlib import rfloat, rarithmetic
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
@@ -99,7 +99,7 @@ def descr_fromhex(space, w_cls, s):
         i += 1
         if length - i >= 2 and s[i:i + 2].lower() == "nf":
             i += 2
-            value = float("inf")
+            value = rarithmetic.INFINITY
             if length - i >= 5 and s[i:i + 5].lower() == "inity":
                 i += 5
     elif s[i] == "n" or s[i] == "N":
