@@ -128,7 +128,7 @@ def setup():
             unpack = unpack_bool
         else:
             cpython_checks_range = fmtchar in 'bBhH'
-            pack = std.make_int_packer(size, signed, True)
+            pack = std.make_int_packer(size, signed, cpython_checks_range)
             unpack = std.make_int_unpacker(size, signed)
 
         native_fmttable[fmtchar] = {'size': size,

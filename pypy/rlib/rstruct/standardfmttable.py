@@ -238,8 +238,9 @@ standard_fmttable = {
 
 for c, size in [('b', 1), ('h', 2), ('i', 4), ('l', 4), ('q', 8)]:
     standard_fmttable[c] = {'size': size,
-                            'pack': make_int_packer(size, True, True),
+                            'pack': make_int_packer(size, True, False),
                             'unpack': make_int_unpacker(size, True)}
     standard_fmttable[c.upper()] = {'size': size,
-                                    'pack': make_int_packer(size, False, True),
+                                    'pack': make_int_packer(size, False,
+                                                            False),
                                     'unpack': make_int_unpacker(size, False)}
