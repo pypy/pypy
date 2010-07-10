@@ -1,7 +1,7 @@
 import math
 import sys
 
-from pypy.rlib import rarithmetic
+from pypy.rlib import rarithmetic, unroll
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 
@@ -557,6 +557,8 @@ _lanczos_num_coeffs = [
 _lanczos_den_coeffs = [
     0.0, 39916800.0, 120543840.0, 150917976.0, 105258076.0, 45995730.0,
     13339535.0, 2637558.0, 357423.0, 32670.0, 1925.0, 66.0, 1.0]
+LANCZOS_N = len(_lanczos_den_coeffs)
+_lanczos_n_iter = unroll.unrolling_iterable(range(LANCZOS_N))
 _gamma_integrals = [
     1.0, 1.0, 2.0, 6.0, 24.0, 120.0, 720.0, 5040.0, 40320.0, 362880.0,
     3628800.0, 39916800.0, 479001600.0, 6227020800.0, 87178291200.0,
@@ -569,11 +571,11 @@ def _lanczos_sum(x):
     den = 0.
     assert x > 0.
     if x < 5.:
-        for i in range(len(_lanczos_den_coeffs) - 1, -1, -1):
+        for i in _lanczos_n_iter:
             num = num * x + _lanczos_num_coeffs[i]
             den = den * x + _lanczos_den_coeffs[i]
     else:
-        for i in range(len(_lanczos_den_coeffs)):
+        for i in _lanczos_n_iter:
             num = num / x + _lanczos_num_coeffs[i]
             den = den / x + _lanczos_den_coeffs[i]
     return num / den
