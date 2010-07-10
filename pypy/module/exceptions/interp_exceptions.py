@@ -119,7 +119,8 @@ class W_BaseException(Wrappable):
 
     def descr_unicode(self, space):
         w_str = space.lookup(self, "__str__")
-        w_base_str = space.wrap(W_BaseException.typedef.rawdict["__str__"])
+        w_base_type = space.gettypeobject(W_BaseException.typedef)
+        w_base_str = w_base_type.dict_w["__str__"]
         if not space.is_w(w_str, w_base_str):
             w_as_str = space.get_and_call_function(w_str, space.wrap(self))
             return space.call_function(space.w_unicode, w_as_str)
