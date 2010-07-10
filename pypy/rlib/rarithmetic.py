@@ -143,6 +143,15 @@ except ImportError:
             return (u - 1.) * x / math.log(u)
         return math.exp(x) - 1.
 
+def round_away(x):
+    # round() from libm
+    absx = abs(x)
+    if absx - math.floor(absx) >= .5:
+        r = math.ceil(absx)
+    else:
+        r = math.floor(absx)
+    return copysign(r, x)
+
 def intmask(n):
     if isinstance(n, int):
         return int(n)   # possibly bool->int

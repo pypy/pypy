@@ -379,3 +379,13 @@ def test_copysign():
     assert copysign(-1, -1) == -1
     assert copysign(1, -1) == -1
     assert copysign(1, -0.) == -1
+
+def test_round_away():
+    assert round_away(.1) == 0.
+    assert round_away(.5) == 1.
+    assert round_away(.7) == 1.
+    assert round_away(1.) == 1.
+    assert round_away(-.5) == -1.
+    assert round_away(-.1) == 0.
+    assert round_away(-.7) == -1.
+    assert round_away(0.) == 0.
