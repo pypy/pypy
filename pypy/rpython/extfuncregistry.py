@@ -22,7 +22,10 @@ else:
 # and are part of math.h
 for name in ll_math.unary_math_functions:
     llimpl = getattr(ll_math, 'll_math_%s' % name, None)
-    f = getattr(math, name)
+    try:
+        f = getattr(math, name)
+    except AttributeError:
+        f = getattr(rarithmetic, name)
     register_external(f, [float], float,
                       export_name="ll_math.ll_math_%s" % name,
                        sandboxsafe=True, llimpl=llimpl)
