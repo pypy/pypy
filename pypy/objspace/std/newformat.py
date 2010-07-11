@@ -514,7 +514,8 @@ class Formatter(BaseFormatter):
     def _fill_digits(self, buf, digits, d_state, n_chars, n_zeros,
                      thousands_sep):
         if thousands_sep:
-            buf.extend(list(thousands_sep))
+            for c in thousands_sep:
+                buf.append(c)
         for i in range(d_state - 1, d_state - n_chars - 1, -1):
             buf.append(digits[i])
         for i in range(n_zeros):
