@@ -588,9 +588,6 @@ class Formatter(BaseFormatter):
             if self._sign != "\0":
                 msg = "sign not allowed with 'c' presentation type"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
-            if self._thousands_sep:
-                msg = "thousands separator not allowed with 'c' presentation"
-                raise Operationerror(space.w_ValueError, space.wrap(msg))
             value = space.int_w(w_num)
             if self.is_unicode:
                 result = runicode.UNICHR(value)
