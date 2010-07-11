@@ -401,8 +401,15 @@ class Formatter(BaseFormatter):
             return rstring.StringBuilder()
 
     def _unknown_presentation(self, tp):
-        msg = "unknown presentation for %s: '%s'" % (tp, self._type)
-        raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
+        msg = "unknown presentation for %s: '%s'"
+        if self.is_unicode:
+            the_msg = unicode(msg)
+            the_tp = tp.decode("ascii")
+        else:
+            the_msg = msg
+            the_tp = tp
+        w_msg = self.space.wrap(the_msg  % (the_tp, self._type))
+        raise OperationError(self.space.w_ValueError, w_msg)
 
     def format_string(self, string):
         space = self.space
