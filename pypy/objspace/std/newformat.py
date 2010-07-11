@@ -541,7 +541,7 @@ class Formatter(BaseFormatter):
                 previous = group
             else:
                 group = previous
-            final_grouping = min(group, max(left, min_width, 1))
+            final_grouping = min(group, max(left, max(min_width, 1)))
             n_zeros = max(0, final_grouping - left)
             n_chars = max(0, min(left, final_grouping))
             ts = self._loc_thousands if need_separator else None
