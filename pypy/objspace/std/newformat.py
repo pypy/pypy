@@ -306,7 +306,7 @@ class Formatter(BaseFormatter):
         self._sign = "\0"
         self._thousands_sep = False
         self._precision = -1
-        presentation_type = default_type
+        the_type = default_type
         spec = self.spec
         if not spec:
             return True
@@ -349,15 +349,15 @@ class Formatter(BaseFormatter):
                                  space.wrap("invalid format spec"))
         if length - i == 1:
             presentation_type = spec[i]
+            if self.is_unicode:
+                try:
+                    the_type = spec[i].encode("ascii")
+                except UnicodeEncodeError:
+                    raise OperationError(space.w_ValueError,
+                                         space.wrap("invalid presentation type"))
+            else:
+                the_type = presentation_type
             i += 1
-        if self.is_unicode:
-            try:
-                the_type = presentation_type.encode("ascii")
-            except UnicodeEncodeError:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("invalid type"))
-        else:
-            the_type = presentation_type
         self._type = the_type
         if self._thousands_sep:
             tp = self._type
