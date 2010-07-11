@@ -112,6 +112,9 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
         assert self.s("{!s}").format(x()) == self.s("42")
         assert self.s("{!r}").format(x()) == self.s("32")
 
+    def test_non_latin1_key(self):
+        raises(KeyError, self.s("{\u1000}").format)
+
 
 class AppTestStringFormat(BaseStringFormatTests):
 

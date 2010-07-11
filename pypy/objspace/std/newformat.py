@@ -168,7 +168,15 @@ class TemplateFormatter(object):
             index = self.auto_numbering
             self.auto_numbering += 1
         if index == -1:
-            arg_key = name[:i]
+            kwarg = name[:i]
+            if self.is_unicode:
+                try:
+                    arg_key = kwarg.encode("latin-1")
+                except UnicodeEncodeError:
+                    # Not going to be found in a dict of strings.
+                    raise OperationError(space.w_KeyError, space.wrap(kwarg))
+            else:
+                arg_key = kwarg
             try:
                 w_arg = self.kwargs[arg_key]
             except KeyError:
