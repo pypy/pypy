@@ -59,13 +59,6 @@ def unpack_float(fmtiter):
     doubleval = float(floatval)
     fmtiter.appendobj(doubleval)
 
-def pack_bool(fmtiter):
-    truth = fmtiter.accept_bool_arg()
-    fmtiter.result.append('\x01' if truth else '\x00')
-
-def unpack_bool(fmtiter):
-    fmtiter.appendobj(bool(ord(fmtiter.read(1))))
-
 # ____________________________________________________________
 #
 # Use rffi_platform to get the native sizes and alignments from the C compiler
@@ -124,8 +117,8 @@ def setup():
             pack = pack_double
             unpack = unpack_double
         elif fmtchar == '?':
-            pack = pack_bool
-            unpack = unpack_bool
+            pack = std.pack_bool
+            unpack = std.unpack_bool
         else:
             pack = std.make_int_packer(size, signed, True)
             unpack = std.make_int_unpacker(size, signed)
