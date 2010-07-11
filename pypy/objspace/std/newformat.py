@@ -306,7 +306,7 @@ class Formatter(BaseFormatter):
         self._sign = "\0"
         self._thousands_sep = False
         self._precision = -1
-        self._type = default_type
+        presentation_type = default_type
         spec = self.spec
         if not spec:
             return True
@@ -348,8 +348,17 @@ class Formatter(BaseFormatter):
             raise OperationError(space.w_ValueError,
                                  space.wrap("invalid format spec"))
         if length - i == 1:
-            self._type = spec[i]
+            presentation_type = spec[i]
             i += 1
+        if self.is_unicode:
+            try:
+                the_type = presentation_type.encode("ascii")
+            except UnicodeEncodeError:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("invalid type"))
+        else:
+            the_type = presentation_type
+        self._type = the_type
         if self._thousands_sep:
             tp = self._type
             if (tp == "d" or
@@ -408,11 +417,7 @@ class Formatter(BaseFormatter):
 
     def _unknown_presentation(self, tp):
         msg = "unknown presentation for %s: '%s'"
-        if self.is_unicode:
-            inval_type = self._type.encode("ascii")
-        else:
-            inval_type = self._type
-        w_msg = self.space.wrap(msg  % (tp, inval_type))
+        w_msg = self.space.wrap(msg  % (tp, self._type))
         raise OperationError(self.space.w_ValueError, w_msg)
 
     def format_string(self, string):
@@ -775,11 +780,7 @@ class Formatter(BaseFormatter):
             add_pct = False
         if self._precision == -1:
             self._precision = default_precision
-        if self.is_unicode:
-            to_string_tp = tp.encode("ascii")
-        else:
-            to_string_tp = tp
-        result, special = rarithmetic.double_to_string(value, to_string_tp,
+        result, special = rarithmetic.double_to_string(value, tp,
                                                        self._precision, flags)
         if add_pct:
             result += "%"

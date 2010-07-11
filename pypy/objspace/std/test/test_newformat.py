@@ -95,6 +95,10 @@ class BaseStringFormatTests:
         assert format(self.s("h"), "c<3") == self.s("hcc")
         raises(ValueError, format, self.s("blah"), "=12")
 
+    def test_non_ascii_presentation(self):
+        raises(ValueError, format, self.s(""), "\x234")
+
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
 
@@ -114,6 +118,7 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
 
     def test_non_latin1_key(self):
         raises(KeyError, self.s("{\u1000}").format)
+
 
 
 class AppTestStringFormat(BaseStringFormatTests):
