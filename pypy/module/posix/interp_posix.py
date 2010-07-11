@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.rlib import rposix
+from pypy.rlib import rposix, objectmodel
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror
@@ -84,11 +84,13 @@ def ftruncate(space, fd, length):
     try:
         os.ftruncate(fd, length)
     except IOError, e:
-        # Python 2.6 raises an IOError here. Let's not repeat that mistake.
-        w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
-                                      space.wrap(e.strerror),
-                                      space.wrap(e.filename))
-        raise OperationError(space.w_OSError, w_error)
+        if not objectmodel.we_are_translated():
+            # Python 2.6 raises an IOError here. Let's not repeat that mistake.
+            w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
+                                          space.wrap(e.strerror),
+                                          space.wrap(e.filename))
+            raise OperationError(space.w_OSError, w_error)
+        raise AssertionError
     except OSError, e: 
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
