@@ -441,7 +441,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if outer.ifs:
             self.visit_sequence(outer.ifs)
         self.visit_sequence(comps[1:])
-        for item in consider:
+        for item in list(consider):
             item.walkabout(self)
         self.pop_scope()
 
