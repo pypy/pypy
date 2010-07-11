@@ -1307,6 +1307,7 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, node):
+        assert isinstance(node, ast.expr)
         self.update_position(node.lineno)
         node.build_container(self)
         self._comp_generator(node, node.get_generators(), 0)
