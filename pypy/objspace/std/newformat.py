@@ -300,7 +300,7 @@ class Formatter(BaseFormatter):
 
     def _parse_spec(self, default_type, default_align):
         space = self.space
-        self._fill_char = "\0"
+        self._fill_char = self._lit("\0")
         self._align = default_align
         self._alternate = False
         self._sign = "\0"
@@ -329,7 +329,7 @@ class Formatter(BaseFormatter):
             self._alternate = True
             i += 1
         if self._fill_char == "\0" and length - i >= 1 and spec[i] == "0":
-            self._fill_char = "0"
+            self._fill_char = self._lit("0")
             if not got_align:
                 self._align = "="
             i += 1
@@ -387,11 +387,17 @@ class Formatter(BaseFormatter):
         self._right_pad = right
         return total
 
+    def _lit(self, s):
+        if self.is_unicode:
+            return s.decode("ascii")
+        else:
+            return s
+
     def _pad(self, string):
         builder = self._builder()
-        builder.append_multiple_char(self._fill_char, self._left_pad)
+        builder.append_multiple_char(self._fill_char[0], self._left_pad)
         builder.append(string)
-        builder.append_multiple_char(self._fill_char, self._right_pad)
+        builder.append_multiple_char(self._fill_char[0], self._right_pad)
         return builder.build()
 
     def _builder(self):
@@ -403,12 +409,10 @@ class Formatter(BaseFormatter):
     def _unknown_presentation(self, tp):
         msg = "unknown presentation for %s: '%s'"
         if self.is_unicode:
-            the_msg = unicode(msg)
-            the_tp = tp.decode("ascii")
+            inval_type = self._type.encode("ascii")
         else:
-            the_msg = msg
-            the_tp = tp
-        w_msg = self.space.wrap(the_msg  % (the_tp, self._type))
+            inval_type = self._type
+        w_msg = self.space.wrap(msg  % (tp, inval_type))
         raise OperationError(self.space.w_ValueError, w_msg)
 
     def format_string(self, string):
@@ -430,7 +434,7 @@ class Formatter(BaseFormatter):
         if self._precision != -1 and length >= self._precision:
             length = self._precision
         if self._fill_char == "\0":
-            self._fill_char = " "
+            self._fill_char = self._lit(" ")
         self._calc_padding(string, length)
         return space.wrap(self._pad(string))
 
@@ -522,6 +526,7 @@ class Formatter(BaseFormatter):
         need_separator = False
         done = False
         groupings = len(grouping)
+        previous = 0
         while True:
             group = ord(grouping[grouping_state])
             if group > 0:
@@ -547,7 +552,7 @@ class Formatter(BaseFormatter):
             group = max(max(left, min_width), 1)
             n_zeros = max(0, group - left)
             n_chars = max(0, min(left, group))
-            ts = thousands_sep if need_separator else None
+            ts = self._loc_thousands if need_separator else None
             self._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
         buf.reverse()
         self._grouped_digits = self.empty.join(buf)
@@ -562,34 +567,40 @@ class Formatter(BaseFormatter):
         return self.empty.join(buf)
 
 
-    def _fill_number(self, spec, num, to_digits, n_digits, to_prefix, fill_char,
+    def _fill_number(self, spec, num, to_digits, to_prefix, fill_char,
                      to_remainder, upper):
         out = self._builder()
         if spec.n_lpadding:
-            out.append_multiple_char(fill_char, spec.n_lpadding)
+            out.append_multiple_char(fill_char[0], spec.n_lpadding)
         if spec.n_sign:
-            out.append(spec.sign)
+            if self.is_unicode:
+                sign = spec.sign.decode("ascii")
+            else:
+                sign = spec.sign
+            out.append(sign)
         if spec.n_prefix:
             pref = num[to_prefix:to_prefix + spec.n_prefix]
             if upper:
                 pref = self._upcase_string(pref)
             out.append(pref)
         if spec.n_spadding:
-            out.append_multiple_char(fill_char, spec.n_spadding)
+            out.append_multiple_char(fill_char[0], spec.n_spadding)
         if spec.n_digits != 0:
             if self._loc_thousands:
                 digits = self._grouped_digits
             else:
-                digits = num[to_digits:to_digits + spec.n_digits]
+                stop = to_digits + spec.n_digits
+                assert stop >= 0
+                digits = num[to_digits:stop]
             if upper:
                 digits = self._upcase_string(digits)
             out.append(digits)
         if spec.n_decimal:
-            out.append(".")
+            out.append(self._lit(".")[0])
         if spec.n_remainder:
             out.append(num[to_remainder:])
         if spec.n_rpadding:
-            out.append_multiple_char(fill_char, spec.n_rpadding)
+            out.append_multiple_char(fill_char[0], spec.n_rpadding)
         return self.space.wrap(out.build())
 
     def _format_int_or_long(self, w_num, kind):
@@ -646,9 +657,9 @@ class Formatter(BaseFormatter):
         self._get_locale(tp)
         spec = self._calc_num_width(n_prefix, sign_char, to_numeric, n_digits,
                                     n_remainder, False, result)
-        fill = " " if self._fill_char == "\0" else self._fill_char
+        fill = self._lit(" ") if self._fill_char == "\0" else self._fill_char
         upper = self._type == "X"
-        return self._fill_number(spec, result, to_numeric, n_digits, to_prefix,
+        return self._fill_number(spec, result, to_numeric, to_prefix,
                                  fill, to_remainder, upper)
 
     def _long_to_base(self, base, value):
@@ -701,6 +712,7 @@ class Formatter(BaseFormatter):
         if negative:
             i -= 1
             buf[i] = "-"
+        assert i >= 0
         return self.empty.join(buf[i:])
 
     def format_int_or_long(self, w_num, kind):
@@ -763,7 +775,11 @@ class Formatter(BaseFormatter):
             add_pct = False
         if self._precision == -1:
             self._precision = default_precision
-        result, special = rarithmetic.double_to_string(value, tp,
+        if self.is_unicode:
+            to_string_tp = tp.encode("ascii")
+        else:
+            to_string_tp = tp
+        result, special = rarithmetic.double_to_string(value, to_string_tp,
                                                        self._precision, flags)
         if add_pct:
             result += "%"
@@ -778,10 +794,14 @@ class Formatter(BaseFormatter):
         have_dec_point, to_remainder = self._parse_number(result, to_number)
         n_remainder = len(result) - to_remainder
         self._get_locale(tp)
+        if self.is_unicode:
+            digits = result.decode("ascii")
+        else:
+            digits = result
         spec = self._calc_num_width(0, sign, to_number, n_digits,
-                                    n_remainder, have_dec_point, result)
-        fill = " " if self._fill_char == "\0" else self._fill_char
-        return self._fill_number(spec, result, to_number, None, 0, fill,
+                                    n_remainder, have_dec_point, digits)
+        fill = self._lit(" ") if self._fill_char == "\0" else self._fill_char
+        return self._fill_number(spec, digits, to_number, 0, fill,
                                  to_remainder, False)
 
     def format_float(self, w_float):
