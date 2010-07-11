@@ -164,7 +164,8 @@ class SomeFloat(SomeObject):
 
     def __eq__(self, other):
         # NaN unpleasantness.
-        if (self.is_constant() and other.is_constant() and
+        if (type(self) is SomeFloat and type(other) is SomeFloat and
+            self.is_constant() and other.is_constant() and
             isnan(self.const) and isnan(other.const)):
             return True
         return super(SomeFloat, self).__eq__(other)
