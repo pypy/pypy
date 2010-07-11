@@ -682,7 +682,10 @@ class Formatter(BaseFormatter):
 
     def _int_to_base(self, base, value):
         if base == 10:
-            return unicode(value) if self.is_unicode else str(value)
+            s = str(value)
+            if self.is_unicode:
+                return s.decode("ascii")
+            return s
         # This part is slow.
         negative = value < 0
         value = abs(value)
