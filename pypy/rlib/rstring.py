@@ -53,22 +53,26 @@ class AbstractStringBuilder(object):
         self.l = []
 
     def append(self, s):
+        assert isinstance(s, self.tp)
         self.l.append(s)
 
     def append_slice(self, s, start, end):
+        assert isinstance(s, self.tp)
         assert 0 <= start <= end <= len(s)
         self.l.append(s[start:end])
 
     def append_multiple_char(self, c, times):
+        assert isinstance(c, self.tp)
         self.l.append(c * times)
 
-class StringBuilder(AbstractStringBuilder):
     def build(self):
-        return "".join(self.l)
+        return self.tp("").join(self.l)
+
+class StringBuilder(AbstractStringBuilder):
+    tp = str
 
 class UnicodeBuilder(AbstractStringBuilder):
-    def build(self):
-        return u''.join(self.l)
+    tp = unicode
 
 
 # XXX: This does log(mul) mallocs, the GCs probably make that efficient, but
