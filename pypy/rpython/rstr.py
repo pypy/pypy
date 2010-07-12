@@ -291,7 +291,11 @@ class __extend__(AbstractUnicodeRepr):
         if not hop.args_s[1].is_constant():
             raise TyperError("encoding must be constant")
         encoding = hop.args_s[1].const
-        v_self = hop.inputarg(self.repr, 0)
+        if encoding == "ascii":
+            expect = self.lowleveltype   # can be a UniChar
+        else:
+            expect = self.repr           # must be a regular unicode string
+        v_self = hop.inputarg(expect, 0)
         hop.exception_is_here()
         if encoding == "ascii":
             return hop.gendirectcall(self.ll_str, v_self)
@@ -418,7 +422,17 @@ class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
             sourcevars.append((v_item, r_arg))
 
         return r_str.ll.do_stringformat(hop, sourcevars)
-                
+
+
+class __extend__(AbstractCharRepr):
+    def ll_str(self, ch):
+        return self.ll.ll_chr2str(ch)
+
+class __extend__(AbstractUniCharRepr):
+    def ll_str(self, ch):
+        # xxx suboptimal, maybe
+        return str(unicode(ch))
+
 
 class __extend__(AbstractCharRepr,
                  AbstractUniCharRepr):
@@ -435,9 +449,6 @@ class __extend__(AbstractCharRepr,
         return self.ll.ll_char_hash
 
     get_ll_fasthash_function = get_ll_hash_function
-
-    def ll_str(self, ch):
-        return self.ll.ll_chr2str(ch)
 
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)

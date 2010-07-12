@@ -729,3 +729,108 @@ class TestFlatten:
             int_between %i0, %i1, %i2 -> %i3
             int_return %i3
         """, transform=True)
+
+    def test_force_cast(self):
+        from pypy.rpython.lltypesystem import rffi
+
+        for FROM, TO, expected in [
+            (rffi.SIGNEDCHAR, rffi.SIGNEDCHAR, ""),
+            (rffi.SIGNEDCHAR, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
+            (rffi.SIGNEDCHAR, rffi.SHORT, ""),
+            (rffi.SIGNEDCHAR, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.SIGNEDCHAR, rffi.LONG, ""),
+            (rffi.SIGNEDCHAR, rffi.ULONG, ""),
+
+            (rffi.UCHAR, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
+                                             int_and %i1, $255 -> %i2
+                                             int_add %i2, $-128 -> %i3"""),
+            (rffi.UCHAR, rffi.UCHAR, ""),
+            (rffi.UCHAR, rffi.SHORT, ""),
+            (rffi.UCHAR, rffi.USHORT, ""),
+            (rffi.UCHAR, rffi.LONG, ""),
+            (rffi.UCHAR, rffi.ULONG, ""),
+
+            (rffi.SHORT, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
+                                             int_and %i1, $255 -> %i2
+                                             int_add %i2, $-128 -> %i3"""),
+            (rffi.SHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
+            (rffi.SHORT, rffi.SHORT, ""),
+            (rffi.SHORT, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.SHORT, rffi.LONG, ""),
+            (rffi.SHORT, rffi.ULONG, ""),
+
+            (rffi.USHORT, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
+                                              int_and %i1, $255 -> %i2
+                                              int_add %i2, $-128 -> %i3"""),
+            (rffi.USHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
+            (rffi.USHORT, rffi.SHORT, """int_sub %i0, $-32768 -> %i1
+                                         int_and %i1, $65535 -> %i2
+                                         int_add %i2, $-32768 -> %i3"""),
+            (rffi.USHORT, rffi.USHORT, ""),
+            (rffi.USHORT, rffi.LONG, ""),
+            (rffi.USHORT, rffi.ULONG, ""),
+
+            (rffi.LONG, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
+                                            int_and %i1, $255 -> %i2
+                                            int_add %i2, $-128 -> %i3"""),
+            (rffi.LONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
+            (rffi.LONG, rffi.SHORT, """int_sub %i0, $-32768 -> %i1
+                                       int_and %i1, $65535 -> %i2
+                                       int_add %i2, $-32768 -> %i3"""),
+            (rffi.LONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.LONG, rffi.LONG, ""),
+            (rffi.LONG, rffi.ULONG, ""),
+
+            (rffi.ULONG, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
+                                             int_and %i1, $255 -> %i2
+                                             int_add %i2, $-128 -> %i3"""),
+            (rffi.ULONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
+            (rffi.ULONG, rffi.SHORT, """int_sub %i0, $-32768 -> %i1
+                                        int_and %i1, $65535 -> %i2
+                                        int_add %i2, $-32768 -> %i3"""),
+            (rffi.ULONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.ULONG, rffi.LONG, ""),
+            (rffi.ULONG, rffi.ULONG, ""),
+            ]:
+            expected = [s.strip() for s in expected.splitlines()]
+            check_force_cast(FROM, TO, expected, 42)
+            check_force_cast(FROM, TO, expected, -42)
+            expected.append('int_return %i' + str(len(expected)))
+            expected = '\n'.join(expected)
+            #
+            def f(n):
+                return rffi.cast(TO, n)
+            self.encoding_test(f, [rffi.cast(FROM, 42)], expected,
+                               transform=True)
+
+    def test_force_cast_pointer(self):
+        from pypy.rpython.lltypesystem import rffi
+        def h(p):
+            return rffi.cast(rffi.VOIDP, p)
+        self.encoding_test(h, [lltype.nullptr(rffi.CCHARP.TO)], """
+            int_return %i0
+        """, transform=True)
+
+
+def check_force_cast(FROM, TO, operations, value):
+    """Check that the test is correctly written..."""
+    from pypy.rpython.lltypesystem import rffi
+    import re
+    r = re.compile('(\w+) \%i\d, \$(-?\d+)')
+    #
+    value = rffi.cast(FROM, value)
+    value = rffi.cast(lltype.Signed, value)
+    #
+    expected_value = rffi.cast(TO, value)
+    expected_value = rffi.cast(lltype.Signed, expected_value)
+    #
+    for op in operations:
+        match = r.match(op)
+        assert match, "line %r does not match regexp" % (op,)
+        opname = match.group(1)
+        if   opname == 'int_add': value += int(match.group(2))
+        elif opname == 'int_sub': value -= int(match.group(2))
+        elif opname == 'int_and': value &= int(match.group(2))
+        else: assert 0, opname
+    #
+    assert rffi.cast(lltype.Signed, value) == expected_value

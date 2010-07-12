@@ -30,7 +30,13 @@ def maybe_on_top_of_llinterp(rtyper, fnptr):
 
     funcobj = get_funcobj(fnptr)
     if hasattr(funcobj, 'graph'):
-        llinterp = LLInterpreter(rtyper)  #, exc_data_ptr=exc_data_ptr)
+        # cache the llinterp; otherwise the remember_malloc/remember_free
+        # done on the LLInterpreter don't match
+        try:
+            llinterp = rtyper._on_top_of_llinterp_llinterp
+        except AttributeError:
+            llinterp = LLInterpreter(rtyper)  #, exc_data_ptr=exc_data_ptr)
+            rtyper._on_top_of_llinterp_llinterp = llinterp
         def on_top_of_llinterp(*args):
             real_args = process_args(args)
             return llinterp.eval_graph(funcobj.graph, real_args)

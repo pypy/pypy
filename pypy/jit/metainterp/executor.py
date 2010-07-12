@@ -91,7 +91,7 @@ def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
         return BoxInt(cpu.bh_getarrayitem_gc_i(arraydescr, array, index))
 
 def do_getarrayitem_raw(cpu, _, arraybox, indexbox, arraydescr):
-    array = arraybox.getint()
+    array = arraybox.getref_base()
     index = indexbox.getint()
     assert not arraydescr.is_array_of_pointers()
     if arraydescr.is_array_of_floats():

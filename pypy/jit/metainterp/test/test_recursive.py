@@ -523,7 +523,7 @@ class RecursiveTests:
     def test_trace_from_start(self):
         def p(pc, code):
             code = hlstr(code)
-            return "%s %d %s" % (code, pc, code[pc])
+            return "'%s' at %d: %s" % (code, pc, code[pc])
         def c(pc, code):
             return "l" not in hlstr(code)
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['n'],
@@ -537,9 +537,9 @@ class RecursiveTests:
                 op = code[pc]
                 if op == "+":
                     n += 7
-                if op == "-":
+                elif op == "-":
                     n -= 1
-                if op == "c":
+                elif op == "c":
                     n = f('---', n)
                 elif op == "l":
                     if n > 0:
@@ -556,6 +556,7 @@ class RecursiveTests:
             result = 0
             for i in range(m):
                 result += f('+-cl--', i)
+        g(50)
         self.meta_interp(g, [50], backendopt=True)
         self.check_tree_loop_count(3)
         self.check_history(int_add=1)

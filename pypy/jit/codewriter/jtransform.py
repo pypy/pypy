@@ -667,7 +667,7 @@ class Transformer(object):
             return self._rewrite_symmetric(op)
 
     def _is_gc(self, v):
-        return v.concretetype.TO._gckind == 'gc'
+        return getattr(getattr(v.concretetype, "TO", None), "_gckind", "?") == 'gc'
 
     def _rewrite_cmp_ptrs(self, op):
         if self._is_gc(op.args[0]):
@@ -700,6 +700,42 @@ class Transformer(object):
         if self._is_gc(op.args[0]):
             #return op
             raise NotImplementedError("cast_ptr_to_int")
+
+    def rewrite_op_force_cast(self, op):
+        from pypy.rpython.lltypesystem.rffi import size_and_sign, sizeof
+        from pypy.rlib.rarithmetic import intmask
+        assert not self._is_gc(op.args[0])
+        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
+        size2, unsigned2 = size_and_sign(op.result.concretetype)
+        if size2 >= sizeof(lltype.Signed):
+            return     # the target type is LONG or ULONG
+        #
+        def bounds(size, unsigned):
+            if unsigned:
+                return 0, 1<<(8*size)
+            else:
+                return -(1<<(8*size-1)), 1<<(8*size-1)
+        min1, max1 = bounds(size1, unsigned1)
+        min2, max2 = bounds(size2, unsigned2)
+        if min2 <= min1 <= max1 <= max2:
+            return     # the target type includes the source range
+        #
+        result = []
+        v1 = op.args[0]
+        if min2:
+            c_min2 = Constant(min2, lltype.Signed)
+            v2 = Variable(); v2.concretetype = lltype.Signed
+            result.append(SpaceOperation('int_sub', [v1, c_min2], v2))
+        else:
+            v2 = v1
+        c_mask = Constant(int((1<<(8*size2))-1), lltype.Signed)
+        v3 = Variable(); v3.concretetype = lltype.Signed
+        result.append(SpaceOperation('int_and', [v2, c_mask], v3))
+        if min2:
+            result.append(SpaceOperation('int_add', [v3, c_min2], op.result))
+        else:
+            result[-1].result = op.result
+        return result
 
     # ----------
     # Renames, from the _old opname to the _new one.
