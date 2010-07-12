@@ -52,7 +52,10 @@ def lazy_register(func_or_list, register_func):
                         return super(ExtRegistryEntry, self).__getattr__(attr)
                     raise exc, exc_inst, tb
 
-def registering(func):
+def registering(func, condition=True):
+    if not condition:
+        return lambda method: None
+
     def decorator(method):
         method._registering_func = func
         return method
@@ -63,11 +66,9 @@ def registering_if(ns, name, condition=True):
         func = getattr(ns, name)
     except AttributeError:
         condition = False
+        func = None
 
-    if condition:
-        return registering(func)
-    else:
-        return lambda method: None
+    return registering(func, condition=condition)
 
 class LazyRegisteringMeta(type):
     def __new__(self, _name, _type, _vars):

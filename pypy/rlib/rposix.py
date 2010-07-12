@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable, INT
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import specialize
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -42,3 +43,13 @@ def closerange(fd_low, fd_high):
             os.close(fd)
         except OSError:
             pass
+
+
+# pypy.rpython.module.ll_os.py may force the annotator to flow a different
+# function that directly handle unicode strings.
+@specialize.argtype(0)
+def open(path, flags, mode):
+    if isinstance(path, str):
+        return os.open(path, flags, mode)
+    else:
+        return os.open(path.encode(), flags, mode)

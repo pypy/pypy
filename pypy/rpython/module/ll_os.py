@@ -7,7 +7,7 @@ Low-level implementations for the external functions of the 'os' module.
 
 import os, sys, errno
 from pypy.rpython.module.support import ll_strcpy, OOSupport
-from pypy.tool.sourcetools import func_with_new_name
+from pypy.tool.sourcetools import func_with_new_name, func_renamer
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.extfunc import BaseLazyRegistering
 from pypy.rpython.extfunc import registering, registering_if, extdef
@@ -26,7 +26,41 @@ from pypy.rpython.lltypesystem.llmemory import sizeof,\
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
+from pypy.rlib.unroll import unrolling_iterable
+
+def registering_unicode_version(func, nbargs, argnums, condition=True):
+    """
+    Registers an implementation of func() which directly accepts unicode
+    strings.  Replaces the corresponding function in pypy.rlib.rposix.
+    """
+    def unicodefunc(*args):
+        raise NotImplementedError
+
+    argnum = argnums[0]
+    unrolling_args = unrolling_iterable(enumerate([i in argnums
+                                                   for i in range(nbargs)]))
+
+    func_name = func.__name__
+    rposix_func = getattr(rposix, func_name)
+
+    @specialize.argtype(*argnums)
+    @func_renamer(func.__name__)
+    def new_func(*args):
+        if isinstance(args[argnum], str):
+            return func(*args)
+        else:
+            real_args = ()
+            for i, isunicode in unrolling_args:
+                if isunicode:
+                    real_args += (args[i].unistr,)
+                else:
+                    real_args += (args[i],)
+            return unicodefunc(*real_args)
+    if condition:
+        rposix_func._flowspace_rewrite_directly_as_ = new_func
+
+    return registering(unicodefunc, condition=condition)
 
 posix = __import__(os.name)
 
@@ -704,6 +738,20 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([str, int, int], int, "ll_os.ll_os_open",
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
+
+    @registering_unicode_version(os.open, 3, [0], sys.platform=='win32')
+    def register_os_open_unicode(self):
+        os_wopen = self.llexternal(underscore_on_windows+'wopen',
+                                  [rffi.CWCHARP, rffi.INT, rffi.MODE_T],
+                                  rffi.INT)
+        def os_wopen_llimpl(path, flags, mode):
+            result = rffi.cast(rffi.LONG, os_wopen(path, flags, mode))
+            if result == -1:
+                raise OSError(rposix.get_errno(), "os_open failed")
+            return result
+
+        return extdef([unicode, int, int], int, "ll_os.ll_os_wopen",
+                      llimpl=os_wopen_llimpl)
 
 # ------------------------------- os.read -------------------------------
 
