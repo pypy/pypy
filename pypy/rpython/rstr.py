@@ -288,7 +288,11 @@ class __extend__(AbstractUnicodeRepr):
         if not hop.args_s[1].is_constant():
             raise TyperError("encoding must be constant")
         encoding = hop.args_s[1].const
-        v_self = hop.inputarg(self.lowleveltype, 0)
+        if encoding == "ascii":
+            expect = self.lowleveltype   # can be a UniChar
+        else:
+            expect = self.repr           # must be a regular unicode string
+        v_self = hop.inputarg(expect, 0)
         hop.exception_is_here()
         if encoding == "ascii":
             return hop.gendirectcall(self.ll_str, v_self)
