@@ -24,7 +24,7 @@ class FileEncoder:
     def gettext(self):
         return self.space.unicode_w(self.w_obj)
 
-@specialize.arg(1)
+@specialize.arg(2)
 def dispatch_filename(space, w_fname, callable):
     if space.isinstance_w(w_fname, space.w_unicode):
         fname = FileEncoder(space, w_fname)
