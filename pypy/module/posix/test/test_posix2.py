@@ -32,6 +32,9 @@ def setup_module(mod):
     # even when running on top of CPython 2.4.
     os.stat_float_times(True)
 
+    # Initialize sys.filesystemencoding
+    space.call_function(space.sys.get('getfilesystemencoding'))
+
 def need_sparse_files():
     if sys.platform == 'darwin':
         py.test.skip("no sparse files on default Mac OS X file system")
