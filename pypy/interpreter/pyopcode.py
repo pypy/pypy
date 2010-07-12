@@ -211,10 +211,6 @@ class __extend__(pyframe.PyFrame):
                     next_instr = block.handle(self, unroller)
                     return next_instr    # now inside a 'finally' block
 
-            if opcode == self.opcodedesc.YIELD_VALUE.index:
-                #self.last_instr = intmask(next_instr - 1) XXX clean up!
-                raise Yield
-
             if opcode == self.opcodedesc.END_FINALLY.index:
                 unroller = self.end_finally()
                 if isinstance(unroller, SuspendedUnroller):
@@ -239,7 +235,7 @@ class __extend__(pyframe.PyFrame):
                     if not opdesc.is_enabled(space):
                         continue
                     if opdesc.methodname in (
-                        'EXTENDED_ARG', 'RETURN_VALUE', 'YIELD_VALUE',
+                        'EXTENDED_ARG', 'RETURN_VALUE',
                         'END_FINALLY', 'JUMP_ABSOLUTE'):
                         continue   # opcodes implemented above
 
@@ -813,6 +809,9 @@ class __extend__(pyframe.PyFrame):
                                   "cannot import name '%s'",
                                   self.space.str_w(w_name))
         self.pushvalue(w_obj)
+
+    def YIELD_VALUE(self, oparg, next_instr):
+        raise Yield
 
     def jump_absolute(self, jumpto, next_instr, ec):
         return jumpto
