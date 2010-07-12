@@ -2,7 +2,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.rlib import rposix
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -12,15 +12,28 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import os, sys
 _WIN = sys.platform == 'win32'
 
-def open(space, fname, flag, mode=0777):
+class FileEncoder:
+    def __init__(self, space, w_obj):
+        self.space = space
+        self.w_obj = w_obj
+
+    def encode(self):
+        return self.space.path_w(self.w_obj)
+
+def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
-    try: 
-        fd = os.open(fname, flag, mode)
+    try:
+        if space.isinstance_w(w_fname, space.w_unicode):
+            fname = FileEncoder(space, w_fname)
+            fd = rposix.open(fname, flag, mode)
+        else:
+            fname = space.str_w(w_fname)
+            fd = rposix.open(fname, flag, mode)
     except OSError, e: 
-        raise wrap_oserror(space, e, fname)
+        raise wrap_oserror2(space, e, w_fname)
     return space.wrap(fd)
-open.unwrap_spec = [ObjSpace, 'path', "c_int", "c_int"]
+open.unwrap_spec = [ObjSpace, W_Root, "c_int", "c_int"]
 
 def lseek(space, fd, pos, how):
     """Set the current position of a file descriptor.  Return the new position.
