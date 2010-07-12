@@ -306,7 +306,7 @@ class Formatter(BaseFormatter):
 
     def _parse_spec(self, default_type, default_align):
         space = self.space
-        self._fill_char = self._lit("\0")
+        self._fill_char = self._lit("\0")[0]
         self._align = default_align
         self._alternate = False
         self._sign = "\0"
@@ -335,7 +335,7 @@ class Formatter(BaseFormatter):
             self._alternate = True
             i += 1
         if self._fill_char == "\0" and length - i >= 1 and spec[i] == "0":
-            self._fill_char = self._lit("0")
+            self._fill_char = self._lit("0")[0]
             if not got_align:
                 self._align = "="
             i += 1
@@ -410,9 +410,9 @@ class Formatter(BaseFormatter):
 
     def _pad(self, string):
         builder = self._builder()
-        builder.append_multiple_char(self._fill_char[0], self._left_pad)
+        builder.append_multiple_char(self._fill_char, self._left_pad)
         builder.append(string)
-        builder.append_multiple_char(self._fill_char[0], self._right_pad)
+        builder.append_multiple_char(self._fill_char, self._right_pad)
         return builder.build()
 
     def _builder(self):
@@ -445,7 +445,7 @@ class Formatter(BaseFormatter):
         if self._precision != -1 and length >= self._precision:
             length = self._precision
         if self._fill_char == "\0":
-            self._fill_char = self._lit(" ")
+            self._fill_char = self._lit(" ")[0]
         self._calc_padding(string, length)
         return space.wrap(self._pad(string))
 
