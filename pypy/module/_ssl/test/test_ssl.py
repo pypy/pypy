@@ -12,7 +12,7 @@ class AppTestSSL:
     
     def test_sslerror(self):
         import _ssl
-        assert issubclass(_ssl.sslerror, Exception)
+        assert issubclass(_ssl.SSLError, Exception)
 
     def test_constants(self):
         import _ssl

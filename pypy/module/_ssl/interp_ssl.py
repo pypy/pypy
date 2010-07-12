@@ -155,7 +155,7 @@ ssl_external('SSL_read', [SSL_P, rffi.CCHARP, rffi.INT], rffi.INT)
 
 def ssl_error(space, msg):
     w_module = space.getbuiltinmodule('_ssl')
-    w_exception = space.getattr(w_module, space.wrap('sslerror'))
+    w_exception = space.getattr(w_module, space.wrap('SSLError'))
     return OperationError(w_exception, space.wrap(msg))
 
 def _init_ssl():

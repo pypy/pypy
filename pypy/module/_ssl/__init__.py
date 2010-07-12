@@ -7,7 +7,7 @@ class Module(MixedModule):
 
     appleveldefs = {
         '__doc__': 'app_ssl.__doc__',
-        'sslerror': 'app_ssl.sslerror',
+        'SSLError': 'app_ssl.SSLError',
     }
 
     @classmethod

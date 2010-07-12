@@ -1,4 +1,4 @@
-class sslerror(Exception):
+class SSLError(Exception):
     pass
 
 __doc__ = """Implementation module for SSL socket operations. 
