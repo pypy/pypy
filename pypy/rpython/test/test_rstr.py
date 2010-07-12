@@ -863,6 +863,12 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert self.ll_to_string(res) == "hello"
 
+    def test_str_unichar(self):
+        def f(i):
+            c = u"abc"
+            return str(c[i])[0]
+        assert self.interpret(f, [1]) == "b"
+
 def FIXME_test_str_to_pystringobj():
     def f(n):
         if n >= 0:

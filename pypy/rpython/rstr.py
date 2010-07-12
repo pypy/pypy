@@ -415,7 +415,17 @@ class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
             sourcevars.append((v_item, r_arg))
 
         return r_str.ll.do_stringformat(hop, sourcevars)
-                
+
+
+class __extend__(AbstractCharRepr):
+    def ll_str(self, ch):
+        return self.ll.ll_chr2str(ch)
+
+class __extend__(AbstractUniCharRepr):
+    def ll_str(self, ch):
+        # xxx suboptimal, maybe
+        return str(unicode(ch))
+
 
 class __extend__(AbstractCharRepr,
                  AbstractUniCharRepr):
@@ -432,9 +442,6 @@ class __extend__(AbstractCharRepr,
         return self.ll.ll_char_hash
 
     get_ll_fasthash_function = get_ll_hash_function
-
-    def ll_str(self, ch):
-        return self.ll.ll_chr2str(ch)
 
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)
