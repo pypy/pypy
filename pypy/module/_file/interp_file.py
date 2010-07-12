@@ -85,9 +85,8 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.w_name = w_name
         self.check_mode_ok(mode)
-        stream = dispatch_filename(
-            self.space, w_name,
-            lambda name: streamio.open_file_as_stream(name, mode, buffering))
+        stream = dispatch_filename(streamio.open_file_as_stream)(
+            self.space, w_name, mode, buffering)
         fd = stream.try_to_find_file_descriptor()
         self.fdopenstream(stream, fd, mode)
 

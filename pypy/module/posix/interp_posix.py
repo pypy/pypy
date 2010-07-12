@@ -24,22 +24,23 @@ class FileEncoder:
     def gettext(self):
         return self.space.unicode_w(self.w_obj)
 
-@specialize.arg(2)
-def dispatch_filename(space, w_fname, callable):
-    if space.isinstance_w(w_fname, space.w_unicode):
-        fname = FileEncoder(space, w_fname)
-        return callable(fname)
-    else:
-        fname = space.str_w(w_fname)
-        return callable(fname)
+@specialize.memo()
+def dispatch_filename(func):
+    def dispatch(space, w_fname, *args):
+        if space.isinstance_w(w_fname, space.w_unicode):
+            fname = FileEncoder(space, w_fname)
+            return func(fname, *args)
+        else:
+            fname = space.str_w(w_fname)
+            return func(fname, *args)
+    return dispatch
 
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
     try:
-        fd = dispatch_filename(
-            space, w_fname,
-            lambda fname: rposix.open(fname, flag, mode))
+        fd = dispatch_filename(rposix.open)(
+            space, w_fname, flag, mode)
     except OSError, e: 
         raise wrap_oserror2(space, e, w_fname)
     return space.wrap(fd)
