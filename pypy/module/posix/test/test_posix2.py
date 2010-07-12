@@ -706,6 +706,25 @@ class AppTestPosixUnicode:
         except OSError:
             pass
 
+class AppTestUnicodeFilename:
+    def setup_class(cls):
+        ufilename = (unicode(udir.join('test_unicode_filename_')) +
+                     u'\u65e5\u672c.txt') # "Japan"
+        f = file(ufilename, 'w')
+        f.write("test")
+        f.close()
+        cls.space = space
+        cls.w_filename = space.wrap(ufilename)
+        cls.w_posix = space.appexec([], GET_POSIX)
+
+    def test_open(self):
+        fd = self.posix.open(self.filename, self.posix.O_RDONLY)
+        try:
+            content = self.posix.read(fd, 50)
+        finally:
+            self.posix.close(fd)
+        assert content == "test"
+
 
 class TestPexpect(object):
     # XXX replace with AppExpectTest class as soon as possible

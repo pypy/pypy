@@ -35,7 +35,7 @@ def registering_unicode_version(func, nbargs, argnums, condition=True):
     strings.  Replaces the corresponding function in pypy.rlib.rposix.
     """
     def unicodefunc(*args):
-        raise NotImplementedError
+        return func(*args)
 
     argnum = argnums[0]
     unrolling_args = unrolling_iterable(enumerate([i in argnums
@@ -53,12 +53,12 @@ def registering_unicode_version(func, nbargs, argnums, condition=True):
             real_args = ()
             for i, isunicode in unrolling_args:
                 if isunicode:
-                    real_args += (args[i].unistr,)
+                    real_args += (args[i].gettext(),)
                 else:
                     real_args += (args[i],)
             return unicodefunc(*real_args)
     if condition:
-        rposix_func._flowspace_rewrite_directly_as_ = new_func
+        setattr(rposix, func_name, new_func)
 
     return registering(unicodefunc, condition=condition)
 

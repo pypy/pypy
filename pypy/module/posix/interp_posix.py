@@ -20,6 +20,9 @@ class FileEncoder:
     def encode(self):
         return self.space.path_w(self.w_obj)
 
+    def gettext(self):
+        return self.space.unicode_w(self.w_obj)
+
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""

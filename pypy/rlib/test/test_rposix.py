@@ -23,6 +23,10 @@ class TestPosixUnicode:
                 from pypy.rlib.runicode import unicode_encode_utf_8
                 return unicode_encode_utf_8(self.unistr, len(self.unistr),
                                             "strict")
+
+            def gettext(self):
+                return self.unistr
+
         path = UnicodeWithEncoding(ufilename)
 
         def f():
