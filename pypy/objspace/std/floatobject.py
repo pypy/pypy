@@ -158,7 +158,7 @@ def str__Float(space, w_float):
     return float2string(space, w_float, "%.12g")
 
 def format__Float_ANY(space, w_float, w_spec):
-    return newformat.get_formatter(space, w_spec).format_float(w_float)
+    return newformat.run_formatter(space, w_spec, "format_float", w_float)
 
 # ____________________________________________________________
 # A mess to handle all cases of float comparison without relying

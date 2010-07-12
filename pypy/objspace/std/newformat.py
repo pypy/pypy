@@ -843,8 +843,11 @@ def str_formatter(space, spec):
     return Formatter(space, False, spec)
 
 
-def get_formatter(space, w_format_spec):
+@specialize.arg(2)
+def run_formatter(space, w_format_spec, meth, *args):
     if space.isinstance_w(w_format_spec, space.w_unicode):
-        return unicode_formatter(space, space.unicode_w(w_format_spec))
+        formatter = unicode_formatter(space, space.unicode_w(w_format_spec))
+        return getattr(formatter, meth)(*args)
     else:
-        return str_formatter(space, space.str_w(w_format_spec))
+        formatter = str_formatter(space, space.str_w(w_format_spec))
+        return getattr(formatter, meth)(*args)

@@ -62,8 +62,8 @@ def repr__Int(space, w_int1):
 str__Int = repr__Int
 
 def format__Int_ANY(space, w_int, w_format_spec):
-    form = newformat.get_formatter(space, w_format_spec)
-    return form.format_int_or_long(w_int, newformat.INT_KIND)
+    return newformat.run_formatter(space, w_format_spec, "format_int_or_long",
+                                   w_int, newformat.INT_KIND)
 
 def declare_new_int_comparison(opname):
     import operator

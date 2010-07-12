@@ -126,8 +126,8 @@ def str__Long(space, w_long):
     return space.wrap(w_long.num.str())
 
 def format__Long_ANY(space, w_long, w_format_spec):
-    formatter = newformat.get_formatter(space, w_format_spec)
-    return formatter.format_int_or_long(w_long, newformat.LONG_KIND)
+    return newformat.run_formatter(space, w_format_spec, "format_int_or_long",
+                                   w_long, newformat.LONG_KIND)
 
 
 def lt__Long_Long(space, w_long1, w_long2):
