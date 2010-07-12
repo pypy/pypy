@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.rlib import rposix
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
@@ -23,16 +24,22 @@ class FileEncoder:
     def gettext(self):
         return self.space.unicode_w(self.w_obj)
 
+@specialize.arg(1)
+def dispatch_filename(space, w_fname, callable):
+    if space.isinstance_w(w_fname, space.w_unicode):
+        fname = FileEncoder(space, w_fname)
+        return callable(fname)
+    else:
+        fname = space.str_w(w_fname)
+        return callable(fname)
+
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
     try:
-        if space.isinstance_w(w_fname, space.w_unicode):
-            fname = FileEncoder(space, w_fname)
-            fd = rposix.open(fname, flag, mode)
-        else:
-            fname = space.str_w(w_fname)
-            fd = rposix.open(fname, flag, mode)
+        fd = dispatch_filename(
+            space, w_fname,
+            lambda fname: rposix.open(fname, flag, mode))
     except OSError, e: 
         raise wrap_oserror2(space, e, w_fname)
     return space.wrap(fd)

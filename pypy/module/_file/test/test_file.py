@@ -125,6 +125,10 @@ class AppTestFile(object):
         assert type(res) is str
         f.close()
 
+    def test_unicode_filename(self):
+        f = self.file(self.temppath + u'\xe9', "w")
+        f.close()
+
     def test_oserror_has_filename(self):
         try:
             f = self.file("file that is clearly not there")

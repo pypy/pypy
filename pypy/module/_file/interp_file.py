@@ -4,6 +4,7 @@ from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.module._file.interp_stream import W_AbstractStream
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
+from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -81,11 +82,12 @@ class W_File(W_AbstractStream):
     # file lock.  They don't convert StreamErrors to OperationErrors, too.
 
     def direct___init__(self, w_name, mode='r', buffering=-1):
-        name = self.space.str_w(w_name)
         self.direct_close()
         self.w_name = w_name
         self.check_mode_ok(mode)
-        stream = streamio.open_file_as_stream(name, mode, buffering)
+        stream = dispatch_filename(
+            self.space, w_name,
+            lambda name: streamio.open_file_as_stream(name, mode, buffering))
         fd = stream.try_to_find_file_descriptor()
         self.fdopenstream(stream, fd, mode)
 
