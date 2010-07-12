@@ -127,7 +127,7 @@ class TemplateFormatter(object):
                         raise OperationError(self.space.w_ValueError, w_msg)
                     conversion = s[i]
                 else:
-                    conversion = None
+                    conversion = self.empty
                 i += 1
                 return s[start:end_name], conversion, i
             i += 1
@@ -228,9 +228,10 @@ class TemplateFormatter(object):
 
     def _convert(self, w_obj, conversion):
         space = self.space
-        if conversion == "r":
+        conv = conversion[0]
+        if conv == "r":
             return space.repr(w_obj)
-        elif conversion == "s":
+        elif conv == "s":
             if self.is_unicode:
                 return space.call_function(space.w_unicode, w_obj)
             return space.str(w_obj)
