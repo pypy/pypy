@@ -265,7 +265,13 @@ class NumberSpec(object):
     pass
 
 class BaseFormatter(object):
-    pass
+
+    def format_int_or_long(self, w_num, kind):
+        raise NotImplementedError
+
+    def format_float(self, w_num):
+        raise NotImplementedError
+
 
 INT_KIND = 1
 LONG_KIND = 2
