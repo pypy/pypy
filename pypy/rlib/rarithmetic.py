@@ -50,9 +50,6 @@ LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
 LONG_TEST = _Ltest
 
-FL_MAXINT = float(LONG_TEST - 1)
-FL_MININT = float(-LONG_TEST)
-
 INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
 

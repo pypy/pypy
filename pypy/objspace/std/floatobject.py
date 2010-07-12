@@ -9,8 +9,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
-from pypy.rlib.rarithmetic import (formatd, LONG_BIT, FL_MAXINT, FL_MININT,
-                                   INFINITY)
+from pypy.rlib.rarithmetic import formatd, LONG_BIT, INFINITY
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
@@ -79,8 +78,12 @@ def long__Float(space, w_floatobj):
                              space.wrap("cannot convert float infinity to long"))
 def trunc__Float(space, w_floatobj):
     whole = math.modf(w_floatobj.floatval)[1]
-    if FL_MININT < whole < FL_MAXINT:
-        return space.newint(int(whole))
+    try:
+        i = ovfcheck_float_to_int(whole)
+    except OverflowError:
+        pass
+    else:
+        return space.wrap(i)
     try:
         return W_LongObject.fromfloat(w_floatobj.floatval)
     except OverflowError:
