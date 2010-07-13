@@ -9,8 +9,11 @@ class TestWin32Implementation:
 
     def test_stat(self):
         stat = ll_os_stat.win32_stat_llimpl
+        wstat = ll_os_stat.win32_wstat_llimpl
         def check(f):
-            assert stat(f).st_mtime == os.stat(f).st_mtime
+            expected = os.stat(f).st_mtime
+            assert stat(f).st_mtime == expected
+            assert wstat(unicode(f)).st_mtime == expected
 
         check('c:/')
         check('c:/temp')

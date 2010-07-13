@@ -53,3 +53,17 @@ def open(path, flags, mode):
         return os.open(path, flags, mode)
     else:
         return os.open(path.encode(), flags, mode)
+
+@specialize.argtype(0)
+def stat(path):
+    if isinstance(path, str):
+        return os.stat(path)
+    else:
+        return os.stat(path.encode())
+
+@specialize.argtype(0)
+def lstat(path):
+    if isinstance(path, str):
+        return os.lstat(path)
+    else:
+        return os.lstat(path.encode())

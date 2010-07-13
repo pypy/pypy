@@ -183,7 +183,7 @@ file descriptor."""
         return build_stat_result(space, st)
 fstat.unwrap_spec = [ObjSpace, "c_int"]
 
-def stat(space, path):
+def stat(space, w_path):
     """Perform a stat system call on the given path.  Return an object
 with (at least) the following attributes:
     st_mode
@@ -199,22 +199,22 @@ with (at least) the following attributes:
 """
 
     try:
-        st = os.stat(path)
+        st = dispatch_filename(rposix.stat)(space, w_path)
     except OSError, e: 
-        raise wrap_oserror(space, e, path)
+        raise wrap_oserror2(space, e, w_path)
     else: 
         return build_stat_result(space, st)
-stat.unwrap_spec = [ObjSpace, 'path']
+stat.unwrap_spec = [ObjSpace, W_Root]
 
-def lstat(space, path):
+def lstat(space, w_path):
     "Like stat(path), but do no follow symbolic links."
     try:
-        st = os.lstat(path)
+        st = dispatch_filename(rposix.lstat)(space, w_path)
     except OSError, e:
-        raise wrap_oserror(space, e, path)
+        raise wrap_oserror2(space, e, w_path)
     else:
         return build_stat_result(space, st)
-lstat.unwrap_spec = [ObjSpace, 'path']
+lstat.unwrap_spec = [ObjSpace, W_Root]
 
 class StatState(object):
     def __init__(self, space):

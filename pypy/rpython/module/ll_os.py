@@ -1485,17 +1485,27 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.fstat)
     def register_os_fstat(self):
         from pypy.rpython.module import ll_os_stat
-        ll_os_stat.register_stat_variant('fstat')
+        return ll_os_stat.register_stat_variant('fstat')
 
     @registering(os.stat)
     def register_os_stat(self):
         from pypy.rpython.module import ll_os_stat
-        ll_os_stat.register_stat_variant('stat')
+        return ll_os_stat.register_stat_variant('stat')
 
     @registering(os.lstat)
     def register_os_lstat(self):
         from pypy.rpython.module import ll_os_stat
-        ll_os_stat.register_stat_variant('lstat')
+        return ll_os_stat.register_stat_variant('lstat')
+
+    @registering_unicode_version(os.stat, 1, [0], sys.platform=='win32')
+    def register_os_stat_unicode(self):
+        from pypy.rpython.module import ll_os_stat
+        return ll_os_stat.register_stat_variant_unicode('stat')
+
+    @registering_unicode_version(os.lstat, 1, [0], sys.platform=='win32')
+    def register_os_lstat_unicode(self):
+        from pypy.rpython.module import ll_os_stat
+        return ll_os_stat.register_stat_variant_unicode('lstat')
 
     # ------------------------------- os.W* ---------------------------------
 
