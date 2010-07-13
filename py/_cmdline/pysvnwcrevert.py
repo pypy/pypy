@@ -16,11 +16,16 @@ directories possibly missing, but - most importantly - in a state where
 the following 'svn up' won't just crash.
 """
 
-import sys, py
+import sys, os, py
 
 def kill(p, root):
     print('<    %s' % (p.relto(root),))
-    p.remove(rec=1)
+    try:
+        p.remove(rec=1)
+    except py.error.ENOTDIR:
+        if sys.platform != 'win32':
+            raise
+        os.system("rmdir /s/q %s" % (p,))
 
 def svnwcrevert(path, root=None, precious=[]):
     if root is None:
