@@ -434,7 +434,7 @@ def unsetenv(space, name):
 unsetenv.unwrap_spec = [ObjSpace, str]
 
 
-def listdir(space, dirname):
+def listdir(space, w_dirname):
     """Return a list containing the names of the entries in the directory.
 
 \tpath: path of directory to list
@@ -442,12 +442,18 @@ def listdir(space, dirname):
 The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
     try:
-        result = os.listdir(dirname)
+        if space.isinstance_w(w_dirname, space.w_unicode):
+            dirname = FileEncoder(space, w_dirname)
+            result = rposix.listdir(dirname)
+            result_w = [space.wrap(s) for s in result]
+        else:
+            dirname = space.str_w(w_dirname)
+            result = rposix.listdir(dirname)
+            result_w = [space.wrap(s) for s in result]
     except OSError, e:
-        raise wrap_oserror(space, e, dirname)
-    result_w = [space.wrap(s) for s in result]
+        raise wrap_oserror2(space, e, w_dirname)
     return space.newlist(result_w)
-listdir.unwrap_spec = [ObjSpace, str]
+listdir.unwrap_spec = [ObjSpace, W_Root]
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."

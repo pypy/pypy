@@ -1035,10 +1035,10 @@ class RegisterOs(BaseLazyRegistering):
             ERROR_NO_MORE_FILES  = config['ERROR_NO_MORE_FILES']
             LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
 
-            FindFirstFile = self.llexternal('FindFirstFile',
+            FindFirstFile = self.llexternal('FindFirstFileA',
                                             [rwin32.LPCSTR, LPWIN32_FIND_DATA],
                                             rwin32.HANDLE)
-            FindNextFile = self.llexternal('FindNextFile',
+            FindNextFile = self.llexternal('FindNextFileA',
                                            [rwin32.HANDLE, LPWIN32_FIND_DATA],
                                            rwin32.BOOL)
             FindClose = self.llexternal('FindClose',
@@ -1120,6 +1120,73 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str],  # a single argument which is a str
                       [str],  # returns a list of strings
                       "ll_os.ll_os_listdir",
+                      llimpl=os_listdir_llimpl)
+
+    @registering_unicode_version(os.listdir, 1, [0], sys.platform=='win32')
+    def register_os_listdir_unicode(self):
+        from pypy.rlib import rwin32
+        class CConfig:
+            _compilation_info_ = ExternalCompilationInfo(
+                includes = ['windows.h']
+            )
+            WIN32_FIND_DATA = platform.Struct('struct _WIN32_FIND_DATAW',
+                [('cFileName', lltype.FixedSizeArray(rwin32.WCHAR, 250))])
+            ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
+                'ERROR_FILE_NOT_FOUND')
+            ERROR_NO_MORE_FILES = platform.ConstantInteger(
+                'ERROR_NO_MORE_FILES')
+
+        config = platform.configure(CConfig)
+        WIN32_FIND_DATA      = config['WIN32_FIND_DATA']
+        ERROR_FILE_NOT_FOUND = config['ERROR_FILE_NOT_FOUND']
+        ERROR_NO_MORE_FILES  = config['ERROR_NO_MORE_FILES']
+        LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
+
+        FindFirstFile = self.llexternal('FindFirstFileW',
+                                        [rwin32.LPCWSTR, LPWIN32_FIND_DATA],
+                                        rwin32.HANDLE)
+        FindNextFile = self.llexternal('FindNextFileW',
+                                       [rwin32.HANDLE, LPWIN32_FIND_DATA],
+                                       rwin32.BOOL)
+        FindClose = self.llexternal('FindClose',
+                                    [rwin32.HANDLE],
+                                    rwin32.BOOL)
+
+        def os_listdir_llimpl(path):
+            if path and path[-1] not in (u'/', u'\\', u':'):
+                path += u'/'
+            path += u'*.*'
+            filedata = lltype.malloc(WIN32_FIND_DATA, flavor='raw')
+            try:
+                result = []
+                hFindFile = FindFirstFile(path, filedata)
+                if hFindFile == rwin32.INVALID_HANDLE_VALUE:
+                    error = rwin32.GetLastError()
+                    if error == ERROR_FILE_NOT_FOUND:
+                        return result
+                    else:
+                        raise WindowsError(error,  "FindFirstFile failed")
+                while True:
+                    name = rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP,
+                                                         filedata.c_cFileName))
+                    if name != u"." and name != u"..":   # skip these
+                        result.append(name)
+                    if not FindNextFile(hFindFile, filedata):
+                        break
+                # FindNextFile sets error to ERROR_NO_MORE_FILES if
+                # it got to the end of the directory
+                error = rwin32.GetLastError()
+                FindClose(hFindFile)
+                if error == ERROR_NO_MORE_FILES:
+                    return result
+                else:
+                    raise WindowsError(error,  "FindNextFile failed")
+            finally:
+                lltype.free(filedata, flavor='raw')
+
+        return extdef([unicode],  # a single argument which is a unicode
+                      [unicode],  # returns a list of unicodes
+                      "ll_os.ll_os_wlistdir",
                       llimpl=os_listdir_llimpl)
 
     @registering(os.pipe)

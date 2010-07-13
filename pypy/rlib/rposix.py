@@ -74,3 +74,10 @@ def unlink(path):
         return os.unlink(path)
     else:
         return os.unlink(path.encode())
+
+@specialize.argtype(0)
+def listdir(dirname):
+    if isinstance(dirname, str):
+        return os.listdir(dirname)
+    else:
+        return os.listdir(dirname.encode())
