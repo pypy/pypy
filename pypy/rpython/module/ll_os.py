@@ -37,7 +37,7 @@ def registering_unicode_version(func, nbargs, argnums, condition=True):
     @argnums is the list of positions of unicode strings
     """
     if not condition:
-        registering(None, condition=False)
+        return registering(None, condition=False)
 
     def unicodefunc(*args):
         return func(*args)
