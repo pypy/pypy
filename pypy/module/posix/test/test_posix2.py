@@ -33,7 +33,7 @@ def setup_module(mod):
     os.stat_float_times(True)
 
     # Initialize sys.filesystemencoding
-    space.call_function(space.sys.get('getfilesystemencoding'))
+    space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
 def need_sparse_files():
     if sys.platform == 'darwin':
