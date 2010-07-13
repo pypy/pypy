@@ -56,7 +56,7 @@ class Darwin(posix.BasePosix):
         include_dirs = self._includedirs(eci.include_dirs)
         return (args + frameworks + include_dirs)
 
-    def _exportsymbols_link_flags(self, eci):
+    def _exportsymbols_link_flags(self, eci, relto=None):
         if not eci.export_symbols:
             return []
 
@@ -65,6 +65,9 @@ class Darwin(posix.BasePosix):
         for sym in eci.export_symbols:
             f.write("_%s\n" % (sym,))
         f.close()
+
+        if relto:
+            response_file = relto.bestrelpath(response_file)
         return ["-Wl,-exported_symbols_list,%s" % (response_file,)]
 
 class Darwin_i386(Darwin):
