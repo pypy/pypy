@@ -6,6 +6,7 @@ Low-level implementations for the external functions of the 'os' module.
 # might be found in doc/rffi.txt
 
 import os, sys, errno
+import py
 from pypy.rpython.module.support import ll_strcpy, OOSupport
 from pypy.tool.sourcetools import func_with_new_name, func_renamer
 from pypy.rlib.rarithmetic import r_longlong
@@ -27,38 +28,49 @@ from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib.unroll import unrolling_iterable
 
 def registering_unicode_version(func, nbargs, argnums, condition=True):
     """
     Registers an implementation of func() which directly accepts unicode
     strings.  Replaces the corresponding function in pypy.rlib.rposix.
+    @nbargs is the arity of the function
+    @argnums is the list of positions of unicode strings
     """
+    if not condition:
+        registering(None, condition=False)
+
     def unicodefunc(*args):
         return func(*args)
 
     argnum = argnums[0]
-    unrolling_args = unrolling_iterable(enumerate([i in argnums
-                                                   for i in range(nbargs)]))
+
+    arglist = ['arg%d' % (i,) for i in range(nbargs)]
+    transformed_arglist = arglist[:]
+    for i in argnums:
+        transformed_arglist[i] = transformed_arglist[i] + '.gettext()'
+
+    args = ', '.join(arglist)
+    transformed_args = ', '.join(transformed_arglist)
+    main_arg = 'arg%d' % (argnum,)
 
     func_name = func.__name__
-    rposix_func = getattr(rposix, func_name)
-
-    @specialize.argtype(*argnums)
-    @func_renamer(func.__name__)
-    def new_func(*args):
-        if isinstance(args[argnum], str):
-            return func(*args)
+    source = py.code.Source("""
+    def %(func_name)s(%(args)s):
+        if isinstance(%(main_arg)s, str):
+            return func(%(args)s)
         else:
-            real_args = ()
-            for i, isunicode in unrolling_args:
-                if isunicode:
-                    real_args += (args[i].gettext(),)
-                else:
-                    real_args += (args[i],)
-            return unicodefunc(*real_args)
-    if condition:
-        setattr(rposix, func_name, new_func)
+            return unicodefunc(%(transformed_args)s)
+    """ % locals())
+    miniglobals = {'func'       : func,
+                   'unicodefunc': unicodefunc,
+                   '__name__':    __name__, # for module name propagation
+                   }
+    exec source.compile() in miniglobals
+    new_func = miniglobals[func_name]
+    new_func = specialize.argtype(*argnums)(new_func)
+
+    # Monkeypatch the function in pypy.rlib.rposix
+    setattr(rposix, func_name, new_func)
 
     return registering(unicodefunc, condition=condition)
 
