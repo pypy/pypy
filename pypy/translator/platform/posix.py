@@ -39,7 +39,7 @@ class BasePosix(Platform):
     def _link_args_from_eci(self, eci, standalone):
         return Platform._link_args_from_eci(self, eci, standalone)
 
-    def _exportsymbols_link_flags(self, eci):
+    def _exportsymbols_link_flags(self, eci, relto=None):
         if not eci.export_symbols:
             return []
 
@@ -50,6 +50,9 @@ class BasePosix(Platform):
             f.write("%s;\n" % (sym,))
         f.write("};")
         f.close()
+
+        if relto:
+            response_file = relto.bestrelpath(response_file)
         return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
@@ -90,7 +93,7 @@ class BasePosix(Platform):
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
-        linkflags += self._exportsymbols_link_flags(eci)
+        linkflags += self._exportsymbols_link_flags(eci, relto=path)
 
         if shared:
             libname = exe_name.new(ext='').basename

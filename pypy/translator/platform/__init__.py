@@ -161,7 +161,7 @@ class Platform(object):
         return (library_dirs + self.link_flags + export_flags +
                 link_files + list(eci.link_extra) + libraries)
 
-    def _exportsymbols_link_flags(self, eci):
+    def _exportsymbols_link_flags(self, eci, relto=None):
         if eci.export_symbols:
             raise ValueError("This platform does not support export symbols")
         return []
