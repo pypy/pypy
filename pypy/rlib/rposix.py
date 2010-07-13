@@ -67,3 +67,10 @@ def lstat(path):
         return os.lstat(path)
     else:
         return os.lstat(path.encode())
+
+@specialize.argtype(0)
+def unlink(path):
+    if isinstance(path, str):
+        return os.unlink(path)
+    else:
+        return os.unlink(path.encode())

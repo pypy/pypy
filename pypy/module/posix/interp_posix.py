@@ -302,21 +302,21 @@ def system(space, cmd):
         return space.wrap(rc)
 system.unwrap_spec = [ObjSpace, str]
 
-def unlink(space, path):
+def unlink(space, w_path):
     """Remove a file (same as remove(path))."""
     try:
-        os.unlink(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-unlink.unwrap_spec = [ObjSpace, 'path']
+        dispatch_filename(rposix.unlink)(space, w_path)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+unlink.unwrap_spec = [ObjSpace, W_Root]
 
-def remove(space, path):
+def remove(space, w_path):
     """Remove a file (same as unlink(path))."""
     try:
-        os.unlink(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-remove.unwrap_spec = [ObjSpace, 'path']
+        dispatch_filename(rposix.unlink)(space, w_path)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+remove.unwrap_spec = [ObjSpace, W_Root]
 
 def _getfullpathname(space, path):
     """helper for ntpath.abspath """

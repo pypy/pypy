@@ -7,10 +7,10 @@ def ll_to_string(s):
     return ''.join(s.chars)
 
 class TestPosixUnicode:
-    def setup_class(cls):
-        cls.ufilename = (unicode(udir.join('test_open')) +
-                     u'\u65e5\u672c.txt') # "Japan"
-        f = file(cls.ufilename, 'w')
+    def setup_method(self, method):
+        self.ufilename = (unicode(udir.join('test_open')) +
+                          u'\u65e5\u672c.txt') # "Japan"
+        f = file(self.ufilename, 'w')
         f.write("test")
         f.close()
 
@@ -26,7 +26,7 @@ class TestPosixUnicode:
             def gettext(self):
                 return self.unistr
 
-        cls.path = UnicodeWithEncoding(cls.ufilename)
+        self.path = UnicodeWithEncoding(self.ufilename)
 
     def test_access(self):
         def f():
@@ -47,3 +47,10 @@ class TestPosixUnicode:
             return rposix.stat(self.path).st_mtime
 
         assert interpret(f, []) == os.stat(self.ufilename).st_mtime
+
+    def test_unlink(self):
+        def f():
+            return rposix.unlink(self.path)
+
+        interpret(f, [])
+        assert not os.path.exists(self.ufilename)

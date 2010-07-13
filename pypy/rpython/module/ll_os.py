@@ -1306,6 +1306,18 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str], s_None, llimpl=unlink_llimpl,
                       export_name="ll_os.ll_os_unlink")
 
+    @registering_unicode_version(os.unlink, 1, [0], sys.platform=='win32')
+    def register_os_unlink_unicode(self):
+        os_wunlink = self.llexternal(underscore_on_windows+'wunlink', [rffi.CWCHARP], rffi.INT)
+
+        def wunlink_llimpl(pathname):
+            res = rffi.cast(lltype.Signed, os_wunlink(pathname))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_unlink failed")
+
+        return extdef([unicode], s_None, llimpl=wunlink_llimpl,
+                      export_name="ll_os.ll_os_wunlink")
+
     @registering(os.chdir)
     def register_os_chdir(self):
         os_chdir = self.llexternal(underscore_on_windows+'chdir', [rffi.CCHARP], rffi.INT)
