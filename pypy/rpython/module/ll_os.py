@@ -1412,6 +1412,18 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str], s_None, llimpl=chdir_llimpl,
                       export_name="ll_os.ll_os_chdir")
 
+    @registering_unicode_version(os.chdir, 1, [0], sys.platform=='win32')
+    def register_os_chdir(self):
+        os_wchdir = self.llexternal(underscore_on_windows+'wchdir', [rffi.CWCHARP], rffi.INT)
+
+        def chdir_llimpl(path):
+            res = rffi.cast(lltype.Signed, os_wchdir(path))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_chdir failed")
+
+        return extdef([unicode], s_None, llimpl=chdir_llimpl,
+                      export_name="ll_os.ll_os_wchdir")
+
     @registering(os.mkdir)
     def register_os_mkdir(self):
         if os.name == 'nt':

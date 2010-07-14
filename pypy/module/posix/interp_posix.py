@@ -345,13 +345,13 @@ def getcwdu(space):
     return space.call_method(getcwd(space), 'decode')
 getcwdu.unwrap_spec = [ObjSpace]
 
-def chdir(space, path):
+def chdir(space, w_path):
     """Change the current working directory to the specified path."""
     try:
-        os.chdir(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-chdir.unwrap_spec = [ObjSpace, str]
+        dispatch_filename(rposix.chdir)(space, wpath)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+chdir.unwrap_spec = [ObjSpace, W_Root]
 
 def mkdir(space, path, mode=0777):
     """Create a directory."""

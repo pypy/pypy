@@ -68,3 +68,17 @@ class TestPosixUnicode:
 
         result = interpret(f, [])
         assert os.path.basename(self.ufilename) in ll_to_string(result)
+
+    def test_chdir(self):
+        os.unlink(self.ufilename)
+        os.mkdir(self.ufilename)
+
+        def f():
+            rposix.chdir(self.path)
+
+        curdir = os.getcwd()
+        try:
+            interpret(f, [])
+            assert os.getcwdu() == self.ufilename
+        finally:
+            os.chdir(curdir)
