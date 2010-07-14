@@ -968,7 +968,6 @@ class RegisterOs(BaseLazyRegistering):
         # to get a correct implementation of os.abspath
         # XXX why do we ignore WINAPI conventions everywhere?
         LPSTRP = rffi.CArrayPtr(rwin32.LPSTR)
-        # XXX unicode?
         GetFullPathName = self.llexternal(
             'GetFullPathNameA',
             [rwin32.LPCSTR,
@@ -994,6 +993,41 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str],  # a single argument which is a str
                       str,    # returns a string
                       "ll_os.posix__getfullpathname",
+                      llimpl=_getfullpathname_llimpl)
+
+    @registering_unicode_version(getattr(posix, '_getfullpathname', None),
+                                 1, [0], sys.platform=='win32')
+    def register_posix__getfullpathname_unicode(self):
+        from pypy.rlib import rwin32
+        # this nt function is not exposed via os, but needed
+        # to get a correct implementation of os.abspath
+        # XXX why do we ignore WINAPI conventions everywhere?
+        LPWSTRP = rffi.CArrayPtr(rwin32.LPWSTR)
+        GetFullPathName = self.llexternal(
+            'GetFullPathNameW',
+            [rwin32.LPCWSTR,
+             rwin32.DWORD,
+             rwin32.LPSTR,
+             rffi.CArrayPtr(rwin32.LPWSTR)],
+            rwin32.DWORD)
+
+        def _getfullpathname_llimpl(lpFileName):
+            nBufferLength = rwin32.MAX_PATH + 1
+            lpBuffer = lltype.malloc(rwin32.LPWSTR.TO, nBufferLength, flavor='raw')
+            try:
+                res = GetFullPathName(
+                    lpFileName, rffi.cast(rwin32.DWORD, nBufferLength),
+                    lpBuffer, lltype.nullptr(LPWSTRP.TO))
+                if res == 0:
+                    raise rwin32.lastWindowsError("_getfullpathname failed")
+                result = rffi.wcharp2unicode(lpBuffer)
+                return result
+            finally:
+                lltype.free(lpBuffer, flavor='raw')
+
+        return extdef([unicode],  # a single argument which is a str
+                      unicode,    # returns a string
+                      "ll_os.posix__wgetfullpathname",
                       llimpl=_getfullpathname_llimpl)
 
     @registering(os.getcwd)

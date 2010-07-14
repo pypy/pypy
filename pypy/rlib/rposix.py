@@ -109,3 +109,11 @@ def rmdir(path):
         return os.rmdir(path)
     else:
         return os.rmdir(path.encode())
+
+if os.name == 'nt':
+    import nt
+    def _getfullpathname(path):
+        if isinstance(path, str):
+            return nt._getfullpathname(path)
+        else:
+            return nt._getfullpathname(path.encode())

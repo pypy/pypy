@@ -39,6 +39,7 @@ class CConfig:
         LPCVOID = rffi_platform.SimpleType("LPCVOID", rffi.VOIDP)
         LPSTR = rffi_platform.SimpleType("LPSTR", rffi.CCHARP)
         LPCSTR = rffi_platform.SimpleType("LPCSTR", rffi.CCHARP)
+        LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.INTP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)

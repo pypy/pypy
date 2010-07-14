@@ -320,14 +320,13 @@ remove.unwrap_spec = [ObjSpace, W_Root]
 
 def _getfullpathname(space, path):
     """helper for ntpath.abspath """
-    posix = __import__(os.name) # nt specific
     try:
-        fullpath = posix._getfullpathname(path)
+        dispatch_filename(rposix._getfullpathname)(space, w_path)
     except OSError, e:
-        raise wrap_oserror(space, e, path)
-    else: 
+        raise wrap_oserror2(space, e, w_path)
+    else:
         return space.wrap(fullpath)
-_getfullpathname.unwrap_spec = [ObjSpace, str]
+_getfullpathname.unwrap_spec = [ObjSpace, W_Root]
 
 def getcwd(space):
     """Return the current working directory."""
