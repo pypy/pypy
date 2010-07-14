@@ -92,6 +92,6 @@ def access(path, mode):
 @specialize.argtype(0)
 def chdir(path):
     if isinstance(path, str):
-        return os.access(path)
+        return os.chdir(path)
     else:
-        return os.access(path.encode())
+        return os.chdir(path.encode())

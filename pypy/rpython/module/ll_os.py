@@ -1413,7 +1413,7 @@ class RegisterOs(BaseLazyRegistering):
                       export_name="ll_os.ll_os_chdir")
 
     @registering_unicode_version(os.chdir, 1, [0], sys.platform=='win32')
-    def register_os_chdir(self):
+    def register_os_chdir_unicode(self):
         os_wchdir = self.llexternal(underscore_on_windows+'wchdir', [rffi.CWCHARP], rffi.INT)
 
         def chdir_llimpl(path):
