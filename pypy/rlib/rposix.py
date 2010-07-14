@@ -81,3 +81,10 @@ def listdir(dirname):
         return os.listdir(dirname)
     else:
         return os.listdir(dirname.encode())
+
+@specialize.argtype(0)
+def access(path, mode):
+    if isinstance(path, str):
+        return os.access(path, mode)
+    else:
+        return os.access(path.encode(), mode)

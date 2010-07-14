@@ -255,7 +255,7 @@ def dup2(space, old_fd, new_fd):
         raise wrap_oserror(space, e) 
 dup2.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
-def access(space, path, mode):
+def access(space, w_path, mode):
     """
     access(path, mode) -> 1 if granted, 0 otherwise
 
@@ -266,12 +266,12 @@ def access(space, path, mode):
     existence, or the inclusive-OR of R_OK, W_OK, and X_OK.
     """
     try:
-        ok = os.access(path, mode)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
+        ok = dispatch_filename(rposix.access)(space, w_path, mode)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
     else:
         return space.wrap(ok)
-access.unwrap_spec = [ObjSpace, str, "c_int"]
+access.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
 
 def times(space):

@@ -946,6 +946,21 @@ class RegisterOs(BaseLazyRegistering):
                       export_name="ll_os.ll_os_access",
                       oofakeimpl=os_access_oofakeimpl)
 
+    @registering_unicode_version(os.access, 2, [0], sys.platform=='win32')
+    def register_os_access_unicode(self):
+        os_waccess = self.llexternal(underscore_on_windows + 'waccess',
+                                    [rffi.CWCHARP, rffi.INT],
+                                    rffi.INT)
+
+        def access_llimpl(path, mode):
+            # All files are executable on Windows
+            mode = mode & ~os.X_OK
+            error = rffi.cast(lltype.Signed, os_waccess(path, mode))
+            return error == 0
+
+        return extdef([unicode, int], s_Bool, llimpl=access_llimpl,
+                      export_name="ll_os.ll_os_waccess")
+
     @registering_if(posix, '_getfullpathname')
     def register_posix__getfullpathname(self):
         from pypy.rlib import rwin32

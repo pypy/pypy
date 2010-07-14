@@ -28,7 +28,7 @@ class TestPosixUnicode:
 
         self.path = UnicodeWithEncoding(self.ufilename)
 
-    def test_access(self):
+    def test_open(self):
         def f():
             try:
                 fd = rposix.open(self.path, os.O_RDONLY, 0777)
@@ -47,6 +47,12 @@ class TestPosixUnicode:
             return rposix.stat(self.path).st_mtime
 
         assert interpret(f, []) == os.stat(self.ufilename).st_mtime
+
+    def test_access(self):
+        def f():
+            return rposix.access(self.path, os.R_OK)
+
+        assert interpret(f, []) == 1
 
     def test_unlink(self):
         def f():
