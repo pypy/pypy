@@ -1,8 +1,12 @@
-(require 'generic-x) ;; we need this
+(provide 'pypytrace-mode)
+(eval-when-compile
+  (require 'generic-x)
+  (require 'hi-lock)
+  (require 'compile)
+  (require 'cus-edit))
 
 (defun set-truncate-lines ()
   (setq truncate-lines t))
-
 
 (define-generic-mode 
   'pypytrace-mode                   ;; name of the mode to create
@@ -12,7 +16,8 @@
     ("^# Loop.*" . 'hi-blue)
     ("\\[.*\\]" . 'font-lock-comment-face) ;; comment out argument lists
     ("guard_[a-z_]*" . 'widget-button-pressed)
-    ("[ip][0-9][0-9]*" . 'font-lock-variable-name-face)
+    ("\\(ptr\\|p\\)[0-9][0-9]*" . 'font-lock-variable-name-face)
+    ("i[0-9][0-9]*" . 'custom-button-pressed-unraised)
     ;; comment out debug_merge_point, but then highlight specific part of it
     ("^debug_merge_point.*" . font-lock-comment-face)
     ("^\\(debug_merge_point\\).*code object\\(.*\\), file \\('.*'\\), \\(line .*\\)> \\(.*\\)')"
@@ -26,6 +31,6 @@
   "A mode for pypy traces files")
 
 ;; debug helpers
-;; (switch-to-buffer-other-window "strslice.log")
+;; (switch-to-buffer-other-window "strslice.trace")
 ;; (pypytrace-mode)
 
