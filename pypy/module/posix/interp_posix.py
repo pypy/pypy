@@ -353,21 +353,21 @@ def chdir(space, w_path):
         raise wrap_oserror2(space, e, w_path)
 chdir.unwrap_spec = [ObjSpace, W_Root]
 
-def mkdir(space, path, mode=0777):
+def mkdir(space, w_path, mode=0777):
     """Create a directory."""
     try:
-        os.mkdir(path, mode)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-mkdir.unwrap_spec = [ObjSpace, str, "c_int"]
+        dispatch_filename(rposix.mkdir)(space, w_path, mode)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+mkdir.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
-def rmdir(space, path):
+def rmdir(space, w_path):
     """Remove a directory."""
     try:
-        os.rmdir(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-rmdir.unwrap_spec = [ObjSpace, str]
+        dispatch_filename(rposix.rmdir)(space, w_path)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+rmdir.unwrap_spec = [ObjSpace, W_Root]
 
 def strerror(space, errno):
     """Translate an error code to a message string."""

@@ -95,3 +95,17 @@ def chdir(path):
         return os.chdir(path)
     else:
         return os.chdir(path.encode())
+
+@specialize.argtype(0)
+def mkdir(path, mode=0777):
+    if isinstance(path, str):
+        return os.mkdir(path, mode)
+    else:
+        return os.mkdir(path.encode(), mode)
+
+@specialize.argtype(0)
+def rmdir(path):
+    if isinstance(path, str):
+        return os.rmdir(path)
+    else:
+        return os.rmdir(path.encode())

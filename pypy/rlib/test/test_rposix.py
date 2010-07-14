@@ -71,9 +71,9 @@ class TestPosixUnicode:
 
     def test_chdir(self):
         os.unlink(self.ufilename)
-        os.mkdir(self.ufilename)
 
         def f():
+            rposix.mkdir(self.path, 0777)
             rposix.chdir(self.path)
 
         curdir = os.getcwd()
@@ -82,3 +82,14 @@ class TestPosixUnicode:
             assert os.getcwdu() == self.ufilename
         finally:
             os.chdir(curdir)
+
+        def g():
+            rposix.rmdir(self.path)
+
+        try:
+            interpret(g, [])
+        finally:
+            try:
+                os.rmdir(self.ufilename)
+            except Exception:
+                pass

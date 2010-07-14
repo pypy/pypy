@@ -1446,6 +1446,28 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, int], s_None, llimpl=mkdir_llimpl,
                       export_name="ll_os.ll_os_mkdir")
 
+    @registering_unicode_version(os.mkdir, 2, [0], sys.platform=='win32')
+    def register_os_mkdir_unicode(self):
+        if os.name == 'nt':
+            ARG2 = []         # no 'mode' argument on Windows - just ignored
+        else:
+            ARG2 = [rffi.MODE_T]
+        os_wmkdir = self.llexternal(underscore_on_windows+'wmkdir',
+                                    [rffi.CWCHARP]+ARG2, rffi.INT)
+        IGNORE_MODE = len(ARG2) == 0
+
+        def mkdir_llimpl(pathname, mode):
+            if IGNORE_MODE:
+                res = os_wmkdir(pathname)
+            else:
+                res = os_wmkdir(pathname, mode)
+            res = rffi.cast(lltype.Signed, res)
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_mkdir failed")
+
+        return extdef([unicode, int], s_None, llimpl=mkdir_llimpl,
+                      export_name="ll_os.ll_os_wmkdir")
+
     @registering(os.rmdir)
     def register_os_rmdir(self):
         os_rmdir = self.llexternal(underscore_on_windows+'rmdir', [rffi.CCHARP], rffi.INT)
@@ -1457,6 +1479,18 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([str], s_None, llimpl=rmdir_llimpl,
                       export_name="ll_os.ll_os_rmdir")
+
+    @registering_unicode_version(os.rmdir, 1, [0], sys.platform=='win32')
+    def register_os_rmdir_unicode(self):
+        os_wrmdir = self.llexternal(underscore_on_windows+'wrmdir', [rffi.CWCHARP], rffi.INT)
+
+        def rmdir_llimpl(pathname):
+            res = rffi.cast(lltype.Signed, os_wrmdir(pathname))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_rmdir failed")
+
+        return extdef([unicode], s_None, llimpl=rmdir_llimpl,
+                      export_name="ll_os.ll_os_wrmdir")
 
     @registering(os.chmod)
     def register_os_chmod(self):
