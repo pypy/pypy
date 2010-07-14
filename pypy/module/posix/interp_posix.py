@@ -348,7 +348,7 @@ getcwdu.unwrap_spec = [ObjSpace]
 def chdir(space, w_path):
     """Change the current working directory to the specified path."""
     try:
-        dispatch_filename(rposix.chdir)(space, wpath)
+        dispatch_filename(rposix.chdir)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
 chdir.unwrap_spec = [ObjSpace, W_Root]
