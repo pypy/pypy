@@ -40,7 +40,7 @@ class FileDecoder:
         return space.unicode_w(w_unicode)
 
 @specialize.memo()
-def dispatch_filename(func):
+def dispatch_filename(func, tag=0):
     def dispatch(space, w_fname, *args):
         if space.isinstance_w(w_fname, space.w_unicode):
             fname = FileEncoder(space, w_fname)
@@ -668,7 +668,7 @@ second form is used, set the access and modified times to the current time.
     """
     if space.is_w(w_tuple, space.w_None):
         try:
-            dispatch_filename(rposix.utime)(space, w_path, None)
+            dispatch_filename(rposix.utime, 1)(space, w_path, None)
             return
         except OSError, e:
             raise wrap_oserror2(space, e, w_path)
@@ -679,7 +679,7 @@ second form is used, set the access and modified times to the current time.
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0])
         modtime = space.float_w(args_w[1])
-        dispatch_filename(rposix.utime)(space, w_path, (actime, modtime))
+        dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     except OperationError, e:

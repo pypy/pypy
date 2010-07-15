@@ -103,7 +103,7 @@ def chmod(path, mode):
     else:
         return os.chmod(path.as_bytes(), mode)
 
-@specialize.argtype(0)
+@specialize.argtype(0, 1)
 def utime(path, times):
     if isinstance(path, str):
         return os.utime(path, times)

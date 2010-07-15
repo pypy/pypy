@@ -30,47 +30,48 @@ from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 
-def registering_unicode_version(func, nbargs, argnums, condition=True):
+def registering_unicode_version(posixfunc, signature, condition=True):
     """
-    Registers an implementation of func() which directly accepts unicode
+    Registers an implementation of posixfunc() which directly accepts unicode
     strings.  Replaces the corresponding function in pypy.rlib.rposix.
-    @nbargs is the arity of the function
-    @argnums is the list of positions of unicode strings
+    @signature: A list of types. 'unicode' will trigger encoding when needed,
+               'None' will use specialize.argtype.
     """
     if not condition:
         return registering(None, condition=False)
 
-    func_name = func.__name__
+    func_name = posixfunc.__name__
 
     @func_renamer(func_name + "_unicode")
     def unicodefunc(*args):
         return func(*args)
 
-    argnum = argnums[0]
-
-    arglist = ['arg%d' % (i,) for i in range(nbargs)]
+    arglist = ['arg%d' % (i,) for i in range(len(signature))]
     transformed_arglist = arglist[:]
-    for i in argnums:
-        transformed_arglist[i] = transformed_arglist[i] + '.as_unicode()'
+    for i, arg in enumerate(signature):
+        if arg is unicode:
+            transformed_arglist[i] = transformed_arglist[i] + '.as_unicode()'
 
     args = ', '.join(arglist)
     transformed_args = ', '.join(transformed_arglist)
-    main_arg = 'arg%d' % (argnum,)
+    main_arg = 'arg%d' % (signature.index(unicode),)
 
     source = py.code.Source("""
     def %(func_name)s(%(args)s):
         if isinstance(%(main_arg)s, str):
-            return func(%(args)s)
+            return posixfunc(%(args)s)
         else:
             return unicodefunc(%(transformed_args)s)
     """ % locals())
-    miniglobals = {'func'       : func,
+    miniglobals = {'posixfunc'  : posixfunc,
                    'unicodefunc': unicodefunc,
                    '__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
     new_func = miniglobals[func_name]
-    new_func = specialize.argtype(*argnums)(new_func)
+    specialized_args = [i for i in range(len(signature))
+                        if signature[i] in (unicode, None)]
+    new_func = specialize.argtype(*specialized_args)(new_func)
 
     # Monkeypatch the function in pypy.rlib.rposix
     setattr(rposix, func_name, new_func)
@@ -500,7 +501,7 @@ class RegisterOs(BaseLazyRegistering):
                       llimpl=os_utime_llimpl)
 
     # XXX LOT OF DUPLICATED CODE!
-    @registering_unicode_version(os.utime, 2, [0], sys.platform=='win32')
+    @registering_unicode_version(os.utime, [unicode, None], sys.platform=='win32')
     def register_os_utime_unicode(self):
         from pypy.rlib import rwin32
         from pypy.rpython.module.ll_os_stat import time_t_to_FILE_TIME
@@ -860,7 +861,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, int, int], int, "ll_os.ll_os_open",
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
 
-    @registering_unicode_version(os.open, 3, [0], sys.platform=='win32')
+    @registering_unicode_version(os.open, [unicode, int, int], sys.platform=='win32')
     def register_os_open_unicode(self):
         os_wopen = self.llexternal(underscore_on_windows+'wopen',
                                   [rffi.CWCHARP, rffi.INT, rffi.MODE_T],
@@ -1055,7 +1056,7 @@ class RegisterOs(BaseLazyRegistering):
                       export_name="ll_os.ll_os_access",
                       oofakeimpl=os_access_oofakeimpl)
 
-    @registering_unicode_version(os.access, 2, [0], sys.platform=='win32')
+    @registering_unicode_version(os.access, [unicode, int], sys.platform=='win32')
     def register_os_access_unicode(self):
         os_waccess = self.llexternal(underscore_on_windows + 'waccess',
                                     [rffi.CWCHARP, rffi.INT],
@@ -1105,7 +1106,7 @@ class RegisterOs(BaseLazyRegistering):
                       llimpl=_getfullpathname_llimpl)
 
     @registering_unicode_version(getattr(posix, '_getfullpathname', None),
-                                 1, [0], sys.platform=='win32')
+                                 [unicode], sys.platform=='win32')
     def register_posix__getfullpathname_unicode(self):
         from pypy.rlib import rwin32
         # this nt function is not exposed via os, but needed
@@ -1308,7 +1309,7 @@ class RegisterOs(BaseLazyRegistering):
                       "ll_os.ll_os_listdir",
                       llimpl=os_listdir_llimpl)
 
-    @registering_unicode_version(os.listdir, 1, [0], sys.platform=='win32')
+    @registering_unicode_version(os.listdir, [unicode], sys.platform=='win32')
     def register_os_listdir_unicode(self):
         from pypy.rlib import rwin32
         class CConfig:
@@ -1559,7 +1560,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str], s_None, llimpl=unlink_llimpl,
                       export_name="ll_os.ll_os_unlink")
 
-    @registering_unicode_version(os.unlink, 1, [0], sys.platform=='win32')
+    @registering_unicode_version(os.unlink, [unicode], sys.platform=='win32')
     def register_os_unlink_unicode(self):
         os_wunlink = self.llexternal(underscore_on_windows+'wunlink', [rffi.CWCHARP], rffi.INT)
 
@@ -1583,7 +1584,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str], s_None, llimpl=chdir_llimpl,
                       export_name="ll_os.ll_os_chdir")
 
-    @registering_unicode_version(os.chdir, 1, [0], sys.platform=='win32')
+    @registering_unicode_version(os.chdir, [unicode], sys.platform=='win32')
     def register_os_chdir_unicode(self):
         os_wchdir = self.llexternal(underscore_on_windows+'wchdir', [rffi.CWCHARP], rffi.INT)
 
@@ -1617,7 +1618,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, int], s_None, llimpl=mkdir_llimpl,
                       export_name="ll_os.ll_os_mkdir")
 
-    @registering_unicode_version(os.mkdir, 2, [0], sys.platform=='win32')
+    @registering_unicode_version(os.mkdir, [unicode, int], sys.platform=='win32')
     def register_os_mkdir_unicode(self):
         if os.name == 'nt':
             ARG2 = []         # no 'mode' argument on Windows - just ignored
@@ -1651,7 +1652,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str], s_None, llimpl=rmdir_llimpl,
                       export_name="ll_os.ll_os_rmdir")
 
-    @registering_unicode_version(os.rmdir, 1, [0], sys.platform=='win32')
+    @registering_unicode_version(os.rmdir, [unicode], sys.platform=='win32')
     def register_os_rmdir_unicode(self):
         os_wrmdir = self.llexternal(underscore_on_windows+'wrmdir', [rffi.CWCHARP], rffi.INT)
 
@@ -1676,7 +1677,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, int], s_None, llimpl=chmod_llimpl,
                       export_name="ll_os.ll_os_chmod")
 
-    @registering_unicode_version(os.chmod, 2, [0], sys.platform=='win32')
+    @registering_unicode_version(os.chmod, [unicode, int], sys.platform=='win32')
     def register_os_chmod_unicode(self):
         os_wchmod = self.llexternal(underscore_on_windows+'wchmod', [rffi.CWCHARP, rffi.MODE_T],
                                     rffi.INT)
@@ -1702,7 +1703,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, str], s_None, llimpl=rename_llimpl,
                       export_name="ll_os.ll_os_rename")
 
-    @registering_unicode_version(os.rename, 2, [0, 1], sys.platform=='win32')
+    @registering_unicode_version(os.rename, [unicode, unicode], sys.platform=='win32')
     def register_os_rename_unicode(self):
         os_wrename = self.llexternal(underscore_on_windows+'wrename',
                                      [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
@@ -1834,12 +1835,12 @@ class RegisterOs(BaseLazyRegistering):
         from pypy.rpython.module import ll_os_stat
         return ll_os_stat.register_stat_variant('lstat')
 
-    @registering_unicode_version(os.stat, 1, [0], sys.platform=='win32')
+    @registering_unicode_version(os.stat, [unicode], sys.platform=='win32')
     def register_os_stat_unicode(self):
         from pypy.rpython.module import ll_os_stat
         return ll_os_stat.register_stat_variant_unicode('stat')
 
-    @registering_unicode_version(os.lstat, 1, [0], sys.platform=='win32')
+    @registering_unicode_version(os.lstat, [unicode], sys.platform=='win32')
     def register_os_lstat_unicode(self):
         from pypy.rpython.module import ll_os_stat
         return ll_os_stat.register_stat_variant_unicode('lstat')
