@@ -10,10 +10,16 @@ class UnicodeWithEncoding:
     def __init__(self, unistr):
         self.unistr = unistr
 
-    def encode(self):
-        from pypy.rlib.runicode import unicode_encode_utf_8
-        return unicode_encode_utf_8(self.unistr, len(self.unistr),
-                                    "strict")
+    if sys.platform == 'win32':
+        def encode(self):
+            from pypy.rlib.runicode import unicode_encode_mbcs
+            return unicode_encode_mbcs(self.unistr, len(self.unistr),
+                                       "strict")
+    else:
+        def encode(self):
+            from pypy.rlib.runicode import unicode_encode_utf_8
+            return unicode_encode_utf_8(self.unistr, len(self.unistr),
+                                        "strict")
 
     def gettext(self):
         return self.unistr
@@ -53,6 +59,12 @@ class TestPosixUnicode:
             return rposix.access(self.path, os.R_OK)
 
         assert interpret(f, []) == 1
+
+    def test_chmod(self):
+        def f():
+            return rposix.chmod(self.path, 0777)
+
+        interpret(f, []) # does not crash
 
     def test_unlink(self):
         def f():

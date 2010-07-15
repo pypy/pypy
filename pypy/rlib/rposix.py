@@ -90,6 +90,13 @@ def access(path, mode):
         return os.access(path.encode(), mode)
 
 @specialize.argtype(0)
+def chmod(path, mode):
+    if isinstance(path, str):
+        return os.chmod(path, mode)
+    else:
+        return os.chmod(path.encode(), mode)
+
+@specialize.argtype(0)
 def chdir(path):
     if isinstance(path, str):
         return os.chdir(path)

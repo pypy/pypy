@@ -1567,6 +1567,19 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, int], s_None, llimpl=chmod_llimpl,
                       export_name="ll_os.ll_os_chmod")
 
+    @registering_unicode_version(os.chmod, 2, [0], sys.platform=='win32')
+    def register_os_chmod_unicode(self):
+        os_wchmod = self.llexternal(underscore_on_windows+'wchmod', [rffi.CWCHARP, rffi.MODE_T],
+                                    rffi.INT)
+
+        def chmod_llimpl(path, mode):
+            res = rffi.cast(lltype.Signed, os_wchmod(path, rffi.cast(rffi.MODE_T, mode)))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_chmod failed")
+
+        return extdef([unicode, int], s_None, llimpl=chmod_llimpl,
+                      export_name="ll_os.ll_os_wchmod")
+
     @registering(os.rename)
     def register_os_rename(self):
         os_rename = self.llexternal('rename', [rffi.CCHARP, rffi.CCHARP],

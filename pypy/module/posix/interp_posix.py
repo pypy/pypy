@@ -481,13 +481,13 @@ def pipe(space):
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 pipe.unwrap_spec = [ObjSpace]
 
-def chmod(space, path, mode):
+def chmod(space, w_path, mode):
     "Change the access permissions of a file."
-    try: 
-        os.chmod(path, mode)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-chmod.unwrap_spec = [ObjSpace, str, "c_int"]
+    try:
+        dispatch_filename(rposix.chmod)(space, w_path, mode)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+chmod.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
 def rename(space, old, new):
     "Rename a file or directory."
