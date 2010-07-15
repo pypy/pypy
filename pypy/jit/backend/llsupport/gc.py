@@ -351,7 +351,7 @@ class GcLLDescr_framework(GcLLDescription):
         gcrootmap = cls()
         self.gcrootmap = gcrootmap
         self.gcrefs = GcRefList()
-        self.single_gcref_descr = GcPtrFieldDescr(0)
+        self.single_gcref_descr = GcPtrFieldDescr('', 0)
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer

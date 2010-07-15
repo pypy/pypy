@@ -51,7 +51,7 @@ class MockGcDescr(GcCache):
     def initialize(self):
         self.gcrefs = GcRefList()
         self.gcrefs.initialize()
-        self.single_gcref_descr = GcPtrFieldDescr(0)
+        self.single_gcref_descr = GcPtrFieldDescr('', 0)
         
     rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 

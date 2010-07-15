@@ -53,6 +53,10 @@ def test_get_field_descr():
         assert descr_y.__class__ is GcPtrFieldDescr
         assert descr_z.__class__ is NonGcPtrFieldDescr
         assert descr_f.__class__ is clsf
+        assert descr_x.name == 'S.x'
+        assert descr_y.name == 'S.y'
+        assert descr_z.name == 'S.z'
+        assert descr_f.name == 'S.f'
         if not tsc:
             assert descr_x.offset < descr_y.offset < descr_z.offset
             assert descr_x.sort_key() < descr_y.sort_key() < descr_z.sort_key()
