@@ -18,6 +18,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
 
+
 def optimize_loop_1(metainterp_sd, loop):
     """Optimize loop.operations to make it match the input of loop.specnodes
     and to remove internal overheadish operations.  Note that loop.specnodes
@@ -992,6 +993,14 @@ class Optimizer(object):
             self.make_equal_to(op.result, v1)
         else:
             self.optimize_default(op)
+    
+    def optimize_INT_SUB(self, op):
+        v1 = self.getvalue(op.args[0])
+        v2 = self.getvalue(op.args[1])
+        if v2.is_constant() and v2.box.getint() == 0:
+            self.make_equal_to(op.result, v1)
+        else:
+            return self.optimize_default(op)
 
 
 optimize_ops = _findall(Optimizer, 'optimize_')

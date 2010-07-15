@@ -2051,8 +2051,19 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i1, i0)
         """
         self.optimize_loop(ops, 'Not, Not', expected)
-
-
+    
+    def test_fold_partially_constant_ops(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, 0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+    
     # ----------
 
     def make_fail_descr(self):
