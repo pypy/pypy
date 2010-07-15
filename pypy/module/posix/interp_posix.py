@@ -318,7 +318,7 @@ def remove(space, w_path):
         raise wrap_oserror2(space, e, w_path)
 remove.unwrap_spec = [ObjSpace, W_Root]
 
-def _getfullpathname(space, path):
+def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
     try:
         dispatch_filename(rposix._getfullpathname)(space, w_path)
