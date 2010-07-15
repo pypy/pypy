@@ -10,7 +10,8 @@ import py
 from pypy.rpython.module.support import ll_strcpy, OOSupport
 from pypy.tool.sourcetools import func_with_new_name, func_renamer
 from pypy.rlib.rarithmetic import r_longlong
-from pypy.rpython.extfunc import BaseLazyRegistering
+from pypy.rpython.extfunc import (
+    BaseLazyRegistering, lazy_register, register_external)
 from pypy.rpython.extfunc import registering, registering_if, extdef
 from pypy.annotation.model import (
     SomeInteger, SomeString, SomeTuple, SomeFloat, SomeUnicodeString)
@@ -30,21 +31,8 @@ from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 
-def registering_unicode_version(posixfunc, signature, condition=True):
-    """
-    Registers an implementation of posixfunc() which directly accepts unicode
-    strings.  Replaces the corresponding function in pypy.rlib.rposix.
-    @signature: A list of types. 'unicode' will trigger encoding when needed,
-               'None' will use specialize.argtype.
-    """
-    if not condition:
-        return registering(None, condition=False)
-
+def monkeypatch_rlib(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__
-
-    @func_renamer(func_name + "_unicode")
-    def unicodefunc(*args):
-        return func(*args)
 
     arglist = ['arg%d' % (i,) for i in range(len(signature))]
     transformed_arglist = arglist[:]
@@ -76,7 +64,70 @@ def registering_unicode_version(posixfunc, signature, condition=True):
     # Monkeypatch the function in pypy.rlib.rposix
     setattr(rposix, func_name, new_func)
 
+def registering_unicode_version(posixfunc, signature, condition=True):
+    """
+    Registers an implementation of posixfunc() which directly accepts unicode
+    strings.  Replaces the corresponding function in pypy.rlib.rposix.
+    @signature: A list of types. 'unicode' will trigger encoding when needed,
+               'None' will use specialize.argtype.
+    """
+    if not condition:
+        return registering(None, condition=False)
+
+    func_name = posixfunc.__name__
+
+    @func_renamer(func_name + "_unicode")
+    def unicodefunc(*args):
+        return posixfunc(*args)
+
+    monkeypatch_rlib(posixfunc, unicodefunc, signature)
+
     return registering(unicodefunc, condition=condition)
+
+class StringTypes:
+    str = str
+    CCHARP = rffi.CCHARP
+
+    @staticmethod
+    def posix_function_name(name):
+        return underscore_on_windows + name
+
+    @staticmethod
+    def ll_os_name(name):
+        return 'll_os.ll_os_' + name
+
+class UnicodeTypes:
+    str = unicode
+    CCHARP = rffi.CWCHARP
+
+    @staticmethod
+    def posix_function_name(name):
+        return underscore_on_windows + 'w' + name
+
+    @staticmethod
+    def ll_os_name(name):
+        return 'll_os.ll_os_w' + name
+
+def registering_str_unicode(posixfunc, signature):
+    func_name = posixfunc.__name__
+
+    def register_posixfunc(self, method):
+        val = method(self, StringTypes())
+        register_external(posixfunc, *val.def_args, **val.def_kwds)
+
+        if sys.platform == 'win32':
+            val = method(self, UnicodeTypes())
+            @func_renamer(func_name + "_unicode")
+            def unicodefunc(*args):
+                return posixfunc(*args)
+            register_external(unicodefunc, *val.def_args, **val.def_kwds)
+            monkeypatch_rlib(posixfunc, unicodefunc, signature)
+
+    def decorator(method):
+        decorated = lambda self: register_posixfunc(self, method)
+        decorated._registering_func = posixfunc
+        return decorated
+    return decorator
 
 posix = __import__(os.name)
 
@@ -843,12 +894,11 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_setsid(self):
         return self.extdef_for_os_function_returning_int('setsid')
 
-    @registering(os.open)
-    def register_os_open(self):
-        os_open = self.llexternal(underscore_on_windows+'open',
-                                  [rffi.CCHARP, rffi.INT, rffi.MODE_T],
+    @registering_str_unicode(os.open, [unicode, int, int])
+    def register_os_open(self, ttypes):
+        os_open = self.llexternal(ttypes.posix_function_name('open'),
+                                  [ttypes.CCHARP, rffi.INT, rffi.MODE_T],
                                   rffi.INT)
-
         def os_open_llimpl(path, flags, mode):
             result = rffi.cast(rffi.LONG, os_open(path, flags, mode))
             if result == -1:
@@ -856,24 +906,10 @@ class RegisterOs(BaseLazyRegistering):
             return result
 
         def os_open_oofakeimpl(o_path, flags, mode):
-            return os.open(o_path._str, flags, mode)
+            return os.open(OOSupport.from_rstr(path), flags, mode)
 
-        return extdef([str, int, int], int, "ll_os.ll_os_open",
+        return extdef([ttypes.str, int, int], int, ttypes.ll_os_name('open'),
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
-
-    @registering_unicode_version(os.open, [unicode, int, int], sys.platform=='win32')
-    def register_os_open_unicode(self):
-        os_wopen = self.llexternal(underscore_on_windows+'wopen',
-                                  [rffi.CWCHARP, rffi.INT, rffi.MODE_T],
-                                  rffi.INT)
-        def os_wopen_llimpl(path, flags, mode):
-            result = rffi.cast(rffi.LONG, os_wopen(path, flags, mode))
-            if result == -1:
-                raise OSError(rposix.get_errno(), "os_open failed")
-            return result
-
-        return extdef([unicode, int, int], int, "ll_os.ll_os_wopen",
-                      llimpl=os_wopen_llimpl)
 
 # ------------------------------- os.read -------------------------------
 
