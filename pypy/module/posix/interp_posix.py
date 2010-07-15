@@ -338,16 +338,18 @@ def getcwd(space):
         return space.wrap(cur)
 getcwd.unwrap_spec = [ObjSpace]
 
-def getcwdu(space):
-    """Return the current working directory as a unicode string."""
-    if sys.platform == 'win32':
+if sys.platform == 'win32':
+    def getcwdu(space):
+        """Return the current working directory as a unicode string."""
         try:
             cur = os.getcwdu()
         except OSError, e:
             raise wrap_oserror(space, e)
         else:
             return space.wrap(cur)
-    else:
+else:
+    def getcwdu(space):
+        """Return the current working directory as a unicode string."""
         filesystemencoding = space.sys.filesystemencoding
         return space.call_method(getcwd(space), 'decode',
                                  space.wrap(filesystemencoding))
