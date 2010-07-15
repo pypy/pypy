@@ -39,6 +39,9 @@ def registering_unicode_version(func, nbargs, argnums, condition=True):
     if not condition:
         return registering(None, condition=False)
 
+    func_name = func.__name__
+
+    @func_renamer(func_name + "_unicode")
     def unicodefunc(*args):
         return func(*args)
 
@@ -47,13 +50,12 @@ def registering_unicode_version(func, nbargs, argnums, condition=True):
     arglist = ['arg%d' % (i,) for i in range(nbargs)]
     transformed_arglist = arglist[:]
     for i in argnums:
-        transformed_arglist[i] = transformed_arglist[i] + '.gettext()'
+        transformed_arglist[i] = transformed_arglist[i] + '.as_unicode()'
 
     args = ', '.join(arglist)
     transformed_args = ', '.join(transformed_arglist)
     main_arg = 'arg%d' % (argnum,)
 
-    func_name = func.__name__
     source = py.code.Source("""
     def %(func_name)s(%(args)s):
         if isinstance(%(main_arg)s, str):
@@ -1592,6 +1594,19 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([str, str], s_None, llimpl=rename_llimpl,
                       export_name="ll_os.ll_os_rename")
+
+    @registering_unicode_version(os.rename, 2, [0, 1], sys.platform=='win32')
+    def register_os_rename_unicode(self):
+        os_wrename = self.llexternal(underscore_on_windows+'wrename',
+                                     [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
+
+        def rename_llimpl(oldpath, newpath):
+            res = rffi.cast(lltype.Signed, os_wrename(oldpath, newpath))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_rename failed")
+
+        return extdef([unicode, unicode], s_None, llimpl=rename_llimpl,
+                      export_name="ll_os.ll_os_wrename")
 
     @registering(os.umask)
     def register_os_umask(self):

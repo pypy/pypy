@@ -11,17 +11,17 @@ class UnicodeWithEncoding:
         self.unistr = unistr
 
     if sys.platform == 'win32':
-        def encode(self):
+        def as_bytes(self):
             from pypy.rlib.runicode import unicode_encode_mbcs
             return unicode_encode_mbcs(self.unistr, len(self.unistr),
                                        "strict")
     else:
-        def encode(self):
+        def as_bytes(self):
             from pypy.rlib.runicode import unicode_encode_utf_8
             return unicode_encode_utf_8(self.unistr, len(self.unistr),
                                         "strict")
 
-    def gettext(self):
+    def as_unicode(self):
         return self.unistr
 
 class TestPosixUnicode:
@@ -32,7 +32,8 @@ class TestPosixUnicode:
         f.write("test")
         f.close()
 
-        self.path = UnicodeWithEncoding(self.ufilename)
+        self.path  = UnicodeWithEncoding(self.ufilename)
+        self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
 
     def test_open(self):
         def f():
@@ -72,6 +73,14 @@ class TestPosixUnicode:
 
         interpret(f, [])
         assert not os.path.exists(self.ufilename)
+
+    def test_rename(self):
+        def f():
+            return rposix.rename(self.path, self.path2)
+
+        interpret(f, [])
+        assert not os.path.exists(self.ufilename)
+        assert os.path.exists(self.ufilename + '.new')
 
     def test_listdir(self):
         udir = UnicodeWithEncoding(os.path.dirname(self.ufilename))

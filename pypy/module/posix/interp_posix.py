@@ -18,11 +18,26 @@ class FileEncoder:
         self.space = space
         self.w_obj = w_obj
 
-    def encode(self):
+    def as_bytes(self):
         return self.space.path_w(self.w_obj)
 
-    def gettext(self):
+    def as_unicode(self):
         return self.space.unicode_w(self.w_obj)
+
+class FileDecoder:
+    def __init__(self, space, w_obj):
+        self.space = space
+        self.w_obj = w_obj
+
+    def as_bytes(self):
+        return self.space.path_w(self.w_obj)
+
+    def as_unicode(self):
+        space = self.space
+        filesystemencoding = space.sys.filesystemencoding
+        w_unicode = space.call_method(self.w_obj, 'decode',
+                                      space.wrap(filesystemencoding))
+        return space.unicode_w(w_unicode)
 
 @specialize.memo()
 def dispatch_filename(func):
@@ -33,6 +48,27 @@ def dispatch_filename(func):
         else:
             fname = space.str_w(w_fname)
             return func(fname, *args)
+    return dispatch
+
+@specialize.memo()
+def dispatch_filename_2(func):
+    def dispatch(space, w_fname1, w_fname2, *args):
+        if space.isinstance_w(w_fname1, space.w_unicode):
+            fname1 = FileEncoder(space, w_fname1)
+            if space.isinstance_w(w_fname2, space.w_unicode):
+                fname2 = FileEncoder(space, w_fname2)
+                return func(fname1, fname2, *args)
+            else:
+                fname2 = FileDecoder(space, w_fname2)
+                return func(fname1, fname2, *args)
+        else:
+            fname1 = FileDecoder(space, w_fname1)
+            if space.isinstance_w(w_fname2, space.w_unicode):
+                fname2 = FileEncoder(space, w_fname2)
+                return func(fname1, fname2, *args)
+            else:
+                fname2 = FileDecoder(space, w_fname2)
+                return func(fname1, fname2, *args)
     return dispatch
 
 def open(space, w_fname, flag, mode=0777):
@@ -489,13 +525,13 @@ def chmod(space, w_path, mode):
         raise wrap_oserror2(space, e, w_path)
 chmod.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
-def rename(space, old, new):
+def rename(space, w_old, w_new):
     "Rename a file or directory."
-    try: 
-        os.rename(old, new)
-    except OSError, e: 
+    try:
+        dispatch_filename_2(rposix.rename)(space, w_old, w_new)
+    except OSError, e:
         raise wrap_oserror(space, e) 
-rename.unwrap_spec = [ObjSpace, str, str]
+rename.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def umask(space, mask):
     "Set the current numeric umask and return the previous umask."

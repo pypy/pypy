@@ -52,70 +52,74 @@ def open(path, flags, mode):
     if isinstance(path, str):
         return os.open(path, flags, mode)
     else:
-        return os.open(path.encode(), flags, mode)
+        return os.open(path.as_bytes(), flags, mode)
 
 @specialize.argtype(0)
 def stat(path):
     if isinstance(path, str):
         return os.stat(path)
     else:
-        return os.stat(path.encode())
+        return os.stat(path.as_bytes())
 
 @specialize.argtype(0)
 def lstat(path):
     if isinstance(path, str):
         return os.lstat(path)
     else:
-        return os.lstat(path.encode())
+        return os.lstat(path.as_bytes())
 
 @specialize.argtype(0)
 def unlink(path):
     if isinstance(path, str):
         return os.unlink(path)
     else:
-        return os.unlink(path.encode())
+        return os.unlink(path.as_bytes())
+
+@specialize.argtype(0, 1)
+def rename(path1, path2):
+    return os.rename(path1.as_bytes(), path2.as_bytes())
 
 @specialize.argtype(0)
 def listdir(dirname):
     if isinstance(dirname, str):
         return os.listdir(dirname)
     else:
-        return os.listdir(dirname.encode())
+        return os.listdir(dirname.as_bytes())
 
 @specialize.argtype(0)
 def access(path, mode):
     if isinstance(path, str):
         return os.access(path, mode)
     else:
-        return os.access(path.encode(), mode)
+        return os.access(path.as_bytes(), mode)
 
 @specialize.argtype(0)
 def chmod(path, mode):
     if isinstance(path, str):
         return os.chmod(path, mode)
     else:
-        return os.chmod(path.encode(), mode)
+        return os.chmod(path.as_bytes(), mode)
 
 @specialize.argtype(0)
 def chdir(path):
     if isinstance(path, str):
         return os.chdir(path)
     else:
-        return os.chdir(path.encode())
+        return os.chdir(path.as_bytes())
 
 @specialize.argtype(0)
 def mkdir(path, mode=0777):
     if isinstance(path, str):
         return os.mkdir(path, mode)
     else:
-        return os.mkdir(path.encode(), mode)
+        return os.mkdir(path.as_bytes(), mode)
 
 @specialize.argtype(0)
 def rmdir(path):
     if isinstance(path, str):
         return os.rmdir(path)
     else:
-        return os.rmdir(path.encode())
+        return os.rmdir(path.as_bytes())
 
 if os.name == 'nt':
     import nt
@@ -123,4 +127,4 @@ if os.name == 'nt':
         if isinstance(path, str):
             return nt._getfullpathname(path)
         else:
-            return nt._getfullpathname(path.encode())
+            return nt._getfullpathname(path.as_bytes())
