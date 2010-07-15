@@ -909,7 +909,7 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "os_open failed")
             return result
 
-        def os_open_oofakeimpl(o_path, flags, mode):
+        def os_open_oofakeimpl(path, flags, mode):
             return os.open(OOSupport.from_rstr(path), flags, mode)
 
         return extdef([ttypes.str, int, int], int, ttypes.ll_os_name('open'),
