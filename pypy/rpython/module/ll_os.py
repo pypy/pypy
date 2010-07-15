@@ -1062,6 +1062,34 @@ class RegisterOs(BaseLazyRegistering):
                       "ll_os.ll_os_getcwd", llimpl=os_getcwd_llimpl,
                       oofakeimpl=os_getcwd_oofakeimpl)
 
+    @registering(os.getcwdu, condition=sys.platform=='win32')
+    def register_os_getcwdu(self):
+        os_wgetcwd = self.llexternal(underscore_on_windows + 'wgetcwd',
+                                     [rffi.CWCHARP, rffi.SIZE_T],
+                                     rffi.CWCHARP)
+
+        def os_getcwd_llimpl():
+            bufsize = 256
+            while True:
+                buf = lltype.malloc(rffi.CWCHARP.TO, bufsize, flavor='raw')
+                res = os_wgetcwd(buf, rffi.cast(rffi.SIZE_T, bufsize))
+                if res:
+                    break   # ok
+                error = rposix.get_errno()
+                lltype.free(buf, flavor='raw')
+                if error != errno.ERANGE:
+                    raise OSError(error, "getcwd failed")
+                # else try again with a larger buffer, up to some sane limit
+                bufsize *= 4
+                if bufsize > 1024*1024:  # xxx hard-coded upper limit
+                    raise OSError(error, "getcwd result too large")
+            result = rffi.wcharp2unicode(res)
+            lltype.free(buf, flavor='raw')
+            return result
+
+        return extdef([], unicode,
+                      "ll_os.ll_os_wgetcwd", llimpl=os_getcwd_llimpl)
+
     @registering(os.listdir)
     def register_os_listdir(self):
         # we need a different approach on Windows and on Posix

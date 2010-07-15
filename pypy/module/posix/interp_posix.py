@@ -340,8 +340,17 @@ getcwd.unwrap_spec = [ObjSpace]
 
 def getcwdu(space):
     """Return the current working directory as a unicode string."""
-    # XXX ascii encoding for now
-    return space.call_method(getcwd(space), 'decode')
+    if sys.platform == 'win32':
+        try:
+            cur = os.getcwdu()
+        except OSError, e:
+            raise wrap_oserror(space, e)
+        else:
+            return space.wrap(cur)
+    else:
+        filesystemencoding = space.sys.filesystemencoding
+        return space.call_method(getcwd(space), 'decode',
+                                 space.wrap(filesystemencoding))
 getcwdu.unwrap_spec = [ObjSpace]
 
 def chdir(space, w_path):
