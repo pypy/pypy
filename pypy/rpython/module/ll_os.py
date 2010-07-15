@@ -1007,7 +1007,7 @@ class RegisterOs(BaseLazyRegistering):
             'GetFullPathNameW',
             [rwin32.LPCWSTR,
              rwin32.DWORD,
-             rwin32.LPSTR,
+             rwin32.LPWSTR,
              rffi.CArrayPtr(rwin32.LPWSTR)],
             rwin32.DWORD)
 
