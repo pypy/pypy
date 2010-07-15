@@ -18,6 +18,12 @@
     ("guard_[a-z_]*" . 'widget-button-pressed)
     ("\\(ptr\\|p\\)[0-9][0-9]*" . 'font-lock-variable-name-face)
     ("i[0-9][0-9]*" . 'custom-button-pressed-unraised)
+    ("\\(descr=<.*FieldDescr \\)\\([^ ]*\\.\\)\\([^ ]*\\)\\( .*>\\)"
+     (1 'font-lock-comment-face)
+     (2 'font-lock-variable-name-face)
+     (3 'escape-glyph)
+     (4 'font-lock-comment-face))
+    ("<.*FieldDescr \\([^ ]*\\)" (1 'font-lock-variable-name-face))
     ;; comment out debug_merge_point, but then highlight specific part of it
     ("^debug_merge_point.*" . font-lock-comment-face)
     ("^\\(debug_merge_point\\).*code object\\(.*\\), file \\('.*'\\), \\(line .*\\)> \\(.*\\)')"
@@ -31,6 +37,6 @@
   "A mode for pypy traces files")
 
 ;; debug helpers
-;; (switch-to-buffer-other-window "strslice.trace")
+;; (switch-to-buffer-other-window "strslice2.trace")
 ;; (pypytrace-mode)
 
