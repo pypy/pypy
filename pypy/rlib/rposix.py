@@ -77,7 +77,10 @@ def unlink(path):
 
 @specialize.argtype(0, 1)
 def rename(path1, path2):
-    return os.rename(path1.as_bytes(), path2.as_bytes())
+    if isinstance(path1, str):
+        return os.rename(path1, path2)
+    else:
+        return os.rename(path1.as_bytes(), path2.as_bytes())
 
 @specialize.argtype(0)
 def listdir(dirname):
