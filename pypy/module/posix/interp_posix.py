@@ -659,7 +659,7 @@ Execute a path with arguments and environment, replacing current process.
         raise wrap_oserror(space, e)
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
 
-def utime(space, path, w_tuple):
+def utime(space, w_path, w_tuple):
     """ utime(path, (atime, mtime))
 utime(path, None)
 
@@ -668,10 +668,10 @@ second form is used, set the access and modified times to the current time.
     """
     if space.is_w(w_tuple, space.w_None):
         try:
-            os.utime(path, None)
+            dispatch_filename(rposix.utime)(space, w_path, None)
             return
         except OSError, e:
-            raise wrap_oserror(space, e, path)
+            raise wrap_oserror2(space, e, w_path)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
         args_w = space.fixedview(w_tuple)
@@ -679,14 +679,14 @@ second form is used, set the access and modified times to the current time.
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0])
         modtime = space.float_w(args_w[1])
-        os.utime(path, (actime, modtime))
+        dispatch_filename(rposix.utime)(space, w_path, (actime, modtime))
     except OSError, e:
-        raise wrap_oserror(space, e, path)
+        raise wrap_oserror2(space, e, w_path)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
-utime.unwrap_spec = [ObjSpace, str, W_Root]
+utime.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def setsid(space):
     """setsid() -> pid

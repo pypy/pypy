@@ -104,6 +104,13 @@ def chmod(path, mode):
         return os.chmod(path.as_bytes(), mode)
 
 @specialize.argtype(0)
+def utime(path, times):
+    if isinstance(path, str):
+        return os.utime(path, times)
+    else:
+        return os.utime(path.as_bytes(), times)
+
+@specialize.argtype(0)
 def chdir(path):
     if isinstance(path, str):
         return os.chdir(path)

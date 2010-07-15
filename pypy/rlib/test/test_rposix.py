@@ -61,6 +61,12 @@ class TestPosixUnicode:
 
         assert interpret(f, []) == 1
 
+    def test_utime(self):
+        def f():
+            return rposix.utime(self.path, None)
+
+        interpret(f, []) # does not crash
+
     def test_chmod(self):
         def f():
             return rposix.chmod(self.path, 0777)

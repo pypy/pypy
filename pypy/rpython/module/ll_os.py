@@ -12,7 +12,8 @@ from pypy.tool.sourcetools import func_with_new_name, func_renamer
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.extfunc import BaseLazyRegistering
 from pypy.rpython.extfunc import registering, registering_if, extdef
-from pypy.annotation.model import SomeInteger, SomeString, SomeTuple, SomeFloat
+from pypy.annotation.model import (
+    SomeInteger, SomeString, SomeTuple, SomeFloat, SomeUnicodeString)
 from pypy.annotation.model import s_ImpossibleValue, s_None, s_Bool
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
@@ -498,6 +499,112 @@ class RegisterOs(BaseLazyRegistering):
                       "ll_os.ll_os_utime",
                       llimpl=os_utime_llimpl)
 
+    # XXX LOT OF DUPLICATED CODE!
+    @registering_unicode_version(os.utime, 2, [0], sys.platform=='win32')
+    def register_os_utime_unicode(self):
+        from pypy.rlib import rwin32
+        from pypy.rpython.module.ll_os_stat import time_t_to_FILE_TIME
+
+        class CConfig:
+            _compilation_info_ = ExternalCompilationInfo(
+                includes = ['windows.h'],
+                )
+
+            FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
+                'FILE_WRITE_ATTRIBUTES')
+            OPEN_EXISTING = platform.ConstantInteger(
+                'OPEN_EXISTING')
+            FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
+                'FILE_FLAG_BACKUP_SEMANTICS')
+        globals().update(platform.configure(CConfig))
+
+        CreateFile = rffi.llexternal(
+            'CreateFileW',
+            [rwin32.LPCWSTR, rwin32.DWORD, rwin32.DWORD,
+             rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
+             rwin32.HANDLE],
+            rwin32.HANDLE,
+            calling_conv='win')
+
+        GetSystemTime = rffi.llexternal(
+            'GetSystemTime',
+            [lltype.Ptr(rwin32.SYSTEMTIME)],
+            lltype.Void,
+            calling_conv='win')
+
+        SystemTimeToFileTime = rffi.llexternal(
+            'SystemTimeToFileTime',
+            [lltype.Ptr(rwin32.SYSTEMTIME),
+             lltype.Ptr(rwin32.FILETIME)],
+            rwin32.BOOL,
+            calling_conv='win')
+
+        SetFileTime = rffi.llexternal(
+            'SetFileTime',
+            [rwin32.HANDLE,
+             lltype.Ptr(rwin32.FILETIME),
+             lltype.Ptr(rwin32.FILETIME),
+             lltype.Ptr(rwin32.FILETIME)],
+            rwin32.BOOL,
+            calling_conv = 'win')
+
+        def os_utime_llimpl(path, tp):
+            hFile = CreateFile(path,
+                               FILE_WRITE_ATTRIBUTES, 0,
+                               None, OPEN_EXISTING,
+                               FILE_FLAG_BACKUP_SEMANTICS, 0)
+            if hFile == rwin32.INVALID_HANDLE_VALUE:
+                raise rwin32.lastWindowsError()
+            ctime = lltype.nullptr(rwin32.FILETIME)
+            atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+            mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+            try:
+                if tp is None:
+                    now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
+                    try:
+                        GetSystemTime(now)
+                        if (not SystemTimeToFileTime(now, atime) or
+                            not SystemTimeToFileTime(now, mtime)):
+                            raise rwin32.lastWindowsError()
+                    finally:
+                        lltype.free(now, flavor='raw')
+                else:
+                    actime, modtime = tp
+                    time_t_to_FILE_TIME(actime, atime)
+                    time_t_to_FILE_TIME(modtime, mtime)
+                if not SetFileTime(hFile, ctime, atime, mtime):
+                    raise rwin32.lastWindowsError()
+            finally:
+                rwin32.CloseHandle(hFile)
+                lltype.free(atime, flavor='raw')
+                lltype.free(mtime, flavor='raw')
+        os_utime_llimpl._annspecialcase_ = 'specialize:argtype(1)'
+
+        s_string = SomeUnicodeString()
+        s_tuple_of_2_floats = SomeTuple([SomeFloat(), SomeFloat()])
+
+        def os_utime_normalize_args(s_path, s_times):
+            # special handling of the arguments: they can be either
+            # [str, (float, float)] or [str, s_None], and get normalized
+            # to exactly one of these two.
+            if not s_string.contains(s_path):
+                raise Exception("os.utime() arg 1 must be a string, got %s" % (
+                    s_path,))
+            case1 = s_None.contains(s_times)
+            case2 = s_tuple_of_2_floats.contains(s_times)
+            if case1 and case2:
+                return [s_string, s_ImpossibleValue] #don't know which case yet
+            elif case1:
+                return [s_string, s_None]
+            elif case2:
+                return [s_string, s_tuple_of_2_floats]
+            else:
+                raise Exception("os.utime() arg 2 must be None or a tuple of "
+                                "2 floats, got %s" % (s_times,))
+
+        return extdef(os_utime_normalize_args, s_None,
+                      "ll_os.ll_os_utime",
+                      llimpl=os_utime_llimpl)
 
     @registering(os.times)
     def register_os_times(self):
