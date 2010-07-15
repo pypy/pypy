@@ -90,11 +90,18 @@ class TestPosixUnicode:
 
     def test_listdir(self):
         udir = UnicodeWithEncoding(os.path.dirname(self.ufilename))
-        def f():
-            return u', '.join(rposix.listdir(udir))
 
-        result = interpret(f, [])
-        assert os.path.basename(self.ufilename) in ll_to_string(result)
+        if sys.platform == 'win32':
+            def f():
+                return u', '.join(rposix.listdir(udir))
+            result = interpret(f, [])
+            assert os.path.basename(self.ufilename) in ll_to_string(result)
+        else:
+            def f():
+                return ', '.join(rposix.listdir(udir))
+            result = interpret(f, [])
+            assert (os.path.basename(self.ufilename).encode('utf-8') in
+                    ll_to_string(result))
 
     def test_chdir(self):
         os.unlink(self.ufilename)
