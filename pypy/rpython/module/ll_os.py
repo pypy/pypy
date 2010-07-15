@@ -31,7 +31,7 @@ from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 
-def monkeypatch_rlib(posixfunc, unicodefunc, signature):
+def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__
 
     arglist = ['arg%d' % (i,) for i in range(len(signature))]
@@ -80,7 +80,7 @@ def registering_unicode_version(posixfunc, signature, condition=True):
     def unicodefunc(*args):
         return posixfunc(*args)
 
-    monkeypatch_rlib(posixfunc, unicodefunc, signature)
+    monkeypatch_rposix(posixfunc, unicodefunc, signature)
 
     return registering(unicodefunc, condition=condition)
 
@@ -108,7 +108,10 @@ class UnicodeTypes:
     def ll_os_name(name):
         return 'll_os.ll_os_w' + name
 
-def registering_str_unicode(posixfunc, signature):
+def registering_str_unicode(posixfunc, condition=True):
+    if not condition:
+        return registering(None, condition=False)
+
     func_name = posixfunc.__name__
 
     def register_posixfunc(self, method):
@@ -121,7 +124,8 @@ def registering_str_unicode(posixfunc, signature):
             def unicodefunc(*args):
                 return posixfunc(*args)
             register_external(unicodefunc, *val.def_args, **val.def_kwds)
-            monkeypatch_rlib(posixfunc, unicodefunc, signature)
+            signature = val.def_args[0]
+            monkeypatch_rposix(posixfunc, unicodefunc, signature)
 
     def decorator(method):
         decorated = lambda self: register_posixfunc(self, method)
@@ -894,7 +898,7 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_setsid(self):
         return self.extdef_for_os_function_returning_int('setsid')
 
-    @registering_str_unicode(os.open, [unicode, int, int])
+    @registering_str_unicode(os.open)
     def register_os_open(self, ttypes):
         os_open = self.llexternal(ttypes.posix_function_name('open'),
                                   [ttypes.CCHARP, rffi.INT, rffi.MODE_T],
@@ -1068,10 +1072,10 @@ class RegisterOs(BaseLazyRegistering):
                       llimpl=fdatasync_llimpl,
                       export_name="ll_os.ll_os_fdatasync")
 
-    @registering(os.access)
-    def register_os_access(self):
-        os_access = self.llexternal(underscore_on_windows + 'access',
-                                    [rffi.CCHARP, rffi.INT],
+    @registering_str_unicode(os.access)
+    def register_os_access(self, ttypes):
+        os_access = self.llexternal(ttypes.posix_function_name('access'),
+                                    [ttypes.CCHARP, rffi.INT],
                                     rffi.INT)
 
         if sys.platform.startswith('win'):
@@ -1088,24 +1092,9 @@ class RegisterOs(BaseLazyRegistering):
         def os_access_oofakeimpl(path, mode):
             return os.access(OOSupport.from_rstr(path), mode)
 
-        return extdef([str, int], s_Bool, llimpl=access_llimpl,
-                      export_name="ll_os.ll_os_access",
+        return extdef([ttypes.str, int], s_Bool, llimpl=access_llimpl,
+                      export_name=ttypes.ll_os_name("access"),
                       oofakeimpl=os_access_oofakeimpl)
-
-    @registering_unicode_version(os.access, [unicode, int], sys.platform=='win32')
-    def register_os_access_unicode(self):
-        os_waccess = self.llexternal(underscore_on_windows + 'waccess',
-                                    [rffi.CWCHARP, rffi.INT],
-                                    rffi.INT)
-
-        def access_llimpl(path, mode):
-            # All files are executable on Windows
-            mode = mode & ~os.X_OK
-            error = rffi.cast(lltype.Signed, os_waccess(path, mode))
-            return error == 0
-
-        return extdef([unicode, int], s_Bool, llimpl=access_llimpl,
-                      export_name="ll_os.ll_os_waccess")
 
     @registering_if(posix, '_getfullpathname')
     def register_posix__getfullpathname(self):
