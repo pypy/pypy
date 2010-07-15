@@ -321,11 +321,18 @@ remove.unwrap_spec = [ObjSpace, W_Root]
 def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
     try:
-        fullpath = dispatch_filename(rposix._getfullpathname)(space, w_path)
+        if space.isinstance_w(w_path, space.w_unicode):
+            path = FileEncoder(space, w_path)
+            fullpath = rposix._getfullpathname(path)
+            w_fullpath = space.wrap(fullpath)
+        else:
+            path = space.str_w(w_path)
+            fullpath = rposix._getfullpathname(path)
+            w_fullpath = space.wrap(fullpath)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
-        return space.wrap(fullpath)
+        return w_fullpath
 _getfullpathname.unwrap_spec = [ObjSpace, W_Root]
 
 def getcwd(space):
