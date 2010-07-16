@@ -212,13 +212,27 @@ def build_stat_result(st):
     return make_stat_result(result)
 
 
-def register_stat_variant(name):
-    if sys.platform.startswith('win'):
-        _functions = {'stat':  '_stati64',
-                      'fstat': '_fstati64',
-                      'lstat': '_stati64'}    # no lstat on Windows
-        c_func_name = _functions[name]
-    elif sys.platform.startswith('linux'):
+def register_stat_variant(name, traits):
+    if name != 'fstat':
+        arg_is_path = True
+        s_arg = traits.str
+        ARG1 = traits.CCHARP
+    else:
+        arg_is_path = False
+        s_arg = int
+        ARG1 = rffi.INT
+
+    if sys.platform == 'win32':
+        # See Win32 implementation below
+        posix_stat_llimpl = make_stat_impl(name, traits)
+
+        return extdef(
+            [s_arg], s_StatResult, traits.ll_os_name(name),
+            llimpl=posix_stat_llimpl)
+
+    assert traits.str is str
+
+    if sys.platform.startswith('linux'):
         # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler 
         _functions = {'stat':  'stat64',
                       'fstat': 'fstat64',
@@ -227,17 +241,19 @@ def register_stat_variant(name):
     else:
         c_func_name = name
 
-    arg_is_path = (name != 'fstat')
+    posix_mystat = rffi.llexternal(c_func_name,
+                                   [ARG1, STAT_STRUCT], rffi.INT,
+                                   compilation_info=compilation_info)
 
     @func_renamer('os_%s_llimpl' % (name,))
     def posix_stat_llimpl(arg):
         stresult = lltype.malloc(STAT_STRUCT.TO, flavor='raw')
         try:
             if arg_is_path:
-                arg = rffi.str2charp(arg)
+                arg = traits.str2charp(arg)
             error = rffi.cast(rffi.LONG, posix_mystat(arg, stresult))
             if arg_is_path:
-                rffi.free_charp(arg)
+                traits.free_charp(arg)
             if error != 0:
                 raise OSError(rposix.get_errno(), "os_?stat failed")
             return build_stat_result(stresult)
@@ -262,42 +278,15 @@ def register_stat_variant(name):
                 setattr(ll_tup, 'item%d' % i, val)
         return ll_tup
 
-    if arg_is_path:
-        s_arg = str
-        ARG1 = rffi.CCHARP
-    else:
-        s_arg = int
-        ARG1 = rffi.INT
-
-    if sys.platform != 'win32':
-        posix_mystat = rffi.llexternal(c_func_name,
-                                       [ARG1, STAT_STRUCT], rffi.INT,
-                                       compilation_info=compilation_info)
-
-        return extdef(
-            [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
-            llimpl=posix_stat_llimpl, llfakeimpl=posix_fakeimpl)
-    else:
-        # See Win32 implementation below
-        return extdef(
-            [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
-            llimpl=func_with_new_name(globals()['win32_%s_llimpl' % (name,)],
-                                      'os_%s_llimpl' % (name,)),
-            )
-
-def register_stat_variant_unicode(name):
-    assert name in ('stat', 'lstat')
-
-    # See Win32 implementation below
     return extdef(
-        [unicode], s_StatResult,
-        "ll_os.ll_os_%s" % (name,),
-        llimpl=func_with_new_name(globals()['win32_wstat_llimpl'],
-                                  'os_wstat_llimpl')
-        )
+        [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
+        llimpl=posix_stat_llimpl, llfakeimpl=posix_fakeimpl)
 
-# ____________________________________________________________
-if sys.platform == 'win32':
+def make_stat_impl(name, traits):
+    from pypy.rlib import rwin32
+    from pypy.rpython.module.ll_win32file import make_win32_traits
+    win32traits = make_win32_traits(traits)
+
     # The CRT of Windows has a number of flaws wrt. its stat() implementation:
     # - time stamps are restricted to second resolution
     # - file modification times suffer from forth-and-back conversions between
@@ -309,144 +298,18 @@ if sys.platform == 'win32':
 
     assert len(STAT_FIELDS) == 10    # no extra fields on Windows
 
-    class CConfig:
-        _compilation_info_ = ExternalCompilationInfo(
-            includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
-            )
-
-        GetFileExInfoStandard = platform.ConstantInteger(
-            'GetFileExInfoStandard')
-        FILE_ATTRIBUTE_DIRECTORY = platform.ConstantInteger(
-            'FILE_ATTRIBUTE_DIRECTORY')
-        FILE_ATTRIBUTE_READONLY = platform.ConstantInteger(
-            'FILE_ATTRIBUTE_READONLY')
-        ERROR_SHARING_VIOLATION = platform.ConstantInteger(
-            'ERROR_SHARING_VIOLATION')
-        _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
-        _S_IFREG = platform.ConstantInteger('_S_IFREG')
-        _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
-        _S_IFIFO = platform.ConstantInteger('_S_IFIFO')
-        FILE_TYPE_UNKNOWN = platform.ConstantInteger('FILE_TYPE_UNKNOWN')
-        FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
-        FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
-
-        WIN32_FILE_ATTRIBUTE_DATA = platform.Struct(
-            'WIN32_FILE_ATTRIBUTE_DATA',
-            [('dwFileAttributes', rwin32.DWORD),
-             ('nFileSizeHigh', rwin32.DWORD),
-             ('nFileSizeLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME)])
-
-        BY_HANDLE_FILE_INFORMATION = platform.Struct(
-            'BY_HANDLE_FILE_INFORMATION',
-            [('dwFileAttributes', rwin32.DWORD),
-             ('nFileSizeHigh', rwin32.DWORD),
-             ('nFileSizeLow', rwin32.DWORD),
-             ('nNumberOfLinks', rwin32.DWORD),
-             ('nFileIndexHigh', rwin32.DWORD),
-             ('nFileIndexLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME)])
-
-        WIN32_FIND_DATAA = platform.Struct(
-            'WIN32_FIND_DATAA',
-            # Only interesting fields
-            [('dwFileAttributes', rwin32.DWORD),
-             ('nFileSizeHigh', rwin32.DWORD),
-             ('nFileSizeLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME)])
-        WIN32_FIND_DATAW = platform.Struct(
-            'WIN32_FIND_DATAW',
-            # Only interesting fields
-            [('dwFileAttributes', rwin32.DWORD),
-             ('nFileSizeHigh', rwin32.DWORD),
-             ('nFileSizeLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME)])
-
-    globals().update(platform.configure(CConfig))
-    GET_FILEEX_INFO_LEVELS = rffi.ULONG # an enumeration
-
-    GetFileAttributesExA = rffi.llexternal(
-        'GetFileAttributesExA',
-        [rffi.CCHARP, GET_FILEEX_INFO_LEVELS,
-         lltype.Ptr(WIN32_FILE_ATTRIBUTE_DATA)],
-        rwin32.BOOL,
-        calling_conv='win')
-
-    GetFileAttributesExW = rffi.llexternal(
-        'GetFileAttributesExW',
-        [rffi.CWCHARP, GET_FILEEX_INFO_LEVELS,
-         lltype.Ptr(WIN32_FILE_ATTRIBUTE_DATA)],
-        rwin32.BOOL,
-        calling_conv='win')
-
-    GetFileInformationByHandle = rffi.llexternal(
-        'GetFileInformationByHandle',
-        [rwin32.HANDLE, lltype.Ptr(BY_HANDLE_FILE_INFORMATION)],
-        rwin32.BOOL,
-        calling_conv='win')
-
-    GetFileType = rffi.llexternal(
-        'GetFileType',
-        [rwin32.HANDLE],
-        rwin32.DWORD,
-        calling_conv='win')
-
-    FindFirstFileA = rffi.llexternal(
-        'FindFirstFileA',
-        [rffi.CCHARP, lltype.Ptr(WIN32_FIND_DATAA)],
-        rwin32.HANDLE,
-        calling_conv='win')
-
-    FindFirstFileW = rffi.llexternal(
-        'FindFirstFileW',
-        [rffi.CWCHARP, lltype.Ptr(WIN32_FIND_DATAW)],
-        rwin32.HANDLE,
-        calling_conv='win')
-
-    FindClose = rffi.llexternal(
-        'FindClose',
-        [rwin32.HANDLE],
-        rwin32.BOOL,
-        calling_conv='win')
-
     def attributes_to_mode(attributes):
         m = 0
-        if attributes & FILE_ATTRIBUTE_DIRECTORY:
-            m |= _S_IFDIR | 0111 # IFEXEC for user,group,other
+        if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
+            m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
         else:
-            m |= _S_IFREG
-        if attributes & FILE_ATTRIBUTE_READONLY:
+            m |= win32traits._S_IFREG
+        if attributes & win32traits.FILE_ATTRIBUTE_READONLY:
             m |= 0444
         else:
             m |= 0666
         return m
 
-    def make_longlong(high, low):
-        return (lltype.r_longlong(high) << 32) + lltype.r_longlong(low)
-
-    # Seconds between 1.1.1601 and 1.1.1970
-    secs_between_epochs = lltype.r_longlong(11644473600)
-
-    def FILE_TIME_to_time_t_nsec(filetime):
-        ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
-        # FILETIME is in units of 100 nsec
-        nsec = (ft % 10000000) * 100
-        time = (ft / 10000000) - secs_between_epochs
-        return time, nsec
-
-    def time_t_to_FILE_TIME(time, filetime):
-        ft = lltype.r_longlong((time + secs_between_epochs) * 10000000)
-        filetime.c_dwHighDateTime = lltype.r_uint(ft >> 32)
-        filetime.c_dwLowDateTime = lltype.r_uint(ft & ((1 << 32) - 1))
-        
     def attribute_data_to_stat(info):
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
@@ -484,22 +347,13 @@ if sys.platform == 'win32':
 
         return make_stat_result(result)
 
-    @specialize.ll()
-    def findfirstfile(l_path):
-        if lltype.typeOf(l_path) == rffi.CWCHARP:
-            filedata = lltype.malloc(WIN32_FIND_DATAW, flavor='raw')
-            return FindFirstFileW(l_path, filedata), filedata
-        else:
-            filedata = lltype.malloc(WIN32_FIND_DATAA, flavor='raw')
-            return FindFirstFileA(l_path, filedata), filedata
-
-    @specialize.ll()
     def attributes_from_dir(l_path, data):
-        hFindFile, filedata = findfirstfile(l_path)
+        filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
         try:
+            hFindFile = win32traits.FindFirstFile(l_path, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
                 return 0
-            FindClose(hFindFile)
+            win32traits.FindClose(hFindFile)
             data.c_dwFileAttributes = filedata.c_dwFileAttributes
             rffi.structcopy(data.c_ftCreationTime, filedata.c_ftCreationTime)
             rffi.structcopy(data.c_ftLastAccessTime, filedata.c_ftLastAccessTime)
@@ -511,34 +365,16 @@ if sys.platform == 'win32':
             lltype.free(filedata, flavor='raw')
 
     def win32_stat_llimpl(path):
-        data = lltype.malloc(WIN32_FILE_ATTRIBUTE_DATA, flavor='raw')
+        data = lltype.malloc(win32traits.WIN32_FILE_ATTRIBUTE_DATA, flavor='raw')
         try:
-            l_path = rffi.str2charp(path)
-            res = GetFileAttributesExA(l_path, GetFileExInfoStandard, data)
+            l_path = traits.str2charp(path)
+            res = win32traits.GetFileAttributesEx(l_path, win32traits.GetFileExInfoStandard, data)
             errcode = rwin32.GetLastError()
             if res == 0:
-                if errcode == ERROR_SHARING_VIOLATION:
+                if errcode == win32traits.ERROR_SHARING_VIOLATION:
                     res = attributes_from_dir(l_path, data)
                     errcode = rwin32.GetLastError()
-            rffi.free_charp(l_path)
-            if res == 0:
-                raise WindowsError(errcode, "os_stat failed")
-            return attribute_data_to_stat(data)
-        finally:
-            lltype.free(data, flavor='raw')
-    win32_lstat_llimpl = win32_stat_llimpl
-
-    def win32_wstat_llimpl(path):
-        data = lltype.malloc(WIN32_FILE_ATTRIBUTE_DATA, flavor='raw')
-        try:
-            l_path = rffi.unicode2wcharp(path)
-            res = GetFileAttributesExW(l_path, GetFileExInfoStandard, data)
-            errcode = rwin32.GetLastError()
-            if res == 0:
-                if errcode == ERROR_SHARING_VIOLATION:
-                    res = attributes_from_dir(l_path, data)
-                    errcode = rwin32.GetLastError()
-            rffi.free_wcharp(l_path)
+            traits.free_charp(l_path)
             if res == 0:
                 raise WindowsError(errcode, "os_stat failed")
             return attribute_data_to_stat(data)
@@ -548,31 +384,58 @@ if sys.platform == 'win32':
     def win32_fstat_llimpl(fd):
         handle = rwin32._get_osfhandle(fd)
 
-        filetype = GetFileType(handle)
-        if filetype == FILE_TYPE_CHAR:
+        filetype = win32traits.GetFileType(handle)
+        if filetype == win32traits.FILE_TYPE_CHAR:
             # console or LPT device
-            return make_stat_result((_S_IFCHR,
+            return make_stat_result((win32traits._S_IFCHR,
                                      0, 0, 0, 0, 0,
                                      0, 0, 0, 0))
-        elif filetype == FILE_TYPE_PIPE:
+        elif filetype == win32traits.FILE_TYPE_PIPE:
             # socket or named pipe
-            return make_stat_result((_S_IFIFO,
+            return make_stat_result((win32traits._S_IFIFO,
                                      0, 0, 0, 0, 0,
                                      0, 0, 0, 0))
-        elif filetype == FILE_TYPE_UNKNOWN:
+        elif filetype == win32traits.FILE_TYPE_UNKNOWN:
             error = rwin32.GetLastError()
             if error != 0:
                 raise WindowsError(error, "os_fstat failed")
             # else: unknown but valid file
 
         # normal disk file (FILE_TYPE_DISK)
-        info = lltype.malloc(BY_HANDLE_FILE_INFORMATION, flavor='raw',
-                             zero=True)
+        info = lltype.malloc(win32traits.BY_HANDLE_FILE_INFORMATION,
+                             flavor='raw', zero=True)
         try:
-            res = GetFileInformationByHandle(handle, info)
+            res = win32traits.GetFileInformationByHandle(handle, info)
             if res == 0:
                 raise WindowsError(rwin32.GetLastError(), "os_fstat failed")
             return by_handle_info_to_stat(info)
         finally:
             lltype.free(info, flavor='raw')
+
+    if name == 'fstat':
+        return win32_fstat_llimpl
+    else:
+        return win32_stat_llimpl
+
+
+#__________________________________________________
+# Helper functions for win32
+
+def make_longlong(high, low):
+    return (lltype.r_longlong(high) << 32) + lltype.r_longlong(low)
+
+# Seconds between 1.1.1601 and 1.1.1970
+secs_between_epochs = lltype.r_longlong(11644473600)
+
+def FILE_TIME_to_time_t_nsec(filetime):
+    ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
+    # FILETIME is in units of 100 nsec
+    nsec = (ft % 10000000) * 100
+    time = (ft / 10000000) - secs_between_epochs
+    return time, nsec
+
+def time_t_to_FILE_TIME(time, filetime):
+    ft = lltype.r_longlong((time + secs_between_epochs) * 10000000)
+    filetime.c_dwHighDateTime = lltype.r_uint(ft >> 32)
+    filetime.c_dwLowDateTime = lltype.r_uint(ft & ((1 << 32) - 1))
 

@@ -90,6 +90,7 @@ class StringTraits:
     CCHARP = rffi.CCHARP
     charp2str = staticmethod(rffi.charp2str)
     str2charp = staticmethod(rffi.str2charp)
+    free_charp = staticmethod(rffi.free_charp)
 
     @staticmethod
     def posix_function_name(name):
@@ -105,6 +106,7 @@ class UnicodeTraits:
     CCHARP = rffi.CWCHARP
     charp2str = staticmethod(rffi.wcharp2unicode)
     str2charp = staticmethod(rffi.unicode2wcharp)
+    free_charp = staticmethod(rffi.free_wcharp)
 
     @staticmethod
     def posix_function_name(name):
@@ -1108,12 +1110,12 @@ class RegisterOs(BaseLazyRegistering):
         # this nt function is not exposed via os, but needed
         # to get a correct implementation of os.abspath
         from pypy.rpython.module.ll_win32file import make_getfullpathname_impl
-        _getfullpathname_llimpl = make_getfullpathname_impl(traits)
+        getfullpathname_llimpl = make_getfullpathname_impl(traits)
 
         return extdef([traits.str],  # a single argument which is a str
                       traits.str,    # returns a string
-                      traits.ll_os_function('_getfullpathname'),
-                      llimpl=_getfullpathname_llimpl)
+                      traits.ll_os_name('_getfullpathname'),
+                      llimpl=getfullpathname_llimpl)
 
     @registering(os.getcwd)
     def register_os_getcwd(self):
@@ -1593,27 +1595,17 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.fstat)
     def register_os_fstat(self):
         from pypy.rpython.module import ll_os_stat
-        return ll_os_stat.register_stat_variant('fstat')
+        return ll_os_stat.register_stat_variant('fstat', StringTraits())
 
-    @registering(os.stat)
-    def register_os_stat(self):
+    @registering_str_unicode(os.stat)
+    def register_os_stat(self, traits):
         from pypy.rpython.module import ll_os_stat
-        return ll_os_stat.register_stat_variant('stat')
+        return ll_os_stat.register_stat_variant('stat', traits)
 
-    @registering(os.lstat)
-    def register_os_lstat(self):
+    @registering_str_unicode(os.lstat)
+    def register_os_lstat(self, traits):
         from pypy.rpython.module import ll_os_stat
-        return ll_os_stat.register_stat_variant('lstat')
-
-    @registering_unicode_version(os.stat, [unicode], sys.platform=='win32')
-    def register_os_stat_unicode(self):
-        from pypy.rpython.module import ll_os_stat
-        return ll_os_stat.register_stat_variant_unicode('stat')
-
-    @registering_unicode_version(os.lstat, [unicode], sys.platform=='win32')
-    def register_os_lstat_unicode(self):
-        from pypy.rpython.module import ll_os_stat
-        return ll_os_stat.register_stat_variant_unicode('lstat')
+        return ll_os_stat.register_stat_variant('lstat', traits)
 
     # ------------------------------- os.W* ---------------------------------
 

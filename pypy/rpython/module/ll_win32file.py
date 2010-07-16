@@ -18,7 +18,7 @@ def make_win32_traits(traits):
 
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
-            includes = ['windows.h']
+            includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
         )
         WIN32_FIND_DATA = platform.Struct(
             'struct _WIN32_FIND_DATA' + suffix,
@@ -35,17 +35,63 @@ def make_win32_traits(traits):
         ERROR_NO_MORE_FILES = platform.ConstantInteger(
             'ERROR_NO_MORE_FILES')
 
-    def external(*args, **kwargs):
-        kwargs['compilation_info'] = CConfig._compilation_info_
-        return rffi.llexternal(*args, **kwargs)
+        GetFileExInfoStandard = platform.ConstantInteger(
+            'GetFileExInfoStandard')
+        FILE_ATTRIBUTE_DIRECTORY = platform.ConstantInteger(
+            'FILE_ATTRIBUTE_DIRECTORY')
+        FILE_ATTRIBUTE_READONLY = platform.ConstantInteger(
+            'FILE_ATTRIBUTE_READONLY')
+        ERROR_SHARING_VIOLATION = platform.ConstantInteger(
+            'ERROR_SHARING_VIOLATION')
+        _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
+        _S_IFREG = platform.ConstantInteger('_S_IFREG')
+        _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
+        _S_IFIFO = platform.ConstantInteger('_S_IFIFO')
+        FILE_TYPE_UNKNOWN = platform.ConstantInteger('FILE_TYPE_UNKNOWN')
+        FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
+        FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
+
+        WIN32_FILE_ATTRIBUTE_DATA = platform.Struct(
+            'WIN32_FILE_ATTRIBUTE_DATA',
+            [('dwFileAttributes', rwin32.DWORD),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME)])
+
+        BY_HANDLE_FILE_INFORMATION = platform.Struct(
+            'BY_HANDLE_FILE_INFORMATION',
+            [('dwFileAttributes', rwin32.DWORD),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('nNumberOfLinks', rwin32.DWORD),
+             ('nFileIndexHigh', rwin32.DWORD),
+             ('nFileIndexLow', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME)])
 
     config = platform.configure(CConfig)
 
+    def external(*args, **kwargs):
+            kwargs['compilation_info'] = CConfig._compilation_info_
+            return rffi.llexternal(calling_conv='win', *args, **kwargs)
+
     class Win32Traits:
-        WIN32_FIND_DATA      = config['WIN32_FIND_DATA']
-        ERROR_FILE_NOT_FOUND = config['ERROR_FILE_NOT_FOUND']
-        ERROR_NO_MORE_FILES  = config['ERROR_NO_MORE_FILES']
+        apisuffix = suffix
+
+        for name in '''WIN32_FIND_DATA WIN32_FILE_ATTRIBUTE_DATA BY_HANDLE_FILE_INFORMATION
+                       GetFileExInfoStandard
+                       FILE_ATTRIBUTE_DIRECTORY FILE_ATTRIBUTE_READONLY
+                       _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
+                       FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
+                       ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
+                       ERROR_SHARING_VIOLATION
+                    '''.split():
+            locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
+        GET_FILEEX_INFO_LEVELS = rffi.ULONG # an enumeration
 
         FindFirstFile = external('FindFirstFile' + suffix,
                                  [traits.CCHARP, LPWIN32_FIND_DATA],
@@ -57,7 +103,34 @@ def make_win32_traits(traits):
                              [rwin32.HANDLE],
                              rwin32.BOOL)
 
+        GetFileAttributesEx = external(
+            'GetFileAttributesEx' + suffix,
+            [traits.CCHARP, GET_FILEEX_INFO_LEVELS,
+             lltype.Ptr(WIN32_FILE_ATTRIBUTE_DATA)],
+            rwin32.BOOL)
+
+        GetFileInformationByHandle = external(
+            'GetFileInformationByHandle',
+            [rwin32.HANDLE, lltype.Ptr(BY_HANDLE_FILE_INFORMATION)],
+            rwin32.BOOL)
+
+        GetFileType = external(
+            'GetFileType',
+            [rwin32.HANDLE],
+            rwin32.DWORD)
+
+        LPSTRP = rffi.CArrayPtr(traits.CCHARP)
+
+        GetFullPathName = external(
+            'GetFullPathName' + suffix,
+            [traits.CCHARP, rwin32.DWORD,
+             traits.CCHARP, LPSTRP],
+            rwin32.DWORD)
+
     return Win32Traits
+
+#_______________________________________________________________
+# listdir
 
 def make_listdir_impl(traits):
     from pypy.rlib import rwin32
@@ -113,20 +186,21 @@ def make_listdir_impl(traits):
 
     return listdir_llimpl
 
-def make_getfullpathname_impl(traits):
-    win32traits = make_win32_traits(traits)
+#_______________________________________________________________
+# getfullpathname
 
-    LPSTRP = rffi.CArrayPtr(traits.CCHARP)
+def make_getfullpathname_impl(traits):
+    from pypy.rlib import rwin32
+    win32traits = make_win32_traits(traits)
 
     @func_renamer('getfullpathname_llimpl_%s' % traits.str.__name__)
     def getfullpathname_llimpl(path):
-        # XXX why do we ignore WINAPI conventions everywhere?
         nBufferLength = rwin32.MAX_PATH + 1
         lpBuffer = lltype.malloc(traits.CCHARP.TO, nBufferLength, flavor='raw')
         try:
             res = win32traits.GetFullPathName(
-                lpFileName, rffi.cast(rwin32.DWORD, nBufferLength),
-                lpBuffer, lltype.nullptr(LPSTRP.TO))
+                path, rffi.cast(rwin32.DWORD, nBufferLength),
+                lpBuffer, lltype.nullptr(win32traits.LPSTRP.TO))
             if res == 0:
                 raise rwin32.lastWindowsError("_getfullpathname failed")
             result = traits.charp2str(lpBuffer)
