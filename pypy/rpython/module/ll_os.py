@@ -86,6 +86,7 @@ def registering_unicode_version(posixfunc, signature, condition=True):
 
 class StringTraits:
     str = str
+    CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
 
     @staticmethod
@@ -98,6 +99,7 @@ class StringTraits:
 
 class UnicodeTraits:
     str = unicode
+    CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
 
     @staticmethod
@@ -1229,66 +1231,8 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_listdir(self):
         # we need a different approach on Windows and on Posix
         if sys.platform.startswith('win'):
-            from pypy.rlib import rwin32
-            class CConfig:
-                _compilation_info_ = ExternalCompilationInfo(
-                    includes = ['windows.h']
-                )
-                WIN32_FIND_DATA = platform.Struct('struct _WIN32_FIND_DATAA',
-                    [('cFileName', lltype.FixedSizeArray(rffi.CHAR, 1))])
-                ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
-                    'ERROR_FILE_NOT_FOUND')
-                ERROR_NO_MORE_FILES = platform.ConstantInteger(
-                    'ERROR_NO_MORE_FILES')
-
-            config = platform.configure(CConfig)
-            WIN32_FIND_DATA      = config['WIN32_FIND_DATA']
-            ERROR_FILE_NOT_FOUND = config['ERROR_FILE_NOT_FOUND']
-            ERROR_NO_MORE_FILES  = config['ERROR_NO_MORE_FILES']
-            LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
-
-            FindFirstFile = self.llexternal('FindFirstFileA',
-                                            [rwin32.LPCSTR, LPWIN32_FIND_DATA],
-                                            rwin32.HANDLE)
-            FindNextFile = self.llexternal('FindNextFileA',
-                                           [rwin32.HANDLE, LPWIN32_FIND_DATA],
-                                           rwin32.BOOL)
-            FindClose = self.llexternal('FindClose',
-                                        [rwin32.HANDLE],
-                                        rwin32.BOOL)
-
-            def os_listdir_llimpl(path):
-                if path and path[-1] not in ('/', '\\', ':'):
-                    path += '/'
-                path += '*.*'
-                filedata = lltype.malloc(WIN32_FIND_DATA, flavor='raw')
-                try:
-                    result = []
-                    hFindFile = FindFirstFile(path, filedata)
-                    if hFindFile == rwin32.INVALID_HANDLE_VALUE:
-                        error = rwin32.GetLastError()
-                        if error == ERROR_FILE_NOT_FOUND:
-                            return result
-                        else:
-                            raise WindowsError(error,  "FindFirstFile failed")
-                    while True:
-                        name = rffi.charp2str(rffi.cast(rffi.CCHARP,
-                                                        filedata.c_cFileName))
-                        if name != "." and name != "..":   # skip these
-                            result.append(name)
-                        if not FindNextFile(hFindFile, filedata):
-                            break
-                    # FindNextFile sets error to ERROR_NO_MORE_FILES if
-                    # it got to the end of the directory
-                    error = rwin32.GetLastError()
-                    FindClose(hFindFile)
-                    if error == ERROR_NO_MORE_FILES:
-                        return result
-                    else:
-                        raise WindowsError(error,  "FindNextFile failed")
-                finally:
-                    lltype.free(filedata, flavor='raw')
-
+            from pypy.rpython.module.win32file import make_listdir_impl
+            os_listdir_llimpl = make_listdir_impl(StringTraits())
         else:
             compilation_info = ExternalCompilationInfo(
                 includes = ['sys/types.h', 'dirent.h']
@@ -1336,70 +1280,12 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_unicode_version(os.listdir, [unicode], sys.platform=='win32')
     def register_os_listdir_unicode(self):
-        from pypy.rlib import rwin32
-        class CConfig:
-            _compilation_info_ = ExternalCompilationInfo(
-                includes = ['windows.h']
-            )
-            WIN32_FIND_DATA = platform.Struct('struct _WIN32_FIND_DATAW',
-                [('cFileName', lltype.FixedSizeArray(rwin32.WCHAR, 250))])
-            ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
-                'ERROR_FILE_NOT_FOUND')
-            ERROR_NO_MORE_FILES = platform.ConstantInteger(
-                'ERROR_NO_MORE_FILES')
-
-        config = platform.configure(CConfig)
-        WIN32_FIND_DATA      = config['WIN32_FIND_DATA']
-        ERROR_FILE_NOT_FOUND = config['ERROR_FILE_NOT_FOUND']
-        ERROR_NO_MORE_FILES  = config['ERROR_NO_MORE_FILES']
-        LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
-
-        FindFirstFile = self.llexternal('FindFirstFileW',
-                                        [rwin32.LPCWSTR, LPWIN32_FIND_DATA],
-                                        rwin32.HANDLE)
-        FindNextFile = self.llexternal('FindNextFileW',
-                                       [rwin32.HANDLE, LPWIN32_FIND_DATA],
-                                       rwin32.BOOL)
-        FindClose = self.llexternal('FindClose',
-                                    [rwin32.HANDLE],
-                                    rwin32.BOOL)
-
-        def os_listdir_llimpl(path):
-            if path and path[-1] not in (u'/', u'\\', u':'):
-                path += u'/'
-            path += u'*.*'
-            filedata = lltype.malloc(WIN32_FIND_DATA, flavor='raw')
-            try:
-                result = []
-                hFindFile = FindFirstFile(path, filedata)
-                if hFindFile == rwin32.INVALID_HANDLE_VALUE:
-                    error = rwin32.GetLastError()
-                    if error == ERROR_FILE_NOT_FOUND:
-                        return result
-                    else:
-                        raise WindowsError(error,  "FindFirstFile failed")
-                while True:
-                    name = rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP,
-                                                         filedata.c_cFileName))
-                    if name != u"." and name != u"..":   # skip these
-                        result.append(name)
-                    if not FindNextFile(hFindFile, filedata):
-                        break
-                # FindNextFile sets error to ERROR_NO_MORE_FILES if
-                # it got to the end of the directory
-                error = rwin32.GetLastError()
-                FindClose(hFindFile)
-                if error == ERROR_NO_MORE_FILES:
-                    return result
-                else:
-                    raise WindowsError(error,  "FindNextFile failed")
-            finally:
-                lltype.free(filedata, flavor='raw')
+        from pypy.rpython.module.win32file import make_listdir_impl
 
         return extdef([unicode],  # a single argument which is a unicode
                       [unicode],  # returns a list of unicodes
                       "ll_os.ll_os_wlistdir",
-                      llimpl=os_listdir_llimpl)
+                      llimpl=make_listdir_impl(UnicodeTraits()))
 
     @registering(os.pipe)
     def register_os_pipe(self):

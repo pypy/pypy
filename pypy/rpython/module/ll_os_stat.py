@@ -5,7 +5,7 @@ indexed like a tuple but also exposes the st_xxx attributes.
 import os, sys
 from pypy.annotation import model as annmodel
 from pypy.tool.pairtype import pairtype
-from pypy.tool.sourcetools import func_with_new_name
+from pypy.tool.sourcetools import func_with_new_name, func_renamer
 from pypy.rpython import extregistry
 from pypy.rpython.extfunc import register_external, extdef
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -229,6 +229,7 @@ def register_stat_variant(name):
 
     arg_is_path = (name != 'fstat')
 
+    @func_renamer('os_%s_llimpl' % (name,))
     def posix_stat_llimpl(arg):
         stresult = lltype.malloc(STAT_STRUCT.TO, flavor='raw')
         try:
@@ -243,6 +244,7 @@ def register_stat_variant(name):
         finally:
             lltype.free(stresult, flavor='raw')
 
+    @func_renamer('os_%s_fake' % (name,))
     def posix_fakeimpl(arg):
         if s_arg == str:
             arg = hlstr(arg)
@@ -273,18 +275,12 @@ def register_stat_variant(name):
                                        compilation_info=compilation_info)
 
         return extdef(
-            [s_arg], s_StatResult,
-            "ll_os.ll_os_%s" % (name,),
-            llimpl=func_with_new_name(posix_stat_llimpl,
-                                      'os_%s_llimpl' % (name,)),
-            llfakeimpl=func_with_new_name(posix_fakeimpl,
-                                          'os_%s_fake' % (name,)),
-            )
+            [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
+            llimpl=posix_stat_llimpl, llfakeimpl=posix_fakeimpl)
     else:
         # See Win32 implementation below
         return extdef(
-            [s_arg], s_StatResult,
-            "ll_os.ll_os_%s" % (name,),
+            [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
             llimpl=func_with_new_name(globals()['win32_%s_llimpl' % (name,)],
                                       'os_%s_llimpl' % (name,)),
             )
@@ -303,8 +299,7 @@ def register_stat_variant_unicode(name):
 # ____________________________________________________________
 if sys.platform == 'win32':
     # The CRT of Windows has a number of flaws wrt. its stat() implementation:
-    # - for when we implement subsecond resolution in RPython, time stamps
-    #   would be restricted to second resolution
+    # - time stamps are restricted to second resolution
     # - file modification times suffer from forth-and-back conversions between
     #   UTC and local time
     # Therefore, we implement our own stat, based on the Win32 API directly.
