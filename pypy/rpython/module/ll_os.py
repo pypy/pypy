@@ -88,7 +88,8 @@ class StringTraits:
     str = str
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
-    str2charp = rffi.str2charp
+    charp2str = staticmethod(rffi.charp2str)
+    str2charp = staticmethod(rffi.str2charp)
 
     @staticmethod
     def posix_function_name(name):
@@ -102,7 +103,8 @@ class UnicodeTraits:
     str = unicode
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
-    str2charp = rffi.wcharp2unicode
+    charp2str = staticmethod(rffi.wcharp2unicode)
+    str2charp = staticmethod(rffi.unicode2wcharp)
 
     @staticmethod
     def posix_function_name(name):
@@ -1100,73 +1102,17 @@ class RegisterOs(BaseLazyRegistering):
                       export_name=traits.ll_os_name("access"),
                       oofakeimpl=os_access_oofakeimpl)
 
-    @registering_if(posix, '_getfullpathname')
-    def register_posix__getfullpathname(self):
-        from pypy.rlib import rwin32
+    @registering_str_unicode(getattr(posix, '_getfullpathname', None),
+                             condition=sys.platform=='win32')
+    def register_posix__getfullpathname(self, traits):
         # this nt function is not exposed via os, but needed
         # to get a correct implementation of os.abspath
-        # XXX why do we ignore WINAPI conventions everywhere?
-        LPSTRP = rffi.CArrayPtr(rwin32.LPSTR)
-        GetFullPathName = self.llexternal(
-            'GetFullPathNameA',
-            [rwin32.LPCSTR,
-             rwin32.DWORD,
-             rwin32.LPSTR,
-             rffi.CArrayPtr(rwin32.LPSTR)],
-            rwin32.DWORD)
+        from pypy.rpython.module.ll_win32file import make_getfullpathname_impl
+        _getfullpathname_llimpl = make_getfullpathname_impl(traits)
 
-        def _getfullpathname_llimpl(lpFileName):
-            nBufferLength = rwin32.MAX_PATH + 1
-            lpBuffer = lltype.malloc(rwin32.LPSTR.TO, nBufferLength, flavor='raw')
-            try:
-                res = GetFullPathName(
-                    lpFileName, rffi.cast(rwin32.DWORD, nBufferLength),
-                    lpBuffer, lltype.nullptr(LPSTRP.TO))
-                if res == 0:
-                    raise rwin32.lastWindowsError("_getfullpathname failed")
-                result = rffi.charp2str(lpBuffer)
-                return result
-            finally:
-                lltype.free(lpBuffer, flavor='raw')
-
-        return extdef([str],  # a single argument which is a str
-                      str,    # returns a string
-                      "ll_os.posix__getfullpathname",
-                      llimpl=_getfullpathname_llimpl)
-
-    @registering_unicode_version(getattr(posix, '_getfullpathname', None),
-                                 [unicode], sys.platform=='win32')
-    def register_posix__getfullpathname_unicode(self):
-        from pypy.rlib import rwin32
-        # this nt function is not exposed via os, but needed
-        # to get a correct implementation of os.abspath
-        # XXX why do we ignore WINAPI conventions everywhere?
-        LPWSTRP = rffi.CArrayPtr(rwin32.LPWSTR)
-        GetFullPathName = self.llexternal(
-            'GetFullPathNameW',
-            [rwin32.LPCWSTR,
-             rwin32.DWORD,
-             rwin32.LPWSTR,
-             rffi.CArrayPtr(rwin32.LPWSTR)],
-            rwin32.DWORD)
-
-        def _getfullpathname_llimpl(lpFileName):
-            nBufferLength = rwin32.MAX_PATH + 1
-            lpBuffer = lltype.malloc(rwin32.LPWSTR.TO, nBufferLength, flavor='raw')
-            try:
-                res = GetFullPathName(
-                    lpFileName, rffi.cast(rwin32.DWORD, nBufferLength),
-                    lpBuffer, lltype.nullptr(LPWSTRP.TO))
-                if res == 0:
-                    raise rwin32.lastWindowsError("_getfullpathname failed")
-                result = rffi.wcharp2unicode(lpBuffer)
-                return result
-            finally:
-                lltype.free(lpBuffer, flavor='raw')
-
-        return extdef([unicode],  # a single argument which is a str
-                      unicode,    # returns a string
-                      "ll_os.posix__wgetfullpathname",
+        return extdef([traits.str],  # a single argument which is a str
+                      traits.str,    # returns a string
+                      traits.ll_os_function('_getfullpathname'),
                       llimpl=_getfullpathname_llimpl)
 
     @registering(os.getcwd)
@@ -1233,7 +1179,7 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_listdir(self, traits):
         # we need a different approach on Windows and on Posix
         if sys.platform.startswith('win'):
-            from pypy.rpython.module.win32file import make_listdir_impl
+            from pypy.rpython.module.ll_win32file import make_listdir_impl
             os_listdir_llimpl = make_listdir_impl(traits)
         else:
             assert traits.str is str

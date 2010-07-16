@@ -6,6 +6,7 @@ based on the Win32 API.
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
+from pypy.tool.sourcetools import func_renamer
 
 def make_win32_traits(traits):
     from pypy.rlib import rwin32
@@ -68,19 +69,19 @@ def make_listdir_impl(traits):
                 path += u'/'
             return path + u'*.*'
 
-        def skip_listdir(path):
-            return name == u"." or name == u"..":
+        def skip_listdir(name):
+            return name == u"." or name == u".."
     else:
         def make_listdir_mask(path):
             if path and path[-1] not in ('/', '\\', ':'):
                 path += '/'
             return path + '*.*'
 
-        def skip_listdir(path):
-            return name == "." or name == "..":
+        def skip_listdir(name):
+            return name == "." or name == ".."
 
     @func_renamer('listdir_llimpl_%s' % traits.str.__name__)
-    def os_listdir_llimpl(path):
+    def listdir_llimpl(path):
         mask = make_listdir_mask(path)
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
         try:
@@ -93,7 +94,7 @@ def make_listdir_impl(traits):
                 else:
                     raise WindowsError(error,  "FindFirstFile failed")
             while True:
-                name = traits.str2charp(rffi.cast(traits.CCHARP,
+                name = traits.charp2str(rffi.cast(traits.CCHARP,
                                                   filedata.c_cFileName))
                 if not skip_listdir(name):
                     result.append(name)
@@ -111,3 +112,26 @@ def make_listdir_impl(traits):
             lltype.free(filedata, flavor='raw')
 
     return listdir_llimpl
+
+def make_getfullpathname_impl(traits):
+    win32traits = make_win32_traits(traits)
+
+    LPSTRP = rffi.CArrayPtr(traits.CCHARP)
+
+    @func_renamer('getfullpathname_llimpl_%s' % traits.str.__name__)
+    def getfullpathname_llimpl(path):
+        # XXX why do we ignore WINAPI conventions everywhere?
+        nBufferLength = rwin32.MAX_PATH + 1
+        lpBuffer = lltype.malloc(traits.CCHARP.TO, nBufferLength, flavor='raw')
+        try:
+            res = win32traits.GetFullPathName(
+                lpFileName, rffi.cast(rwin32.DWORD, nBufferLength),
+                lpBuffer, lltype.nullptr(LPSTRP.TO))
+            if res == 0:
+                raise rwin32.lastWindowsError("_getfullpathname failed")
+            result = traits.charp2str(lpBuffer)
+            return result
+        finally:
+            lltype.free(lpBuffer, flavor='raw')
+
+    return getfullpathname_llimpl
