@@ -38,7 +38,9 @@ an outout-buffering stream.
 #
 
 import os, sys
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong, intmask
+from pypy.rlib import rposix
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 O_BINARY = getattr(os, "O_BINARY", 0)
@@ -71,6 +73,7 @@ def replace_char_with_str(string, c, s):
     return s.join(string.split(c))
 
 
+@specialize.argtype(0)
 def open_file_as_stream(path, mode="r", buffering=-1):
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
     stream = open_path_helper(path, os_flags, basemode == "a")
@@ -89,9 +92,10 @@ def fdopen_as_stream(fd, mode, buffering):
     return construct_stream_tower(stream, buffering, universal, reading,
                                   writing, binary)
 
+@specialize.argtype(0)
 def open_path_helper(path, os_flags, append):
     # XXX for now always return DiskFile
-    fd = os.open(path, os_flags, 0666)
+    fd = rposix.open(path, os_flags, 0666)
     if append:
         try:
             os.lseek(fd, 0, 2)

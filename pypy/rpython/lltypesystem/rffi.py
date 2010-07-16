@@ -176,6 +176,15 @@ def llexternal(name, args, result, _callable=None,
                     # XXX leaks if a str2charp() fails with MemoryError
                     # and was not the first in this function
                     freeme = arg
+            elif TARGET == CWCHARP:
+                if arg is None:
+                    arg = lltype.nullptr(CWCHARP.TO)   # None => (wchar_t*)NULL
+                    freeme = arg
+                elif isinstance(arg, unicode):
+                    arg = unicode2wcharp(arg)
+                    # XXX leaks if a unicode2wcharp() fails with MemoryError
+                    # and was not the first in this function
+                    freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
                 if invoke_around_handlers:

@@ -1,8 +1,9 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.rlib import rposix
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -12,15 +13,78 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import os, sys
 _WIN = sys.platform == 'win32'
 
-def open(space, fname, flag, mode=0777):
+class FileEncoder:
+    def __init__(self, space, w_obj):
+        self.space = space
+        self.w_obj = w_obj
+
+    def as_bytes(self):
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
+        space = self.space
+        w_bytes = space.call_method(self.w_obj, 'encode',
+                                    getfilesystemencoding(space))
+        return space.str_w(w_bytes)
+
+    def as_unicode(self):
+        return self.space.unicode_w(self.w_obj)
+
+class FileDecoder:
+    def __init__(self, space, w_obj):
+        self.space = space
+        self.w_obj = w_obj
+
+    def as_bytes(self):
+        return self.space.str_w(self.w_obj)
+
+    def as_unicode(self):
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
+        space = self.space
+        w_unicode = space.call_method(self.w_obj, 'decode',
+                                      getfilesystemencoding(space))
+        return space.unicode_w(w_unicode)
+
+@specialize.memo()
+def dispatch_filename(func, tag=0):
+    def dispatch(space, w_fname, *args):
+        if space.isinstance_w(w_fname, space.w_unicode):
+            fname = FileEncoder(space, w_fname)
+            return func(fname, *args)
+        else:
+            fname = space.str_w(w_fname)
+            return func(fname, *args)
+    return dispatch
+
+@specialize.memo()
+def dispatch_filename_2(func):
+    def dispatch(space, w_fname1, w_fname2, *args):
+        if space.isinstance_w(w_fname1, space.w_unicode):
+            fname1 = FileEncoder(space, w_fname1)
+            if space.isinstance_w(w_fname2, space.w_unicode):
+                fname2 = FileEncoder(space, w_fname2)
+                return func(fname1, fname2, *args)
+            else:
+                fname2 = FileDecoder(space, w_fname2)
+                return func(fname1, fname2, *args)
+        else:
+            fname1 = FileDecoder(space, w_fname1)
+            if space.isinstance_w(w_fname2, space.w_unicode):
+                fname2 = FileEncoder(space, w_fname2)
+                return func(fname1, fname2, *args)
+            else:
+                fname2 = FileDecoder(space, w_fname2)
+                return func(fname1, fname2, *args)
+    return dispatch
+
+def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
-    try: 
-        fd = os.open(fname, flag, mode)
+    try:
+        fd = dispatch_filename(rposix.open)(
+            space, w_fname, flag, mode)
     except OSError, e: 
-        raise wrap_oserror(space, e, fname)
+        raise wrap_oserror2(space, e, w_fname)
     return space.wrap(fd)
-open.unwrap_spec = [ObjSpace, 'path', "c_int", "c_int"]
+open.unwrap_spec = [ObjSpace, W_Root, "c_int", "c_int"]
 
 def lseek(space, fd, pos, how):
     """Set the current position of a file descriptor.  Return the new position.
@@ -159,7 +223,7 @@ file descriptor."""
         return build_stat_result(space, st)
 fstat.unwrap_spec = [ObjSpace, "c_int"]
 
-def stat(space, path):
+def stat(space, w_path):
     """Perform a stat system call on the given path.  Return an object
 with (at least) the following attributes:
     st_mode
@@ -175,22 +239,22 @@ with (at least) the following attributes:
 """
 
     try:
-        st = os.stat(path)
+        st = dispatch_filename(rposix.stat)(space, w_path)
     except OSError, e: 
-        raise wrap_oserror(space, e, path)
+        raise wrap_oserror2(space, e, w_path)
     else: 
         return build_stat_result(space, st)
-stat.unwrap_spec = [ObjSpace, 'path']
+stat.unwrap_spec = [ObjSpace, W_Root]
 
-def lstat(space, path):
+def lstat(space, w_path):
     "Like stat(path), but do no follow symbolic links."
     try:
-        st = os.lstat(path)
+        st = dispatch_filename(rposix.lstat)(space, w_path)
     except OSError, e:
-        raise wrap_oserror(space, e, path)
+        raise wrap_oserror2(space, e, w_path)
     else:
         return build_stat_result(space, st)
-lstat.unwrap_spec = [ObjSpace, 'path']
+lstat.unwrap_spec = [ObjSpace, W_Root]
 
 class StatState(object):
     def __init__(self, space):
@@ -231,7 +295,7 @@ def dup2(space, old_fd, new_fd):
         raise wrap_oserror(space, e) 
 dup2.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
-def access(space, path, mode):
+def access(space, w_path, mode):
     """
     access(path, mode) -> 1 if granted, 0 otherwise
 
@@ -242,12 +306,12 @@ def access(space, path, mode):
     existence, or the inclusive-OR of R_OK, W_OK, and X_OK.
     """
     try:
-        ok = os.access(path, mode)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
+        ok = dispatch_filename(rposix.access)(space, w_path, mode)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
     else:
         return space.wrap(ok)
-access.unwrap_spec = [ObjSpace, str, "c_int"]
+access.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
 
 def times(space):
@@ -278,32 +342,38 @@ def system(space, cmd):
         return space.wrap(rc)
 system.unwrap_spec = [ObjSpace, str]
 
-def unlink(space, path):
+def unlink(space, w_path):
     """Remove a file (same as remove(path))."""
     try:
-        os.unlink(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-unlink.unwrap_spec = [ObjSpace, 'path']
+        dispatch_filename(rposix.unlink)(space, w_path)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+unlink.unwrap_spec = [ObjSpace, W_Root]
 
-def remove(space, path):
+def remove(space, w_path):
     """Remove a file (same as unlink(path))."""
     try:
-        os.unlink(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-remove.unwrap_spec = [ObjSpace, 'path']
-
-def _getfullpathname(space, path):
-    """helper for ntpath.abspath """
-    posix = __import__(os.name) # nt specific
-    try:
-        fullpath = posix._getfullpathname(path)
+        dispatch_filename(rposix.unlink)(space, w_path)
     except OSError, e:
-        raise wrap_oserror(space, e, path)
-    else: 
-        return space.wrap(fullpath)
-_getfullpathname.unwrap_spec = [ObjSpace, str]
+        raise wrap_oserror2(space, e, w_path)
+remove.unwrap_spec = [ObjSpace, W_Root]
+
+def _getfullpathname(space, w_path):
+    """helper for ntpath.abspath """
+    try:
+        if space.isinstance_w(w_path, space.w_unicode):
+            path = FileEncoder(space, w_path)
+            fullpath = rposix._getfullpathname(path)
+            w_fullpath = space.wrap(fullpath)
+        else:
+            path = space.str_w(w_path)
+            fullpath = rposix._getfullpathname(path)
+            w_fullpath = space.wrap(fullpath)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+    else:
+        return w_fullpath
+_getfullpathname.unwrap_spec = [ObjSpace, W_Root]
 
 def getcwd(space):
     """Return the current working directory."""
@@ -315,35 +385,46 @@ def getcwd(space):
         return space.wrap(cur)
 getcwd.unwrap_spec = [ObjSpace]
 
-def getcwdu(space):
-    """Return the current working directory as a unicode string."""
-    # XXX ascii encoding for now
-    return space.call_method(getcwd(space), 'decode')
+if sys.platform == 'win32':
+    def getcwdu(space):
+        """Return the current working directory as a unicode string."""
+        try:
+            cur = os.getcwdu()
+        except OSError, e:
+            raise wrap_oserror(space, e)
+        else:
+            return space.wrap(cur)
+else:
+    def getcwdu(space):
+        """Return the current working directory as a unicode string."""
+        filesystemencoding = space.sys.filesystemencoding
+        return space.call_method(getcwd(space), 'decode',
+                                 space.wrap(filesystemencoding))
 getcwdu.unwrap_spec = [ObjSpace]
 
-def chdir(space, path):
+def chdir(space, w_path):
     """Change the current working directory to the specified path."""
     try:
-        os.chdir(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-chdir.unwrap_spec = [ObjSpace, str]
+        dispatch_filename(rposix.chdir)(space, w_path)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+chdir.unwrap_spec = [ObjSpace, W_Root]
 
-def mkdir(space, path, mode=0777):
+def mkdir(space, w_path, mode=0777):
     """Create a directory."""
     try:
-        os.mkdir(path, mode)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-mkdir.unwrap_spec = [ObjSpace, str, "c_int"]
+        dispatch_filename(rposix.mkdir)(space, w_path, mode)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+mkdir.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
-def rmdir(space, path):
+def rmdir(space, w_path):
     """Remove a directory."""
     try:
-        os.rmdir(path)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-rmdir.unwrap_spec = [ObjSpace, str]
+        dispatch_filename(rposix.rmdir)(space, w_path)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+rmdir.unwrap_spec = [ObjSpace, W_Root]
 
 def strerror(space, errno):
     """Translate an error code to a message string."""
@@ -410,7 +491,7 @@ def unsetenv(space, name):
 unsetenv.unwrap_spec = [ObjSpace, str]
 
 
-def listdir(space, dirname):
+def listdir(space, w_dirname):
     """Return a list containing the names of the entries in the directory.
 
 \tpath: path of directory to list
@@ -418,12 +499,18 @@ def listdir(space, dirname):
 The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
     try:
-        result = os.listdir(dirname)
+        if space.isinstance_w(w_dirname, space.w_unicode):
+            dirname = FileEncoder(space, w_dirname)
+            result = rposix.listdir(dirname)
+            result_w = [space.wrap(s) for s in result]
+        else:
+            dirname = space.str_w(w_dirname)
+            result = rposix.listdir(dirname)
+            result_w = [space.wrap(s) for s in result]
     except OSError, e:
-        raise wrap_oserror(space, e, dirname)
-    result_w = [space.wrap(s) for s in result]
+        raise wrap_oserror2(space, e, w_dirname)
     return space.newlist(result_w)
-listdir.unwrap_spec = [ObjSpace, str]
+listdir.unwrap_spec = [ObjSpace, W_Root]
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
@@ -434,21 +521,21 @@ def pipe(space):
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 pipe.unwrap_spec = [ObjSpace]
 
-def chmod(space, path, mode):
+def chmod(space, w_path, mode):
     "Change the access permissions of a file."
-    try: 
-        os.chmod(path, mode)
-    except OSError, e: 
-        raise wrap_oserror(space, e, path)
-chmod.unwrap_spec = [ObjSpace, str, "c_int"]
+    try:
+        dispatch_filename(rposix.chmod)(space, w_path, mode)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_path)
+chmod.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
-def rename(space, old, new):
+def rename(space, w_old, w_new):
     "Rename a file or directory."
-    try: 
-        os.rename(old, new)
-    except OSError, e: 
+    try:
+        dispatch_filename_2(rposix.rename)(space, w_old, w_new)
+    except OSError, e:
         raise wrap_oserror(space, e) 
-rename.unwrap_spec = [ObjSpace, str, str]
+rename.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def umask(space, mask):
     "Set the current numeric umask and return the previous umask."
@@ -576,7 +663,7 @@ Execute a path with arguments and environment, replacing current process.
         raise wrap_oserror(space, e)
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
 
-def utime(space, path, w_tuple):
+def utime(space, w_path, w_tuple):
     """ utime(path, (atime, mtime))
 utime(path, None)
 
@@ -585,10 +672,10 @@ second form is used, set the access and modified times to the current time.
     """
     if space.is_w(w_tuple, space.w_None):
         try:
-            os.utime(path, None)
+            dispatch_filename(rposix.utime, 1)(space, w_path, None)
             return
         except OSError, e:
-            raise wrap_oserror(space, e, path)
+            raise wrap_oserror2(space, e, w_path)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
         args_w = space.fixedview(w_tuple)
@@ -596,14 +683,14 @@ second form is used, set the access and modified times to the current time.
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0])
         modtime = space.float_w(args_w[1])
-        os.utime(path, (actime, modtime))
+        dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
     except OSError, e:
-        raise wrap_oserror(space, e, path)
+        raise wrap_oserror2(space, e, w_path)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
-utime.unwrap_spec = [ObjSpace, str, W_Root]
+utime.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def setsid(space):
     """setsid() -> pid

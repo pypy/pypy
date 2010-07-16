@@ -32,6 +32,9 @@ def setup_module(mod):
     # even when running on top of CPython 2.4.
     os.stat_float_times(True)
 
+    # Initialize sys.filesystemencoding
+    space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
+
 def need_sparse_files():
     if sys.platform == 'darwin':
         py.test.skip("no sparse files on default Mac OS X file system")
@@ -705,6 +708,28 @@ class AppTestPosixUnicode:
             self.posix.remove(u"ą")
         except OSError:
             pass
+
+class AppTestUnicodeFilename:
+    def setup_class(cls):
+        ufilename = (unicode(udir.join('test_unicode_filename_')) +
+                     u'\u65e5\u672c.txt') # "Japan"
+        try:
+            f = file(ufilename, 'w')
+        except UnicodeEncodeError:
+            py.test.skip("encoding not good enough")
+        f.write("test")
+        f.close()
+        cls.space = space
+        cls.w_filename = space.wrap(ufilename)
+        cls.w_posix = space.appexec([], GET_POSIX)
+
+    def test_open(self):
+        fd = self.posix.open(self.filename, self.posix.O_RDONLY)
+        try:
+            content = self.posix.read(fd, 50)
+        finally:
+            self.posix.close(fd)
+        assert content == "test"
 
 
 class TestPexpect(object):

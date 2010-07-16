@@ -1,4 +1,4 @@
-from pypy.rpython.module import ll_os_stat
+from pypy.rpython.module import ll_os_stat, ll_os
 import sys, os
 import py
 
@@ -8,14 +8,18 @@ class TestWin32Implementation:
             py.test.skip("win32 specific tests")
 
     def test_stat(self):
-        stat = ll_os_stat.win32_stat_llimpl
+        stat = ll_os_stat.make_win32_stat_impl('stat', ll_os.StringTraits())
+        wstat = ll_os_stat.make_win32_stat_impl('stat', ll_os.UnicodeTraits())
         def check(f):
-            assert stat(f).st_mtime == os.stat(f).st_mtime
+            expected = os.stat(f).st_mtime
+            assert stat(f).st_mtime == expected
+            assert wstat(unicode(f)).st_mtime == expected
 
         check('c:/')
         check('c:/temp')
         check('c:/pagefile.sys')
 
     def test_fstat(self):
-        stat = ll_os_stat.win32_fstat_llimpl(0) # stdout
+        fstat = ll_os_stat.make_win32_stat_impl('fstat', ll_os.StringTraits())
+        stat = fstat(0) # stdout
         assert stat.st_mode != 0

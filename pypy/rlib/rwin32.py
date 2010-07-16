@@ -31,6 +31,7 @@ class CConfig:
         DWORD = rffi_platform.SimpleType("DWORD", rffi.UINT)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
         BYTE = rffi_platform.SimpleType("BYTE", rffi.UCHAR)
+        WCHAR = rffi_platform.SimpleType("WCHAR", rffi.UCHAR)
         INT = rffi_platform.SimpleType("INT", rffi.INT)
         LONG = rffi_platform.SimpleType("LONG", rffi.LONG)
         PLONG = rffi_platform.SimpleType("PLONG", rffi.LONGP)
@@ -38,6 +39,8 @@ class CConfig:
         LPCVOID = rffi_platform.SimpleType("LPCVOID", rffi.VOIDP)
         LPSTR = rffi_platform.SimpleType("LPSTR", rffi.CCHARP)
         LPCSTR = rffi_platform.SimpleType("LPCSTR", rffi.CCHARP)
+        LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
+        LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.INTP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
@@ -86,6 +89,10 @@ if WIN32:
 
     GetLastError = winexternal('GetLastError', [], DWORD)
     SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
+
+    # In tests, the first call to GetLastError is always wrong, because error
+    # is hidden by operations in ll2ctypes.  Call it now.
+    GetLastError()
 
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], rffi.VOIDP)
     GetProcAddress = winexternal('GetProcAddress',

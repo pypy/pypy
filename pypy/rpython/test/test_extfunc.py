@@ -6,150 +6,164 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.rpython.test.test_llinterp import interpret
 
-def b(x):
-    return eval("x+40")
+class TestExtFuncEntry:
 
-class BTestFuncEntry(ExtFuncEntry):
-    _about_ = b
-    name = 'b'
-    signature_args = [annmodel.SomeInteger()]
-    signature_result = annmodel.SomeInteger()
+    def test_basic(self):
+        """
+        A ExtFuncEntry provides an annotation for a function, no need to flow
+        its graph.
+        """
+        def b(x):
+            "NOT_RPYTHON"
+            return eval("x+40")
 
-def test_annotation_b():
-    def f():
-        return b(1)
-    
-    policy = AnnotatorPolicy()
-    policy.allow_someobjects = False
-    a = RPythonAnnotator(policy=policy)
-    s = a.build_types(f, [])
-    assert isinstance(s, annmodel.SomeInteger)
+        class BTestFuncEntry(ExtFuncEntry):
+            _about_ = b
+            name = 'b'
+            signature_args = [annmodel.SomeInteger()]
+            signature_result = annmodel.SomeInteger()
 
-def test_rtyping_b():
-    def f():
-        return b(2)
+        def f():
+            return b(2)
 
-    res = interpret(f, [])
-    assert res == 42
+        policy = AnnotatorPolicy()
+        policy.allow_someobjects = False
+        a = RPythonAnnotator(policy=policy)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
 
-def c(y, x):
-    yyy
+        res = interpret(f, [])
+        assert res == 42
 
-class CTestFuncEntry(ExtFuncEntry):
-    _about_ = c
-    name = 'ccc'
-    signature_args = [annmodel.SomeInteger()] * 2
-    signature_result = annmodel.SomeInteger()
+    def test_lltypeimpl(self):
+        """
+        interpret() calls lltypeimpl instead of of the function/
+        """
+        def c(y, x):
+            yyy
 
-    def lltypeimpl(y, x):
-        return y + x
-    lltypeimpl = staticmethod(lltypeimpl)
+        class CTestFuncEntry(ExtFuncEntry):
+            _about_ = c
+            name = 'ccc'
+            signature_args = [annmodel.SomeInteger()] * 2
+            signature_result = annmodel.SomeInteger()
 
-def test_interp_c():
-    def f():
-        return c(3, 4)
+            def lltypeimpl(y, x):
+                return y + x
+            lltypeimpl = staticmethod(lltypeimpl)
 
-    res = interpret(f, [])
-    assert res == 7
+        def f():
+            return c(3, 4)
 
-def d(y):
-    return eval("y()")
+        res = interpret(f, [])
+        assert res == 7
 
-class DTestFuncEntry(ExtFuncEntry):
-    _about_ = d
-    name = 'd'
-    signature_args = [annmodel.SomeGenericCallable(args=[], result=
-                                                   annmodel.SomeFloat())]
-    signature_result = annmodel.SomeFloat()
+    def test_callback(self):
+        """
+        Verify annotation when a callback function is in the arguments list.
+        """
+        def d(y):
+            return eval("y()")
 
-def test_callback():
-    def callback():
-        return 2.5
+        class DTestFuncEntry(ExtFuncEntry):
+            _about_ = d
+            name = 'd'
+            signature_args = [annmodel.SomeGenericCallable(args=[], result=
+                                                           annmodel.SomeFloat())]
+            signature_result = annmodel.SomeFloat()
 
-    def f():
-        return d(callback)
+        def callback():
+            return 2.5
 
-    policy = AnnotatorPolicy()
-    policy.allow_someobjects = False
-    a = RPythonAnnotator(policy=policy)
-    s = a.build_types(f, [])
-    assert isinstance(s, annmodel.SomeFloat)
-    assert a.translator._graphof(callback)
+        def f():
+            return d(callback)
 
-def dd():
-    pass
+        policy = AnnotatorPolicy()
+        policy.allow_someobjects = False
+        a = RPythonAnnotator(policy=policy)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeFloat)
+        assert a.translator._graphof(callback)
 
-register_external(dd, [int], int)
+    def test_register_external_signature(self):
+        """
+        Test the standard interface for external functions.
+        """
+        def dd():
+            pass
+        register_external(dd, [int], int)
 
-def test_register_external_signature():
-    def f():
-        return dd(3)
+        def f():
+            return dd(3)
 
-    policy = AnnotatorPolicy()
-    policy.allow_someobjects = False
-    a = RPythonAnnotator(policy=policy)
-    s = a.build_types(f, [])
-    assert isinstance(s, annmodel.SomeInteger)
+        policy = AnnotatorPolicy()
+        policy.allow_someobjects = False
+        a = RPythonAnnotator(policy=policy)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
 
+    def test_register_external_tuple_args(self):
+        """
+        Verify the annotation of a registered external function which takes a
+        tuple argument.
+        """
 
-def function_with_tuple_arg():
-    """
-    Dummy function which is declared via register_external to take a tuple as
-    an argument so that register_external's behavior for tuple-taking functions
-    can be verified.
-    """
-register_external(function_with_tuple_arg, [(int,)], int)
+        def function_with_tuple_arg():
+            """
+            Dummy function which is declared via register_external to take a
+            tuple as an argument so that register_external's behavior for
+            tuple-taking functions can be verified.
+            """
+        register_external(function_with_tuple_arg, [(int,)], int)
 
-def test_register_external_tuple_args():
-    """
-    Verify the annotation of a registered external function which takes a tuple
-    argument.
-    """
-    def f():
-        return function_with_tuple_arg((1,))
+        def f():
+            return function_with_tuple_arg((1,))
 
-    policy = AnnotatorPolicy()
-    policy.allow_someobjects = False
-    a = RPythonAnnotator(policy=policy)
-    s = a.build_types(f, [])
+        policy = AnnotatorPolicy()
+        policy.allow_someobjects = False
+        a = RPythonAnnotator(policy=policy)
+        s = a.build_types(f, [])
 
-    # Not a very good assertion, but at least it means _something_ happened.
-    assert isinstance(s, annmodel.SomeInteger)
+        # Not a very good assertion, but at least it means _something_ happened.
+        assert isinstance(s, annmodel.SomeInteger)
 
-def function_with_list():
-    pass
-register_external(function_with_list, [[int]], int)
+    def test_register_external_return_goes_back(self):
+        """
+        Check whether it works to pass the same list from one external
+        fun to another
+        [bookkeeper and list joining issues]
+        """
+        def function_with_list():
+            pass
+        register_external(function_with_list, [[int]], int)
 
-def function_returning_list():
-    pass
-register_external(function_returning_list, [], [int])
+        def function_returning_list():
+            pass
+        register_external(function_returning_list, [], [int])
 
-def test_register_external_return_goes_back():
-    """
-    Check whether it works to pass the same list from one external
-    fun to another
-    [bookkeeper and list joining issues]
-    """
-    def f():
-        return function_with_list(function_returning_list())
+        def f():
+            return function_with_list(function_returning_list())
 
-    policy = AnnotatorPolicy()
-    policy.allow_someobjects = False
-    a = RPythonAnnotator(policy=policy)
-    s = a.build_types(f, [])
-    assert isinstance(s, annmodel.SomeInteger)
+        policy = AnnotatorPolicy()
+        policy.allow_someobjects = False
+        a = RPythonAnnotator(policy=policy)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
 
-def function_withspecialcase(arg):
-    return repr(arg)
-register_external(function_withspecialcase, args=None, result=str)
+    def test_register_external_specialcase(self):
+        """
+        When args=None, the external function accepts any arguments unmodified.
+        """
+        def function_withspecialcase(arg):
+            return repr(arg)
+        register_external(function_withspecialcase, args=None, result=str)
 
-def test_register_external_specialcase():
-    def f():
-        x = function_withspecialcase
-        return x(33) + x("aaa") + x([]) + "\n"
+        def f():
+            x = function_withspecialcase
+            return x(33) + x("aaa") + x([]) + "\n"
 
-    policy = AnnotatorPolicy()
-    policy.allow_someobjects = False
-    a = RPythonAnnotator(policy=policy)
-    s = a.build_types(f, [])
-    assert isinstance(s, annmodel.SomeString)
+        policy = AnnotatorPolicy()
+        policy.allow_someobjects = False
+        a = RPythonAnnotator(policy=policy)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
