@@ -1573,62 +1573,40 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str], int, llimpl=system_llimpl,
                       export_name="ll_os.ll_os_system")
 
-    @registering(os.unlink)
-    def register_os_unlink(self):
-        os_unlink = self.llexternal(underscore_on_windows+'unlink', [rffi.CCHARP], rffi.INT)
+    @registering_str_unicode(os.unlink)
+    def register_os_unlink(self, ttypes):
+        os_unlink = self.llexternal(ttypes.posix_function_name('unlink'),
+                                    [ttypes.CCHARP], rffi.INT)
 
         def unlink_llimpl(pathname):
             res = rffi.cast(lltype.Signed, os_unlink(pathname))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_unlink failed")
 
-        return extdef([str], s_None, llimpl=unlink_llimpl,
-                      export_name="ll_os.ll_os_unlink")
+        return extdef([ttypes.str], s_None, llimpl=unlink_llimpl,
+                      export_name=ttypes.ll_os_name('unlink'))
 
-    @registering_unicode_version(os.unlink, [unicode], sys.platform=='win32')
-    def register_os_unlink_unicode(self):
-        os_wunlink = self.llexternal(underscore_on_windows+'wunlink', [rffi.CWCHARP], rffi.INT)
-
-        def wunlink_llimpl(pathname):
-            res = rffi.cast(lltype.Signed, os_wunlink(pathname))
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_unlink failed")
-
-        return extdef([unicode], s_None, llimpl=wunlink_llimpl,
-                      export_name="ll_os.ll_os_wunlink")
-
-    @registering(os.chdir)
-    def register_os_chdir(self):
-        os_chdir = self.llexternal(underscore_on_windows+'chdir', [rffi.CCHARP], rffi.INT)
+    @registering_str_unicode(os.chdir)
+    def register_os_chdir(self, ttypes):
+        os_chdir = self.llexternal(ttypes.posix_function_name('chdir'),
+                                   [ttypes.CCHARP], rffi.INT)
 
         def chdir_llimpl(path):
             res = rffi.cast(lltype.Signed, os_chdir(path))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chdir failed")
 
-        return extdef([str], s_None, llimpl=chdir_llimpl,
-                      export_name="ll_os.ll_os_chdir")
+        return extdef([ttypes.str], s_None, llimpl=chdir_llimpl,
+                      export_name=ttypes.ll_os_name('chdir'))
 
-    @registering_unicode_version(os.chdir, [unicode], sys.platform=='win32')
-    def register_os_chdir_unicode(self):
-        os_wchdir = self.llexternal(underscore_on_windows+'wchdir', [rffi.CWCHARP], rffi.INT)
-
-        def chdir_llimpl(path):
-            res = rffi.cast(lltype.Signed, os_wchdir(path))
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_chdir failed")
-
-        return extdef([unicode], s_None, llimpl=chdir_llimpl,
-                      export_name="ll_os.ll_os_wchdir")
-
-    @registering(os.mkdir)
-    def register_os_mkdir(self):
+    @registering_str_unicode(os.mkdir)
+    def register_os_mkdir(self, ttypes):
         if os.name == 'nt':
             ARG2 = []         # no 'mode' argument on Windows - just ignored
         else:
             ARG2 = [rffi.MODE_T]
-        os_mkdir = self.llexternal(underscore_on_windows+'mkdir',
-                                   [rffi.CCHARP]+ARG2, rffi.INT)
+        os_mkdir = self.llexternal(ttypes.posix_function_name('mkdir'),
+                                   [ttypes.CCHARP] + ARG2, rffi.INT)
         IGNORE_MODE = len(ARG2) == 0
 
         def mkdir_llimpl(pathname, mode):
@@ -1640,106 +1618,47 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_mkdir failed")
 
-        return extdef([str, int], s_None, llimpl=mkdir_llimpl,
-                      export_name="ll_os.ll_os_mkdir")
+        return extdef([ttypes.str, int], s_None, llimpl=mkdir_llimpl,
+                      export_name=ttypes.ll_os_name('mkdir'))
 
-    @registering_unicode_version(os.mkdir, [unicode, int], sys.platform=='win32')
-    def register_os_mkdir_unicode(self):
-        if os.name == 'nt':
-            ARG2 = []         # no 'mode' argument on Windows - just ignored
-        else:
-            ARG2 = [rffi.MODE_T]
-        os_wmkdir = self.llexternal(underscore_on_windows+'wmkdir',
-                                    [rffi.CWCHARP]+ARG2, rffi.INT)
-        IGNORE_MODE = len(ARG2) == 0
-
-        def mkdir_llimpl(pathname, mode):
-            if IGNORE_MODE:
-                res = os_wmkdir(pathname)
-            else:
-                res = os_wmkdir(pathname, mode)
-            res = rffi.cast(lltype.Signed, res)
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_mkdir failed")
-
-        return extdef([unicode, int], s_None, llimpl=mkdir_llimpl,
-                      export_name="ll_os.ll_os_wmkdir")
-
-    @registering(os.rmdir)
-    def register_os_rmdir(self):
-        os_rmdir = self.llexternal(underscore_on_windows+'rmdir', [rffi.CCHARP], rffi.INT)
+    @registering_str_unicode(os.rmdir)
+    def register_os_rmdir(self, ttypes):
+        os_rmdir = self.llexternal(ttypes.posix_function_name('rmdir'),
+                                   [ttypes.CCHARP], rffi.INT)
 
         def rmdir_llimpl(pathname):
             res = rffi.cast(lltype.Signed, os_rmdir(pathname))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rmdir failed")
 
-        return extdef([str], s_None, llimpl=rmdir_llimpl,
-                      export_name="ll_os.ll_os_rmdir")
+        return extdef([ttypes.str], s_None, llimpl=rmdir_llimpl,
+                      export_name=ttypes.ll_os_name('rmdir'))
 
-    @registering_unicode_version(os.rmdir, [unicode], sys.platform=='win32')
-    def register_os_rmdir_unicode(self):
-        os_wrmdir = self.llexternal(underscore_on_windows+'wrmdir', [rffi.CWCHARP], rffi.INT)
-
-        def rmdir_llimpl(pathname):
-            res = rffi.cast(lltype.Signed, os_wrmdir(pathname))
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_rmdir failed")
-
-        return extdef([unicode], s_None, llimpl=rmdir_llimpl,
-                      export_name="ll_os.ll_os_wrmdir")
-
-    @registering(os.chmod)
-    def register_os_chmod(self):
-        os_chmod = self.llexternal(underscore_on_windows+'chmod', [rffi.CCHARP, rffi.MODE_T],
-                                   rffi.INT)
+    @registering_str_unicode(os.chmod)
+    def register_os_chmod(self, ttypes):
+        os_chmod = self.llexternal(ttypes.posix_function_name('chmod'),
+                                   [ttypes.CCHARP, rffi.MODE_T], rffi.INT)
 
         def chmod_llimpl(path, mode):
             res = rffi.cast(lltype.Signed, os_chmod(path, rffi.cast(rffi.MODE_T, mode)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chmod failed")
 
-        return extdef([str, int], s_None, llimpl=chmod_llimpl,
-                      export_name="ll_os.ll_os_chmod")
+        return extdef([ttypes.str, int], s_None, llimpl=chmod_llimpl,
+                      export_name=ttypes.ll_os_name('chmod'))
 
-    @registering_unicode_version(os.chmod, [unicode, int], sys.platform=='win32')
-    def register_os_chmod_unicode(self):
-        os_wchmod = self.llexternal(underscore_on_windows+'wchmod', [rffi.CWCHARP, rffi.MODE_T],
-                                    rffi.INT)
-
-        def chmod_llimpl(path, mode):
-            res = rffi.cast(lltype.Signed, os_wchmod(path, rffi.cast(rffi.MODE_T, mode)))
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_chmod failed")
-
-        return extdef([unicode, int], s_None, llimpl=chmod_llimpl,
-                      export_name="ll_os.ll_os_wchmod")
-
-    @registering(os.rename)
-    def register_os_rename(self):
-        os_rename = self.llexternal('rename', [rffi.CCHARP, rffi.CCHARP],
-                                    rffi.INT)
+    @registering_str_unicode(os.rename)
+    def register_os_rename(self, ttypes):
+        os_rename = self.llexternal(ttypes.posix_function_name('rename'),
+                                    [ttypes.CCHARP, ttypes.CCHARP], rffi.INT)
 
         def rename_llimpl(oldpath, newpath):
             res = rffi.cast(lltype.Signed, os_rename(oldpath, newpath))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rename failed")
 
-        return extdef([str, str], s_None, llimpl=rename_llimpl,
-                      export_name="ll_os.ll_os_rename")
-
-    @registering_unicode_version(os.rename, [unicode, unicode], sys.platform=='win32')
-    def register_os_rename_unicode(self):
-        os_wrename = self.llexternal(underscore_on_windows+'wrename',
-                                     [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
-
-        def rename_llimpl(oldpath, newpath):
-            res = rffi.cast(lltype.Signed, os_wrename(oldpath, newpath))
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_rename failed")
-
-        return extdef([unicode, unicode], s_None, llimpl=rename_llimpl,
-                      export_name="ll_os.ll_os_wrename")
+        return extdef([ttypes.str, ttypes.str], s_None, llimpl=rename_llimpl,
+                      export_name=ttypes.ll_os_name('rename'))
 
     @registering(os.umask)
     def register_os_umask(self):
