@@ -19,7 +19,11 @@ class FileEncoder:
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.path_w(self.w_obj)
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
+        space = self.space
+        w_bytes = space.call_method(self.w_obj, 'encode',
+                                    getfilesystemencoding(space))
+        return space.str_w(w_bytes)
 
     def as_unicode(self):
         return self.space.unicode_w(self.w_obj)
@@ -30,13 +34,13 @@ class FileDecoder:
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.path_w(self.w_obj)
+        return self.space.str_w(self.w_obj)
 
     def as_unicode(self):
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
         space = self.space
-        filesystemencoding = space.sys.filesystemencoding
         w_unicode = space.call_method(self.w_obj, 'decode',
-                                      space.wrap(filesystemencoding))
+                                      getfilesystemencoding(space))
         return space.unicode_w(w_unicode)
 
 @specialize.memo()
