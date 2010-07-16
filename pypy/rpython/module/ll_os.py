@@ -88,6 +88,7 @@ class StringTraits:
     str = str
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
+    str2charp = rffi.str2charp
 
     @staticmethod
     def posix_function_name(name):
@@ -101,6 +102,7 @@ class UnicodeTraits:
     str = unicode
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
+    str2charp = rffi.wcharp2unicode
 
     @staticmethod
     def posix_function_name(name):
@@ -1227,13 +1229,14 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], unicode,
                       "ll_os.ll_os_wgetcwd", llimpl=os_getcwd_llimpl)
 
-    @registering(os.listdir)
-    def register_os_listdir(self):
+    @registering_str_unicode(os.listdir)
+    def register_os_listdir(self, traits):
         # we need a different approach on Windows and on Posix
         if sys.platform.startswith('win'):
             from pypy.rpython.module.win32file import make_listdir_impl
-            os_listdir_llimpl = make_listdir_impl(StringTraits())
+            os_listdir_llimpl = make_listdir_impl(traits)
         else:
+            assert traits.str is str
             compilation_info = ExternalCompilationInfo(
                 includes = ['sys/types.h', 'dirent.h']
             )
@@ -1273,19 +1276,10 @@ class RegisterOs(BaseLazyRegistering):
                     raise OSError(error, "os_readdir failed")
                 return result
 
-        return extdef([str],  # a single argument which is a str
-                      [str],  # returns a list of strings
-                      "ll_os.ll_os_listdir",
+        return extdef([traits.str],  # a single argument which is a str
+                      [traits.str],  # returns a list of strings
+                      traits.ll_os_name('listdir'),
                       llimpl=os_listdir_llimpl)
-
-    @registering_unicode_version(os.listdir, [unicode], sys.platform=='win32')
-    def register_os_listdir_unicode(self):
-        from pypy.rpython.module.win32file import make_listdir_impl
-
-        return extdef([unicode],  # a single argument which is a unicode
-                      [unicode],  # returns a list of unicodes
-                      "ll_os.ll_os_wlistdir",
-                      llimpl=make_listdir_impl(UnicodeTraits()))
 
     @registering(os.pipe)
     def register_os_pipe(self):

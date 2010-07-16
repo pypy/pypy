@@ -79,7 +79,8 @@ def make_listdir_impl(traits):
         def skip_listdir(path):
             return name == "." or name == "..":
 
-    def listdir_llimpl(path):
+    @func_renamer('listdir_llimpl_%s' % traits.str.__name__)
+    def os_listdir_llimpl(path):
         mask = make_listdir_mask(path)
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
         try:
@@ -92,8 +93,8 @@ def make_listdir_impl(traits):
                 else:
                     raise WindowsError(error,  "FindFirstFile failed")
             while True:
-                name = rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP,
-                                                     filedata.c_cFileName))
+                name = traits.str2charp(rffi.cast(traits.CCHARP,
+                                                  filedata.c_cFileName))
                 if not skip_listdir(name):
                     result.append(name)
                 if not win32traits.FindNextFile(hFindFile, filedata):
