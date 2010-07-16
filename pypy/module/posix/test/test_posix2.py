@@ -713,7 +713,10 @@ class AppTestUnicodeFilename:
     def setup_class(cls):
         ufilename = (unicode(udir.join('test_unicode_filename_')) +
                      u'\u65e5\u672c.txt') # "Japan"
-        f = file(ufilename, 'w')
+        try:
+            f = file(ufilename, 'w')
+        except UnicodeEncodeError:
+            py.test.skip("encoding not good enough")
         f.write("test")
         f.close()
         cls.space = space

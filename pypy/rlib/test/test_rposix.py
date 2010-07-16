@@ -2,6 +2,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.tool.udir import udir
 from pypy.rlib import rposix
 import os, sys
+import py
 
 def ll_to_string(s):
     return ''.join(s.chars)
@@ -28,7 +29,10 @@ class TestPosixUnicode:
     def setup_method(self, method):
         self.ufilename = (unicode(udir.join('test_open')) +
                           u'\u65e5\u672c.txt') # "Japan"
-        f = file(self.ufilename, 'w')
+        try:
+            f = file(self.ufilename, 'w')
+        except UnicodeEncodeError:
+            py.test.skip("encoding not good enough")
         f.write("test")
         f.close()
 

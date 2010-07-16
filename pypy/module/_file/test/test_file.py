@@ -126,6 +126,11 @@ class AppTestFile(object):
         f.close()
 
     def test_unicode_filename(self):
+        import sys
+        try:
+            u'\xe9'.encode(sys.getfilesystemencoding())
+        except UnicodeEncodeError:
+            skip("encoding not good enough")
         f = self.file(self.temppath + u'\xe9', "w")
         f.close()
 
