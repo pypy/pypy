@@ -232,11 +232,11 @@ def test_repr_of_descr():
     #
     descr2 = get_field_descr(c0, S, 'y')
     o, _ = symbolic.get_field_token(S, 'y', False)
-    assert descr2.repr_of_descr() == '<GcPtrFieldDescr %d>' % o
+    assert descr2.repr_of_descr() == '<GcPtrFieldDescr S.y %d>' % o
     #
     descr2i = get_field_descr(c0, S, 'x')
     o, _ = symbolic.get_field_token(S, 'x', False)
-    assert descr2i.repr_of_descr() == '<CharFieldDescr %d>' % o
+    assert descr2i.repr_of_descr() == '<CharFieldDescr S.x %d>' % o
     #
     descr3 = get_array_descr(c0, lltype.GcArray(lltype.Ptr(S)))
     assert descr3.repr_of_descr() == '<GcPtrArrayDescr>'
