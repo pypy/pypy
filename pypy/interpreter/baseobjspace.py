@@ -1102,17 +1102,6 @@ class ObjSpace(object):
                                  self.wrap('argument must be a unicode'))
         return self.unicode_w(w_obj)
 
-    def path_w(self, w_obj):
-        """ Like str_w, but if the object is unicode, encode it using
-        filesystemencoding
-        """
-        filesystemencoding = self.sys.filesystemencoding
-        if (filesystemencoding and
-            self.is_true(self.isinstance(w_obj, self.w_unicode))):
-            w_obj = self.call_method(w_obj, "encode",
-                                     self.wrap(filesystemencoding))
-        return self.str_w(w_obj)
-
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
         # This is here mostly just for gateway.int_unwrapping_space_method().
