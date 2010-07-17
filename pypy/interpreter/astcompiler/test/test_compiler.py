@@ -216,9 +216,6 @@ class TestCompiler:
                "l",
                [(2, 0), (4, 0), (5, 3), (6, 0),
                 (7, 3), (8, 0), (8, 6), (9, 3)])
-    
-    def test_list_comprehensions(self):
-        yield (self.st, "l = [x for x in range(10) if None]", "l", [])
 
     def test_genexprs(self):
         yield (self.st,
