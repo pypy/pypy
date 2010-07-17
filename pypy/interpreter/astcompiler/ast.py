@@ -1398,6 +1398,7 @@ class ListComp(expr):
 
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
+        visitor._mutate_sequence(self.generators)
         return visitor.visit_ListComp(self)
 
     def sync_app_attrs(self, space):
@@ -2295,6 +2296,13 @@ class comprehension(AST):
 
     def walkabout(self, visitor):
         visitor.visit_comprehension(self)
+    
+    def mutate_over(self, visitor):
+        self.target = self.target.mutate_over(visitor)
+        self.iter = self.iter.mutate_over(visitor)
+        if self.ifs:
+            visitor._mutate_sequence(self.ifs)
+        return visitor.visit_comprehension(self)
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
