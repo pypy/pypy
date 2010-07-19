@@ -258,9 +258,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # Load decorators first, but apply them after the function is created.
         if func.decorators:
             self.visit_sequence(func.decorators)
-        if func.args.defaults:
-            self.visit_sequence(func.args.defaults)
-            num_defaults = len(func.args.defaults)
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.defaults:
+            self.visit_sequence(args.defaults)
+            num_defaults = len(args.defaults)
         else:
             num_defaults = 0
         code = self.sub_scope(FunctionCodeGenerator, func.name, func,
@@ -274,9 +276,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
-        if lam.args.defaults:
-            self.visit_sequence(lam.args.defaults)
-            default_count = len(lam.args.defaults)
+        args = lam.args
+        assert isinstance(args, ast.arguments)
+        if args.defaults:
+            self.visit_sequence(args.defaults)
+            default_count = len(args.defaults)
         else:
             default_count = 0
         code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
@@ -1275,9 +1279,11 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
         else:
             self.add_const(self.space.w_None)
             start = 0
-        if func.args.args:
-            self._handle_nested_args(func.args.args)
-            self.argcount = len(func.args.args)
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.args:
+            self._handle_nested_args(args.args)
+            self.argcount = len(args.args)
         for i in range(start, len(func.body)):
             func.body[i].walkabout(self)
 
@@ -1286,9 +1292,11 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, lam):
         assert isinstance(lam, ast.Lambda)
-        if lam.args.args:
-            self._handle_nested_args(lam.args.args)
-            self.argcount = len(lam.args.args)
+        args = lam.args
+        assert isinstance(args, ast.arguments)
+        if args.args:
+            self._handle_nested_args(args.args)
+            self.argcount = len(args.args)
         # Prevent a string from being the first constant and thus a docstring.
         self.add_const(self.space.w_None)
         lam.body.walkabout(self)

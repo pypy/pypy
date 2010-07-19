@@ -838,6 +838,23 @@ class AppTestOptimizer:
             sys.stdout = save_stdout
         output = s.getvalue()
         assert "STOP_CODE" not in output
+    
+    def test_optimize_list_comp(self):
+        source = """def _f(a):
+            return [x for x in a if None]
+        """
+        exec source
+        code = _f.func_code
+        
+        import StringIO, sys, dis
+        s = StringIO.StringIO()
+        sys.stdout = s
+        try:
+            dis.dis(code)
+        finally:
+            sys.stdout = sys.__stdout__
+        output = s.getvalue()
+        assert "LOAD_GLOBAL" not in output
 
 class AppTestExceptions:
     def test_indentation_error(self):

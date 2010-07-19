@@ -230,6 +230,7 @@ class FunctionDef(stmt):
         visitor.visit_FunctionDef(self)
 
     def mutate_over(self, visitor):
+        self.args = self.args.mutate_over(visitor)
         if self.body:
             visitor._mutate_sequence(self.body)
         if self.decorators:
@@ -784,6 +785,8 @@ class TryExcept(stmt):
     def mutate_over(self, visitor):
         if self.body:
             visitor._mutate_sequence(self.body)
+        if self.handlers:
+            visitor._mutate_sequence(self.handlers)
         if self.orelse:
             visitor._mutate_sequence(self.orelse)
         return visitor.visit_TryExcept(self)
@@ -927,6 +930,8 @@ class Import(stmt):
         visitor.visit_Import(self)
 
     def mutate_over(self, visitor):
+        if self.names:
+            visitor._mutate_sequence(self.names)
         return visitor.visit_Import(self)
 
     def sync_app_attrs(self, space):
@@ -965,6 +970,8 @@ class ImportFrom(stmt):
         visitor.visit_ImportFrom(self)
 
     def mutate_over(self, visitor):
+        if self.names:
+            visitor._mutate_sequence(self.names)
         return visitor.visit_ImportFrom(self)
 
     def sync_app_attrs(self, space):
@@ -1282,6 +1289,7 @@ class Lambda(expr):
         visitor.visit_Lambda(self)
 
     def mutate_over(self, visitor):
+        self.args = self.args.mutate_over(visitor)
         self.body = self.body.mutate_over(visitor)
         return visitor.visit_Lambda(self)
 
@@ -1398,6 +1406,8 @@ class ListComp(expr):
 
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
+        if self.generators:
+            visitor._mutate_sequence(self.generators)
         return visitor.visit_ListComp(self)
 
     def sync_app_attrs(self, space):
@@ -1437,6 +1447,8 @@ class GeneratorExp(expr):
 
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
+        if self.generators:
+            visitor._mutate_sequence(self.generators)
         return visitor.visit_GeneratorExp(self)
 
     def sync_app_attrs(self, space):
@@ -1562,6 +1574,8 @@ class Call(expr):
         self.func = self.func.mutate_over(visitor)
         if self.args:
             visitor._mutate_sequence(self.args)
+        if self.keywords:
+            visitor._mutate_sequence(self.keywords)
         if self.starargs:
             self.starargs = self.starargs.mutate_over(visitor)
         if self.kwargs:
@@ -2293,6 +2307,13 @@ class comprehension(AST):
         self.w_ifs = None
         self.initialization_state = 7
 
+    def mutate_over(self, visitor):
+        self.target = self.target.mutate_over(visitor)
+        self.iter = self.iter.mutate_over(visitor)
+        if self.ifs:
+            visitor._mutate_sequence(self.ifs)
+        return visitor.visit_comprehension(self)
+
     def walkabout(self, visitor):
         visitor.visit_comprehension(self)
 
@@ -2326,6 +2347,15 @@ class excepthandler(AST):
         self.lineno = lineno
         self.col_offset = col_offset
         self.initialization_state = 31
+
+    def mutate_over(self, visitor):
+        if self.type:
+            self.type = self.type.mutate_over(visitor)
+        if self.name:
+            self.name = self.name.mutate_over(visitor)
+        if self.body:
+            visitor._mutate_sequence(self.body)
+        return visitor.visit_excepthandler(self)
 
     def walkabout(self, visitor):
         visitor.visit_excepthandler(self)
@@ -2365,6 +2395,13 @@ class arguments(AST):
         self.defaults = defaults
         self.w_defaults = None
         self.initialization_state = 15
+
+    def mutate_over(self, visitor):
+        if self.args:
+            visitor._mutate_sequence(self.args)
+        if self.defaults:
+            visitor._mutate_sequence(self.defaults)
+        return visitor.visit_arguments(self)
 
     def walkabout(self, visitor):
         visitor.visit_arguments(self)
@@ -2407,6 +2444,10 @@ class keyword(AST):
         self.value = value
         self.initialization_state = 3
 
+    def mutate_over(self, visitor):
+        self.value = self.value.mutate_over(visitor)
+        return visitor.visit_keyword(self)
+
     def walkabout(self, visitor):
         visitor.visit_keyword(self)
 
@@ -2425,6 +2466,9 @@ class alias(AST):
         self.name = name
         self.asname = asname
         self.initialization_state = 3
+
+    def mutate_over(self, visitor):
+        return visitor.visit_alias(self)
 
     def walkabout(self, visitor):
         visitor.visit_alias(self)
