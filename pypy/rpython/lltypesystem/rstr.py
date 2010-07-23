@@ -674,6 +674,7 @@ class LLHelpers(AbstractLLHelpers):
             res_index += item_len
             i += 1
         return result
+    ll_join_strs._annenforceargs_ = [int, None]
 
     def ll_join_chars(length, chars):
         # no need to optimize this, will be replaced by string builder
