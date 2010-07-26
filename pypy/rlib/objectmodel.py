@@ -19,29 +19,66 @@ import math
 # def f(...
 #
 
-class _AttachSpecialization(object):
+class _Specialize(object):
+    def memo(self):
+        """ Specialize functions based on argument values. All arguments has
+        to be constant at the compile time. The whole function call is replaced
+        by a call result then.
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'memo()'
+            return func
+        return decorated_func
 
-    def __init__(self, tag):
-        self.tag = tag
+    def arg(self, *args):
+        """ Specialize function based on values of given positions of arguments.
+        They must be compile-time constants in order to work.
 
-    def __call__(self, *args):
-        if not args:
-            args = ""
-        else:
-            args = "("+','.join([repr(arg) for arg in args]) +")"
-        specialcase = "specialize:%s%s" % (self.tag, args)
-        
-        def specialize_decorator(func):
-            "NOT_RPYTHON"
-            func._annspecialcase_ = specialcase
+        There will be a copy of provided function for each combination
+        of given arguments on positions in args (that can lead to
+        exponential behavior!).
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'args' + self._wrap(args)
             return func
 
-        return specialize_decorator
-        
-class _Specialize(object):
+        return decorated_func
 
-    def __getattr__(self, name):
-        return _AttachSpecialization(name)
+    def argtype(self, *args):
+        """ Specialize function based on types of arguments on given positions.
+
+        There will be a copy of provided function for each combination
+        of given arguments on positions in args (that can lead to
+        exponential behavior!).
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'argtypes' + self._wrap(args)
+            return func
+
+        return decorated_func
+
+    def ll(self):
+        """ This is version of argtypes that cares about low-level types
+        (so it'll get additional copies for two different types of pointers
+        for example). Same warnings about exponential behavior apply.
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'll()'
+            return func
+
+        return decorated_func
+
+    def ll_and_arg(self, arg):
+        """ XXX what does that do?
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'll_and_arg(%d)' % arg
+            return func
+
+        return decorated_func
+
+    def _wrap(self, args):
+        return "("+','.join([repr(arg) for arg in args]) +")"
         
 specialize = _Specialize()
 
