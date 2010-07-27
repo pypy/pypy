@@ -26,7 +26,7 @@ class _Specialize(object):
         by a call result then.
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'memo()'
+            func._annspecialcase_ = 'specialize:memo()'
             return func
         return decorated_func
 
@@ -39,7 +39,7 @@ class _Specialize(object):
         exponential behavior!).
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'arg' + self._wrap(args)
+            func._annspecialcase_ = 'specialize:arg' + self._wrap(args)
             return func
 
         return decorated_func
@@ -52,7 +52,7 @@ class _Specialize(object):
         exponential behavior!).
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'argtype' + self._wrap(args)
+            func._annspecialcase_ = 'specialize:argtype' + self._wrap(args)
             return func
 
         return decorated_func
@@ -63,7 +63,7 @@ class _Specialize(object):
         for example). Same warnings about exponential behavior apply.
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'll()'
+            func._annspecialcase_ = 'specialize:ll()'
             return func
 
         return decorated_func
@@ -72,7 +72,7 @@ class _Specialize(object):
         """ XXX what does that do?
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'll_and_arg(%d)' % arg
+            func._annspecialcase_ = 'specialize:ll_and_arg(%d)' % arg
             return func
 
         return decorated_func
