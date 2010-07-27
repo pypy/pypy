@@ -39,7 +39,7 @@ class _Specialize(object):
         exponential behavior!).
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'args' + self._wrap(args)
+            func._annspecialcase_ = 'arg' + self._wrap(args)
             return func
 
         return decorated_func
@@ -52,7 +52,7 @@ class _Specialize(object):
         exponential behavior!).
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'argtypes' + self._wrap(args)
+            func._annspecialcase_ = 'argtype' + self._wrap(args)
             return func
 
         return decorated_func
