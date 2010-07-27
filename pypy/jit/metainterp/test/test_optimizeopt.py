@@ -2063,6 +2063,28 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
+        
+        ops = """
+        [i0]
+        i1 = int_add(i0, 0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+        
+        ops = """
+        [i0]
+        i1 = int_add(0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
     
     # ----------
 

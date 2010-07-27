@@ -1001,6 +1001,17 @@ class Optimizer(object):
             self.make_equal_to(op.result, v1)
         else:
             return self.optimize_default(op)
+    
+    def optimize_INT_ADD(self, op):
+        v1 = self.getvalue(op.args[0])
+        v2 = self.getvalue(op.args[1])
+        # If one side of the op is 0 the result is the other side.
+        if v1.is_constant() and v1.box.getint() == 0:
+            self.make_equal_to(op.result, v2)
+        elif v2.is_constant() and v2.box.getint() == 0:
+            self.make_equal_to(op.result, v1)
+        else:
+            self.optimize_default(op)
 
 
 optimize_ops = _findall(Optimizer, 'optimize_')
