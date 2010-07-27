@@ -223,7 +223,6 @@ def setup_initial_paths(executable, nanos):
     path = os.getenv('PYTHONPATH')
     if path:
         newpath = path.split(os.pathsep) + newpath
-    newpath.insert(0, '')
     # remove duplicates
     _seen = {}
     del sys.path[:]
@@ -326,6 +325,10 @@ def run_command_line(go_interactive,
             import site
         except:
             print >> sys.stderr, "'import site' failed"
+
+    # update sys.path *after* loading site.py, in case there is a
+    # "site.py" file in the script's directory.
+    sys.path.insert(0, '')
 
     if warnoptions:
         sys.warnoptions.append(warnoptions)

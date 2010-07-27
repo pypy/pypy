@@ -5,6 +5,7 @@ import py
 import sys, os, re
 import autopath
 from pypy.tool.udir import udir
+from contextlib import contextmanager
 
 banner = sys.version.splitlines()[0]
 
@@ -326,8 +327,9 @@ class TestInteraction:
 class TestNonInteractive:
 
     def run(self, cmdline, senddata='', expect_prompt=False,
-            expect_banner=False):
-        cmdline = '%s "%s" %s' % (sys.executable, app_main, cmdline)
+            expect_banner=False, python_flags=''):
+        cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
+                                     app_main, cmdline)
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
         child_in.write(senddata)
@@ -448,6 +450,43 @@ class TestNonInteractive:
         data = child_out_err.read(11)
         assert data == '\x00(STDOUT)\n\x00'    # from stdout
         child_out_err.close()
+
+    def test_proper_sys_path(self, tmpdir):
+
+        @contextmanager
+        def chdir_and_unset_pythonpath(new_cwd):
+            old_cwd = new_cwd.chdir()
+            old_pythonpath = os.getenv('PYTHONPATH')
+            os.unsetenv('PYTHONPATH')
+            try:
+                yield
+            finally:
+                old_cwd.chdir()
+                os.putenv('PYTHONPATH', old_pythonpath)
+        
+        tmpdir.join('site.py').write('print "SHOULD NOT RUN"')
+        runme_py = tmpdir.join('runme.py')
+        runme_py.write('print "some text"')
+
+        cmdline = str(runme_py)
+
+        with chdir_and_unset_pythonpath(tmpdir):
+            data = self.run(cmdline, python_flags='-S')
+
+        assert data == "some text\n"
+
+        runme2_py = tmpdir.mkdir('otherpath').join('runme2.py')
+        runme2_py.write('print "some new text"\n'
+                        'import sys\n'
+                        'print sys.path\n')
+
+        cmdline2 = str(runme2_py)
+
+        with chdir_and_unset_pythonpath(tmpdir):
+            data = self.run(cmdline2, python_flags='-S')
+
+        assert data.startswith("some new text\n")
+        assert repr(str(tmpdir.join('otherpath'))) in data
 
 
 class AppTestAppMain:
