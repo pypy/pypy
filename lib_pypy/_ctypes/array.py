@@ -4,7 +4,6 @@ import _rawffi
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject
-from _ctypes.builtin import _string_at_addr, _wstring_at_addr
 
 def _create_unicode(buffer, maxlength):
     res = []

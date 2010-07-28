@@ -7,8 +7,8 @@ from _ctypes.function import CFuncPtr
 from _ctypes.dll import dlopen
 from _ctypes.structure import Structure
 from _ctypes.array import Array
-from _ctypes.builtin import _memmove_addr, _string_at_addr, _memset_addr,\
-     set_conversion_mode, _wstring_at_addr
+from _ctypes.builtin import _memmove_addr, _string_at, _memset_addr,\
+     set_conversion_mode, _wstring_at
 from _ctypes.union import Union
 
 import os as _os

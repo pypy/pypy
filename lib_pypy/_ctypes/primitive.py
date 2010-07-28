@@ -86,6 +86,8 @@ def from_param_void_p(cls, value):
         return value
     if isinstance(value, _Pointer):
         return cls.from_address(value._buffer.buffer)
+    if isinstance(value, (int, long)):
+        return cls(value)
 
 FROM_PARAM_BY_TYPE = {
     'z': from_param_char_p,
@@ -141,13 +143,13 @@ class SimpleType(_CDataMeta):
             result.value = property(_getvalue, _setvalue)
         elif tp == 'Z':
             # c_wchar_p
-            from _ctypes import Array, _Pointer, _wstring_at_addr
+            from _ctypes import Array, _Pointer, _wstring_at
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
-                    return _wstring_at_addr(addr, -1)
+                    return _wstring_at(addr, -1)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):
@@ -216,14 +218,14 @@ class SimpleType(_CDataMeta):
             SysAllocStringLen = windll.oleaut32.SysAllocStringLen
             SysStringLen = windll.oleaut32.SysStringLen
             SysFreeString = windll.oleaut32.SysFreeString
-            from _ctypes import _wstring_at_addr
+            from _ctypes import _wstring_at
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
                     size = SysStringLen(addr)
-                    return _wstring_at_addr(addr, size)
+                    return _wstring_at(addr, size)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):
@@ -254,18 +256,21 @@ class SimpleType(_CDataMeta):
     from_address = cdata_from_address
 
     def from_param(self, value):
+        if isinstance(value, self):
+            return value
+        
         from_param_f = FROM_PARAM_BY_TYPE.get(self._type_)
         if from_param_f:
             res = from_param_f(self, value)
             if res is not None:
                 return res
-            
-        if isinstance(value, self):
-            return value
-        try:
-            return self(value)
-        except (TypeError, ValueError):
-            return super(SimpleType, self).from_param(value)
+        else:
+            try:
+                return self(value)
+            except (TypeError, ValueError):
+                pass
+
+        return super(SimpleType, self).from_param(value)
 
     def _CData_output(self, resbuffer, base=None, index=-1):
         output = super(SimpleType, self)._CData_output(resbuffer, base, index)

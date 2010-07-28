@@ -471,7 +471,7 @@ elif sizeof(c_ulong) == sizeof(c_void_p):
 
 # functions
 
-from _ctypes import _memmove_addr, _memset_addr, _string_at_addr, _cast_addr
+from _ctypes import _memmove_addr, _memset_addr, _cast_addr
 
 ## void *memmove(void *, const void *, size_t);
 memmove = CFUNCTYPE(c_void_p, c_void_p, c_void_p, c_size_t)(_memmove_addr)
@@ -490,24 +490,34 @@ _cast = PYFUNCTYPE(py_object, c_void_p, py_object, py_object)(_cast_addr)
 def cast(obj, typ):
     return _cast(obj, obj, typ)
 
-_string_at = CFUNCTYPE(py_object, c_void_p, c_int)(_string_at_addr)
+try:
+    from _ctypes import _string_at_addr
+except ImportError:
+    from _ctypes import _string_at
+else:
+    _string_at = CFUNCTYPE(py_object, c_void_p, c_int)(_string_at_addr)
+
 def string_at(ptr, size=-1):
     """string_at(addr[, size]) -> string
 
     Return the string at addr."""
     return _string_at(ptr, size)
 
+def wstring_at(ptr, size=-1):
+    """wstring_at(addr[, size]) -> string
+
+    Return the string at addr."""
+    return _wstring_at(ptr, size)
+
 try:
     from _ctypes import _wstring_at_addr
 except ImportError:
-    pass
+    try:
+        from _ctypes import _wstring_at
+    except ImportError:
+        del wstring_at
 else:
     _wstring_at = CFUNCTYPE(py_object, c_void_p, c_int)(_wstring_at_addr)
-    def wstring_at(ptr, size=-1):
-        """wstring_at(addr[, size]) -> string
-
-        Return the string at addr."""
-        return _wstring_at(ptr, size)
 
 
 if _os.name in ("nt", "ce"): # COM stuff
