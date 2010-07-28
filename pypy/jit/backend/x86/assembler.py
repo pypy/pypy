@@ -1,4 +1,4 @@
-import sys
+import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
 from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT,\
@@ -17,6 +17,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import debug_print
 from pypy.rlib import rgc
+from pypy.rlib.streamio import open_file_as_stream
 
 # our calling convention - we pass first 6 args in registers
 # and the rest stays on the stack
@@ -99,6 +100,7 @@ class Assembler386(object):
     mc_size = MachineCodeBlockWrapper.MC_DEFAULT_SIZE
     _float_constants = None
     _regalloc = None
+    _output_loop_log = None
 
     def __init__(self, cpu, translate_support_code=False,
                             failargs_limit=1000):
@@ -113,16 +115,24 @@ class Assembler386(object):
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
         self.fail_ebp = 0
+        self.loop_run_counter = values_array(lltype.Signed, 10000)
+        self.loop_names = []
+        # if we have 10000 loops, we have some other problems I guess
         self.loc_float_const_neg = None
         self.loc_float_const_abs = None
         self.malloc_fixedsize_slowpath1 = 0
         self.malloc_fixedsize_slowpath2 = 0
         self.setup_failure_recovery()
+        self._loop_counter = 0
+        self._debug = False
 
     def leave_jitted_hook(self):
         ptrs = self.fail_boxes_ptr.ar
         llop.gc_assume_young_pointers(lltype.Void,
                                       llmemory.cast_ptr_to_adr(ptrs))
+
+    def set_debug(self, v):
+        self._debug = v
 
     def make_sure_mc_exists(self):
         if self.mc is None:
@@ -157,6 +167,22 @@ class Assembler386(object):
                 self._build_float_constants()
             if hasattr(gc_ll_descr, 'get_malloc_fixedsize_slowpath_addr'):
                 self._build_malloc_fixedsize_slowpath()
+            s = os.environ.get('PYPYLOG')
+            if s:
+                if s.find(':') != -1:
+                    s = s.split(':')[-1]
+                self.set_debug(True)
+                self._output_loop_log = s + ".count"
+
+    def finish_once(self):
+        if self._debug:
+            output_log = self._output_loop_log
+            assert output_log is not None
+            f = open_file_as_stream(output_log, "w")
+            for i in range(self._loop_counter):
+                f.write(self.loop_names[i] + ":" +
+                        str(self.loop_run_counter.getitem(i)) + "\n")
+            f.close()
 
     def _build_float_constants(self):
         # 11 words: 8 words for the data, and up to 3 words for alignment
@@ -207,9 +233,9 @@ class Assembler386(object):
                _x86_param_depth
                _x86_arglocs
         """
+        self.make_sure_mc_exists()
         funcname = self._find_debug_merge_point(operations)
 
-        self.make_sure_mc_exists()
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         looptoken._x86_arglocs = arglocs
@@ -244,9 +270,9 @@ class Assembler386(object):
         
 
     def assemble_bridge(self, faildescr, inputargs, operations):
+        self.make_sure_mc_exists()
         funcname = self._find_debug_merge_point(operations)
 
-        self.make_sure_mc_exists()
         arglocs = self.rebuild_faillocs_from_descr(
             faildescr._x86_failure_recovery_bytecode)
         if not we_are_translated():
@@ -278,10 +304,18 @@ class Assembler386(object):
         self.mc.end_function()
 
     def _find_debug_merge_point(self, operations):
+
         for op in operations:
             if op.opnum == rop.DEBUG_MERGE_POINT:
-                return op.args[0]._get_str()
-        return ""
+                funcname = op.args[0]._get_str()
+                break
+        else:
+            funcname = "<loop %d>" % self._loop_counter
+        # invent the counter, so we don't get too confused
+        if self._debug:
+            self.loop_names.append(funcname)
+            self._loop_counter += 1
+        return funcname
         
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
@@ -292,6 +326,15 @@ class Assembler386(object):
 
     def _assemble(self, regalloc, operations):
         self._regalloc = regalloc
+        if self._debug:
+            # before doing anything, let's increase a counter
+            # we need one register free (a bit of a hack, but whatever)
+            self.mc.PUSH(eax)
+            adr = self.loop_run_counter.get_addr_for_num(self._loop_counter - 1)
+            self.mc.MOV(eax, heap(adr))
+            self.mc.ADD(eax, imm(1))
+            self.mc.MOV(heap(adr), eax)
+            self.mc.POP(eax)
         regalloc.walk_operations(operations)        
         self.mc.done()
         self.mc2.done()
