@@ -5,7 +5,7 @@ from pypy.interpreter.astcompiler import ast, consts
 class Module(MixedModule):
 
     interpleveldefs = {
-        "PyCF_AST_ONLY" : "space.wrap(%s)" % consts.PyCF_AST_ONLY
+        "PyCF_ONLY_AST" : "space.wrap(%s)" % consts.PyCF_ONLY_AST
         }
     appleveldefs = {}
 

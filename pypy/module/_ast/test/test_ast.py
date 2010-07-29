@@ -10,7 +10,7 @@ class AppTestAST:
         cls.w_get_ast = cls.space.appexec([], """():
     def get_ast(source, mode="exec"):
         import _ast as ast
-        mod = compile(source, "<test>", mode, ast.PyCF_AST_ONLY)
+        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST)
         assert isinstance(mod, ast.mod)
         return mod
     return get_ast""")
