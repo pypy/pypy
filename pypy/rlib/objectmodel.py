@@ -82,6 +82,17 @@ class _Specialize(object):
         
 specialize = _Specialize()
 
+def enforceargs(*args):
+    """ Decorate a function with forcing of RPython-level types on arguments.
+    None means no enforcing.
+
+    XXX shouldn't we also add asserts in function body?
+    """
+    def decorator(f):
+        f._annenforceargs_ = args
+        return f
+    return decorator
+
 # ____________________________________________________________
 
 class Symbolic(object):

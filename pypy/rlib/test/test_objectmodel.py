@@ -404,6 +404,13 @@ def test_specialize_decorator():
 
     assert f._annspecialcase_ == 'specialize:arg(1)'
 
+def test_enforceargs_decorator():
+    @enforceargs(int, str, None)
+    def f(a, b, c):
+        pass
+
+    assert f._annenforceargs_ == (int, str, None)
+
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
     from pypy.translator.backendopt.all import backend_optimizations
