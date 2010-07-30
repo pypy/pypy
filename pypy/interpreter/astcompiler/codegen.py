@@ -960,9 +960,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif call_type == 3:
             op = ops.CALL_FUNCTION_VAR_KW
         self.emit_op_arg(op, arg)
+    
+    def _call_has_no_star_args(self, call):
+        return not call.starargs and not call.kwargs
 
     def _call_has_simple_args(self, call):
-        return not call.starargs and not call.kwargs and not call.keywords
+        return self._call_has_no_star_args(call) and not call.keywords
 
     def _optimize_builtin_call(self, call):
         if not self.space.config.objspace.opcodes.CALL_LIKELY_BUILTIN or \
@@ -988,7 +991,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _optimize_method_call(self, call):
         if not self.space.config.objspace.opcodes.CALL_METHOD or \
-                not self._call_has_simple_args(call) or \
+                not self._call_has_no_star_args(call) or \
                 not isinstance(call.func, ast.Attribute):
             return False
         attr_lookup = call.func
@@ -1000,7 +1003,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             arg_count = len(call.args)
         else:
             arg_count = 0
-        self.emit_op_arg(ops.CALL_METHOD, arg_count)
+        if call.keywords:
+            self.visit_sequence(call.keywords)
+            kwarg_count = len(call.keywords)
+        else:
+            kwarg_count = 0
+        self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
     def _listcomp_generator(self, list_name, gens, gen_index, elt):

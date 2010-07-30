@@ -581,7 +581,7 @@ def _compute_CALL_LIKELY_BUILTIN(arg):
     return -(arg & 0xFF) + 1
 
 def _compute_CALL_METHOD(arg):
-    return -arg - 1
+    return _num_args(arg) - 1
 
 
 _stack_effect_computers = {}
