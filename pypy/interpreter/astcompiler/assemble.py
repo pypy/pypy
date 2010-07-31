@@ -566,22 +566,22 @@ def _num_args(oparg):
     return (oparg % 256) + 2 * (oparg / 256)
 
 def _compute_CALL_FUNCTION(arg):
-    return _num_args(arg)
+    return -_num_args(arg)
 
 def _compute_CALL_FUNCTION_VAR(arg):
-    return _num_args(arg) - 1
+    return -_num_args(arg) - 1
 
 def _compute_CALL_FUNCTION_KW(arg):
-    return _num_args(arg) - 1
+    return -_num_args(arg) - 1
 
 def _compute_CALL_FUNCTION_VAR_KW(arg):
-    return _num_args(arg) - 2
+    return -_num_args(arg) - 2
 
 def _compute_CALL_LIKELY_BUILTIN(arg):
     return -(arg & 0xFF) + 1
 
 def _compute_CALL_METHOD(arg):
-    return _num_args(arg) - 1
+    return -_num_args(arg) - 1
 
 
 _stack_effect_computers = {}

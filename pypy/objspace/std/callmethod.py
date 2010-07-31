@@ -12,7 +12,7 @@ like: (on the left, without the new bytecodes; on the right, with them)
 
 from pypy.interpreter import function
 from pypy.objspace.descroperation import object_getattribute
-from pypy.rlib import rstack # for resume points
+from pypy.rlib import jit, rstack # for resume points
 
 # This module exports two extra methods for StdObjSpaceFrame implementing
 # the LOOKUP_METHOD and CALL_METHOD opcodes in an efficient way, as well
@@ -56,6 +56,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     f.pushvalue(w_value)
     f.pushvalue(None)
 
+@jit.unroll_safe
 def CALL_METHOD(f, oparg, *ignored):
     # opargs contains the arg, and kwarg count, excluding the implicit 'self'
     n_args = oparg & 0xff
