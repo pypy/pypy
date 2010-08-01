@@ -89,7 +89,7 @@ def CALL_METHOD(f, oparg, *ignored):
         
         try:
             w_result = f.space.call_args(w_callable, args)
-            rstack.resume_point("CALL_METHOD", f, returns=w_result)
+            rstack.resume_point("CALL_METHOD", f, w_self, returns=w_result)
         finally:
             f.dropvalues(1 + (w_self is None))
     f.pushvalue(w_result)
