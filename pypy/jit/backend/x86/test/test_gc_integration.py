@@ -9,19 +9,21 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.llsupport.gc import GcLLDescription
-from pypy.jit.backend.x86.runner import CPU
-from pypy.jit.backend.x86.regalloc import RegAlloc, WORD, FRAME_FIXED_SIZE
+from pypy.jit.backend.detect_cpu import getcpuclass
+from pypy.jit.backend.x86.regalloc import RegAlloc
+from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.x86.ri386 import *
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcRefList, GcPtrFieldDescr
 
 from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86FrameManager,\
      X86XMMRegisterManager
+
+CPU = getcpuclass()
 
 class MockGcRootMap(object):
     def get_basic_shape(self):
@@ -84,7 +86,7 @@ class TestRegallocDirectGcIntegration(object):
         mark = regalloc.get_mark_gc_roots(cpu.gc_ll_descr.gcrootmap)
         assert mark[0] == 'compressed'
         base = -WORD * FRAME_FIXED_SIZE
-        expected = ['ebx', 'esi', 'edi', base, base-4, base-8]
+        expected = ['ebx', 'esi', 'edi', base, base-WORD, base-WORD*2]
         assert dict.fromkeys(mark[1:]) == dict.fromkeys(expected)
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
@@ -175,7 +177,7 @@ class GCDescrFastpathMalloc(GcLLDescription):
         self.addrs[1] = self.addrs[0] + 64
         # 64 bytes
         def malloc_slowpath(size):
-            assert size == 8
+            assert size == WORD*2
             nadr = rffi.cast(lltype.Signed, self.nursery)
             self.addrs[0] = nadr + size
             return nadr
@@ -199,7 +201,7 @@ class GCDescrFastpathMalloc(GcLLDescription):
         return rffi.cast(lltype.Signed, self.addrs)
 
     def get_nursery_top_addr(self):
-        return rffi.cast(lltype.Signed, self.addrs) + 4
+        return rffi.cast(lltype.Signed, self.addrs) + WORD
 
     def get_malloc_fixedsize_slowpath_addr(self):
         fptr = llhelper(lltype.Ptr(self.MALLOC_SLOWPATH), self.malloc_slowpath)
@@ -213,7 +215,7 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def setup_method(self, method):
         cpu = CPU(None, None)
-        cpu.vtable_offset = 4
+        cpu.vtable_offset = WORD
         cpu.gc_ll_descr = GCDescrFastpathMalloc()
 
         NODE = lltype.Struct('node', ('tid', lltype.Signed),
@@ -249,7 +251,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.nursery[0] == self.nodedescr.tid
         assert gc_ll_descr.nursery[1] == 42
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        assert gc_ll_descr.addrs[0] == nurs_adr + 8
+        assert gc_ll_descr.addrs[0] == nurs_adr + (WORD*2)
 
     def test_malloc_slowpath(self):
         ops = '''
@@ -269,7 +271,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         # this should call slow path once
         gc_ll_descr = self.cpu.gc_ll_descr
         nadr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        assert gc_ll_descr.addrs[0] == nadr + 8
+        assert gc_ll_descr.addrs[0] == nadr + (WORD*2)
 
     def test_new_with_vtable(self):
         ops = '''
@@ -284,4 +286,4 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.nursery[0] == self.descrsize.tid
         assert gc_ll_descr.nursery[1] == self.vtable_int
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        assert gc_ll_descr.addrs[0] == nurs_adr + 12
+        assert gc_ll_descr.addrs[0] == nurs_adr + (WORD*3)

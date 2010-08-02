@@ -4,11 +4,13 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.regalloc import FORCE_INDEX_OFS
+from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
+from pypy.jit.backend.x86 import regloc
+import sys
 
-class CPU386(AbstractLLCPU):
+class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
 
@@ -132,10 +134,28 @@ class CPU386(AbstractLLCPU):
         assert fail_index == fail_index_2
         return faildescr
 
+class CPU386(AbstractX86CPU):
+    WORD = 4
+    NUM_REGS = 8
+    CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
+    FRAME_FIXED_SIZE = len(CALLEE_SAVE_REGISTERS) + 2
+
+    def __init__(self, *args, **kwargs):
+        assert sys.maxint == (2**31 - 1)
+        super(CPU386, self).__init__(*args, **kwargs)
 
 class CPU386_NO_SSE2(CPU386):
     supports_floats = False
 
+class CPU_X86_64(AbstractX86CPU):
+    WORD = 8
+    NUM_REGS = 16
+    CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
+    FRAME_FIXED_SIZE = len(CALLEE_SAVE_REGISTERS) + 2
+
+    def __init__(self, *args, **kwargs):
+        assert sys.maxint == (2**63 - 1)
+        super(CPU_X86_64, self).__init__(*args, **kwargs)
 
 CPU = CPU386
 

@@ -461,6 +461,25 @@ class BaseBackendTest(Runner):
                                          [funcbox] + args,
                                          'float', descr=calldescr)
             assert abs(res.value - 4.6) < 0.0001
+
+    def test_call_many_arguments(self):
+        # Test calling a function with a large number of arguments (more than
+        # 6, which will force passing some arguments on the stack on 64-bit)
+
+        def func(*args):
+            assert len(args) == 16
+            # Try to sum up args in a way that would probably detect a
+            # transposed argument
+            return sum(arg * (2**i) for i, arg in enumerate(args))
+
+        FUNC = self.FuncType([lltype.Signed]*16, lltype.Signed)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        func_ptr = llhelper(FPTR, func)
+        args = range(16)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        res = self.execute_operation(rop.CALL, [funcbox] + map(BoxInt, args), 'int', descr=calldescr)
+        assert res.value == func(*args)
         
     def test_call_stack_alignment(self):
         # test stack alignment issues, notably for Mac OS/X.
@@ -978,6 +997,8 @@ class BaseBackendTest(Runner):
             else:
                 assert 0
             operations.append(ResOperation(opnum, boxargs, boxres))
+        # Unique-ify inputargs
+        inputargs = list(set(inputargs))
         faildescr = BasicFailDescr(1)
         operations.append(ResOperation(rop.FINISH, [], None,
                                        descr=faildescr))
@@ -1050,9 +1071,11 @@ class BaseBackendTest(Runner):
                                          descr=BasicFailDescr(5))]
                         operations[1].fail_args = []
                         looptoken = LoopToken()
-                        self.cpu.compile_loop(list(testcase), operations,
+                        # Use "set" to unique-ify inputargs
+                        unique_testcase_list = list(set(testcase))
+                        self.cpu.compile_loop(unique_testcase_list, operations,
                                               looptoken)
-                        for i, box in enumerate(testcase):
+                        for i, box in enumerate(unique_testcase_list):
                             self.cpu.set_future_value_float(i, box.value)
                         fail = self.cpu.execute_token(looptoken)
                         if fail.identifier != 5 - (expected_id^expected):
@@ -1695,7 +1718,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_assembler_call(self):
         called = []
         def assembler_helper(failindex, virtualizable):
-            assert self.cpu.get_latest_value_int(0) == 10
+            assert self.cpu.get_latest_value_int(0) == 97
             called.append(failindex)
             return 4 + 9
 
@@ -1708,33 +1731,41 @@ class LLtypeBackendTest(BaseBackendTest):
                 _assembler_helper_ptr)
 
         ops = '''
-        [i0, i1]
-        i2 = int_add(i0, i1)
-        finish(i2)'''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_add(i0, i1)
+        i11 = int_add(i10, i2)
+        i12 = int_add(i11, i3)
+        i13 = int_add(i12, i4)
+        i14 = int_add(i13, i5)
+        i15 = int_add(i14, i6)
+        i16 = int_add(i15, i7)
+        i17 = int_add(i16, i8)
+        i18 = int_add(i17, i9)
+        finish(i18)'''
         loop = parse(ops)
         looptoken = LoopToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        ARGS = [lltype.Signed, lltype.Signed]
+        ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
         self.cpu.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.set_future_value_int(1, 2)
+        for i in range(10):
+            self.cpu.set_future_value_int(i, i+1)
         res = self.cpu.execute_token(looptoken)
-        assert self.cpu.get_latest_value_int(0) == 3
+        assert self.cpu.get_latest_value_int(0) == 55
         ops = '''
-        [i4, i5]
-        i6 = int_add(i4, 1)
-        i3 = call_assembler(i6, i5, descr=looptoken)
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_add(i0, 42)
+        i11 = call_assembler(i10, i1, i2, i3, i4, i5, i6, i7, i8, i9, descr=looptoken)
         guard_not_forced()[]
-        finish(i3)
+        finish(i11)
         '''
         loop = parse(ops, namespace=locals())
         othertoken = LoopToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
-        self.cpu.set_future_value_int(0, 4)
-        self.cpu.set_future_value_int(1, 5)
+        for i in range(10):
+            self.cpu.set_future_value_int(i, i+1)
         res = self.cpu.execute_token(othertoken)
         assert self.cpu.get_latest_value_int(0) == 13
         assert called

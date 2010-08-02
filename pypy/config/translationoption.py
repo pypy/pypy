@@ -342,6 +342,10 @@ OPT_TABLE = {
     'jit':  'hybrid      extraopts     jit',
     }
 
+# For now, 64-bit JIT requires boehm
+if IS_64_BITS:
+    OPT_TABLE['jit'] = OPT_TABLE['jit'].replace('hybrid', 'boehm')
+
 def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.

@@ -2,12 +2,20 @@
 import os, sys
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.jit.backend.x86.ri386 import I386CodeBuilder
+from pypy.jit.backend.x86.rx86 import X86_32_CodeBuilder, X86_64_CodeBuilder
+from pypy.jit.backend.x86.regloc import LocationCodeBuilder
 from pypy.rlib.rmmap import PTR, alloc, free
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
+from pypy.rlib.objectmodel import we_are_translated
 
+# XXX: Seems nasty to change the superclass of InMemoryCodeBuilder like this
+if IS_X86_32:
+    codebuilder_cls = X86_32_CodeBuilder
+elif IS_X86_64:
+    codebuilder_cls = X86_64_CodeBuilder
 
-class InMemoryCodeBuilder(I386CodeBuilder):
+class InMemoryCodeBuilder(codebuilder_cls, LocationCodeBuilder):
     _last_dump_start = 0
 
     def __init__(self, start, end):
@@ -31,12 +39,14 @@ class InMemoryCodeBuilder(I386CodeBuilder):
     def write(self, listofchars):
         self._pos = self.overwrite(self._pos, listofchars)
 
-    def writechr(self, n):
-        # purely for performance: don't make the one-element list [chr(n)]
+    def writechar(self, char):
         pos = self._pos
         assert pos + 1 <= self._size
-        self._data[pos] = chr(n)
+        self._data[pos] = char
         self._pos = pos + 1
+
+    def writechr(self, n):
+        self.writechar(chr(n))
 
     def get_relative_pos(self):
         return self._pos
@@ -49,11 +59,6 @@ class InMemoryCodeBuilder(I386CodeBuilder):
         pos = self._pos - count
         self._pos = pos
         self._last_dump_start = pos
-
-    def execute(self, arg1, arg2):
-        # XXX old testing stuff
-        fnptr = rffi.cast(lltype.Ptr(BINARYFN), self._data)
-        return fnptr(arg1, arg2)
 
     def done(self):
         # normally, no special action is needed here
@@ -75,9 +80,6 @@ class InMemoryCodeBuilder(I386CodeBuilder):
         # mark the range of the InMemoryCodeBuilder as invalidated for Valgrind
         from pypy.jit.backend.x86 import valgrind
         valgrind.discard_translations(self._data, self._size)
-
-
-BINARYFN = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
 
 
 class MachineCodeDumper:
@@ -107,7 +109,10 @@ class MachineCodeDumper:
                 return False
             # log the executable name
             from pypy.jit.backend.hlinfo import highleveljitinfo
-            os.write(self.log_fd, 'BACKEND i386\n')
+            if IS_X86_32:
+                os.write(self.log_fd, 'BACKEND x86\n')
+            elif IS_X86_64:
+                os.write(self.log_fd, 'BACKEND x86_64\n')
             if highleveljitinfo.sys_executable:
                 os.write(self.log_fd, 'SYS_EXECUTABLE %s\n' % (
                     highleveljitinfo.sys_executable,))
@@ -137,6 +142,12 @@ class MachineCodeBlock(InMemoryCodeBuilder):
 
     def __init__(self, map_size):
         data = alloc(map_size)
+        if IS_X86_64 and not we_are_translated():
+            # Hack to make sure that mcs are not within 32-bits of one
+            # another for testing purposes
+            from pypy.rlib.rmmap import hint
+            hint.pos += 0xFFFFFFFF
+            
         self._init(data, map_size)
 
     def __del__(self):
