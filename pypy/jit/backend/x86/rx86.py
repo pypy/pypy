@@ -2,6 +2,7 @@ import py
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import rffi
 
 BYTE_REG_FLAG = 0x20
@@ -138,7 +139,7 @@ def immediate(argnum, width='i'):
 
 def encode_relative(mc, target, _, orbyte):
     assert orbyte == 0
-    offset = target - (mc.tell() + 4)
+    offset = intmask(target - (mc.tell() + 4))
     mc.writeimm32(offset)
     return 0
 

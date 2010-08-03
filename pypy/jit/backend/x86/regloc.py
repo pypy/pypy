@@ -4,6 +4,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.backend.x86.arch import WORD
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.rarithmetic import intmask
 
 #
 # This module adds support for "locations", which can be either in a Const,
@@ -252,7 +253,7 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if possible_code == 'i':
-                        offset = val - (self.tell() + 5)
+                        offset = intmask(val - (self.tell() + 5))
                         if rx86.fits_in_32bits(offset):
                             _rx86_getattr(self, name + "_l")(val)
                         else:

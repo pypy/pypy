@@ -1,7 +1,9 @@
+import struct
 from pypy.jit.backend.x86.regloc import *
 from pypy.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from pypy.jit.backend.x86.assembler import heap
-from pypy.jit.backend.x86.arch import IS_X86_64
+from pypy.jit.backend.x86.arch import IS_X86_64, IS_X86_32
+from pypy.rlib.rarithmetic import intmask
 import py.test
 
 class LocationCodeBuilder32(CodeBuilder32, LocationCodeBuilder):
@@ -20,6 +22,27 @@ def test_mov_16():
 def test_cmp_16():
     assert_encodes_as(cb32, "CMP16", (ecx, ebx), '\x66\x39\xD9')
     assert_encodes_as(cb32, "CMP16", (ecx, ImmedLoc(12345)), '\x66\x81\xF9\x39\x30')
+
+def test_jmp_wraparound():
+    if not IS_X86_32:
+        py.test.skip()
+
+    pos_addr = intmask(0x7FFFFF00)
+    neg_addr = intmask(0x800000BB)
+
+    # JMP to "negative" address from "positive" address
+    s = cb32()
+    s.base_address = pos_addr
+    s.JMP(ImmedLoc(neg_addr))
+    expected_ofs = neg_addr - (pos_addr+5)
+    assert s.getvalue() == '\xE9' + struct.pack("<i", expected_ofs)
+
+    # JMP to a "positive" address from a "negative" address
+    s = cb32()
+    s.base_address = neg_addr
+    s.JMP(ImmedLoc(pos_addr))
+    expected_ofs = pos_addr - (neg_addr+5)
+    assert s.getvalue() == '\xE9' + struct.pack("<i", expected_ofs)
 
 def test_reuse_scratch_register():
     if not IS_X86_64:
