@@ -25,12 +25,13 @@ from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
 
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import debug_print
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.rlib.streamio import open_file_as_stream
+from pypy.jit.metainterp.history import ConstInt, BoxInt
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -150,6 +151,8 @@ class GuardToken(object):
         # XXX: 32 is pulled out of the air
         return 32 + len(self.desc_bytes)
 
+DEBUG_COUNTER = rffi.CArray(lltype.Signed)
+
 class Assembler386(object):
     mc = None
     mc_size = MachineCodeBlockWrapper.MC_DEFAULT_SIZE
@@ -170,8 +173,7 @@ class Assembler386(object):
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
         self.fail_ebp = 0
-        self.loop_run_counter = values_array(lltype.Signed, 10000)
-        self.loop_names = []
+        self.loop_run_counters = []
         # if we have 10000 loops, we have some other problems I guess
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
@@ -179,8 +181,8 @@ class Assembler386(object):
         self.malloc_fixedsize_slowpath2 = 0
         self.pending_guard_tokens = None
         self.setup_failure_recovery()
-        self._loop_counter = 0
         self._debug = False
+        self.debug_counter_descr = cpu.arraydescrof(DEBUG_COUNTER)
 
     def leave_jitted_hook(self):
         ptrs = self.fail_boxes_ptr.ar
@@ -237,9 +239,9 @@ class Assembler386(object):
             output_log = self._output_loop_log
             assert output_log is not None
             f = open_file_as_stream(output_log, "w")
-            for i in range(self._loop_counter):
-                f.write(self.loop_names[i] + ":" +
-                        str(self.loop_run_counter.getitem(i)) + "\n")
+            for i in range(len(self.loop_run_counters)):
+                name, arr = self.loop_run_counters[i]
+                f.write(name + ":" + str(arr[0]) + "\n")
             f.close()
 
     def _build_float_constants(self):
@@ -304,6 +306,7 @@ class Assembler386(object):
 
         
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
+        operations = self._inject_debugging_code(operations)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         looptoken._x86_arglocs = arglocs
 
@@ -343,6 +346,7 @@ class Assembler386(object):
             assert ([loc.assembler() for loc in arglocs] ==
                     [loc.assembler() for loc in faildescr._x86_debug_faillocs])
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
+        operations = self._inject_debugging_code(operations)
         fail_depths = faildescr._x86_current_depths
         regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
                                 operations)
@@ -387,11 +391,12 @@ class Assembler386(object):
                 funcname = op.args[0]._get_str()
                 break
         else:
-            funcname = "<loop %d>" % self._loop_counter
+            funcname = "<loop %d>" % len(self.loop_run_counters)
         # invent the counter, so we don't get too confused
         if self._debug:
-            self.loop_names.append(funcname)
-            self._loop_counter += 1
+            arr = lltype.malloc(DEBUG_COUNTER, 1, flavor='raw')
+            arr[0] = 0
+            self.loop_run_counters.append((funcname, arr))
         return funcname
         
     def patch_jump_for_descr(self, faildescr, adr_new_target):
@@ -414,17 +419,31 @@ class Assembler386(object):
         mc.valgrind_invalidated()
         mc.done()
 
-    def _assemble(self, regalloc, operations):
-        self._regalloc = regalloc
+    def _inject_debugging_code(self, operations):
         if self._debug:
             # before doing anything, let's increase a counter
-            # we need one register free (a bit of a hack, but whatever)
-            self.mc.PUSH(eax)
-            adr = self.loop_run_counter.get_addr_for_num(self._loop_counter - 1)
-            self.mc.MOV(eax, heap(adr))
-            self.mc.ADD(eax, imm(1))
-            self.mc.MOV(heap(adr), eax)
-            self.mc.POP(eax)
+            c_adr = ConstInt(rffi.cast(lltype.Signed,
+                                     self.loop_run_counters[-1][1]))
+            box = BoxInt()
+            box2 = BoxInt()
+            ops = [ResOperation(rop.GETARRAYITEM_RAW, [c_adr, ConstInt(0)],
+                                box, descr=self.debug_counter_descr),
+                   ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
+                   ResOperation(rop.SETARRAYITEM_RAW, [c_adr, ConstInt(0),
+                                                       box2],
+                                None, descr=self.debug_counter_descr)]
+            operations = ops + operations
+            # # we need one register free (a bit of a hack, but whatever)
+            # self.mc.PUSH(eax)
+            # adr = rffi.cast(lltype.Signed, self.loop_run_counters[-1][1])
+            # self.mc.MOV(eax, heap(adr))
+            # self.mc.ADD(eax, imm(1))
+            # self.mc.MOV(heap(adr), eax)
+            # self.mc.POP(eax)
+        return operations
+
+    def _assemble(self, regalloc, operations):
+        self._regalloc = regalloc
         regalloc.walk_operations(operations)        
         self.mc.done()
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
