@@ -15,6 +15,9 @@ class FakeCPU:
     supports_floats = True
     NUM_REGS = ACTUAL_CPU.NUM_REGS
 
+    def arraydescrof(self, ARR):
+        return 42
+
 class FakeMC:
     def __init__(self, base_address=0):
         self.content = []
