@@ -35,6 +35,7 @@ def machine_code_dump(data, originaddr, backend_name):
     objdump_backend_option = {
         'x86': 'i386',
         'x86_64': 'x86-64',
+        'i386': 'i386',
     }
     objdump = ('objdump -M intel,%(backend)s -b binary -m i386 '
                '--adjust-vma=%(origin)d -D %(file)s')
