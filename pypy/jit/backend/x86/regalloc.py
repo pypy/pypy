@@ -53,7 +53,6 @@ class FloatConstants(object):
 
     def __init__(self):
         self.cur_array_free = 0
-        self.const_id = 0
 
     def _get_new_array(self):
         n = self.BASE_CONSTANT_SIZE
@@ -69,8 +68,7 @@ class FloatConstants(object):
         n = self.cur_array_free - 1
         arr[n] = floatval
         self.cur_array_free = n
-        self.const_id += 1
-        return (self.const_id, rffi.cast(lltype.Signed, arr) + n * 8)
+        return rffi.cast(lltype.Signed, arr) + n * 8
 
 
 class X86XMMRegisterManager(RegisterManager):
@@ -91,8 +89,8 @@ class X86XMMRegisterManager(RegisterManager):
             self.float_constants = assembler._float_constants
 
     def convert_to_imm(self, c):
-        const_id, adr = self.float_constants.record_float(c.getfloat())
-        return ConstFloatLoc(adr, const_id)
+        adr = self.float_constants.record_float(c.getfloat())
+        return AddressLoc(ImmedLoc(adr), ImmedLoc(0), 0, 0)
         
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,

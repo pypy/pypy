@@ -5,7 +5,6 @@ from pypy.jit.backend.x86.arch import WORD
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import intmask
-from pypy.jit.metainterp.history import FLOAT
 
 #
 # This module adds support for "locations", which can be either in a Const,
@@ -145,28 +144,6 @@ class AddressLoc(AssemblerLocation):
 
     def value_m(self):
         return self.loc_m
-
-class ConstFloatLoc(AssemblerLocation):
-    # XXX: We have to use this class instead of just AddressLoc because
-    # AddressLoc is "untyped" and also we to have need some sort of unique
-    # identifier that we can use in _getregkey (for jump.py)
-
-    _immutable_ = True
-
-    width = 8
-    type = FLOAT
-
-    def __init__(self, address, const_id):
-        self.value = address
-        self.const_id = const_id
-
-    def _getregkey(self):
-        # XXX: 1000 is kind of magic: We just don't want to be confused
-        # with any registers
-        return 1000 + self.const_id
-
-    def location_code(self):
-        return 'j'
 
 REGLOCS = [RegLoc(i, is_xmm=False) for i in range(16)]
 XMMREGLOCS = [RegLoc(i, is_xmm=True) for i in range(16)]
