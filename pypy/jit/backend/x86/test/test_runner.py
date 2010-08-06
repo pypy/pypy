@@ -498,9 +498,9 @@ class TestDebuggingAssembler(object):
         self.cpu.set_future_value_int(0, 0)
         self.cpu.execute_token(ops.token)
         # check debugging info
-        name, arr = self.cpu.assembler.loop_run_counters[0]
+        name, struct = self.cpu.assembler.loop_run_counters[0]
         assert name == 'xyz'
-        assert arr[0] == 10
+        assert struct.i == 10
         self.cpu.finish_once()
         lines = py.path.local(self.logfile + ".count").readlines()
         assert lines[0] == 'xyz:10\n'
