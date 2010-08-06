@@ -151,7 +151,7 @@ class GuardToken(object):
         # XXX: 32 is pulled out of the air
         return 32 + len(self.desc_bytes)
 
-DEBUG_COUNTER = rffi.CArray(lltype.Signed)
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed))
 
 class Assembler386(object):
     mc = None
@@ -182,7 +182,7 @@ class Assembler386(object):
         self.pending_guard_tokens = None
         self.setup_failure_recovery()
         self._debug = False
-        self.debug_counter_descr = cpu.arraydescrof(DEBUG_COUNTER)
+        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
 
     def leave_jitted_hook(self):
         ptrs = self.fail_boxes_ptr.ar
@@ -240,8 +240,8 @@ class Assembler386(object):
             assert output_log is not None
             f = open_file_as_stream(output_log, "w")
             for i in range(len(self.loop_run_counters)):
-                name, arr = self.loop_run_counters[i]
-                f.write(name + ":" + str(arr[0]) + "\n")
+                name, struct = self.loop_run_counters[i]
+                f.write(name + ":" + str(struct.i) + "\n")
             f.close()
 
     def _build_float_constants(self):
@@ -394,9 +394,9 @@ class Assembler386(object):
             funcname = "<loop %d>" % len(self.loop_run_counters)
         # invent the counter, so we don't get too confused
         if self._debug:
-            arr = lltype.malloc(DEBUG_COUNTER, 1, flavor='raw')
-            arr[0] = 0
-            self.loop_run_counters.append((funcname, arr))
+            struct = lltype.malloc(DEBUG_COUNTER, flavor='raw')
+            struct.i = 0
+            self.loop_run_counters.append((funcname, struct))
         return funcname
         
     def patch_jump_for_descr(self, faildescr, adr_new_target):
@@ -426,11 +426,10 @@ class Assembler386(object):
                                      self.loop_run_counters[-1][1]))
             box = BoxInt()
             box2 = BoxInt()
-            ops = [ResOperation(rop.GETARRAYITEM_RAW, [c_adr, ConstInt(0)],
+            ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
                                 box, descr=self.debug_counter_descr),
                    ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-                   ResOperation(rop.SETARRAYITEM_RAW, [c_adr, ConstInt(0),
-                                                       box2],
+                   ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
                                 None, descr=self.debug_counter_descr)]
             operations = ops + operations
             # # we need one register free (a bit of a hack, but whatever)

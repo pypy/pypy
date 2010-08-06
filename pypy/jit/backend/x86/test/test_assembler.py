@@ -15,7 +15,7 @@ class FakeCPU:
     supports_floats = True
     NUM_REGS = ACTUAL_CPU.NUM_REGS
 
-    def arraydescrof(self, ARR):
+    def fielddescrof(self, STRUCT, name):
         return 42
 
 class FakeMC:
