@@ -818,10 +818,8 @@ class Assembler386(object):
 
         for i in range(start, len(arglocs)):
             loc = arglocs[i]
-            assert isinstance(loc, RegLoc) or isinstance(loc, ImmedLoc) or isinstance(loc, StackLoc)
-
             # XXX: Should be much simplier to tell whether a location is a float!
-            if (isinstance(loc, RegLoc) and loc.is_xmm) or (isinstance(loc, StackLoc) and loc.type == FLOAT):
+            if (isinstance(loc, RegLoc) and loc.is_xmm) or (loc.is_memory_reference() and loc.type == FLOAT):
                 if len(unused_xmm) > 0:
                     xmm_src_locs.append(loc)
                     xmm_dst_locs.append(unused_xmm.pop())
