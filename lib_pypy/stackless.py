@@ -14,7 +14,9 @@ def dprint(*args):
 import traceback
 import sys
 try:
-    from _stackless import coroutine, greenlet, CoroutineExit, TaskletExit
+    # If _stackless can be imported then TaskletExit and CoroutineExit are 
+    # automatically added to the builtins.
+    from _stackless import coroutine, greenlet
 except ImportError: # we are running from CPython
     from greenlet import greenlet, GreenletExit
     TaskletExit = CoroutineExit = GreenletExit
