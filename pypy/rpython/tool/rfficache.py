@@ -29,7 +29,7 @@ def ask_gcc(question, add_source=""):
     }
     ''' % (include_string, add_source, str(question)))
     c_file = udir.join("gcctest.c")
-    c_file.write(c_source)
+    c_file.write(str(c_source) + '\n')
     eci = ExternalCompilationInfo()
     return build_executable_cache([c_file], eci)
 
