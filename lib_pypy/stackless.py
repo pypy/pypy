@@ -14,9 +14,11 @@ def dprint(*args):
 import traceback
 import sys
 try:
-    from _stackless import coroutine, greenlet
+    from _stackless import coroutine, greenlet, CoroutineExit, TaskletExit
 except ImportError: # we are running from CPython
-    from greenlet import greenlet
+    from greenlet import greenlet, GreenletExit
+    TaskletExit = CoroutineExit = GreenletExit
+    del GreenletExit
     try:
         from functools import partial
     except ImportError: # we are not running python 2.5
