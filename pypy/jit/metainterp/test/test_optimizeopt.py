@@ -411,7 +411,6 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not', expected)
 
     def test_int_is_true_1(self):
-        py.test.skip("XXX implement me")
         ops = """
         [i0]
         i1 = int_is_true(i0)
