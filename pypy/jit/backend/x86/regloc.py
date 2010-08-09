@@ -154,7 +154,6 @@ class ConstFloatLoc(AssemblerLocation):
     _immutable_ = True
 
     width = 8
-    type = FLOAT
 
     def __init__(self, address, const_id):
         self.value = address

@@ -20,7 +20,7 @@ from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
                                          r12, r13, r14, r15,
                                          X86_64_SCRATCH_REG,
                                          X86_64_XMM_SCRATCH_REG,
-                                         RegLoc, StackLoc,
+                                         RegLoc, StackLoc, ConstFloatLoc,
                                          ImmedLoc, AddressLoc, imm)
 
 from pypy.rlib.objectmodel import we_are_translated, specialize
@@ -818,8 +818,13 @@ class Assembler386(object):
 
         for i in range(start, len(arglocs)):
             loc = arglocs[i]
-            # XXX: Should be much simplier to tell whether a location is a float!
-            if (isinstance(loc, RegLoc) and loc.is_xmm) or (loc.is_memory_reference() and loc.type == FLOAT):
+            # XXX: Should be much simplier to tell whether a location is a
+            # float! It's so ugly because we have to "guard" the access to
+            # .type with isinstance, since not all AssemblerLocation classes
+            # are "typed"
+            if ((isinstance(loc, RegLoc) and loc.is_xmm) or
+                (isinstance(loc, StackLoc) and loc.type == FLOAT) or
+                (isinstance(loc, ConstFloatLoc))):
                 if len(unused_xmm) > 0:
                     xmm_src_locs.append(loc)
                     xmm_dst_locs.append(unused_xmm.pop())
