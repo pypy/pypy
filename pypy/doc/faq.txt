@@ -47,8 +47,8 @@ We list the differences we know about in `cpython_differences`_.
 
 There is also an experimental support for CPython extension modules, so
 they'll run without change (from current observation, rather with little
-change) on trunk. It has not been released yet, although it should be a major
-point of the next pypy release.
+change) on trunk. It has been a part of 1.3 release, but support is still
+in alpha phase.
 
 .. _`extension modules`: cpython_differences.html#extension-modules
 .. _`cpython_differences`: cpython_differences.html
@@ -373,7 +373,7 @@ Do I have to rewrite my programs in RPython?
 --------------------------------------------
 
 No.  PyPy always runs your code in its own interpreter, which is a
-full and compliant Python 2.4 interpreter.  RPython_ is only the
+full and compliant Python 2.5 interpreter.  RPython_ is only the
 language in which parts of PyPy itself are written and extension
 modules for it.  The answer to whether something needs to be written as
 an extension module, apart from the "gluing to external libraries" reason, will
