@@ -495,12 +495,6 @@ class RPythonAnnotator(object):
         self.blocked_blocks[block] = graph
 
     def bindinputargs(self, graph, block, inputcells, called_from_graph=None):
-        if 'getitem__Array' in graph.name:
-            if len(inputcells) > 2 and isinstance(inputcells[1], annmodel.SomeInstance) and 'Base' in str(inputcells[1].classdef):
-                import pdb
-                pdb.set_trace()
-            print graph
-            print inputcells
         # Create the initial bindings for the input args of a block.
         assert len(block.inputargs) == len(inputcells)
         where = (graph, block, None)
