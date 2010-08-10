@@ -4,11 +4,14 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys, math
 
 time_t = rffi_platform.getsimpletype('time_t', '#include <time.h>', rffi.LONG)
 
-time = rffi.llexternal('time', [rffi.VOIDP], time_t, includes=['time.h'])
+eci = ExternalCompilationInfo(includes=['time.h'])
+time = rffi.llexternal('time', [int], time_t,
+                       compilation_info=eci)
 
 def get(space, name):
     w_module = space.getbuiltinmodule('_demo')
@@ -20,10 +23,10 @@ def measuretime(space, repetitions, w_callable):
         w_DemoError = get(space, 'DemoError')
         msg = "repetition count must be > 0"
         raise OperationError(w_DemoError, space.wrap(msg))
-    starttime = time(None)
+    starttime = time(0)
     for i in range(repetitions):
         space.call_function(w_callable)
-    endtime = time(None)
+    endtime = time(0)
     return space.wrap(endtime - starttime)
 measuretime.unwrap_spec = [ObjSpace, int, W_Root]
 
@@ -62,10 +65,15 @@ class W_MyType(Wrappable):
         self.x = space.int_w(w_value)
 
 def mytype_new(space, w_subtype, x):
+    if x == 3:
+        return space.wrap(MySubType(space, x))
     return space.wrap(W_MyType(space, x))
 mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
 
 getset_x = GetSetProperty(W_MyType.fget_x, W_MyType.fset_x, cls=W_MyType)
+
+class MySubType(W_MyType):
+    pass
 
 W_MyType.typedef = TypeDef('MyType',
     __new__ = interp2app(mytype_new),
