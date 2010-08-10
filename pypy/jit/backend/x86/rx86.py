@@ -290,6 +290,9 @@ REX_B = 1
 def encode_rex(mc, rexbyte, basevalue, orbyte):
     if mc.WORD == 8:
         assert 0 <= rexbyte < 8
+        # XXX: Hack. Ignore REX.W if we are using 16-bit operands
+        if mc._use_16_bit_immediate:
+            basevalue &= ~REX_W
         if basevalue != 0x40 or rexbyte != 0:
             mc.writechar(chr(basevalue | rexbyte))
     else:
