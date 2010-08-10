@@ -14,7 +14,10 @@ class BasePosix(Platform):
 
     def __init__(self, cc=None):
         if cc is None:
-            cc = 'gcc'
+            try:
+                cc = os.environ['CC']
+            except KeyError:
+                cc = 'gcc'
         self.cc = cc
 
     def _libs(self, libraries):

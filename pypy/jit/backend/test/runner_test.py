@@ -657,6 +657,21 @@ class BaseBackendTest(Runner):
         assert r.value == 1
 
     def test_array_basic(self):
+        a_box, A = self.alloc_array_of(rffi.SHORT, 342)
+        arraydescr = self.cpu.arraydescrof(A)
+        assert not arraydescr.is_array_of_pointers()
+        #
+        r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
+                                   'int', descr=arraydescr)
+        assert r.value == 342
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(310),
+                                                         BoxInt(744)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(310)],
+                                   'int', descr=arraydescr)
+        assert r.value == 744
+
         a_box, A = self.alloc_array_of(lltype.Signed, 342)
         arraydescr = self.cpu.arraydescrof(A)
         assert not arraydescr.is_array_of_pointers()

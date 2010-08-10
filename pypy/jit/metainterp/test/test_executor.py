@@ -4,14 +4,14 @@ from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.metainterp.executor import execute_varargs, execute_nonspec
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.resoperation import rop, opboolinvers, opboolreflex, opname
 from pypy.jit.metainterp.history import BoxInt, ConstInt
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat
 from pypy.jit.metainterp.history import AbstractDescr, Box
 from pypy.jit.metainterp import history
 from pypy.jit.backend.model import AbstractCPU
-
+from pypy.rpython.lltypesystem import  llmemory, rffi
 
 class FakeDescr(AbstractDescr):
     pass
@@ -312,3 +312,40 @@ def test_float_ops():
             assert box.getint() == retvalue
         else:
             assert 0, "rettype is %r" % (rettype,)
+
+def make_args_for_op(op, a, b):
+    n=opname[op]
+    if n[0:3] == 'INT' or n[0:4] == 'UINT':
+        arg1 = ConstInt(a)
+        arg2 = ConstInt(b)
+    elif n[0:5] == 'FLOAT':
+        arg1 = ConstFloat(float(a))
+        arg2 = ConstFloat(float(b))
+    elif n[0:3] == 'PTR':
+        arg1 = ConstPtr(rffi.cast(llmemory.GCREF, a))
+        arg2 = ConstPtr(rffi.cast(llmemory.GCREF, b))
+    else:
+        raise NotImplementedError(
+            "Don't know how to make args for " + n)
+    return arg1, arg2
+
+
+def test_opboolinvers():
+    cpu = FakeCPU()
+    for op1, op2 in opboolinvers.items():
+        for a in (1,2,3):
+            for b in (1,2,3):
+                arg1, arg2 = make_args_for_op(op1, a, b)
+                box1 = execute(cpu, None, op1, None, arg1, arg2)
+                box2 = execute(cpu, None, op2, None, arg1, arg2)
+                assert box1.value == (not box2.value)
+
+def test_opboolreflex():
+    cpu = FakeCPU()
+    for op1, op2 in opboolreflex.items():
+        for a in (1,2,3):
+            for b in (1,2,3):
+                arg1, arg2 = make_args_for_op(op1, a, b)
+                box1 = execute(cpu, None, op1, None, arg1, arg2)
+                box2 = execute(cpu, None, op2, None, arg2, arg1)
+                assert box1.value == box2.value

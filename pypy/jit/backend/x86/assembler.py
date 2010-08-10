@@ -1066,11 +1066,14 @@ class Assembler386(object):
             if scale.value == 0:
                 self.mc.MOVZX8(resloc, addr_add(base_loc, ofs_loc, ofs.value,
                                                 scale.value))
+            elif scale.value == 1:
+                self.mc.MOVZX16(resloc, addr_add(base_loc, ofs_loc, ofs.value,
+                                                scale.value))
             elif (1 << scale.value) == WORD:
                 self.mc.MOV(resloc, addr_add(base_loc, ofs_loc, ofs.value,
                                              scale.value))
             else:
-                print "[asmgen]setarrayitem unsupported size: %d" % scale.value
+                print "[asmgen]getarrayitem unsupported size: %d" % scale.value
                 raise NotImplementedError()
 
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
@@ -1103,6 +1106,8 @@ class Assembler386(object):
         else:
             if (1 << scale_loc.value) == WORD:
                 self.mc.MOV(dest_addr, value_loc)
+            elif scale_loc.value == 1:
+                self.mc.MOV16(dest_addr, value_loc)
             elif scale_loc.value == 0:
                 self.mc.MOV8(dest_addr, value_loc.lowest8bits())
             else:

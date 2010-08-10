@@ -70,27 +70,27 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.array = array
 
 
-class TestArrayOnTopOfCPython(BaseArrayTests):
+## class TestArrayOnTopOfCPython(BaseArrayTests):
 
-    def setup_class(cls):
-        from pypy.tool.lib_pypy import LIB_PYPY
-        if not hasattr(struct, 'pack_into'):
-            py.test.skip("requires CPython >= 2.5")
-        import new
-        path = LIB_PYPY.join('array.py')
-        myarraymodule = new.module('array')
-        execfile(str(path), myarraymodule.__dict__)
-        cls.array = myarraymodule
+##     def setup_class(cls):
+##         from pypy.tool.lib_pypy import LIB_PYPY
+##         if not hasattr(struct, 'pack_into'):
+##             py.test.skip("requires CPython >= 2.5")
+##         import new
+##         path = LIB_PYPY.join('array.py')
+##         myarraymodule = new.module('array')
+##         execfile(str(path), myarraymodule.__dict__)
+##         cls.array = myarraymodule
 
-    def test_unicode(self):
-        py.test.skip("no 'u' type code in CPython's struct module")
+##     def test_unicode(self):
+##         py.test.skip("no 'u' type code in CPython's struct module")
 
-    def test_pickle(self):
-        py.test.skip("pickle getting confused by the hack in setup_class()")
+##     def test_pickle(self):
+##         py.test.skip("pickle getting confused by the hack in setup_class()")
 
 
 class AppTestArray(BaseArrayTests):
-    usemodules = ['struct']
+    usemodules = ['struct', 'array']
 
     def setup_class(cls):
         """
@@ -105,18 +105,18 @@ class AppTestArray(BaseArrayTests):
         cls.w_native_sizes = cls.space.wrap(cls.native_sizes)
 
 
-class AppTestArrayWithRawFFI(AppTestArray):
-    """
-    The same as the base class, but with a space that also includes the
-    _rawffi module.  The array module internally uses it in this case.
-    """
-    usemodules = ['struct', '_rawffi']
+## class AppTestArrayWithRawFFI(AppTestArray):
+##     """
+##     The same as the base class, but with a space that also includes the
+##     _rawffi module.  The array module internally uses it in this case.
+##     """
+##     usemodules = ['struct', '_rawffi']
 
-    def test_buffer_info(self):
-        a = self.array.array('l', [123, 456])
-        assert a.itemsize == self.native_sizes['l']
-        address, length = a.buffer_info()
-        assert length == 2      # and not 2 * self.native_sizes['l']
-        assert address != 0
-        # should check the address via some unsafe peeking, but it's
-        # not easy on top of py.py
+##     def test_buffer_info(self):
+##         a = self.array.array('l', [123, 456])
+##         assert a.itemsize == self.native_sizes['l']
+##         address, length = a.buffer_info()
+##         assert length == 2      # and not 2 * self.native_sizes['l']
+##         assert address != 0
+##         # should check the address via some unsafe peeking, but it's
+##         # not easy on top of py.py

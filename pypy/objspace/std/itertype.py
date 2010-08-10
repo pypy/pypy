@@ -1,5 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.error import OperationError
 
 # ____________________________________________________________
 
@@ -8,6 +9,11 @@ def descr_seqiter__reduce__(w_self, space):
     XXX to do: remove this __reduce__ method and do
     a registration with copy_reg, instead.
     """
+
+    # cpython does not support pickling iterators
+    msg = 'Pickling for iterators dissabled as cpython does not support it'
+    raise OperationError(space.w_TypeError, space.wrap(msg))
+
     from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
     assert isinstance(w_self, W_AbstractSeqIterObject)
     from pypy.interpreter.mixedmodule import MixedModule
