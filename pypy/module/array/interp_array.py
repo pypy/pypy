@@ -598,7 +598,11 @@ def make_array(mytype):
             args = [space.wrap(mytype.typecode), w_s]
         else:
             args = [space.wrap(mytype.typecode)]
-        return space.newtuple([space.type(self), space.newtuple(args)])
+        try:
+            dct = space.getattr(self, space.wrap('__dict__'))
+        except OperationError:
+            dct = space.w_None
+        return space.newtuple([space.type(self), space.newtuple(args), dct])
 
     def array_byteswap__Array(space, self):
         if mytype.bytes not in [1, 2, 4, 8]:

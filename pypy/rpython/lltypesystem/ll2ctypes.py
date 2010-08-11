@@ -24,6 +24,7 @@ from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.rpython import raddress
 from pypy.translator.platform import platform
+from array import array
 
 def uaddressof(obj):
     return fixid(ctypes.addressof(obj))
@@ -756,11 +757,15 @@ def ctypes2lltype(T, cobj):
     elif T is lltype.Char:
         llobj = chr(cobj)
     elif T is lltype.UniChar:
-        llobj = unichr(cobj)
-        #try:
-        #    llobj = unichr(cobj)
-        #except ValueError:
-        #    llobj = u'\x00' # FIXME: Hack
+        try:
+            llobj = unichr(cobj)
+        except ValueError:
+            for tc in 'HIL':
+                if array(tc).itemsize == array('u').itemsize:
+                    llobj = array('u', array(tc, (cobj,)).tostring())[0]
+                    break
+            else:
+                raise
     elif T is lltype.Signed:
         llobj = cobj
     elif T is lltype.Bool:
