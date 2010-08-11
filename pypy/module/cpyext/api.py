@@ -1,5 +1,5 @@
 import ctypes
-import sys
+import sys, os
 import atexit
 
 import py
@@ -896,6 +896,8 @@ def setup_library(space):
 initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
 @unwrap_spec(ObjSpace, str, str)
 def load_extension_module(space, path, name):
+    if os.sep not in path:
+        path = os.curdir + os.sep + path      # force a '/' in the path
     state = space.fromcache(State)
     state.package_context = name
     try:
