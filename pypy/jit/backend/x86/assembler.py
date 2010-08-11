@@ -1741,7 +1741,15 @@ class Assembler386(object):
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
         for i in range(len(arglocs)-1, -1, -1):
-            self.mc.PUSH(arglocs[i])
+            loc = arglocs[i]
+            if isinstance(loc, RegLoc):
+                self.mc.PUSH_r(loc.value)
+            else:
+                if IS_X86_64:
+                    self.mc.MOV_ri(X86_64_SCRATCH_REG.value, loc.getint())
+                    self.mc.PUSH_r(X86_64_SCRATCH_REG.value)
+                else:
+                    self.mc.PUSH_i32(loc.getint())
         
         if IS_X86_64:
             # We clobber these registers to pass the arguments, but that's
@@ -1757,8 +1765,10 @@ class Assembler386(object):
         self.mc.CALL(imm(descr.get_write_barrier_fn(self.cpu)))
         for i in range(len(arglocs)):
             loc = arglocs[i]
-            assert isinstance(loc, RegLoc)
-            self.mc.POP(loc)
+            if isinstance(loc, RegLoc):
+                self.mc.POP_r(loc.value)
+            else:
+                self.mc.ADD_ri(esp.value, WORD)   # ignore the pushed constant
         # patch the JZ above
         offset = self.mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127

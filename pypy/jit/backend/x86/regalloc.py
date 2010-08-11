@@ -671,13 +671,12 @@ class RegAlloc(object):
         
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
+        loc_newvalue = self.rm.make_sure_var_in_reg(op.args[1], op.args)
+        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
+        # because it will be needed anyway by the following setfield_gc.
+        # It avoids loading it twice from the memory.
         loc_base = self.rm.make_sure_var_in_reg(op.args[0], op.args,
                                                 imm_fine=False)
-        loc_newvalue = self.rm.make_sure_var_in_reg(op.args[1], op.args,
-                                                    imm_fine=False)
-        # ^^^ we also force loc_newvalue in a reg, because it will be needed
-        # anyway by the following setfield_gc.  It avoids loading it twice
-        # from the memory.
         arglocs = [loc_base, loc_newvalue]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these

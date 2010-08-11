@@ -188,6 +188,10 @@ def test_mov8():
     assert_encodes_as(cb, 'MOV8_mi', ((edx, 16), 99), '\xC6\x42\x10\x63')
     assert_encodes_as(cb, 'MOV8_ai', ((ebx, ecx, 2, 16), 99), '\xC6\x44\x8B\x10\x63')
 
+def test_push32():
+    cb = CodeBuilder32
+    assert_encodes_as(cb, 'PUSH_i32', (9,), '\x68\x09\x00\x00\x00')
+
 class CodeBuilder64(CodeBuilderMixin, X86_64_CodeBuilder):
     pass
 
