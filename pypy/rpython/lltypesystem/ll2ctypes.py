@@ -757,6 +757,10 @@ def ctypes2lltype(T, cobj):
         llobj = chr(cobj)
     elif T is lltype.UniChar:
         llobj = unichr(cobj)
+        #try:
+        #    llobj = unichr(cobj)
+        #except ValueError:
+        #    llobj = u'\x00' # FIXME: Hack
     elif T is lltype.Signed:
         llobj = cobj
     elif T is lltype.Bool:

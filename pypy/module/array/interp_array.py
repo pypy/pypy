@@ -16,8 +16,8 @@ from pypy.interpreter.argument import Arguments, Signature
 from pypy.module._file.interp_file import W_File
 from pypy.interpreter.buffer import RWBuffer
 
-def w_array(space, w_cls, typecode, w_initializer=None, w_args=None):
-    if len(w_args.arguments_w) > 0:
+def w_array(space, w_cls, typecode, w_args=None):
+    if len(w_args.arguments_w) > 1:
         msg = 'array() takes at most 2 arguments'
         raise OperationError(space.w_TypeError, space.wrap(msg))
     if len(typecode) != 1:
@@ -30,23 +30,23 @@ def w_array(space, w_cls, typecode, w_initializer=None, w_args=None):
             a = space.allocate_instance(types[tc].w_class, w_cls)
             a.__init__(space)
 
-            if w_initializer is not None:
-                if not space.is_w(w_initializer, space.w_None):
-                    if space.type(w_initializer) is space.w_str:
-                        a.fromstring(w_initializer)
-                    elif space.type(w_initializer) is space.w_unicode:
-                        a.fromsequence(w_initializer)
-                    elif space.type(w_initializer) is space.w_list:
-                        a.fromlist(w_initializer)
-                    else:
-                        a.extend(w_initializer)
+            if len(w_args.arguments_w) > 0:
+                w_initializer = w_args.arguments_w[0]
+                if space.type(w_initializer) is space.w_str:
+                    a.fromstring(w_initializer)
+                elif space.type(w_initializer) is space.w_unicode:
+                    a.fromsequence(w_initializer)
+                elif space.type(w_initializer) is space.w_list:
+                    a.fromlist(w_initializer)
+                else:
+                    a.extend(w_initializer)
             break
     else:
         msg = 'bad typecode (must be c, b, B, u, h, H, i, I, l, L, f or d)'
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
     return a
-w_array.unwrap_spec = (ObjSpace, W_Root, str, W_Root, Arguments)
+w_array.unwrap_spec = (ObjSpace, W_Root, str, Arguments)
 
 
 array_append = SMM('append', 2)
@@ -579,7 +579,10 @@ def make_array(mytype):
             w_lst2 = space.call_method(other, 'tolist')
             return space.cmp(w_lst1, w_lst2)
         else:
-            raise OperationError(space.w_NotImplementedError, space.wrap(''))
+            try:
+                return space.call_method(other, '__cmp__', self)
+            except OperationError:
+                return space.wrap(-1)
 
     # Misc methods
 
@@ -651,8 +654,21 @@ def make_array(mytype):
     from pypy.objspace.std.sliceobject import W_SliceObject
     from pypy.objspace.std.listobject import W_ListObject
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    #localdict = locals()
+    #localdict['W_ArrayBase'] = W_ArrayBase
     register_all(locals(), globals())
 
 
 for mytype in types.values():
     make_array(mytype)
+
+#def cmp__ArrayBase_ArrayBase(space, self, other):
+#    print 78
+#    w_lst1 = space.call_method(self, 'tolist')
+#    w_lst2 = space.call_method(other, 'tolist')
+#    return space.cmp(w_lst1, w_lst2)
+#
+#def cmp__ArrayBase_ANY(space, self, other):
+#    return space.wrap(1)
+
+register_all(locals(), globals())
