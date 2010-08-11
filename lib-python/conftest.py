@@ -132,7 +132,7 @@ testmap = [
     RegrTest('test_ast.py', core=True),
     RegrTest('test_anydbm.py'),
     RegrTest('test_applesingle.py', skip=True),
-    RegrTest('test_array.py', core=True, usemodules='struct'),
+    RegrTest('test_array.py', core=True, usemodules='struct array'),
     RegrTest('test_asynchat.py', usemodules='thread'),
     RegrTest('test_atexit.py', core=True),
     RegrTest('test_audioop.py', skip=True),
