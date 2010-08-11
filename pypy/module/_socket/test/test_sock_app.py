@@ -4,7 +4,7 @@ import py
 from pypy.tool.udir import udir
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")

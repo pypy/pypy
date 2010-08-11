@@ -13,7 +13,7 @@ def teardown_module(mod):
 
 class AppTestFcntl:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('fcntl',))
+        space = gettestobjspace(usemodules=('fcntl', 'array'))
         cls.space = space
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = space.wrap(tmpprefix)

@@ -1,9 +1,13 @@
 from pypy.module.marshal import interp_marshal
 from pypy.interpreter.error import OperationError
+from pypy.conftest import gettestobjspace
 import sys
 
 
 class AppTestMarshalMore:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('array',))
+        cls.space = space
 
     def test_long_0(self):
         import marshal

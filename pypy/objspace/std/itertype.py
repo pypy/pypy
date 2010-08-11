@@ -10,9 +10,9 @@ def descr_seqiter__reduce__(w_self, space):
     a registration with copy_reg, instead.
     """
 
-    # cpython does not support pickling iterators
-    msg = 'Pickling for iterators dissabled as cpython does not support it'
-    raise OperationError(space.w_TypeError, space.wrap(msg))
+    # cpython does not support pickling iterators but stackless python do
+    #msg = 'Pickling for iterators dissabled as cpython does not support it'
+    #raise OperationError(space.w_TypeError, space.wrap(msg))
 
     from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
     assert isinstance(w_self, W_AbstractSeqIterObject)

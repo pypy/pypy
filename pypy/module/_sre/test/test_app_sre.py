@@ -87,7 +87,9 @@ class AppTestSrePattern:
 
 
 class AppTestSreMatch:
-
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('array', ))
+        
     def test_copy(self):
         import re
         # copy support is disabled by default in _sre.c

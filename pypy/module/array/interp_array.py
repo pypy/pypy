@@ -14,6 +14,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.model import W_Object
 from pypy.interpreter.argument import Arguments, Signature
 from pypy.module._file.interp_file import W_File
+from pypy.interpreter.buffer import RWBuffer
 
 def w_array(space, w_cls, typecode, w_initializer=None, w_args=None):
     if len(w_args.arguments_w) > 0:
@@ -141,6 +142,22 @@ types = {
 for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
+
+class ArrayBuffer(RWBuffer):
+    def __init__(self, data, bytes):
+        self.data = data
+        self.len = bytes
+
+    def getlength(self):
+        return self.len
+
+    def getitem(self, index):
+        return self.data[index]
+
+    def setitem(self, index, char):
+        self.data[index] = char
+
+
 
 
 def make_array(mytype):
@@ -460,6 +477,7 @@ def make_array(mytype):
     def mul__Array_ANY(space, self, w_repeat):
         repeat = space.int_w(w_repeat)
         a = mytype.w_class(space)
+        repeat = max(repeat, 0)
         a.setlen(self.len * repeat)
         for r in range(repeat):
             for i in range(self.len):
@@ -472,6 +490,7 @@ def make_array(mytype):
     def inplace_mul__Array_ANY(space, self, w_repeat):
         repeat = space.int_w(w_repeat)
         oldlen = self.len
+        repeat = max(repeat, 0)
         self.setlen(self.len * repeat)
         for r in range(1, repeat):
             for i in range(oldlen):
@@ -565,9 +584,8 @@ def make_array(mytype):
     # Misc methods
 
     def buffer__Array(space, self):
-        from pypy.interpreter.buffer import StringLikeBuffer
-        w_s = array_tostring__Array(space, self)
-        return space.wrap(StringLikeBuffer(space, w_s))
+        b = ArrayBuffer(self.charbuf(), self.len * mytype.bytes)
+        return space.wrap(b)
 
     def array_buffer_info__Array(space, self):
         w_ptr = space.wrap(rffi.cast(lltype.Unsigned, self.buffer))
