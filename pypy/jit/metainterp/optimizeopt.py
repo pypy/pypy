@@ -612,7 +612,7 @@ class Optimizer(object):
                 assert oldop.opnum == op.opnum
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 return
-            elif self.find_rewriteable_bool(op, args):
+            elif self.find_rewritable_bool(op, args):
                 return
             else:
                 self.pure_operations[args] = op
@@ -635,7 +635,7 @@ class Optimizer(object):
         return False
 
     
-    def find_rewriteable_bool(self, op, args):
+    def find_rewritable_bool(self, op, args):
         try:
             oldopnum = opboolinvers[op.opnum]
             targs = [args[0], args[1], ConstInt(oldopnum)]
