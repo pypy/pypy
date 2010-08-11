@@ -759,7 +759,7 @@ def ctypes2lltype(T, cobj):
     elif T is lltype.UniChar:
         try:
             llobj = unichr(cobj)
-        except ValueError:
+        except (ValueError, OverflowError):
             for tc in 'HIL':
                 if array(tc).itemsize == array('u').itemsize:
                     llobj = array('u', array(tc, (cobj,)).tostring())[0]
