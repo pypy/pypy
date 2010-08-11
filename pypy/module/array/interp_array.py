@@ -579,10 +579,7 @@ def make_array(mytype):
             w_lst2 = space.call_method(other, 'tolist')
             return space.cmp(w_lst1, w_lst2)
         else:
-            try:
-                return space.call_method(other, '__cmp__', self)
-            except OperationError:
-                return space.wrap(-1)
+            return space.w_NotImplemented
 
     # Misc methods
 
@@ -654,21 +651,10 @@ def make_array(mytype):
     from pypy.objspace.std.sliceobject import W_SliceObject
     from pypy.objspace.std.listobject import W_ListObject
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    #localdict = locals()
-    #localdict['W_ArrayBase'] = W_ArrayBase
     register_all(locals(), globals())
 
 
 for mytype in types.values():
     make_array(mytype)
-
-#def cmp__ArrayBase_ArrayBase(space, self, other):
-#    print 78
-#    w_lst1 = space.call_method(self, 'tolist')
-#    w_lst2 = space.call_method(other, 'tolist')
-#    return space.cmp(w_lst1, w_lst2)
-#
-#def cmp__ArrayBase_ANY(space, self, other):
-#    return space.wrap(1)
 
 register_all(locals(), globals())
