@@ -1,7 +1,5 @@
 #!/usr/bin/python
-from time import time
-
-from array import array, simple_array
+from array import array
 
 def f(img, intimg):
     l=0
@@ -14,13 +12,7 @@ def f(img, intimg):
 
 
 
-if True:
-    img=array('d','\x00'*640*480*8)
-    intimg=array('d','\x00'*640*480*8)
-else:
-    img=simple_array(640*480)
-    intimg=simple_array(640*480)
+img=array('d','\x00'*640*480*8)
+intimg=array('d','\x00'*640*480*8)
 
-start=time()
 for l in range(500): f(img, intimg)
-print time()-start
