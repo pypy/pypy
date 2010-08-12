@@ -475,7 +475,10 @@ def make_array(mytype):
         return self
 
     def mul__Array_ANY(space, self, w_repeat):
-        repeat = space.int_w(w_repeat)
+        try:
+            repeat = space.int_w(w_repeat)
+        except OperationError:
+            return space.w_NotImplemented
         a = mytype.w_class(space)
         repeat = max(repeat, 0)
         a.setlen(self.len * repeat)
@@ -488,7 +491,10 @@ def make_array(mytype):
         return mul__Array_ANY(space, self, w_repeat)
 
     def inplace_mul__Array_ANY(space, self, w_repeat):
-        repeat = space.int_w(w_repeat)
+        try:
+            repeat = space.int_w(w_repeat)
+        except OperationError:
+            return space.w_NotImplemented
         oldlen = self.len
         repeat = max(repeat, 0)
         self.setlen(self.len * repeat)

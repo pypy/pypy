@@ -593,13 +593,16 @@ class BaseArrayTests:
 
         raises(TypeError, "a = self.array('i') + 2")
         raises(TypeError, "self.array('i') + self.array('b')")
+        a = self.array('i')
+        raises(TypeError, "a += 7")
 
         # Calling __add__ directly raises TypeError in cpython but
         # returns NotImplemented in pypy if placed within a
         # try: except TypeError: construction.
         #
-        # raises(TypeError, self.array('i').__add__, (2,))
-        # raises(TypeError, self.array('i').__add__, self.array('b'))
+        #raises(TypeError, self.array('i').__add__, (2,))
+        #raises(TypeError, self.array('i').__iadd__, (2,))
+        #raises(TypeError, self.array('i').__add__, self.array('b'))
 
         class addable(object):
             def __add__(self, other):
@@ -611,12 +614,34 @@ class BaseArrayTests:
         assert addable() + self.array('i') == 'add'
         assert self.array('i') + addable() == 'radd'
 
+        a = self.array('i')
+        a += addable()
+        assert a == 'radd'
+
         a = self.array('i', [1, 2])
         assert a * -1 == self.array('i')
         b = a
         a *= -1
         assert a == self.array('i')
         assert b == self.array('i')
+
+        a = self.array('i')
+        raises(TypeError, "a * 'hi'")
+        raises(TypeError, "'hi' * a")
+
+        class mulable(object):
+            def __mul__(self, other):
+                return "mul"
+
+            def __rmul__(self, other):
+                return "rmul"
+        
+        assert mulable() * self.array('i') == 'mul'
+        assert self.array('i') * mulable() == 'rmul'
+
+        a = self.array('i')
+        a *= mulable()
+        assert a == 'rmul'
 
     def test_delitem(self):
         a = self.array('i', [1, 2, 3])
