@@ -198,9 +198,13 @@ def get_array_descr(gccache, ARRAY):
     try:
         return cache[ARRAY]
     except KeyError:
+        # we only support Arrays that are either GcArrays, or raw no-length
+        # non-gc Arrays.
         if ARRAY._hints.get('nolength', False):
+            assert not isinstance(ARRAY, lltype.GcArray)
             arraydescr = getArrayNoLengthDescrClass(ARRAY)()
         else:
+            assert isinstance(ARRAY, lltype.GcArray)
             arraydescr = getArrayDescrClass(ARRAY)()
         # verify basic assumption that all arrays' basesize and ofslength
         # are equal

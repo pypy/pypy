@@ -1832,6 +1832,31 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_latest_value_float(0) == 13.5
         assert called
 
+    def test_raw_malloced_getarrayitem(self):
+        ARRAY = rffi.CArray(lltype.Signed)
+        descr = self.cpu.arraydescrof(ARRAY)
+        a = lltype.malloc(ARRAY, 10, flavor='raw')
+        a[7] = -4242
+        addr = llmemory.cast_ptr_to_adr(a)
+        abox = BoxInt(heaptracker.adr2int(addr))
+        r1 = self.execute_operation(rop.GETARRAYITEM_RAW, [abox, BoxInt(7)],
+                                    'int', descr=descr)
+        assert r1.getint() == -4242
+        lltype.free(a, flavor='raw')
+
+    def test_raw_malloced_setarrayitem(self):
+        ARRAY = rffi.CArray(lltype.Signed)
+        descr = self.cpu.arraydescrof(ARRAY)
+        a = lltype.malloc(ARRAY, 10, flavor='raw')
+        addr = llmemory.cast_ptr_to_adr(a)
+        abox = BoxInt(heaptracker.adr2int(addr))
+        self.execute_operation(rop.SETARRAYITEM_RAW, [abox, BoxInt(5),
+                                                      BoxInt(12345)],
+                               'int', descr=descr)
+        assert a[5] == 12345
+        lltype.free(a, flavor='raw')
+
+
 class OOtypeBackendTest(BaseBackendTest):
 
     type_system = 'ootype'
