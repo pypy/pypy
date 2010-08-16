@@ -9,6 +9,7 @@ from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import PyObject, from_ref, make_typedescr
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.objspace.std import unicodeobject, unicodetype
+from pypy.rlib import runicode
 import sys
 
 ## See comment in stringobject.py.  PyUnicode_FromUnicode(NULL, size) is not
@@ -306,6 +307,64 @@ def PyUnicode_DecodeUTF8(space, s, size, errors):
     else:
         w_errors = space.w_None
     return space.call_method(w_str, 'decode', space.wrap("utf-8"), w_errors)
+
+@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
+def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
+    """Decode length bytes from a UTF-16 encoded buffer string and return the
+    corresponding Unicode object.  errors (if non-NULL) defines the error
+    handling. It defaults to "strict".
+    
+    If byteorder is non-NULL, the decoder starts decoding using the given byte
+    order:
+    
+    *byteorder == -1: little endian
+    *byteorder == 0:  native order
+    *byteorder == 1:  big endian
+    
+    If *byteorder is zero, and the first two bytes of the input data are a
+    byte order mark (BOM), the decoder switches to this byte order and the BOM is
+    not copied into the resulting Unicode string.  If *byteorder is -1 or
+    1, any byte order mark is copied to the output (where it will result in
+    either a \ufeff or a \ufffe character).
+    
+    After completion, *byteorder is set to the current byte order at the end
+    of input data.
+    
+    If byteorder is NULL, the codec starts in native order mode.
+    
+    Return NULL if an exception was raised by the codec.
+    
+    This function used an int type for size. This might require
+    changes in your code for properly supporting 64-bit systems."""
+
+    string = rffi.charpsize2str(s, size)
+
+    #FIXME: I don't like these prefixes
+    if pbyteorder is not None: # correct NULL check?
+        llbyteorder = rffi.cast(lltype.Signed, pbyteorder[0]) # compatible with int?
+        if llbyteorder < 0:
+            byteorder = "little"
+        elif llbyteorder > 0:
+            byteorder = "big"
+        else:
+            byteorder = "native"
+    else:
+        byteorder = "native"
+
+    if llerrors:
+        errors = rffi.charp2str(llerrors)
+    else:
+        errors = None
+
+    result, length, byteorder = runicode.str_decode_utf_16_helper(string, size,
+                                           errors,
+                                           True, # final ? false for multiple passes?
+                                           None, # errorhandler
+                                           byteorder)
+    if pbyteorder is not None:
+        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+
+    return space.wrap(result)
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsASCIIString(space, w_unicode):

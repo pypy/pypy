@@ -172,4 +172,37 @@ class TestUnicode(BaseApiTest):
         result = api.PyUnicode_AsASCIIString(w_ustr)
         assert result is None
 
+    def test_decode_utf16(self, space, api):
+        def test(encoded, endian, realendian=None):
+            encoded_charp = rffi.str2charp(encoded)
+            strict_charp = rffi.str2charp("strict")
+            if endian is not None:
+                pendian = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+                if endian < 0:
+                    pendian[0] = -1
+                elif endian > 0:
+                    pendian[0] = 1
+                else:
+                    pendian[0] = 0
+            else:
+                pendian = None
 
+            w_ustr = api.PyUnicode_DecodeUTF16(encoded_charp, len(encoded), strict_charp, pendian)
+            assert space.eq_w(space.call_method(w_ustr, 'encode', space.wrap('ascii')),
+                              space.wrap("abcd"))
+
+            rffi.free_charp(encoded_charp)
+            rffi.free_charp(strict_charp)
+            if pendian:
+                if realendian is not None:
+                    assert rffi.cast(rffi.INT, realendian) == pendian[0]
+                lltype.free(pendian, flavor='raw')
+
+        test("\x61\x00\x62\x00\x63\x00\x64\x00", -1)
+
+        test("\x61\x00\x62\x00\x63\x00\x64\x00", None)
+
+        test("\x00\x61\x00\x62\x00\x63\x00\x64", 1)
+
+        test("\xFE\xFF\x00\x61\x00\x62\x00\x63\x00\x64", 0, 1)
+        test("\xFF\xFE\x61\x00\x62\x00\x63\x00\x64\x00", 0, -1)
