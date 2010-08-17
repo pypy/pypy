@@ -172,34 +172,36 @@ def do_arraycopy(cpu, _, calldescr, funcbox, x1box, x2box,
                   [x1box.getref_base(), x2box.getref_base()], None)
 
 def do_int_add_ovf(cpu, metainterp, box1, box2):
-    assert metainterp is not None
+    # the overflow operations can be called without a metainterp, if an
+    # overflow cannot occur
     a = box1.getint()
     b = box2.getint()
     try:
         z = ovfcheck(a + b)
     except OverflowError:
+        assert metainterp is not None
         metainterp.execute_raised(OverflowError(), constant=True)
         z = 0
     return BoxInt(z)
 
 def do_int_sub_ovf(cpu, metainterp, box1, box2):
-    assert metainterp is not None
     a = box1.getint()
     b = box2.getint()
     try:
         z = ovfcheck(a - b)
     except OverflowError:
+        assert metainterp is not None
         metainterp.execute_raised(OverflowError(), constant=True)
         z = 0
     return BoxInt(z)
 
 def do_int_mul_ovf(cpu, metainterp, box1, box2):
-    assert metainterp is not None
     a = box1.getint()
     b = box2.getint()
     try:
         z = ovfcheck(a * b)
     except OverflowError:
+        assert metainterp is not None
         metainterp.execute_raised(OverflowError(), constant=True)
         z = 0
     return BoxInt(z)

@@ -285,6 +285,24 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, '', expected)
 
+    def test_constant_propagate_ovf(self):
+        ops = """
+        []
+        i0 = int_add_ovf(2, 3)
+        guard_no_overflow() []
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        i2 = int_is_zero(i1)
+        guard_false(i2) []
+        guard_value(i0, 5) []
+        jump()
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, '', expected)
+
     def test_constfold_all(self):
         from pypy.jit.backend.llgraph.llimpl import TYPES     # xxx fish
         from pypy.jit.metainterp.executor import execute_nonspec
@@ -2097,6 +2115,33 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(p1)
         """
         self.optimize_loop(ops, 'Not', expected)
+
+    def test_remove_duplicate_pure_op_ovf(self):
+        ops = """
+        [i1]
+        i3 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i3b = int_is_true(i3)
+        guard_true(i3b) []
+        i4 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i4b = int_is_true(i4)
+        guard_true(i4b) []
+        escape(i3)
+        escape(i4)
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        i3 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i3b = int_is_true(i3)
+        guard_true(i3b) []
+        escape(i3)
+        escape(i3)
+        jump(i1)
+        """
+        self.optimize_loop(ops, "Not", expected)
 
     def test_int_and_or_with_zero(self):
         ops = """
