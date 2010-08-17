@@ -241,7 +241,7 @@ class Assembler386(object):
             f = open_file_as_stream(output_log, "w")
             for i in range(len(self.loop_run_counters)):
                 name, struct = self.loop_run_counters[i]
-                f.write(name + ":" + str(struct.i) + "\n")
+                f.write(str(struct.i) + " " * (8 - len(str(struct.i))) + name + "\n")
             f.close()
 
     def _build_float_constants(self):

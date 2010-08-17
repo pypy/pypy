@@ -503,4 +503,4 @@ class TestDebuggingAssembler(object):
         assert struct.i == 10
         self.cpu.finish_once()
         lines = py.path.local(self.logfile + ".count").readlines()
-        assert lines[0] == 'xyz:10\n'
+        assert lines[0] == '10      xyz\n'
