@@ -15,6 +15,7 @@ from pypy.objspace.std.model import W_Object
 from pypy.interpreter.argument import Arguments, Signature
 from pypy.module._file.interp_file import W_File
 from pypy.interpreter.buffer import RWBuffer
+from pypy.objspace.std.multimethod import FailedToImplement
 
 def w_array(space, w_cls, typecode, w_args=None):
     if len(w_args.arguments_w) > 1:
@@ -476,9 +477,11 @@ def make_array(mytype):
 
     def mul__Array_ANY(space, self, w_repeat):
         try:
-            repeat = space.int_w(w_repeat)
-        except OperationError:
-            return space.w_NotImplemented
+            repeat = space.getindex_w(w_repeat, space.w_OverflowError)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise FailedToImplement
+            raise
         a = mytype.w_class(space)
         repeat = max(repeat, 0)
         a.setlen(self.len * repeat)
@@ -492,9 +495,11 @@ def make_array(mytype):
 
     def inplace_mul__Array_ANY(space, self, w_repeat):
         try:
-            repeat = space.int_w(w_repeat)
-        except OperationError:
-            return space.w_NotImplemented
+            repeat = space.getindex_w(w_repeat, space.w_OverflowError)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise FailedToImplement
+            raise
         oldlen = self.len
         repeat = max(repeat, 0)
         self.setlen(self.len * repeat)

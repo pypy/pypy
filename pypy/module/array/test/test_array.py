@@ -628,7 +628,8 @@ class BaseArrayTests:
         a = self.array('i')
         raises(TypeError, "a * 'hi'")
         raises(TypeError, "'hi' * a")
-
+        raises(TypeError, "a *= 'hi'")
+        
         class mulable(object):
             def __mul__(self, other):
                 return "mul"
