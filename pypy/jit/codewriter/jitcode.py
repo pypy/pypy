@@ -19,7 +19,8 @@ class JitCode(AbstractDescr):
 
     def setup(self, code='', constants_i=[], constants_r=[], constants_f=[],
               num_regs_i=255, num_regs_r=255, num_regs_f=255,
-              liveness=None, startpoints=None, alllabels=None):
+              liveness=None, startpoints=None, alllabels=None,
+              resulttypes=None):
         self.code = code
         # if the following lists are empty, use a single shared empty list
         self.constants_i = constants_i or self._empty_i
@@ -33,6 +34,7 @@ class JitCode(AbstractDescr):
         self.liveness = make_liveness_cache(liveness)
         self._startpoints = startpoints   # debugging
         self._alllabels = alllabels       # debugging
+        self._resulttypes = resulttypes   # debugging
 
     def get_fnaddr_as_int(self):
         return heaptracker.adr2int(self.fnaddr)

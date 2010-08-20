@@ -37,15 +37,12 @@ class TranslationTest:
             return jitcellcache.entry
         def get_printable_location():
             return '(hello world)'
-        def can_inline():
-            return False
 
         jitdriver = JitDriver(greens = [], reds = ['total', 'frame'],
                               virtualizables = ['frame'],
                               get_jitcell_at=get_jitcell_at,
                               set_jitcell_at=set_jitcell_at,
-                              get_printable_location=get_printable_location,
-                              can_inline=can_inline)
+                              get_printable_location=get_printable_location)
         def f(i):
             for param in unroll_parameters:
                 defl = PARAMETERS[param]
@@ -63,8 +60,7 @@ class TranslationTest:
                 frame.i -= 1
             return total * 10
         #
-        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 'x'],
-                                 can_inline = lambda *args: False)
+        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 'x'])
         def f2(g, m, x):
             while m > 0:
                 myjitdriver2.can_enter_jit(g=g, m=m, x=x)

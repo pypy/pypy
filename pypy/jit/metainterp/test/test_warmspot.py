@@ -272,6 +272,30 @@ class WarmspotTests(object):
         self.check_enter_count_at_most(2)
         self.check_loops(call=0)
 
+    def test_loop_header(self):
+        # artificial test: we enter into the JIT only when can_enter_jit()
+        # is seen, but we close a loop in the JIT much more quickly
+        # because of loop_header().
+        mydriver = JitDriver(reds = ['n', 'm'], greens = [])
+
+        def f(m):
+            n = 0
+            while True:
+                mydriver.jit_merge_point(n=n, m=m)
+                if n > m:
+                    m -= 1
+                    if m < 0:
+                        return n
+                    n = 0
+                    mydriver.can_enter_jit(n=n, m=m)
+                else:
+                    n += 1
+                    mydriver.loop_header()
+        assert f(15) == 1
+        res = self.meta_interp(f, [15], backendopt=True)
+        assert res == 1
+        self.check_loops(int_add=1)   # I get 13 without the loop_header()
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU

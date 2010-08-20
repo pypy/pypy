@@ -1330,11 +1330,9 @@ class ImplicitVirtualizableTests:
         def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
-        def c(pc, code):
-            return "l" not in hlstr(code)
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['frame'],
                                 virtualizables=["frame"],
-                                get_printable_location=p, can_inline=c)
+                                get_printable_location=p)
         def f(code, frame):
             pc = 0
             while pc < len(code):

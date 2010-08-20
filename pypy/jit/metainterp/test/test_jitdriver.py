@@ -14,7 +14,6 @@ class MultipleJitDriversTests:
 
     def test_simple(self):
         myjitdriver1 = JitDriver(greens=[], reds=['n', 'm'],
-                                 can_inline = lambda *args: False,
                                  get_printable_location = getloc1)
         myjitdriver2 = JitDriver(greens=['g'], reds=['r'],
                                  get_printable_location = getloc2)
@@ -30,11 +29,14 @@ class MultipleJitDriversTests:
             while r > 0:
                 myjitdriver2.can_enter_jit(g=g, r=r)
                 myjitdriver2.jit_merge_point(g=g, r=r)
-                r += loop1(r, g) - 1
+                r += loop1(r, g) + (-1)
             return r
         #
         res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
         assert res == loop2(4, 40)
+        # we expect only one int_sub, corresponding to the single
+        # compiled instance of loop1()
+        self.check_loops(int_sub=1)
         # the following numbers are not really expectations of the test
         # itself, but just the numbers that we got after looking carefully
         # at the generated machine code
@@ -42,11 +44,10 @@ class MultipleJitDriversTests:
         self.check_tree_loop_count(4)    # 2 x loop, 2 x enter bridge
         self.check_enter_count(7)
 
-    def test_simple_inline(self):
+    def test_inline(self):
         # this is not an example of reasonable code: loop1() is unrolled
         # 'n/m' times, where n and m are given as red arguments.
         myjitdriver1 = JitDriver(greens=[], reds=['n', 'm'],
-                                 can_inline = lambda *args: True,
                                  get_printable_location = getloc1)
         myjitdriver2 = JitDriver(greens=['g'], reds=['r'],
                                  get_printable_location = getloc2)

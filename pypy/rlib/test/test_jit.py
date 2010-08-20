@@ -59,11 +59,9 @@ class BaseTestJIT(BaseRtypingTest):
 
     def test_annotate_hooks(self):
         
-        def can_inline(m): pass
         def get_printable_location(m): pass
         
         myjitdriver = JitDriver(greens=['m'], reds=['n'],
-                                can_inline=can_inline,
                                 get_printable_location=get_printable_location)
         def fn(n):
             m = 42.5
@@ -81,9 +79,8 @@ class BaseTestJIT(BaseRtypingTest):
                     return [v.concretetype for v in graph.getargs()]
             raise Exception, 'function %r has not been annotated' % func
 
-        can_inline_args = getargs(can_inline)
         get_printable_location_args = getargs(get_printable_location)
-        assert can_inline_args == get_printable_location_args == [lltype.Float]
+        assert get_printable_location_args == [lltype.Float]
 
     def test_annotate_argumenterror(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])

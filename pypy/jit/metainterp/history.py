@@ -919,11 +919,12 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
-    def check_loops(self, expected=None, **check):
+    def check_loops(self, expected=None, everywhere=False, **check):
         insns = {}
         for loop in self.loops:
-            if getattr(loop, '_ignore_during_counting', False):
-                continue
+            if not everywhere:
+                if getattr(loop, '_ignore_during_counting', False):
+                    continue
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             insns.pop('debug_merge_point', None)

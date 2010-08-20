@@ -221,8 +221,7 @@ map_single_other_callable._dont_inline_ = True
 
 from pypy.rlib.jit import JitDriver
 mapjitdriver = JitDriver(greens = ['code'],
-                         reds = ['w_func', 'w_iter', 'result_w'],
-                         can_inline = lambda *args: False)
+                         reds = ['w_func', 'w_iter', 'result_w'])
 def map_single_user_function(code, w_func, w_iter):
     result_w = []
     while True:

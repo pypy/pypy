@@ -75,8 +75,7 @@ class TestTranslationX86(CCompiledMixin):
         
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
-                           get_printable_location = lambda codeno : str(codeno),
-                           can_inline = lambda codeno : False)
+                           get_printable_location = lambda codeno: str(codeno))
         class SomewhereElse(object):
             pass
 

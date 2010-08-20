@@ -32,6 +32,8 @@ class PyPyJitPolicy(JitPolicy):
             return False
         if mod.startswith('pypy.interpreter.pyparser.'):
             return False
+        if mod == 'pypy.interpreter.generator':
+            return False
         if mod.startswith('pypy.module.'):
             modname = mod[len('pypy.module.'):]
             if not self.look_inside_pypy_module(modname):

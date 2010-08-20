@@ -12,6 +12,7 @@ class JitDriverStaticData:
     #    self.result_type       ... pypy.jit.metainterp.warmspot
     #    self.virtualizable_info... pypy.jit.metainterp.warmspot
     #    self.warmstate         ... pypy.jit.metainterp.warmspot
+    #    self.handle_jitexc_from_bh pypy.jit.metainterp.warmspot
     #    self.index             ... pypy.jit.codewriter.call
     #    self.mainjitcode       ... pypy.jit.codewriter.call
 

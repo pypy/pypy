@@ -30,6 +30,22 @@ def specialize_value(TYPE, x):
     else:
         return lltype.cast_opaque_ptr(TYPE, x)
 
+@specialize.ll()
+def unspecialize_value(value):
+    """Casts 'value' to a Signed, a GCREF or a Float."""
+    if isinstance(lltype.typeOf(value), lltype.Ptr):
+        if lltype.typeOf(value).TO._gckind == 'gc':
+            return lltype.cast_opaque_ptr(llmemory.GCREF, value)
+        else:
+            adr = llmemory.cast_ptr_to_adr(value)
+            return heaptracker.adr2int(adr)
+    elif isinstance(lltype.typeOf(value), ootype.OOType):
+        return ootype.cast_to_object(value)
+    elif isinstance(value, float):
+        return value
+    else:
+        return intmask(value)
+
 @specialize.arg(0)
 def unwrap(TYPE, box):
     if TYPE is lltype.Void:
@@ -232,7 +248,7 @@ class WarmEnterState(object):
 
             # look for the cell corresponding to the current greenargs
             greenargs = args[:num_green_args]
-            cell = get_jitcell(*greenargs)
+            cell = get_jitcell(True, *greenargs)
 
             if cell.counter >= 0:
                 # update the profiling counter
@@ -324,7 +340,7 @@ class WarmEnterState(object):
         #
         def jit_cell_at_key(greenkey):
             greenargs = unwrap_greenkey(greenkey)
-            return jit_getter(*greenargs)
+            return jit_getter(True, *greenargs)
         self.jit_cell_at_key = jit_cell_at_key
         self.jit_getter = jit_getter
         #
@@ -355,10 +371,12 @@ class WarmEnterState(object):
         #
         jitcell_dict = r_dict(comparekey, hashkey)
         #
-        def get_jitcell(*greenargs):
+        def get_jitcell(build, *greenargs):
             try:
                 cell = jitcell_dict[greenargs]
             except KeyError:
+                if not build:
+                    return None
                 cell = JitCell()
                 jitcell_dict[greenargs] = cell
             return cell
@@ -371,38 +389,41 @@ class WarmEnterState(object):
         set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
         lltohlhack = {}
         #
-        def get_jitcell(*greenargs):
+        def get_jitcell(build, *greenargs):
             fn = support.maybe_on_top_of_llinterp(rtyper, get_jitcell_at_ptr)
             cellref = fn(*greenargs)
             # <hacks>
             if we_are_translated():
                 BASEJITCELL = lltype.typeOf(cellref)
                 cell = cast_base_ptr_to_instance(JitCell, cellref)
-            elif isinstance(cellref, (BaseJitCell, type(None))):
-                BASEJITCELL = None
-                cell = cellref
             else:
-                BASEJITCELL = lltype.typeOf(cellref)
-                if cellref:
-                    cell = lltohlhack[rtyper.type_system.deref(cellref)]
+                if isinstance(cellref, (BaseJitCell, type(None))):
+                    BASEJITCELL = None
+                    cell = cellref
                 else:
-                    cell = None
-            # </hacks>
+                    BASEJITCELL = lltype.typeOf(cellref)
+                    if cellref:
+                        cell = lltohlhack[rtyper.type_system.deref(cellref)]
+                    else:
+                        cell = None
+            if not build:
+                return cell
             if cell is None:
                 cell = JitCell()
                 # <hacks>
                 if we_are_translated():
                     cellref = cast_object_to_ptr(BASEJITCELL, cell)
-                elif BASEJITCELL is None:
-                    cellref = cell
                 else:
-                    if isinstance(BASEJITCELL, lltype.Ptr):
-                        cellref = lltype.malloc(BASEJITCELL.TO)
-                    elif isinstance(BASEJITCELL, ootype.Instance):
-                        cellref = ootype.new(BASEJITCELL)
+                    if BASEJITCELL is None:
+                        cellref = cell
                     else:
-                        assert False, "no clue"
-                    lltohlhack[rtyper.type_system.deref(cellref)] = cell
+                        if isinstance(BASEJITCELL, lltype.Ptr):
+                            cellref = lltype.malloc(BASEJITCELL.TO)
+                        elif isinstance(BASEJITCELL, ootype.Instance):
+                            cellref = ootype.new(BASEJITCELL)
+                        else:
+                            assert False, "no clue"
+                        lltohlhack[rtyper.type_system.deref(cellref)] = cell
                 # </hacks>
                 fn = support.maybe_on_top_of_llinterp(rtyper,
                                                       set_jitcell_at_ptr)
@@ -468,34 +489,24 @@ class WarmEnterState(object):
         if hasattr(self, 'get_location_str'):
             return
         #
-        can_inline_ptr = self.jitdriver_sd._can_inline_ptr
         unwrap_greenkey = self.make_unwrap_greenkey()
         jit_getter = self.make_jitcell_getter()
-        if can_inline_ptr is None:
-            def can_inline_callable(*greenargs):
-                # XXX shouldn't it be False by default?
-                return True
-        else:
-            rtyper = self.warmrunnerdesc.rtyper
-            #
-            def can_inline_callable(*greenargs):
-                fn = support.maybe_on_top_of_llinterp(rtyper, can_inline_ptr)
-                return fn(*greenargs)
-        def can_inline(*greenargs):
-            cell = jit_getter(*greenargs)
-            if cell.dont_trace_here:
+
+        def can_inline_greenargs(*greenargs):
+            cell = jit_getter(False, *greenargs)
+            if cell is not None and cell.dont_trace_here:
                 return False
-            return can_inline_callable(*greenargs)
-        self.can_inline_greenargs = can_inline
-        def can_inline_greenkey(greenkey):
+            return True
+        def can_inline_callable(greenkey):
             greenargs = unwrap_greenkey(greenkey)
-            return can_inline(*greenargs)
-        self.can_inline_callable = can_inline_greenkey
+            return can_inline_greenargs(*greenargs)
+        self.can_inline_greenargs = can_inline_greenargs
+        self.can_inline_callable = can_inline_callable
 
         def get_assembler_token(greenkey):
             greenargs = unwrap_greenkey(greenkey)
-            cell = jit_getter(*greenargs)
-            if cell.counter >= 0:
+            cell = jit_getter(False, *greenargs)
+            if cell is None or cell.counter >= 0:
                 return None
             return cell.entry_loop_token
         self.get_assembler_token = get_assembler_token

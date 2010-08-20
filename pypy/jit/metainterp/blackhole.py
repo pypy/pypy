@@ -2,7 +2,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop
-from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.debug import make_sure_not_resized, fatalerror
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLException
@@ -756,11 +756,15 @@ class BlackholeInterpreter(object):
         assert e
         reraise(e)
 
+    @arguments("r")
+    def bhimpl_debug_fatalerror(msg):
+        llop.debug_fatalerror(lltype.Void, msg)
+
     # ----------
     # the main hints and recursive calls
 
     @arguments("i")
-    def bhimpl_can_enter_jit(jdindex):
+    def bhimpl_loop_header(jdindex):
         pass
 
     @arguments("self", "i", "I", "R", "F", "I", "R", "F")
@@ -1164,7 +1168,7 @@ class BlackholeInterpreter(object):
             # we now proceed to interpret the bytecode in this frame
             self.run()
         #
-        except JitException:
+        except JitException, e:
             raise     # go through
         except Exception, e:
             # if we get an exception, return it to the caller frame
@@ -1266,6 +1270,33 @@ class BlackholeInterpreter(object):
         e = lltype.cast_opaque_ptr(llmemory.GCREF, e)
         raise sd.ExitFrameWithExceptionRef(self.cpu, e)
 
+    def _handle_jitexception_in_portal(self, e):
+        # This case is really rare, but can occur if
+        # convert_and_run_from_pyjitpl() gets called in this situation:
+        #
+        #     [function 1]             <---- top BlackholeInterpreter()
+        #     [recursive portal jit code]
+        #     ...
+        #     [bottom portal jit code]   <---- bottom BlackholeInterpreter()
+        #
+        # and then "function 1" contains a call to "function 2", which
+        # calls "can_enter_jit".  The latter can terminate by raising a
+        # JitException.  In that case, the JitException is not supposed
+        # to fall through the whole chain of BlackholeInterpreters, but
+        # be caught and handled just below the level "recursive portal
+        # jit code".  The present function is called to handle the case
+        # of recursive portal jit codes.
+        for jd in self.builder.metainterp_sd.jitdrivers_sd:
+            if jd.mainjitcode is self.jitcode:
+                break
+        else:
+            assert 0, "portal jitcode not found??"
+        # call the helper in warmspot.py.  It might either raise a
+        # regular exception (which should then be propagated outside
+        # of 'self', not caught inside), or return (the return value
+        # gets stored in nextblackholeinterp).
+        jd.handle_jitexc_from_bh(self.nextblackholeinterp, e)
+
     def _copy_data_from_miframe(self, miframe):
         self.setposition(miframe.jitcode, miframe.pc)
         for i in range(self.jitcode.num_regs_i()):
@@ -1287,9 +1318,31 @@ def _run_forever(blackholeinterp, current_exc):
     while True:
         try:
             current_exc = blackholeinterp._resume_mainloop(current_exc)
-        finally:
-            blackholeinterp.builder.release_interp(blackholeinterp)
+        except JitException, e:
+            blackholeinterp, current_exc = _handle_jitexception(
+                blackholeinterp, e)
+        blackholeinterp.builder.release_interp(blackholeinterp)
         blackholeinterp = blackholeinterp.nextblackholeinterp
+
+def _handle_jitexception(blackholeinterp, jitexc):
+    # See comments in _handle_jitexception_in_portal().
+    while not blackholeinterp.jitcode.is_portal:
+        blackholeinterp.builder.release_interp(blackholeinterp)
+        blackholeinterp = blackholeinterp.nextblackholeinterp
+    if blackholeinterp.nextblackholeinterp is None:
+        blackholeinterp.builder.release_interp(blackholeinterp)
+        raise jitexc     # bottommost entry: go through
+    # We have reached a recursive portal level.
+    try:
+        blackholeinterp._handle_jitexception_in_portal(jitexc)
+    except Exception, e:
+        # It raised a general exception (it should not be a JitException here).
+        lle = get_llexception(blackholeinterp.cpu, e)
+    else:
+        # It set up the nextblackholeinterp to contain the return value.
+        lle = lltype.nullptr(rclass.OBJECTPTR.TO)
+    # We will continue to loop in _run_forever() from the parent level.
+    return blackholeinterp, lle
 
 def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
                         all_virtuals=None):
