@@ -123,6 +123,9 @@ TYPES = {
     'setarrayitem_gc' : (('ref', 'int', 'intorptr'), None),
     'getarrayitem_gc' : (('ref', 'int'), 'intorptr'),
     'getarrayitem_gc_pure' : (('ref', 'int'), 'intorptr'),
+    'setarrayitem_raw' : (('ref', 'int', 'intorptr'), None),
+    'getarrayitem_raw' : (('ref', 'int'), 'intorptr'),
+    'getarrayitem_raw_pure' : (('ref', 'int'), 'intorptr'),
     'arraylen_gc'     : (('ref',), 'int'),
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('ref', 'varargs'), 'intorptr'),
@@ -689,6 +692,18 @@ class Frame(object):
 
     op_getarrayitem_gc_pure = op_getarrayitem_gc
 
+    def op_getarrayitem_raw(self, arraydescr, array, index):
+        if arraydescr.typeinfo == REF:
+            raise NotImplementedError("getarrayitem_raw -> gcref")
+        elif arraydescr.typeinfo == INT:
+            return do_getarrayitem_raw_int(array, index)
+        elif arraydescr.typeinfo == FLOAT:
+            return do_getarrayitem_raw_float(array, index)
+        else:
+            raise NotImplementedError
+
+    op_getarrayitem_raw_pure = op_getarrayitem_raw
+
     def op_getfield_gc(self, fielddescr, struct):
         if fielddescr.typeinfo == REF:
             return do_getfield_gc_ptr(struct, fielddescr.ofs)
@@ -731,6 +746,16 @@ class Frame(object):
             do_setarrayitem_gc_int(array, index, newvalue)
         elif arraydescr.typeinfo == FLOAT:
             do_setarrayitem_gc_float(array, index, newvalue)
+        else:
+            raise NotImplementedError
+
+    def op_setarrayitem_raw(self, arraydescr, array, index, newvalue):
+        if arraydescr.typeinfo == REF:
+            raise NotImplementedError("setarrayitem_raw <- gcref")
+        elif arraydescr.typeinfo == INT:
+            do_setarrayitem_raw_int(array, index, newvalue)
+        elif arraydescr.typeinfo == FLOAT:
+            do_setarrayitem_raw_float(array, index, newvalue)
         else:
             raise NotImplementedError
 
