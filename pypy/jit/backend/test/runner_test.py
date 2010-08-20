@@ -1852,7 +1852,7 @@ class LLtypeBackendTest(BaseBackendTest):
         abox = BoxInt(heaptracker.adr2int(addr))
         self.execute_operation(rop.SETARRAYITEM_RAW, [abox, BoxInt(5),
                                                       BoxInt(12345)],
-                               'int', descr=descr)
+                               'void', descr=descr)
         assert a[5] == 12345
         lltype.free(a, flavor='raw')
 
