@@ -5,10 +5,10 @@ from pypy.translator.platform import posix
 class Darwin(posix.BasePosix):
     name = "darwin"
 
-    link_flags = ['-mmacosx-version-min=10.4']
-    cflags = ['-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4']
-    standalone_only = ['-mdynamic-no-pic']
-    shared_only = []
+    link_flags = ('-mmacosx-version-min=10.4',)
+    cflags = ('-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4')
+    standalone_only = ('-mdynamic-no-pic',)
+    shared_only = ()
 
     so_ext = 'so'
     
@@ -18,8 +18,9 @@ class Darwin(posix.BasePosix):
         self.cc = cc
 
     def _args_for_shared(self, args):
-        return (self.shared_only + ['-dynamiclib', '-undefined', 'dynamic_lookup']
-                                 + args)
+        return (list(self.shared_only)
+                + ['-dynamiclib', '-undefined', 'dynamic_lookup']
+                + args)
     
     def _preprocess_include_dirs(self, include_dirs):
         res_incl_dirs = list(include_dirs)
@@ -72,11 +73,12 @@ class Darwin(posix.BasePosix):
 
 class Darwin_i386(Darwin):
     name = "darwin_i386"
-    link_flags = ['-arch', 'i386', '-mmacosx-version-min=10.4']
-    cflags = ['-arch', 'i386', '-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4']
+    link_flags = ('-arch', 'i386', '-mmacosx-version-min=10.4')
+    cflags = ('-arch', 'i386', '-O3', '-fomit-frame-pointer',
+              '-mmacosx-version-min=10.4')
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
-    link_flags = ['-arch', 'x86_64', '-mmacosx-version-min=10.4']
-    cflags = ['-arch', 'x86_64', '-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4']
-
+    link_flags = ('-arch', 'x86_64', '-mmacosx-version-min=10.4')
+    cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer',
+              '-mmacosx-version-min=10.4')

@@ -72,10 +72,10 @@ class MsvcPlatform(Platform):
     cc = 'cl.exe'
     link = 'link.exe'
 
-    cflags = ['/MD', '/O2']
-    link_flags = []
-    standalone_only = []
-    shared_only = []
+    cflags = ('/MD', '/O2')
+    link_flags = ()
+    standalone_only = ()
+    shared_only = ()
     environ = None
 
     def __init__(self, cc=None):
@@ -218,7 +218,7 @@ class MsvcPlatform(Platform):
         m.exe_name = exe_name
         m.eci = eci
 
-        linkflags = self.link_flags[:]
+        linkflags = list(self.link_flags)
         if shared:
             linkflags = self._args_for_shared(linkflags) + [
                 '/EXPORT:$(PYPY_MAIN_FUNCTION)']
@@ -336,10 +336,10 @@ class NMakefile(posix.GnuMakefile):
 
 class MingwPlatform(posix.BasePosix):
     name = 'mingw32'
-    standalone_only = []
-    shared_only = []
-    cflags = ['-O3']
-    link_flags = []
+    standalone_only = ()
+    shared_only = ()
+    cflags = ('-O3',)
+    link_flags = ()
     exe_ext = 'exe'
     so_ext = 'dll'
 

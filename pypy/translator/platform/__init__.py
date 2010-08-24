@@ -38,9 +38,9 @@ class Platform(object):
     name = "abstract platform"
     c_environ = None
 
-    relevant_environ = []
+    relevant_environ = ()
 
-    so_prefixes = ['']
+    so_prefixes = ('',)
 
     def __init__(self, cc):
         if self.__class__ is Platform:
@@ -146,7 +146,7 @@ class Platform(object):
             extra = self.standalone_only
         else:
             extra = self.shared_only
-        cflags = self.cflags + extra
+        cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
     
     def _preprocess_library_dirs(self, library_dirs):
@@ -158,7 +158,7 @@ class Platform(object):
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
         export_flags = self._exportsymbols_link_flags(eci)
-        return (library_dirs + self.link_flags + export_flags +
+        return (library_dirs + list(self.link_flags) + export_flags +
                 link_files + list(eci.link_extra) + libraries)
 
     def _exportsymbols_link_flags(self, eci, relto=None):

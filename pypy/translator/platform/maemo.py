@@ -13,7 +13,7 @@ def check_scratchbox():
 class Maemo(Linux):
     name = "maemo"
     
-    available_includedirs = ['/usr/include', '/tmp']
+    available_includedirs = ('/usr/include', '/tmp')
     copied_cache = {}
 
     def _invent_new_name(self, basepath, base):

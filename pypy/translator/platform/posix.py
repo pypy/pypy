@@ -10,7 +10,7 @@ class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
 
-    relevant_environ=['CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH']
+    relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
     def __init__(self, cc=None):
         if cc is None:
@@ -92,7 +92,7 @@ class BasePosix(Platform):
         else:
             exe_name = exe_name.new(ext=self.exe_ext)
 
-        linkflags = self.link_flags[:]
+        linkflags = list(self.link_flags)
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
