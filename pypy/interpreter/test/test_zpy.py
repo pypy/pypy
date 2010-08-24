@@ -3,27 +3,28 @@ from pypy.tool.udir import udir
 import py
 import sys
 import pypy
+import subprocess
 
 pypypath = py.path.local(pypy.__file__).dirpath("bin", "py.py")
 
-def cmdexec(s):
-    if sys.platform == 'win32':
-        s = '"%s"' % s     # double double quotes
-    return py.process.cmdexec(s)
+def run(*args):
+    argslist = map(str, args)
+    popen = subprocess.Popen(argslist, stdout=subprocess.PIPE)
+    stdout, stderr = popen.communicate()
+    return stdout
 
 
 def test_executable():
     """Ensures sys.executable points to the py.py script"""
     # TODO : watch out for spaces/special chars in pypypath
-    output = cmdexec( '''"%s" "%s" -c "import sys;print sys.executable" ''' %
-                      (sys.executable, pypypath) )
+    output = run(sys.executable, pypypath,
+                 "-c", "import sys;print sys.executable")
     assert output.splitlines()[-1] == pypypath
 
 def test_special_names():
     """Test the __name__ and __file__ special global names"""
     cmd = "print __name__; print '__file__' in globals()"
-    output = cmdexec( '''"%s" "%s" -c "%s" ''' %
-                                 (sys.executable, pypypath, cmd) )
+    output = run(sys.executable, pypypath, '-c', cmd)
     assert output.splitlines()[-2] == '__main__'
     assert output.splitlines()[-1] == 'False'
 
@@ -32,26 +33,25 @@ def test_special_names():
     tmpfile.write("print __name__; print __file__\n")
     tmpfile.close()
 
-    output = cmdexec( '''"%s" "%s" "%s" ''' %
-                                 (sys.executable, pypypath, tmpfilepath) )
+    output = run(sys.executable, pypypath, tmpfilepath)
     assert output.splitlines()[-2] == '__main__'
     assert output.splitlines()[-1] == str(tmpfilepath)
 
 def test_argv_command():
     """Some tests on argv"""
     # test 1 : no arguments
-    output = cmdexec( '''"%s" "%s" -c "import sys;print sys.argv" ''' %
-                                 (sys.executable, pypypath) )
+    output = run(sys.executable, pypypath,
+                 "-c", "import sys;print sys.argv")
     assert output.splitlines()[-1] == str(['-c'])
 
     # test 2 : some arguments after
-    output = cmdexec( '''"%s" "%s" -c "import sys;print sys.argv" hello''' %
-                                 (sys.executable, pypypath) )
+    output = run(sys.executable, pypypath,
+                 "-c", "import sys;print sys.argv", "hello")
     assert output.splitlines()[-1] == str(['-c','hello'])
     
     # test 3 : additionnal pypy parameters
-    output = cmdexec( '''"%s" "%s" -O -c "import sys;print sys.argv" hello''' %
-                                 (sys.executable, pypypath) )
+    output = run(sys.executable, pypypath,
+                 "-O", "-c", "import sys;print sys.argv", "hello")
     assert output.splitlines()[-1] == str(['-c','hello'])
 
 SCRIPT_1 = """
@@ -65,18 +65,15 @@ def test_scripts():
     tmpfile.close()
 
     # test 1 : no arguments
-    output = cmdexec( '''"%s" "%s" "%s" ''' %
-                                 (sys.executable, pypypath, tmpfilepath) )
+    output = run(sys.executable, pypypath, tmpfilepath)
     assert output.splitlines()[-1] == str([tmpfilepath])
     
     # test 2 : some arguments after
-    output = cmdexec( '''"%s" "%s" "%s" hello''' %
-                                 (sys.executable, pypypath, tmpfilepath) )
+    output = run(sys.executable, pypypath, tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
     # test 3 : additionnal pypy parameters
-    output = cmdexec( '''"%s" "%s" -O "%s" hello''' %
-                                 (sys.executable, pypypath, tmpfilepath) )
+    output = run(sys.executable, pypypath, "-O", tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
 
@@ -98,11 +95,7 @@ def test_tb_normalization():
     tmpfile.write(TB_NORMALIZATION_CHK)
     tmpfile.close()
 
-    e = None
-    try:
-        output = cmdexec( '''"%s" "%s" "%s" ''' %
-                                     (sys.executable, pypypath, tmpfilepath) )
-    except py.process.cmdexec.Error, e:
-        pass
-    assert e," expected failure"
-    assert e.err.splitlines()[-1] == 'KeyError: <normalized>'
+    popen = subprocess.Popen([sys.executable, str(pypypath), tmpfilepath],
+                             stderr=subprocess.PIPE)
+    _, stderr = popen.communicate()
+    assert stderr.endswith('KeyError: <normalized>\n')
