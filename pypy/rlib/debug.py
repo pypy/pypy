@@ -255,11 +255,32 @@ class Entry(ExtRegistryEntry):
 class IntegerCanBeNegative(Exception):
     pass
 
-def _check_nonneg(ann, bk):
-    from pypy.annotation.model import SomeInteger
-    s_nonneg = SomeInteger(nonneg=True)
-    if not s_nonneg.contains(ann):
-        raise IntegerCanBeNegative
+class UnexpectedRUInt(Exception):
+    pass
 
 def check_nonneg(x):
-    check_annotation(x, _check_nonneg)
+    """Give a translation-time error if 'x' is not known to be non-negative.
+    To help debugging, this also gives a translation-time error if 'x' is
+    actually typed as an r_uint (in which case the call to check_nonneg()
+    is a bit strange and probably unexpected).
+    """
+    assert type(x)(-1) < 0     # otherwise, 'x' is a r_uint or similar
+    assert x >= 0
+    return x
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_nonneg
+
+    def compute_result_annotation(self, s_arg):
+        from pypy.annotation.model import SomeInteger
+        if isinstance(s_arg, SomeInteger) and s_arg.unsigned:
+            raise UnexpectedRUInt("check_nonneg() arg is a %s" % (
+                s_arg.knowntype,))
+        s_nonneg = SomeInteger(nonneg=True)
+        if not s_nonneg.contains(s_arg):
+            raise IntegerCanBeNegative
+        return s_arg
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)

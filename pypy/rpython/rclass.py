@@ -156,9 +156,13 @@ class AbstractInstanceRepr(Repr):
         if '_immutable_' in self.classdef.classdesc.classdict:
             hints = hints.copy()
             hints['immutable'] = True
-        if '_immutable_fields_' in self.classdef.classdesc.classdict:
+        self.immutable_field_list = []  # unless overwritten below
+        if self.classdef.classdesc.lookup('_immutable_fields_') is not None:
             hints = hints.copy()
-            self.immutable_field_list = self.classdef.classdesc.classdict['_immutable_fields_'].value
+            immutable_fields = self.classdef.classdesc.classdict.get(
+                '_immutable_fields_')
+            if immutable_fields is not None:
+                self.immutable_field_list = immutable_fields.value
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
         return hints
@@ -181,7 +185,13 @@ class AbstractInstanceRepr(Repr):
         hints = self.object_type._hints
         if "immutable_fields" in hints:
             accessor = hints["immutable_fields"]
-            self._parse_field_list(self.immutable_field_list, accessor)
+            immutable_fields = {}
+            rbase = self
+            while rbase.classdef is not None:
+                immutable_fields.update(
+                    dict.fromkeys(rbase.immutable_field_list))
+                rbase = rbase.rbase
+            self._parse_field_list(immutable_fields, accessor)
 
     def _parse_field_list(self, fields, accessor):
         with_suffix = {}
@@ -191,7 +201,10 @@ class AbstractInstanceRepr(Repr):
                 suffix = '[*]'
             else:
                 suffix = ''
-            mangled_name, r = self._get_field(name)
+            try:
+                mangled_name, r = self._get_field(name)
+            except KeyError:
+                continue
             with_suffix[mangled_name] = suffix
         accessor.initialize(self.object_type, with_suffix)
         return with_suffix

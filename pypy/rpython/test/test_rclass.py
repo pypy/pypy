@@ -738,6 +738,64 @@ class BaseTestRclass(BaseRtypingTest):
         assert accessor.fields == {"inst_x" : "", "inst_y" : "[*]"} or \
                accessor.fields == {"ox" : "", "oy" : "[*]"} # for ootype
 
+    def test_immutable_fields_subclass_1(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ["x"]
+            def __init__(self, x):
+                self.x = x
+        class B(A):
+            def __init__(self, x, y):
+                A.__init__(self, x)
+                self.y = y
+
+        def f():
+            return B(3, 5)
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_x" : ""} or \
+               accessor.fields == {"ox" : ""} # for ootype
+
+    def test_immutable_fields_subclass_2(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ["x"]
+            def __init__(self, x):
+                self.x = x
+        class B(A):
+            _immutable_fields_ = ["y"]
+            def __init__(self, x, y):
+                A.__init__(self, x)
+                self.y = y
+
+        def f():
+            return B(3, 5)
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_x" : "", "inst_y" : ""} or \
+               accessor.fields == {"ox" : "", "oy" : ""} # for ootype
+
+    def test_immutable_fields_only_in_subclass(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+        class B(A):
+            _immutable_fields_ = ["y"]
+            def __init__(self, x, y):
+                A.__init__(self, x)
+                self.y = y
+
+        def f():
+            return B(3, 5)
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_y" : ""} or \
+               accessor.fields == {"oy" : ""} # for ootype
+
     def test_immutable_inheritance(self):
         class I(object):
             def __init__(self, v):

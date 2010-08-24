@@ -33,8 +33,8 @@ class AppTestSrePattern:
         # copy support is disabled by default in _sre.c
         import re
         p = re.compile("b")
-        raises(TypeError, p.__copy__)
-        raises(TypeError, p.__deepcopy__)
+        raises(TypeError, p.__copy__)        # p.__copy__() should raise
+        raises(TypeError, p.__deepcopy__)    # p.__deepcopy__() should raise
 
     def test_creation_attributes(self):
         import re
@@ -84,6 +84,10 @@ class AppTestSrePattern:
         assert ['', 'a', 'l', 'a', 'lla'] == re.split("b(a)", "balballa")
         assert ['', 'a', None, 'l', 'u', None, 'lla'] == (
             re.split("b([ua]|(s))", "balbulla"))
+
+    def test_weakref(self):
+        import re, _weakref
+        _weakref.ref(re.compile(r""))
 
 
 class AppTestSreMatch:
@@ -202,6 +206,20 @@ class AppTestSreMatch:
             return ret
         assert ("bbbbb", 3) == re.subn("a", call_me, "ababa")
 
+    def test_sub_callable_returns_none(self):
+        import re
+        def call_me(match):
+            return None
+        assert "acd" == re.sub("b", call_me, "abcd")
+
+    def test_sub_callable_suddenly_unicode(self):
+        import re
+        def call_me(match):
+            if match.group() == 'A':
+                return unichr(0x3039)
+            return ''
+        assert (u"bb\u3039b", 2) == re.subn("[aA]", call_me, "babAb")
+
     def test_match_array(self):
         import re, array
         a = array.array('c', 'hello')
@@ -266,6 +284,18 @@ class AppTestSreScanner:
         p = re.compile(".").scanner("bla")
         assert ("b", "l", "a") == (p.match().group(0),
                                     p.match().group(0), p.match().group(0))
+        assert None == p.match()
+
+    def test_scanner_match_detail(self):
+        import re
+        p = re.compile("a").scanner("aaXaa")
+        assert "a" == p.match().group(0)
+        assert "a" == p.match().group(0)
+        assert None == p.match()
+        assert "a" == p.match().group(0)
+        assert "a" == p.match().group(0)
+        assert None == p.match()
+        assert None == p.match()
         assert None == p.match()
 
     def test_scanner_search(self):
@@ -653,69 +683,6 @@ class AppTestOpcodes:
             s.ATCODES["at_uni_non_boundary"], s.OPCODES["success"]]
         s.assert_match(opcodes, ["blaha", u"bl%sja" % UPPER_PI])
 
-    def test_category_digit(self):
-        INDIAN_DIGIT = u"\u0966"
-        opcodes = [s.OPCODES["category"], s.CHCODES["category_digit"]] \
-            + s.encode_literal("b") + [s.OPCODES["success"]]
-        s.assert_match(opcodes, ["1b", "a1b"])
-        s.assert_no_match(opcodes, ["bb", "b1", u"%sb" % INDIAN_DIGIT])
-
-    def test_category_not_digit(self):
-        INDIAN_DIGIT = u"\u0966"
-        opcodes = [s.OPCODES["category"], s.CHCODES["category_not_digit"]] \
-            + s.encode_literal("b") + [s.OPCODES["success"]]
-        s.assert_match(opcodes, ["bb", "1ab", u"%sb" % INDIAN_DIGIT])
-        s.assert_no_match(opcodes, ["1b", "a1b"])
-
-    def test_category_space(self):
-        EM_SPACE = u"\u2001"
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_space"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["b ", "b\n", "b\t", "b\r", "b\v", "b\f"])
-        s.assert_no_match(opcodes, ["bb", "b1", u"b%s" % EM_SPACE])
-
-    def test_category_not_space(self):
-        EM_SPACE = u"\u2001"
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_not_space"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["bb", "b1", u"b%s" % EM_SPACE])
-        s.assert_no_match(opcodes, ["b ", "b\n", "b\t", "b\r", "b\v", "b\f"])
-
-    def test_category_word(self):
-        LOWER_PI = u"\u03c0"
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_word"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["bl", "b4", "b_"])
-        s.assert_no_match(opcodes, ["b ", "b\n", u"b%s" % LOWER_PI])
-
-    def test_category_not_word(self):
-        LOWER_PI = u"\u03c0"
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_not_word"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["b ", "b\n", u"b%s" % LOWER_PI])
-        s.assert_no_match(opcodes, ["bl", "b4", "b_"])
-
-    def test_category_linebreak(self):
-        LINE_SEP = u"\u2028"
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_linebreak"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["b\n"])
-        s.assert_no_match(opcodes, ["b ", "bs", "b\r", u"b%s" % LINE_SEP])
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_uni_linebreak"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["b\n", u"b%s" % LINE_SEP])
-
-    def test_category_not_linebreak(self):
-        LINE_SEP = u"\u2028"
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_not_linebreak"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["b ", "bs", u"b%s" % LINE_SEP])
-        s.assert_no_match(opcodes, ["b\n"])
-        opcodes = s.encode_literal("b") \
-             + [s.OPCODES["category"], s.CHCODES["category_uni_not_linebreak"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["b ", "bs"])
-        s.assert_no_match(opcodes, ["b\n", u"b%s" % LINE_SEP, "b\r"])
-
     def test_category_loc_word(self):
         import locale
         try:
@@ -873,10 +840,6 @@ class AppTestOpcodes:
         s.assert_match(opcodes, ["ab", "aaaab", "baabb"])
         s.assert_no_match(opcodes, ["aaa", "", "ac"])
 
-    def test_max_until_error(self):
-        opcodes = [s.OPCODES["max_until"], s.OPCODES["success"]]
-        raises(RuntimeError, s.search, opcodes, "a")
-
     def test_max_until_zero_width_match(self):
         # re.compile won't compile prospective zero-with matches (all of them?),
         # so we can only produce an example by directly constructing bytecodes.
@@ -895,10 +858,6 @@ class AppTestOpcodes:
         s.assert_match(opcodes, ["ab", "aaaab", "baabb"])
         s.assert_no_match(opcodes, ["b"])
         assert "aab" == s.search(opcodes, "aabb").group(0)
-
-    def test_min_until_error(self):
-        opcodes = [s.OPCODES["min_until"], s.OPCODES["success"]]
-        raises(RuntimeError, s.search, opcodes, "a")
 
     def test_groupref(self):
         opcodes = [s.OPCODES["mark"], 0, s.OPCODES["any"], s.OPCODES["mark"], 1] \

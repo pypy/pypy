@@ -17,6 +17,38 @@ class ImmutableFieldsTests:
         assert res == 28
         self.check_operations_history(getfield_gc=0, getfield_gc_pure=1, int_add=1)
 
+    def test_fields_subclass(self):
+        class X(object):
+            _immutable_fields_ = ["x"]
+
+            def __init__(self, x):
+                self.x = x
+
+        class Y(X):
+            _immutable_fields_ = ["y"]
+
+            def __init__(self, x, y):
+                X.__init__(self, x)
+                self.y = y
+
+        def f(x, y):
+            X(x)     # force the field 'x' to be on class 'X'
+            z = Y(x, y)
+            return z.x + z.y + 5
+        res = self.interp_operations(f, [23, 11])
+        assert res == 39
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=2,
+                                      int_add=2)
+
+        def f(x, y):
+            # this time, the field 'x' only shows up on subclass 'Y'
+            z = Y(x, y)
+            return z.x + z.y + 5
+        res = self.interp_operations(f, [23, 11])
+        assert res == 39
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=2,
+                                      int_add=2)
+
     def test_array(self):
         class X(object):
             _immutable_fields_ = ["y[*]"]
