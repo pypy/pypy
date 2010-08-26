@@ -91,7 +91,7 @@ class MarkCompactGC(MovingGCBase):
     total_collection_count = 0
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096):
-        #import py; py.test.skip("Disabled for now, sorry")
+        import py; py.test.skip("Disabled for now, sorry")
         self.param_space_size = space_size
         MovingGCBase.__init__(self, config, chunk_size)
 
