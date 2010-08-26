@@ -3,7 +3,8 @@ import time
 
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.memory.gc.base import MovingGCBase
-from pypy.rlib.debug import ll_assert
+from pypy.rlib.debug import ll_assert, have_debug_prints
+from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.support import AddressDict
@@ -90,7 +91,7 @@ class MarkCompactGC(MovingGCBase):
     total_collection_count = 0
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096):
-        import py; py.test.skip("Disabled for now, sorry")
+        #import py; py.test.skip("Disabled for now, sorry")
         self.param_space_size = space_size
         MovingGCBase.__init__(self, config, chunk_size)
 
@@ -98,8 +99,7 @@ class MarkCompactGC(MovingGCBase):
         self.space_size = self.param_space_size
         self.next_collect_after = self.param_space_size/2 # whatever...
 
-        if self.config.gcconfig.debugprint:
-            self.program_start_time = time.time()
+        self.program_start_time = time.time()
         self.space = llarena.arena_malloc(self.space_size, True)
         ll_assert(bool(self.space), "couldn't allocate arena")
         self.free = self.space
@@ -289,15 +289,16 @@ class MarkCompactGC(MovingGCBase):
         return weakref_offsets
 
     def debug_collect_start(self):
-        if self.config.gcconfig.debugprint:
-            llop.debug_print(lltype.Void)
-            llop.debug_print(lltype.Void,
-                             ".----------- Full collection ------------------")
+        if have_debug_prints():
+            debug_start("gc-collect")
+            debug_print()
+            debug_print(".----------- Full collection ------------------")
             start_time = time.time()
-            return start_time 
+            return start_time
+        return -1
 
     def debug_collect_finish(self, start_time):
-        if self.config.gcconfig.debugprint:
+        if start_time != -1:
             end_time = time.time()
             elapsed_time = end_time - start_time
             self.total_collection_time += elapsed_time
@@ -305,20 +306,16 @@ class MarkCompactGC(MovingGCBase):
             total_program_time = end_time - self.program_start_time
             ct = self.total_collection_time
             cc = self.total_collection_count
-            llop.debug_print(lltype.Void,
-                             "| number of collections so far       ", 
-                             cc)
-            llop.debug_print(lltype.Void,
-                             "| total collections per second:      ",
-                             cc / total_program_time)
-            llop.debug_print(lltype.Void,
-                             "| total time in markcompact-collect: ",
-                             ct, "seconds")
-            llop.debug_print(lltype.Void,
-                             "| percentage collection<->total time:",
-                             ct * 100.0 / total_program_time, "%")
-            llop.debug_print(lltype.Void,
-                             "`----------------------------------------------")
+            debug_print("| number of collections so far       ", 
+                        cc)
+            debug_print("| total collections per second:      ",
+                        cc / total_program_time)
+            debug_print("| total time in markcompact-collect: ",
+                        ct, "seconds")
+            debug_print("| percentage collection<->total time:",
+                        ct * 100.0 / total_program_time, "%")
+            debug_print("`----------------------------------------------")
+            debug_stop("gc-collect")
 
 
     def update_run_finalizers(self):
