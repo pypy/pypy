@@ -292,8 +292,8 @@ def parse_command_line(argv):
         else:
             raise CommandLineError('unrecognized option %r' % (arg,))
         i += 1
-    sys.argv = argv[i:]
-    if not sys.argv:
+    sys.argv[:] = argv[i:]    # don't change the list that sys.argv is bound to
+    if not sys.argv:          # (relevant in case of "reload(sys)")
         sys.argv.append('')
         run_stdin = True
     return locals()
@@ -478,6 +478,10 @@ if __name__ == '__main__':
         reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
         os.environ['PYTHONINSPECT'] = os.environ['PYTHONINSPECT_']
 
+    # no one should change to which lists sys.argv and sys.path are bound
+    old_argv = sys.argv
+    old_path = sys.path
+
     from pypy.module.sys.version import PYPY_VERSION
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
@@ -490,3 +494,5 @@ if __name__ == '__main__':
         sys.ps1 = '>>> '     # restore the normal ones, in case
         sys.ps2 = '... '     # we are dropping to CPython's prompt
         import os; os.environ.update(reset)
+        assert old_argv is sys.argv
+        assert old_path is sys.path

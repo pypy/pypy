@@ -1,6 +1,7 @@
 """
 Tests for the entry point of pypy-c, app_main.py.
 """
+from __future__ import with_statement
 import py
 import sys, os, re
 import autopath
