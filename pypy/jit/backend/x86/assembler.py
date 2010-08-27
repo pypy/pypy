@@ -1046,7 +1046,10 @@ class Assembler386(object):
             self.mc.MOVZX8(resloc, source_addr)
         elif size == 2:
             self.mc.MOVZX16(resloc, source_addr)
-        elif size == WORD:
+        elif size == 4:
+            # MOV32 is zero-extending on 64-bit, so this is okay
+            self.mc.MOV32(resloc, source_addr)
+        elif IS_X86_64 and size == 8:
             self.mc.MOV(resloc, source_addr)
         else:
             raise NotImplementedError("getfield size = %d" % size)
@@ -1059,19 +1062,18 @@ class Assembler386(object):
         base_loc, ofs_loc, scale, ofs = arglocs
         assert isinstance(ofs, ImmedLoc)
         assert isinstance(scale, ImmedLoc)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale.value)
         if op.result.type == FLOAT:
-            self.mc.MOVSD(resloc, addr_add(base_loc, ofs_loc, ofs.value,
-                                             scale.value))
+            self.mc.MOVSD(resloc, src_addr)
         else:
             if scale.value == 0:
-                self.mc.MOVZX8(resloc, addr_add(base_loc, ofs_loc, ofs.value,
-                                                scale.value))
+                self.mc.MOVZX8(resloc, src_addr)
             elif scale.value == 1:
-                self.mc.MOVZX16(resloc, addr_add(base_loc, ofs_loc, ofs.value,
-                                                scale.value))
-            elif (1 << scale.value) == WORD:
-                self.mc.MOV(resloc, addr_add(base_loc, ofs_loc, ofs.value,
-                                             scale.value))
+                self.mc.MOVZX16(resloc, src_addr)
+            elif scale.value == 2:
+                self.mc.MOV32(resloc, src_addr)
+            elif IS_X86_64 and scale.value == 3:
+                self.mc.MOV(resloc, src_addr)
             else:
                 print "[asmgen]getarrayitem unsupported size: %d" % scale.value
                 raise NotImplementedError()
@@ -1086,8 +1088,10 @@ class Assembler386(object):
         dest_addr = AddressLoc(base_loc, ofs_loc)
         if isinstance(value_loc, RegLoc) and value_loc.is_xmm:
             self.mc.MOVSD(dest_addr, value_loc)
-        elif size == WORD:
+        elif IS_X86_64 and size == 8:
             self.mc.MOV(dest_addr, value_loc)
+        elif size == 4:
+            self.mc.MOV32(dest_addr, value_loc)
         elif size == 2:
             self.mc.MOV16(dest_addr, value_loc)
         elif size == 1:
@@ -1104,8 +1108,10 @@ class Assembler386(object):
         if op.args[2].type == FLOAT:
             self.mc.MOVSD(dest_addr, value_loc)
         else:
-            if (1 << scale_loc.value) == WORD:
+            if IS_X86_64 and scale_loc.value == 3:
                 self.mc.MOV(dest_addr, value_loc)
+            elif scale_loc.value == 2:
+                self.mc.MOV32(dest_addr, value_loc)
             elif scale_loc.value == 1:
                 self.mc.MOV16(dest_addr, value_loc)
             elif scale_loc.value == 0:

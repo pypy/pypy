@@ -785,6 +785,20 @@ class BaseBackendTest(Runner):
                                        'float', descr=arraydescr)
             assert r.value == 4.5
 
+        # For platforms where sizeof(INT) != sizeof(Signed) (ie, x86-64)
+        a_box, A = self.alloc_array_of(rffi.INT, 342)
+        arraydescr = self.cpu.arraydescrof(A)
+        assert not arraydescr.is_array_of_pointers()
+        r = self.execute_operation(rop.ARRAYLEN_GC, [a_box],
+                                   'int', descr=arraydescr)
+        assert r.value == 342
+        r = self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(310),
+                                                         BoxInt(7441)],
+                                   'void', descr=arraydescr)
+        assert r is None
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(310)],
+                                   'int', descr=arraydescr)
+        assert r.value == 7441
 
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")

@@ -193,6 +193,7 @@ class TestX86(LLtypeBackendTest):
 
     def test_getfield_setfield(self):
         TP = lltype.GcStruct('x', ('s', lltype.Signed),
+                             ('i', rffi.INT),
                              ('f', lltype.Float),
                              ('u', rffi.USHORT),
                              ('c1', lltype.Char),
@@ -201,6 +202,7 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW, [],
                                      'ref', self.cpu.sizeof(TP))
         ofs_s = self.cpu.fielddescrof(TP, 's')
+        ofs_i = self.cpu.fielddescrof(TP, 'i')
         #ofs_f = self.cpu.fielddescrof(TP, 'f')
         ofs_u = self.cpu.fielddescrof(TP, 'u')
         ofsc1 = self.cpu.fielddescrof(TP, 'c1')
@@ -218,6 +220,11 @@ class TestX86(LLtypeBackendTest):
                                ofs_s)
         s = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_s)
         assert s.value == 3
+
+        self.execute_operation(rop.SETFIELD_GC, [res, BoxInt(1234)], 'void', ofs_i)
+        i = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_i)
+        assert i.value == 1234
+        
         #u = self.execute_operation(rop.GETFIELD_GC, [res, ofs_u], 'int')
         #assert u.value == 5
         self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(1)], 'void',
