@@ -1,7 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import jit
 from pypy.interpreter.pyopcode import LoopBlock
 
@@ -37,7 +36,7 @@ class GeneratorIterator(Wrappable):
 return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)
 
-    def send_ex(self, w_arg, exc=False):
+    def send_ex(self, w_arg, operr=None):
         space = self.space
         if self.running:
             raise OperationError(space.w_ValueError,
@@ -57,7 +56,7 @@ return next yielded value or raise StopIteration."""
         self.running = True
         try:
             try:
-                w_result = self.frame.execute_generator_frame(w_arg, exc)
+                w_result = self.frame.execute_generator_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
                 self.frame.frame_finished_execution = True
@@ -89,12 +88,7 @@ return next yielded value or raise StopIteration."""
        
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
-        
-        ec = space.getexecutioncontext()
-        next_instr = self.frame.handle_operation_error(ec, operr)
-        self.frame.last_instr = intmask(next_instr - 1)
-
-        return self.send_ex(space.w_None, True)
+        return self.send_ex(space.w_None, operr)
              
     def descr_next(self):
         """next() -> the next value, or raise StopIteration"""
