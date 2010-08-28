@@ -74,7 +74,11 @@ class W_RSocket(Wrappable, RSocket):
         This is like connect(address), but returns an error code (the errno value)
         instead of raising an exception when an error occurs.
         """
-        error = self.connect_ex(self.addr_from_object(space, w_addr))
+        try:
+            addr = self.addr_from_object(space, w_addr)
+        except SocketError, e:
+            raise converted_error(space, e)
+        error = self.connect_ex(addr)
         return space.wrap(error)
     connect_ex_w.unwrap_spec = ['self', ObjSpace, W_Root]
 

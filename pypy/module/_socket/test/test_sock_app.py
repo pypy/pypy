@@ -339,6 +339,13 @@ class AppTestSocket:
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
         s.close()
+    
+    def test_socket_connect_ex(self):
+        import _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        # Make sure we get an app-level error, not an interp one.
+        raises(_socket.gaierror, s.connect_ex, ("wrong.invalid", 80))
+        s.close()
 
     def test_socket_connect_typeerrors(self):
         tests = [
