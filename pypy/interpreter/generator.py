@@ -42,7 +42,11 @@ return next yielded value or raise StopIteration."""
             raise OperationError(space.w_ValueError,
                                  space.wrap('generator already executing'))
         if self.frame.frame_finished_execution:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            # xxx a bit ad-hoc, but we don't want to go inside
+            # execute_generator_frame() if the frame is actually finished
+            if operr is None:
+                operr = OperationError(space.w_StopIteration, space.w_None)
+            raise operr
         # XXX it's not clear that last_instr should be promoted at all
         # but as long as it is necessary for call_assembler, let's do it early
         last_instr = jit.hint(self.frame.last_instr, promote=True)
