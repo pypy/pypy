@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-""" Usage: traceviewer.py loopfile
+""" Usage: traceviewer.py [--use-threshold] loopfile
 """
 
 import optparse
 import sys
 import re
 import math
+import py
 
 import autopath
 from pypy.translator.tool.graphpage import GraphPage
@@ -33,6 +34,7 @@ class SubPage(GraphPage):
                     dotgen.emit_edge('node%d' % (counter - 1), 'node%d' % counter)
                 counter += 1
                 lines_so_far = []
+            print line
             lines_so_far.append(line)
         dotgen.emit_node('node%d' % counter, shape="box",
                          label="\n".join(lines_so_far))
@@ -40,13 +42,13 @@ class SubPage(GraphPage):
         self.source = dotgen.generate(target=None)
 
 class Page(GraphPage):
-    def compute(self, graphs):
+    def compute(self, graphs, counts):
         dotgen = DotGen('trace')
         self.loops = graphs
         self.links = {}
         self.cache = {}
         for loop in self.loops:
-            loop.generate(dotgen)
+            loop.generate(dotgen, counts)
             loop.getlinks(self.links)
             self.cache["loop" + str(loop.no)] = loop
         self.source = dotgen.generate(target=None)
@@ -71,9 +73,14 @@ class BasicBlock(object):
     def getlinks(self, links):
         links[self.linksource] = self.name()
 
-    def generate(self, dotgen):
+    def generate(self, dotgen, counts):
+        val = counts.get(self.key, 0)
+        if val > counts.threshold:
+            fillcolor = get_gradient_color(self.ratio)
+        else:
+            fillcolor = "white"
         dotgen.emit_node(self.name(), label=self.header,
-                         shape='box', fillcolor=get_gradient_color(self.ratio))
+                         shape='box', fillcolor=fillcolor)
 
     def get_content(self):
         return self._content
@@ -113,11 +120,11 @@ class FinalBlock(BasicBlock):
         self.target = target
         BasicBlock.__init__(self, content)
 
-    def postprocess(self, loops, memo):
-        postprocess_loop(self.target, loops, memo)
+    def postprocess(self, loops, memo, counts):
+        postprocess_loop(self.target, loops, memo, counts)
 
-    def generate(self, dotgen):
-        BasicBlock.generate(self, dotgen)
+    def generate(self, dotgen, counts):
+        BasicBlock.generate(self, dotgen, counts)
         if self.target is not None:
             dotgen.emit_edge(self.name(), self.target.name())
 
@@ -127,12 +134,12 @@ class Block(BasicBlock):
         self.right = right
         BasicBlock.__init__(self, content)
 
-    def postprocess(self, loops, memo):
-        postprocess_loop(self.left, loops, memo)
-        postprocess_loop(self.right, loops, memo)
+    def postprocess(self, loops, memo, counts):
+        postprocess_loop(self.left, loops, memo, counts)
+        postprocess_loop(self.right, loops, memo, counts)
 
-    def generate(self, dotgen):
-        BasicBlock.generate(self, dotgen)
+    def generate(self, dotgen, counts):
+        BasicBlock.generate(self, dotgen, counts)
         dotgen.emit_edge(self.name(), self.left.name())
         dotgen.emit_edge(self.name(), self.right.name())
 
@@ -176,13 +183,11 @@ def splitloops(loops):
     real_loops = []
     counter = 1
     bar = progressbar.ProgressBar(color='blue')
-    single_percent = len(loops) / 100
     allloops = []
-    for i, loop in enumerate(loops):
+    for i, loop in enumerate(loops): 
         if i > MAX_LOOPS:
             return real_loops, allloops
-        if single_percent and i % single_percent == 0:
-            bar.render(i / single_percent)
+        bar.render((i * 100) / len(loops))
         firstline = loop[:loop.find("\n")]
         m = re.match('# Loop (\d+)', firstline)
         if m:
@@ -202,17 +207,19 @@ def splitloops(loops):
         counter += loop.count("\n") + 2
     return real_loops, allloops
 
-def postprocess_loop(loop, loops, memo):
+def postprocess_loop(loop, loops, memo, counts):
     if loop in memo:
         return
     memo.add(loop)
     if loop is None:
         return
-    m = re.search("debug_merge_point\('<code object (.*?)> (.*?)'", loop.content)
+    m = re.search("debug_merge_point\('(<code object (.*?)> (.*?))'", loop.content)
     if m is None:
         name = '?'
+        loop.key = '?'
     else:
-        name = m.group(1) + " " + m.group(2)
+        name = m.group(2) + " " + m.group(3)
+        loop.key = m.group(1)
     opsno = loop.content.count("\n")
     lastline = loop.content[loop.content.rfind("\n", 0, len(loop.content) - 2):]
     m = re.search('descr=<Loop(\d+)', lastline)
@@ -221,8 +228,8 @@ def postprocess_loop(loop, loops, memo):
         loop.target = loops[int(m.group(1))]
     bcodes = loop.content.count('debug_merge_point')
     loop.linksource = "loop" + str(loop.no)
-    loop.header = "%s loop%d\n%d operations\n%d opcodes" % (name, loop.no, opsno,
-                                                          bcodes)
+    loop.header = ("%s loop%d\nrun %s times\n%d operations\n%d opcodes" %
+                   (name, loop.no, counts.get(loop.key, '?'), opsno, bcodes))
     loop.header += "\n" * (opsno / 100)
     if bcodes == 0:
         loop.ratio = opsno
@@ -230,29 +237,47 @@ def postprocess_loop(loop, loops, memo):
         loop.ratio = float(opsno) / bcodes
     content = loop.content
     loop.content = "Logfile at %d\n" % loop.startlineno + content
-    loop.postprocess(loops, memo)
-
-def postprocess(loops, allloops):
+    loop.postprocess(loops, memo, counts)
+    
+def postprocess(loops, allloops, counts):
     for loop in allloops:
         if isinstance(loop, Block):
             loop.left = allloops[loop.left]
             loop.right = allloops[loop.right]
     memo = set()
     for loop in loops:
-        postprocess_loop(loop, loops, memo)
+        postprocess_loop(loop, loops, memo, counts)
 
-def main(loopfile, view=True):
+class Counts(dict):
+    pass
+
+def main(loopfile, options, view=True):
+    countname = py.path.local(loopfile + '.count')
+    if countname.check():
+        counts = [line.rsplit(':', 1) for line in countname.readlines()]
+        counts = Counts([(k, int(v.strip('\n'))) for k, v in counts])
+        l = list(sorted(counts.values()))
+        if len(l) > 20 and options.use_threshold:
+            counts.threshold = l[-20]
+        else:
+            counts.threshold = 0
+        for_print = [(v, k) for k, v in counts.iteritems()]
+        for_print.sort()
+    else:
+        counts = {}
     log = logparser.parse_log_file(loopfile)
     loops = logparser.extract_category(log, "jit-log-opt-")
     real_loops, allloops = splitloops(loops)
-    postprocess(real_loops, allloops)
+    postprocess(real_loops, allloops, counts)
     if view:
-        Page(allloops).display()
+        Page(allloops, counts).display()
 
 if __name__ == '__main__':
     parser = optparse.OptionParser(usage=__doc__)
+    parser.add_option('--use-threshold', dest='use_threshold',
+                      action="store_true")
     options, args = parser.parse_args(sys.argv)
     if len(args) != 2:
         print __doc__
         sys.exit(1)
-    main(args[1])
+    main(args[1], options.use_threshold)

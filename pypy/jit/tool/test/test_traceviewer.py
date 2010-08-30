@@ -52,10 +52,10 @@ class TestSplitLoops(object):
 
     def test_postparse(self):
         real_loops = [FinalBlock("debug_merge_point('<code object _runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357> #40 POP_TOP')", None)]
-        postprocess(real_loops, real_loops[:])
+        postprocess(real_loops, real_loops[:], {})
         assert real_loops[0].header.startswith("_runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357")
 
     def test_load_actual(self):
         fname = py.path.local(__file__).join('..', 'data.log.bz2')
-        main(str(fname), view=False)
+        main(str(fname), False, view=False)
         # assert did not explode
