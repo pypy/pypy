@@ -34,7 +34,6 @@ class SubPage(GraphPage):
                     dotgen.emit_edge('node%d' % (counter - 1), 'node%d' % counter)
                 counter += 1
                 lines_so_far = []
-            print line
             lines_so_far.append(line)
         dotgen.emit_node('node%d' % counter, shape="box",
                          label="\n".join(lines_so_far))
