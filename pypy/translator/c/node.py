@@ -77,6 +77,8 @@ class StructDefNode:
             if db.gcpolicy.need_no_typeptr():
                 assert self.fieldnames == ('typeptr',)
                 self.fieldnames = ()
+        #
+        self.fulltypename = '%s %s @' % (self.typetag, self.name)
 
     def setup(self):
         # this computes self.fields
@@ -119,7 +121,7 @@ class StructDefNode:
     gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
-        return '%s %s @' % (self.typetag, self.name)
+        return self.fulltypename
 
     def c_struct_field_name(self, name):
         # occasionally overridden in __init__():
@@ -211,6 +213,8 @@ class ArrayDefNode:
          self.name) = db.namespace.uniquename(basename, with_number=with_number,
                                               bare=True)
         self.dependencies = {}
+        self.fulltypename =  '%s %s @' % (self.typetag, self.name)
+        self.fullptrtypename = '%s %s *@' % (self.typetag, self.name)
 
     def setup(self):
         if hasattr(self, 'itemtypename'):
@@ -236,10 +240,10 @@ class ArrayDefNode:
     gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
-        return '%s %s @' % (self.typetag, self.name)
+        return self.fulltypename
 
     def getptrtype(self):
-        return '%s %s *@' % (self.typetag, self.name)
+        return self.fullptrtypename
 
     def access_expr(self, baseexpr, index):
         return '%s.items[%s]' % (baseexpr, index)
@@ -336,16 +340,19 @@ class BareBoneArrayDefNode:
         if ARRAY._hints.get("render_as_void"):
             contained_type = Void
         self.itemtypename = db.gettype(contained_type, who_asks=self)
+        self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
+                                                      (self.varlength,))
+        self.fullptrtypename = self.itemtypename.replace('@', '*@')
 
     def setup(self):
         """Array loops are forbidden by ForwardReference.become() because
         there is no way to declare them in C."""
 
     def gettype(self):
-        return self.itemtypename.replace('@', '(@)[%d]' % (self.varlength,))
+        return self.fulltypename
 
     def getptrtype(self):
-        return self.itemtypename.replace('@', '*@')
+        return self.fullptrtypename
 
     def access_expr(self, baseexpr, index):
         return '%s[%d]' % (baseexpr, index)
@@ -383,17 +390,19 @@ class FixedSizeArrayDefNode:
         self.LLTYPE = FIXEDARRAY
         self.dependencies = {}
         self.itemtypename = db.gettype(FIXEDARRAY.OF, who_asks=self)
+        self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
+                                                      FIXEDARRAY.length)
+        self.fullptrtypename = self.itemtypename.replace('@', '*@')
 
     def setup(self):
         """Loops are forbidden by ForwardReference.become() because
         there is no way to declare them in C."""
 
     def gettype(self):
-        FIXEDARRAY = self.FIXEDARRAY
-        return self.itemtypename.replace('@', '(@)[%d]' % FIXEDARRAY.length)
+        return self.fulltypename
 
     def getptrtype(self):
-        return self.itemtypename.replace('@', '*@')
+        return self.fullptrtypename
 
     def access_expr(self, baseexpr, index, dummy=False):
         if not isinstance(index, int):
@@ -469,7 +478,7 @@ class ContainerNode(object):
     if USESLOTS:      # keep the number of slots down!
         __slots__ = """db obj 
                        typename implementationtypename
-                        name ptrname
+                        name
                         globalcontainer""".split()
     eci_name = '_compilation_info'
 
@@ -494,7 +503,9 @@ class ContainerNode(object):
         if self.typename != self.implementationtypename:
             if db.gettypedefnode(T).extra_union_for_varlength:
                 self.name += '.b'
-        self.ptrname = '(&%s)' % self.name
+
+    def getptrname(self):
+        return '(&%s)' % self.name
 
     def getTYPE(self):
         return typeOf(self.obj)
@@ -667,10 +678,10 @@ class ArrayNode(ContainerNode):
     if USESLOTS:
         __slots__ = ()
 
-    def __init__(self, db, T, obj):
-        ContainerNode.__init__(self, db, T, obj)
-        if barebonearray(T):
-            self.ptrname = self.name
+    def getptrname(self):
+        if barebonearray(self.getTYPE()):
+            return self.name
+        return ContainerNode.getptrname(self)
 
     def basename(self):
         return 'array'
@@ -728,10 +739,10 @@ class FixedSizeArrayNode(ContainerNode):
     if USESLOTS:
         __slots__ = ()
 
-    def __init__(self, db, T, obj):
-        ContainerNode.__init__(self, db, T, obj)
-        if not isinstance(obj, _subarray):   # XXX hackish
-            self.ptrname = self.name
+    def getptrname(self):
+        if not isinstance(self.obj, _subarray):   # XXX hackish
+            return self.name
+        return ContainerNode.getptrname(self)
 
     def basename(self):
         T = self.getTYPE()
@@ -812,7 +823,9 @@ class FuncNode(ContainerNode):
         self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
-        self.ptrname = self.name
+
+    def getptrname(self):
+        return self.name
 
     def make_funcgens(self):
         self.funcgens = select_function_code_generators(self.obj, self.db, self.name)
@@ -958,7 +971,7 @@ class ExtType_OpaqueNode(ContainerNode):
 
     def startupcode(self):
         T = self.getTYPE()
-        args = [self.ptrname]
+        args = [self.getptrname()]
         # XXX how to make this code more generic?
         if T.tag == 'ThreadLock':
             lock = self.obj.externalobj
@@ -990,12 +1003,14 @@ class PyObjectNode(ContainerNode):
         self.obj = obj
         value = obj.value
         self.name = self._python_c_name(value)
-        self.ptrname = self.name
         self.exported_name = self.name
         # a list of expressions giving places where this constant PyObject
         # must be copied.  Normally just in the global variable of the same
         # name, but see also StructNode.initializationexpr()  :-(
         self.where_to_copy_me = []
+
+    def getptrname(self):
+        return self.name
 
     def _python_c_name(self, value):
         # just some minimal cases: None and builtin exceptions

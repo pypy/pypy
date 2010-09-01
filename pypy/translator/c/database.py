@@ -213,7 +213,7 @@ class LowLevelDatabase(object):
                         forcename = self.idelayedfunctionnames[obj][0]
                         node = self.getcontainernode(container,
                                                      forcename=forcename)
-                        assert node.ptrname == forcename
+                        assert node.getptrname() == forcename
                         return forcename
                     # /hack hack hack
 
@@ -222,7 +222,7 @@ class LowLevelDatabase(object):
                     return '((%s) %d)' % (cdecl(self.gettype(T), ''),
                                           obj._obj)
                 node = self.getcontainernode(container)
-                return node.ptrname
+                return node.getptrname()
             else:
                 return '((%s) NULL)' % (cdecl(self.gettype(T), ''), )
         else:
