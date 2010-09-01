@@ -401,6 +401,19 @@ class FixedSizeArray(Struct):
     # behaves more or less like a Struct with fields item0, item1, ...
     # but also supports __getitem__(), __setitem__(), __len__().
 
+    _cache = weakref.WeakKeyDictionary()  # cache the length-1 FixedSizeArrays
+    def __new__(cls, OF, length, **kwds):
+        if length == 1 and not kwds:
+            try:
+                obj = FixedSizeArray._cache[OF]
+            except KeyError:
+                obj = FixedSizeArray._cache[OF] = Struct.__new__(cls)
+            except TypeError:
+                obj = Struct.__new__(cls)
+        else:
+            obj = Struct.__new__(cls)
+        return obj
+
     def __init__(self, OF, length, **kwds):
         fields = [('item%d' % i, OF) for i in range(length)]
         super(FixedSizeArray, self).__init__('array%d' % length, *fields,
@@ -609,6 +622,16 @@ UniChar  = Primitive("UniChar", u'\x00')
 
 class Ptr(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
+
+    _cache = weakref.WeakKeyDictionary()  # cache the Ptrs
+    def __new__(cls, TO):
+        try:
+            obj = Ptr._cache[TO]
+        except KeyError:
+            obj = Ptr._cache[TO] = LowLevelType.__new__(cls)
+        except TypeError:
+            obj = LowLevelType.__new__(cls)
+        return obj
 
     def __init__(self, TO):
         if not isinstance(TO, ContainerType):
