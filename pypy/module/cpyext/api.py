@@ -62,11 +62,15 @@ class CConfig_constants:
 
 VA_LIST_P = rffi.VOIDP # rffi.COpaquePtr('va_list')
 CONST_STRING = lltype.Ptr(lltype.Array(lltype.Char,
-                                       hints={'nolength': True}))
+                                       hints={'nolength': True}),
+                          use_cache=False)
 CONST_WSTRING = lltype.Ptr(lltype.Array(lltype.UniChar,
-                                        hints={'nolength': True}))
+                                        hints={'nolength': True}),
+                           use_cache=False)
 assert CONST_STRING is not rffi.CCHARP
+assert CONST_STRING == rffi.CCHARP
 assert CONST_WSTRING is not rffi.CWCHARP
+assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
 FILEP = rffi.COpaquePtr('FILE')

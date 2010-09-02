@@ -624,16 +624,19 @@ class Ptr(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
 
     _cache = weakref.WeakKeyDictionary()  # cache the Ptrs
-    def __new__(cls, TO):
-        try:
-            obj = Ptr._cache[TO]
-        except KeyError:
-            obj = Ptr._cache[TO] = LowLevelType.__new__(cls)
-        except TypeError:
+    def __new__(cls, TO, use_cache=True):
+        if not use_cache:
             obj = LowLevelType.__new__(cls)
+        else:
+            try:
+                obj = Ptr._cache[TO]
+            except KeyError:
+                obj = Ptr._cache[TO] = LowLevelType.__new__(cls)
+            except TypeError:
+                obj = LowLevelType.__new__(cls)
         return obj
 
-    def __init__(self, TO):
+    def __init__(self, TO, use_cache=True):
         if not isinstance(TO, ContainerType):
             raise TypeError, ("can only point to a Container type, "
                               "not to %s" % (TO,))
