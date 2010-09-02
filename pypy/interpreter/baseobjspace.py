@@ -288,6 +288,7 @@ class ObjSpace(object):
                 self.timer.stop("startup " + modname)
 
     def finish(self):
+        self.wait_for_thread_shutdown()
         w_exitfunc = self.sys.getdictvalue(self, 'exitfunc')
         if w_exitfunc is not None:
             self.call_function(w_exitfunc)
@@ -304,6 +305,23 @@ class ObjSpace(object):
         if self.config.objspace.std.logspaceoptypes:
             for s in self.FrameClass._space_op_types:
                 print s
+
+    def wait_for_thread_shutdown(self):
+        """Wait until threading._shutdown() completes, provided the threading
+        module was imported in the first place.  The shutdown routine will
+        wait until all non-daemon 'threading' threads have completed."""
+        if not self.config.translation.thread:
+            return
+
+        w_modules = self.sys.get('modules')
+        w_mod = self.finditem_str(w_modules, 'threading')
+        if w_mod is None:
+            return
+
+        try:
+            self.call_method(w_mod, "_shutdown")
+        except OperationError, e:
+            e.write_unraisable(self, "threading._shutdown()")
 
     def reportbytecodecounts(self):
         os.write(2, "Starting bytecode report.\n")
