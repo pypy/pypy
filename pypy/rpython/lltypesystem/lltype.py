@@ -37,7 +37,7 @@ class _uninitialized(object):
         return '<Uninitialized %r>'%(self.TYPE,)
         
 
-def saferecursive(func, defl):
+def saferecursive(func, defl, TLS=TLS):
     def safe(*args):
         try:
             seeing = TLS.seeing
@@ -54,7 +54,7 @@ def saferecursive(func, defl):
     return safe
 
 #safe_equal = saferecursive(operator.eq, True)
-def safe_equal(x, y):
+def safe_equal(x, y, TLS=TLS):
     # a specialized version for performance
     try:
         seeing = TLS.seeing_eq
@@ -97,7 +97,7 @@ class LowLevelType(object):
             raise TypeError
         return value
 
-    def __hash__(self):
+    def __hash__(self, TLS=TLS):
         # cannot use saferecursive() -- see test_lltype.test_hash().
         # NB. the __cached_hash should neither be used nor updated
         # if we enter with hash_level > 0, because the computed
@@ -401,7 +401,7 @@ class FixedSizeArray(Struct):
     # behaves more or less like a Struct with fields item0, item1, ...
     # but also supports __getitem__(), __setitem__(), __len__().
 
-    _cache = weakref.WeakKeyDictionary()  # cache the length-1 FixedSizeArrays
+    _cache = weakref.WeakValueDictionary() # cache the length-1 FixedSizeArrays
     def __new__(cls, OF, length, **kwds):
         if length == 1 and not kwds:
             try:
@@ -623,24 +623,22 @@ UniChar  = Primitive("UniChar", u'\x00')
 class Ptr(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
 
-    _cache = weakref.WeakKeyDictionary()  # cache the Ptrs
+    _cache = weakref.WeakValueDictionary()  # cache the Ptrs
     def __new__(cls, TO, use_cache=True):
+        if not isinstance(TO, ContainerType):
+            raise TypeError, ("can only point to a Container type, "
+                              "not to %s" % (TO,))
         if not use_cache:
             obj = LowLevelType.__new__(cls)
         else:
             try:
-                obj = Ptr._cache[TO]
+                return Ptr._cache[TO]
             except KeyError:
                 obj = Ptr._cache[TO] = LowLevelType.__new__(cls)
             except TypeError:
                 obj = LowLevelType.__new__(cls)
+        obj.TO = TO
         return obj
-
-    def __init__(self, TO, use_cache=True):
-        if not isinstance(TO, ContainerType):
-            raise TypeError, ("can only point to a Container type, "
-                              "not to %s" % (TO,))
-        self.TO = TO
 
     def _needsgc(self):
         # XXX deprecated interface
