@@ -133,6 +133,11 @@ def _check_valid_type_info_varsize(p):
                                   (T_KEY_VALUE | T_IS_VARSIZE),
               "invalid varsize type_id")
 
+def check_typeid(typeid):
+    # xxx does not perform a full check of validity, just checks for nonzero
+    ll_assert(llop.is_group_member_nonzero(lltype.Bool, typeid),
+              "invalid type_id")
+
 
 def encode_type_shape(builder, info, TYPE, index):
     """Encode the shape of the TYPE into the TYPE_INFO structure 'info'."""
@@ -173,7 +178,7 @@ def encode_type_shape(builder, info, TYPE, index):
             infobits |= T_HAS_GCPTR_IN_VARSIZE
         varinfo.varofstoptrs = builder.offsets2table(offsets, ARRAY.OF)
         varinfo.varitemsize = llmemory.sizeof(ARRAY.OF)
-    if TYPE == WEAKREF:
+    if builder.is_weakref_type(TYPE):
         infobits |= T_IS_WEAKREF
     info.infobits = infobits | T_KEY_VALUE
 
@@ -271,8 +276,8 @@ class TypeLayoutBuilder(object):
         _check_valid_type_info_varsize(res)
         return res
 
-    def is_weakref(self, type_id):
-        return self.get_info(type_id).infobits & T_IS_WEAKREF
+    def is_weakref_type(self, TYPE):
+        return TYPE == WEAKREF
 
     def encode_type_shapes_now(self):
         if not self.can_encode_type_shape:

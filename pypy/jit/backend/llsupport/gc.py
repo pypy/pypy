@@ -328,7 +328,7 @@ class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
 
     def __init__(self, gcdescr, translator, rtyper, llop1=llop):
-        from pypy.rpython.memory.gctypelayout import _check_typeid
+        from pypy.rpython.memory.gctypelayout import check_typeid
         from pypy.rpython.memory.gcheader import GCHeaderBuilder
         from pypy.rpython.memory.gctransform import framework
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
@@ -375,7 +375,7 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
-            _check_typeid(type_id)
+            check_typeid(type_id)
             try:
                 res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                       type_id, size, True,
@@ -395,7 +395,7 @@ class GcLLDescr_framework(GcLLDescription):
         #
         def malloc_array(itemsize, tid, num_elem):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
-            _check_typeid(type_id)
+            check_typeid(type_id)
             try:
                 return llop1.do_malloc_varsize_clear(
                     llmemory.GCREF,
@@ -482,7 +482,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def init_size_descr(self, S, descr):
         type_id = self.layoutbuilder.get_type_id(S)
-        assert not self.layoutbuilder.is_weakref(type_id)
+        assert not self.layoutbuilder.is_weakref_type(S)
         has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
         flags = int(has_finalizer) << llgroup.HALFSHIFT
         descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)
