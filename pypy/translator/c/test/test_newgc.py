@@ -67,9 +67,8 @@ class TestUsingFramework(object):
             if not fullname.startswith('define'):
                 continue
             keyword = conftest.option.keyword
-            if keyword:
-                if keyword.startswith('test_'):
-                    keyword = keyword[len('test_'):]
+            if keyword.startswith('test_'):
+                keyword = keyword[len('test_'):]
                 if keyword not in fullname:
                     continue
             prefix, name = fullname.split('_', 1)
@@ -1072,20 +1071,65 @@ class TestMarkCompactGC(TestSemiSpaceGC):
     should_be_moving = True
     GC_CAN_SHRINK_ARRAY = False
 
-    def setup_class(cls):
-        py.test.skip("Disabled for now")
-
     def test_gc_set_max_heap_size(self):
+        py.test.skip("not implemented")
+
+    def test_gc_heap_stats(self):
         py.test.skip("not implemented")
 
     def test_finalizer_order(self):
         py.test.skip("not implemented")
 
+    def define_adding_a_hash(cls):
+        from pypy.rlib.objectmodel import compute_identity_hash
+        S1 = lltype.GcStruct('S1', ('x', lltype.Signed))
+        S2 = lltype.GcStruct('S2', ('p1', lltype.Ptr(S1)),
+                                   ('p2', lltype.Ptr(S1)),
+                                   ('p3', lltype.Ptr(S1)),
+                                   ('p4', lltype.Ptr(S1)),
+                                   ('p5', lltype.Ptr(S1)),
+                                   ('p6', lltype.Ptr(S1)),
+                                   ('p7', lltype.Ptr(S1)),
+                                   ('p8', lltype.Ptr(S1)),
+                                   ('p9', lltype.Ptr(S1)))
+        def g():
+            lltype.malloc(S1)   # forgotten, will be shifted over
+            s2 = lltype.malloc(S2)   # a big object, overlaps its old position
+            s2.p1 = lltype.malloc(S1); s2.p1.x = 1010
+            s2.p2 = lltype.malloc(S1); s2.p2.x = 1020
+            s2.p3 = lltype.malloc(S1); s2.p3.x = 1030
+            s2.p4 = lltype.malloc(S1); s2.p4.x = 1040
+            s2.p5 = lltype.malloc(S1); s2.p5.x = 1050
+            s2.p6 = lltype.malloc(S1); s2.p6.x = 1060
+            s2.p7 = lltype.malloc(S1); s2.p7.x = 1070
+            s2.p8 = lltype.malloc(S1); s2.p8.x = 1080
+            s2.p9 = lltype.malloc(S1); s2.p9.x = 1090
+            return s2
+        def f():
+            rgc.collect()
+            s2 = g()
+            h2 = compute_identity_hash(s2)
+            rgc.collect()    # shift s2 to the left, but add a hash field
+            assert s2.p1.x == 1010
+            assert s2.p2.x == 1020
+            assert s2.p3.x == 1030
+            assert s2.p4.x == 1040
+            assert s2.p5.x == 1050
+            assert s2.p6.x == 1060
+            assert s2.p7.x == 1070
+            assert s2.p8.x == 1080
+            assert s2.p9.x == 1090
+            return h2 - compute_identity_hash(s2)
+        return f
+
+    def test_adding_a_hash(self):
+        res = self.run("adding_a_hash")
+        assert res == 0
+
 # ____________________________________________________________________
 
-class TestHybridTaggedPointers(TestHybridGC):
+class TaggedPointersTest(object):
     taggedpointers = True
-
 
     def define_tagged(cls):
         class Unrelated(object):
@@ -1129,3 +1173,10 @@ class UnboxedObject(TaggedBase, UnboxedValue):
     __slots__ = 'smallint'
     def meth(self, x):
         return self.smallint + x + 3
+
+
+class TestHybridTaggedPointers(TaggedPointersTest, TestHybridGC):
+    pass
+
+class TestMarkCompactGCMostCompact(TaggedPointersTest, TestMarkCompactGC):
+    removetypeptr = True

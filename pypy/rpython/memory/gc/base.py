@@ -86,8 +86,7 @@ class GCBase(object):
         addr -= self.gcheaderbuilder.size_gc_header
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
 
-    def get_size(self, obj):
-        typeid = self.get_type_id(obj)
+    def _get_size_for_typeid(self, obj, typeid):
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
             lenaddr = obj + self.varsize_offset_to_length(typeid)
@@ -98,6 +97,9 @@ class GCBase(object):
             # per GC; if we do, we also need to fix the call in
             # gctypelayout.encode_type_shape()
         return size
+
+    def get_size(self, obj):
+        return self._get_size_for_typeid(obj, self.get_type_id(obj))
 
     def malloc(self, typeid, length=0, zero=False):
         """For testing.  The interface used by the gctransformer is
@@ -218,7 +220,6 @@ class GCBase(object):
             pending = self._debug_pending
             while pending.non_empty():
                 obj = pending.pop()
-                self.debug_check_object(obj)
                 self.trace(obj, self._debug_callback2, None)
             self._debug_seen.delete()
             self._debug_pending.delete()
@@ -227,6 +228,7 @@ class GCBase(object):
         seen = self._debug_seen
         if not seen.contains(obj):
             seen.add(obj)
+            self.debug_check_object(obj)
             self._debug_pending.append(obj)
     def _debug_callback(self, root):
         obj = root.address[0]
@@ -348,3 +350,23 @@ def choose_gc_from_config(config):
                         globals(), locals(), [classname])
     GCClass = getattr(module, classname)
     return GCClass, GCClass.TRANSLATION_PARAMS
+
+def read_from_env(varname):
+    import os
+    value = os.environ.get(varname)
+    if value:
+        realvalue = value[:-1]
+        if value[-1] in 'kK':
+            factor = 1024
+        elif value[-1] in 'mM':
+            factor = 1024*1024
+        elif value[-1] in 'gG':
+            factor = 1024*1024*1024
+        else:
+            factor = 1
+            realvalue = value
+        try:
+            return int(float(realvalue) * factor)
+        except ValueError:
+            pass
+    return -1

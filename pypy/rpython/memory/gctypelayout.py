@@ -44,16 +44,18 @@ class GCData(object):
         self.type_info_group_ptr = type_info_group._as_ptr()
 
     def get(self, typeid):
-        _check_typeid(typeid)
-        return llop.get_group_member(GCData.TYPE_INFO_PTR,
-                                     self.type_info_group_ptr,
-                                     typeid)
+        res = llop.get_group_member(GCData.TYPE_INFO_PTR,
+                                    self.type_info_group_ptr,
+                                    typeid)
+        _check_valid_type_info(res)
+        return res
 
     def get_varsize(self, typeid):
-        _check_typeid(typeid)
-        return llop.get_group_member(GCData.VARSIZE_TYPE_INFO_PTR,
-                                     self.type_info_group_ptr,
-                                     typeid)
+        res = llop.get_group_member(GCData.VARSIZE_TYPE_INFO_PTR,
+                                    self.type_info_group_ptr,
+                                    typeid)
+        _check_valid_type_info_varsize(res)
+        return res
 
     def q_is_varsize(self, typeid):
         infobits = self.get(typeid).infobits
@@ -115,15 +117,21 @@ class GCData(object):
 
 
 # the lowest 16bits are used to store group member index
-T_MEMBER_INDEX         = 0xffff
+T_MEMBER_INDEX         =  0xffff
 T_IS_VARSIZE           = 0x10000
 T_HAS_GCPTR_IN_VARSIZE = 0x20000
 T_IS_GCARRAY_OF_GCPTR  = 0x40000
 T_IS_WEAKREF           = 0x80000
+T_KEY_MASK          = 0xFF000000
+T_KEY_VALUE         = 0x7A000000    # bug detection only
 
-def _check_typeid(typeid):
-    ll_assert(llop.is_group_member_nonzero(lltype.Bool, typeid),
-              "invalid type_id")
+def _check_valid_type_info(p):
+    ll_assert(p.infobits & T_KEY_MASK == T_KEY_VALUE, "invalid type_id")
+
+def _check_valid_type_info_varsize(p):
+    ll_assert(p.header.infobits & (T_KEY_MASK | T_IS_VARSIZE) ==
+                                  (T_KEY_VALUE | T_IS_VARSIZE),
+              "invalid varsize type_id")
 
 
 def encode_type_shape(builder, info, TYPE, index):
@@ -167,7 +175,7 @@ def encode_type_shape(builder, info, TYPE, index):
         varinfo.varitemsize = llmemory.sizeof(ARRAY.OF)
     if TYPE == WEAKREF:
         infobits |= T_IS_WEAKREF
-    info.infobits = infobits
+    info.infobits = infobits | T_KEY_VALUE
 
 # ____________________________________________________________
 
@@ -250,14 +258,18 @@ class TypeLayoutBuilder(object):
                 _, TYPE = TYPE._first_struct()
 
     def get_info(self, type_id):
-        return llop.get_group_member(GCData.TYPE_INFO_PTR,
-                                     self.type_info_group._as_ptr(),
-                                     type_id)
+        res = llop.get_group_member(GCData.TYPE_INFO_PTR,
+                                    self.type_info_group._as_ptr(),
+                                    type_id)
+        _check_valid_type_info(res)
+        return res
 
     def get_info_varsize(self, type_id):
-        return llop.get_group_member(GCData.VARSIZE_TYPE_INFO_PTR,
-                                     self.type_info_group._as_ptr(),
-                                     type_id)
+        res = llop.get_group_member(GCData.VARSIZE_TYPE_INFO_PTR,
+                                    self.type_info_group._as_ptr(),
+                                    type_id)
+        _check_valid_type_info_varsize(res)
+        return res
 
     def is_weakref(self, type_id):
         return self.get_info(type_id).infobits & T_IS_WEAKREF

@@ -2,6 +2,7 @@ import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
 from pypy.rpython.memory.gc.semispace import GC_HASH_TAKEN_ADDR
+from pypy.rpython.memory.gc.base import read_from_env
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -625,18 +626,7 @@ class GenerationGC(SemiSpaceGC):
 import os
 
 def nursery_size_from_env():
-    value = os.environ.get('PYPY_GENERATIONGC_NURSERY')
-    if value:
-        if value[-1] in 'kK':
-            factor = 1024
-            value = value[:-1]
-        else:
-            factor = 1
-        try:
-            return int(value) * factor
-        except ValueError:
-            pass
-    return -1
+    return read_from_env('PYPY_GENERATIONGC_NURSERY')
 
 def best_nursery_size_for_L2cache(L2cache):
     # Heuristically, the best nursery size to choose is about half

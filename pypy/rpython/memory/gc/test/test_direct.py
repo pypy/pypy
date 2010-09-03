@@ -67,7 +67,10 @@ class DirectGCTest(object):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True).translation
         self.stackroots = []
-        self.gc = self.GCClass(config, **self.GC_PARAMS)
+        GC_PARAMS = self.GC_PARAMS.copy()
+        if hasattr(meth, 'GC_PARAMS'):
+            GC_PARAMS.update(meth.GC_PARAMS)
+        self.gc = self.GCClass(config, **GC_PARAMS)
         self.gc.DEBUG = True
         self.rootwalker = DirectRootWalker(self)
         self.gc.set_root_walker(self.rootwalker)
@@ -96,7 +99,7 @@ class DirectGCTest(object):
         p[index] = newvalue
 
     def malloc(self, TYPE, n=None):
-        addr = self.gc.malloc(self.get_type_id(TYPE), n)
+        addr = self.gc.malloc(self.get_type_id(TYPE), n, zero=True)
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
 
     def test_simple(self):
@@ -311,7 +314,18 @@ class DirectGCTest(object):
         print hash
         assert isinstance(hash, (int, long))
         assert hash == self.gc.identityhash(p_const)
-
+        # (5) p is actually moving (for the markcompact gc)
+        p0 = self.malloc(S)
+        self.stackroots.append(p0)
+        p = self.malloc(S)
+        self.stackroots.append(p)
+        hash = self.gc.identityhash(p)
+        self.stackroots.pop(-2)
+        self.gc.collect()     # p0 goes away, p shifts left
+        assert hash == self.gc.identityhash(self.stackroots[-1])
+        self.gc.collect()
+        assert hash == self.gc.identityhash(self.stackroots[-1])
+        self.stackroots.pop()
 
 class TestSemiSpaceGC(DirectGCTest):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
@@ -431,3 +445,14 @@ class TestHybridGC(TestGenerationGC):
 class TestMarkCompactGC(DirectGCTest):
     from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
 
+    def test_many_objects(self):
+        DirectGCTest.test_many_objects(self)
+    test_many_objects.GC_PARAMS = {'space_size': 3 * 1024 * WORD}
+
+    def test_varsized_from_stack(self):
+        DirectGCTest.test_varsized_from_stack(self)
+    test_varsized_from_stack.GC_PARAMS = {'space_size': 2 * 1024 * WORD}
+
+    def test_varsized_from_prebuilt_gc(self):
+        DirectGCTest.test_varsized_from_prebuilt_gc(self)
+    test_varsized_from_prebuilt_gc.GC_PARAMS = {'space_size': 3 * 1024 * WORD}

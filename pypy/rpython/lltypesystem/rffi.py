@@ -593,9 +593,12 @@ def make_string_mappings(strtype):
         """ str -> char*
         """
         array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw')
-        for i in range(len(s)):
+        i = len(s)
+        array[i] = lastchar
+        i -= 1
+        while i >= 0:
             array[i] = s[i]
-        array[len(s)] = lastchar
+            i -= 1
         return array
     str2charp._annenforceargs_ = [strtype]
 

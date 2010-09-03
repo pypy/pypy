@@ -119,6 +119,9 @@ class GCManagedHeap(object):
         else:
             return True
 
+    def pyobjectptr(self, klass):
+        raise NotImplementedError(klass)
+
 # ____________________________________________________________
 
 class LLInterpRootWalker:
