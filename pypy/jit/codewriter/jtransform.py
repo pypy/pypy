@@ -511,14 +511,11 @@ class Transformer(object):
                                                 arraydescr)
             return []
         # check for deepfrozen structures that force constant-folding
-        hints = v_inst.concretetype.TO._hints
-        accessor = hints.get("immutable_fields")
-        if accessor and c_fieldname.value in accessor.fields:
+        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
+        if immut:
             pure = '_pure'
-            if accessor.fields[c_fieldname.value] == "[*]":
+            if immut == "[*]":
                 self.immutable_arrays[op.result] = True
-        elif hints.get('immutable'):
-            pure = '_pure'
         else:
             pure = ''
         argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')

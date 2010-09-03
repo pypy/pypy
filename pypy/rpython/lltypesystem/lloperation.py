@@ -85,16 +85,20 @@ class LLOp(object):
     fold = roproperty(get_fold_impl)
 
     def is_pure(self, args_v):
-        return (self.canfold or                # canfold => pure operation
-                self is llop.debug_assert or   # debug_assert is pure enough
-                                               # reading from immutable
-                (self in (llop.getfield, llop.getarrayitem) and
-                 args_v[0].concretetype.TO._hints.get('immutable')) or
-                (self is llop.getfield and     # reading from immutable_field
-                 'immutable_fields' in args_v[0].concretetype.TO._hints and
-                 args_v[1].value in args_v[0].concretetype.TO
-                                           ._hints['immutable_fields'].fields))
-        # XXX: what about ootype immutable arrays?
+        if self.canfold:                # canfold => pure operation
+            return True
+        if self is llop.debug_assert:   # debug_assert is pure enough
+            return True
+        # reading from immutable (lltype)
+        if self is llop.getfield or self is llop.getarrayitem:
+            field = getattr(args_v[1], 'value', None)
+            return args_v[0].concretetype.TO._immutable_field(field)
+        # reading from immutable (ootype) (xxx what about arrays?)
+        if self is llop.oogetfield:
+            field = getattr(args_v[1], 'value', None)
+            return args_v[0].concretetype._immutable_field(field)
+        # default
+        return False
 
     def __repr__(self):
         return '<LLOp %s>' % (getattr(self, 'opname', '?'),)

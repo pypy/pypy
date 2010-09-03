@@ -781,6 +781,28 @@ def test_identityhash():
     p = cast_opaque_ptr(llmemory.GCREF, a)
     assert hash1 == identityhash(p)
 
+def test_immutable_hint():
+    S = GcStruct('S', ('x', lltype.Signed))
+    assert S._immutable_field('x') == False
+    #
+    S = GcStruct('S', ('x', lltype.Signed), hints={'immutable': True})
+    assert S._immutable_field('x') == True
+    #
+    class FieldListAccessor(object):
+        def __init__(self, fields):
+            self.fields = fields
+    S = GcStruct('S', ('x', lltype.Signed),
+                 hints={'immutable_fields': FieldListAccessor({'x':''})})
+    assert S._immutable_field('x') == True
+    #
+    class FieldListAccessor(object):
+        def __init__(self, fields):
+            self.fields = fields
+    S = GcStruct('S', ('x', lltype.Signed),
+                 hints={'immutable_fields': FieldListAccessor({'x':'[*]'})})
+    assert S._immutable_field('x') == '[*]'
+
+
 class TestTrackAllocation:
     def setup_method(self, func):
         start_tracking_allocations()

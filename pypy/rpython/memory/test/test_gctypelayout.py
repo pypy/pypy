@@ -101,7 +101,7 @@ def test_gc_pointers_inside():
     accessor = rclass.FieldListAccessor()
     S3 = lltype.GcStruct('S', ('x', PT), ('y', PT),
                          hints={'immutable_fields': accessor})
-    accessor.initialize(S3, ['x'])
+    accessor.initialize(S3, {'x': ''})
     #
     s1 = lltype.malloc(S1)
     adr = llmemory.cast_ptr_to_adr(s1)
