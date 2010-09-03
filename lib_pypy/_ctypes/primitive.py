@@ -57,7 +57,6 @@ class GlobalPyobjContainer(object):
 pyobj_container = GlobalPyobjContainer()
 
 def generic_xxx_p_from_param(cls, value):
-    from _ctypes import Array, _Pointer
     if value is None:
         return cls(None)
     if isinstance(value, basestring):
@@ -119,8 +118,6 @@ class SimpleType(_CDataMeta):
         result._ffiarray = ffiarray
         if tp == 'z':
             # c_char_p
-            from _ctypes import Array, _Pointer
-
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
@@ -143,7 +140,7 @@ class SimpleType(_CDataMeta):
             result.value = property(_getvalue, _setvalue)
         elif tp == 'Z':
             # c_wchar_p
-            from _ctypes import Array, _Pointer, _wstring_at
+            from _ctypes import _wstring_at
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:

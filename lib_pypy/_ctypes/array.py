@@ -75,7 +75,7 @@ class ArrayMeta(_CDataMeta):
 
     def _CData_output(self, resarray, base=None, index=-1):
         # this seems to be a string if we're array of char, surprise!
-        from ctypes import c_char, c_wchar, c_char_p, c_wchar_p
+        from ctypes import c_char, c_wchar
         if self._type_ is c_char:
             return _rawffi.charp2string(resarray.buffer, self._length_)
         if self._type_ is c_wchar:
