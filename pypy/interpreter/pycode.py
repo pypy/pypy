@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis, imp, struct, types, new
+import dis, imp, struct, types, new, sys
 
 from pypy.interpreter import eval
 from pypy.interpreter.argument import Signature
@@ -118,7 +118,8 @@ class PyCode(eval.Code):
         self._compute_flatcall()
 
     def _freeze_(self):
-        if self.magic == cpython_magic:
+        if (self.magic == cpython_magic and
+            '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
         return False
 
