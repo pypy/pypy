@@ -324,21 +324,12 @@ class AppTestPosix:
     if hasattr(__import__(os.name), "openpty"):
         def test_openpty(self):
             os = self.posix
-            g = os.popen("uname -r", "r")
-            version = g.read()
-            g.close()
-            if version.startswith('2.6.31'):
-                skip("openpty() deadlocks completely on "
-                     "at least some Linux 2.6.31")
-            master_fd, slave_fd = self.posix.openpty()
-            try:
-                assert isinstance(master_fd, int)
-                assert isinstance(slave_fd, int)
-                os.write(slave_fd, 'x')
-                assert os.read(master_fd, 1) == 'x'
-            finally:
-                os.close(master_fd)
-                os.close(slave_fd)
+            master_fd, slave_fd = os.openpty()
+            assert isinstance(master_fd, int)
+            assert isinstance(slave_fd, int)
+            os.write(slave_fd, 'x\n')
+            data = os.read(master_fd, 100)
+            assert data.startswith('x')
 
 
     if hasattr(__import__(os.name), "execv"):
