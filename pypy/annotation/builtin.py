@@ -92,6 +92,8 @@ def builtin_bool(s_obj):
     return s_obj.is_true()
 
 def builtin_int(s_obj, s_base=None):
+    if isinstance(s_obj, SomeInteger):
+        assert not s_obj.unsigned, "instead of int(r_uint(x)), use intmask(r_uint(x))"
     assert (s_base is None or isinstance(s_base, SomeInteger)
             and s_obj.knowntype == str), "only int(v|string) or int(string,int) expected"
     if s_base is not None:

@@ -338,8 +338,12 @@ class Bookkeeper:
             result = SomeBool()
         elif tp is int:
             result = SomeInteger(nonneg = x>=0)
-        elif tp is long and 0 <= x <= (sys.maxint * 2 + 1):
-            result = SomeInteger(unsigned = True)
+        elif tp is long:
+            if -sys.maxint-1 <= x <= sys.maxint:
+                x = int(x)
+                result = SomeInteger(nonneg = x>=0)
+            else:
+                raise Exception("seeing a prebuilt long (value %s)" % hex(x))
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             if len(x) == 1:
                 result = SomeChar()
