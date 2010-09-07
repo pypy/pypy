@@ -786,18 +786,25 @@ class AppTestOldstyle(object):
                     return 42
                 return callable
         a = A()
-        a.instancevalue = 42
+        a.instancevalue = 42      # does not go via __getattr__('__setattr__')
+        a.__getattr__ = "hi there, ignore me, I'm in a"
+        a.__setattr__ = "hi there, ignore me, I'm in a too"
         assert a.instancevalue == 42
         A.classvalue = 123
         assert a.classvalue == 123
         assert a.foobar(5) == 'foobar(5,)'
-        assert a.__dict__ == {'instancevalue': 42}
+        assert a.__dict__ == {'instancevalue': 42,
+                              '__getattr__': a.__getattr__,
+                              '__setattr__': a.__setattr__}
         assert a.__class__ is A
-        # this follows the Python 2.5 rules, more precisely
+        # This follows the Python 2.5 rules, more precisely.
+        # It is still valid in Python 2.7 too.
         assert repr(a) == '__repr__()'
         assert str(a) == '__str__()'
         assert unicode(a) == u'__unicode__()'
         b = B()
+        b.__getattr__ = "hi there, ignore me, I'm in b"
+        b.__setattr__ = "hi there, ignore me, I'm in b too"
         assert 'called' not in b.__dict__      # and not e.g. ('__init__', ())
         assert len(b) == 42
         assert b.called == ('__len__', ())
