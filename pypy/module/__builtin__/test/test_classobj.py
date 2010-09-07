@@ -924,7 +924,9 @@ class AppTestOldstyle(object):
         for opname, opfunc in op_by_name.items():
             assert opfunc(b, 5) == 42
             assert b.called == ("__" + opname + "__", (5,))
-        assert coerce(b, 5) == (b, 5)
+        x, y = coerce(b, 5)
+        assert x is b
+        assert y == 5
 
 
 class AppTestOldStyleSharing(AppTestOldstyle):
