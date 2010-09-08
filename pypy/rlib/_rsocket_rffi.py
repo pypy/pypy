@@ -32,6 +32,7 @@ if _POSIX:
                 'arpa/inet.h',
                 'stdint.h', 
                 'errno.h',
+                'netpacket/packet.h'
                 )
     cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
     libraries = ()
@@ -273,7 +274,7 @@ CConfig.sockaddr_nl = platform.Struct('struct sockaddr_nl',
                                               ('nl_pid', rffi.INT),
                                               ('nl_groups', rffi.INT)],
                                              ifdef='AF_NETLINK')
-                                             
+
 CConfig.addrinfo = platform.Struct('struct addrinfo',
                                      [('ai_flags', rffi.INT),
                                       ('ai_family', rffi.INT),
@@ -309,6 +310,15 @@ if _POSIX:
                                             [('fd', socketfd_type),
                                              ('events', rffi.SHORT),
                                              ('revents', rffi.SHORT)])
+
+    CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
+                                          [('sll_protocol', rffi.INT),
+                                           ('sll_pkttype', rffi.INT),
+                                           ('sll_hatype', rffi.INT),
+                                           ('sll_addr', CCHARP),
+                                           ('sll_halen', rffi.INT)],
+                                          )
+
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
     CConfig.WSANETWORKEVENTS = platform.Struct(
