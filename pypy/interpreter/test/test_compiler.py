@@ -4,6 +4,7 @@ from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.conftest import gettestobjspace
 
 class BaseTestCompiler:
     def setup_method(self, method):
@@ -852,6 +853,47 @@ class AppTestOptimizer:
             sys.stdout = save_stdout
         output = s.getvalue()
         assert "STOP_CODE" not in output
+    
+    def test_optimize_list_comp(self):
+        source = """def _f(a):
+            return [x for x in a if None]
+        """
+        exec source
+        code = _f.func_code
+        
+        import StringIO, sys, dis
+        s = StringIO.StringIO()
+        out = sys.stdout
+        sys.stdout = s
+        try:
+            dis.dis(code)
+        finally:
+            sys.stdout = out
+        output = s.getvalue()
+        assert "LOAD_GLOBAL" not in output
+
+class AppTestCallMethod(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{'objspace.opcodes.CALL_METHOD': True})
+        
+    def test_call_method_kwargs(self):
+        source = """def _f(a):
+            return a.f(a=a)
+        """
+        exec source
+        code = _f.func_code
+        
+        import StringIO, sys, dis
+        s = StringIO.StringIO()
+        out = sys.stdout
+        sys.stdout = s
+        try:
+            dis.dis(code)
+        finally:
+            sys.stdout = out
+        output = s.getvalue()
+        assert "CALL_METHOD" in output
+            
 
 class AppTestExceptions:
     def test_indentation_error(self):

@@ -17,6 +17,8 @@ from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
+from pypy.jit.backend.x86.arch import IS_X86_64
+import py.test
 
 class X(object):
     def __init__(self, x=0):

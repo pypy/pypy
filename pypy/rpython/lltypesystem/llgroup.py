@@ -99,6 +99,7 @@ class CombinedSymbolic(llmemory.Symbolic):
     '&~0xFFFF' or with a direct masking like '&0x10000' (resp. on 64-bit
     platform, with '&~0xFFFFFFFF' or '&0x100000000').
     """
+    __slots__ = ['lowpart', 'rest']
     MASK = (1<<HALFSHIFT)-1     # 0xFFFF or 0xFFFFFFFF
 
     def annotation(self):
@@ -134,6 +135,10 @@ class CombinedSymbolic(llmemory.Symbolic):
     def __sub__(self, other):
         assert (other & CombinedSymbolic.MASK) == 0
         return CombinedSymbolic(self.lowpart, self.rest - other)
+
+    def __rshift__(self, other):
+        assert other >= HALFSHIFT
+        return self.rest >> other
 
     def __eq__(self, other):
         if (isinstance(other, CombinedSymbolic) and

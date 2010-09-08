@@ -126,6 +126,25 @@ class AppTestGenerator:
         raises(ValueError, g.throw, ValueError)
         assert g.gi_frame is None
 
+    def test_throw_bug(self):
+        def f():
+            try:
+                x.throw(IndexError)     # => "generator already executing"
+            except ValueError:
+                yield 1
+        x = f()
+        res = list(x)
+        assert res == [1]
+
+    def test_throw_on_finished_generator(self):
+        def f():
+            yield 1
+        g = f()
+        res = g.next()
+        assert res == 1
+        raises(StopIteration, g.next)
+        raises(NameError, g.throw, NameError)
+
     def test_close(self):
         def f():
             yield 1

@@ -924,10 +924,10 @@ class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
 
 class __extend__(pairtype(SomeAddress, SomeAddress)):
     def union((s_addr1, s_addr2)):
-        return SomeAddress(is_null=s_addr1.is_null and s_addr2.is_null)
+        return SomeAddress()
 
     def sub((s_addr1, s_addr2)):
-        if s_addr1.is_null and s_addr2.is_null:
+        if s_addr1.is_null_address() and s_addr2.is_null_address():
             return getbookkeeper().immutablevalue(0)
         return SomeInteger()
 
@@ -953,10 +953,10 @@ class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
 
 class __extend__(pairtype(SomeAddress, SomeInteger)):
     def add((s_addr, s_int)):
-        return SomeAddress(is_null=False)
+        return SomeAddress()
 
     def sub((s_addr, s_int)):
-        return SomeAddress(is_null=False)
+        return SomeAddress()
 
 class __extend__(pairtype(SomeAddress, SomeImpossibleValue)):
     # need to override this specifically to hide the 'raise UnionError'

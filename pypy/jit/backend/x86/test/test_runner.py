@@ -1,16 +1,22 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
+from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import ResOperation, LoopToken
-from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
-                                         Box, BasicFailDescr)
-from pypy.jit.backend.x86.runner import CPU
-from pypy.jit.backend.x86.regalloc import WORD
+from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstFloat,
+                                         ConstPtr, Box, BoxFloat, BasicFailDescr)
+from pypy.jit.backend.detect_cpu import getcpuclass
+from pypy.jit.backend.x86.arch import WORD
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
+from pypy.jit.metainterp.test.oparser import parse
+from pypy.tool.udir import udir
 import ctypes
 import sys
+import os
+
+CPU = getcpuclass()
 
 class FakeStats(object):
     pass
@@ -56,7 +62,7 @@ class TestX86(LLtypeBackendTest):
         assert u.chars[3] == u'd'
 
     @staticmethod
-    def _resbuf(res, item_tp=ctypes.c_int):
+    def _resbuf(res, item_tp=ctypes.c_long):
         return ctypes.cast(res.value._obj.intval, ctypes.POINTER(item_tp))
 
     def test_allocations(self):
@@ -71,8 +77,11 @@ class TestX86(LLtypeBackendTest):
             return ctypes.cast(buf, ctypes.c_void_p).value
         func = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(f)
         addr = ctypes.cast(func, ctypes.c_void_p).value
+        # ctypes produces an unsigned value. We need it to be signed for, eg,
+        # relative addressing to work properly.
+        addr = rffi.cast(lltype.Signed, addr)
         
-        self.cpu.assembler.make_sure_mc_exists()
+        self.cpu.assembler.setup()
         self.cpu.assembler.malloc_func_addr = addr
         ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
@@ -184,6 +193,7 @@ class TestX86(LLtypeBackendTest):
 
     def test_getfield_setfield(self):
         TP = lltype.GcStruct('x', ('s', lltype.Signed),
+                             ('i', rffi.INT),
                              ('f', lltype.Float),
                              ('u', rffi.USHORT),
                              ('c1', lltype.Char),
@@ -192,6 +202,7 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW, [],
                                      'ref', self.cpu.sizeof(TP))
         ofs_s = self.cpu.fielddescrof(TP, 's')
+        ofs_i = self.cpu.fielddescrof(TP, 'i')
         #ofs_f = self.cpu.fielddescrof(TP, 'f')
         ofs_u = self.cpu.fielddescrof(TP, 'u')
         ofsc1 = self.cpu.fielddescrof(TP, 'c1')
@@ -209,6 +220,11 @@ class TestX86(LLtypeBackendTest):
                                ofs_s)
         s = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_s)
         assert s.value == 3
+
+        self.execute_operation(rop.SETFIELD_GC, [res, BoxInt(1234)], 'void', ofs_i)
+        i = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_i)
+        assert i.value == 1234
+        
         #u = self.execute_operation(rop.GETFIELD_GC, [res, ofs_u], 'int')
         #assert u.value == 5
         self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(1)], 'void',
@@ -357,7 +373,9 @@ class TestX86(LLtypeBackendTest):
         self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
         name, address, size = agent.functions[1]
         assert name == "Bridge # 0: bye"
-        assert address == loopaddress + loopsize
+        # Would be exactly ==, but there are some guard failure recovery
+        # stubs in-between
+        assert address >= loopaddress + loopsize
         assert size >= 10 # randomish number
 
         self.cpu.set_future_value_int(0, 2)
@@ -365,6 +383,19 @@ class TestX86(LLtypeBackendTest):
         assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
+
+    def test_call_with_const_floats(self):
+        def func(f1, f2):
+            return f1 + f2
+
+        FUNC = self.FuncType([lltype.Float, lltype.Float], lltype.Float)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        func_ptr = llhelper(FPTR, func)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        res = self.execute_operation(rop.CALL, [funcbox, ConstFloat(1.5), ConstFloat(2.5)], 'float', descr=calldescr)
+        assert res.value == 4.0
+
 
 class TestX86OverflowMC(TestX86):
 
@@ -383,10 +414,100 @@ class TestX86OverflowMC(TestX86):
         ops.append(ResOperation(rop.FINISH, [v], None,
                                 descr=BasicFailDescr()))
         looptoken = LoopToken()
-        self.cpu.assembler.make_sure_mc_exists()
+        self.cpu.assembler.setup()
         old_mc_mc = self.cpu.assembler.mc._mc
         self.cpu.compile_loop([base_v], ops, looptoken)
         assert self.cpu.assembler.mc._mc != old_mc_mc   # overflowed
         self.cpu.set_future_value_int(0, base_v.value)
         self.cpu.execute_token(looptoken)
         assert self.cpu.get_latest_value_int(0) == 1024
+
+    def test_overflow_guard_float_cmp(self):
+        # The float comparisons on x86 tend to use small relative jumps,
+        # which may run into trouble if they fall on the edge of a
+        # MachineCodeBlock change.
+        a = BoxFloat(1.0)
+        b = BoxFloat(2.0)
+        failed = BoxInt(41)
+        finished = BoxInt(42)
+
+        # We select guards that will always succeed, so that execution will
+        # continue through the entire set of comparisions
+        ops_to_test = (
+            (rop.FLOAT_LT, [a, b], rop.GUARD_TRUE),
+            (rop.FLOAT_LT, [b, a], rop.GUARD_FALSE),
+
+            (rop.FLOAT_LE, [a, a], rop.GUARD_TRUE),
+            (rop.FLOAT_LE, [a, b], rop.GUARD_TRUE),
+            (rop.FLOAT_LE, [b, a], rop.GUARD_FALSE),
+
+            (rop.FLOAT_EQ, [a, a], rop.GUARD_TRUE),
+            (rop.FLOAT_EQ, [a, b], rop.GUARD_FALSE),
+
+            (rop.FLOAT_NE, [a, b], rop.GUARD_TRUE),
+            (rop.FLOAT_NE, [a, a], rop.GUARD_FALSE),
+
+            (rop.FLOAT_GT, [b, a], rop.GUARD_TRUE),
+            (rop.FLOAT_GT, [a, b], rop.GUARD_FALSE),
+
+            (rop.FLOAT_GE, [a, a], rop.GUARD_TRUE),
+            (rop.FLOAT_GE, [b, a], rop.GUARD_TRUE),
+            (rop.FLOAT_GE, [a, b], rop.GUARD_FALSE),
+        )
+
+        for float_op, args, guard_op in ops_to_test:
+            ops = []
+
+            for i in range(200):
+                cmp_result = BoxInt()
+                ops.append(ResOperation(float_op, args, cmp_result))
+                ops.append(ResOperation(guard_op, [cmp_result], None, descr=BasicFailDescr()))
+                ops[-1].fail_args = [failed]
+
+            ops.append(ResOperation(rop.FINISH, [finished], None, descr=BasicFailDescr()))
+
+            looptoken = LoopToken()
+            self.cpu.compile_loop([a, b, failed, finished], ops, looptoken)
+            self.cpu.set_future_value_float(0, a.value)
+            self.cpu.set_future_value_float(1, b.value)
+            self.cpu.set_future_value_int(2, failed.value)
+            self.cpu.set_future_value_int(3, finished.value)
+            self.cpu.execute_token(looptoken)
+
+            # Really just a sanity check. We're actually interested in
+            # whether the test segfaults.
+            assert self.cpu.get_latest_value_int(0) == finished.value
+
+
+class TestDebuggingAssembler(object):
+    def setup_method(self, meth):
+        self.pypylog = os.environ.get('PYPYLOG', None)
+        self.logfile = str(udir.join('x86_runner.log'))
+        os.environ['PYPYLOG'] = "mumble:" + self.logfile
+        self.cpu = CPU(rtyper=None, stats=FakeStats())
+
+    def teardown_method(self, meth):
+        if self.pypylog is not None:
+            os.environ['PYPYLOG'] = self.pypylog
+
+    def test_debugger_on(self):
+        loop = """
+        [i0]
+        debug_merge_point('xyz')
+        i1 = int_add(i0, 1)
+        i2 = int_ge(i1, 10)
+        guard_false(i2) []
+        jump(i1)
+        """
+        ops = parse(loop)
+        self.cpu.assembler.set_debug(True)
+        self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_token(ops.token)
+        # check debugging info
+        name, struct = self.cpu.assembler.loop_run_counters[0]
+        assert name == 'xyz'
+        assert struct.i == 10
+        self.cpu.finish_once()
+        lines = py.path.local(self.logfile + ".count").readlines()
+        assert lines[0] == '10      xyz\n'

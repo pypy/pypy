@@ -1,7 +1,6 @@
 import autopath
 import py
 import sys, os
-from pypy.translator.c.node import PyObjectNode, FuncNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.llsupport.wrapper import new_wrapper
@@ -196,7 +195,7 @@ class CBuilder(object):
 
         all = []
         for node in self.db.globalcontainers():
-            eci = getattr(node, 'compilation_info', None)
+            eci = node.compilation_info()
             if eci:
                 all.append(eci)
         self.merge_eci(*all)
@@ -222,7 +221,7 @@ class CBuilder(object):
         graphs = db.all_graphs()
         db.gctransformer.prepare_inline_helpers(graphs)
         for node in db.containerlist:
-            if isinstance(node, FuncNode):
+            if hasattr(node, 'funcgens'):
                 for funcgen in node.funcgens:
                     funcgen.patch_graph(copy_graph=False)
         return db

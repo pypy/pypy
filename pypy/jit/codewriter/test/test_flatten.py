@@ -593,7 +593,8 @@ class TestFlatten:
             -live- %i0, %i1
             int_guard_value %i0
             jit_merge_point $27, I[%i0], R[], F[], I[%i1], R[], F[]
-            can_enter_jit $27
+            -live-
+            loop_header $27
             void_return
         """, transform=True, liveness=True, cc=MyFakeCallControl(), jd=jd)
 

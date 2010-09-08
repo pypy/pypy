@@ -1,6 +1,7 @@
 import py
 from pypy.jit.backend.llsupport.symbolic import *
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.jit.backend.x86.arch import WORD
 
 # This test file is here and not in llsupport/test/ because it checks
 # that we get correct numbers for a 32-bit machine.
@@ -19,32 +20,32 @@ def test_field_token():
     ofs_z, size_z = get_field_token(S, 'z', False)
     # ofs_x might be 0 or not, depending on how we count the headers
     # but the rest should be as expected for a 386 machine
-    assert size_x == size_y == size_z == 4
+    assert size_x == size_y == size_z == WORD
     assert ofs_x >= 0
-    assert ofs_y == ofs_x + 4
-    assert ofs_z == ofs_x + 8
+    assert ofs_y == ofs_x + WORD
+    assert ofs_z == ofs_x + (WORD*2)
 
 def test_struct_size():
     ofs_z, size_z = get_field_token(S, 'z', False)
     totalsize = get_size(S, False)
-    assert totalsize == ofs_z + 4
+    assert totalsize == ofs_z + WORD
 
 def test_primitive_size():
-    assert get_size(lltype.Signed, False) == 4
+    assert get_size(lltype.Signed, False) == WORD
     assert get_size(lltype.Char, False) == 1
-    assert get_size(lltype.Ptr(S), False) == 4
+    assert get_size(lltype.Ptr(S), False) == WORD
 
 def test_array_token():
     A = lltype.GcArray(lltype.Char)
     basesize, itemsize, ofs_length = get_array_token(A, False)
-    assert basesize >= 4    # at least the 'length', maybe some gc headers
+    assert basesize >= WORD    # at least the 'length', maybe some gc headers
     assert itemsize == 1
-    assert ofs_length == basesize - 4
+    assert ofs_length == basesize - WORD
     A = lltype.GcArray(lltype.Signed)
     basesize, itemsize, ofs_length = get_array_token(A, False)
-    assert basesize >= 4    # at least the 'length', maybe some gc headers
-    assert itemsize == 4
-    assert ofs_length == basesize - 4
+    assert basesize >= WORD    # at least the 'length', maybe some gc headers
+    assert itemsize == WORD
+    assert ofs_length == basesize - WORD
 
 def test_varsized_struct_size():
     S1 = lltype.GcStruct('S1', ('parent', S),
@@ -54,9 +55,9 @@ def test_varsized_struct_size():
     ofs_extra, size_extra = get_field_token(S1, 'extra', False)
     basesize, itemsize, ofs_length = get_array_token(S1, False)
     assert size_parent == ofs_extra
-    assert size_extra == 4
-    assert ofs_length == ofs_extra + 4
-    assert basesize == ofs_length + 4
+    assert size_extra == WORD
+    assert ofs_length == ofs_extra + WORD
+    assert basesize == ofs_length + WORD
     assert itemsize == 1
 
 def test_string():

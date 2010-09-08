@@ -211,10 +211,6 @@ class __extend__(pyframe.PyFrame):
                     next_instr = block.handle(self, unroller)
                     return next_instr    # now inside a 'finally' block
 
-            if opcode == self.opcodedesc.YIELD_VALUE.index:
-                #self.last_instr = intmask(next_instr - 1) XXX clean up!
-                raise Yield
-
             if opcode == self.opcodedesc.END_FINALLY.index:
                 unroller = self.end_finally()
                 if isinstance(unroller, SuspendedUnroller):
@@ -239,7 +235,7 @@ class __extend__(pyframe.PyFrame):
                     if not opdesc.is_enabled(space):
                         continue
                     if opdesc.methodname in (
-                        'EXTENDED_ARG', 'RETURN_VALUE', 'YIELD_VALUE',
+                        'EXTENDED_ARG', 'RETURN_VALUE',
                         'END_FINALLY', 'JUMP_ABSOLUTE'):
                         continue   # opcodes implemented above
 
@@ -810,6 +806,9 @@ class __extend__(pyframe.PyFrame):
                                   self.space.str_w(w_name))
         self.pushvalue(w_obj)
 
+    def YIELD_VALUE(self, oparg, next_instr):
+        raise Yield
+
     def jump_absolute(self, jumpto, next_instr, ec):
         return jumpto
 
@@ -1031,23 +1030,9 @@ class __extend__(pyframe.PyFrame):
             self.dropvalues(nargs)
         self.pushvalue(w_result)
 
-    def LOOKUP_METHOD(self, nameindex, next_instr):
-        # overridden by faster version in the standard object space.
-        space = self.space
-        w_obj = self.popvalue()
-        w_name = self.getname_w(nameindex)
-        w_value = space.getattr(w_obj, w_name)
-        self.pushvalue(w_value)
-
-    def CALL_METHOD(self, nargs, next_instr):
-        # overridden by faster version in the standard object space.
-        # 'nargs' is the argument count excluding the implicit 'self'
-        w_callable = self.peekvalue(nargs)
-        try:
-            w_result = self.space.call_valuestack(w_callable, nargs, self)
-        finally:
-            self.dropvalues(nargs + 1)
-        self.pushvalue(w_result)
+    # overridden by faster version in the standard object space.
+    LOOKUP_METHOD = LOAD_ATTR
+    CALL_METHOD = CALL_FUNCTION
 
     def MISSING_OPCODE(self, oparg, next_instr):
         ofs = self.last_instr

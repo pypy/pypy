@@ -298,9 +298,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # Load decorators first, but apply them after the function is created.
         if func.decorator_list:
             self.visit_sequence(func.decorator_list)
-        if func.args.defaults:
-            self.visit_sequence(func.args.defaults)
-            num_defaults = len(func.args.defaults)
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.defaults:
+            self.visit_sequence(args.defaults)
+            num_defaults = len(args.defaults)
         else:
             num_defaults = 0
         code = self.sub_scope(FunctionCodeGenerator, func.name, func,
@@ -314,9 +316,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
-        if lam.args.defaults:
-            self.visit_sequence(lam.args.defaults)
-            default_count = len(lam.args.defaults)
+        args = lam.args
+        assert isinstance(args, ast.arguments)
+        if args.defaults:
+            self.visit_sequence(args.defaults)
+            default_count = len(args.defaults)
         else:
             default_count = 0
         code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
@@ -980,9 +984,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif call_type == 3:
             op = ops.CALL_FUNCTION_VAR_KW
         self.emit_op_arg(op, arg)
+    
+    def _call_has_no_star_args(self, call):
+        return not call.starargs and not call.kwargs
 
     def _call_has_simple_args(self, call):
-        return not call.starargs and not call.kwargs and not call.keywords
+        return self._call_has_no_star_args(call) and not call.keywords
 
     def _optimize_builtin_call(self, call):
         if not self.space.config.objspace.opcodes.CALL_LIKELY_BUILTIN or \
@@ -1008,7 +1015,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _optimize_method_call(self, call):
         if not self.space.config.objspace.opcodes.CALL_METHOD or \
-                not self._call_has_simple_args(call) or \
+                not self._call_has_no_star_args(call) or \
                 not isinstance(call.func, ast.Attribute):
             return False
         attr_lookup = call.func
@@ -1020,7 +1027,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             arg_count = len(call.args)
         else:
             arg_count = 0
-        self.emit_op_arg(ops.CALL_METHOD, arg_count)
+        if call.keywords:
+            self.visit_sequence(call.keywords)
+            kwarg_count = len(call.keywords)
+        else:
+            kwarg_count = 0
+        self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
     def _listcomp_generator(self, gens, gen_index, elt):
@@ -1284,9 +1296,11 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
         else:
             self.add_const(self.space.w_None)
             start = 0
-        if func.args.args:
-            self._handle_nested_args(func.args.args)
-            self.argcount = len(func.args.args)
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.args:
+            self._handle_nested_args(args.args)
+            self.argcount = len(args.args)
         for i in range(start, len(func.body)):
             func.body[i].walkabout(self)
 
@@ -1295,9 +1309,11 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, lam):
         assert isinstance(lam, ast.Lambda)
-        if lam.args.args:
-            self._handle_nested_args(lam.args.args)
-            self.argcount = len(lam.args.args)
+        args = lam.args
+        assert isinstance(args, ast.arguments)
+        if args.args:
+            self._handle_nested_args(args.args)
+            self.argcount = len(args.args)
         # Prevent a string from being the first constant and thus a docstring.
         self.add_const(self.space.w_None)
         lam.body.walkabout(self)

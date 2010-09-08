@@ -92,6 +92,8 @@ def builtin_bool(s_obj):
     return s_obj.is_true()
 
 def builtin_int(s_obj, s_base=None):
+    if isinstance(s_obj, SomeInteger):
+        assert not s_obj.unsigned, "instead of int(r_uint(x)), use intmask(r_uint(x))"
     assert (s_base is None or isinstance(s_base, SomeInteger)
             and s_obj.knowntype == str), "only int(v|string) or int(string,int) expected"
     if s_base is not None:
@@ -694,18 +696,14 @@ def raw_malloc_usage(s_size):
 
 def raw_free(s_addr):
     assert isinstance(s_addr, SomeAddress)
-    assert not s_addr.is_null
 
 def raw_memclear(s_addr, s_int):
     assert isinstance(s_addr, SomeAddress)
-    assert not s_addr.is_null
     assert isinstance(s_int, SomeInteger)
 
 def raw_memcopy(s_addr1, s_addr2, s_int):
     assert isinstance(s_addr1, SomeAddress)
-    assert not s_addr1.is_null
     assert isinstance(s_addr2, SomeAddress)
-    assert not s_addr2.is_null
     assert isinstance(s_int, SomeInteger) #XXX add noneg...?
 
 BUILTIN_ANALYZERS[llmemory.raw_malloc] = raw_malloc

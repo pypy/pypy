@@ -253,8 +253,7 @@ class JitDriver:
     
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
-                 can_inline=None, get_printable_location=None,
-                 confirm_enter_jit=None):
+                 get_printable_location=None, confirm_enter_jit=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -270,7 +269,6 @@ class JitDriver:
         self.get_jitcell_at = get_jitcell_at
         self.set_jitcell_at = set_jitcell_at
         self.get_printable_location = get_printable_location
-        self.can_inline = can_inline
         self.confirm_enter_jit = confirm_enter_jit
 
     def _freeze_(self):
@@ -283,6 +281,10 @@ class JitDriver:
     def can_enter_jit(_self, **livevars):
         # special-cased by ExtRegistryEntry
         assert dict.fromkeys(livevars) == _self._alllivevars
+
+    def loop_header(self):
+        # special-cased by ExtRegistryEntry
+        pass
 
     def _set_param(self, name, value):
         # special-cased by ExtRegistryEntry
@@ -323,10 +325,14 @@ class JitDriver:
         # specifically for them.
         self.jit_merge_point = self.jit_merge_point
         self.can_enter_jit = self.can_enter_jit
+        self.loop_header = self.loop_header
         self._set_param = self._set_param
 
         class Entry(ExtEnterLeaveMarker):
             _about_ = (self.jit_merge_point, self.can_enter_jit)
+
+        class Entry(ExtLoopHeader):
+            _about_ = self.loop_header
 
         class Entry(ExtSetParam):
             _about_ = self._set_param
@@ -384,7 +390,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         self.annotate_hook(driver.get_jitcell_at, driver.greens, **kwds_s)
         self.annotate_hook(driver.set_jitcell_at, driver.greens, [s_jitcell],
                            **kwds_s)
-        self.annotate_hook(driver.can_inline, driver.greens, **kwds_s)
         self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
@@ -422,6 +427,23 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                  hop.inputconst(lltype.Void, driver)]
         vlist.extend(greens_v)
         vlist.extend(reds_v)
+        return hop.genop('jit_marker', vlist,
+                         resulttype=lltype.Void)
+
+class ExtLoopHeader(ExtRegistryEntry):
+    # Replace a call to myjitdriver.loop_header()
+    # with an operation jit_marker('loop_header', myjitdriver).
+
+    def compute_result_annotation(self, **kwds_s):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        driver = self.instance.im_self
+        hop.exception_cannot_occur()
+        vlist = [hop.inputconst(lltype.Void, 'loop_header'),
+                 hop.inputconst(lltype.Void, driver)]
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
 

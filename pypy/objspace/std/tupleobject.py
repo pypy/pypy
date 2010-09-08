@@ -11,7 +11,7 @@ from pypy.rlib.debug import make_sure_not_resized
 
 class W_TupleObject(W_Object):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['wrappeditems[*]']
 
     def __init__(w_self, wrappeditems):
         make_sure_not_resized(wrappeditems)

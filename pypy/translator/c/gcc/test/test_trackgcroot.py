@@ -1,51 +1,52 @@
 import py
 import sys, re
-from pypy.translator.c.gcc.trackgcroot import format_location
-from pypy.translator.c.gcc.trackgcroot import format_callshape
 from pypy.translator.c.gcc.trackgcroot import LOC_NOWHERE, LOC_REG
 from pypy.translator.c.gcc.trackgcroot import LOC_EBP_PLUS, LOC_EBP_MINUS
 from pypy.translator.c.gcc.trackgcroot import LOC_ESP_PLUS
 from pypy.translator.c.gcc.trackgcroot import ElfAssemblerParser
 from pypy.translator.c.gcc.trackgcroot import DarwinAssemblerParser
-from pypy.translator.c.gcc.trackgcroot import compress_callshape
-from pypy.translator.c.gcc.trackgcroot import decompress_callshape
 from pypy.translator.c.gcc.trackgcroot import PARSERS
+from pypy.translator.c.gcc.trackgcroot import ElfFunctionGcRootTracker32
 from StringIO import StringIO
+import py.test
 
 this_dir = py.path.local(__file__).dirpath()
 
 
 def test_format_location():
-    assert format_location(LOC_NOWHERE) == '?'
-    assert format_location(LOC_REG | (1<<2)) == '%ebx'
-    assert format_location(LOC_REG | (2<<2)) == '%esi'
-    assert format_location(LOC_REG | (3<<2)) == '%edi'
-    assert format_location(LOC_REG | (4<<2)) == '%ebp'
-    assert format_location(LOC_EBP_PLUS + 0) == '(%ebp)'
-    assert format_location(LOC_EBP_PLUS + 4) == '4(%ebp)'
-    assert format_location(LOC_EBP_MINUS + 4) == '-4(%ebp)'
-    assert format_location(LOC_ESP_PLUS + 0) == '(%esp)'
-    assert format_location(LOC_ESP_PLUS + 4) == '4(%esp)'
+    cls = ElfFunctionGcRootTracker32
+    assert cls.format_location(LOC_NOWHERE) == '?'
+    assert cls.format_location(LOC_REG | (1<<2)) == '%ebx'
+    assert cls.format_location(LOC_REG | (2<<2)) == '%esi'
+    assert cls.format_location(LOC_REG | (3<<2)) == '%edi'
+    assert cls.format_location(LOC_REG | (4<<2)) == '%ebp'
+    assert cls.format_location(LOC_EBP_PLUS + 0) == '(%ebp)'
+    assert cls.format_location(LOC_EBP_PLUS + 4) == '4(%ebp)'
+    assert cls.format_location(LOC_EBP_MINUS + 4) == '-4(%ebp)'
+    assert cls.format_location(LOC_ESP_PLUS + 0) == '(%esp)'
+    assert cls.format_location(LOC_ESP_PLUS + 4) == '4(%esp)'
 
 def test_format_callshape():
+    cls = ElfFunctionGcRootTracker32
     expected = ('{4(%ebp) '               # position of the return address
                 '| 8(%ebp), 12(%ebp), 16(%ebp), 20(%ebp) '  # 4 saved regs
                 '| 24(%ebp), 28(%ebp)}')                    # GC roots
-    assert format_callshape((LOC_EBP_PLUS+4,
-                             LOC_EBP_PLUS+8,
-                             LOC_EBP_PLUS+12,
-                             LOC_EBP_PLUS+16,
-                             LOC_EBP_PLUS+20,
-                             LOC_EBP_PLUS+24,
-                             LOC_EBP_PLUS+28)) == expected
+    assert cls.format_callshape((LOC_EBP_PLUS+4,
+                                 LOC_EBP_PLUS+8,
+                                 LOC_EBP_PLUS+12,
+                                 LOC_EBP_PLUS+16,
+                                 LOC_EBP_PLUS+20,
+                                 LOC_EBP_PLUS+24,
+                                 LOC_EBP_PLUS+28)) == expected
 
 def test_compress_callshape():
+    cls = ElfFunctionGcRootTracker32
     shape = (1, 127, 0x1234, 0x5678, 0x234567,
              0x765432, 0x61626364, 0x41424344)
-    bytes = list(compress_callshape(shape))
+    bytes = list(cls.compress_callshape(shape))
     print bytes
     assert len(bytes) == 1+1+2+3+4+4+5+5+1
-    assert decompress_callshape(bytes) == list(shape)
+    assert cls.decompress_callshape(bytes) == list(shape)
 
 def test_find_functions_elf():
     source = """\
@@ -108,7 +109,7 @@ _pypy_g_RPyRaiseException:
  
 def test_computegcmaptable():
     tests = []
-    for format in ('elf', 'darwin', 'msvc'):
+    for format in ('elf', 'darwin', 'msvc', 'elf64'):
         for path in this_dir.join(format).listdir("track*.s"):
             n = path.purebasename[5:]
             try:
@@ -138,7 +139,7 @@ def check_computegcmaptable(format, path):
     tabledict = {}
     seen = {}
     for entry in table:
-        print '%s: %s' % (entry[0], format_callshape(entry[1]))
+        print '%s: %s' % (entry[0], tracker.format_callshape(entry[1]))
         tabledict[entry[0]] = entry[1]
     # find the ";; expected" lines
     prevline = ""
@@ -151,7 +152,7 @@ def check_computegcmaptable(format, path):
             label = prevmatch.group(1)
             assert label in tabledict
             got = tabledict[label]
-            assert format_callshape(got) == expected
+            assert tracker.format_callshape(got) == expected
             seen[label] = True
             if format == 'msvc':
                 expectedlines.insert(i-2, 'PUBLIC\t%s\n' % (label,))

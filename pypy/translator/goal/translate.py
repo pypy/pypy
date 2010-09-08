@@ -18,7 +18,7 @@ from pypy.config.config import to_optparse, OptionDescription, BoolOption, \
                                ArbitraryOption, StrOption, IntOption, Config, \
                                ChoiceOption, OptHelpFormatter
 from pypy.config.translationoption import get_combined_translation_config
-from pypy.config.translationoption import set_opt_level
+from pypy.config.translationoption import set_opt_level, final_check_config
 from pypy.config.translationoption import OPT_LEVELS, DEFAULT_OPT_LEVEL
 from pypy.config.translationoption import PLATFORMS, set_platform
 
@@ -174,6 +174,9 @@ def parse_options_and_load_target():
     # based on the config
     if 'handle_config' in targetspec_dic:
         targetspec_dic['handle_config'](config, translateconfig)
+
+    # perform checks (if any) on the final config
+    final_check_config(config)
 
     if translateconfig.help:
         opt_parser.print_help()

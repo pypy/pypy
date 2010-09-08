@@ -18,6 +18,7 @@ import sys
 #  The .s file produced by GCC is then parsed by trackgcroot.py.
 #
 
+IS_64_BITS = sys.maxint > 2147483647
 
 class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
     _asmgcc_save_restore_arguments = None
@@ -326,7 +327,7 @@ class AsmStackRootWalker(BaseRootWalker):
             ll_assert(reg < CALLEE_SAVED_REGS, "bad register location")
             return callee.regs_stored_at[reg]
         elif kind == LOC_ESP_PLUS:    # in the caller stack frame at N(%esp)
-            esp_in_caller = callee.frame_address + 4
+            esp_in_caller = callee.frame_address + sizeofaddr
             return esp_in_caller + offset
         elif kind == LOC_EBP_PLUS:    # in the caller stack frame at N(%ebp)
             ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
@@ -415,11 +416,12 @@ def _compare_gcmap_entries(addr1, addr2):
     key1 = addr1.address[0]
     key2 = addr2.address[0]
     if key1 < key2:
-        return -1
+        result = -1
     elif key1 == key2:
-        return 0
+        result = 0
     else:
-        return 1
+        result = 1
+    return rffi.cast(rffi.INT, result)
 
 # ____________________________________________________________
 
@@ -464,9 +466,15 @@ class ShapeDecompressor:
 #   - frame address (actually the addr of the retaddr of the current function;
 #                    that's the last word of the frame in memory)
 #
-CALLEE_SAVED_REGS = 4       # there are 4 callee-saved registers
-INDEX_OF_EBP      = 3
-FRAME_PTR         = CALLEE_SAVED_REGS    # the frame is at index 4 in the array
+
+if IS_64_BITS:
+    CALLEE_SAVED_REGS = 6
+    INDEX_OF_EBP      = 5
+    FRAME_PTR         = CALLEE_SAVED_REGS
+else:
+    CALLEE_SAVED_REGS = 4       # there are 4 callee-saved registers
+    INDEX_OF_EBP      = 3
+    FRAME_PTR         = CALLEE_SAVED_REGS    # the frame is at index 4 in the array
 
 ASM_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([], lltype.Void))
 

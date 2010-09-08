@@ -786,6 +786,168 @@ class AppTestOldstyle(object):
                 return [1, 2]
         assert reversed(X()) == [1, 2]
 
+    def test_special_method_via_getattr(self):
+        class A:
+            def __getattr__(self, attr):
+                print 'A getattr:', attr
+                def callable(*args):
+                    print 'A called:', attr + repr(args)
+                    return attr + repr(args)
+                return callable
+        class B:
+            def __getattr__(self, attr):
+                print 'B getattr:', attr
+                def callable(*args):
+                    print 'B called:', attr, args
+                    self.called = attr, args
+                    if attr == '__coerce__':
+                        return self, args[0]
+                    return 42
+                return callable
+        a = A()
+        a.instancevalue = 42      # does not go via __getattr__('__setattr__')
+        a.__getattr__ = "hi there, ignore me, I'm in a"
+        a.__setattr__ = "hi there, ignore me, I'm in a too"
+        assert a.instancevalue == 42
+        A.classvalue = 123
+        assert a.classvalue == 123
+        assert a.foobar(5) == 'foobar(5,)'
+        assert a.__dict__ == {'instancevalue': 42,
+                              '__getattr__': a.__getattr__,
+                              '__setattr__': a.__setattr__}
+        assert a.__class__ is A
+        # This follows the Python 2.5 rules, more precisely.
+        # It is still valid in Python 2.7 too.
+        assert repr(a) == '__repr__()'
+        assert str(a) == '__str__()'
+        assert unicode(a) == u'__unicode__()'
+        b = B()
+        b.__getattr__ = "hi there, ignore me, I'm in b"
+        b.__setattr__ = "hi there, ignore me, I'm in b too"
+        assert 'called' not in b.__dict__      # and not e.g. ('__init__', ())
+        assert len(b) == 42
+        assert b.called == ('__len__', ())
+        assert a[5] == '__getitem__(5,)'
+        b[6] = 7
+        assert b.called == ('__setitem__', (6, 7))
+        del b[8]
+        assert b.called == ('__delitem__', (8,))
+        #
+        class C:
+            def __getattr__(self, name):
+                if name == '__iter__':
+                    return lambda: iter([3, 33, 333])
+                raise AttributeError
+        assert list(iter(C())) == [3, 33, 333]
+        #
+        class C:
+            def __getattr__(self, name):
+                if name == '__getitem__':
+                    return lambda n: [3, 33, 333][n]
+                raise AttributeError
+        assert list(iter(C())) == [3, 33, 333]
+        #
+        assert a[:6] == '__getslice__(0, 6)'
+        b[3:5] = 7
+        assert b.called == ('__setslice__', (3, 5, 7))
+        del b[:-1000]
+        assert b.called == ('__delslice__', (0, -958))   # adds len(b)...
+        assert a(5) == '__call__(5,)'
+        raises(TypeError, bool, a)     # "should return an int"
+        assert not not b
+        #
+        class C:
+            def __getattr__(self, name):
+                if name == '__nonzero__':
+                    return lambda: False
+                raise AttributeError
+        assert not C()
+        #
+        class C:
+            def __getattr__(self, name):
+                if name == '__len__':
+                    return lambda: 0
+                raise AttributeError
+        assert not C()
+        #
+        #assert cmp(b, 43) == 0    # because __eq__(43) returns 42, so True...
+        # ... I will leave this case as XXX implement me
+        assert hash(b) == 42
+        assert range(100, 200)[b] == 142
+        assert "foo" in b
+        #
+        class C:
+            def __iter__(self):
+                return self
+            def __getattr__(self, name):
+                if name == 'next':
+                    return lambda: 'the next item'
+                raise AttributeError
+        for x in C():
+            assert x == 'the next item'
+            break
+        #
+        # XXX a really corner case: '__del__'
+        #
+        import operator
+        op_by_name = {"neg": operator.neg,
+                      "pos": operator.pos,
+                      "abs": abs,
+                      "invert": operator.invert,
+                      "int": int,
+                      "long": long}
+        for opname, opfunc in op_by_name.items():
+            assert opfunc(b) == 42
+            assert b.called == ("__" + opname + "__", ())
+        assert oct(a) == '__oct__()'
+        assert hex(a) == '__hex__()'
+        #
+        class C:
+            def __getattr__(self, name):
+                return lambda: 5.5
+        raises(TypeError, float, b)
+        assert float(C()) == 5.5
+        #
+        op_by_name = {'eq': operator.eq,
+                      'ne': operator.ne,
+                      'gt': operator.gt,
+                      'lt': operator.lt,
+                      'ge': operator.ge,
+                      'le': operator.le,
+                      'imod': operator.imod,
+                      'iand': operator.iand,
+                      'ipow': operator.ipow,
+                      'itruediv': operator.itruediv,
+                      'ilshift': operator.ilshift,
+                      'ixor': operator.ixor,
+                      'irshift': operator.irshift,
+                      'ifloordiv': operator.ifloordiv,
+                      'idiv': operator.idiv,
+                      'isub': operator.isub,
+                      'imul': operator.imul,
+                      'iadd': operator.iadd,
+                      'ior': operator.ior,
+                      'or': operator.or_,
+                      'and': operator.and_,
+                      'xor': operator.xor,
+                      'lshift': operator.lshift,
+                      'rshift': operator.rshift,
+                      'add': operator.add,
+                      'sub': operator.sub,
+                      'mul': operator.mul,
+                      'div': operator.div,
+                      'mod': operator.mod,
+                      'divmod': divmod,
+                      'floordiv': operator.floordiv,
+                      'truediv': operator.truediv}
+        for opname, opfunc in op_by_name.items():
+            assert opfunc(b, 5) == 42
+            assert b.called == ("__" + opname + "__", (5,))
+        x, y = coerce(b, 5)
+        assert x is b
+        assert y == 5
+
+
 class AppTestOldStyleSharing(AppTestOldstyle):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})

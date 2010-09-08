@@ -5,10 +5,10 @@ from pypy.translator.platform import posix
 class Freebsd7(posix.BasePosix):
     name = "freebsd7"
     
-    link_flags = ['-pthread']
-    cflags = ['-O3', '-pthread', '-fomit-frame-pointer']
-    standalone_only = []
-    shared_only = []
+    link_flags = ('-pthread',)
+    cflags = ('-O3', '-pthread', '-fomit-frame-pointer')
+    standalone_only = ()
+    shared_only = ()
     so_ext = 'so'
     make_cmd = 'gmake'
     
@@ -32,4 +32,4 @@ class Freebsd7(posix.BasePosix):
         return ['/usr/local/lib']
 
 class Freebsd7_64(Freebsd7):
-    shared_only = ['-fPIC']
+    shared_only = ('-fPIC',)

@@ -1,6 +1,5 @@
-
-from pypy.jit.backend.x86.runner import CPU
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
+from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 
 class TestRecompilation(BaseTestRegalloc):
     def test_compile_bridge_not_deeper(self):
@@ -51,7 +50,9 @@ class TestRecompilation(BaseTestRegalloc):
         descr = loop.operations[2].descr
         new = descr._x86_bridge_frame_depth
         assert descr._x86_bridge_param_depth == 0        
-        assert new > previous
+        # XXX: Maybe add enough ops to force stack on 64-bit as well?
+        if IS_X86_32:
+            assert new > previous
         self.cpu.set_future_value_int(0, 0)
         fail = self.run(loop)
         assert fail.identifier == 2
@@ -111,7 +112,9 @@ class TestRecompilation(BaseTestRegalloc):
         guard_op = loop.operations[5]
         loop_frame_depth = loop.token._x86_frame_depth
         assert loop.token._x86_param_depth == 0
-        assert guard_op.descr._x86_bridge_frame_depth > loop_frame_depth
+        # XXX: Maybe add enough ops to force stack on 64-bit as well?
+        if IS_X86_32:
+            assert guard_op.descr._x86_bridge_frame_depth > loop_frame_depth
         assert guard_op.descr._x86_bridge_param_depth == 0
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 0)

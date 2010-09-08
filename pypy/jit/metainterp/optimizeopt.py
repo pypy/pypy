@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.history import Box, BoxInt, LoopToken, BoxFloat,\
      ConstFloat
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, ResOperation, opboolinvers, opboolreflex
 from pypy.jit.metainterp import jitprof
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
@@ -17,6 +17,7 @@ from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
+
 
 def optimize_loop_1(metainterp_sd, loop):
     """Optimize loop.operations to make it match the input of loop.specnodes
@@ -525,7 +526,9 @@ class Optimizer(object):
     def propagate_forward(self):
         self.exception_might_have_happened = False
         self.newoperations = []
-        for op in self.loop.operations:
+        self.i = 0
+        while self.i < len(self.loop.operations):
+            op = self.loop.operations[self.i]
             opnum = op.opnum
             for value, func in optimize_ops:
                 if opnum == value:
@@ -533,6 +536,7 @@ class Optimizer(object):
                     break
             else:
                 self.optimize_default(op)
+            self.i += 1
         self.loop.operations = self.newoperations
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
@@ -587,7 +591,12 @@ class Optimizer(object):
                 descr.make_a_counter_per_value(op)
 
     def optimize_default(self, op):
-        if op.is_always_pure():
+        canfold = op.is_always_pure()
+        is_ovf = op.is_ovf()
+        if is_ovf:
+            nextop = self.loop.operations[self.i + 1]
+            canfold = nextop.opnum == rop.GUARD_NO_OVERFLOW
+        if canfold:
             for arg in op.args:
                 if self.get_constant_box(arg) is None:
                     break
@@ -597,6 +606,8 @@ class Optimizer(object):
                 resbox = execute_nonspec(self.cpu, None,
                                          op.opnum, argboxes, op.descr)
                 self.make_constant(op.result, resbox.constbox())
+                if is_ovf:
+                    self.i += 1 # skip next operation, it is the unneeded guard
                 return
 
             # did we do the exact same operation already?
@@ -610,6 +621,10 @@ class Optimizer(object):
             if oldop is not None and oldop.descr is op.descr:
                 assert oldop.opnum == op.opnum
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
+                if is_ovf:
+                    self.i += 1 # skip next operation, it is the unneeded guard
+                return
+            elif self.find_rewritable_bool(op, args):
                 return
             else:
                 self.pure_operations[args] = op
@@ -617,6 +632,51 @@ class Optimizer(object):
         # otherwise, the operation remains
         self.emit_operation(op)
 
+
+    def try_boolinvers(self, op, targs):
+        oldop = self.pure_operations.get(targs, None)
+        if oldop is not None and oldop.descr is op.descr:
+            value = self.getvalue(oldop.result)
+            if value.is_constant():
+                if value.box is CONST_1:
+                    self.make_constant(op.result, CONST_0)
+                    return True
+                elif value.box is CONST_0:
+                    self.make_constant(op.result, CONST_1)
+                    return True
+        return False
+
+    
+    def find_rewritable_bool(self, op, args):
+        try:
+            oldopnum = opboolinvers[op.opnum]
+            targs = [args[0], args[1], ConstInt(oldopnum)]
+            if self.try_boolinvers(op, targs):
+                return True
+        except KeyError:
+            pass
+
+        try:
+            oldopnum = opboolreflex[op.opnum]
+            targs = [args[1], args[0], ConstInt(oldopnum)]
+            oldop = self.pure_operations.get(targs, None)
+            if oldop is not None and oldop.descr is op.descr:
+                self.make_equal_to(op.result, self.getvalue(oldop.result))
+                return True
+        except KeyError:
+            pass
+
+        try:
+            oldopnum = opboolinvers[opboolreflex[op.opnum]]
+            targs = [args[1], args[0], ConstInt(oldopnum)]
+            if self.try_boolinvers(op, targs):
+                return True
+        except KeyError:
+            pass
+
+        return False
+
+        
     def optimize_JUMP(self, op):
         orgop = self.loop.operations[-1]
         exitargs = []
@@ -989,6 +1049,25 @@ class Optimizer(object):
         if v1.is_null():
             self.make_equal_to(op.result, v2)
         elif v2.is_null():
+            self.make_equal_to(op.result, v1)
+        else:
+            self.optimize_default(op)
+    
+    def optimize_INT_SUB(self, op):
+        v1 = self.getvalue(op.args[0])
+        v2 = self.getvalue(op.args[1])
+        if v2.is_constant() and v2.box.getint() == 0:
+            self.make_equal_to(op.result, v1)
+        else:
+            return self.optimize_default(op)
+    
+    def optimize_INT_ADD(self, op):
+        v1 = self.getvalue(op.args[0])
+        v2 = self.getvalue(op.args[1])
+        # If one side of the op is 0 the result is the other side.
+        if v1.is_constant() and v1.box.getint() == 0:
+            self.make_equal_to(op.result, v2)
+        elif v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
         else:
             self.optimize_default(op)

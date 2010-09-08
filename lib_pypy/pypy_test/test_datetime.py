@@ -15,4 +15,18 @@ def test_strptime():
     expected = datetime.datetime(*(time.strptime(string, format)[0:6]))
     got = datetime.datetime.strptime(string, format)
     assert expected == got
+
+def test_datetime_rounding():
+    b = 0.0000001
+    a = 0.9999994
+
+    assert datetime.datetime.utcfromtimestamp(a).microsecond == 999999
+    assert datetime.datetime.utcfromtimestamp(a).second == 0
+    a += b
+    assert datetime.datetime.utcfromtimestamp(a).microsecond == 999999
+    assert datetime.datetime.utcfromtimestamp(a).second == 0
+    a += b
+    assert datetime.datetime.utcfromtimestamp(a).microsecond == 0
+    assert datetime.datetime.utcfromtimestamp(a).second == 1
+
     

@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._locale import interp_locale
 from pypy.rlib import rlocale
 import sys
 

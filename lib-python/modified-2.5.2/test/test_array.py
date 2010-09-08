@@ -269,9 +269,11 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
+        #self.assertRaises(TypeError, a.__add__, b)
+        #self.assertRaises(TypeError, a.__add__, "bad")
+        self.assertRaises(TypeError, lambda i, j: i + j, a, b)
+        self.assertRaises(TypeError, lambda i, j: i + j, a, "bad")
 
-        self.assertRaises(TypeError, a.__add__, "bad")
 
     def test_iadd(self):
         a = array.array(self.typecode, self.example[::-1])
@@ -284,9 +286,12 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
-
-        self.assertRaises(TypeError, a.__iadd__, "bad")
+        #self.assertRaises(TypeError, a.__add__, b)
+        #self.assertRaises(TypeError, a.__iadd__, "bad")
+        def f(i, j):
+            i += j
+        self.assertRaises(TypeError, f, a, b)
+        self.assertRaises(TypeError, f, a, "bad")
 
     def test_mul(self):
         a = 5*array.array(self.typecode, self.example)
@@ -313,7 +318,8 @@ class BaseTest(unittest.TestCase):
             array.array(self.typecode)
         )
 
-        self.assertRaises(TypeError, a.__mul__, "bad")
+        #self.assertRaises(TypeError, a.__mul__, "bad")
+        self.assertRaises(TypeError, lambda i, j: i * j, a, "bad")
 
     def test_imul(self):
         a = array.array(self.typecode, self.example)
@@ -342,7 +348,10 @@ class BaseTest(unittest.TestCase):
         a *= -1
         self.assertEqual(a, array.array(self.typecode))
 
-        self.assertRaises(TypeError, a.__imul__, "bad")
+        #self.assertRaises(TypeError, a.__imul__, "bad")
+        def f(i, j):
+            i *= j
+        self.assertRaises(TypeError, f, a, "bad")        
 
     def test_getitem(self):
         a = array.array(self.typecode, self.example)

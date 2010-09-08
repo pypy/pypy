@@ -2,7 +2,7 @@ from weakref import WeakValueDictionary
 from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
-from pypy.rlib.objectmodel import _hash_string
+from pypy.rlib.objectmodel import _hash_string, enforceargs
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.jit import purefunction
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
@@ -56,6 +56,7 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
                 llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
+    @enforceargs(None, None, int, int, int)
     def copy_string_contents(src, dst, srcstart, dststart, length):
         assert srcstart >= 0
         assert dststart >= 0
@@ -674,6 +675,7 @@ class LLHelpers(AbstractLLHelpers):
             res_index += item_len
             i += 1
         return result
+    ll_join_strs._annenforceargs_ = [int, None]
 
     def ll_join_chars(length, chars, RES):
         # no need to optimize this, will be replaced by string builder

@@ -1,1039 +1,946 @@
-"""
-Core routines for regular expression matching and searching.
-"""
-
-# This module should not be imported directly; it is execfile'd by rsre.py,
-# possibly more than once.  This is done to create specialized version of
-# this code: each copy is used with a 'state' that is an instance of a
-# specific subclass of BaseState, so all the inner-loop calls to methods
-# like state.get_char_ord() can be compiled as direct calls, which can be
-# inlined.
-
-from pypy.rlib.rsre import rsre_char
-from pypy.rlib.rsre.rsre_char import SRE_INFO_PREFIX, SRE_INFO_LITERAL
-from pypy.rlib.rsre.rsre_char import OPCODE_INFO, MAXREPEAT
+import sys
+from pypy.rlib.debug import check_nonneg
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rsre import rsre_char
+from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib.objectmodel import we_are_translated
 
-#### Core classes
 
-class StateMixin(object):
+OPCODE_FAILURE            = 0
+OPCODE_SUCCESS            = 1
+OPCODE_ANY                = 2
+OPCODE_ANY_ALL            = 3
+OPCODE_ASSERT             = 4
+OPCODE_ASSERT_NOT         = 5
+OPCODE_AT                 = 6
+OPCODE_BRANCH             = 7
+#OPCODE_CALL              = 8
+OPCODE_CATEGORY           = 9
+#OPCODE_CHARSET           = 10
+#OPCODE_BIGCHARSET        = 11
+OPCODE_GROUPREF           = 12
+OPCODE_GROUPREF_EXISTS    = 13
+OPCODE_GROUPREF_IGNORE    = 14
+OPCODE_IN                 = 15
+OPCODE_IN_IGNORE          = 16
+OPCODE_INFO               = 17
+OPCODE_JUMP               = 18
+OPCODE_LITERAL            = 19
+OPCODE_LITERAL_IGNORE     = 20
+OPCODE_MARK               = 21
+OPCODE_MAX_UNTIL          = 22
+OPCODE_MIN_UNTIL          = 23
+OPCODE_NOT_LITERAL        = 24
+OPCODE_NOT_LITERAL_IGNORE = 25
+#OPCODE_NEGATE            = 26
+#OPCODE_RANGE             = 27
+OPCODE_REPEAT             = 28
+OPCODE_REPEAT_ONE         = 29
+#OPCODE_SUBPATTERN        = 30
+OPCODE_MIN_REPEAT_ONE     = 31
 
-    def reset(self):
-        self.string_position = self.start
-        self.marks = [0, 0, 0, 0]
-        self.lastindex = -1
-        self.marks_count = 0
-        # self.saved_marks is a list of ints that stores saved marks.
-        # For example, if s1..sn, t1..tn are two sets of saved marks:
-        #       [s1,..,sn,lastindex,x, t1,..,tn,lastindex,y, extra_unused...]
-        #        ^------------------'  ^------------------'
-        # with x and y saved indices to allow pops.
-        self.saved_marks = []
-        self.saved_marks_top = 0
-        self.context_stack = []
-        self.repeat = None
+# ____________________________________________________________
 
-    def search(self, pattern_codes):
-        return search(self, pattern_codes)
+_seen_specname = {}
 
-    def match(self, pattern_codes):
-        return match(self, pattern_codes)
+def specializectx(func):
+    """A decorator that specializes 'func(ctx,...)' for each concrete subclass
+    of AbstractMatchContext.  During annotation, if 'ctx' is known to be a
+    specific subclass, calling 'func' is a direct call; if 'ctx' is only known
+    to be of class AbstractMatchContext, calling 'func' is an indirect call.
+    """
+    assert func.func_code.co_varnames[0] == 'ctx'
+    specname = '_spec_' + func.func_name
+    while specname in _seen_specname:
+        specname += '_'
+    _seen_specname[specname] = True
+    # Install a copy of the function under the name '_spec_funcname' in each
+    # concrete subclass
+    for prefix, concreteclass in [('str', StrMatchContext),
+                                  ('uni', UnicodeMatchContext)]:
+        newfunc = func_with_new_name(func, prefix + specname)
+        assert not hasattr(concreteclass, specname)
+        setattr(concreteclass, specname, newfunc)
+    # Return a dispatcher function, specialized on the exact type of 'ctx'
+    def dispatch(ctx, *args):
+        return getattr(ctx, specname)(*args)
+    dispatch._annspecialcase_ = 'specialize:argtype(0)'
+    return dispatch
 
-    def create_regs(self, group_count):
-        """Creates a tuple of index pairs representing matched groups, a format
-        that's convenient for SRE_Match."""
-        regs = [(self.start, self.string_position)]
-        for group in range(group_count):
-            mark_index = 2 * group
-            start = end = -1
-            if mark_index + 1 < self.marks_count:
-                start1 = self.marks[mark_index]
-                end1   = self.marks[mark_index + 1]
-                if start1 >= 0 and end1 >= 0:
-                    start = start1
-                    end   = end1
-            regs.append((start, end))
-        return regs
+# ____________________________________________________________
 
-    def set_mark(self, mark_nr, position):
-        assert mark_nr >= 0
-        if mark_nr & 1:
-            # This id marks the end of a group.
-            self.lastindex = mark_nr / 2 + 1
-        if mark_nr >= self.marks_count:
-            count = self.marks_count
-            self.marks_count = mark_nr + 1
-            while mark_nr >= len(self.marks):
-                self.marks = self.marks + [0] * len(self.marks)
-            for i in range(count, mark_nr):
-                self.marks[i] = -1
-        self.marks[mark_nr] = position
+class Error(Exception):
+    def __init__(self, msg):
+        self.msg = msg
 
-    def get_marks(self, group_index):
-        marks_index = 2 * group_index
-        if self.marks_count > marks_index + 1:
-            return self.marks[marks_index], self.marks[marks_index + 1]
+class AbstractMatchContext(object):
+    """Abstract base class"""
+    match_start = 0
+    match_end = 0
+    match_marks = None
+    match_marks_flat = None
+
+    def __init__(self, pattern, match_start, end, flags):
+        # 'match_start' and 'end' must be known to be non-negative
+        # and they must not be more than len(string).
+        check_nonneg(match_start)
+        check_nonneg(end)
+        self.pattern = pattern
+        self.match_start = match_start
+        self.end = end
+        self.flags = flags
+
+    def reset(self, start):
+        self.match_start = start
+        self.match_marks = None
+        self.match_marks_flat = None
+
+    def pat(self, index):
+        check_nonneg(index)
+        result = self.pattern[index]
+        # Check that we only return non-negative integers from this helper.
+        # It is possible that self.pattern contains negative integers
+        # (see set_charset() and set_bigcharset() in rsre_char.py)
+        # but they should not be fetched via this helper here.
+        assert result >= 0
+        return result
+
+    def str(self, index):
+        """NOT_RPYTHON: Must be overridden in a concrete subclass.
+        The tag ^^^ here is used to generate a translation-time crash
+        if there is a call to str() that is indirect.  All calls must
+        be direct for performance reasons; you need to specialize the
+        caller with @specializectx."""
+        raise NotImplementedError
+
+    def lowstr(self, index):
+        """NOT_RPYTHON: Similar to str()."""
+        raise NotImplementedError
+
+    def get_mark(self, gid):
+        return find_mark(self.match_marks, gid)
+
+    def flatten_marks(self):
+        # for testing
+        if self.match_marks_flat is None:
+            self.match_marks_flat = [self.match_start, self.match_end]
+            mark = self.match_marks
+            if mark is not None:
+                self.match_lastindex = mark.gid
+            else:
+                self.match_lastindex = -1
+            while mark is not None:
+                index = mark.gid + 2
+                while index >= len(self.match_marks_flat):
+                    self.match_marks_flat.append(-1)
+                if self.match_marks_flat[index] == -1:
+                    self.match_marks_flat[index] = mark.position
+                mark = mark.prev
+            self.match_marks = None    # clear
+        return self.match_marks_flat
+
+    def span(self, groupnum=0):
+        # compatibility
+        fmarks = self.flatten_marks()
+        groupnum *= 2
+        if groupnum >= len(fmarks):
+            return (-1, -1)
+        return (fmarks[groupnum], fmarks[groupnum+1])
+
+    def group(self, groupnum=0):
+        "NOT_RPYTHON"   # compatibility
+        frm, to = self.span(groupnum)
+        if 0 <= frm <= to:
+            return self._string[frm:to]
         else:
-            return -1, -1
+            return None
 
-    def marks_push(self):
-        # Create in saved_marks: [......, m1,..,mn,lastindex,p, ...........]
-        #                                 ^p                    ^newsize
-        p = self.saved_marks_top
-        n = self.marks_count
-        assert p >= 0
-        newsize = p + n + 2
-        while len(self.saved_marks) < newsize:
-            self.saved_marks.append(-1)
-        for i in range(n):
-            self.saved_marks[p+i] = self.marks[i]
-        self.saved_marks[p+n] = self.lastindex
-        self.saved_marks[p+n+1] = p
-        self.saved_marks_top = newsize
+    def fresh_copy(self, start):
+        raise NotImplementedError
 
-    def marks_pop(self):
-        p0 = self.marks_pop_keep()
-        self.saved_marks_top = p0
+class StrMatchContext(AbstractMatchContext):
+    """Concrete subclass for matching in a plain string."""
 
-    def marks_pop_keep(self):
-        # Restore from saved_marks: [......, m1,..,mn,lastindex,p, .........]
-        #                                    ^p0      ^p1
-        p1 = self.saved_marks_top - 2
-        assert p1 >= 0
-        p0 = self.saved_marks[p1+1]
-        n = p1 - p0
-        assert p0 >= 0 and n >= 0
-        self.lastindex = self.saved_marks[p1]
-        for i in range(n):
-            self.marks[i] = self.saved_marks[p0+i]
-        self.marks_count = n
-        return p0
+    def __init__(self, pattern, string, match_start, end, flags):
+        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+        self._string = string
 
-    def marks_pop_discard(self):
-        p0 = self.saved_marks[self.saved_marks_top-1]
-        self.saved_marks_top = p0
+    def str(self, index):
+        check_nonneg(index)
+        return ord(self._string[index])
+
+    def lowstr(self, index):
+        c = self.str(index)
+        return rsre_char.getlower(c, self.flags)
+
+    def fresh_copy(self, start):
+        return StrMatchContext(self.pattern, self._string, start,
+                               self.end, self.flags)
+
+class UnicodeMatchContext(AbstractMatchContext):
+    """Concrete subclass for matching in a unicode string."""
+
+    def __init__(self, pattern, unicodestr, match_start, end, flags):
+        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+        self._unicodestr = unicodestr
+
+    def str(self, index):
+        check_nonneg(index)
+        return ord(self._unicodestr[index])
+
+    def lowstr(self, index):
+        c = self.str(index)
+        return rsre_char.getlower(c, self.flags)
+
+    def fresh_copy(self, start):
+        return UnicodeMatchContext(self.pattern, self._unicodestr, start,
+                                   self.end, self.flags)
+
+# ____________________________________________________________
+
+class Mark(object):
+    _immutable_ = True
+
+    def __init__(self, gid, position, prev):
+        self.gid = gid
+        self.position = position
+        self.prev = prev      # chained list
+
+def find_mark(mark, gid):
+    while mark is not None:
+        if mark.gid == gid:
+            return mark.position
+        mark = mark.prev
+    return -1
+
+# ____________________________________________________________
+
+class MatchResult(object):
+    subresult = None
+
+    def move_to_next_result(self, ctx):
+        result = self.subresult
+        if result is None:
+            return
+        if result.move_to_next_result(ctx):
+            return result
+        return self.find_next_result(ctx)
+
+    def find_next_result(self, ctx):
+        raise NotImplementedError
+
+MATCHED_OK = MatchResult()
+
+class BranchMatchResult(MatchResult):
+
+    def __init__(self, ppos, ptr, marks):
+        self.ppos = ppos
+        self.start_ptr = ptr
+        self.start_marks = marks
+
+    def find_first_result(self, ctx):
+        ppos = self.ppos
+        while ctx.pat(ppos):
+            result = sre_match(ctx, ppos + 1, self.start_ptr, self.start_marks)
+            ppos += ctx.pat(ppos)
+            if result is not None:
+                self.subresult = result
+                self.ppos = ppos
+                return self
+    find_next_result = find_first_result
+
+class RepeatOneMatchResult(MatchResult):
+
+    def __init__(self, nextppos, minptr, ptr, marks):
+        self.nextppos = nextppos
+        self.minptr = minptr
+        self.start_ptr = ptr
+        self.start_marks = marks
+
+    def find_first_result(self, ctx):
+        ptr = self.start_ptr
+        while ptr >= self.minptr:
+            result = sre_match(ctx, self.nextppos, ptr, self.start_marks)
+            ptr -= 1
+            if result is not None:
+                self.subresult = result
+                self.start_ptr = ptr
+                return self
+    find_next_result = find_first_result
 
 
-class MatchContext(rsre_char.MatchContextBase):
+class MinRepeatOneMatchResult(MatchResult):
 
-    def __init__(self, state, pattern_codes, offset=0):
-        self.state = state
-        self.pattern_codes = pattern_codes
-        self.string_position = state.string_position
-        self.code_position = offset
-        self.has_matched = self.UNDECIDED
-        self.backup = []
-        self.resume_at_opcode = -1
+    def __init__(self, nextppos, ppos3, maxptr, ptr, marks):
+        self.nextppos = nextppos
+        self.ppos3 = ppos3
+        self.maxptr = maxptr
+        self.start_ptr = ptr
+        self.start_marks = marks
 
-    def push_new_context(self, pattern_offset):
-        """Creates a new child context of this context and pushes it on the
-        stack. pattern_offset is the offset off the current code position to
-        start interpreting from."""
-        offset = self.code_position + pattern_offset
-        assert offset >= 0
-        child_context = MatchContext(self.state, self.pattern_codes, offset)
-        self.state.context_stack.append(child_context)
-        self.child_context = child_context
-        return child_context
+    def find_first_result(self, ctx):
+        ptr = self.start_ptr
+        while ptr <= self.maxptr:
+            result = sre_match(ctx, self.nextppos, ptr, self.start_marks)
+            if result is not None:
+                self.subresult = result
+                self.start_ptr = ptr
+                return self
+            if not self.next_char_ok(ctx, ptr):
+                break
+            ptr += 1
 
-    def is_resumed(self):
-        return self.resume_at_opcode > -1
+    def find_next_result(self, ctx):
+        ptr = self.start_ptr
+        if not self.next_char_ok(ctx, ptr):
+            return
+        self.start_ptr = ptr + 1
+        return self.find_first_result(ctx)
 
-    def backup_value(self, value):
-        self.backup.append(value)
-
-    def restore_values(self):
-        values = self.backup
-        self.backup = []
-        return values
-
-    def peek_char(self, peek=0):
-        return self.state.get_char_ord(self.string_position + peek)
-
-    def skip_char(self, skip_count):
-        self.string_position = self.string_position + skip_count
-
-    def remaining_chars(self):
-        return self.state.end - self.string_position
-
-    def at_beginning(self):
-        return self.string_position == 0
-
-    def at_end(self):
-        return self.string_position == self.state.end
-
-    def at_linebreak(self):
-        return not self.at_end() and self.peek_char() == rsre_char.linebreak
-
-    def at_boundary(self, word_checker):
-        if self.at_beginning() and self.at_end():
+    def next_char_ok(self, ctx, ptr):
+        if ptr == ctx.end:
             return False
-        that = not self.at_beginning() and word_checker(self.peek_char(-1))
-        this = not self.at_end()       and word_checker(self.peek_char())
-        return this != that
-    at_boundary._annspecialcase_ = 'specialize:arg(1)'
+        ppos = self.ppos3
+        op = ctx.pat(ppos)
+        for op1, (checkerfn, _) in unroll_char_checker:
+            if op1 == op:
+                return checkerfn(ctx, ptr, ppos)
+        raise Error("next_char_ok[%d]" % op)
+
+class AbstractUntilMatchResult(MatchResult):
+
+    def __init__(self, ppos, tailppos, ptr, marks):
+        self.ppos = ppos
+        self.tailppos = tailppos
+        self.cur_ptr = ptr
+        self.cur_marks = marks
+        self.pending = None
+        self.num_pending = 0
+
+class Pending(object):
+    def __init__(self, ptr, marks, enum, next):
+        self.ptr = ptr
+        self.marks = marks
+        self.enum = enum
+        self.next = next     # chained list
+
+class MaxUntilMatchResult(AbstractUntilMatchResult):
+
+    def find_first_result(self, ctx):
+        enum = sre_match(ctx, self.ppos + 3, self.cur_ptr, self.cur_marks)
+        return self.search_next(ctx, enum, resume=False)
+
+    def find_next_result(self, ctx):
+        return self.search_next(ctx, None, resume=True)
+
+    def search_next(self, ctx, enum, resume):
+        ppos = self.ppos
+        min = ctx.pat(ppos+1)
+        max = ctx.pat(ppos+2)
+        ptr = self.cur_ptr
+        marks = self.cur_marks
+        while True:
+            while True:
+                if (enum is not None and
+                    (ptr != ctx.match_end or self.num_pending < min)):
+                    #               ^^^^^^^^^^ zero-width match protection
+                    # matched one more 'item'.  record it and continue.
+                    self.pending = Pending(ptr, marks, enum, self.pending)
+                    self.num_pending += 1
+                    ptr = ctx.match_end
+                    marks = ctx.match_marks
+                    break
+                # 'item' no longer matches.
+                if not resume and self.num_pending >= min:
+                    # try to match 'tail' if we have enough 'item'
+                    result = sre_match(ctx, self.tailppos, ptr, marks)
+                    if result is not None:
+                        self.subresult = result
+                        self.cur_ptr = ptr
+                        self.cur_marks = marks
+                        return self
+                resume = False
+                p = self.pending
+                if p is None:
+                    return
+                self.pending = p.next
+                self.num_pending -= 1
+                ptr = p.ptr
+                marks = p.marks
+                enum = p.enum.move_to_next_result(ctx)
+            #
+            if max == 65535 or self.num_pending < max:
+                # try to match one more 'item'
+                enum = sre_match(ctx, ppos + 3, ptr, marks)
+            else:
+                enum = None    # 'max' reached, no more matches
+
+class MinUntilMatchResult(AbstractUntilMatchResult):
+
+    def find_first_result(self, ctx):
+        return self.search_next(ctx, resume=False)
+
+    def find_next_result(self, ctx):
+        return self.search_next(ctx, resume=True)
+
+    def search_next(self, ctx, resume):
+        ppos = self.ppos
+        min = ctx.pat(ppos+1)
+        max = ctx.pat(ppos+2)
+        ptr = self.cur_ptr
+        marks = self.cur_marks
+        while True:
+            # try to match 'tail' if we have enough 'item'
+            if not resume and self.num_pending >= min:
+                result = sre_match(ctx, self.tailppos, ptr, marks)
+                if result is not None:
+                    self.subresult = result
+                    self.cur_ptr = ptr
+                    self.cur_marks = marks
+                    return self
+            resume = False
+
+            if max == 65535 or self.num_pending < max:
+                # try to match one more 'item'
+                enum = sre_match(ctx, ppos + 3, ptr, marks)
+            else:
+                enum = None    # 'max' reached, no more matches
+
+            while (enum is None or
+                   (ptr == ctx.match_end and self.num_pending >= min)):
+                #                   ^^^^^^^^^^ zero-width match protection
+                # 'item' does not match; try to get further results from
+                # the 'pending' list.
+                p = self.pending
+                if p is None:
+                    return
+                self.pending = p.next
+                self.num_pending -= 1
+                ptr = p.ptr
+                marks = p.marks
+                enum = p.enum.move_to_next_result(ctx)
+
+            # matched one more 'item'.  record it and continue
+            self.pending = Pending(ptr, marks, enum, self.pending)
+            self.num_pending += 1
+            ptr = ctx.match_end
+            marks = ctx.match_marks
+
+# ____________________________________________________________
+
+@specializectx
+def sre_match(ctx, ppos, ptr, marks):
+    """Returns either None or a MatchResult object.  Usually we only need
+    the first result, but there is the case of REPEAT...UNTIL where we
+    need all results; in that case we use the method move_to_next_result()
+    of the MatchResult."""
+    while True:
+        op = ctx.pat(ppos)
+        ppos += 1
+
+        if op == OPCODE_FAILURE:
+            return
+
+        if (op == OPCODE_SUCCESS or
+            op == OPCODE_MAX_UNTIL or
+            op == OPCODE_MIN_UNTIL):
+            ctx.match_end = ptr
+            ctx.match_marks = marks
+            return MATCHED_OK
+
+        elif op == OPCODE_ANY:
+            # match anything (except a newline)
+            # <ANY>
+            if ptr >= ctx.end or rsre_char.is_linebreak(ctx.str(ptr)):
+                return
+            ptr += 1
+
+        elif op == OPCODE_ANY_ALL:
+            # match anything
+            # <ANY_ALL>
+            if ptr >= ctx.end:
+                return
+            ptr += 1
+
+        elif op == OPCODE_ASSERT:
+            # assert subpattern
+            # <ASSERT> <0=skip> <1=back> <pattern>
+            ptr1 = ptr - ctx.pat(ppos+1)
+            if ptr1 < 0 or sre_match(ctx, ppos + 2, ptr1, marks) is None:
+                return
+            marks = ctx.match_marks
+            ppos += ctx.pat(ppos)
+
+        elif op == OPCODE_ASSERT_NOT:
+            # assert not subpattern
+            # <ASSERT_NOT> <0=skip> <1=back> <pattern>
+            ptr1 = ptr - ctx.pat(ppos+1)
+            if ptr1 >= 0 and sre_match(ctx, ppos + 2, ptr1, marks) is not None:
+                return
+            ppos += ctx.pat(ppos)
+
+        elif op == OPCODE_AT:
+            # match at given position (e.g. at beginning, at boundary, etc.)
+            # <AT> <code>
+            if not sre_at(ctx, ctx.pat(ppos), ptr):
+                return
+            ppos += 1
+
+        elif op == OPCODE_BRANCH:
+            # alternation
+            # <BRANCH> <0=skip> code <JUMP> ... <NULL>
+            result = BranchMatchResult(ppos, ptr, marks)
+            return result.find_first_result(ctx)
+
+        elif op == OPCODE_CATEGORY:
+            # seems to be never produced, but used by some tests from
+            # pypy/module/_sre/test
+            # <CATEGORY> <category>
+            if (ptr == ctx.end or
+                not rsre_char.category_dispatch(ctx.pat(ppos), ctx.str(ptr))):
+                return
+            ptr += 1
+            ppos += 1
+
+        elif op == OPCODE_GROUPREF:
+            # match backreference
+            # <GROUPREF> <groupnum>
+            startptr, length = get_group_ref(marks, ctx.pat(ppos))
+            if length < 0:
+                return     # group was not previously defined
+            if not match_repeated(ctx, ptr, startptr, length):
+                return     # no match
+            ptr += length
+            ppos += 1
+
+        elif op == OPCODE_GROUPREF_IGNORE:
+            # match backreference
+            # <GROUPREF> <groupnum>
+            startptr, length = get_group_ref(marks, ctx.pat(ppos))
+            if length < 0:
+                return     # group was not previously defined
+            if not match_repeated_ignore(ctx, ptr, startptr, length):
+                return     # no match
+            ptr += length
+            ppos += 1
+
+        elif op == OPCODE_GROUPREF_EXISTS:
+            # conditional match depending on the existence of a group
+            # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
+            _, length = get_group_ref(marks, ctx.pat(ppos))
+            if length >= 0:
+                ppos += 2                  # jump to 'codeyes'
+            else:
+                ppos += ctx.pat(ppos+1)    # jump to 'codeno'
+
+        elif op == OPCODE_IN:
+            # match set member (or non_member)
+            # <IN> <skip> <set>
+            if ptr >= ctx.end or not rsre_char.check_charset(ctx.pattern,
+                                                             ppos+1,
+                                                             ctx.str(ptr)):
+                return
+            ppos += ctx.pat(ppos)
+            ptr += 1
+
+        elif op == OPCODE_IN_IGNORE:
+            # match set member (or non_member), ignoring case
+            # <IN> <skip> <set>
+            if ptr >= ctx.end or not rsre_char.check_charset(ctx.pattern,
+                                                             ppos+1,
+                                                             ctx.lowstr(ptr)):
+                return
+            ppos += ctx.pat(ppos)
+            ptr += 1
+
+        elif op == OPCODE_INFO:
+            # optimization info block
+            # <INFO> <0=skip> <1=flags> <2=min> ...
+            if (ctx.end - ptr) < ctx.pat(ppos+2):
+                return
+            ppos += ctx.pat(ppos)
+
+        elif op == OPCODE_JUMP:
+            ppos += ctx.pat(ppos)
+
+        elif op == OPCODE_LITERAL:
+            # match literal string
+            # <LITERAL> <code>
+            if ptr >= ctx.end or ctx.str(ptr) != ctx.pat(ppos):
+                return
+            ppos += 1
+            ptr += 1
+
+        elif op == OPCODE_LITERAL_IGNORE:
+            # match literal string, ignoring case
+            # <LITERAL_IGNORE> <code>
+            if ptr >= ctx.end or ctx.lowstr(ptr) != ctx.pat(ppos):
+                return
+            ppos += 1
+            ptr += 1
+
+        elif op == OPCODE_MARK:
+            # set mark
+            # <MARK> <gid>
+            gid = ctx.pat(ppos)
+            marks = Mark(gid, ptr, marks)
+            ppos += 1
+
+        elif op == OPCODE_NOT_LITERAL:
+            # match if it's not a literal string
+            # <NOT_LITERAL> <code>
+            if ptr >= ctx.end or ctx.str(ptr) == ctx.pat(ppos):
+                return
+            ppos += 1
+            ptr += 1
+
+        elif op == OPCODE_NOT_LITERAL_IGNORE:
+            # match if it's not a literal string, ignoring case
+            # <NOT_LITERAL> <code>
+            if ptr >= ctx.end or ctx.lowstr(ptr) == ctx.pat(ppos):
+                return
+            ppos += 1
+            ptr += 1
+
+        elif op == OPCODE_REPEAT:
+            # general repeat.  in this version of the re module, all the work
+            # is done here, and not on the later UNTIL operator.
+            # <REPEAT> <skip> <1=min> <2=max> item <UNTIL> tail
+            # FIXME: we probably need to deal with zero-width matches in here..
+
+            # decode the later UNTIL operator to see if it is actually
+            # a MAX_UNTIL or MIN_UNTIL
+            untilppos = ppos + ctx.pat(ppos)
+            tailppos = untilppos + 1
+            op = ctx.pat(untilppos)
+            if op == OPCODE_MAX_UNTIL:
+                # the hard case: we have to match as many repetitions as
+                # possible, followed by the 'tail'.  we do this by
+                # remembering each state for each possible number of
+                # 'item' matching.
+                result = MaxUntilMatchResult(ppos, tailppos, ptr, marks)
+                return result.find_first_result(ctx)
+
+            elif op == OPCODE_MIN_UNTIL:
+                # first try to match the 'tail', and if it fails, try
+                # to match one more 'item' and try again
+                result = MinUntilMatchResult(ppos, tailppos, ptr, marks)
+                return result.find_first_result(ctx)
+
+            else:
+                raise Error("missing UNTIL after REPEAT")
+
+        elif op == OPCODE_REPEAT_ONE:
+            # match repeated sequence (maximizing regexp).
+            # this operator only works if the repeated item is
+            # exactly one character wide, and we're not already
+            # collecting backtracking points.  for other cases,
+            # use the MAX_REPEAT operator.
+            # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
+            start = ptr
+            minptr = start + ctx.pat(ppos+1)
+            if minptr > ctx.end:
+                return    # cannot match
+            ptr = find_repetition_end(ctx, ppos+3, start, ctx.pat(ppos+2))
+            # when we arrive here, ptr points to the tail of the target
+            # string.  check if the rest of the pattern matches,
+            # and backtrack if not.
+            nextppos = ppos + ctx.pat(ppos)
+            result = RepeatOneMatchResult(nextppos, minptr, ptr, marks)
+            return result.find_first_result(ctx)
+
+        elif op == OPCODE_MIN_REPEAT_ONE:
+            # match repeated sequence (minimizing regexp).
+            # this operator only works if the repeated item is
+            # exactly one character wide, and we're not already
+            # collecting backtracking points.  for other cases,
+            # use the MIN_REPEAT operator.
+            # <MIN_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
+            start = ptr
+            min = ctx.pat(ppos+1)
+            if min > 0:
+                minptr = ptr + min
+                if minptr > ctx.end:
+                    return   # cannot match
+                # count using pattern min as the maximum
+                ptr = find_repetition_end(ctx, ppos+3, ptr, min)
+                if ptr < minptr:
+                    return   # did not match minimum number of times
+
+            maxptr = ctx.end
+            max = ctx.pat(ppos+2)
+            if max != 65535:
+                maxptr1 = start + max
+                if maxptr1 <= maxptr:
+                    maxptr = maxptr1
+            nextppos = ppos + ctx.pat(ppos)
+            result = MinRepeatOneMatchResult(nextppos, ppos+3, maxptr,
+                                             ptr, marks)
+            return result.find_first_result(ctx)
+
+        else:
+            raise Error("bad pattern code %d" % op)
 
 
-class RepeatContext(MatchContext):
-    
-    def __init__(self, context):
-        offset = context.code_position
-        assert offset >= 0
-        MatchContext.__init__(self, context.state,
-                                context.pattern_codes, offset)
-        self.count = -1
-        self.previous = context.state.repeat
-        self.last_position = -1
-        self.repeat_stack = []
+def get_group_ref(marks, groupnum):
+    gid = groupnum * 2
+    startptr = find_mark(marks, gid)
+    if startptr < 0:
+        return 0, -1
+    endptr = find_mark(marks, gid + 1)
+    length = endptr - startptr     # < 0 if endptr < startptr (or if endptr=-1)
+    return startptr, length
 
-StateMixin._MatchContext = MatchContext    # for tests
+@specializectx
+def match_repeated(ctx, ptr, oldptr, length):
+    if ptr + length > ctx.end:
+        return False
+    for i in range(length):
+        if ctx.str(ptr + i) != ctx.str(oldptr + i):
+            return False
+    return True
 
-#### Main opcode dispatch loop
+@specializectx
+def match_repeated_ignore(ctx, ptr, oldptr, length):
+    if ptr + length > ctx.end:
+        return False
+    for i in range(length):
+        if ctx.lowstr(ptr + i) != ctx.lowstr(oldptr + i):
+            return False
+    return True
 
-def search(state, pattern_codes):
-    flags = 0
-    if pattern_codes[0] == OPCODE_INFO:
-        # optimization info block
-        # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
-        if pattern_codes[2] & SRE_INFO_PREFIX and pattern_codes[5] > 1:
-            return fast_search(state, pattern_codes)
-        flags = pattern_codes[2]
-        offset = pattern_codes[1] + 1
-        assert offset >= 0
-        #pattern_codes = pattern_codes[offset:]
+@specializectx
+def find_repetition_end(ctx, ppos, ptr, maxcount):
+    end = ctx.end
+    # adjust end
+    if maxcount != 65535:
+        end1 = ptr + maxcount
+        if end1 <= end:
+            end = end1
+    op = ctx.pat(ppos)
+    for op1, (_, fre) in unroll_char_checker:
+        if op1 == op:
+            return fre(ctx, ptr, end, ppos)
+    raise Error("rsre.find_repetition_end[%d]" % op)
 
-    string_position = state.start
-    while string_position <= state.end:
-        state.reset()
-        state.start = state.string_position = string_position
-        if match(state, pattern_codes):
-            return True
-        string_position += 1
+@specializectx
+def match_ANY(ctx, ptr, ppos):   # dot wildcard.
+    return not rsre_char.is_linebreak(ctx.str(ptr))
+def match_ANY_ALL(ctx, ptr, ppos):
+    return True    # match anything (including a newline)
+@specializectx
+def match_IN(ctx, ptr, ppos):
+    return rsre_char.check_charset(ctx.pattern, ppos+2, ctx.str(ptr))
+@specializectx
+def match_IN_IGNORE(ctx, ptr, ppos):
+    return rsre_char.check_charset(ctx.pattern, ppos+2, ctx.lowstr(ptr))
+@specializectx
+def match_LITERAL(ctx, ptr, ppos):
+    return ctx.str(ptr) == ctx.pat(ppos+1)
+@specializectx
+def match_LITERAL_IGNORE(ctx, ptr, ppos):
+    return ctx.lowstr(ptr) == ctx.pat(ppos+1)
+@specializectx
+def match_NOT_LITERAL(ctx, ptr, ppos):
+    return ctx.str(ptr) != ctx.pat(ppos+1)
+@specializectx
+def match_NOT_LITERAL_IGNORE(ctx, ptr, ppos):
+    return ctx.lowstr(ptr) != ctx.pat(ppos+1)
+
+def _make_fre(checkerfn):
+    if checkerfn == match_ANY_ALL:
+        def fre(ctx, ptr, end, ppos):
+            return end
+    else:
+        def fre(ctx, ptr, end, ppos):
+            while ptr < end and checkerfn(ctx, ptr, ppos):
+                ptr += 1
+            return ptr
+    return checkerfn, fre
+
+unroll_char_checker = unrolling_iterable([
+    (OPCODE_ANY,                _make_fre(match_ANY)),
+    (OPCODE_ANY_ALL,            _make_fre(match_ANY_ALL)),
+    (OPCODE_IN,                 _make_fre(match_IN)),
+    (OPCODE_IN_IGNORE,          _make_fre(match_IN_IGNORE)),
+    (OPCODE_LITERAL,            _make_fre(match_LITERAL)),
+    (OPCODE_LITERAL_IGNORE,     _make_fre(match_LITERAL_IGNORE)),
+    (OPCODE_NOT_LITERAL,        _make_fre(match_NOT_LITERAL)),
+    (OPCODE_NOT_LITERAL_IGNORE, _make_fre(match_NOT_LITERAL_IGNORE)),
+    ])
+
+##### At dispatch
+
+AT_BEGINNING = 0
+AT_BEGINNING_LINE = 1
+AT_BEGINNING_STRING = 2
+AT_BOUNDARY = 3
+AT_NON_BOUNDARY = 4
+AT_END = 5
+AT_END_LINE = 6
+AT_END_STRING = 7
+AT_LOC_BOUNDARY = 8
+AT_LOC_NON_BOUNDARY = 9
+AT_UNI_BOUNDARY = 10
+AT_UNI_NON_BOUNDARY = 11
+
+@specializectx
+def sre_at(ctx, atcode, ptr):
+    if (atcode == AT_BEGINNING or
+        atcode == AT_BEGINNING_STRING):
+        return ptr == 0
+
+    elif atcode == AT_BEGINNING_LINE:
+        prevptr = ptr - 1
+        return prevptr < 0 or rsre_char.is_linebreak(ctx.str(prevptr))
+
+    elif atcode == AT_BOUNDARY:
+        return at_boundary(ctx, ptr)
+
+    elif atcode == AT_NON_BOUNDARY:
+        return at_non_boundary(ctx, ptr)
+
+    elif atcode == AT_END:
+        remaining_chars = ctx.end - ptr
+        return remaining_chars <= 0 or (
+            remaining_chars == 1 and rsre_char.is_linebreak(ctx.str(ptr)))
+
+    elif atcode == AT_END_LINE:
+        return ptr == ctx.end or rsre_char.is_linebreak(ctx.str(ptr))
+
+    elif atcode == AT_END_STRING:
+        return ptr == ctx.end
+
+    elif atcode == AT_LOC_BOUNDARY:
+        return at_loc_boundary(ctx, ptr)
+
+    elif atcode == AT_LOC_NON_BOUNDARY:
+        return at_loc_non_boundary(ctx, ptr)
+
+    elif atcode == AT_UNI_BOUNDARY:
+        return at_uni_boundary(ctx, ptr)
+
+    elif atcode == AT_UNI_NON_BOUNDARY:
+        return at_uni_non_boundary(ctx, ptr)
+
     return False
 
-def fast_search(state, pattern_codes):
-    """Skips forward in a string as fast as possible using information from
-    an optimization info block."""
-    # pattern starts with a known prefix
-    # <5=length> <6=skip> <7=prefix data> <overlap data>
-    flags = pattern_codes[2]
-    prefix_len = pattern_codes[5]
+def _make_boundary(word_checker):
+    @specializectx
+    def at_boundary(ctx, ptr):
+        if ctx.end == 0:
+            return False
+        prevptr = ptr - 1
+        that = prevptr >= 0 and word_checker(ctx.str(prevptr))
+        this = ptr < ctx.end and word_checker(ctx.str(ptr))
+        return this != that
+    @specializectx
+    def at_non_boundary(ctx, ptr):
+        if ctx.end == 0:
+            return False
+        prevptr = ptr - 1
+        that = prevptr >= 0 and word_checker(ctx.str(prevptr))
+        this = ptr < ctx.end and word_checker(ctx.str(ptr))
+        return this == that
+    return at_boundary, at_non_boundary
+
+at_boundary, at_non_boundary = _make_boundary(rsre_char.is_word)
+at_loc_boundary, at_loc_non_boundary = _make_boundary(rsre_char.is_loc_word)
+at_uni_boundary, at_uni_non_boundary = _make_boundary(rsre_char.is_uni_word)
+
+# ____________________________________________________________
+
+def _adjust(start, end, length):
+    if start < 0: start = 0
+    elif start > length: start = length
+    if end < 0: end = 0
+    elif end > length: end = length
+    return start, end
+
+def match(pattern, string, start=0, end=sys.maxint, flags=0):
+    start, end = _adjust(start, end, len(string))
+    ctx = StrMatchContext(pattern, string, start, end, flags)
+    if match_context(ctx):
+        return ctx
+    else:
+        return None
+
+def search(pattern, string, start=0, end=sys.maxint, flags=0):
+    start, end = _adjust(start, end, len(string))
+    ctx = StrMatchContext(pattern, string, start, end, flags)
+    if search_context(ctx):
+        return ctx
+    else:
+        return None
+
+def match_context(ctx):
+    ctx.original_pos = ctx.match_start
+    if ctx.end < ctx.match_start:
+        return False
+    return sre_match(ctx, 0, ctx.match_start, None) is not None
+
+def search_context(ctx):
+    ctx.original_pos = ctx.match_start
+    if ctx.end < ctx.match_start:
+        return False
+    if ctx.pat(0) == OPCODE_INFO:
+        if ctx.pat(2) & rsre_char.SRE_INFO_PREFIX and ctx.pat(5) > 1:
+            return fast_search(ctx)
+    return regular_search(ctx)
+
+def regular_search(ctx):
+    start = ctx.match_start
+    while start <= ctx.end:
+        if sre_match(ctx, 0, start, None) is not None:
+            ctx.match_start = start
+            return True
+        start += 1
+    return False
+
+@specializectx
+def fast_search(ctx):
+    # skips forward in a string as fast as possible using information from
+    # an optimization info block
+    # <INFO> <1=skip> <2=flags> <3=min> <4=...>
+    #        <5=length> <6=skip> <7=prefix data> <overlap data>
+    flags = ctx.pat(2)
+    prefix_len = ctx.pat(5)
     assert prefix_len >= 0
-    prefix_skip = pattern_codes[6] # don't really know what this is good for
+    prefix_skip = ctx.pat(6)
     assert prefix_skip >= 0
-    prefix = pattern_codes[7:7 + prefix_len]
     overlap_offset = 7 + prefix_len - 1
     assert overlap_offset >= 0
-    pattern_offset = pattern_codes[1] + 1
-    assert pattern_offset >= 0
+    pattern_offset = ctx.pat(1) + 1
+    ppos_start = pattern_offset + 2 * prefix_skip
+    assert ppos_start >= 0
     i = 0
-    string_position = state.string_position
-    end = state.end
+    string_position = ctx.match_start
+    end = ctx.end
     while string_position < end:
         while True:
-            char_ord = state.get_char_ord(string_position)
-            if char_ord != prefix[i]:
+            char_ord = ctx.str(string_position)
+            if char_ord != ctx.pat(7 + i):
                 if i == 0:
                     break
                 else:
-                    i = pattern_codes[overlap_offset + i]
+                    i = ctx.pat(overlap_offset + i)
             else:
                 i += 1
                 if i == prefix_len:
                     # found a potential match
-                    state.start = string_position + 1 - prefix_len
-                    state.string_position = string_position + 1 \
-                                                 - prefix_len + prefix_skip
-                    if flags & SRE_INFO_LITERAL:
-                        return True # matched all of pure literal pattern
-                    start = pattern_offset + 2 * prefix_skip
-                    if match(state, pattern_codes, start):
+                    start = string_position + 1 - prefix_len
+                    assert start >= 0
+                    ptr = start + prefix_skip
+                    if flags & rsre_char.SRE_INFO_LITERAL:
+                        # matched all of pure literal pattern
+                        ctx.match_start = start
+                        ctx.match_end = ptr
+                        ctx.match_marks = None
                         return True
-                    i = pattern_codes[overlap_offset + i]
+                    if sre_match(ctx, ppos_start, ptr, None) is not None:
+                        ctx.match_start = start
+                        return True
+                    i = ctx.pat(overlap_offset + i)
                 break
         string_position += 1
     return False
-
-def match(state, pattern_codes, pstart=0):
-    # Optimization: Check string length. pattern_codes[3] contains the
-    # minimum length for a string to possibly match.
-    if pattern_codes[pstart] == OPCODE_INFO and pattern_codes[pstart+3] > 0:
-        # <INFO> <1=skip> <2=flags> <3=min>
-        if state.end - state.string_position < pattern_codes[pstart+3]:
-            return False
-        pstart += pattern_codes[pstart+1] + 1
-    state.context_stack.append(MatchContext(state, pattern_codes, pstart))
-    has_matched = MatchContext.UNDECIDED
-    while len(state.context_stack) > 0:
-        context = state.context_stack[-1]
-        if context.has_matched == context.UNDECIDED:
-            has_matched = dispatch_loop(context)
-        else:
-            has_matched = context.has_matched
-        if has_matched != context.UNDECIDED: # don't pop if context isn't done
-            state.context_stack.pop()
-    return has_matched == MatchContext.MATCHED
-
-def dispatch_loop(context):
-    """Returns MATCHED if the current context matches, NOT_MATCHED if it doesn't
-    and UNDECIDED if matching is not finished, ie must be resumed after child
-    contexts have been matched."""
-    while context.has_remaining_codes() and context.has_matched == context.UNDECIDED:
-        if context.is_resumed():
-            opcode = context.resume_at_opcode
-        else:
-            opcode = context.peek_code()
-        for i, function in opcode_dispatch_unroll:
-            if function is not None and i == opcode:
-                has_finished = function(context)
-                break
-        else:
-            raise RuntimeError("Internal re error. Unknown opcode: %s" % opcode)
-        if not has_finished:
-            context.resume_at_opcode = opcode
-            return context.UNDECIDED
-        context.resume_at_opcode = -1
-    if context.has_matched == context.UNDECIDED:
-        context.has_matched = context.NOT_MATCHED
-    return context.has_matched
-
-def op_success(ctx):
-    # end of pattern
-    ctx.state.string_position = ctx.string_position
-    ctx.has_matched = ctx.MATCHED
-    return True
-
-def op_failure(ctx):
-    # immediate failure
-    ctx.has_matched = ctx.NOT_MATCHED
-    return True
-
-def op_literal(ctx):
-    # match literal string
-    # <LITERAL> <code>
-    if ctx.at_end() or ctx.peek_char() != ctx.peek_code(1):
-        ctx.has_matched = ctx.NOT_MATCHED
-    ctx.skip_code(2)
-    ctx.skip_char(1)
-    return True
-
-def op_not_literal(ctx):
-    # match anything that is not the given literal character
-    # <NOT_LITERAL> <code>
-    if ctx.at_end() or ctx.peek_char() == ctx.peek_code(1):
-        ctx.has_matched = ctx.NOT_MATCHED
-    ctx.skip_code(2)
-    ctx.skip_char(1)
-    return True
-
-def op_literal_ignore(ctx):
-    # match literal regardless of case
-    # <LITERAL_IGNORE> <code>
-    if ctx.at_end() or \
-      ctx.state.lower(ctx.peek_char()) != ctx.state.lower(ctx.peek_code(1)):
-        ctx.has_matched = ctx.NOT_MATCHED
-    ctx.skip_code(2)
-    ctx.skip_char(1)
-    return True
-
-def op_not_literal_ignore(ctx):
-    # match literal regardless of case
-    # <LITERAL_IGNORE> <code>
-    if ctx.at_end() or \
-      ctx.state.lower(ctx.peek_char()) == ctx.state.lower(ctx.peek_code(1)):
-        ctx.has_matched = ctx.NOT_MATCHED
-    ctx.skip_code(2)
-    ctx.skip_char(1)
-    return True
-
-def op_at(ctx):
-    # match at given position
-    # <AT> <code>
-    if not at_dispatch(ctx.peek_code(1), ctx):
-        ctx.has_matched = ctx.NOT_MATCHED
-        return True
-    ctx.skip_code(2)
-    return True
-
-def op_category(ctx):
-    # match at given category
-    # <CATEGORY> <code>
-    if ctx.at_end() or \
-            not rsre_char.category_dispatch(ctx.peek_code(1), ctx.peek_char()):
-        ctx.has_matched = ctx.NOT_MATCHED
-        return True
-    ctx.skip_code(2)
-    ctx.skip_char(1)
-    return True
-
-def op_any(ctx):
-    # match anything (except a newline)
-    # <ANY>
-    if ctx.at_end() or ctx.at_linebreak():
-        ctx.has_matched = ctx.NOT_MATCHED
-        return True
-    ctx.skip_code(1)
-    ctx.skip_char(1)
-    return True
-
-def op_any_all(ctx):
-    # match anything
-    # <ANY_ALL>
-    if ctx.at_end():
-        ctx.has_matched = ctx.NOT_MATCHED
-        return True
-    ctx.skip_code(1)
-    ctx.skip_char(1)
-    return True
-
-def general_op_in(ctx, ignore=False):
-    if ctx.at_end():
-        ctx.has_matched = ctx.NOT_MATCHED
-        return
-    skip = ctx.peek_code(1)
-    ctx.skip_code(2) # set op pointer to the set code
-    char_code = ctx.peek_char()
-    if ignore:
-        char_code = ctx.state.lower(char_code)
-    if not rsre_char.check_charset(char_code, ctx):
-        ctx.has_matched = ctx.NOT_MATCHED
-        return
-    ctx.skip_code(skip - 1)
-    ctx.skip_char(1)
-
-def op_in(ctx):
-    # match set member (or non_member)
-    # <IN> <skip> <set>
-    general_op_in(ctx)
-    return True
-
-def op_in_ignore(ctx):
-    # match set member (or non_member), disregarding case of current char
-    # <IN_IGNORE> <skip> <set>
-    general_op_in(ctx, ignore=True)
-    return True
-
-def op_branch(ctx):
-    # alternation
-    # <BRANCH> <0=skip> code <JUMP> ... <NULL>
-    if not ctx.is_resumed():
-        ctx.state.marks_push()
-        ctx.skip_code(1)
-        current_branch_length = ctx.peek_code(0)
-    else:
-        if ctx.child_context.has_matched == ctx.MATCHED:
-            ctx.has_matched = ctx.MATCHED
-            return True
-        ctx.state.marks_pop_keep()
-        last_branch_length = ctx.restore_values()[0]
-        ctx.skip_code(last_branch_length)
-        current_branch_length = ctx.peek_code(0)
-    if current_branch_length:
-        ctx.state.string_position = ctx.string_position
-        ctx.push_new_context(1)
-        ctx.backup_value(current_branch_length)
-        return False
-    ctx.state.marks_pop_discard()
-    ctx.has_matched = ctx.NOT_MATCHED
-    return True
-
-def op_repeat_one(ctx):
-    # match repeated sequence (maximizing).
-    # this operator only works if the repeated item is exactly one character
-    # wide, and we're not already collecting backtracking points.
-    # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
-    
-    # Case 1: First entry point
-    if not ctx.is_resumed():
-        mincount = ctx.peek_code(2)
-        maxcount = ctx.peek_code(3)
-        if ctx.remaining_chars() < mincount:
-            ctx.has_matched = ctx.NOT_MATCHED
-            return True
-        ctx.state.string_position = ctx.string_position
-        count = count_repetitions(ctx, maxcount)
-        ctx.skip_char(count)
-        if count < mincount:
-            ctx.has_matched = ctx.NOT_MATCHED
-            return True
-        if ctx.peek_code(ctx.peek_code(1) + 1) == 1: # 1 == OPCODES["success"]
-            # tail is empty.  we're finished
-            ctx.state.string_position = ctx.string_position
-            ctx.has_matched = ctx.MATCHED
-            return True
-        ctx.state.marks_push()
-
-    # Case 2: Repetition is resumed (aka backtracked)
-    else:
-        if ctx.child_context.has_matched == ctx.MATCHED:
-            ctx.has_matched = ctx.MATCHED
-            return True
-        values = ctx.restore_values()
-        mincount = values[0]
-        count = values[1]
-        ctx.skip_char(-1)
-        count -= 1
-        ctx.state.marks_pop_keep()
-
-    # Initialize the actual backtracking
-    if count >= mincount:
-        # <optimization_only>
-        ok = True
-        nextidx = ctx.peek_code(1)
-        if ctx.peek_code(nextidx + 1) == 19: # 19 == OPCODES["literal"]
-            # tail starts with a literal. skip positions where
-            # the rest of the pattern cannot possibly match
-            chr = ctx.peek_code(nextidx + 2)
-            if ctx.at_end():
-                ctx.skip_char(-1)
-                count -= 1
-                ok = count >= mincount
-            while ok:
-                if ctx.peek_char() == chr:
-                    break
-                ctx.skip_char(-1)
-                count -= 1
-                ok = count >= mincount
-        # </optimization_only>
-
-        if ok:
-            ctx.state.string_position = ctx.string_position
-            ctx.push_new_context(ctx.peek_code(1) + 1)
-            ctx.backup_value(mincount)
-            ctx.backup_value(count)
-            return False
-
-    # Backtracking failed
-    ctx.state.marks_pop_discard()
-    ctx.has_matched = ctx.NOT_MATCHED
-    return True
-
-def op_min_repeat_one(ctx):
-    # match repeated sequence (minimizing)
-    # <MIN_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
-    
-    # Case 1: First entry point
-    if not ctx.is_resumed():
-        mincount = ctx.peek_code(2)
-        maxcount = ctx.peek_code(3)
-        if ctx.remaining_chars() < mincount:
-            ctx.has_matched = ctx.NOT_MATCHED
-            return True
-        ctx.state.string_position = ctx.string_position
-        if mincount == 0:
-            count = 0
-        else:
-            count = count_repetitions(ctx, mincount)
-            if count < mincount:
-                ctx.has_matched = ctx.NOT_MATCHED
-                return True
-            ctx.skip_char(count)
-        if ctx.peek_code(ctx.peek_code(1) + 1) == 1: # OPCODES["success"]
-            # tail is empty.  we're finished
-            ctx.state.string_position = ctx.string_position
-            ctx.has_matched = ctx.MATCHED
-            return True
-        ctx.state.marks_push()
-
-    # Case 2: Repetition resumed, "forwardtracking"
-    else:
-        if ctx.child_context.has_matched == ctx.MATCHED:
-            ctx.has_matched = ctx.MATCHED
-            return True
-        values = ctx.restore_values()
-        maxcount = values[0]
-        count = values[1]        
-        ctx.state.string_position = ctx.string_position
-        if count_repetitions(ctx, 1) == 0:
-            # Tail didn't match and no more repetitions --> fail
-            ctx.state.marks_pop_discard()
-            ctx.has_matched = ctx.NOT_MATCHED
-            return True
-        ctx.skip_char(1)
-        count += 1
-        ctx.state.marks_pop_keep()
-
-    # Try to match tail
-    if maxcount == MAXREPEAT or count <= maxcount:
-        ctx.state.string_position = ctx.string_position
-        ctx.push_new_context(ctx.peek_code(1) + 1)
-        ctx.backup_value(maxcount)
-        ctx.backup_value(count)
-        return False
-
-    # Failed
-    ctx.state.marks_pop_discard()
-    ctx.has_matched = ctx.NOT_MATCHED
-    return True
-
-def op_repeat(ctx):
-    # create repeat context.  all the hard work is done by the UNTIL
-    # operator (MAX_UNTIL, MIN_UNTIL)
-    # <REPEAT> <skip> <1=min> <2=max> item <UNTIL> tail
-    if not ctx.is_resumed():
-        ctx.repeat = RepeatContext(ctx)
-        ctx.state.repeat = ctx.repeat
-        ctx.state.string_position = ctx.string_position
-        ctx.push_new_context(ctx.peek_code(1) + 1)
-        return False
-    else:
-        ctx.state.repeat = ctx.repeat
-        ctx.has_matched = ctx.child_context.has_matched
-        return True
-
-def op_max_until(ctx):
-    # maximizing repeat
-    # <REPEAT> <skip> <1=min> <2=max> item <MAX_UNTIL> tail
-    
-    # Case 1: First entry point
-    if not ctx.is_resumed():
-        repeat = ctx.state.repeat
-        if repeat is None:
-            raise RuntimeError("Internal re error: MAX_UNTIL without REPEAT.")
-        mincount = repeat.peek_code(2)
-        maxcount = repeat.peek_code(3)
-        ctx.state.string_position = ctx.string_position
-        count = repeat.count + 1
-        if count < mincount:
-            # not enough matches
-            repeat.count = count
-            repeat.repeat_stack.append(repeat.push_new_context(4))
-            ctx.backup_value(mincount)
-            ctx.backup_value(maxcount)
-            ctx.backup_value(count)
-            ctx.backup_value(0) # Dummy for last_position
-            ctx.backup_value(0)
-            ctx.repeat = repeat
-            return False
-        if (count < maxcount or maxcount == MAXREPEAT) \
-                        and ctx.state.string_position != repeat.last_position:
-            # we may have enough matches, if we can match another item, do so
-            repeat.count = count
-            ctx.state.marks_push()
-            repeat.last_position = ctx.state.string_position
-            repeat.repeat_stack.append(repeat.push_new_context(4))
-            ctx.backup_value(mincount)
-            ctx.backup_value(maxcount)
-            ctx.backup_value(count)
-            ctx.backup_value(repeat.last_position) # zero-width match protection
-            ctx.backup_value(2) # more matching
-            ctx.repeat = repeat
-            return False
-
-        # Cannot match more repeated items here. Make sure the tail matches.
-        ctx.state.repeat = repeat.previous
-        ctx.push_new_context(1)
-        ctx.backup_value(mincount)
-        ctx.backup_value(maxcount)
-        ctx.backup_value(count)
-        ctx.backup_value(repeat.last_position) # zero-width match protection
-        ctx.backup_value(1) # tail matching
-        ctx.repeat = repeat
-        return False
-
-    # Case 2: Resumed
-    else:
-        repeat = ctx.repeat
-        values = ctx.restore_values()
-        mincount = values[0]
-        maxcount = values[1]
-        count = values[2]
-        save_last_position = values[3]
-        tail_matching = values[4]
-        
-        if tail_matching == 0:
-            ctx.has_matched = repeat.repeat_stack.pop().has_matched
-            if ctx.has_matched == ctx.NOT_MATCHED:
-                repeat.count = count - 1
-                ctx.state.string_position = ctx.string_position
-            return True
-        elif tail_matching == 2:
-            repeat.last_position = save_last_position
-            if repeat.repeat_stack.pop().has_matched == ctx.MATCHED:
-                ctx.state.marks_pop_discard()
-                ctx.has_matched = ctx.MATCHED
-                return True
-            ctx.state.marks_pop()
-            repeat.count = count - 1
-            ctx.state.string_position = ctx.string_position
-
-            # Cannot match more repeated items here. Make sure the tail matches.
-            ctx.state.repeat = repeat.previous
-            ctx.push_new_context(1)
-            ctx.backup_value(mincount)
-            ctx.backup_value(maxcount)
-            ctx.backup_value(count)
-            ctx.backup_value(repeat.last_position) # zero-width match protection
-            ctx.backup_value(1) # tail matching
-            return False
-
-        else: # resuming after tail matching
-            ctx.has_matched = ctx.child_context.has_matched
-            if ctx.has_matched == ctx.NOT_MATCHED:
-                ctx.state.repeat = repeat
-                ctx.state.string_position = ctx.string_position
-            return True
-
-def op_min_until(ctx):
-    # minimizing repeat
-    # <REPEAT> <skip> <1=min> <2=max> item <MIN_UNTIL> tail
-    
-    # Case 1: First entry point
-    if not ctx.is_resumed():
-        repeat = ctx.state.repeat
-        if repeat is None:
-            raise RuntimeError("Internal re error: MIN_UNTIL without REPEAT.")
-        mincount = repeat.peek_code(2)
-        maxcount = repeat.peek_code(3)
-        ctx.state.string_position = ctx.string_position
-        count = repeat.count + 1
-
-        if count < mincount:
-            # not enough matches
-            repeat.count = count
-            repeat.repeat_stack.append(repeat.push_new_context(4))
-            ctx.backup_value(mincount)
-            ctx.backup_value(maxcount)
-            ctx.backup_value(count)
-            ctx.backup_value(0)
-            ctx.repeat = repeat
-            return False
-
-        # see if the tail matches
-        ctx.state.marks_push()
-        ctx.state.repeat = repeat.previous
-        ctx.push_new_context(1)
-        ctx.backup_value(mincount)
-        ctx.backup_value(maxcount)
-        ctx.backup_value(count)
-        ctx.backup_value(1)
-        ctx.repeat = repeat
-        return False
-
-    # Case 2: Resumed
-    else:
-        repeat = ctx.repeat
-        if repeat.has_matched == ctx.MATCHED:
-            ctx.has_matched = ctx.MATCHED
-            return True
-        values = ctx.restore_values()
-        mincount = values[0]
-        maxcount = values[1]
-        count = values[2]
-        matching_state = values[3]
-
-        if count < mincount:
-            # not enough matches
-            ctx.has_matched = repeat.repeat_stack.pop().has_matched
-            if ctx.has_matched == ctx.NOT_MATCHED:
-                repeat.count = count - 1
-                ctx.state.string_position = ctx.string_position
-            return True
-        
-        if matching_state == 1:
-            # returning from tail matching
-            if ctx.child_context.has_matched == ctx.MATCHED:
-                ctx.has_matched = ctx.MATCHED
-                return True
-            ctx.state.repeat = repeat
-            ctx.state.string_position = ctx.string_position
-            ctx.state.marks_pop()
-
-        if not matching_state == 2:
-            # match more until tail matches
-            if count >= maxcount and maxcount != MAXREPEAT:
-                ctx.has_matched = ctx.NOT_MATCHED
-                return True
-            repeat.count = count
-            repeat.repeat_stack.append(repeat.push_new_context(4))
-            ctx.backup_value(mincount)
-            ctx.backup_value(maxcount)
-            ctx.backup_value(count)
-            ctx.backup_value(2)
-            ctx.repeat = repeat
-            return False
-
-        # Final return
-        ctx.has_matched = repeat.repeat_stack.pop().has_matched
-        repeat.has_matched = ctx.has_matched
-        if ctx.has_matched == ctx.NOT_MATCHED:
-            repeat.count = count - 1
-            ctx.state.string_position = ctx.string_position
-        return True
-
-def op_jump(ctx):
-    # jump forward
-    # <JUMP>/<INFO> <offset>
-    ctx.skip_code(ctx.peek_code(1) + 1)
-    return True
-
-def op_mark(ctx):
-    # set mark
-    # <MARK> <gid>
-    ctx.state.set_mark(ctx.peek_code(1), ctx.string_position)
-    ctx.skip_code(2)
-    return True
-
-def general_op_groupref(ctx, ignore=False):
-    group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
-    if group_start == -1 or group_end == -1 or group_end < group_start \
-                            or group_end - group_start > ctx.remaining_chars():
-        ctx.has_matched = ctx.NOT_MATCHED
-        return True
-    while group_start < group_end:
-        new_char = ctx.peek_char()
-        old_char = ctx.state.get_char_ord(group_start)
-        if ctx.at_end() or (not ignore and old_char != new_char) \
-                or (ignore and ctx.state.lower(old_char) != ctx.state.lower(new_char)):
-            ctx.has_matched = ctx.NOT_MATCHED
-            return True
-        group_start += 1
-        ctx.skip_char(1)
-    ctx.skip_code(2)
-    return True
-
-def op_groupref(ctx):
-    # match backreference
-    # <GROUPREF> <zero-based group index>
-    return general_op_groupref(ctx)
-
-def op_groupref_ignore(ctx):
-    # match backreference case-insensitive
-    # <GROUPREF_IGNORE> <zero-based group index>
-    return general_op_groupref(ctx, ignore=True)
-
-def op_groupref_exists(ctx):
-    # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
-    group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
-    if group_start == -1 or group_end == -1 or group_end < group_start:
-        ctx.skip_code(ctx.peek_code(2) + 1)
-    else:
-        ctx.skip_code(3)
-    return True
-
-def op_assert(ctx):
-    # assert subpattern
-    # <ASSERT> <skip> <back> <pattern>
-    if not ctx.is_resumed():
-        ctx.state.string_position = ctx.string_position - ctx.peek_code(2)
-        if ctx.state.string_position < 0:
-            ctx.has_matched = ctx.NOT_MATCHED
-            return True
-        ctx.push_new_context(3)
-        return False
-    else:
-        if ctx.child_context.has_matched == ctx.MATCHED:
-            ctx.skip_code(ctx.peek_code(1) + 1)
-        else:
-            ctx.has_matched = ctx.NOT_MATCHED
-        return True
-
-def op_assert_not(ctx):
-    # assert not subpattern
-    # <ASSERT_NOT> <skip> <back> <pattern>
-    if not ctx.is_resumed():
-        ctx.state.string_position = ctx.string_position - ctx.peek_code(2)
-        if ctx.state.string_position >= 0:
-            ctx.push_new_context(3)
-            return False
-    else:
-        if ctx.child_context.has_matched == ctx.MATCHED:
-            ctx.has_matched = ctx.NOT_MATCHED
-            return True
-    ctx.skip_code(ctx.peek_code(1) + 1)
-    return True
-
-def count_repetitions(ctx, maxcount):
-    """Returns the number of repetitions of a single item, starting from the
-    current string position. The code pointer is expected to point to a
-    REPEAT_ONE operation (with the repeated 4 ahead)."""
-    real_maxcount = ctx.state.end - ctx.string_position
-    if maxcount < real_maxcount and maxcount != MAXREPEAT:
-        real_maxcount = maxcount
-    # First, special-cases for common single character patterns
-    string_position = ctx.string_position
-    code = ctx.peek_code(4)
-    for i, function in count_repetitions_unroll:
-        if function is not None and code == i:
-            count = function(ctx, real_maxcount)
-            break
-    else:
-        # This is a general solution, a bit hackisch, but works
-        code_position = ctx.code_position
-        count = 0
-        ctx.skip_code(4)
-        reset_position = ctx.code_position
-        while count < real_maxcount:
-            # this works because the single character pattern is followed by
-            # a success opcode
-            ctx.code_position = reset_position
-            opcode_dispatch_table[code](ctx)
-            if ctx.has_matched == ctx.NOT_MATCHED:
-                break
-            count += 1
-        ctx.has_matched = ctx.UNDECIDED
-        ctx.code_position = code_position
-    ctx.string_position = string_position
-    return count
-
-opcode_dispatch_table = [
-    op_failure, op_success,
-    op_any, op_any_all,
-    op_assert, op_assert_not,
-    op_at,
-    op_branch,
-    None, #CALL,
-    op_category,
-    None, None, #CHARSET, BIGCHARSET,
-    op_groupref, op_groupref_exists, op_groupref_ignore,
-    op_in, op_in_ignore,
-    op_jump, op_jump,
-    op_literal, op_literal_ignore,
-    op_mark,
-    op_max_until,
-    op_min_until,
-    op_not_literal, op_not_literal_ignore,
-    None, #NEGATE,
-    None, #RANGE,
-    op_repeat,
-    op_repeat_one,
-    None, #SUBPATTERN,
-    op_min_repeat_one,
-]
-opcode_dispatch_unroll = unrolling_iterable(enumerate(opcode_dispatch_table))
-
-##### count_repetitions dispatch
-
-def general_cr_in(ctx, maxcount, ignore):
-    code_position = ctx.code_position
-    count = 0
-    while count < maxcount:
-        ctx.code_position = code_position
-        ctx.skip_code(6) # set op pointer to the set code
-        char_code = ctx.peek_char(count)
-        if ignore:
-            char_code = ctx.state.lower(char_code)
-        if not rsre_char.check_charset(char_code, ctx):
-            break
-        count += 1
-    ctx.code_position = code_position
-    return count
-general_cr_in._annspecialcase_ = 'specialize:arg(2)'
-
-def cr_in(ctx, maxcount):
-    return general_cr_in(ctx, maxcount, False)
-
-def cr_in_ignore(ctx, maxcount):
-    return general_cr_in(ctx, maxcount, True)
-
-def cr_any(ctx, maxcount):
-    count = 0
-    while count < maxcount:
-        if ctx.peek_char(count) == rsre_char.linebreak:
-            break
-        count += 1
-    return count
-
-def cr_any_all(ctx, maxcount):
-    return maxcount
-
-def general_cr_literal(ctx, maxcount, ignore, negate):
-    chr = ctx.peek_code(5)
-    count = 0
-    while count < maxcount:
-        char_code = ctx.peek_char(count)
-        if ignore:
-            char_code = ctx.state.lower(char_code)
-        if negate:
-            if char_code == chr:
-                break
-        else:
-            if char_code != chr:
-                break
-        count += 1
-    return count
-general_cr_literal._annspecialcase_ = 'specialize:arg(2,3)'
-
-def cr_literal(ctx, maxcount):
-    return general_cr_literal(ctx, maxcount, False, False)
-
-def cr_literal_ignore(ctx, maxcount):
-    return general_cr_literal(ctx, maxcount, True, False)
-
-def cr_not_literal(ctx, maxcount):
-    return general_cr_literal(ctx, maxcount, False, True)
-
-def cr_not_literal_ignore(ctx, maxcount):
-    return general_cr_literal(ctx, maxcount, True, True)
-
-count_repetitions_table = [
-    None, None,
-    cr_any, cr_any_all,
-    None, None,
-    None,
-    None,
-    None,
-    None,
-    None, None,
-    None, None, None,
-    cr_in, cr_in_ignore,
-    None, None,
-    cr_literal, cr_literal_ignore,
-    None,
-    None,
-    None,
-    cr_not_literal, cr_not_literal_ignore,
-]
-count_repetitions_unroll = unrolling_iterable(
-    enumerate(count_repetitions_table))
-
-##### At dispatch
-
-def at_dispatch(atcode, context):
-    for i, function in at_dispatch_unroll:
-        if i == atcode:
-            return function(context)
-    return False
-
-def at_beginning(ctx):
-    return ctx.at_beginning()
-
-def at_beginning_line(ctx):
-    return ctx.at_beginning() or ctx.peek_char(-1) == rsre_char.linebreak
-    
-def at_end(ctx):
-    return ctx.at_end() or (ctx.remaining_chars() == 1 and ctx.at_linebreak())
-
-def at_end_line(ctx):
-    return ctx.at_linebreak() or ctx.at_end()
-
-def at_end_string(ctx):
-    return ctx.at_end()
-
-def at_boundary(ctx):
-    return ctx.at_boundary(rsre_char.is_word)
-
-def at_non_boundary(ctx):
-    return not at_boundary(ctx)
-
-def at_loc_boundary(ctx):
-    return ctx.at_boundary(rsre_char.is_loc_word)
-
-def at_loc_non_boundary(ctx):
-    return not at_loc_boundary(ctx)
-
-def at_uni_boundary(ctx):
-    return ctx.at_boundary(rsre_char.is_uni_word)
-
-def at_uni_non_boundary(ctx):
-    return not at_uni_boundary(ctx)
-
-# Maps opcodes by indices to functions
-at_dispatch_table = [
-    at_beginning, at_beginning_line, at_beginning,
-    at_boundary, at_non_boundary,
-    at_end, at_end_line, at_end_string,
-    at_loc_boundary, at_loc_non_boundary,
-    at_uni_boundary, at_uni_non_boundary,
-]
-at_dispatch_unroll = unrolling_iterable(enumerate(at_dispatch_table))

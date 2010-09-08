@@ -542,16 +542,25 @@ def rtype_raw_malloc_usage(hop):
     return hop.genop('raw_malloc_usage', [v_size], resulttype=lltype.Signed)
 
 def rtype_raw_free(hop):
+    s_addr = hop.args_s[0]
+    if s_addr.is_null_address():
+        raise TyperError("raw_free(x) where x is the constant NULL")
     v_addr, = hop.inputargs(llmemory.Address)
     hop.exception_cannot_occur()
     return hop.genop('raw_free', [v_addr])
 
 def rtype_raw_memcopy(hop):
+    for s_addr in hop.args_s[:2]:
+        if s_addr.is_null_address():
+            raise TyperError("raw_memcopy() with a constant NULL")
     v_list = hop.inputargs(llmemory.Address, llmemory.Address, lltype.Signed)
     hop.exception_cannot_occur()
     return hop.genop('raw_memcopy', v_list)
 
 def rtype_raw_memclear(hop):
+    s_addr = hop.args_s[0]
+    if s_addr.is_null_address():
+        raise TyperError("raw_memclear(x, n) where x is the constant NULL")
     v_list = hop.inputargs(llmemory.Address, lltype.Signed)
     return hop.genop('raw_memclear', v_list)
 

@@ -19,12 +19,12 @@ rcrc_32_tab = [r_uint(i) for i in crc_32_tab]
 
 def crc32(s, crc=0):
     result = 0
-    crc = ~r_uint(crc) & 0xffffffffL
+    crc = ~r_uint(crc) & r_uint(0xffffffffL)
     for c in s:
         crc = rcrc_32_tab[(crc ^ r_uint(ord(c))) & 0xffL] ^ (crc >> 8)
         #/* Note:  (crc >> 8) MUST zero fill on left
 
-        result = crc ^ 0xffffffffL
+        result = crc ^ r_uint(0xffffffffL)
     
     return result
 
@@ -194,7 +194,7 @@ class RZipFile(object):
             (x.create_version, x.create_system, x.extract_version, x.reserved,
                 x.flag_bits, x.compress_type, t, d,
                 crc, x.compress_size, x.file_size) = centdir[1:12]
-            x.CRC = r_uint(crc) & 0xffffffff
+            x.CRC = r_uint(crc) & r_uint(0xffffffff)
             x.dostime = t
             x.dosdate = d
             x.volume, x.internal_attr, x.external_attr = centdir[15:18]

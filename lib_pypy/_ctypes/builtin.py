@@ -8,10 +8,10 @@ class ConvMode:
 _memmove_addr = _rawffi.get_libc().getaddressindll('memmove')
 _memset_addr = _rawffi.get_libc().getaddressindll('memset')
 
-def _string_at_addr(addr, lgt):
+def _string_at(addr, lgt):
     # address here can be almost anything
     import ctypes
-    arg = ctypes.c_char_p._CData_value(addr)
+    arg = ctypes.c_void_p._CData_value(addr)
     return _rawffi.charp2rawstring(arg, lgt)
 
 def set_conversion_mode(encoding, errors):
@@ -20,9 +20,9 @@ def set_conversion_mode(encoding, errors):
     ConvMode.encoding = encoding
     return old_cm
 
-def _wstring_at_addr(addr, lgt):
+def _wstring_at(addr, lgt):
     import ctypes
-    arg = ctypes.c_wchar_p._CData_value(addr)
+    arg = ctypes.c_void_p._CData_value(addr)
     # XXX purely applevel
     if lgt == -1:
         lgt = sys.maxint

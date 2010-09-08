@@ -2,7 +2,9 @@ import py
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BoxPtr, ConstPtr, BasicFailDescr, LoopToken
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.x86.runner import CPU
+from pypy.jit.backend.detect_cpu import getcpuclass
+from pypy.jit.backend.x86.arch import WORD
+CPU = getcpuclass()
 
 def test_bug_rshift():
     v1 = BoxInt()
@@ -281,5 +283,8 @@ def test_bug_1():
     assert cpu.get_latest_value_int(16) == -57344
     assert cpu.get_latest_value_int(17) == 1
     assert cpu.get_latest_value_int(18) == -1
-    assert cpu.get_latest_value_int(19) == -2147483648
+    if WORD == 4:
+        assert cpu.get_latest_value_int(19) == -2147483648
+    elif WORD == 8:
+        assert cpu.get_latest_value_int(19) == 19327352832
     assert cpu.get_latest_value_int(20) == -49

@@ -60,7 +60,6 @@ class CFuncPtr(_CData):
         return self._restype_
     def _setrestype(self, restype):
         self._ptr = None
-        from ctypes import c_char_p
         if restype is int:
             from ctypes import c_int
             restype = c_int
@@ -214,9 +213,7 @@ class CFuncPtr(_CData):
 
     @staticmethod
     def _guess_argtypes(args):
-        from _ctypes import _CData
         from ctypes import c_char_p, c_wchar_p, c_void_p, c_int
-        from ctypes import Array, Structure
         res = []
         for arg in args:
             if hasattr(arg, '_as_parameter_'):

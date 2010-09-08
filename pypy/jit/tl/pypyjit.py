@@ -37,6 +37,7 @@ config.translating = True
 set_opt_level(config, level='jit')
 config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
+config.objspace.usemodules.array = True
 config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
 set_pypy_opt_level(config, level='jit')

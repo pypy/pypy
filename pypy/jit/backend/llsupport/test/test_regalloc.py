@@ -1,5 +1,5 @@
 
-from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxFloat
+from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, INT, FLOAT
 from pypy.jit.backend.llsupport.regalloc import FrameManager
 from pypy.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
 
@@ -26,9 +26,20 @@ class RegisterManager(BaseRegMan):
     def convert_to_imm(self, v):
         return v
 
+class FakeFramePos(object):
+    def __init__(self, pos, box_type):
+        self.pos = pos
+        self.box_type = box_type
+
+    def frame_size(self):
+        if self.box_type == FLOAT:
+            return 2
+        else:
+            return 1
+
 class TFrameManager(FrameManager):
-    def frame_pos(self, i, size):
-        return i
+    def frame_pos(self, i, box_type):
+        return FakeFramePos(i, box_type)
 
 class MockAsm(object):
     def __init__(self):
@@ -146,8 +157,8 @@ class TestRegalloc(object):
         rm.next_instruction()
         # allocate a stack position
         b0, b1, b2, b3, b4 = boxes
-        sp = fm.loc(b0, 1)
-        assert sp == 0
+        sp = fm.loc(b0)
+        assert sp.pos == 0
         loc = rm.make_sure_var_in_reg(b0)
         assert isinstance(loc, FakeReg)
         rm._check_invariants()
@@ -207,13 +218,13 @@ class TestRegalloc(object):
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
         rm.next_instruction()
-        fm.loc(b0, 1)
+        fm.loc(b0)
         rm.force_result_in_reg(b1, b0)
         rm._check_invariants()
         loc = rm.loc(b1)
         assert isinstance(loc, FakeReg)
         loc = rm.loc(b0)
-        assert isinstance(loc, int)
+        assert isinstance(loc, FakeFramePos)
         assert len(asm.moves) == 1
 
     def test_return_constant(self):
@@ -304,7 +315,7 @@ class TestRegalloc(object):
 
     def test_different_frame_width(self):
         class XRegisterManager(RegisterManager):
-            reg_width = 2
+            pass
 
         fm = TFrameManager()
         b0 = BoxInt()

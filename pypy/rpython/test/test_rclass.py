@@ -738,27 +738,150 @@ class BaseTestRclass(BaseRtypingTest):
         assert accessor.fields == {"inst_x" : "", "inst_y" : "[*]"} or \
                accessor.fields == {"ox" : "", "oy" : "[*]"} # for ootype
 
-    def test_immutable_inheritance(self):
-        class I(object):
-            def __init__(self, v):
-                self.v = v
-        
-        class J(I):
-            _immutable_ = True
-            def __init__(self, v, w):
-                self.w = w
-                I.__init__(self, v)
+    def test_immutable_fields_subclass_1(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ["x"]
+            def __init__(self, x):
+                self.x = x
+        class B(A):
+            def __init__(self, x, y):
+                A.__init__(self, x)
+                self.y = y
 
-        j = J(3, 4)
         def f():
-            j.v = j.v * 1 # make the annotator think it is mutated
-            j.w = j.w * 1 # make the annotator think it is mutated
-            return j.v + j.w
+            return B(3, 5)
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_x" : ""} or \
+               accessor.fields == {"ox" : ""} # for ootype
 
-        t, typer, graph = self.gengraph(f, [], backendopt=True)
-        f_summary = summary(graph)
-        assert f_summary == {"setfield": 2} or \
-               f_summary == {"oosetfield": 2} # for ootype
+    def test_immutable_fields_subclass_2(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ["x"]
+            def __init__(self, x):
+                self.x = x
+        class B(A):
+            _immutable_fields_ = ["y"]
+            def __init__(self, x, y):
+                A.__init__(self, x)
+                self.y = y
+
+        def f():
+            return B(3, 5)
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_x" : "", "inst_y" : ""} or \
+               accessor.fields == {"ox" : "", "oy" : ""} # for ootype
+
+    def test_immutable_fields_only_in_subclass(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+        class B(A):
+            _immutable_fields_ = ["y"]
+            def __init__(self, x, y):
+                A.__init__(self, x)
+                self.y = y
+
+        def f():
+            return B(3, 5)
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_y" : ""} or \
+               accessor.fields == {"oy" : ""} # for ootype
+
+    def test_immutable_forbidden_inheritance_1(self):
+        from pypy.rpython.rclass import ImmutableConflictError
+        class A(object):
+            pass
+        class B(A):
+            _immutable_fields_ = ['v']
+        def f():
+            A().v = 123
+            B()             # crash: class B says 'v' is immutable,
+                            # but it is defined on parent class A
+        py.test.raises(ImmutableConflictError, self.gengraph, f, [])
+
+    def test_immutable_forbidden_inheritance_2(self):
+        from pypy.rpython.rclass import ImmutableConflictError
+        class A(object):
+            pass
+        class B(A):
+            _immutable_ = True
+        def f():
+            A().v = 123
+            B()             # crash: class B has _immutable_ = True
+                            # but class A defines 'v' to be mutable
+        py.test.raises(ImmutableConflictError, self.gengraph, f, [])
+
+    def test_immutable_ok_inheritance_2(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ['v']
+        class B(A):
+            _immutable_ = True
+        def f():
+            A().v = 123
+            B().w = 456
+            return B()
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        assert B_TYPE._hints["immutable"]
+        try:
+            A_TYPE = B_TYPE.super
+        except AttributeError:
+            A_TYPE = B_TYPE._superclass  # for ootype
+        accessor = A_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_v" : ""} or \
+               accessor.fields == {"ov" : ""} # for ootype
+
+    def test_immutable_subclass_1(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_ = True
+        class B(A):
+            pass
+        def f():
+            B().v = 123
+            return B()
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        assert B_TYPE._hints["immutable"]    # inherited from A
+
+    def test_immutable_subclass_2(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            pass
+        class B(A):
+            _immutable_ = True
+        def f():
+            B().v = 123
+            return B()
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        assert B_TYPE._hints["immutable"]
+
+    def test_immutable_subclass_void(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            pass
+        class B(A):
+            _immutable_ = True
+        def myfunc():
+            pass
+        def f():
+            A().f = myfunc    # it's ok to add Void attributes to A
+            B().v = 123       # even though only B is declared _immutable_
+            return B()
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        assert B_TYPE._hints["immutable"]
 
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):

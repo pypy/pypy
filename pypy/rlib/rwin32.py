@@ -31,6 +31,7 @@ class CConfig:
         DWORD = rffi_platform.SimpleType("DWORD", rffi.UINT)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
         BYTE = rffi_platform.SimpleType("BYTE", rffi.UCHAR)
+        WCHAR = rffi_platform.SimpleType("WCHAR", rffi.UCHAR)
         INT = rffi_platform.SimpleType("INT", rffi.INT)
         LONG = rffi_platform.SimpleType("LONG", rffi.LONG)
         PLONG = rffi_platform.SimpleType("PLONG", rffi.LONGP)
@@ -38,6 +39,8 @@ class CConfig:
         LPCVOID = rffi_platform.SimpleType("LPCVOID", rffi.VOIDP)
         LPSTR = rffi_platform.SimpleType("LPSTR", rffi.CCHARP)
         LPCSTR = rffi_platform.SimpleType("LPCSTR", rffi.CCHARP)
+        LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
+        LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.INTP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
@@ -87,6 +90,10 @@ if WIN32:
     GetLastError = winexternal('GetLastError', [], DWORD)
     SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
 
+    # In tests, the first call to GetLastError is always wrong, because error
+    # is hidden by operations in ll2ctypes.  Call it now.
+    GetLastError()
+
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], rffi.VOIDP)
     GetProcAddress = winexternal('GetProcAddress',
                                  [rffi.VOIDP, rffi.CCHARP],
@@ -129,13 +136,29 @@ if WIN32:
                     }
                     return 0;
                 }''')
-        exename = static_platform.compile(
-            [cfile], ExternalCompilationInfo(),
-            outputfilename = "dosmaperr",
-            standalone=True)
-        output = os.popen(str(exename))
-        errors = dict(map(int, line.split())
-                      for line in output)
+        try:
+            exename = static_platform.compile(
+                [cfile], ExternalCompilationInfo(),
+                outputfilename = "dosmaperr",
+                standalone=True)
+        except WindowsError:
+            # Fallback for the mingw32 compiler
+            errors = {
+                2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
+                11: 8, 15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13,
+                22: 13, 23: 13, 24: 13, 25: 13, 26: 13, 27: 13, 28: 13,
+                29: 13, 30: 13, 31: 13, 32: 13, 33: 13, 34: 13, 35: 13,
+                36: 13, 53: 2, 65: 13, 67: 2, 80: 17, 82: 13, 83: 13, 89: 11,
+                108: 13, 109: 32, 112: 28, 114: 9, 128: 10, 129: 10, 130: 9,
+                132: 13, 145: 41, 158: 13, 161: 2, 164: 11, 167: 13, 183: 17,
+                188: 8, 189: 8, 190: 8, 191: 8, 192: 8, 193: 8, 194: 8,
+                195: 8, 196: 8, 197: 8, 198: 8, 199: 8, 200: 8, 201: 8,
+                202: 8, 206: 2, 215: 11, 1816: 12,
+                }
+        else:
+            output = os.popen(str(exename))
+            errors = dict(map(int, line.split())
+                          for line in output)
         return errors, errno.EINVAL
 
     # A bit like strerror...

@@ -4,7 +4,7 @@ import py
 from pypy.tool.udir import udir
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
@@ -221,6 +221,21 @@ def test_getaddrinfo():
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
 
+def test_unknown_addr_as_object():
+    from pypy.rlib import rsocket
+    from pypy.rpython.lltypesystem import lltype, rffi
+    
+    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
+    c_addr.c_sa_data[0] = 'c'
+    rffi.setintfield(c_addr, 'c_sa_family', 15)
+    # XXX what size to pass here? for the purpose of this test it has
+    #     to be short enough so we have some data, 1 sounds good enough
+    #     + sizeof USHORT
+    w_obj = rsocket.Address(c_addr, 1 + 2).as_object(space)
+    assert space.is_true(space.isinstance(w_obj, space.w_tuple))
+    assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
+    assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
+
 def test_getnameinfo():
     host = "127.0.0.1"
     port = 25
@@ -339,6 +354,13 @@ class AppTestSocket:
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
         s.close()
+    
+    def test_socket_connect_ex(self):
+        import _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        # Make sure we get an app-level error, not an interp one.
+        raises(_socket.gaierror, s.connect_ex, ("wrong.invalid", 80))
+        s.close()
 
     def test_socket_connect_typeerrors(self):
         tests = [
@@ -433,7 +455,6 @@ class AppTestSocket:
         s2 = s.dup()
         assert s.fileno() != s2.fileno()
         assert s.getsockname() == s2.getsockname()
-    
 
     def test_buffer_or_unicode(self):
         # Test that send/sendall/sendto accept a buffer or a unicode as arg

@@ -150,12 +150,7 @@ def op_getinteriorfield(obj, *offsets):
     # we can constant-fold this if the innermost structure from which we
     # read the final field is immutable.
     T = lltype.typeOf(innermostcontainer).TO
-    if T._hints.get('immutable'):
-        pass
-    elif ('immutable_fields' in T._hints and
-          offsets[-1] in T._hints['immutable_fields'].fields):
-        pass
-    else:
+    if not T._immutable_field(offsets[-1]):
         raise TypeError("cannot fold getinteriorfield on mutable struct")
     assert not isinstance(ob, lltype._interior_ptr)
     return ob
@@ -197,6 +192,18 @@ def op_int_sub(x, y):
     assert isinstance(y, int)
     return intmask(x - y)
 
+def op_int_ge(x, y):
+    # special case for 'AddressOffset >= 0'
+    assert isinstance(x, (int, llmemory.AddressOffset))
+    assert isinstance(y, int)
+    return x >= y
+
+def op_int_lt(x, y):
+    # special case for 'AddressOffset < 0'
+    assert isinstance(x, (int, llmemory.AddressOffset))
+    assert isinstance(y, int)
+    return x < y
+
 def op_int_between(a, b, c):
     assert lltype.typeOf(a) is lltype.Signed
     assert lltype.typeOf(b) is lltype.Signed
@@ -221,6 +228,13 @@ def op_int_mul(x, y):
     assert isinstance(x, (int, llmemory.AddressOffset))
     assert isinstance(y, (int, llmemory.AddressOffset))
     return intmask(x * y)
+
+def op_int_rshift(x, y):
+    if not isinstance(x, int):
+        from pypy.rpython.lltypesystem import llgroup
+        assert isinstance(x, llgroup.CombinedSymbolic)
+    assert isinstance(y, int)
+    return x >> y
 
 def op_int_floordiv(x, y):
     assert isinstance(x, (int, llmemory.AddressOffset))
@@ -418,19 +432,15 @@ def op_gc_writebarrier_before_copy(source, dest):
 def op_getfield(p, name):
     checkptr(p)
     TYPE = lltype.typeOf(p).TO
-    if TYPE._hints.get('immutable'):
-        pass
-    elif ('immutable_fields' in TYPE._hints and
-          name in TYPE._hints['immutable_fields'].fields):
-        pass
-    else:
+    if not TYPE._immutable_field(name):
         raise TypeError("cannot fold getfield on mutable struct")
     return getattr(p, name)
 
 def op_getarrayitem(p, index):
     checkptr(p)
-    if not lltype.typeOf(p).TO._hints.get('immutable'):
-        raise TypeError("cannot fold getfield on mutable array")
+    ARRAY = lltype.typeOf(p).TO
+    if not ARRAY._immutable_field(index):
+        raise TypeError("cannot fold getarrayitem on mutable array")
     return p[index]
 
 def _normalize(x):

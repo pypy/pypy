@@ -11,7 +11,7 @@ class PyPyJitPolicy(JitPolicy):
         if '.' in modname:
             modname, _ = modname.split('.', 1)
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
-                       'imp', 'sys']:
+                       'imp', 'sys', 'array']:
             return True
         return False
 
@@ -31,6 +31,8 @@ class PyPyJitPolicy(JitPolicy):
         if mod.startswith('pypy.interpreter.astcompiler.'):
             return False
         if mod.startswith('pypy.interpreter.pyparser.'):
+            return False
+        if mod == 'pypy.interpreter.generator':
             return False
         if mod.startswith('pypy.module.'):
             modname = mod[len('pypy.module.'):]

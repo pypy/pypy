@@ -767,7 +767,6 @@ class TestAnnotateTestCase:
         assert s.classdef is a.bookkeeper.getuniqueclassdef(IndexError)  # KeyError ignored because l is a list
 
     def test_overrides(self):
-        import sys
         excs = []
         def record_exc(e):
             """NOT_RPYTHON"""
@@ -869,8 +868,27 @@ class TestAnnotateTestCase:
         def f():
             return large_constant
         a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [])
+        # if you want to get a r_uint, you have to be explicit about it
+
+    def test_prebuilt_long_that_is_not_too_long(self):
+        small_constant = 12L
+        def f():
+            return small_constant
+        a = self.RPythonAnnotator()
         s = a.build_types(f, [])
-        assert s.knowntype == r_uint
+        assert s.const == 12
+        assert s.nonneg
+        assert not s.unsigned
+        #
+        small_constant = -23L
+        def f():
+            return small_constant
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == -23
+        assert not s.nonneg
+        assert not s.unsigned
 
     def test_pbc_getattr(self):
         class C:
@@ -1386,7 +1404,6 @@ class TestAnnotateTestCase:
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(Exception)
 
     def test_sys_attrs(self):
-        import sys
         def f():
             return sys.argv[0]
         a = self.RPythonAnnotator()

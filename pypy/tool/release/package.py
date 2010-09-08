@@ -11,10 +11,11 @@ import sys
 import py
 import os
 import fnmatch
-import tarfile
 from pypy.tool.udir import udir
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
+
+USE_TARFILE_MODULE = sys.platform == 'win32'
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
@@ -69,9 +70,17 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        os.system("strip " + str(archive_pypy_c))
-        os.system('tar cvjf ' + str(builddir.join(name + '.tar.bz2')) +
-                  " " + name)
+        os.system("strip " + str(archive_pypy_c))    # ignore errors
+        if USE_TARFILE_MODULE:
+            import tarfile
+            tf = tarfile.open(str(builddir.join(name + '.tar.bz2')), 'w:bz2')
+            tf.add(name)
+            tf.close()
+        else:
+            e = os.system('tar cvjf ' + str(builddir.join(name + '.tar.bz2')) +
+                          " " + name)
+            if e:
+                raise OSError('"tar" returned exit status %r' % e)
     finally:
         os.chdir(old_dir)
     if copy_to_dir is not None:

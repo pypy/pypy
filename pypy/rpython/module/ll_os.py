@@ -6,12 +6,15 @@ Low-level implementations for the external functions of the 'os' module.
 # might be found in doc/rffi.txt
 
 import os, sys, errno
+import py
 from pypy.rpython.module.support import ll_strcpy, OOSupport
-from pypy.tool.sourcetools import func_with_new_name
+from pypy.tool.sourcetools import func_with_new_name, func_renamer
 from pypy.rlib.rarithmetic import r_longlong
-from pypy.rpython.extfunc import BaseLazyRegistering
+from pypy.rpython.extfunc import (
+    BaseLazyRegistering, lazy_register, register_external)
 from pypy.rpython.extfunc import registering, registering_if, extdef
-from pypy.annotation.model import SomeInteger, SomeString, SomeTuple, SomeFloat
+from pypy.annotation.model import (
+    SomeInteger, SomeString, SomeTuple, SomeFloat, SomeUnicodeString)
 from pypy.annotation.model import s_ImpossibleValue, s_None, s_Bool
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
@@ -26,7 +29,99 @@ from pypy.rpython.lltypesystem.llmemory import sizeof,\
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
+
+def monkeypatch_rposix(posixfunc, unicodefunc, signature):
+    func_name = posixfunc.__name__
+
+    if hasattr(signature, '_default_signature_'):
+        signature = signature._default_signature_
+    arglist = ['arg%d' % (i,) for i in range(len(signature))]
+    transformed_arglist = arglist[:]
+    for i, arg in enumerate(signature):
+        if arg is unicode:
+            transformed_arglist[i] = transformed_arglist[i] + '.as_unicode()'
+
+    args = ', '.join(arglist)
+    transformed_args = ', '.join(transformed_arglist)
+    main_arg = 'arg%d' % (signature.index(unicode),)
+
+    source = py.code.Source("""
+    def %(func_name)s(%(args)s):
+        if isinstance(%(main_arg)s, str):
+            return posixfunc(%(args)s)
+        else:
+            return unicodefunc(%(transformed_args)s)
+    """ % locals())
+    miniglobals = {'posixfunc'  : posixfunc,
+                   'unicodefunc': unicodefunc,
+                   '__name__':    __name__, # for module name propagation
+                   }
+    exec source.compile() in miniglobals
+    new_func = miniglobals[func_name]
+    specialized_args = [i for i in range(len(signature))
+                        if signature[i] in (unicode, None)]
+    new_func = specialize.argtype(*specialized_args)(new_func)
+
+    # Monkeypatch the function in pypy.rlib.rposix
+    setattr(rposix, func_name, new_func)
+
+class StringTraits:
+    str = str
+    CHAR = rffi.CHAR
+    CCHARP = rffi.CCHARP
+    charp2str = staticmethod(rffi.charp2str)
+    str2charp = staticmethod(rffi.str2charp)
+    free_charp = staticmethod(rffi.free_charp)
+
+    @staticmethod
+    def posix_function_name(name):
+        return underscore_on_windows + name
+
+    @staticmethod
+    def ll_os_name(name):
+        return 'll_os.ll_os_' + name
+
+class UnicodeTraits:
+    str = unicode
+    CHAR = rffi.WCHAR_T
+    CCHARP = rffi.CWCHARP
+    charp2str = staticmethod(rffi.wcharp2unicode)
+    str2charp = staticmethod(rffi.unicode2wcharp)
+    free_charp = staticmethod(rffi.free_wcharp)
+
+    @staticmethod
+    def posix_function_name(name):
+        return underscore_on_windows + 'w' + name
+
+    @staticmethod
+    def ll_os_name(name):
+        return 'll_os.ll_os_w' + name
+
+def registering_str_unicode(posixfunc, condition=True):
+    if not condition:
+        return registering(None, condition=False)
+
+    func_name = posixfunc.__name__
+
+    def register_posixfunc(self, method):
+        val = method(self, StringTraits())
+        register_external(posixfunc, *val.def_args, **val.def_kwds)
+
+        if sys.platform == 'win32':
+            val = method(self, UnicodeTraits())
+            @func_renamer(func_name + "_unicode")
+            def unicodefunc(*args):
+                return posixfunc(*args)
+            register_external(unicodefunc, *val.def_args, **val.def_kwds)
+            signature = val.def_args[0]
+            monkeypatch_rposix(posixfunc, unicodefunc, signature)
+
+    def decorator(method):
+        decorated = lambda self: register_posixfunc(self, method)
+        decorated._registering_func = posixfunc
+        return decorated
+    return decorator
 
 posix = __import__(os.name)
 
@@ -282,8 +377,8 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, int], s_None, llimpl=dup2_llimpl,
                       export_name="ll_os.ll_os_dup2")
 
-    @registering(os.utime)
-    def register_os_utime(self):
+    @registering_str_unicode(os.utime)
+    def register_os_utime(self, traits):
         UTIMBUFP = lltype.Ptr(self.UTIMBUF)
         os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
 
@@ -336,6 +431,9 @@ class RegisterOs(BaseLazyRegistering):
         # tp is known to be None, and one version where it is known
         # to be a tuple of 2 floats.
         if not _WIN32:
+            assert traits.str is str
+
+            @specialize.argtype(1)
             def os_utime_llimpl(path, tp):
                 if tp is None:
                     error = os_utime(path, lltype.nullptr(UTIMBUFP.TO))
@@ -346,85 +444,13 @@ class RegisterOs(BaseLazyRegistering):
                 if error == -1:
                     raise OSError(rposix.get_errno(), "os_utime failed")
         else:
-            from pypy.rlib import rwin32
-            from pypy.rpython.module.ll_os_stat import time_t_to_FILE_TIME
+            from pypy.rpython.module.ll_win32file import make_utime_impl
+            os_utime_llimpl = make_utime_impl(traits)
 
-            class CConfig:
-                _compilation_info_ = ExternalCompilationInfo(
-                    includes = ['windows.h'],
-                    )
-
-                FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
-                    'FILE_WRITE_ATTRIBUTES')
-                OPEN_EXISTING = platform.ConstantInteger(
-                    'OPEN_EXISTING')
-                FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
-                    'FILE_FLAG_BACKUP_SEMANTICS')
-            globals().update(platform.configure(CConfig))
-
-            CreateFile = rffi.llexternal(
-                'CreateFileA',
-                [rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD,
-                 rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
-                 rwin32.HANDLE],
-                rwin32.HANDLE,
-                calling_conv='win')
-
-            GetSystemTime = rffi.llexternal(
-                'GetSystemTime',
-                [lltype.Ptr(rwin32.SYSTEMTIME)],
-                lltype.Void,
-                calling_conv='win')
-
-            SystemTimeToFileTime = rffi.llexternal(
-                'SystemTimeToFileTime',
-                [lltype.Ptr(rwin32.SYSTEMTIME),
-                 lltype.Ptr(rwin32.FILETIME)],
-                rwin32.BOOL,
-                calling_conv='win')
-
-            SetFileTime = rffi.llexternal(
-                'SetFileTime',
-                [rwin32.HANDLE,
-                 lltype.Ptr(rwin32.FILETIME),
-                 lltype.Ptr(rwin32.FILETIME),
-                 lltype.Ptr(rwin32.FILETIME)],
-                rwin32.BOOL,
-                calling_conv = 'win')
-
-            def os_utime_llimpl(path, tp):
-                hFile = CreateFile(path, 
-                                   FILE_WRITE_ATTRIBUTES, 0, 
-                                   None, OPEN_EXISTING,
-                                   FILE_FLAG_BACKUP_SEMANTICS, 0)
-                if hFile == rwin32.INVALID_HANDLE_VALUE:
-                    raise rwin32.lastWindowsError()
-                ctime = lltype.nullptr(rwin32.FILETIME)
-                atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
-                mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
-                try:
-                    if tp is None:
-                        now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
-                        try:
-                            GetSystemTime(now)
-                            if (not SystemTimeToFileTime(now, atime) or
-                                not SystemTimeToFileTime(now, mtime)):
-                                raise rwin32.lastWindowsError()
-                        finally:
-                            lltype.free(now, flavor='raw')
-                    else:
-                        actime, modtime = tp
-                        time_t_to_FILE_TIME(actime, atime)
-                        time_t_to_FILE_TIME(modtime, mtime)
-                    if not SetFileTime(hFile, ctime, atime, mtime):
-                        raise rwin32.lastWindowsError()
-                finally:
-                    rwin32.CloseHandle(hFile)
-                    lltype.free(atime, flavor='raw')
-                    lltype.free(mtime, flavor='raw')
-        os_utime_llimpl._annspecialcase_ = 'specialize:argtype(1)'
-
-        s_string = SomeString()
+        if traits.str is str:
+            s_string = SomeString()
+        else:
+            s_string = SomeUnicodeString()
         s_tuple_of_2_floats = SomeTuple([SomeFloat(), SomeFloat()])
 
         def os_utime_normalize_args(s_path, s_times):
@@ -445,11 +471,11 @@ class RegisterOs(BaseLazyRegistering):
             else:
                 raise Exception("os.utime() arg 2 must be None or a tuple of "
                                 "2 floats, got %s" % (s_times,))
+        os_utime_normalize_args._default_signature_ = [traits.str, None]
 
         return extdef(os_utime_normalize_args, s_None,
                       "ll_os.ll_os_utime",
                       llimpl=os_utime_llimpl)
-
 
     @registering(os.times)
     def register_os_times(self):
@@ -687,22 +713,21 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_setsid(self):
         return self.extdef_for_os_function_returning_int('setsid')
 
-    @registering(os.open)
-    def register_os_open(self):
-        os_open = self.llexternal(underscore_on_windows+'open',
-                                  [rffi.CCHARP, rffi.INT, rffi.MODE_T],
+    @registering_str_unicode(os.open)
+    def register_os_open(self, traits):
+        os_open = self.llexternal(traits.posix_function_name('open'),
+                                  [traits.CCHARP, rffi.INT, rffi.MODE_T],
                                   rffi.INT)
-
         def os_open_llimpl(path, flags, mode):
             result = rffi.cast(rffi.LONG, os_open(path, flags, mode))
             if result == -1:
                 raise OSError(rposix.get_errno(), "os_open failed")
             return result
 
-        def os_open_oofakeimpl(o_path, flags, mode):
-            return os.open(o_path._str, flags, mode)
+        def os_open_oofakeimpl(path, flags, mode):
+            return os.open(OOSupport.from_rstr(path), flags, mode)
 
-        return extdef([str, int, int], int, "ll_os.ll_os_open",
+        return extdef([traits.str, int, int], int, traits.ll_os_name('open'),
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
 
 # ------------------------------- os.read -------------------------------
@@ -862,10 +887,10 @@ class RegisterOs(BaseLazyRegistering):
                       llimpl=fdatasync_llimpl,
                       export_name="ll_os.ll_os_fdatasync")
 
-    @registering(os.access)
-    def register_os_access(self):
-        os_access = self.llexternal(underscore_on_windows + 'access',
-                                    [rffi.CCHARP, rffi.INT],
+    @registering_str_unicode(os.access)
+    def register_os_access(self, traits):
+        os_access = self.llexternal(traits.posix_function_name('access'),
+                                    [traits.CCHARP, rffi.INT],
                                     rffi.INT)
 
         if sys.platform.startswith('win'):
@@ -882,44 +907,22 @@ class RegisterOs(BaseLazyRegistering):
         def os_access_oofakeimpl(path, mode):
             return os.access(OOSupport.from_rstr(path), mode)
 
-        return extdef([str, int], s_Bool, llimpl=access_llimpl,
-                      export_name="ll_os.ll_os_access",
+        return extdef([traits.str, int], s_Bool, llimpl=access_llimpl,
+                      export_name=traits.ll_os_name("access"),
                       oofakeimpl=os_access_oofakeimpl)
 
-    @registering_if(posix, '_getfullpathname')
-    def register_posix__getfullpathname(self):
-        from pypy.rlib import rwin32
+    @registering_str_unicode(getattr(posix, '_getfullpathname', None),
+                             condition=sys.platform=='win32')
+    def register_posix__getfullpathname(self, traits):
         # this nt function is not exposed via os, but needed
         # to get a correct implementation of os.abspath
-        # XXX why do we ignore WINAPI conventions everywhere?
-        LPSTRP = rffi.CArrayPtr(rwin32.LPSTR)
-        # XXX unicode?
-        GetFullPathName = self.llexternal(
-            'GetFullPathNameA',
-            [rwin32.LPCSTR,
-             rwin32.DWORD,
-             rwin32.LPSTR,
-             rffi.CArrayPtr(rwin32.LPSTR)],
-            rwin32.DWORD)
+        from pypy.rpython.module.ll_win32file import make_getfullpathname_impl
+        getfullpathname_llimpl = make_getfullpathname_impl(traits)
 
-        def _getfullpathname_llimpl(lpFileName):
-            nBufferLength = rwin32.MAX_PATH + 1
-            lpBuffer = lltype.malloc(rwin32.LPSTR.TO, nBufferLength, flavor='raw')
-            try:
-                res = GetFullPathName(
-                    lpFileName, rffi.cast(rwin32.DWORD, nBufferLength),
-                    lpBuffer, lltype.nullptr(LPSTRP.TO))
-                if res == 0:
-                    raise rwin32.lastWindowsError("_getfullpathname failed")
-                result = rffi.charp2str(lpBuffer)
-                return result
-            finally:
-                lltype.free(lpBuffer, flavor='raw')
-
-        return extdef([str],  # a single argument which is a str
-                      str,    # returns a string
-                      "ll_os.posix__getfullpathname",
-                      llimpl=_getfullpathname_llimpl)
+        return extdef([traits.str],  # a single argument which is a str
+                      traits.str,    # returns a string
+                      traits.ll_os_name('_getfullpathname'),
+                      llimpl=getfullpathname_llimpl)
 
     @registering(os.getcwd)
     def register_os_getcwd(self):
@@ -953,71 +956,42 @@ class RegisterOs(BaseLazyRegistering):
                       "ll_os.ll_os_getcwd", llimpl=os_getcwd_llimpl,
                       oofakeimpl=os_getcwd_oofakeimpl)
 
-    @registering(os.listdir)
-    def register_os_listdir(self):
+    @registering(os.getcwdu, condition=sys.platform=='win32')
+    def register_os_getcwdu(self):
+        os_wgetcwd = self.llexternal(underscore_on_windows + 'wgetcwd',
+                                     [rffi.CWCHARP, rffi.SIZE_T],
+                                     rffi.CWCHARP)
+
+        def os_getcwd_llimpl():
+            bufsize = 256
+            while True:
+                buf = lltype.malloc(rffi.CWCHARP.TO, bufsize, flavor='raw')
+                res = os_wgetcwd(buf, rffi.cast(rffi.SIZE_T, bufsize))
+                if res:
+                    break   # ok
+                error = rposix.get_errno()
+                lltype.free(buf, flavor='raw')
+                if error != errno.ERANGE:
+                    raise OSError(error, "getcwd failed")
+                # else try again with a larger buffer, up to some sane limit
+                bufsize *= 4
+                if bufsize > 1024*1024:  # xxx hard-coded upper limit
+                    raise OSError(error, "getcwd result too large")
+            result = rffi.wcharp2unicode(res)
+            lltype.free(buf, flavor='raw')
+            return result
+
+        return extdef([], unicode,
+                      "ll_os.ll_os_wgetcwd", llimpl=os_getcwd_llimpl)
+
+    @registering_str_unicode(os.listdir)
+    def register_os_listdir(self, traits):
         # we need a different approach on Windows and on Posix
         if sys.platform.startswith('win'):
-            from pypy.rlib import rwin32
-            class CConfig:
-                _compilation_info_ = ExternalCompilationInfo(
-                    includes = ['windows.h']
-                )
-                WIN32_FIND_DATA = platform.Struct('struct _WIN32_FIND_DATAA',
-                    [('cFileName', lltype.FixedSizeArray(rffi.CHAR, 1))])
-                ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
-                    'ERROR_FILE_NOT_FOUND')
-                ERROR_NO_MORE_FILES = platform.ConstantInteger(
-                    'ERROR_NO_MORE_FILES')
-
-            config = platform.configure(CConfig)
-            WIN32_FIND_DATA      = config['WIN32_FIND_DATA']
-            ERROR_FILE_NOT_FOUND = config['ERROR_FILE_NOT_FOUND']
-            ERROR_NO_MORE_FILES  = config['ERROR_NO_MORE_FILES']
-            LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
-
-            FindFirstFile = self.llexternal('FindFirstFile',
-                                            [rwin32.LPCSTR, LPWIN32_FIND_DATA],
-                                            rwin32.HANDLE)
-            FindNextFile = self.llexternal('FindNextFile',
-                                           [rwin32.HANDLE, LPWIN32_FIND_DATA],
-                                           rwin32.BOOL)
-            FindClose = self.llexternal('FindClose',
-                                        [rwin32.HANDLE],
-                                        rwin32.BOOL)
-
-            def os_listdir_llimpl(path):
-                if path and path[-1] not in ('/', '\\', ':'):
-                    path += '/'
-                path += '*.*'
-                filedata = lltype.malloc(WIN32_FIND_DATA, flavor='raw')
-                try:
-                    result = []
-                    hFindFile = FindFirstFile(path, filedata)
-                    if hFindFile == rwin32.INVALID_HANDLE_VALUE:
-                        error = rwin32.GetLastError()
-                        if error == ERROR_FILE_NOT_FOUND:
-                            return result
-                        else:
-                            raise WindowsError(error,  "FindFirstFile failed")
-                    while True:
-                        name = rffi.charp2str(rffi.cast(rffi.CCHARP,
-                                                        filedata.c_cFileName))
-                        if name != "." and name != "..":   # skip these
-                            result.append(name)
-                        if not FindNextFile(hFindFile, filedata):
-                            break
-                    # FindNextFile sets error to ERROR_NO_MORE_FILES if
-                    # it got to the end of the directory
-                    error = rwin32.GetLastError()
-                    FindClose(hFindFile)
-                    if error == ERROR_NO_MORE_FILES:
-                        return result
-                    else:
-                        raise WindowsError(error,  "FindNextFile failed")
-                finally:
-                    lltype.free(filedata, flavor='raw')
-
+            from pypy.rpython.module.ll_win32file import make_listdir_impl
+            os_listdir_llimpl = make_listdir_impl(traits)
         else:
+            assert traits.str is str
             compilation_info = ExternalCompilationInfo(
                 includes = ['sys/types.h', 'dirent.h']
             )
@@ -1057,9 +1031,9 @@ class RegisterOs(BaseLazyRegistering):
                     raise OSError(error, "os_readdir failed")
                 return result
 
-        return extdef([str],  # a single argument which is a str
-                      [str],  # returns a list of strings
-                      "ll_os.ll_os_listdir",
+        return extdef([traits.str],  # a single argument which is a str
+                      [traits.str],  # returns a list of strings
+                      traits.ll_os_name('listdir'),
                       llimpl=os_listdir_llimpl)
 
     @registering(os.pipe)
@@ -1234,38 +1208,40 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str], int, llimpl=system_llimpl,
                       export_name="ll_os.ll_os_system")
 
-    @registering(os.unlink)
-    def register_os_unlink(self):
-        os_unlink = self.llexternal(underscore_on_windows+'unlink', [rffi.CCHARP], rffi.INT)
+    @registering_str_unicode(os.unlink)
+    def register_os_unlink(self, traits):
+        os_unlink = self.llexternal(traits.posix_function_name('unlink'),
+                                    [traits.CCHARP], rffi.INT)
 
         def unlink_llimpl(pathname):
             res = rffi.cast(lltype.Signed, os_unlink(pathname))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_unlink failed")
 
-        return extdef([str], s_None, llimpl=unlink_llimpl,
-                      export_name="ll_os.ll_os_unlink")
+        return extdef([traits.str], s_None, llimpl=unlink_llimpl,
+                      export_name=traits.ll_os_name('unlink'))
 
-    @registering(os.chdir)
-    def register_os_chdir(self):
-        os_chdir = self.llexternal(underscore_on_windows+'chdir', [rffi.CCHARP], rffi.INT)
+    @registering_str_unicode(os.chdir)
+    def register_os_chdir(self, traits):
+        os_chdir = self.llexternal(traits.posix_function_name('chdir'),
+                                   [traits.CCHARP], rffi.INT)
 
         def chdir_llimpl(path):
             res = rffi.cast(lltype.Signed, os_chdir(path))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chdir failed")
 
-        return extdef([str], s_None, llimpl=chdir_llimpl,
-                      export_name="ll_os.ll_os_chdir")
+        return extdef([traits.str], s_None, llimpl=chdir_llimpl,
+                      export_name=traits.ll_os_name('chdir'))
 
-    @registering(os.mkdir)
-    def register_os_mkdir(self):
+    @registering_str_unicode(os.mkdir)
+    def register_os_mkdir(self, traits):
         if os.name == 'nt':
             ARG2 = []         # no 'mode' argument on Windows - just ignored
         else:
             ARG2 = [rffi.MODE_T]
-        os_mkdir = self.llexternal(underscore_on_windows+'mkdir',
-                                   [rffi.CCHARP]+ARG2, rffi.INT)
+        os_mkdir = self.llexternal(traits.posix_function_name('mkdir'),
+                                   [traits.CCHARP] + ARG2, rffi.INT)
         IGNORE_MODE = len(ARG2) == 0
 
         def mkdir_llimpl(pathname, mode):
@@ -1277,46 +1253,47 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_mkdir failed")
 
-        return extdef([str, int], s_None, llimpl=mkdir_llimpl,
-                      export_name="ll_os.ll_os_mkdir")
+        return extdef([traits.str, int], s_None, llimpl=mkdir_llimpl,
+                      export_name=traits.ll_os_name('mkdir'))
 
-    @registering(os.rmdir)
-    def register_os_rmdir(self):
-        os_rmdir = self.llexternal(underscore_on_windows+'rmdir', [rffi.CCHARP], rffi.INT)
+    @registering_str_unicode(os.rmdir)
+    def register_os_rmdir(self, traits):
+        os_rmdir = self.llexternal(traits.posix_function_name('rmdir'),
+                                   [traits.CCHARP], rffi.INT)
 
         def rmdir_llimpl(pathname):
             res = rffi.cast(lltype.Signed, os_rmdir(pathname))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rmdir failed")
 
-        return extdef([str], s_None, llimpl=rmdir_llimpl,
-                      export_name="ll_os.ll_os_rmdir")
+        return extdef([traits.str], s_None, llimpl=rmdir_llimpl,
+                      export_name=traits.ll_os_name('rmdir'))
 
-    @registering(os.chmod)
-    def register_os_chmod(self):
-        os_chmod = self.llexternal(underscore_on_windows+'chmod', [rffi.CCHARP, rffi.MODE_T],
-                                   rffi.INT)
+    @registering_str_unicode(os.chmod)
+    def register_os_chmod(self, traits):
+        os_chmod = self.llexternal(traits.posix_function_name('chmod'),
+                                   [traits.CCHARP, rffi.MODE_T], rffi.INT)
 
         def chmod_llimpl(path, mode):
             res = rffi.cast(lltype.Signed, os_chmod(path, rffi.cast(rffi.MODE_T, mode)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chmod failed")
 
-        return extdef([str, int], s_None, llimpl=chmod_llimpl,
-                      export_name="ll_os.ll_os_chmod")
+        return extdef([traits.str, int], s_None, llimpl=chmod_llimpl,
+                      export_name=traits.ll_os_name('chmod'))
 
-    @registering(os.rename)
-    def register_os_rename(self):
-        os_rename = self.llexternal('rename', [rffi.CCHARP, rffi.CCHARP],
-                                    rffi.INT)
+    @registering_str_unicode(os.rename)
+    def register_os_rename(self, traits):
+        os_rename = self.llexternal(traits.posix_function_name('rename'),
+                                    [traits.CCHARP, traits.CCHARP], rffi.INT)
 
         def rename_llimpl(oldpath, newpath):
             res = rffi.cast(lltype.Signed, os_rename(oldpath, newpath))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rename failed")
 
-        return extdef([str, str], s_None, llimpl=rename_llimpl,
-                      export_name="ll_os.ll_os_rename")
+        return extdef([traits.str, traits.str], s_None, llimpl=rename_llimpl,
+                      export_name=traits.ll_os_name('rename'))
 
     @registering(os.umask)
     def register_os_umask(self):
@@ -1425,17 +1402,17 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.fstat)
     def register_os_fstat(self):
         from pypy.rpython.module import ll_os_stat
-        ll_os_stat.register_stat_variant('fstat')
+        return ll_os_stat.register_stat_variant('fstat', StringTraits())
 
-    @registering(os.stat)
-    def register_os_stat(self):
+    @registering_str_unicode(os.stat)
+    def register_os_stat(self, traits):
         from pypy.rpython.module import ll_os_stat
-        ll_os_stat.register_stat_variant('stat')
+        return ll_os_stat.register_stat_variant('stat', traits)
 
-    @registering(os.lstat)
-    def register_os_lstat(self):
+    @registering_str_unicode(os.lstat)
+    def register_os_lstat(self, traits):
         from pypy.rpython.module import ll_os_stat
-        ll_os_stat.register_stat_variant('lstat')
+        return ll_os_stat.register_stat_variant('lstat', traits)
 
     # ------------------------------- os.W* ---------------------------------
 

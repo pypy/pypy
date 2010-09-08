@@ -677,7 +677,12 @@ class AppTestFfi:
         a = A(1)
         a[0] = -1234
         a.free()
-        
+
+    def test_long_with_fromaddress(self):
+        import _rawffi
+        addr = -1
+        raises(ValueError, _rawffi.Array('u').fromaddress, addr, 100)
+
     def test_passing_raw_pointers(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)

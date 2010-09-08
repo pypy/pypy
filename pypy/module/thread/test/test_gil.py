@@ -1,7 +1,6 @@
 import time
 from pypy.module.thread import gil
 from pypy.module.thread.test import test_ll_thread
-from pypy.rpython.lltypesystem import rffi
 from pypy.module.thread import ll_thread as thread
 from pypy.rlib.objectmodel import we_are_translated
 

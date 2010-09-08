@@ -100,8 +100,6 @@ class Address(object):
     def lock(self, TYPE=_c.sockaddr):
         """Return self.addr_p, cast as a pointer to TYPE.  Must call unlock()!
         """
-        if not (self.minlen <= self.addrlen <= self.maxlen):
-            raise RSocketError("invalid address")
         return rffi.cast(lltype.Ptr(TYPE), self.addr_p)
     lock._annspecialcase_ = 'specialize:ll'
 

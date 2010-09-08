@@ -88,6 +88,8 @@ class StdTypeModel:
         import pypy.objspace.std.default # register a few catch-all multimethods
 
         import pypy.objspace.std.marshal_impl # install marshal multimethods
+        if config.objspace.usemodules.array:
+            import pypy.module.array
 
         # the set of implementation types
         self.typeorder = {
@@ -140,6 +142,8 @@ class StdTypeModel:
 
         # check if we missed implementations
         for implcls in _registered_implementations:
+            if hasattr(implcls, 'register'):
+                implcls.register(self.typeorder)
             assert (implcls in self.typeorder or
                     implcls in self.imported_but_not_registered), (
                 "please add %r in StdTypeModel.typeorder" % (implcls,))

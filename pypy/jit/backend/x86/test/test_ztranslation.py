@@ -3,13 +3,14 @@ from pypy.tool.udir import udir
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.jit.metainterp.jitprof import Profiler
-from pypy.jit.backend.x86.runner import CPU386
+from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.support import CCompiledMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.translator.translator import TranslationContext
+from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 
 class TestTranslationX86(CCompiledMixin):
-    CPUClass = CPU386
+    CPUClass = getcpuclass()
 
     def _check_cbuilder(self, cbuilder):
         # We assume here that we have sse2.  If not, the CPUClass
@@ -74,8 +75,7 @@ class TestTranslationX86(CCompiledMixin):
         
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
-                           get_printable_location = lambda codeno : str(codeno),
-                           can_inline = lambda codeno : False)
+                           get_printable_location = lambda codeno: str(codeno))
         class SomewhereElse(object):
             pass
 
@@ -114,7 +114,7 @@ class TestTranslationX86(CCompiledMixin):
 
 
 class TestTranslationRemoveTypePtrX86(CCompiledMixin):
-    CPUClass = CPU386
+    CPUClass = getcpuclass()
 
     def _get_TranslationContext(self):
         t = TranslationContext()

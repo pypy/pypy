@@ -361,19 +361,27 @@ class GCHeaderAntiOffset(AddressOffset):
 
 # ____________________________________________________________
 
+def _sizeof_none(TYPE):
+    assert not TYPE._is_varsize()
+    return ItemOffset(TYPE)
+_sizeof_none._annspecialcase_ = 'specialize:memo'
+
+def _sizeof_int(TYPE, n):
+    "NOT_RPYTHON"
+    if isinstance(TYPE, lltype.Struct):
+        return FieldOffset(TYPE, TYPE._arrayfld) + \
+               itemoffsetof(TYPE._flds[TYPE._arrayfld], n)
+    else:
+        raise Exception("don't know how to take the size of a %r"%TYPE)
+
 def sizeof(TYPE, n=None):
     if n is None:
-        assert not TYPE._is_varsize()
-        return ItemOffset(TYPE)
+        return _sizeof_none(TYPE)
+    elif isinstance(TYPE, lltype.Array):
+        return itemoffsetof(TYPE) + _sizeof_none(TYPE.OF) * n
     else:
-        if isinstance(TYPE, lltype.Array):
-            return itemoffsetof(TYPE, n)
-        elif isinstance(TYPE, lltype.Struct):
-            return FieldOffset(TYPE, TYPE._arrayfld) + \
-                   itemoffsetof(TYPE._flds[TYPE._arrayfld], n)
-        else:
-            raise Exception("don't know how to take the size of a %r"%TYPE)
-sizeof._annspecialcase_ = 'specialize:memo'   # only for n == None
+        return _sizeof_int(TYPE, n)
+sizeof._annspecialcase_ = 'specialize:arg(0)'
 
 def offsetof(TYPE, fldname):
     assert fldname in TYPE._flds
@@ -389,6 +397,7 @@ itemoffsetof._annspecialcase_ = 'specialize:memo'
 # -------------------------------------------------------------
 
 class fakeaddress(object):
+    __slots__ = ['ptr']
     # NOTE: the 'ptr' in the addresses must be normalized.
     # Use cast_ptr_to_adr() instead of directly fakeaddress() if unsure.
     def __init__(self, ptr):
@@ -530,7 +539,6 @@ class DanglingPointerError(Exception):
     pass
 
 NULL = fakeaddress(None)
-NULL.intaddress = 0      # this is to make memory.lladdress more happy
 Address = lltype.Primitive("Address", NULL)
 
 # GCREF is similar to Address but it is GC-aware

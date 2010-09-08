@@ -4,7 +4,6 @@ import _rawffi
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject
-from _ctypes.builtin import _string_at_addr, _wstring_at_addr
 
 def _create_unicode(buffer, maxlength):
     res = []
@@ -76,7 +75,7 @@ class ArrayMeta(_CDataMeta):
 
     def _CData_output(self, resarray, base=None, index=-1):
         # this seems to be a string if we're array of char, surprise!
-        from ctypes import c_char, c_wchar, c_char_p, c_wchar_p
+        from ctypes import c_char, c_wchar
         if self._type_ is c_char:
             return _rawffi.charp2string(resarray.buffer, self._length_)
         if self._type_ is c_wchar:

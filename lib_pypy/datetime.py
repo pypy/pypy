@@ -1412,7 +1412,7 @@ class datetime(date):
 
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
-        if 1 - (t % 1.0) < 0.000001:
+        if 1 - (t % 1.0) < 0.0000005:
             t = float(int(t)) + 1
         if t < 0:
             t -= 1

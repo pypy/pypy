@@ -38,7 +38,7 @@ in addition to any features explicitly specified.
         str_ = space.str_w(w_source)
 
     ec = space.getexecutioncontext()
-    if flags & ~(ec.compiler.compiler_flags | consts.PyCF_AST_ONLY |
+    if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
         raise OperationError(space.w_ValueError,
                              space.wrap("compile() unrecognized flags"))
@@ -53,7 +53,7 @@ in addition to any features explicitly specified.
                                         "or 'eval' or 'single'"))
 
     if ast_node is None:
-        if flags & consts.PyCF_AST_ONLY:
+        if flags & consts.PyCF_ONLY_AST:
             mod = ec.compiler.compile_to_ast(str_, filename, mode, flags)
             return space.wrap(mod)
         else:

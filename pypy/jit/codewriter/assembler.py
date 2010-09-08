@@ -53,6 +53,7 @@ class Assembler(object):
         self.liveness = {}
         self.startpoints = set()
         self.alllabels = set()
+        self.resulttypes = {}
 
     def emit_reg(self, reg):
         if reg.index >= self.count_regs[reg.kind]:
@@ -165,7 +166,9 @@ class Assembler(object):
                 raise NotImplementedError(x)
         #
         opname = insn[0]
-        assert '>' not in argcodes or argcodes.index('>') == len(argcodes) - 2
+        if '>' in argcodes:
+            assert argcodes.index('>') == len(argcodes) - 2
+            self.resulttypes[len(self.code)] = argcodes[-1]
         key = opname + '/' + ''.join(argcodes)
         num = self.insns.setdefault(key, len(self.insns))
         self.code[startposition] = chr(num)
@@ -212,7 +215,8 @@ class Assembler(object):
                       self.count_regs['float'],
                       liveness=self.liveness,
                       startpoints=self.startpoints,
-                      alllabels=self.alllabels)
+                      alllabels=self.alllabels,
+                      resulttypes=self.resulttypes)
 
     def see_raw_object(self, value):
         if value._obj not in self._seen_raw_objects:

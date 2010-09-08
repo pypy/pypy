@@ -9,6 +9,7 @@ from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.extfunc import BaseLazyRegistering, registering, extdef
 from pypy.rlib import rposix
+from pypy.rlib.rarithmetic import intmask
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 if sys.platform == 'win32':
@@ -119,7 +120,8 @@ class RegisterTime(BaseLazyRegistering):
             if self.HAVE_FTIME:
                 t = lltype.malloc(self.TIMEB, flavor='raw')
                 c_ftime(t)
-                result = float(int(t.c_time)) + float(int(t.c_millitm)) * 0.001
+                result = (float(intmask(t.c_time)) +
+                          float(intmask(t.c_millitm)) * 0.001)
                 lltype.free(t, flavor='raw')
                 return result
             return float(c_time(void))

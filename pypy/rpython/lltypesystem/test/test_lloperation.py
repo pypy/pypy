@@ -88,7 +88,7 @@ def test_is_pure():
     accessor = rclass.FieldListAccessor()
     S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
                          hints={'immutable_fields': accessor})
-    accessor.initialize(S3, ['x'])
+    accessor.initialize(S3, {'x': ''})
     v_s3 = Variable()
     v_s3.concretetype = lltype.Ptr(S3)
     assert not llop.setfield.is_pure([v_s3, Constant('x'), Variable()])
@@ -103,7 +103,7 @@ def test_getfield_pure():
     accessor = rclass.FieldListAccessor()
     S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
                          hints={'immutable_fields': accessor})
-    accessor.initialize(S3, ['x'])
+    accessor.initialize(S3, {'x': ''})
     #
     s1 = lltype.malloc(S1); s1.x = 45
     py.test.raises(TypeError, llop.getfield, lltype.Signed, s1, 'x')

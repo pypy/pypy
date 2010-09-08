@@ -639,12 +639,14 @@ class TestGenerationalGC(TestSemiSpaceGC):
 
 class TestMarkCompactGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
+    GC_PARAMS = {'space_size': 65536+16384}
+    GC_CAN_SHRINK_ARRAY = False
 
     def test_finalizer_order(self):
         py.test.skip("Not implemented yet")
-
-class TestMarkCompactGCGrowing(TestMarkCompactGC):
-    GC_PARAMS = {'space_size': 16*WORD}
+    def test_writebarrier_before_copy(self):
+        py.test.skip("Not relevant, and crashes because llarena does not "
+                     "support empty GcStructs")
 
 class TestHybridGC(TestGenerationalGC):
     from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass

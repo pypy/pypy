@@ -78,7 +78,7 @@ class SomeWeakValueDict(annmodel.SomeObject):
         return self.__class__,
 
     def method_get(self, s_key):
-        assert isinstance(s_key, annmodel.SomeString)
+        assert annmodel.SomeString(can_be_None=True).contains(s_key)
         return annmodel.SomeInstance(self.valueclassdef, can_be_None=True)
 
     def method_set(self, s_key, s_value):

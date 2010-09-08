@@ -131,7 +131,7 @@ class TestPlatform(object):
                 self.cc = 'xcc'
         x = XPlatform()
         res = x.key()
-        assert res.startswith('XPlatform cc=xcc CPATH=')
+        assert res.startswith("XPlatform cc='xcc' CPATH=")
 
 def test_equality():
     class X(Platform):

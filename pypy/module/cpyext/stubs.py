@@ -2874,36 +2874,6 @@ def PyUnicode_AsUTF32String(space, unicode):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
-def PyUnicode_DecodeUTF16(space, s, size, errors, byteorder):
-    """Decode length bytes from a UTF-16 encoded buffer string and return the
-    corresponding Unicode object.  errors (if non-NULL) defines the error
-    handling. It defaults to "strict".
-    
-    If byteorder is non-NULL, the decoder starts decoding using the given byte
-    order:
-    
-    *byteorder == -1: little endian
-    *byteorder == 0:  native order
-    *byteorder == 1:  big endian
-    
-    If *byteorder is zero, and the first two bytes of the input data are a
-    byte order mark (BOM), the decoder switches to this byte order and the BOM is
-    not copied into the resulting Unicode string.  If *byteorder is -1 or
-    1, any byte order mark is copied to the output (where it will result in
-    either a \ufeff or a \ufffe character).
-    
-    After completion, *byteorder is set to the current byte order at the end
-    of input data.
-    
-    If byteorder is NULL, the codec starts in native order mode.
-    
-    Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF16Stateful(space, s, size, errors, byteorder, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeUTF16(). If

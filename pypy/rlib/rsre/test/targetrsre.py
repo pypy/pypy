@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rsre import rsre
+from pypy.rlib.rsre import rsre_core
 import os, time
 
 
@@ -26,15 +26,13 @@ def search_in_file(filename):
     data = read(filename)
     p = 0
     while True:
-        state = rsre.SimpleStringState(data, p)
-        res = state.search(r_code1)
-        if not res:
+        res = rsre_core.search(r_code1, data, p)
+        if res is None:
             break
-        groups = state.create_regs(1)
-        matchstart, matchstop = groups[1]
+        matchstart, matchstop = res.span(1)
         assert 0 <= matchstart <= matchstop
         print '%s: %s' % (filename, data[matchstart:matchstop])
-        p = groups[0][1]
+        p = res.span(0)[1]
 
 # __________  Entry point  __________
 

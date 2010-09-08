@@ -38,9 +38,9 @@ class Platform(object):
     name = "abstract platform"
     c_environ = None
 
-    relevant_environ = []
+    relevant_environ = ()
 
-    so_prefixes = ['']
+    so_prefixes = ('',)
 
     def __init__(self, cc):
         if self.__class__ is Platform:
@@ -99,15 +99,20 @@ class Platform(object):
                 self.__dict__ == other.__dict__)
 
     def key(self):
-        bits = [self.__class__.__name__, 'cc=%s' % self.cc]
+        bits = [self.__class__.__name__, 'cc=%r' % self.cc]
         for varname in self.relevant_environ:
-            bits.append('%s=%s' % (varname, os.environ.get(varname)))
+            bits.append('%s=%r' % (varname, os.environ.get(varname)))
         return ' '.join(bits)
 
     # some helpers which seem to be cross-platform enough
 
     def _execute_c_compiler(self, cc, args, outname, cwd=None):
         log.execute(cc + ' ' + ' '.join(args))
+        # 'cc' can also contain some options for the C compiler;
+        # e.g. it can be "gcc -m32".  We handle it by splitting on ' '.
+        cclist = cc.split()
+        cc = cclist[0]
+        args = cclist[1:] + args
         returncode, stdout, stderr = _run_subprocess(cc, args, self.c_environ,
                                                      cwd)
         self._handle_error(returncode, stderr, stdout, outname)
@@ -146,7 +151,7 @@ class Platform(object):
             extra = self.standalone_only
         else:
             extra = self.shared_only
-        cflags = self.cflags + extra
+        cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
     
     def _preprocess_library_dirs(self, library_dirs):
@@ -158,10 +163,10 @@ class Platform(object):
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
         export_flags = self._exportsymbols_link_flags(eci)
-        return (library_dirs + self.link_flags + export_flags +
+        return (library_dirs + list(self.link_flags) + export_flags +
                 link_files + list(eci.link_extra) + libraries)
 
-    def _exportsymbols_link_flags(self, eci):
+    def _exportsymbols_link_flags(self, eci, relto=None):
         if eci.export_symbols:
             raise ValueError("This platform does not support export symbols")
         return []

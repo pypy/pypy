@@ -4,17 +4,20 @@
 
 from pypy.translator.platform import Platform, log, _run_subprocess
 from pypy.tool import autopath
-import py, os
+import py, os, sys
 
 class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
 
-    relevant_environ=['CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH']
+    relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
     def __init__(self, cc=None):
         if cc is None:
-            cc = 'gcc'
+            try:
+                cc = os.environ['CC']
+            except KeyError:
+                cc = 'gcc'
         self.cc = cc
 
     def _libs(self, libraries):
@@ -39,7 +42,7 @@ class BasePosix(Platform):
     def _link_args_from_eci(self, eci, standalone):
         return Platform._link_args_from_eci(self, eci, standalone)
 
-    def _exportsymbols_link_flags(self, eci):
+    def _exportsymbols_link_flags(self, eci, relto=None):
         if not eci.export_symbols:
             return []
 
@@ -50,6 +53,9 @@ class BasePosix(Platform):
             f.write("%s;\n" % (sym,))
         f.write("};")
         f.close()
+
+        if relto:
+            response_file = relto.bestrelpath(response_file)
         return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
@@ -86,17 +92,24 @@ class BasePosix(Platform):
         else:
             exe_name = exe_name.new(ext=self.exe_ext)
 
-        linkflags = self.link_flags[:]
+        linkflags = list(self.link_flags)
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
-        linkflags += self._exportsymbols_link_flags(eci)
+        linkflags += self._exportsymbols_link_flags(eci, relto=path)
 
         if shared:
             libname = exe_name.new(ext='').basename
             target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
         else:
             target_name = exe_name.basename
+
+        cflags = self.cflags
+        if sys.maxint > 2147483647:   # XXX XXX XXX sort this out
+            if shared:
+                cflags = self.cflags + self.shared_only
+            else:
+                cflags = self.cflags + self.standalone_only
 
         m = GnuMakefile(path)
         m.exe_name = exe_name
@@ -126,7 +139,7 @@ class BasePosix(Platform):
             ('LIBS', self._libs(eci.libraries)),
             ('LIBDIRS', self._libdirs(eci.library_dirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
-            ('CFLAGS', self.cflags),
+            ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
             ('LDFLAGS', linkflags),
             ('LDFLAGSEXTRA', list(eci.link_extra)),

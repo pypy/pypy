@@ -1,23 +1,6 @@
 import sys
 from pypy.tool.pairtype import extendabletype
-from pypy.jit.backend.x86.ri386 import *
-
-class __extend__(OPERAND):
-    __metaclass__ = extendabletype
-    def _getregkey(self):
-        raise AssertionError("should only happen to registers and frame "
-                             "positions")
-
-class __extend__(REG):
-    __metaclass__ = extendabletype
-    def _getregkey(self):
-        return ~self.op
-
-class __extend__(MODRM):
-    __metaclass__ = extendabletype
-    def _getregkey(self):
-        return self.position
-
+from pypy.jit.backend.x86.regloc import ImmedLoc, StackLoc
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
@@ -27,7 +10,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
         srccount[dst._getregkey()] = 0
     for i in range(len(dst_locations)):
         src = src_locations[i]
-        if isinstance(src, IMM32):
+        if isinstance(src, ImmedLoc):
             continue
         key = src._getregkey()
         if key in srccount:
@@ -46,7 +29,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                 srccount[key] = -1       # means "it's done"
                 pending_dests -= 1
                 src = src_locations[i]
-                if not isinstance(src, IMM32):
+                if not isinstance(src, ImmedLoc):
                     key = src._getregkey()
                     if key in srccount:
                         srccount[key] -= 1
@@ -80,7 +63,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
             assert pending_dests == 0
 
 def _move(assembler, src, dst, tmpreg):
-    if isinstance(dst, MODRM) and isinstance(src, MODRM):
+    if dst.is_memory_reference() and src.is_memory_reference():
         assembler.regalloc_mov(src, tmpreg)
         src = tmpreg
     assembler.regalloc_mov(src, dst)

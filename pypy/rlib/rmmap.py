@@ -646,8 +646,14 @@ if _POSIX:
         hintp = rffi.cast(PTR, hint.pos)
         res = c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
         if res == rffi.cast(PTR, -1):
-            raise MemoryError
-        hint.pos += map_size
+            # some systems (some versions of OS/X?) complain if they
+            # are passed a non-zero address.  Try again.
+            hintp = rffi.cast(PTR, 0)
+            res = c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+            if res == rffi.cast(PTR, -1):
+                raise MemoryError
+        else:
+            hint.pos += map_size
         return res
     alloc._annenforceargs_ = (int,)
 

@@ -342,6 +342,9 @@ OPT_TABLE = {
     'jit':  'hybrid      extraopts     jit',
     }
 
+def final_check_config(config):
+    pass
+
 def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.

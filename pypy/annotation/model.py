@@ -501,11 +501,12 @@ from pypy.rpython.lltypesystem import llmemory
 
 class SomeAddress(SomeObject):
     immutable = True
-    def __init__(self, is_null=False):
-        self.is_null = is_null
 
     def can_be_none(self):
         return False
+
+    def is_null_address(self):
+        return self.is_immutable_constant() and not self.const
 
 # The following class is used to annotate the intermediate value that
 # appears in expressions of the form:

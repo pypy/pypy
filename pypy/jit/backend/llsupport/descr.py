@@ -67,9 +67,11 @@ def get_size_descr(gccache, STRUCT):
 
 class BaseFieldDescr(AbstractDescr):
     offset = 0      # help translation
+    name = ''
     _clsname = ''
 
-    def __init__(self, offset):
+    def __init__(self, name, offset):
+        self.name = name
         self.offset = offset
 
     def sort_key(self):
@@ -88,7 +90,7 @@ class BaseFieldDescr(AbstractDescr):
         return self._is_float_field
 
     def repr_of_descr(self):
-        return '<%s %s>' % (self._clsname, self.offset)
+        return '<%s %s %s>' % (self._clsname, self.name, self.offset)
 
 
 class NonGcPtrFieldDescr(BaseFieldDescr):
@@ -113,7 +115,8 @@ def get_field_descr(gccache, STRUCT, fieldname):
         offset, _ = symbolic.get_field_token(STRUCT, fieldname,
                                              gccache.translate_support_code)
         FIELDTYPE = getattr(STRUCT, fieldname)
-        fielddescr = getFieldDescrClass(FIELDTYPE)(offset)
+        name = '%s.%s' % (STRUCT._name, fieldname)
+        fielddescr = getFieldDescrClass(FIELDTYPE)(name, offset)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         return fielddescr
@@ -195,9 +198,13 @@ def get_array_descr(gccache, ARRAY):
     try:
         return cache[ARRAY]
     except KeyError:
+        # we only support Arrays that are either GcArrays, or raw no-length
+        # non-gc Arrays.
         if ARRAY._hints.get('nolength', False):
+            assert not isinstance(ARRAY, lltype.GcArray)
             arraydescr = getArrayNoLengthDescrClass(ARRAY)()
         else:
+            assert isinstance(ARRAY, lltype.GcArray)
             arraydescr = getArrayDescrClass(ARRAY)()
         # verify basic assumption that all arrays' basesize and ofslength
         # are equal

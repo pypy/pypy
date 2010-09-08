@@ -1,14 +1,22 @@
-from pypy.jit.backend.x86.ri386 import *
+from pypy.jit.backend.x86.regloc import *
 from pypy.jit.backend.x86.assembler import Assembler386, MachineCodeBlockWrapper
 from pypy.jit.backend.x86.regalloc import X86FrameManager, get_ebp_ofs
-from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat
+from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
+from pypy.jit.backend.detect_cpu import getcpuclass 
+from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86_64_RegisterManager, X86XMMRegisterManager, X86_64_XMMRegisterManager
 
+ACTUAL_CPU = getcpuclass()
 
 class FakeCPU:
     rtyper = None
     supports_floats = True
+    NUM_REGS = ACTUAL_CPU.NUM_REGS
+
+    def fielddescrof(self, STRUCT, name):
+        return 42
 
 class FakeMC:
     def __init__(self, base_address=0):
@@ -25,7 +33,14 @@ class FakeMC:
         self.content.append(("JMP", args))
     def done(self):
         pass
+    def PUSH_r(self, reg):
+        pass
+    def POP_r(self, reg):
+        pass
 
+class FakeAssembler:
+    def write_pending_failure_recoveries(self):
+        pass
 
 def test_write_failure_recovery_description():
     assembler = Assembler386(FakeCPU())
@@ -33,12 +48,12 @@ def test_write_failure_recovery_description():
     failargs = [BoxInt(), BoxPtr(), BoxFloat()] * 3
     failargs.insert(6, None)
     failargs.insert(7, None)
-    locs = [X86FrameManager.frame_pos(0, 1),
-            X86FrameManager.frame_pos(1, 1),
-            X86FrameManager.frame_pos(10, 2),
-            X86FrameManager.frame_pos(100, 1),
-            X86FrameManager.frame_pos(101, 1),
-            X86FrameManager.frame_pos(110, 2),
+    locs = [X86FrameManager.frame_pos(0, INT),
+            X86FrameManager.frame_pos(1, REF),
+            X86FrameManager.frame_pos(10, FLOAT),
+            X86FrameManager.frame_pos(100, INT),
+            X86FrameManager.frame_pos(101, REF),
+            X86FrameManager.frame_pos(110, FLOAT),
             None,
             None,
             ebx,
@@ -46,17 +61,17 @@ def test_write_failure_recovery_description():
             xmm2]
     assert len(failargs) == len(locs)
     assembler.write_failure_recovery_description(mc, failargs, locs)
-    nums = [Assembler386.DESCR_INT   + 4*(8+0),
-            Assembler386.DESCR_REF   + 4*(8+1),
-            Assembler386.DESCR_FLOAT + 4*(8+10),
-            Assembler386.DESCR_INT   + 4*(8+100),
-            Assembler386.DESCR_REF   + 4*(8+101),
-            Assembler386.DESCR_FLOAT + 4*(8+110),
+    nums = [Assembler386.DESCR_INT   + 4*(16+0),
+            Assembler386.DESCR_REF   + 4*(16+1),
+            Assembler386.DESCR_FLOAT + 4*(16+10),
+            Assembler386.DESCR_INT   + 4*(16+100),
+            Assembler386.DESCR_REF   + 4*(16+101),
+            Assembler386.DESCR_FLOAT + 4*(16+110),
             Assembler386.CODE_HOLE,
             Assembler386.CODE_HOLE,
-            Assembler386.DESCR_INT   + 4*ebx.op,
-            Assembler386.DESCR_REF   + 4*esi.op,
-            Assembler386.DESCR_FLOAT + 4*xmm2.op]
+            Assembler386.DESCR_INT   + 4*ebx.value,
+            Assembler386.DESCR_REF   + 4*esi.value,
+            Assembler386.DESCR_FLOAT + 4*xmm2.value]
     double_byte_nums = []
     for num in nums[3:6]:
         double_byte_nums.append((num & 0x7F) | 0x80)
@@ -94,6 +109,9 @@ def do_failure_recovery_func(withfloats):
         return lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S))
 
     def get_random_float():
+        # Returns <float>, <low word>, <high word>
+        # NB: on 64-bit, <low word> will be the entire float and <high word>
+        # will be random garbage from malloc!
         assert withfloats
         value = random.random() - 0.5
         # make sure it fits into 64 bits
@@ -101,9 +119,16 @@ def do_failure_recovery_func(withfloats):
         rffi.cast(rffi.DOUBLEP, tmp)[0] = value
         return rffi.cast(rffi.DOUBLEP, tmp)[0], tmp[0], tmp[1]
 
+    if IS_X86_32:
+        main_registers = X86RegisterManager.all_regs
+        xmm_registers = X86XMMRegisterManager.all_regs
+    elif IS_X86_64:
+        main_registers = X86_64_RegisterManager.all_regs
+        xmm_registers = X86_64_XMMRegisterManager.all_regs
+
     # memory locations: 26 integers, 26 pointers, 26 floats
     # main registers: half of them as signed and the other half as ptrs
-    # xmm registers: all floats, from xmm0 to xmm7
+    # xmm registers: all floats, from xmm0 to xmm(7|15)
     # holes: 8
     locations = []
     baseloc = 4
@@ -117,18 +142,17 @@ def do_failure_recovery_func(withfloats):
     content = ([('int', locations.pop()) for _ in range(26)] +
                [('ptr', locations.pop()) for _ in range(26)] +
                [(['int', 'ptr'][random.randrange(0, 2)], reg)
-                         for reg in [eax, ecx, edx, ebx, esi, edi]])
+                         for reg in main_registers])
     if withfloats:
         content += ([('float', locations.pop()) for _ in range(26)] +
-                    [('float', reg) for reg in [xmm0, xmm1, xmm2, xmm3,
-                                                xmm4, xmm5, xmm6, xmm7]])
+                    [('float', reg) for reg in xmm_registers])
     for i in range(8):
         content.append(('hole', None))
     random.shuffle(content)
 
     # prepare the expected target arrays, the descr_bytecode,
     # the 'registers' and the 'stack' arrays according to 'content'
-    xmmregisters = lltype.malloc(rffi.LONGP.TO, 16+9, flavor='raw')
+    xmmregisters = lltype.malloc(rffi.LONGP.TO, 16+ACTUAL_CPU.NUM_REGS+1, flavor='raw')
     registers = rffi.ptradd(xmmregisters, 16)
     stacklen = baseloc + 10
     stack = lltype.malloc(rffi.LONGP.TO, stacklen, flavor='raw')
@@ -140,8 +164,8 @@ def do_failure_recovery_func(withfloats):
         assert loc >= 0
         ofs = get_ebp_ofs(loc)
         assert ofs < 0
-        assert (ofs % 4) == 0
-        stack[stacklen + ofs//4] = value
+        assert (ofs % WORD) == 0
+        stack[stacklen + ofs//WORD] = value
 
     descr_bytecode = []
     for i, (kind, loc) in enumerate(content):
@@ -152,12 +176,18 @@ def do_failure_recovery_func(withfloats):
                 value, lo, hi = get_random_float()
                 expected_floats[i] = value
                 kind = Assembler386.DESCR_FLOAT
-                if isinstance(loc, REG):
-                    xmmregisters[2*loc.op] = lo
-                    xmmregisters[2*loc.op+1] = hi
+                if isinstance(loc, RegLoc):
+                    if WORD == 4:
+                        xmmregisters[2*loc.value] = lo
+                        xmmregisters[2*loc.value+1] = hi
+                    elif WORD == 8:
+                        xmmregisters[loc.value] = lo
                 else:
-                    write_in_stack(loc, hi)
-                    write_in_stack(loc+1, lo)
+                    if WORD == 4:
+                        write_in_stack(loc, hi)
+                        write_in_stack(loc+1, lo)
+                    elif WORD == 8:
+                        write_in_stack(loc, lo)
             else:
                 if kind == 'int':
                     value = get_random_int()
@@ -170,15 +200,15 @@ def do_failure_recovery_func(withfloats):
                     value = rffi.cast(rffi.LONG, value)
                 else:
                     assert 0, kind
-                if isinstance(loc, REG):
-                    registers[loc.op] = value
+                if isinstance(loc, RegLoc):
+                    registers[loc.value] = value
                 else:
                     write_in_stack(loc, value)
 
-            if isinstance(loc, REG):
-                num = kind + 4*loc.op
+            if isinstance(loc, RegLoc):
+                num = kind + 4*loc.value
             else:
-                num = kind + 4*(8+loc)
+                num = kind + Assembler386.CODE_FROMSTACK + (4*loc)
             while num >= 0x80:
                 descr_bytecode.append((num & 0x7F) | 0x80)
                 num >>= 7
@@ -195,8 +225,8 @@ def do_failure_recovery_func(withfloats):
     for i in range(len(descr_bytecode)):
         assert 0 <= descr_bytecode[i] <= 255
         descr_bytes[i] = rffi.cast(rffi.UCHAR, descr_bytecode[i])
-    registers[8] = rffi.cast(rffi.LONG, descr_bytes)
-    registers[ebp.op] = rffi.cast(rffi.LONG, stack) + 4*stacklen
+    registers[ACTUAL_CPU.NUM_REGS] = rffi.cast(rffi.LONG, descr_bytes)
+    registers[ebp.value] = rffi.cast(rffi.LONG, stack) + WORD*stacklen
 
     # run!
     assembler = Assembler386(FakeCPU())
@@ -237,7 +267,8 @@ class FakeMCWrapper(MachineCodeBlockWrapper):
 
 def test_mc_wrapper_profile_agent():
     agent = FakeProfileAgent()
-    mc = FakeMCWrapper(100, agent)
+    assembler = FakeAssembler()
+    mc = FakeMCWrapper(assembler, 100, agent)
     mc.start_function("abc")
     mc.writechr("x")
     mc.writechr("x")

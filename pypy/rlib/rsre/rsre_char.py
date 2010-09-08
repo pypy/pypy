@@ -6,18 +6,22 @@ from pypy.rlib.rlocale import tolower, isalnum
 from pypy.rlib.unroll import unrolling_iterable
 
 # Note: the unicode parts of this module require you to call
-# rsre.set_unicode_db() first, to select one of the modules
+# rsre_char.set_unicode_db() first, to select one of the modules
 # pypy.module.unicodedata.unicodedb_x_y_z.  This allows PyPy to use sre
 # with the same version of the unicodedb as it uses for
 # unicodeobject.py.  If unset, the RPython program cannot use unicode
 # matching.
 
-unicodedb = None       # possibly patched by rsre.set_unicode_db()
+unicodedb = None       # possibly patched by set_unicode_db()
+
+def set_unicode_db(newunicodedb):
+    global unicodedb
+    unicodedb = newunicodedb
 
 
 #### Constants
 
-# Identifying as _sre from Python 2.3 or 2.4
+# Identifying as _sre from Python 2.3 and onwards (at least up to 2.7)
 MAGIC = 20031017
 
 # In _sre.c this is bytesize of the code word type of the C implementation.
@@ -56,22 +60,6 @@ def getlower(char_ord, flags):
         if ord('A') <= char_ord <= ord('Z'):   # ASCII lower
             char_ord += ord('a') - ord('A')
     return char_ord
-
-
-class MatchContextBase(object):
-
-    UNDECIDED = 0
-    MATCHED = 1
-    NOT_MATCHED = 2
-
-    def peek_code(self, peek=0):
-        return self.pattern_codes[self.code_position + peek]
-
-    def skip_code(self, skip_count):
-        self.code_position = self.code_position + skip_count
-
-    def has_remaining_codes(self):
-        return len(self.pattern_codes) != self.code_position
 
 
 #### Category helpers
@@ -154,27 +142,25 @@ category_dispatch_unroll = unrolling_iterable(category_dispatch_table)
 SET_OK = -1
 SET_NOT_OK = -2
 
-def check_charset(char_code, context):
-    """Checks whether a character matches set of arbitrary length. Currently
-    assumes the set starts at the first member of pattern_codes."""
-    pattern_codes = context.pattern_codes
-    index = context.code_position
+def check_charset(pattern, ppos, char_code):
+    """Checks whether a character matches set of arbitrary length.
+    The set starts at pattern[ppos]."""
     negated = SET_OK
-    while index >= 0:
-        opcode = pattern_codes[index]
+    while ppos >= 0:
+        opcode = pattern[ppos]
         i = 0
         for function in set_dispatch_unroll:
             if function is not None and opcode == i:
-                index = function(pattern_codes, index, char_code)
+                ppos = function(pattern, ppos, char_code)
                 break
             i = i + 1
         else:
             if opcode == 26:   # NEGATE
                 negated ^= (SET_OK ^ SET_NOT_OK)
-                index += 1
+                ppos += 1
             else:
                 return False
-    return index == negated
+    return ppos == negated
 
 def set_failure(pat, index, char_code):
     return SET_NOT_OK

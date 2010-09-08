@@ -1,7 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import jit
 from pypy.interpreter.pyopcode import LoopBlock
 
@@ -37,13 +36,17 @@ class GeneratorIterator(Wrappable):
 return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)
 
-    def send_ex(self, w_arg, exc=False):
+    def send_ex(self, w_arg, operr=None):
         space = self.space
         if self.running:
             raise OperationError(space.w_ValueError,
                                  space.wrap('generator already executing'))
         if self.frame.frame_finished_execution:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            # xxx a bit ad-hoc, but we don't want to go inside
+            # execute_generator_frame() if the frame is actually finished
+            if operr is None:
+                operr = OperationError(space.w_StopIteration, space.w_None)
+            raise operr
         # XXX it's not clear that last_instr should be promoted at all
         # but as long as it is necessary for call_assembler, let's do it early
         last_instr = jit.hint(self.frame.last_instr, promote=True)
@@ -57,7 +60,7 @@ return next yielded value or raise StopIteration."""
         self.running = True
         try:
             try:
-                w_result = self.frame.execute_generator_frame(w_arg, exc)
+                w_result = self.frame.execute_generator_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
                 self.frame.frame_finished_execution = True
@@ -89,12 +92,7 @@ return next yielded value or raise StopIteration."""
        
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
-        
-        ec = space.getexecutioncontext()
-        next_instr = self.frame.handle_operation_error(ec, operr)
-        self.frame.last_instr = intmask(next_instr - 1)
-
-        return self.send_ex(space.w_None, True)
+        return self.send_ex(space.w_None, operr)
              
     def descr_next(self):
         """next() -> the next value, or raise StopIteration"""

@@ -15,6 +15,12 @@ class LocaleError(Exception):
 HAVE_LANGINFO = sys.platform != 'win32'
 HAVE_LIBINTL  = sys.platform != 'win32'
 
+if HAVE_LIBINTL:
+    try:
+        platform.verify_eci(ExternalCompilationInfo(includes=['libintl.h']))
+    except platform.CompilationError:
+        HAVE_LIBINTL = False
+
 class CConfig:
     includes = ['locale.h', 'limits.h']
 

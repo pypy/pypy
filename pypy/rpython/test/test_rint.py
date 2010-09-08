@@ -117,10 +117,10 @@ class BaseTestRint(BaseRtypingTest):
         assert self.ll_to_string(res) == '413974738222117'
 
     def test_unsigned(self):
-        bigvalue = sys.maxint + 17
+        bigvalue = r_uint(sys.maxint + 17)
         def dummy(i):
             i = r_uint(i)
-            j = r_uint(bigvalue)
+            j = bigvalue
             return i < j
 
         res = self.interpret(dummy,[0])

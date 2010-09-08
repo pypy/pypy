@@ -189,7 +189,7 @@ class PyPyCJITTests(object):
                 return r
         ''', 28,
                    ([5], 120),
-                    ([20], 2432902008176640000L))
+                    ([25], 15511210043330985984000000L))
 
     def test_factorialrec(self):
         self.run_source('''
@@ -200,7 +200,7 @@ class PyPyCJITTests(object):
                     return 1
         ''', 0,
                    ([5], 120),
-                    ([20], 2432902008176640000L))
+                    ([25], 15511210043330985984000000L))
 
     def test_richards(self):
         self.run_source('''
@@ -615,6 +615,237 @@ class PyPyCJITTests(object):
             return total
         ''', 170, ([], 4999450000L))
 
+    def test_boolrewrite_invers(self):
+        for a, b, res, ops in (('2000', '2000', 20001000, 51),
+                               ( '500',  '500', 15001500, 81),
+                               ( '300',  '600', 16001700, 83),
+                               (   'a',    'b', 16001700, 89),
+                               (   'a',    'a', 13001700, 85)):
+
+            self.run_source('''
+            def main():
+                sa = 0
+                a = 300
+                b = 600
+                for i in range(1000):
+                    if i < %s: sa += 1
+                    else: sa += 2
+                    if i >= %s: sa += 10000
+                    else: sa += 20000
+                return sa
+            '''%(a, b), ops, ([], res))
+
+    def test_boolrewrite_reflex(self):
+        for a, b, res, ops in (('2000', '2000', 10001000, 51),
+                               ( '500',  '500', 15001500, 81),
+                               ( '300',  '600', 14001700, 83),
+                               (   'a',    'b', 14001700, 89),
+                               (   'a',    'a', 17001700, 85)):
+
+            self.run_source('''
+            def main():
+                sa = 0
+                a = 300
+                b = 600
+                for i in range(1000):
+                    if i < %s: sa += 1
+                    else: sa += 2
+                    if %s > i: sa += 10000
+                    else: sa += 20000
+                return sa
+            '''%(a, b), ops, ([], res))
+
+
+    def test_boolrewrite_correct_invers(self):
+        def opval(i, op, a):
+            if eval('%d %s %d' % (i, op, a)): return 1
+            return 2
+
+        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        for op1 in ops:
+            for op2 in ops:
+                for a,b in ((500, 500), (300, 600)):
+                    res = 0
+                    res += opval(a-1, op1, a) * (a)
+                    res += opval(  a, op1, a) 
+                    res += opval(a+1, op1, a) * (1000 - a - 1)
+                    res += opval(b-1, op2, b) * 10000 * (b)
+                    res += opval(  b, op2, b) * 10000 
+                    res += opval(b+1, op2, b) * 10000 * (1000 - b - 1)
+
+                    self.run_source('''
+                    def main():
+                        sa = 0
+                        for i in range(1000):
+                            if i %s %d: sa += 1
+                            else: sa += 2
+                            if i %s %d: sa += 10000
+                            else: sa += 20000
+                        return sa
+                    '''%(op1, a, op2, b), 83, ([], res))
+
+                    self.run_source('''
+                    def main():
+                        sa = 0
+                        i = 0.0
+                        while i < 250.0:
+                            if i %s %f: sa += 1
+                            else: sa += 2
+                            if i %s %f: sa += 10000
+                            else: sa += 20000
+                            i += 0.25
+                        return sa
+                    '''%(op1, float(a)/4.0, op2, float(b)/4.0), 109, ([], res))
+                    
+
+    def test_boolrewrite_correct_reflex(self):
+        def opval(i, op, a):
+            if eval('%d %s %d' % (i, op, a)): return 1
+            return 2
+
+        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        for op1 in ops:
+            for op2 in ops:
+                for a,b in ((500, 500), (300, 600)):
+                    res = 0
+                    res += opval(a-1, op1, a) * (a)
+                    res += opval(  a, op1, a) 
+                    res += opval(a+1, op1, a) * (1000 - a - 1)
+                    res += opval(b, op2, b-1) * 10000 * (b)
+                    res += opval(b, op2,   b) * 10000
+                    res += opval(b, op2, b+1) * 10000 * (1000 - b - 1)
+
+                    self.run_source('''
+                    def main():
+                        sa = 0
+                        for i in range(1000):
+                            if i %s %d: sa += 1
+                            else: sa += 2
+                            if %d %s i: sa += 10000
+                            else: sa += 20000
+                        return sa
+                    '''%(op1, a, b, op2), 83, ([], res))
+
+                    self.run_source('''
+                    def main():
+                        sa = 0
+                        i = 0.0
+                        while i < 250.0:
+                            if i %s %f: sa += 1
+                            else: sa += 2
+                            if %f %s i: sa += 10000
+                            else: sa += 20000
+                            i += 0.25
+                        return sa
+                    '''%(op1, float(a)/4.0, float(b)/4.0, op2), 109, ([], res))
+
+    def test_boolrewrite_ptr(self):
+        compares = ('a == b', 'b == a', 'a != b', 'b != a', 'a == c', 'c != b')
+        for e1 in compares:
+            for e2 in compares:
+                a, b, c = 1, 2, 3
+                if eval(e1): res = 752 * 1 
+                else: res = 752 * 2 
+                if eval(e2): res += 752 * 10000 
+                else: res += 752 * 20000 
+                a = b
+                if eval(e1): res += 248 * 1
+                else: res += 248 * 2
+                if eval(e2): res += 248 * 10000
+                else: res += 248 * 20000
+
+
+                if 'c' in e1 or 'c' in e2:
+                    n = 337
+                else:
+                    n = 215
+
+                self.run_source('''
+                class tst:
+                    pass
+                def main():
+                    a = tst()
+                    b = tst()
+                    c = tst()
+                    sa = 0
+                    for i in range(1000):
+                        if %s: sa += 1
+                        else: sa += 2
+                        if %s: sa += 10000
+                        else: sa += 20000
+                        if i > 750: a = b
+                    return sa
+                '''%(e1, e2), n, ([], res))
+
+    def test_array_sum(self):
+        for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
+            res = 19352859
+            if tc in 'IL':
+                res = long(res)
+            elif tc in 'fd':
+                res = float(res)
+            
+            self.run_source('''
+            from array import array
+
+            def main():
+                img = array("%s", range(127) * 5) * 484
+                l, i = 0, 0
+                while i < 640 * 480:
+                    l += img[i]
+                    i += 1
+                return l
+            ''' % tc, maxops, ([], res))
+
+    def test_array_sum_char(self):
+        self.run_source('''
+            from array import array
+
+            def main():
+                img = array("c", "Hello") * 130 * 480
+                l, i = 0, 0
+                while i < 640 * 480:
+                    l += ord(img[i])
+                    i += 1
+                return l
+            ''', 60, ([], 30720000))
+
+    def test_array_sum_unicode(self):
+        self.run_source('''
+            from array import array
+
+            def main():
+                img = array("u", u"Hello") * 130 * 480
+                l, i = 0, 0
+                while i < 640 * 480:
+                    if img[i] == u"l":
+                        l += 1
+                    i += 1
+                return l
+            ''', 65, ([], 122880))
+
+    def test_array_intimg(self):
+        for tc, maxops in zip('ilILd', (67, 67, 69, 69, 61)):
+            res = 73574560
+            if tc in 'IL':
+                res = long(res)
+            elif tc in 'fd':
+                res = float(res)
+            
+            self.run_source('''
+            from array import array
+
+            def main(tc):
+                img = array(tc, range(3)) * (350 * 480)
+                intimg = array(tc, (0,)) * (640 * 480)
+                l, i = 0, 640
+                while i < 640 * 480:
+                    l = l + img[i]
+                    intimg[i] = (intimg[i-640] + l) 
+                    i += 1
+                return intimg[i - 1]
+            ''', maxops, ([tc], res))
+
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
         if not option.runappdirect:
@@ -636,6 +867,7 @@ class TestJIT(PyPyCJITTests):
         cls.tmpdir.ensure(dir=1)
         cls.counter = 0
         cls.pypy_c = option.pypy_c
+
 
 def has_info(pypy_c, option):
     g = os.popen('"%s" --info' % pypy_c, 'r')

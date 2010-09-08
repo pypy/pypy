@@ -1,8 +1,11 @@
 """Tests some behaviour of the buffer type that is not tested in
 lib-python/2.5.2/test/test_types.py where the stdlib buffer tests live."""
 import autopath
+from pypy.conftest import gettestobjspace
 
 class AppTestBuffer:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('array',))
 
     def test_unicode_buffer(self):
         import sys

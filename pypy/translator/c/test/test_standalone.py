@@ -604,6 +604,33 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
 
+    def test_gcc_options(self):
+        # check that the env var CC is correctly interpreted, even if
+        # it contains the compiler name followed by some options.
+        if sys.platform == 'win32':
+            py.test.skip("only for gcc")
+
+        from pypy.rpython.lltypesystem import lltype, rffi
+        dir = udir.ensure('test_gcc_options', dir=1)
+        dir.join('someextraheader.h').write('#define someextrafunc() 42\n')
+        eci = ExternalCompilationInfo(includes=['someextraheader.h'])
+        someextrafunc = rffi.llexternal('someextrafunc', [], lltype.Signed,
+                                        compilation_info=eci)
+
+        def entry_point(argv):
+            return someextrafunc()
+
+        old_cc = os.environ.get('CC')
+        try:
+            os.environ['CC'] = 'gcc -I%s' % dir
+            t, cbuilder = self.compile(entry_point)
+        finally:
+            if old_cc is None:
+                del os.environ['CC']
+            else:
+                os.environ['CC'] = old_cc
+
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")

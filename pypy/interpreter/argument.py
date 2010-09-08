@@ -52,11 +52,15 @@ class Signature(object):
                 self.argnames, self.varargname, self.kwargname)
 
     def __eq__(self, other):
+        if not isinstance(other, Signature):
+            return NotImplemented
         return (self.argnames == other.argnames and
                 self.varargname == other.varargname and
                 self.kwargname == other.kwargname)
 
     def __ne__(self, other):
+        if not isinstance(other, Signature):
+            return NotImplemented
         return not self == other
 
 

@@ -100,7 +100,11 @@ class W_PyCFunctionObject(Wrappable):
             return generic_cpy_call(space, self.ml.c_ml_meth, w_self, w_arg)
 
     def get_doc(space, self):
-        return space.wrap(rffi.charp2str(self.ml.c_ml_doc))
+        doc = self.ml.c_ml_doc
+        if doc:
+            return space.wrap(rffi.charp2str(doc))
+        else:
+            return space.w_None
 
 
 class W_PyCMethodObject(W_PyCFunctionObject):

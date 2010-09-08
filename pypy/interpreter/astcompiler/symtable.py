@@ -353,8 +353,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_FunctionDef(self, func):
         self.note_symbol(func.name, SYM_ASSIGNED)
         # Function defaults and decorators happen in the outer scope.
-        if func.args.defaults:
-            self.visit_sequence(func.args.defaults)
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.defaults:
+            self.visit_sequence(args.defaults)
         if func.decorator_list:
             self.visit_sequence(func.decorator_list)
         new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
@@ -422,8 +424,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Lambda(self, lamb):
-        if lamb.args.defaults:
-            self.visit_sequence(lamb.args.defaults)
+        args = lamb.args
+        assert isinstance(args, ast.arguments)
+        if args.defaults:
+            self.visit_sequence(args.defaults)
         new_scope = FunctionScope("lambda", lamb.lineno, lamb.col_offset)
         self.push_scope(new_scope, lamb)
         lamb.args.walkabout(self)

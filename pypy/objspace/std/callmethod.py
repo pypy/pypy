@@ -12,7 +12,7 @@ like: (on the left, without the new bytecodes; on the right, with them)
 
 from pypy.interpreter import function
 from pypy.objspace.descroperation import object_getattribute
-from pypy.rlib import rstack # for resume points
+from pypy.rlib import jit, rstack # for resume points
 
 # This module exports two extra methods for StdObjSpaceFrame implementing
 # the LOOKUP_METHOD and CALL_METHOD opcodes in an efficient way, as well
@@ -56,16 +56,41 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     f.pushvalue(w_value)
     f.pushvalue(None)
 
-def CALL_METHOD(f, nargs, *ignored):
-    # 'nargs' is the argument count excluding the implicit 'self'
-    w_self = f.peekvalue(nargs)
-    w_callable = f.peekvalue(nargs + 1)
-    n = nargs + (w_self is not None)
-    try:
-        w_result = f.space.call_valuestack(w_callable, n, f)
-        rstack.resume_point("CALL_METHOD", f, nargs, returns=w_result)
-    finally:
-        f.dropvalues(nargs + 2)
+@jit.unroll_safe
+def CALL_METHOD(f, oparg, *ignored):
+    # opargs contains the arg, and kwarg count, excluding the implicit 'self'
+    n_args = oparg & 0xff
+    n_kwargs = (oparg >> 8) & 0xff
+    w_self = f.peekvalue(n_args + (2 * n_kwargs))
+    n = n_args + (w_self is not None)
+    
+    if not n_kwargs:
+        w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
+        try:
+            w_result = f.space.call_valuestack(w_callable, n, f)
+            rstack.resume_point("CALL_METHOD", f, n_args, returns=w_result)
+        finally:
+            f.dropvalues(n_args + 2)
+    else:
+        keywords = [None] * n_kwargs
+        keywords_w = [None] * n_kwargs
+        while True:
+            n_kwargs -= 1
+            if n_kwargs < 0:
+                break
+            w_value = f.popvalue()
+            w_key = f.popvalue()
+            key = f.space.str_w(w_key)
+            keywords[n_kwargs] = key
+            keywords_w[n_kwargs] = w_value
+    
+        arguments = f.popvalues(n)    # includes w_self if it is not None
+        args = f.argument_factory(arguments, keywords, keywords_w, None, None)
+        if w_self is None:
+            f.popvalue()    # removes w_self, which is None
+        w_callable = f.popvalue()
+        w_result = f.space.call_args(w_callable, args)
+        rstack.resume_point("CALL_METHOD_KW", f, returns=w_result)
     f.pushvalue(w_result)
 
 

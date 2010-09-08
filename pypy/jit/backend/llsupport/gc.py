@@ -251,13 +251,25 @@ class GcRootMap_asmgcc:
         if oldgcmap:
             lltype.free(oldgcmap, flavor='raw')
 
-    def get_basic_shape(self):
-        return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
-                chr(self.LOC_EBP_MINUS | 4),    # saved %ebx:  at  -4(%ebp)
-                chr(self.LOC_EBP_MINUS | 8),    # saved %esi:  at  -8(%ebp)
-                chr(self.LOC_EBP_MINUS | 12),   # saved %edi:  at -12(%ebp)
-                chr(self.LOC_EBP_PLUS  | 0),    # saved %ebp:  at    (%ebp)
-                chr(0)]
+    def get_basic_shape(self, is_64_bit=False):
+        # XXX: Should this code even really know about stack frame layout of
+        # the JIT?
+        if is_64_bit:
+            return [chr(self.LOC_EBP_PLUS  | 8),
+                    chr(self.LOC_EBP_MINUS | 8),
+                    chr(self.LOC_EBP_MINUS | 16),
+                    chr(self.LOC_EBP_MINUS | 24),
+                    chr(self.LOC_EBP_MINUS | 32),
+                    chr(self.LOC_EBP_MINUS | 40),
+                    chr(self.LOC_EBP_PLUS  | 0),
+                    chr(0)]
+        else:
+            return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
+                    chr(self.LOC_EBP_MINUS | 4),    # saved %ebx:  at  -4(%ebp)
+                    chr(self.LOC_EBP_MINUS | 8),    # saved %esi:  at  -8(%ebp)
+                    chr(self.LOC_EBP_MINUS | 12),   # saved %edi:  at -12(%ebp)
+                    chr(self.LOC_EBP_PLUS  | 0),    # saved %ebp:  at    (%ebp)
+                    chr(0)]
 
     def _encode_num(self, shape, number):
         assert number >= 0
@@ -276,17 +288,9 @@ class GcRootMap_asmgcc:
             num = self.LOC_EBP_MINUS | (-offset)
         self._encode_num(shape, num)
 
-    def add_ebx(self, shape):
-        shape.append(chr(self.LOC_REG | 4))
-
-    def add_esi(self, shape):
-        shape.append(chr(self.LOC_REG | 8))
-
-    def add_edi(self, shape):
-        shape.append(chr(self.LOC_REG | 12))
-
-    def add_ebp(self, shape):
-        shape.append(chr(self.LOC_REG | 16))
+    def add_callee_save_reg(self, shape, reg_index):
+        assert reg_index > 0
+        shape.append(chr(self.LOC_REG | (reg_index << 2)))
 
     def compress_callshape(self, shape):
         # Similar to compress_callshape() in trackgcroot.py.
@@ -328,7 +332,7 @@ class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
 
     def __init__(self, gcdescr, translator, rtyper, llop1=llop):
-        from pypy.rpython.memory.gctypelayout import _check_typeid
+        from pypy.rpython.memory.gctypelayout import check_typeid
         from pypy.rpython.memory.gcheader import GCHeaderBuilder
         from pypy.rpython.memory.gctransform import framework
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
@@ -351,7 +355,7 @@ class GcLLDescr_framework(GcLLDescription):
         gcrootmap = cls()
         self.gcrootmap = gcrootmap
         self.gcrefs = GcRefList()
-        self.single_gcref_descr = GcPtrFieldDescr(0)
+        self.single_gcref_descr = GcPtrFieldDescr('', 0)
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
@@ -375,7 +379,7 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
-            _check_typeid(type_id)
+            check_typeid(type_id)
             try:
                 res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                       type_id, size, True,
@@ -395,7 +399,7 @@ class GcLLDescr_framework(GcLLDescription):
         #
         def malloc_array(itemsize, tid, num_elem):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
-            _check_typeid(type_id)
+            check_typeid(type_id)
             try:
                 return llop1.do_malloc_varsize_clear(
                     llmemory.GCREF,
@@ -482,7 +486,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def init_size_descr(self, S, descr):
         type_id = self.layoutbuilder.get_type_id(S)
-        assert not self.layoutbuilder.is_weakref(type_id)
+        assert not self.layoutbuilder.is_weakref_type(S)
         has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
         flags = int(has_finalizer) << llgroup.HALFSHIFT
         descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)

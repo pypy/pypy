@@ -31,16 +31,23 @@ pypy.tool.udir = mod
 if sys.platform == "win32":
     XXX   # lots more in Psyco
 
-def machine_code_dump(data, originaddr):
-    # the disassembler to use. 'objdump' writes GNU-style instructions.
-    # 'ndisasm' would use Intel syntax, but you need to fix the output parsing.
-    objdump = ('objdump -M intel -b binary -m i386 '
+def machine_code_dump(data, originaddr, backend_name):
+    objdump_backend_option = {
+        'x86': 'i386',
+        'x86_64': 'x86-64',
+        'i386': 'i386',
+    }
+    objdump = ('objdump -M intel,%(backend)s -b binary -m i386 '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
     f = open(tmpfile, 'wb')
     f.write(data)
     f.close()
-    g = os.popen(objdump % {'file': tmpfile, 'origin': originaddr}, 'r')
+    g = os.popen(objdump % {
+        'file': tmpfile,
+        'origin': originaddr,
+        'backend': objdump_backend_option[backend_name],
+    }, 'r')
     result = g.readlines()
     g.close()
     return result[6:]   # drop some objdump cruft
@@ -126,7 +133,7 @@ class CodeRange(object):
 
     def disassemble(self):
         if not hasattr(self, 'text'):
-            lines = machine_code_dump(self.data, self.addr)
+            lines = machine_code_dump(self.data, self.addr, self.world.backend_name)
             # instead of adding symbol names in the dumps we could
             # also make the 0xNNNNNNNN addresses be red and show the
             # symbol name when the mouse is over them
@@ -171,10 +178,13 @@ class World(object):
         self.jumps = {}
         self.symbols = {}
         self.logentries = {}
+        self.backend_name = None
 
     def parse(self, f, textonly=True):
         for line in f:
-            if line.startswith('CODE_DUMP '):
+            if line.startswith('BACKEND '):
+                self.backend_name = line.split(' ')[1].strip()
+            elif line.startswith('CODE_DUMP '):
                 pieces = line.split()
                 assert pieces[1].startswith('@')
                 assert pieces[2].startswith('+')

@@ -9,6 +9,10 @@ from pypy.jit.metainterp import history
 
 class LoopTest(object):
     optimizer = OPTIMIZER_SIMPLE
+    automatic_promotion_result = {
+        'int_add' : 6, 'int_gt' : 1, 'guard_false' : 1, 'jump' : 1, 
+        'guard_value' : 3
+    }
 
     def meta_interp(self, f, args, policy=None):
         return ll_meta_interp(f, args, optimizer=self.optimizer,
@@ -477,9 +481,9 @@ class LoopTest(object):
         res = self.meta_interp(main_interpreter_loop, [1])
         assert res == main_interpreter_loop(1)
         self.check_loop_count(1)
-        # XXX maybe later optimize guard_value away
-        self.check_loops({'int_add' : 6, 'int_gt' : 1,
-                          'guard_false' : 1, 'jump' : 1, 'guard_value' : 3})
+        # These loops do different numbers of ops based on which optimizer we
+        # are testing with.
+        self.check_loops(self.automatic_promotion_result)
 
     def test_can_enter_jit_outside_main_loop(self):
         myjitdriver = JitDriver(greens=[], reds=['i', 'j', 'a'])

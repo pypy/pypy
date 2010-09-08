@@ -265,10 +265,14 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             instr += 1
             oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
             nargs = oparg & 0xff
+            nkwds = (oparg >> 8) & 0xff
             if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
-                chain = resume_state_create(chain, 'CALL_METHOD', frame,
-                                            nargs)
-            elif opcode == map['CALL_FUNCTION'] and (oparg >> 8) & 0xff == 0:
+                if nkwds == 0:     # only positional arguments
+                    chain = resume_state_create(chain, 'CALL_METHOD', frame,
+                                                nargs)
+                else:              # includes keyword arguments
+                    chain = resume_state_create(chain, 'CALL_METHOD_KW', frame)
+            elif opcode == map['CALL_FUNCTION'] and nkwds == 0:
                 # Only positional arguments
                 # case1: ("CALL_FUNCTION", f, nargs, returns=w_result)
                 chain = resume_state_create(chain, 'CALL_FUNCTION', frame,

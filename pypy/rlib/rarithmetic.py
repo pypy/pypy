@@ -167,7 +167,7 @@ def intmask(n):
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
     if _should_widen_type(lltype.typeOf(n)):
-        return int(n)
+        return intmask(n)
     else:
         return n
 widen._annspecialcase_ = 'specialize:argtype(0)'

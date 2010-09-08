@@ -245,34 +245,36 @@ def invert__Int(space, w_int1):
 def lshift__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
+    if r_uint(b) < LONG_BIT: # 0 <= b < LONG_BIT
+        try:
+            c = ovfcheck_lshift(a, b)
+        except OverflowError:
+            raise FailedToImplementArgs(space.w_OverflowError,
+                                    space.wrap("integer left shift"))
+        return wrapint(space, c)
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
-    if a == 0 or b == 0:
-        return get_integer(space, w_int1)
-    if b >= LONG_BIT:
+    else: #b >= LONG_BIT
+        if a == 0:
+            return get_integer(space, w_int1)
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer left shift"))
-    try:
-        c = ovfcheck_lshift(a, b)
-    except OverflowError:
-        raise FailedToImplementArgs(space.w_OverflowError,
-                                space.wrap("integer left shift"))
-    return wrapint(space, c)
 
 def rshift__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
-    if b < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("negative shift count"))
-    if a == 0 or b == 0:
-        return get_integer(space, w_int1)
-    if b >= LONG_BIT:
-        if a < 0:
-            a = -1
-        else:
-            a = 0
+    if r_uint(b) >= LONG_BIT: # not (0 <= b < LONG_BIT)
+        if b < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative shift count"))
+        else: # b >= LONG_BIT
+            if a == 0:
+                return get_integer(space, w_int1)
+            if a < 0:
+                a = -1
+            else:
+                a = 0
     else:
         a = a >> b
     return wrapint(space, a)

@@ -123,6 +123,10 @@ class AppTestCodecs:
 
 class AppTestPartialEvaluation:
 
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('array',))
+        cls.space = space
+
     def test_partial_utf8(self):
         import _codecs
         encoding = 'utf-8'

@@ -100,6 +100,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.make_constructor(product.fields, product)
         self.emit("")
+        self.make_mutate_over(product, name)
         self.emit("def walkabout(self, visitor):", 1)
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
@@ -183,6 +184,26 @@ class ASTNodeVisitor(ASDLVisitor):
         have_everything = self.data.required_masks[node] | \
             self.data.optional_masks[node]
         self.emit("self.initialization_state = %i" % (have_everything,), 2)
+    
+    def make_mutate_over(self, cons, name):
+        self.emit("def mutate_over(self, visitor):", 1)
+        for field in cons.fields:
+            if (field.type.value not in asdl.builtin_types and
+                field.type.value not in self.data.simple_types):
+                if field.opt or field.seq:
+                    level = 3
+                    self.emit("if self.%s:" % (field.name,), 2)
+                else:
+                    level = 2
+                if field.seq:
+                    sub = (field.name,)
+                    self.emit("visitor._mutate_sequence(self.%s)" % sub, level)
+                else:
+                    sub = (field.name, field.name)
+                    self.emit("self.%s = self.%s.mutate_over(visitor)" % sub,
+                              level)
+        self.emit("return visitor.visit_%s(self)" % (name,), 2)
+        self.emit("")
 
     def visitConstructor(self, cons, base, extra_attributes):
         self.emit("class %s(%s):" % (cons.name, base))
@@ -199,24 +220,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("def walkabout(self, visitor):", 1)
         self.emit("visitor.visit_%s(self)" % (cons.name,), 2)
         self.emit("")
-        self.emit("def mutate_over(self, visitor):", 1)
-        for field in cons.fields:
-            if field.type.value not in asdl.builtin_types and \
-                    field.type.value not in self.data.prod_simple:
-                if field.opt or field.seq:
-                    level = 3
-                    self.emit("if self.%s:" % (field.name,), 2)
-                else:
-                    level = 2
-                if field.seq:
-                    sub = (field.name,)
-                    self.emit("visitor._mutate_sequence(self.%s)" % sub, level)
-                else:
-                    sub = (field.name, field.name)
-                    self.emit("self.%s = self.%s.mutate_over(visitor)" % sub,
-                              level)
-        self.emit("return visitor.visit_%s(self)" % (cons.name,), 2)
-        self.emit("")
+        self.make_mutate_over(cons, cons.name)
         self.make_var_syncer(cons.fields + self.data.cons_attributes[cons],
                              cons, cons.name)
 

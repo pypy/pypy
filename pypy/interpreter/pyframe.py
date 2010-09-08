@@ -10,6 +10,7 @@ from pypy.interpreter import pytraceback
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import jit, rstack
 from pypy.tool import stdlib_opcode
 from pypy.tool.stdlib_opcode import host_bytecode_spec
@@ -126,8 +127,12 @@ class PyFrame(eval.Frame):
         else:
             return self.execute_frame()
 
-    def execute_generator_frame(self, w_inputvalue, ex=False):
-        if self.last_instr != -1 and not ex:
+    def execute_generator_frame(self, w_inputvalue, operr=None):
+        if operr is not None:
+            ec = self.space.getexecutioncontext()
+            next_instr = self.handle_operation_error(ec, operr)
+            self.last_instr = intmask(next_instr - 1)
+        elif self.last_instr != -1:
             self.pushvalue(w_inputvalue)
         return self.execute_frame()
 

@@ -197,7 +197,7 @@ class BaseExceptionTransformer(object):
         for graph in self.translator.graphs:
             self.create_exception_handling(graph)
 
-    def create_exception_handling(self, graph, always_exc_clear=False):
+    def create_exception_handling(self, graph):
         """After an exception in a direct_call (or indirect_call), that is not caught
         by an explicit
         except statement, we need to reraise the exception. So after this
@@ -212,7 +212,6 @@ class BaseExceptionTransformer(object):
             self.raise_analyzer.analyze_direct_call(graph)
             graph.exceptiontransformed = self.exc_data_ptr
 
-        self.always_exc_clear = always_exc_clear
         join_blocks(graph)
         # collect the blocks before changing them
         n_need_exc_matching_blocks = 0
@@ -455,13 +454,18 @@ class BaseExceptionTransformer(object):
         block.recloseblock(l0, l)
 
         insert_zeroing_op = False
-        # XXX this is not right. it also inserts zero_gc_pointers_inside
-        # XXX on a path that malloc_nonmovable returns null, but does not raise
-        # XXX which might end up with a segfault. But we don't have such gc now
-        if spaceop.opname == 'malloc' or spaceop.opname == 'malloc_nonmovable':
+        if spaceop.opname == 'malloc':
             flavor = spaceop.args[1].value['flavor']
             if flavor == 'gc':
                 insert_zeroing_op = True
+        elif spaceop.opname == 'malloc_nonmovable':
+            # xxx we cannot insert zero_gc_pointers_inside after
+            # malloc_nonmovable, because it can return null.  For now
+            # we simply always force the zero=True flag on
+            # malloc_nonmovable.
+            c_flags = spaceop.args[1]
+            c_flags.value = c_flags.value.copy()
+            spaceop.args[1].value['zero'] = True
 
         if insert_zeroing_op:
             if normalafterblock is None:
@@ -478,16 +482,6 @@ class BaseExceptionTransformer(object):
                 0, SpaceOperation('zero_gc_pointers_inside',
                                   [v_result_after],
                                   varoftype(lltype.Void)))
-
-        if self.always_exc_clear:
-            # insert code that clears the exception even in the non-exceptional
-            # case...  this is a hint for the JIT, but pointless otherwise
-            if normalafterblock is None:
-                normalafterblock = insert_empty_block(None, l0)
-            llops = rtyper.LowLevelOpList(None)
-            self.gen_setfield('exc_value', self.c_null_evalue, llops)
-            self.gen_setfield('exc_type',  self.c_null_etype,  llops)
-            normalafterblock.operations[:0] = llops
 
 
 class LLTypeExceptionTransformer(BaseExceptionTransformer):

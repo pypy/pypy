@@ -105,6 +105,8 @@ def build_test():
             assert p == test.p1b
         assert cslist[0] & ~MASK == 0x45 << HALFSHIFT
         assert cslist[1] & ~MASK == 0x41 << HALFSHIFT
+        assert cslist[0] >> HALFSHIFT == 0x45
+        assert cslist[1] >> (HALFSHIFT+1) == 0x41 >> 1
         #
         return 42
     return f

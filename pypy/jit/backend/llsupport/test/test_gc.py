@@ -73,16 +73,16 @@ def test_GcRootMap_asmgcc():
     gcrootmap.add_ebp_offset(shape, num1)
     gcrootmap.add_ebp_offset(shape, num2)
     assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a])
-    gcrootmap.add_ebx(shape)
+    gcrootmap.add_callee_save_reg(shape, 1)
     assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
                               4])
-    gcrootmap.add_esi(shape)
+    gcrootmap.add_callee_save_reg(shape, 2)
     assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
                               4, 8])
-    gcrootmap.add_edi(shape)
+    gcrootmap.add_callee_save_reg(shape, 3)
     assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
                               4, 8, 12])
-    gcrootmap.add_ebp(shape)
+    gcrootmap.add_callee_save_reg(shape, 4)
     assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
                               4, 8, 12, 16])
     #

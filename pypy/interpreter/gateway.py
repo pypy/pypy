@@ -137,9 +137,6 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_path(self, el, app_sig):
-        self.checked_space_method(el, app_sig)
-
     def visit__Wrappable(self, el, app_sig):
         name = el.__name__
         argname = self.orig_arg()
@@ -240,9 +237,6 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
-
-    def visit_path(self, typ):
-        self.run_args.append("space.path_w(%s)" % (self.scopenext(),))
 
     def visit_nonnegint(self, typ):
         self.run_args.append("space.nonnegint_w(%s)" % (self.scopenext(),))
@@ -370,9 +364,6 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
-
-    def visit_path(self, typ):
-        self.unwrap.append("space.path_w(%s)" % (self.nextarg(),))
 
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.nonnegint_w(%s)" % (self.nextarg(),))

@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
 from pypy.tool import autopath
+from pypy.rlib import jit
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
@@ -159,10 +160,12 @@ def getsignal(space, signum):
     return space.wrap(SIG_DFL)
 getsignal.unwrap_spec = [ObjSpace, int]
 
+@jit.dont_look_inside
 def alarm(space, timeout):
     return space.wrap(c_alarm(timeout))
 alarm.unwrap_spec = [ObjSpace, int]
 
+@jit.dont_look_inside
 def pause(space):
     c_pause()
     return space.w_None
@@ -173,6 +176,7 @@ def check_signum(space, signum):
         raise OperationError(space.w_ValueError,
                              space.wrap("signal number out of range"))
 
+@jit.dont_look_inside
 def signal(space, signum, w_handler):
     """
     signal(sig, action) -> action

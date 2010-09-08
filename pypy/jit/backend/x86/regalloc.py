@@ -5,7 +5,7 @@
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr,
                                          LoopToken, INT, REF, FLOAT)
-from pypy.jit.backend.x86.ri386 import *
+from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
@@ -17,16 +17,7 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
-
-WORD = 4
-FRAME_FIXED_SIZE = 5     # ebp + ebx + esi + edi + force_index = 5 words
-FORCE_INDEX_OFS = -4*WORD
-
-width_of_type = {
-    INT : 1,
-    REF : 1,
-    FLOAT : 2,
-    }
+from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE, IS_X86_32, IS_X86_64
 
 class X86RegisterManager(RegisterManager):
 
@@ -34,6 +25,12 @@ class X86RegisterManager(RegisterManager):
     all_regs = [eax, ecx, edx, ebx, esi, edi]
     no_lower_byte_regs = [esi, edi]
     save_around_call_regs = [eax, edx, ecx]
+
+    REGLOC_TO_GCROOTMAP_REG_INDEX = {
+        ebx: 1,
+        esi: 2,
+        edi: 3,
+    }
 
     def call_result_location(self, v):
         return eax
@@ -50,12 +47,26 @@ class X86RegisterManager(RegisterManager):
             print "convert_to_imm: got a %s" % c
             raise AssertionError
 
+class X86_64_RegisterManager(X86RegisterManager):
+    # r11 omitted because it's used as scratch
+    all_regs = [eax, ecx, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
+    no_lower_byte_regs = []
+    save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
+
+    REGLOC_TO_GCROOTMAP_REG_INDEX = {
+        ebx: 1,
+        r12: 2,
+        r13: 3,
+        r14: 4,
+        r15: 5,
+    }
 
 class FloatConstants(object):
     BASE_CONSTANT_SIZE = 1000
 
     def __init__(self):
         self.cur_array_free = 0
+        self.const_id = 0
 
     def _get_new_array(self):
         n = self.BASE_CONSTANT_SIZE
@@ -71,7 +82,8 @@ class FloatConstants(object):
         n = self.cur_array_free - 1
         arr[n] = floatval
         self.cur_array_free = n
-        return rffi.cast(lltype.Signed, arr) + n * 8
+        self.const_id += 1
+        return (self.const_id, rffi.cast(lltype.Signed, arr) + n * 8)
 
 
 class X86XMMRegisterManager(RegisterManager):
@@ -80,7 +92,6 @@ class X86XMMRegisterManager(RegisterManager):
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
     # we never need lower byte I hope
     save_around_call_regs = all_regs
-    reg_width = 2
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager=frame_manager,
@@ -93,28 +104,36 @@ class X86XMMRegisterManager(RegisterManager):
             self.float_constants = assembler._float_constants
 
     def convert_to_imm(self, c):
-        adr = self.float_constants.record_float(c.getfloat())
-        return heap64(adr)
+        const_id, adr = self.float_constants.record_float(c.getfloat())
+        return ConstFloatLoc(adr, const_id)
         
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,
         # so genop_call will move it to some frame location immediately
         # after the call
-        return self.frame_manager.loc(v, 2)
+        return self.frame_manager.loc(v)
+
+class X86_64_XMMRegisterManager(X86XMMRegisterManager):
+    # xmm15 reserved for scratch use
+    all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14]
+    save_around_call_regs = all_regs
+
+    def call_result_location(self, v):
+        return xmm0
+
+    def after_call(self, v):
+        # We use RegisterManager's implementation, since X86XMMRegisterManager
+        # places the result on the stack, which we don't need to do when the
+        # calling convention places the result in xmm0
+        return RegisterManager.after_call(self, v)
 
 class X86FrameManager(FrameManager):
-
     @staticmethod
-    def frame_pos(i, size):
-        if size == 1:
-            res = mem(ebp, get_ebp_ofs(i))
-        elif size == 2:
-            res = mem64(ebp, get_ebp_ofs(i + 1))
+    def frame_pos(i, box_type):
+        if IS_X86_32 and box_type == FLOAT:
+            return StackLoc(i, get_ebp_ofs(i+1), 2, box_type)
         else:
-            print "Unimplemented size %d" % i
-            raise NotImplementedError("unimplemented size %d" % i)
-        res.position = i
-        return res
+            return StackLoc(i, get_ebp_ofs(i), 1, box_type)
 
 class RegAlloc(object):
     exc = False
@@ -135,11 +154,21 @@ class RegAlloc(object):
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        self.rm = X86RegisterManager(longevity,
-                                     frame_manager = self.fm,
-                                     assembler = self.assembler)
-        self.xrm = X86XMMRegisterManager(longevity, frame_manager = self.fm,
-                                         assembler = self.assembler)
+        # XXX
+        if cpu.WORD == 4:
+            gpr_reg_mgr_cls = X86RegisterManager
+            xmm_reg_mgr_cls = X86XMMRegisterManager
+        elif cpu.WORD == 8:
+            gpr_reg_mgr_cls = X86_64_RegisterManager
+            xmm_reg_mgr_cls = X86_64_XMMRegisterManager
+        else:
+            raise AssertionError("Word size should be 4 or 8")
+            
+        self.rm = gpr_reg_mgr_cls(longevity,
+                                  frame_manager = self.fm,
+                                  assembler = self.assembler)
+        self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
+                                   assembler = self.assembler)
 
     def prepare_loop(self, inputargs, operations, looptoken):
         self._prepare(inputargs, operations)
@@ -184,7 +213,7 @@ class RegAlloc(object):
             if reg:
                 loc = reg
             else:
-                loc = self.fm.loc(arg, width_of_type[arg.type])
+                loc = self.fm.loc(arg)
             if arg.type == FLOAT:
                 floatlocs[i] = loc
             else:
@@ -252,23 +281,23 @@ class RegAlloc(object):
             arg = inputargs[i]
             i += 1
             if arg.type == FLOAT:
-                if isinstance(loc, REG):
+                if isinstance(loc, RegLoc):
                     self.xrm.reg_bindings[arg] = loc
                     used[loc] = None
                 else:
                     self.fm.frame_bindings[arg] = loc
             else:
-                if isinstance(loc, REG):
+                if isinstance(loc, RegLoc):
                     self.rm.reg_bindings[arg] = loc
                     used[loc] = None
                 else:
                     self.fm.frame_bindings[arg] = loc
         self.rm.free_regs = []
-        for reg in X86RegisterManager.all_regs:
+        for reg in self.rm.all_regs:
             if reg not in used:
                 self.rm.free_regs.append(reg)
         self.xrm.free_regs = []
-        for reg in X86XMMRegisterManager.all_regs:
+        for reg in self.xrm.all_regs:
             if reg not in used:
                 self.xrm.free_regs.append(reg)
         # note: we need to make a copy of inputargs because possibly_free_vars
@@ -646,7 +675,7 @@ class RegAlloc(object):
         vable_index = jd.index_of_virtualizable
         if vable_index >= 0:
             self.rm._sync_var(op.args[vable_index])
-            vable = self.fm.loc(op.args[vable_index], 1)
+            vable = self.fm.loc(op.args[vable_index])
         else:
             vable = imm(0)
         self._call(op, [imm(size), vable] +
@@ -655,13 +684,12 @@ class RegAlloc(object):
         
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
+        loc_newvalue = self.rm.make_sure_var_in_reg(op.args[1], op.args)
+        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
+        # because it will be needed anyway by the following setfield_gc.
+        # It avoids loading it twice from the memory.
         loc_base = self.rm.make_sure_var_in_reg(op.args[0], op.args,
                                                 imm_fine=False)
-        loc_newvalue = self.rm.make_sure_var_in_reg(op.args[1], op.args,
-                                                    imm_fine=False)
-        # ^^^ we also force loc_newvalue in a reg, because it will be needed
-        # anyway by the following setfield_gc.  It avoids loading it twice
-        # from the memory.
         arglocs = [loc_base, loc_newvalue]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these
@@ -670,7 +698,7 @@ class RegAlloc(object):
         # function, a GC write barrier, is known not to touch them.
         # See remember_young_pointer() in rpython/memory/gc/generation.py.
         for v, reg in self.rm.reg_bindings.items():
-            if ((reg is eax or reg is ecx or reg is edx)
+            if (reg in self.rm.save_around_call_regs
                 and self.rm.stays_alive(v)):
                 arglocs.append(reg)
         self.PerformDiscard(op, arglocs)
@@ -679,23 +707,18 @@ class RegAlloc(object):
     def _fastpath_malloc(self, op, descr):
         assert isinstance(descr, BaseSizeDescr)
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        tmp0 = TempBox()
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        self.rm.force_allocate_reg(tmp0, selected_reg=edx)
-        # XXX about the next 10 lines: why not just say
-        #      force_allocate_reg(tmp1, selected_reg=ecx)?????
-        for v, reg in self.rm.reg_bindings.items():
-            if reg is ecx:
-                to_sync = v
-                break
-        else:
-            to_sync = None
-        if to_sync is not None:
-            self.rm._sync_var(to_sync)
-            del self.rm.reg_bindings[to_sync]
-            self.rm.free_regs.append(ecx)
-        # we need to do it here, so edx is not in reg_bindings
-        self.rm.possibly_free_var(tmp0)
+        # We need to force-allocate each of save_around_call_regs now.
+        # The alternative would be to save and restore them around the
+        # actual call to malloc(), in the rare case where we need to do
+        # it; however, mark_gc_roots() would need to be adapted to know
+        # where the variables end up being saved.  Messy.
+        for reg in self.rm.save_around_call_regs:
+            if reg is not eax:
+                tmp_box = TempBox()
+                self.rm.force_allocate_reg(tmp_box, selected_reg=reg)
+                self.rm.possibly_free_var(tmp_box)
+
         self.assembler.malloc_cond_fixedsize(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
@@ -809,7 +832,7 @@ class RegAlloc(object):
 
     def consider_setfield_gc(self, op):
         ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.descr)
-        assert isinstance(size_loc, IMM32)
+        assert isinstance(size_loc, ImmedLoc)
         if size_loc.value == 1:
             need_lower_byte = True
         else:
@@ -947,24 +970,17 @@ class RegAlloc(object):
         pass
 
     def get_mark_gc_roots(self, gcrootmap):
-        shape = gcrootmap.get_basic_shape()
+        shape = gcrootmap.get_basic_shape(IS_X86_64)
         for v, val in self.fm.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert isinstance(val, MODRM)
+                assert isinstance(val, StackLoc)
                 gcrootmap.add_ebp_offset(shape, get_ebp_ofs(val.position))
         for v, reg in self.rm.reg_bindings.items():
             if reg is eax:
                 continue      # ok to ignore this one
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                if reg is ebx:
-                    gcrootmap.add_ebx(shape)
-                elif reg is esi:
-                    gcrootmap.add_esi(shape)
-                elif reg is edi:
-                    gcrootmap.add_edi(shape)
-                else:
-                    print "[get_mark_gc_roots] bogus register", reg
-                    assert False
+                assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
+                gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
         return gcrootmap.compress_callshape(shape)
 
     def consider_force_token(self, op):

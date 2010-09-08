@@ -405,8 +405,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def getattr(self, w_obj, w_name):
         if not self.config.objspace.std.getattributeshortcut:
             return DescrOperation.getattr(self, w_obj, w_name)
-
         # an optional shortcut for performance
+
         w_type = self.type(w_obj)
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
