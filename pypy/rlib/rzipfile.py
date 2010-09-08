@@ -16,16 +16,15 @@ from pypy.tool.lib_pypy import import_from_lib_pypy
 crc_32_tab = import_from_lib_pypy('binascii').crc_32_tab
 
 rcrc_32_tab = [r_uint(i) for i in crc_32_tab]
-mask32 = r_uint(0xffffffffL)
 
 def crc32(s, crc=0):
     result = 0
-    crc = ~r_uint(crc) & mask32
+    crc = ~r_uint(crc) & r_uint(0xffffffffL)
     for c in s:
-        crc = rcrc_32_tab[(crc ^ r_uint(ord(c))) & 0xff] ^ (crc >> 8)
+        crc = rcrc_32_tab[(crc ^ r_uint(ord(c))) & 0xffL] ^ (crc >> 8)
         #/* Note:  (crc >> 8) MUST zero fill on left
 
-        result = crc ^ mask32
+        result = crc ^ r_uint(0xffffffffL)
     
     return result
 
@@ -195,7 +194,7 @@ class RZipFile(object):
             (x.create_version, x.create_system, x.extract_version, x.reserved,
                 x.flag_bits, x.compress_type, t, d,
                 crc, x.compress_size, x.file_size) = centdir[1:12]
-            x.CRC = r_uint(crc) & mask32
+            x.CRC = r_uint(crc) & r_uint(0xffffffff)
             x.dostime = t
             x.dosdate = d
             x.volume, x.internal_attr, x.external_attr = centdir[15:18]
