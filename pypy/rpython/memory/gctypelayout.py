@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.rarithmetic import intmask
 from pypy.tool.identity_dict import identity_dict
 
 
@@ -122,8 +123,8 @@ T_IS_VARSIZE           = 0x10000
 T_HAS_GCPTR_IN_VARSIZE = 0x20000
 T_IS_GCARRAY_OF_GCPTR  = 0x40000
 T_IS_WEAKREF           = 0x80000
-T_KEY_MASK          = 0xFF000000
-T_KEY_VALUE         = 0x7A000000    # bug detection only
+T_KEY_MASK             = intmask(0xFF000000)
+T_KEY_VALUE            = intmask(0x7A000000)    # bug detection only
 
 def _check_valid_type_info(p):
     ll_assert(p.infobits & T_KEY_MASK == T_KEY_VALUE, "invalid type_id")
