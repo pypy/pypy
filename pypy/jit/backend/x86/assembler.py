@@ -273,7 +273,8 @@ class Assembler386(object):
         if IS_X86_32:
             self.mc.MOV_sr(WORD, edx.value)        # save it as the new argument
         elif IS_X86_64:
-            # FIXME: We can't just clobber rdi like this, can we?
+            # rdi can be clobbered: its content was forced to the stack
+            # by _fastpath_malloc(), like all other save_around_call_regs.
             self.mc.MOV_rr(edi.value, edx.value)
 
         addr = self.cpu.gc_ll_descr.get_malloc_fixedsize_slowpath_addr()
@@ -1256,8 +1257,12 @@ class Assembler386(object):
             sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
-            expected_typeid = (classptr - sizeof_ti - type_info_group) >> 2
-            self.mc.CMP16(mem(locs[0], 0), ImmedLoc(expected_typeid))
+            expected_typeid = classptr - sizeof_ti - type_info_group
+            if IS_X86_32:
+                expected_typeid >>= 2
+                self.mc.CMP16(mem(locs[0], 0), ImmedLoc(expected_typeid))
+            elif IS_X86_64:
+                self.mc.CMP32_mi((locs[0].value, 0), expected_typeid)
 
     def genop_guard_guard_class(self, ign_1, guard_op, guard_token, locs, ign_2):
         self.mc.ensure_bytes_available(256)

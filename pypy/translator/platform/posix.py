@@ -104,6 +104,11 @@ class BasePosix(Platform):
         else:
             target_name = exe_name.basename
 
+        if shared:
+            cflags = self.cflags + self.shared_only
+        else:
+            cflags = self.cflags + self.standalone_only
+
         m = GnuMakefile(path)
         m.exe_name = exe_name
         m.eci = eci
@@ -132,7 +137,7 @@ class BasePosix(Platform):
             ('LIBS', self._libs(eci.libraries)),
             ('LIBDIRS', self._libdirs(eci.library_dirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
-            ('CFLAGS', self.cflags),
+            ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
             ('LDFLAGS', linkflags),
             ('LDFLAGSEXTRA', list(eci.link_extra)),

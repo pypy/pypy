@@ -26,6 +26,12 @@ class X86RegisterManager(RegisterManager):
     no_lower_byte_regs = [esi, edi]
     save_around_call_regs = [eax, edx, ecx]
 
+    REGLOC_TO_GCROOTMAP_REG_INDEX = {
+        ebx: 1,
+        esi: 2,
+        edi: 3,
+    }
+
     def call_result_location(self, v):
         return eax
 
@@ -47,6 +53,13 @@ class X86_64_RegisterManager(X86RegisterManager):
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
+    REGLOC_TO_GCROOTMAP_REG_INDEX = {
+        ebx: 1,
+        r12: 2,
+        r13: 3,
+        r14: 4,
+        r15: 5,
+    }
 
 class FloatConstants(object):
     BASE_CONSTANT_SIZE = 1000
@@ -694,23 +707,18 @@ class RegAlloc(object):
     def _fastpath_malloc(self, op, descr):
         assert isinstance(descr, BaseSizeDescr)
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        tmp0 = TempBox()
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        self.rm.force_allocate_reg(tmp0, selected_reg=edx)
-        # XXX about the next 10 lines: why not just say
-        #      force_allocate_reg(tmp1, selected_reg=ecx)?????
-        for v, reg in self.rm.reg_bindings.items():
-            if reg is ecx:
-                to_sync = v
-                break
-        else:
-            to_sync = None
-        if to_sync is not None:
-            self.rm._sync_var(to_sync)
-            del self.rm.reg_bindings[to_sync]
-            self.rm.free_regs.append(ecx)
-        # we need to do it here, so edx is not in reg_bindings
-        self.rm.possibly_free_var(tmp0)
+        # We need to force-allocate each of save_around_call_regs now.
+        # The alternative would be to save and restore them around the
+        # actual call to malloc(), in the rare case where we need to do
+        # it; however, mark_gc_roots() would need to be adapted to know
+        # where the variables end up being saved.  Messy.
+        for reg in self.rm.save_around_call_regs:
+            if reg is not eax:
+                tmp_box = TempBox()
+                self.rm.force_allocate_reg(tmp_box, selected_reg=reg)
+                self.rm.possibly_free_var(tmp_box)
+
         self.assembler.malloc_cond_fixedsize(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
@@ -962,7 +970,7 @@ class RegAlloc(object):
         pass
 
     def get_mark_gc_roots(self, gcrootmap):
-        shape = gcrootmap.get_basic_shape()
+        shape = gcrootmap.get_basic_shape(IS_X86_64)
         for v, val in self.fm.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)
@@ -971,15 +979,8 @@ class RegAlloc(object):
             if reg is eax:
                 continue      # ok to ignore this one
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                if reg is ebx:
-                    gcrootmap.add_ebx(shape)
-                elif reg is esi:
-                    gcrootmap.add_esi(shape)
-                elif reg is edi:
-                    gcrootmap.add_edi(shape)
-                else:
-                    print "[get_mark_gc_roots] bogus register", reg
-                    assert False
+                assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
+                gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
         return gcrootmap.compress_callshape(shape)
 
     def consider_force_token(self, op):

@@ -128,10 +128,6 @@ def test_compile_boehm():
 
 class TestCompileHybrid(object):
     def setup_class(cls):
-        if IS_X86_64:
-            # No hybrid GC on 64-bit for the time being
-            py.test.skip()
-
         funcs = []
         name_to_func = {}
         for fullname in dir(cls):

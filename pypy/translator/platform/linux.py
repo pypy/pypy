@@ -3,7 +3,7 @@ import py, os
 from pypy.translator.platform import _run_subprocess
 from pypy.translator.platform.posix import BasePosix
 
-class Linux(BasePosix):
+class BaseLinux(BasePosix):
     name = "linux"
     
     link_flags = ('-pthread', '-lrt')
@@ -25,10 +25,12 @@ class Linux(BasePosix):
         return self._pkg_config("libffi", "--libs-only-L",
                                 ['/usr/lib/libffi'])
 
+
+class Linux(BaseLinux):
     def library_dirs_for_libffi_a(self):
         # places where we need to look for libffi.a
         return self.library_dirs_for_libffi() + ['/usr/lib']
 
 
-class Linux64(Linux):
-    shared_only = ('-fPIC',)
+class Linux64(BaseLinux):
+    pass

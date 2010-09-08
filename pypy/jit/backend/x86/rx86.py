@@ -462,6 +462,8 @@ class AbstractX86CodeBuilder(object):
     CMP_ji = select_8_or_32_bit_immed(CMP_ji8, CMP_ji32)
     CMP_rj = insn(rex_w, '\x3B', register(1, 8), '\x05', immediate(2))
 
+    CMP32_mi = insn(rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
+
     AND8_rr = insn(rex_w, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
     OR8_rr = insn(rex_w, '\x08', byte_register(1), byte_register(2,8), '\xC0')

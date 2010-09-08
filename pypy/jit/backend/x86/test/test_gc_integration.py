@@ -26,16 +26,13 @@ from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86FrameManager,\
 CPU = getcpuclass()
 
 class MockGcRootMap(object):
-    def get_basic_shape(self):
+    def get_basic_shape(self, is_64_bit):
         return ['shape']
     def add_ebp_offset(self, shape, offset):
         shape.append(offset)
-    def add_ebx(self, shape):
-        shape.append('ebx')
-    def add_esi(self, shape):
-        shape.append('esi')
-    def add_edi(self, shape):
-        shape.append('edi')
+    def add_callee_save_reg(self, shape, reg_index):
+        index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }
+        shape.append(index_to_name[reg_index])
     def compress_callshape(self, shape):
         assert shape[0] == 'shape'
         return ['compressed'] + shape[1:]

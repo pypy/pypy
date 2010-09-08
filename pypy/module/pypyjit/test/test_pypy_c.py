@@ -189,7 +189,7 @@ class PyPyCJITTests(object):
                 return r
         ''', 28,
                    ([5], 120),
-                    ([20], 2432902008176640000L))
+                    ([25], 15511210043330985984000000L))
 
     def test_factorialrec(self):
         self.run_source('''
@@ -200,7 +200,7 @@ class PyPyCJITTests(object):
                     return 1
         ''', 0,
                    ([5], 120),
-                    ([20], 2432902008176640000L))
+                    ([25], 15511210043330985984000000L))
 
     def test_richards(self):
         self.run_source('''

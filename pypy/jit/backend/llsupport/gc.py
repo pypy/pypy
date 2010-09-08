@@ -251,13 +251,25 @@ class GcRootMap_asmgcc:
         if oldgcmap:
             lltype.free(oldgcmap, flavor='raw')
 
-    def get_basic_shape(self):
-        return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
-                chr(self.LOC_EBP_MINUS | 4),    # saved %ebx:  at  -4(%ebp)
-                chr(self.LOC_EBP_MINUS | 8),    # saved %esi:  at  -8(%ebp)
-                chr(self.LOC_EBP_MINUS | 12),   # saved %edi:  at -12(%ebp)
-                chr(self.LOC_EBP_PLUS  | 0),    # saved %ebp:  at    (%ebp)
-                chr(0)]
+    def get_basic_shape(self, is_64_bit=False):
+        # XXX: Should this code even really know about stack frame layout of
+        # the JIT?
+        if is_64_bit:
+            return [chr(self.LOC_EBP_PLUS  | 8),
+                    chr(self.LOC_EBP_MINUS | 8),
+                    chr(self.LOC_EBP_MINUS | 16),
+                    chr(self.LOC_EBP_MINUS | 24),
+                    chr(self.LOC_EBP_MINUS | 32),
+                    chr(self.LOC_EBP_MINUS | 40),
+                    chr(self.LOC_EBP_PLUS  | 0),
+                    chr(0)]
+        else:
+            return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
+                    chr(self.LOC_EBP_MINUS | 4),    # saved %ebx:  at  -4(%ebp)
+                    chr(self.LOC_EBP_MINUS | 8),    # saved %esi:  at  -8(%ebp)
+                    chr(self.LOC_EBP_MINUS | 12),   # saved %edi:  at -12(%ebp)
+                    chr(self.LOC_EBP_PLUS  | 0),    # saved %ebp:  at    (%ebp)
+                    chr(0)]
 
     def _encode_num(self, shape, number):
         assert number >= 0
@@ -276,17 +288,9 @@ class GcRootMap_asmgcc:
             num = self.LOC_EBP_MINUS | (-offset)
         self._encode_num(shape, num)
 
-    def add_ebx(self, shape):
-        shape.append(chr(self.LOC_REG | 4))
-
-    def add_esi(self, shape):
-        shape.append(chr(self.LOC_REG | 8))
-
-    def add_edi(self, shape):
-        shape.append(chr(self.LOC_REG | 12))
-
-    def add_ebp(self, shape):
-        shape.append(chr(self.LOC_REG | 16))
+    def add_callee_save_reg(self, shape, reg_index):
+        assert reg_index > 0
+        shape.append(chr(self.LOC_REG | (reg_index << 2)))
 
     def compress_callshape(self, shape):
         # Similar to compress_callshape() in trackgcroot.py.

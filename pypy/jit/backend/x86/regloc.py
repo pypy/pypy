@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.history import AbstractValue, ConstInt
 from pypy.jit.backend.x86 import rx86
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.jit.backend.x86.arch import WORD
+from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import intmask

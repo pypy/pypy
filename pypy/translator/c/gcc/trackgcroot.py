@@ -72,7 +72,7 @@ class FunctionGcRootTracker(object):
             if self.is_stack_bottom:
                 retaddr = LOC_NOWHERE     # end marker for asmgcroot.py
             elif self.uses_frame_pointer:
-                retaddr = frameloc_ebp(4)
+                retaddr = frameloc_ebp(self.WORD)
             else:
                 retaddr = frameloc_esp(insn.framesize)
             shape = [retaddr]
@@ -84,7 +84,8 @@ class FunctionGcRootTracker(object):
             for localvar, tag in insn.gcroots.items():
                 if isinstance(localvar, LocalVar):
                     loc = localvar.getlocation(insn.framesize,
-                                               self.uses_frame_pointer)
+                                               self.uses_frame_pointer,
+                                               self.WORD)
                 elif localvar in self.REG2LOC:
                     loc = self.REG2LOC[localvar]
                 else:
@@ -148,7 +149,7 @@ class FunctionGcRootTracker(object):
             lst.append(previnsn)
 
     def parse_instructions(self):
-        self.insns = [InsnFunctionStart(self.CALLEE_SAVE_REGISTERS)]
+        self.insns = [InsnFunctionStart(self.CALLEE_SAVE_REGISTERS, self.WORD)]
         ignore_insns = False
         for lineno, line in enumerate(self.lines):
             if lineno < self.skip:
@@ -263,7 +264,7 @@ class FunctionGcRootTracker(object):
                     ofs_from_ebp = int(match.group(1) or '0')
                     if self.format == 'msvc':
                         ofs_from_ebp += int(match.group(2) or '0')
-                    localvar = ofs_from_ebp - 4
+                    localvar = ofs_from_ebp - self.WORD
                     assert localvar != 0    # that's the return address
                     return LocalVar(localvar, hint='ebp')
             return localvar
@@ -357,6 +358,56 @@ class FunctionGcRootTracker(object):
                 self.lines.insert(call.lineno+1, '\t.globl\t%s\n' % (label,))
         call.global_label = label
 
+    @classmethod
+    def compress_callshape(cls, shape):
+        # For a single shape, this turns the list of integers into a list of
+        # bytes and reverses the order of the entries.  The length is
+        # encoded by inserting a 0 marker after the gc roots coming from
+        # shape[N:] and before the N values coming from shape[N-1] to
+        # shape[0] (for N == 5 on 32-bit or 7 on 64-bit platforms).
+        # In practice it seems that shapes contain many integers
+        # whose value is up to a few thousands, which the algorithm below
+        # compresses down to 2 bytes.  Very small values compress down to a
+        # single byte.
+
+        # Callee-save regs plus ret addr
+        min_size = len(cls.CALLEE_SAVE_REGISTERS) + 1
+
+        assert len(shape) >= min_size
+        shape = list(shape)
+        assert 0 not in shape[min_size:]
+        shape.insert(min_size, 0)
+        result = []
+        for loc in shape:
+            assert loc >= 0
+            flag = 0
+            while loc >= 0x80:
+                result.append(int(loc & 0x7F) | flag)
+                flag = 0x80
+                loc >>= 7
+            result.append(int(loc) | flag)
+        result.reverse()
+        return result
+
+    @classmethod
+    def decompress_callshape(cls, bytes):
+        # For tests.  This logic is copied in asmgcroot.py.
+        result = []
+        n = 0
+        while n < len(bytes):
+            value = 0
+            while True:
+                b = bytes[n]
+                n += 1
+                value += b
+                if b < 0x80:
+                    break
+                value = (value - 0x80) << 7
+            result.append(value)
+        result.reverse()
+        assert result[5] == 0
+        del result[5]
+        return result
     # ____________________________________________________________
 
     CANNOT_COLLECT = {    # some of the most used functions that cannot collect
@@ -385,10 +436,9 @@ class FunctionGcRootTracker(object):
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
+        'punpck', 'pshufd', 
         # zero-extending moves should not produce GC pointers
         'movz',
-        # quadword operations
-        'movq',
         ])
 
     visit_movb = visit_nop
@@ -400,7 +450,7 @@ class FunctionGcRootTracker(object):
     visit_xorb = visit_nop
     visit_xorw = visit_nop
 
-    def visit_addl(self, line, sign=+1):
+    def _visit_add(self, line, sign=+1):
         match = self.r_binaryinsn.match(line)
         source = match.group("source")
         target = match.group("target")
@@ -415,8 +465,8 @@ class FunctionGcRootTracker(object):
         else:
             return []
 
-    def visit_subl(self, line):
-        return self.visit_addl(line, sign=-1)
+    def _visit_sub(self, line):
+        return self._visit_add(line, sign=-1)
 
     def unary_insn(self, line):
         match = self.r_unaryinsn.match(line)
@@ -439,8 +489,6 @@ class FunctionGcRootTracker(object):
         else:
             return []
 
-    visit_xorl = binary_insn   # used in "xor reg, reg" to create a NULL GC ptr
-    visit_orl = binary_insn
     # The various cmov* operations
     for name in '''
         e ne g ge l le a ae b be p np s ns o no
@@ -448,7 +496,7 @@ class FunctionGcRootTracker(object):
         locals()['visit_cmov' + name] = binary_insn
         locals()['visit_cmov' + name + 'l'] = binary_insn
 
-    def visit_andl(self, line):
+    def _visit_and(self, line):
         match = self.r_binaryinsn.match(line)
         target = match.group("target")
         if target == self.ESP:
@@ -460,9 +508,7 @@ class FunctionGcRootTracker(object):
         else:
             return self.binary_insn(line)
 
-    visit_and = visit_andl
-
-    def visit_leal(self, line):
+    def _visit_lea(self, line):
         match = self.r_binaryinsn.match(line)
         target = match.group("target")
         if target == self.ESP:
@@ -474,7 +520,7 @@ class FunctionGcRootTracker(object):
                     raise UnrecognizedOperation('epilogue without prologue')
                 ofs_from_ebp = int(match.group(1) or '0')
                 assert ofs_from_ebp <= 0
-                framesize = 4 - ofs_from_ebp
+                framesize = self.WORD - ofs_from_ebp
             else:
                 match = self.r_localvar_esp.match(source)
                 # leal 12(%esp), %esp
@@ -489,17 +535,23 @@ class FunctionGcRootTracker(object):
     def insns_for_copy(self, source, target):
         source = self.replace_symbols(source)
         target = self.replace_symbols(target)
-        if source == self.ESP or target == self.ESP:
+        if target == self.ESP:
             raise UnrecognizedOperation('%s -> %s' % (source, target))
         elif self.r_localvar.match(target):
             if self.r_localvar.match(source):
+                # eg, movl %eax, %ecx: possibly copies a GC root
                 return [InsnCopyLocal(source, target)]
             else:
+                # eg, movl (%eax), %edi or mov %esp, %edi: load a register
+                # from "outside".  If it contains a pointer to a GC root,
+                # it will be announced later with the GCROOT macro.
                 return [InsnSetLocal(target, [source])]
         else:
+            # eg, movl %ebx, (%edx) or mov %ebp, %esp: does not write into
+            # a general register
             return []
 
-    def visit_movl(self, line):
+    def _visit_mov(self, line):
         match = self.r_binaryinsn.match(line)
         source = match.group("source")
         target = match.group("target")
@@ -513,34 +565,24 @@ class FunctionGcRootTracker(object):
                           # gcc -fno-unit-at-a-time.
         return self.insns_for_copy(source, target)
 
-    visit_mov = visit_movl
-
-    def visit_pushl(self, line):
+    def _visit_push(self, line):
         match = self.r_unaryinsn.match(line)
         source = match.group(1)
-        return [InsnStackAdjust(-4)] + self.insns_for_copy(source, self.TOP_OF_STACK)
-
-    def visit_pushw(self, line):
-        return [InsnStackAdjust(-2)]   # rare but not impossible
+        return [InsnStackAdjust(-self.WORD)] + self.insns_for_copy(source, self.TOP_OF_STACK)
 
     def _visit_pop(self, target):
-        return self.insns_for_copy(self.TOP_OF_STACK, target) + [InsnStackAdjust(+4)]
-
-    def visit_popl(self, line):
-        match = self.r_unaryinsn.match(line)
-        target = match.group(1)
-        return self._visit_pop(target)
+        return self.insns_for_copy(self.TOP_OF_STACK, target) + [InsnStackAdjust(+self.WORD)]
 
     def _visit_prologue(self):
         # for the prologue of functions that use %ebp as frame pointer
         self.uses_frame_pointer = True
         self.r_localvar = self.r_localvarfp
-        return [InsnPrologue()]
+        return [InsnPrologue(self.WORD)]
 
     def _visit_epilogue(self):
         if not self.uses_frame_pointer:
             raise UnrecognizedOperation('epilogue without prologue')
-        return [InsnEpilogue(4)]
+        return [InsnEpilogue(self.WORD)]
 
     def visit_leave(self, line):
         return self._visit_epilogue() + self._visit_pop(self.EBP)
@@ -662,7 +704,7 @@ class FunctionGcRootTracker(object):
     visit_jc = conditional_jump
     visit_jnc = conditional_jump
 
-    def visit_xchgl(self, line):
+    def _visit_xchg(self, line):
         # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
         # which is to use a marker no-op "xchgl %ebx, %ebx"
         match = self.r_binaryinsn.match(line)
@@ -741,8 +783,172 @@ class FunctionGcRootTracker(object):
                 insns.append(InsnStackAdjust(16))
         return insns
 
+    # __________ debugging output __________
 
-class ElfFunctionGcRootTracker(FunctionGcRootTracker):
+    @classmethod
+    def format_location(cls, loc):
+        # A 'location' is a single number describing where a value is stored
+        # across a call.  It can be in one of the CALLEE_SAVE_REGISTERS, or
+        # in the stack frame at an address relative to either %esp or %ebp.
+        # The last two bits of the location number are used to tell the cases
+        # apart; see format_location().
+        assert loc >= 0
+        kind = loc & LOC_MASK
+        if kind == LOC_REG:
+            if loc == LOC_NOWHERE:
+                return '?'
+            reg = (loc >> 2) - 1
+            return '%' + cls.CALLEE_SAVE_REGISTERS[reg].replace("%", "")
+        else:
+            offset = loc & ~ LOC_MASK
+            if kind == LOC_EBP_PLUS:
+                result = '(%' + cls.EBP.replace("%", "") + ')'
+            elif kind == LOC_EBP_MINUS:
+                result = '(%' + cls.EBP.replace("%", "") + ')'
+                offset = -offset
+            elif kind == LOC_ESP_PLUS:
+                result = '(%' + cls.ESP.replace("%", "") + ')'
+            else:
+                assert 0, kind
+            if offset != 0:
+                result = str(offset) + result
+            return result
+
+    @classmethod
+    def format_callshape(cls, shape):
+        # A 'call shape' is a tuple of locations in the sense of
+        # format_location().  They describe where in a function frame
+        # interesting values are stored, when this function executes a 'call'
+        # instruction.
+        #
+        #   shape[0]    is the location that stores the fn's own return
+        #               address (not the return address for the currently
+        #               executing 'call')
+        #
+        #   shape[1..N] is where the fn saved its own caller's value of a
+        #               certain callee save register. (where N is the number
+        #               of callee save registers.)
+        #
+        #   shape[>N]   are GC roots: where the fn has put its local GCPTR
+        #               vars
+        #
+        num_callee_save_regs = len(cls.CALLEE_SAVE_REGISTERS)
+        assert isinstance(shape, tuple)
+        # + 1 for the return address
+        assert len(shape) >= (num_callee_save_regs + 1)
+        result = [cls.format_location(loc) for loc in shape]
+        return '{%s | %s | %s}' % (result[0],
+                                   ', '.join(result[1:(num_callee_save_regs+1)]),
+                                   ', '.join(result[(num_callee_save_regs+1):]))
+
+
+class FunctionGcRootTracker32(FunctionGcRootTracker):
+    WORD = 4
+
+    visit_mov = FunctionGcRootTracker._visit_mov
+    visit_movl = FunctionGcRootTracker._visit_mov
+    visit_pushl = FunctionGcRootTracker._visit_push
+    visit_leal = FunctionGcRootTracker._visit_lea
+
+    visit_addl = FunctionGcRootTracker._visit_add
+    visit_subl = FunctionGcRootTracker._visit_sub
+    visit_andl = FunctionGcRootTracker._visit_and
+    visit_and = FunctionGcRootTracker._visit_and
+
+    visit_xchgl = FunctionGcRootTracker._visit_xchg
+
+    # used in "xor reg, reg" to create a NULL GC ptr
+    visit_xorl = FunctionGcRootTracker.binary_insn
+    visit_orl = FunctionGcRootTracker.binary_insn     # unsure about this one
+
+    # occasionally used on 32-bits to move floats around
+    visit_movq = FunctionGcRootTracker.visit_nop
+
+    def visit_pushw(self, line):
+        return [InsnStackAdjust(-2)]   # rare but not impossible
+
+    def visit_popl(self, line):
+        match = self.r_unaryinsn.match(line)
+        target = match.group(1)
+        return self._visit_pop(target)
+
+class FunctionGcRootTracker64(FunctionGcRootTracker):
+    WORD = 8
+
+    # Regex ignores destination
+    r_save_xmm_register = re.compile(r"\tmovaps\s+%xmm(\d+)")
+
+    def _maybe_32bit_dest(func):
+        def wrapper(self, line):
+            # Using a 32-bit reg as a destination in 64-bit mode zero-extends
+            # to 64-bits, so sometimes gcc uses a 32-bit operation to copy a
+            # statically known pointer to a register
+
+            # %eax -> %rax
+            new_line = re.sub(r"%e(ax|bx|cx|dx|di|si)$", r"%r\1", line)
+            # %r10d -> %r10
+            new_line = re.sub(r"%r(\d+)d$", r"%r\1", new_line)
+            return func(self, new_line)
+        return wrapper
+
+    visit_addl = FunctionGcRootTracker.visit_nop
+    visit_subl = FunctionGcRootTracker.visit_nop
+    visit_leal = FunctionGcRootTracker.visit_nop
+
+    visit_cltq = FunctionGcRootTracker.visit_nop
+
+    visit_movq = FunctionGcRootTracker._visit_mov
+    # just a special assembler mnemonic for mov
+    visit_movabsq = FunctionGcRootTracker._visit_mov
+    visit_mov = _maybe_32bit_dest(FunctionGcRootTracker._visit_mov)
+    visit_movl = visit_mov
+
+    visit_xorl = _maybe_32bit_dest(FunctionGcRootTracker.binary_insn)
+    
+    visit_pushq = FunctionGcRootTracker._visit_push
+
+    visit_addq = FunctionGcRootTracker._visit_add
+    visit_subq = FunctionGcRootTracker._visit_sub
+
+    visit_leaq = FunctionGcRootTracker._visit_lea
+
+    visit_xorq = FunctionGcRootTracker.binary_insn
+
+    # FIXME: similar to visit_popl for 32-bit
+    def visit_popq(self, line):
+        match = self.r_unaryinsn.match(line)
+        target = match.group(1)
+        return self._visit_pop(target)
+
+    def visit_jmp(self, line):
+        # On 64-bit, %al is used when calling varargs functions to specify an
+        # upper-bound on the number of xmm registers used in the call. gcc
+        # uses %al to compute an indirect jump that looks like:
+        #
+        #     jmp *[some register]
+        #     movaps %xmm7, [stack location]
+        #     movaps %xmm6, [stack location]
+        #     movaps %xmm5, [stack location]
+        #     movaps %xmm4, [stack location]
+        #     movaps %xmm3, [stack location]
+        #     movaps %xmm2, [stack location]
+        #     movaps %xmm1, [stack location]
+        #     movaps %xmm0, [stack location]
+        #
+        # The jmp is always to somewhere in the block of "movaps"
+        # instructions, according to how many xmm registers need to be saved
+        # to the stack. The point of all this is that we can safely ignore
+        # jmp instructions of that form.
+        if (self.currentlineno + 8) < len(self.lines) and self.r_unaryinsn_star.match(line):
+            matches = [self.r_save_xmm_register.match(self.lines[self.currentlineno + 1 + i]) for i in range(8)]
+            if all(m and int(m.group(1)) == (7 - i) for i, m in enumerate(matches)):
+                return []
+
+        return FunctionGcRootTracker.visit_jmp(self, line)
+
+
+
+class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     format = 'elf'
 
     ESP     = '%esp'
@@ -791,7 +997,7 @@ class ElfFunctionGcRootTracker(FunctionGcRootTracker):
         match = self.r_functionend.match(lines[-1])
         assert funcname == match.group(1)
         assert funcname == match.group(2)
-        super(ElfFunctionGcRootTracker, self).__init__(
+        super(ElfFunctionGcRootTracker32, self).__init__(
             funcname, lines, filetag)
 
     def extract_immediate(self, value):
@@ -799,9 +1005,67 @@ class ElfFunctionGcRootTracker(FunctionGcRootTracker):
             return None
         return int(value[1:])
 
-ElfFunctionGcRootTracker.init_regexp()
+ElfFunctionGcRootTracker32.init_regexp()
 
-class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker):
+class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
+    format = 'elf64'
+    ESP = '%rsp'
+    EBP = '%rbp'
+    EAX = '%rax'
+    CALLEE_SAVE_REGISTERS = ['%rbx', '%r12', '%r13', '%r14', '%r15', '%rbp']
+    REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
+                   for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
+    OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
+    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+    OFFSET_LABELS   = 2**30
+    TOP_OF_STACK = '0(%rsp)'
+
+    r_functionstart = re.compile(r"\t.type\s+"+LABEL+",\s*[@]function\s*$")
+    r_functionend   = re.compile(r"\t.size\s+"+LABEL+",\s*[.]-"+LABEL+"\s*$")
+    LOCALVAR = r"%rax|%rbx|%rcx|%rdx|%rdi|%rsi|%rbp|%r8|%r9|%r10|%r11|%r12|%r13|%r14|%r15|-?\d*[(]%rsp[)]"
+    LOCALVARFP = LOCALVAR + r"|-?\d*[(]%rbp[)]"
+    r_localvarnofp  = re.compile(LOCALVAR)
+    r_localvarfp    = re.compile(LOCALVARFP)
+    r_localvar_esp  = re.compile(r"(-?\d*)[(]%rsp[)]")
+    r_localvar_ebp  = re.compile(r"(-?\d*)[(]%rbp[)]")
+
+    r_rel_label      = re.compile(r"(\d+):\s*$")
+    r_jump_rel_label = re.compile(r"\tj\w+\s+"+"(\d+)f"+"\s*$")
+
+    r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+[*]("+OPERAND+")\s*$")
+    r_jmptable_item = re.compile(r"\t.quad\t"+LABEL+"(-\"[A-Za-z0-9$]+\")?\s*$")
+    r_jmptable_end  = re.compile(r"\t.text|\t.section\s+.text|\t\.align|"+LABEL)
+
+    r_gcroot_marker = re.compile(r"\t/[*] GCROOT ("+LOCALVARFP+") [*]/")
+    r_gcnocollect_marker = re.compile(r"\t/[*] GC_NOCOLLECT ("+OPERAND+") [*]/")
+    r_bottom_marker = re.compile(r"\t/[*] GC_STACK_BOTTOM [*]/")
+
+    FUNCTIONS_NOT_RETURNING = {
+        'abort': None,
+        '_exit': None,
+        '__assert_fail': None,
+        '___assert_rtn': None,
+        'L___assert_rtn$stub': None,
+        'L___eprintf$stub': None,
+        }
+
+    def __init__(self, lines, filetag=0):
+        match = self.r_functionstart.match(lines[0])
+        funcname = match.group(1)
+        match = self.r_functionend.match(lines[-1])
+        assert funcname == match.group(1)
+        assert funcname == match.group(2)
+        super(ElfFunctionGcRootTracker64, self).__init__(
+            funcname, lines, filetag)
+
+    def extract_immediate(self, value):
+        if not value.startswith('$'):
+            return None
+        return int(value[1:])
+
+ElfFunctionGcRootTracker64.init_regexp()
+
+class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker32):
     format = 'darwin'
 
     r_functionstart = re.compile(r"_(\w+):\s*$")
@@ -810,7 +1074,7 @@ class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker):
     def __init__(self, lines, filetag=0):
         match = self.r_functionstart.match(lines[0])
         funcname = '_' + match.group(1)
-        FunctionGcRootTracker.__init__(self, funcname, lines, filetag)
+        FunctionGcRootTracker32.__init__(self, funcname, lines, filetag)
 
 class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker):
     format = 'mingw32'
@@ -821,7 +1085,7 @@ class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker):
         '__assert': None,
         }
 
-class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
+class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
     format = 'msvc'
     ESP = 'esp'
     EBP = 'ebp'
@@ -906,12 +1170,12 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker):
         push pop mov lea
         xor sub add
         '''.split():
-        locals()['visit_' + name] = getattr(FunctionGcRootTracker,
+        locals()['visit_' + name] = getattr(FunctionGcRootTracker32,
                                             'visit_' + name + 'l')
 
-    visit_int = FunctionGcRootTracker.visit_nop
+    visit_int = FunctionGcRootTracker32.visit_nop
     # probably not GC pointers
-    visit_cdq  = FunctionGcRootTracker.visit_nop
+    visit_cdq  = FunctionGcRootTracker32.visit_nop
 
     def visit_npad(self, line):
         # MASM has a nasty bug: it implements "npad 5" with "add eax, 0"
@@ -1038,7 +1302,7 @@ class AssemblerParser(object):
         table = tracker.computegcmaptable(self.verbose)
         if self.verbose > 1:
             for label, state in table:
-                print >> sys.stderr, label, '\t', format_callshape(state)
+                print >> sys.stderr, label, '\t', tracker.format_callshape(state)
         table = compress_gcmaptable(table)
         if self.shuffle and random.random() < 0.5:
             self.gcmaptable[:0] = table
@@ -1049,7 +1313,7 @@ class AssemblerParser(object):
 
 class ElfAssemblerParser(AssemblerParser):
     format = "elf"
-    FunctionGcRootTracker = ElfFunctionGcRootTracker
+    FunctionGcRootTracker = ElfFunctionGcRootTracker32
 
     def find_functions(self, iterlines):
         functionlines = []
@@ -1071,6 +1335,10 @@ class ElfAssemblerParser(AssemblerParser):
         assert not in_function, (
             "missed the end of the previous function")
         yield False, functionlines
+
+class ElfAssemblerParser64(ElfAssemblerParser):
+    format = "elf64"
+    FunctionGcRootTracker = ElfFunctionGcRootTracker64
 
 class DarwinAssemblerParser(AssemblerParser):
     format = "darwin"
@@ -1241,6 +1509,7 @@ class MsvcAssemblerParser(AssemblerParser):
 
 PARSERS = {
     'elf': ElfAssemblerParser,
+    'elf64': ElfAssemblerParser64,
     'darwin': DarwinAssemblerParser,
     'mingw32': Mingw32AssemblerParser,
     'msvc': MsvcAssemblerParser,
@@ -1280,6 +1549,13 @@ class GcRootTracker(object):
         def _variant(**kwargs):
             txt = kwargs[self.format]
             print >> output, "\t%s" % txt
+
+        if self.format == 'elf64':
+            word_decl = '.quad'
+        else:
+            word_decl = '.long'
+
+        tracker_cls = PARSERS[self.format].FunctionGcRootTracker
 
         # The pypy_asm_stackwalk() function
 
@@ -1327,7 +1603,56 @@ class GcRootTracker(object):
                }
             }
             """
+        elif self.format == 'elf64':
+            print >> output, "\t.text"
+            print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
+            print >> output, "\t.type pypy_asm_stackwalk, @function"
+            print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
+            print >> output, """\
+            /* See description in asmgcroot.py */
+            movq\t%rdi, %rdx\t/* 1st argument, which is the callback */
+            movq\t%rsi, %rcx\t/* 2nd argument, which is gcrootanchor */
+            movq\t%rsp, %rax\t/* my frame top address */
+            pushq\t%rax\t\t/* ASM_FRAMEDATA[8] */
+            pushq\t%rbp\t\t/* ASM_FRAMEDATA[7] */
+            pushq\t%r15\t\t/* ASM_FRAMEDATA[6] */
+            pushq\t%r14\t\t/* ASM_FRAMEDATA[5] */
+            pushq\t%r13\t\t/* ASM_FRAMEDATA[4] */
+            pushq\t%r12\t\t/* ASM_FRAMEDATA[3] */
+            pushq\t%rbx\t\t/* ASM_FRAMEDATA[2] */
+
+            /* Add this ASM_FRAMEDATA to the front of the circular linked */
+            /* list.  Let's call it 'self'.                               */
+
+            movq\t8(%rcx), %rax\t/* next = gcrootanchor->next */
+            pushq\t%rax\t\t\t\t/* self->next = next */
+            pushq\t%rcx\t\t\t/* self->prev = gcrootanchor */
+            movq\t%rsp, 8(%rcx)\t/* gcrootanchor->next = self */
+            movq\t%rsp, 0(%rax)\t\t\t/* next->prev = self */
+
+            /* note: the Mac OS X 16 bytes aligment must be respected. */
+            call\t*%rdx\t\t/* invoke the callback */
+
+            /* Detach this ASM_FRAMEDATA from the circular linked list */
+            popq\t%rsi\t\t/* prev = self->prev */
+            popq\t%rdi\t\t/* next = self->next */
+            movq\t%rdi, 8(%rsi)\t/* prev->next = next */
+            movq\t%rsi, 0(%rdi)\t/* next->prev = prev */
+
+            popq\t%rbx\t\t/* restore from ASM_FRAMEDATA[2] */
+            popq\t%r12\t\t/* restore from ASM_FRAMEDATA[3] */
+            popq\t%r13\t\t/* restore from ASM_FRAMEDATA[4] */
+            popq\t%r14\t\t/* restore from ASM_FRAMEDATA[5] */
+            popq\t%r15\t\t/* restore from ASM_FRAMEDATA[6] */
+            popq\t%rbp\t\t/* restore from ASM_FRAMEDATA[7] */
+            popq\t%rcx\t\t/* ignored      ASM_FRAMEDATA[8] */
+
+            /* the return value is the one of the 'call' above, */
+            /* because %rax (and possibly %rdx) are unmodified  */
+            ret
+            .size pypy_asm_stackwalk, .-pypy_asm_stackwalk
+            """
         else:
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
@@ -1401,7 +1726,7 @@ class GcRootTracker(object):
                     n = shapes[state]
                 except KeyError:
                     n = shapes[state] = shapeofs
-                    bytes = [str(b) for b in compress_callshape(state)]
+                    bytes = [str(b) for b in tracker_cls.compress_callshape(state)]
                     shapelines.append('\t%s,\t/* %s */\n' % (
                             ', '.join(bytes),
                             shapeofs))
@@ -1433,17 +1758,18 @@ class GcRootTracker(object):
                     n = shapes[state]
                 except KeyError:
                     n = shapes[state] = shapeofs
-                    bytes = [str(b) for b in compress_callshape(state)]
+                    bytes = [str(b) for b in tracker_cls.compress_callshape(state)]
                     shapelines.append('\t/*%d*/\t.byte\t%s\n' % (
                         shapeofs,
                         ', '.join(bytes)))
                     shapeofs += len(bytes)
                 if is_range:
                     n = ~ n
-                print >> output, '\t.long\t%s-%d' % (
+                print >> output, '\t%s\t%s-%d' % (
+                    word_decl,
                     label,
-                    PARSERS[self.format].FunctionGcRootTracker.OFFSET_LABELS)
-                print >> output, '\t.long\t%d' % (n,)
+                    tracker_cls.OFFSET_LABELS)
+                print >> output, '\t%s\t%d' % (word_decl, n)
 
             print >> output, """\
             .globl __gcmapend
@@ -1451,6 +1777,7 @@ class GcRootTracker(object):
             """.replace("__gcmapend", _globalname("__gcmapend"))
 
             _variant(elf='.section\t.rodata',
+                     elf64='.section\t.rodata',
                      darwin='.const',
                      mingw32='')
 
@@ -1483,56 +1810,6 @@ class NoPatternMatch(Exception):
     pass
 
 
-# __________ debugging output __________
-
-def format_location(loc):
-    # A 'location' is a single number describing where a value is stored
-    # across a call.  It can be in one of the CALLEE_SAVE_REGISTERS, or
-    # in the stack frame at an address relative to either %esp or %ebp.
-    # The last two bits of the location number are used to tell the cases
-    # apart; see format_location().
-    assert loc >= 0
-    kind = loc & LOC_MASK
-    if kind == LOC_REG:
-        if loc == LOC_NOWHERE:
-            return '?'
-        reg = (loc >> 2) - 1
-        return ElfFunctionGcRootTracker.CALLEE_SAVE_REGISTERS[reg]
-    else:
-        offset = loc & ~ LOC_MASK
-        if kind == LOC_EBP_PLUS:
-            result = '(%ebp)'
-        elif kind == LOC_EBP_MINUS:
-            result = '(%ebp)'
-            offset = -offset
-        elif kind == LOC_ESP_PLUS:
-            result = '(%esp)'
-        else:
-            assert 0, kind
-        if offset != 0:
-            result = str(offset) + result
-        return result
-
-def format_callshape(shape):
-    # A 'call shape' is a tuple of locations in the sense of format_location().
-    # They describe where in a function frame interesting values are stored,
-    # when this function executes a 'call' instruction.
-    #
-    #   shape[0] is the location that stores the fn's own return address
-    #            (not the return address for the currently executing 'call')
-    #   shape[1] is where the fn saved its own caller's %ebx value
-    #   shape[2] is where the fn saved its own caller's %esi value
-    #   shape[3] is where the fn saved its own caller's %edi value
-    #   shape[4] is where the fn saved its own caller's %ebp value
-    #   shape[>=5] are GC roots: where the fn has put its local GCPTR vars
-    #
-    assert isinstance(shape, tuple)
-    assert len(shape) >= 5
-    result = [format_location(loc) for loc in shape]
-    return '{%s | %s | %s}' % (result[0],
-                               ', '.join(result[1:5]),
-                               ', '.join(result[5:]))
-
 # __________ table compression __________
 
 def compress_gcmaptable(table):
@@ -1559,49 +1836,6 @@ def compress_gcmaptable(table):
         yield (label1, state, is_range)
         i = j
 
-def compress_callshape(shape):
-    # For a single shape, this turns the list of integers into a list of
-    # bytes and reverses the order of the entries.  The length is
-    # encoded by inserting a 0 marker after the gc roots coming from
-    # shape[5:] and before the 5 values coming from shape[4] to
-    # shape[0].  In practice it seems that shapes contain many integers
-    # whose value is up to a few thousands, which the algorithm below
-    # compresses down to 2 bytes.  Very small values compress down to a
-    # single byte.
-    assert len(shape) >= 5
-    shape = list(shape)
-    assert 0 not in shape[5:]
-    shape.insert(5, 0)
-    result = []
-    for loc in shape:
-        assert loc >= 0
-        flag = 0
-        while loc >= 0x80:
-            result.append(int(loc & 0x7F) | flag)
-            flag = 0x80
-            loc >>= 7
-        result.append(int(loc) | flag)
-    result.reverse()
-    return result
-
-def decompress_callshape(bytes):
-    # For tests.  This logic is copied in asmgcroot.py.
-    result = []
-    n = 0
-    while n < len(bytes):
-        value = 0
-        while True:
-            b = bytes[n]
-            n += 1
-            value += b
-            if b < 0x80:
-                break
-            value = (value - 0x80) << 7
-        result.append(value)
-    result.reverse()
-    assert result[5] == 0
-    del result[5]
-    return result
 
 def getidentifier(s):
     def mapchar(c):
@@ -1626,7 +1860,10 @@ if __name__ == '__main__':
     elif sys.platform == 'win32':
         format = 'mingw32'
     else:
-        format = 'elf'
+        if sys.maxint > 2147483647:
+            format = 'elf64'
+        else:
+            format = 'elf'
     entrypoint = 'main'
     while len(sys.argv) > 1:
         if sys.argv[1] == '-v':

@@ -125,10 +125,6 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
         return t
 
     def test_external_exception_handling_translates(self):
-        # FIXME
-        if IS_X86_64:
-            import py.test; py.test.skip()
-
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
 
         class ImDone(Exception):
