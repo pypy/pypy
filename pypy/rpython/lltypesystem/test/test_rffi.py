@@ -186,6 +186,11 @@ class BaseTestRffi:
     
     def test_externvar(self):
         import os
+        if os.name == 'nt':
+            # Windows CRT badly aborts when an invalid fd is used.
+            bad_fd = 0
+        else:
+            bad_fd = 12312312
     
         def f():
             set_errno(12)
@@ -193,7 +198,7 @@ class BaseTestRffi:
     
         def g():
             try:
-                os.write(12312312, "xxx")
+                os.write(bad_fd, "xxx")
             except OSError:
                 pass
             return get_errno()
