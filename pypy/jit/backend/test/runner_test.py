@@ -1777,7 +1777,7 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
-        self.cpu.portal_calldescr = self.cpu.calldescrof(
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
         for i in range(10):
             self.cpu.set_future_value_int(i, i+1)
@@ -1816,7 +1816,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
         ARGS = [lltype.Float, lltype.Float]
         RES = lltype.Float
-        self.cpu.portal_calldescr = self.cpu.calldescrof(
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
         
         ops = '''

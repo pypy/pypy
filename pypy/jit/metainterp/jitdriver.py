@@ -8,6 +8,7 @@ class JitDriverStaticData:
     #    self.portal_graph      ... pypy.jit.metainterp.warmspot
     #    self.portal_runner_ptr ... pypy.jit.metainterp.warmspot
     #    self.portal_runner_adr ... pypy.jit.metainterp.warmspot
+    #    self.portal_calldescr  ... pypy.jit.metainterp.warmspot
     #    self.num_green_args    ... pypy.jit.metainterp.warmspot
     #    self.result_type       ... pypy.jit.metainterp.warmspot
     #    self.virtualizable_info... pypy.jit.metainterp.warmspot
