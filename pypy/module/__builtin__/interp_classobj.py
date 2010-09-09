@@ -228,6 +228,7 @@ W_ClassObject.typedef = TypeDef("classobj",
                              unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
     __delattr__ = interp2app(W_ClassObject.descr_delattr,
                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __weakref__ = make_weakref_descr(W_ClassObject),
 )
 W_ClassObject.typedef.acceptable_as_base_class = False
 
