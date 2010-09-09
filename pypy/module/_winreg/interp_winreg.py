@@ -20,16 +20,19 @@ class W_HKEY(Wrappable):
         self.Close(space)
     descr_del.unwrap_spec = ['self', ObjSpace]
 
+    def as_int(self):
+        return rffi.cast(rffi.SIZE_T, self.hkey)
+
     def descr_nonzero(self, space):
-        return space.wrap(self.hkey != 0)
+        return space.wrap(self.as_int() != 0)
     descr_nonzero.unwrap_spec = ['self', ObjSpace]
 
     def descr_repr(self, space):
-        return space.wrap("<PyHKEY:0x%x>" % (self.hkey,))
+        return space.wrap("<PyHKEY:0x%x>" % (self.as_int(),))
     descr_repr.unwrap_spec = ['self', ObjSpace]
 
     def descr_int(self, space):
-        return space.wrap(self.hkey)
+        return space.wrap(self.as_int())
     descr_int.unwrap_spec = ['self', ObjSpace]
 
     def Close(self, space):
@@ -49,12 +52,13 @@ but the handle is not closed.  You would call this function when you
 need the underlying win32 handle to exist beyond the lifetime of the
 handle object.
 On 64 bit windows, the result of this function is a long integer"""
-        hkey = self.hkey
-        self.hkey = 0
-        return space.wrap(hkey)
+        key = self.as_int()
+        self.hkey = rwin32.NULL_HANDLE
+        return space.wrap(key)
     Detach.unwrap_spec = ['self', ObjSpace]
 
-def new_HKEY(space, w_subtype, hkey):
+def new_HKEY(space, w_subtype, key):
+    hkey = rffi.cast(rwinreg.HKEY, key)
     return space.wrap(W_HKEY(hkey))
 descr_HKEY_new = interp2app(new_HKEY,
                             unwrap_spec=[ObjSpace, W_Root, int])
@@ -98,9 +102,9 @@ def hkey_w(w_hkey, space):
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
     elif space.is_true(space.isinstance(w_hkey, space.w_int)):
-        return space.int_w(w_hkey)
+        return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
     elif space.is_true(space.isinstance(w_hkey, space.w_long)):
-        return space.uint_w(w_hkey)
+        return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
     else:
         errstring = space.wrap("The object is not a PyHKEY object")
         raise OperationError(space.w_TypeError, errstring)
@@ -631,8 +635,8 @@ A long integer that identifies when the key was last modified (if available)
                     null_dword, ft)
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryInfoKey')
-                l = (ft[0].c_dwLowDateTime +
-                     (ft[0].c_dwHighDateTime << 32))
+                l = ((lltype.r_longlong(ft[0].c_dwHighDateTime) << 32) +
+                     lltype.r_longlong(ft[0].c_dwLowDateTime))
                 return space.newtuple([space.wrap(nSubKeys[0]),
                                        space.wrap(nValues[0]),
                                        space.wrap(l)])

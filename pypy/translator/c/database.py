@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Primitive, Ptr, typeOf, RuntimeTypeInfo, \
      Struct, Array, FuncType, PyObject, Void, \
      ContainerType, OpaqueType, FixedSizeArray, _uninitialized
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.rpython.lltypesystem import llgroup
@@ -183,6 +183,12 @@ class LowLevelDatabase(object):
         if isinstance(T, Primitive) or T == GCREF:
             return PrimitiveName[T](obj, self)
         elif isinstance(T, Ptr):
+            if (isinstance(T.TO, OpaqueType) and
+                T.TO.hints.get('c_pointer_typedef') is not None):
+                if obj._obj is not None:
+                    value = rffi.cast(rffi.SSIZE_T, obj)
+                    return '((%s) %s)' % (cdecl(self.gettype(T), ''),
+                                          self.get(value))
             if obj:   # test if the ptr is non-NULL
                 try:
                     container = obj._obj

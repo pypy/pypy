@@ -265,7 +265,8 @@ def make_utime_impl(traits):
         hFile = CreateFile(path,
                            FILE_WRITE_ATTRIBUTES, 0,
                            None, OPEN_EXISTING,
-                           FILE_FLAG_BACKUP_SEMANTICS, 0)
+                           FILE_FLAG_BACKUP_SEMANTICS,
+                           rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
             raise rwin32.lastWindowsError()
         ctime = lltype.nullptr(rwin32.FILETIME)

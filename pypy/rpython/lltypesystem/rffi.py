@@ -358,9 +358,11 @@ TYPES += ['signed char', 'unsigned char',
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
+    TYPES.append('ssize_t')
 else:
     MODE_T = lltype.Signed
     PID_T = lltype.Signed
+    SSIZE_T = lltype.Signed
 
 def populate_inttypes():
     names = []
@@ -415,6 +417,7 @@ NUMBER_TYPES.append(INT_real)
 #        ULONGLONG      r_ulonglong
 #        WCHAR_T        r_wchar_t
 #        SIZE_T         r_size_t
+#        SSIZE_T        r_ssize_t
 #        TIME_T         r_time_t
 # --------------------------------------------------------------------
 # Note that rffi.r_int is not necessarily the same as
@@ -534,6 +537,8 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)
 CHAR = lltype.Char
+
+INTPTR_T = SSIZE_T
 
 # double
 DOUBLE = lltype.Float

@@ -72,6 +72,7 @@ elif _MS_WINDOWS:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
 
     from pypy.rlib.rwin32 import HANDLE, LPHANDLE
+    from pypy.rlib.rwin32 import NULL_HANDLE, INVALID_HANDLE_VALUE
     from pypy.rlib.rwin32 import DWORD, WORD, DWORD_PTR, LPDWORD
     from pypy.rlib.rwin32 import BOOL, LPVOID, LPCVOID, LPCSTR, SIZE_T
     from pypy.rlib.rwin32 import INT, LONG, PLONG
@@ -183,7 +184,7 @@ elif _MS_WINDOWS:
     ##_get_osfhandle = winexternal('_get_osfhandle', [INT], LONG)
     # casting from int to handle did not work, so I changed this
     # but it should not be so!
-    _get_osfhandle = winexternal('_get_osfhandle', [INT], HANDLE)
+    _get_osfhandle = winexternal('_get_osfhandle', [INT], rffi.INTPTR_T)
     GetLastError = winexternal('GetLastError', [], DWORD)
     VirtualAlloc = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
@@ -228,8 +229,7 @@ elif _MS_WINDOWS:
     def _get_error_no():
         return rffi.cast(lltype.Signed, GetLastError())
 
-    NULL_HANDLE = rffi.cast(HANDLE, 0)
-    INVALID_HANDLE = rffi.cast(HANDLE, -1)
+    INVALID_HANDLE = INVALID_HANDLE_VALUE
 
 PAGESIZE = _get_page_size()
 NULL = lltype.nullptr(PTR.TO)
@@ -684,12 +684,11 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = _get_osfhandle(fileno)
-            # parts of the C library use HANDLE, others just ints
-            # XXX hack - made _get_osfhandle compatible
-            if fh == INVALID_HANDLE:
+            res = _get_osfhandle(fileno)
+            if res == rffi.cast(rffi.SSIZE_T, INVALID_HANDLE):
                 errno = _get_error_no()
                 raise OSError(errno, os.strerror(errno))
+            fh = rffi.cast(HANDLE, res)
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
