@@ -377,7 +377,6 @@ testmap = [
     RegrTest('test_pprint.py', core=True),
     RegrTest('test_print.py', core=True),
     RegrTest('test_profile.py'),
-    RegrTest('test_profilehooks.py', core=True),
     RegrTest('test_property.py', core=True),
     RegrTest('test_pstats.py'),
     RegrTest('test_pty.py', skip="unsupported extension module"),
