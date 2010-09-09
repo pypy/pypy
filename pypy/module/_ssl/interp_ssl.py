@@ -18,6 +18,9 @@ if sys.platform == 'win32' and platform.name != 'mingw32':
         # need of winsock2.  Remove this when separate compilation is
         # available...
         'winsock2.h',
+        # wincrypt.h defines X509_NAME, include it here
+        # so that openssl/ssl.h can repair this nonsense.
+        'wincrypt.h',
         'openssl/ssl.h',
         'openssl/err.h']
 else:
@@ -88,18 +91,12 @@ for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
 # opaque structures
-SSL_METHOD = rffi.VOIDP
-SSL_CTX = rffi.VOIDP
-SSL = rffi.VOIDP
-BIO = rffi.VOIDP
-X509 = rffi.VOIDP
-X509_NAME = rffi.VOIDP
-
-SSL_CTX_P = rffi.CArrayPtr(SSL_CTX)
-BIO_P = rffi.CArrayPtr(BIO)
-SSL_P = rffi.CArrayPtr(SSL)
-X509_P = rffi.CArrayPtr(X509)
-X509_NAME_P = rffi.CArrayPtr(X509_NAME)
+SSL_METHOD = rffi.COpaquePtr('SSL_METHOD')
+SSL_CTX = rffi.COpaquePtr('SSL_CTX')
+SSL = rffi.COpaquePtr('SSL')
+BIO = rffi.COpaquePtr('BIO')
+X509 = rffi.COpaquePtr('X509')
+X509_NAME = rffi.COpaquePtr('X509_NAME')
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 
@@ -125,33 +122,33 @@ if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)
     ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
-ssl_external('SSL_CTX_new', [rffi.CArrayPtr(SSL_METHOD)], SSL_CTX_P)
-ssl_external('SSLv23_method', [], rffi.CArrayPtr(SSL_METHOD))
-ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX_P, rffi.CCHARP, rffi.INT], rffi.INT)
-ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX_P, rffi.CCHARP], rffi.INT)
-ssl_external('SSL_CTX_ctrl', [SSL_CTX_P, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
-ssl_external('SSL_CTX_set_verify', [SSL_CTX_P, rffi.INT, rffi.VOIDP], lltype.Void)
-ssl_external('SSL_new', [SSL_CTX_P], SSL_P)
-ssl_external('SSL_set_fd', [SSL_P, rffi.INT], rffi.INT)
-ssl_external('BIO_ctrl', [BIO_P, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
-ssl_external('SSL_get_rbio', [SSL_P], BIO_P)
-ssl_external('SSL_get_wbio', [SSL_P], BIO_P)
-ssl_external('SSL_set_connect_state', [SSL_P], lltype.Void)
-ssl_external('SSL_connect', [SSL_P], rffi.INT)
-ssl_external('SSL_get_error', [SSL_P, rffi.INT], rffi.INT)
+ssl_external('SSL_CTX_new', [SSL_METHOD], SSL_CTX)
+ssl_external('SSLv23_method', [], SSL_METHOD)
+ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_ctrl', [SSL_CTX, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
+ssl_external('SSL_CTX_set_verify', [SSL_CTX, rffi.INT, rffi.VOIDP], lltype.Void)
+ssl_external('SSL_new', [SSL_CTX], SSL)
+ssl_external('SSL_set_fd', [SSL, rffi.INT], rffi.INT)
+ssl_external('BIO_ctrl', [BIO, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
+ssl_external('SSL_get_rbio', [SSL], BIO)
+ssl_external('SSL_get_wbio', [SSL], BIO)
+ssl_external('SSL_set_connect_state', [SSL], lltype.Void)
+ssl_external('SSL_connect', [SSL], rffi.INT)
+ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
 
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
-ssl_external('SSL_get_peer_certificate', [SSL_P], X509_P)
-ssl_external('X509_get_subject_name', [X509_P], X509_NAME_P)
-ssl_external('X509_get_issuer_name', [X509_P], X509_NAME_P)
-ssl_external('X509_NAME_oneline', [X509_NAME_P, rffi.CCHARP, rffi.INT], rffi.CCHARP)
-ssl_external('X509_free', [X509_P], lltype.Void)
-ssl_external('SSL_free', [SSL_P], lltype.Void)
-ssl_external('SSL_CTX_free', [SSL_CTX_P], lltype.Void)
-ssl_external('SSL_write', [SSL_P, rffi.CCHARP, rffi.INT], rffi.INT)
-ssl_external('SSL_pending', [SSL_P], rffi.INT)
-ssl_external('SSL_read', [SSL_P, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('SSL_get_peer_certificate', [SSL], X509)
+ssl_external('X509_get_subject_name', [X509], X509_NAME)
+ssl_external('X509_get_issuer_name', [X509], X509_NAME)
+ssl_external('X509_NAME_oneline', [X509_NAME, rffi.CCHARP, rffi.INT], rffi.CCHARP)
+ssl_external('X509_free', [X509], lltype.Void)
+ssl_external('SSL_free', [SSL], lltype.Void)
+ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void)
+ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('SSL_pending', [SSL], rffi.INT)
+ssl_external('SSL_read', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
 
 def ssl_error(space, msg):
     w_module = space.getbuiltinmodule('_ssl')
@@ -212,9 +209,9 @@ class SSLObject(Wrappable):
     def __init__(self, space):
         self.space = space
         self.w_socket = None
-        self.ctx = lltype.nullptr(SSL_CTX_P.TO)
-        self.ssl = lltype.nullptr(SSL_P.TO)
-        self.server_cert = lltype.nullptr(X509_P.TO)
+        self.ctx = lltype.nullptr(SSL_CTX.TO)
+        self.ssl = lltype.nullptr(SSL.TO)
+        self.server_cert = lltype.nullptr(X509.TO)
         self._server = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
         self._server[0] = '\0'
         self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
