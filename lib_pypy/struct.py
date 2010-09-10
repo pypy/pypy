@@ -119,7 +119,7 @@ def unpack_float(data, index, size, le):
     unsigned = 0
     for i in range(8):
         unsigned |= ord(binary[i]) << (i * 8)
-    return float_unpack(unsigned, size)
+    return float_unpack(unsigned, size, le)
 
 def round_to_nearest(x):
     """Python 3 style round:  round a float x to the nearest int, but
