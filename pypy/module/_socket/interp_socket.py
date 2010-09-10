@@ -24,7 +24,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             sock, addr = self.accept(W_RSocket)
             return space.newtuple([space.wrap(sock),
-                                   addr.as_object(space)])
+                                   addr.as_object(sock.fd, space)])
         except SocketError, e:
             raise converted_error(space, e)
     accept_w.unwrap_spec = ['self', ObjSpace]
@@ -109,7 +109,7 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             addr = self.getpeername()
-            return addr.as_object(space)
+            return addr.as_object(self.fd, space)
         except SocketError, e:
             raise converted_error(space, e)
     getpeername_w.unwrap_spec = ['self', ObjSpace]
@@ -122,7 +122,7 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             addr = self.getsockname()
-            return addr.as_object(space)
+            return addr.as_object(self.fd, space)
         except SocketError, e:
             raise converted_error(space, e)
     getsockname_w.unwrap_spec = ['self', ObjSpace]
@@ -202,7 +202,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             data, addr = self.recvfrom(buffersize, flags)
             if addr:
-                w_addr = addr.as_object(space)
+                w_addr = addr.as_object(self.fd, space)
             else:
                 w_addr = space.w_None
             return space.newtuple([space.wrap(data), w_addr])
@@ -330,7 +330,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             readlgt, addr = self.recvfrom_into(rwbuffer, nbytes, flags)
             if addr:
-                w_addr = addr.as_object(space)
+                w_addr = addr.as_object(self.fd, space)
             else:
                 w_addr = space.w_None
             return space.newtuple([space.wrap(readlgt), w_addr])

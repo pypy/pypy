@@ -280,7 +280,7 @@ def getaddrinfo(space, w_host, w_port,
                             space.wrap(socktype),
                             space.wrap(protocol),
                             space.wrap(canonname),
-                            addr.as_object(space)])
+                            addr.as_object(-1, space)]) # -1 as per cpython
             for (family, socktype, protocol, canonname, addr) in lst]
     return space.newlist(lst1)
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]

@@ -2,6 +2,8 @@ from pypy.conftest import gettestobjspace
 import sys
 import py
 from pypy.tool.udir import udir
+from pypy.rlib import rsocket
+from pypy.rpython.lltypesystem import lltype, rffi
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array'])
@@ -221,20 +223,44 @@ def test_getaddrinfo():
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
 
-def test_unknown_addr_as_object():
-    from pypy.rlib import rsocket
-    from pypy.rpython.lltypesystem import lltype, rffi
-    
+def test_unknown_addr_as_object():    
     c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
     c_addr.c_sa_data[0] = 'c'
     rffi.setintfield(c_addr, 'c_sa_family', 15)
     # XXX what size to pass here? for the purpose of this test it has
     #     to be short enough so we have some data, 1 sounds good enough
     #     + sizeof USHORT
-    w_obj = rsocket.Address(c_addr, 1 + 2).as_object(space)
+    w_obj = rsocket.Address(c_addr, 1 + 2).as_object(-1, space)
     assert space.is_true(space.isinstance(w_obj, space.w_tuple))
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
+
+def test_addr_raw_packet():
+    if not hasattr(rsocket._c, 'sockaddr_ll'):
+        py.test.skip("posix specific test")
+    c_addr_ll = lltype.malloc(rsocket._c.sockaddr_ll, flavor='raw')
+    addrlen = rffi.sizeof(rsocket._c.sockaddr_ll)
+    c_addr = rffi.cast(lltype.Ptr(rsocket._c.sockaddr), c_addr_ll)
+    rffi.setintfield(c_addr_ll, 'c_sll_ifindex', 1)
+    rffi.setintfield(c_addr_ll, 'c_sll_protocol', 8)
+    rffi.setintfield(c_addr_ll, 'c_sll_pkttype', 13)
+    rffi.setintfield(c_addr_ll, 'c_sll_hatype', 0)
+    rffi.setintfield(c_addr_ll, 'c_sll_halen', 3)
+    c_addr_ll.c_sll_addr[0] = 'a'
+    c_addr_ll.c_sll_addr[1] = 'b'
+    c_addr_ll.c_sll_addr[2] = 'c'
+    rffi.setintfield(c_addr, 'c_sa_family', socket.AF_PACKET)
+    # fd needs to be somehow valid
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    fd = s.fileno()
+    w_obj = rsocket.make_address(c_addr, addrlen).as_object(fd, space)
+    assert space.is_true(space.eq(w_obj, space.newtuple([
+        space.wrap('lo'),
+        space.wrap(socket.ntohs(8)),
+        space.wrap(13),
+        space.wrap(False),
+        space.wrap("abc"),
+        ])))
 
 def test_getnameinfo():
     host = "127.0.0.1"
