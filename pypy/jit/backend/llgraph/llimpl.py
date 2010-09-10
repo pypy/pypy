@@ -128,7 +128,7 @@ TYPES = {
     'getarrayitem_raw_pure' : (('ref', 'int'), 'intorptr'),
     'arraylen_gc'     : (('ref',), 'int'),
     'call'            : (('ref', 'varargs'), 'intorptr'),
-    'call_assembler'  : (('ref', 'varargs'), 'intorptr'),
+    'call_assembler'  : (('varargs',), 'intorptr'),
     'cond_call_gc_wb' : (('ptr', 'ptr'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
@@ -165,10 +165,13 @@ class CompiledLoop(object):
         self.inputargs = []
         self.operations = []
 
+    def getargtypes(self):
+        return [v.concretetype for v in self.inputargs]
+
     def __repr__(self):
         lines = []
         self.as_text(lines, 1)
-        return 'CompiledLoop:\n%s' % '\n'.join(lines)
+        return 'CompiledLoop %s:\n%s' % (self.inputargs, '\n'.join(lines))
 
     def as_text(self, lines, indent):
         for op in self.operations:
@@ -839,6 +842,8 @@ class Frame(object):
     def op_call_assembler(self, loop_token, *args):
         global _last_exception
         assert not self._forced
+        loop_token = self.cpu._redirected_call_assembler.get(loop_token,
+                                                             loop_token)
         self._may_force = self.opindex
         try:
             inpargs = _from_opaque(loop_token._llgraph_compiled_version).inputargs
@@ -861,6 +866,21 @@ class Frame(object):
                 vable = args[jd.index_of_virtualizable]
             else:
                 vable = lltype.nullptr(llmemory.GCREF.TO)
+            #
+            # Emulate the fast path
+            if failindex == self.cpu.done_with_this_frame_int_v:
+                reset_vable(jd, vable)
+                return self.cpu.get_latest_value_int(0)
+            if failindex == self.cpu.done_with_this_frame_ref_v:
+                reset_vable(jd, vable)
+                return self.cpu.get_latest_value_ref(0)
+            if failindex == self.cpu.done_with_this_frame_float_v:
+                reset_vable(jd, vable)
+                return self.cpu.get_latest_value_float(0)
+            if failindex == self.cpu.done_with_this_frame_void_v:
+                reset_vable(jd, vable)
+                return None
+            #
             assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
             try:
                 return assembler_helper_ptr(failindex, vable)
@@ -1479,6 +1499,17 @@ def get_err_result_for_type(T):
         return ootype.null(T)
     else:
         return 0
+
+def reset_vable(jd, vable):
+    if jd.index_of_virtualizable != -1:
+        fielddescr = jd.vable_token_descr
+        do_setfield_gc_int(vable, fielddescr.ofs, 0)
+
+def redirect_call_assembler(cpu, oldlooptoken, newlooptoken):
+    OLD = _from_opaque(oldlooptoken._llgraph_compiled_version).getargtypes()
+    NEW = _from_opaque(newlooptoken._llgraph_compiled_version).getargtypes()
+    assert OLD == NEW
+    cpu._redirected_call_assembler[oldlooptoken] = newlooptoken
 
 # ____________________________________________________________
 

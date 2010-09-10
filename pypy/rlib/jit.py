@@ -253,7 +253,8 @@ class JitDriver:
     
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
-                 get_printable_location=None, confirm_enter_jit=None):
+                 get_printable_location=None, confirm_enter_jit=None,
+                 can_never_inline=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -270,6 +271,7 @@ class JitDriver:
         self.set_jitcell_at = set_jitcell_at
         self.get_printable_location = get_printable_location
         self.confirm_enter_jit = confirm_enter_jit
+        self.can_never_inline = can_never_inline
 
     def _freeze_(self):
         return True

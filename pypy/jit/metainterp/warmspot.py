@@ -425,6 +425,8 @@ class WarmRunnerDesc(object):
             jd._confirm_enter_jit_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.confirm_enter_jit, annmodel.s_Bool,
                 onlygreens=False)
+            jd._can_never_inline_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.can_never_inline, annmodel.s_Bool)
         annhelper.finish()
 
     def _make_hook_graph(self, jitdriver_sd, annhelper, func,
@@ -455,6 +457,7 @@ class WarmRunnerDesc(object):
         jd._green_args_spec = [v.concretetype for v in greens_v]
         jd._red_args_types = [history.getkind(v.concretetype) for v in reds_v]
         jd.num_green_args = len(jd._green_args_spec)
+        jd.num_red_args = len(jd._red_args_types)
         RESTYPE = graph.getreturnvar().concretetype
         (jd._JIT_ENTER_FUNCTYPE,
          jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
@@ -582,9 +585,11 @@ class WarmRunnerDesc(object):
         ts = self.cpu.ts
 
         def ll_portal_runner(*args):
+            start = True
             while 1:
                 try:
-                    jd._maybe_enter_from_start_fn(*args)
+                    if start:
+                        jd._maybe_enter_from_start_fn(*args)
                     return support.maybe_on_top_of_llinterp(rtyper,
                                                       portal_ptr)(*args)
                 except self.ContinueRunningNormally, e:
@@ -593,6 +598,8 @@ class WarmRunnerDesc(object):
                         x = getattr(e, attrname)[count]
                         x = specialize_value(ARGTYPE, x)
                         args = args + (x,)
+                    start = False
+                    continue
                 except self.DoneWithThisFrameVoid:
                     assert result_kind == 'void'
                     return

@@ -36,10 +36,12 @@ def set_jitcell_at(newcell, next_instr, bytecode):
     bytecode.jit_cells[next_instr] = newcell
 
 def confirm_enter_jit(next_instr, bytecode, frame, ec):
-    return (not (bytecode.co_flags & CO_GENERATOR) and
-            frame.w_f_trace is None and
+    return (frame.w_f_trace is None and
             ec.profilefunc is None and
             ec.w_tracefunc is None)
+
+def can_never_inline(next_instr, bytecode):
+    return (bytecode.co_flags & CO_GENERATOR) != 0
 
 
 class PyPyJitDriver(JitDriver):
@@ -58,7 +60,8 @@ class PyPyJitDriver(JitDriver):
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
-                              confirm_enter_jit = confirm_enter_jit)
+                              confirm_enter_jit = confirm_enter_jit,
+                              can_never_inline = can_never_inline)
 
 class __extend__(PyFrame):
 

@@ -1824,6 +1824,7 @@ class LLtypeBackendTest(BaseBackendTest):
         f2 = float_add(f0, f1)
         finish(f2)'''
         loop = parse(ops)
+        done_number = self.cpu.get_fail_descr_number(loop.operations[-1].descr)
         looptoken = LoopToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -1845,6 +1846,20 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.execute_token(othertoken)
         assert self.cpu.get_latest_value_float(0) == 13.5
         assert called
+
+        # test the fast path, which should not call assembler_helper()
+        del called[:]
+        self.cpu.done_with_this_frame_float_v = done_number
+        try:
+            othertoken = LoopToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+            self.cpu.set_future_value_float(0, 1.2)
+            self.cpu.set_future_value_float(1, 3.2)
+            res = self.cpu.execute_token(othertoken)
+            assert self.cpu.get_latest_value_float(0) == 1.2 + 3.2
+            assert not called
+        finally:
+            del self.cpu.done_with_this_frame_float_v
 
     def test_raw_malloced_getarrayitem(self):
         ARRAY = rffi.CArray(lltype.Signed)
@@ -1869,6 +1884,78 @@ class LLtypeBackendTest(BaseBackendTest):
                                'void', descr=descr)
         assert a[5] == 12345
         lltype.free(a, flavor='raw')
+
+    def test_redirect_call_assembler(self):
+        called = []
+        def assembler_helper(failindex, virtualizable):
+            assert self.cpu.get_latest_value_float(0) == 1.25 + 3.25
+            called.append(failindex)
+            return 13.5
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
+                                             lltype.Float))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        ARGS = [lltype.Float, lltype.Float]
+        RES = lltype.Float
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
+        
+        ops = '''
+        [f0, f1]
+        f2 = float_add(f0, f1)
+        finish(f2)'''
+        loop = parse(ops)
+        looptoken = LoopToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        self.cpu.set_future_value_float(0, 1.25)
+        self.cpu.set_future_value_float(1, 2.35)
+        res = self.cpu.execute_token(looptoken)
+        assert self.cpu.get_latest_value_float(0) == 1.25 + 2.35
+        assert not called
+
+        ops = '''
+        [f4, f5]
+        f3 = call_assembler(f4, f5, descr=looptoken)
+        guard_not_forced()[]
+        finish(f3)
+        '''
+        loop = parse(ops, namespace=locals())
+        othertoken = LoopToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+
+        # normal call_assembler: goes to looptoken
+        self.cpu.set_future_value_float(0, 1.25)
+        self.cpu.set_future_value_float(1, 3.25)
+        res = self.cpu.execute_token(othertoken)
+        assert self.cpu.get_latest_value_float(0) == 13.5
+        assert called
+        del called[:]
+
+        # compile a replacement
+        ops = '''
+        [f0, f1]
+        f2 = float_sub(f0, f1)
+        finish(f2)'''
+        loop = parse(ops)
+        looptoken2 = LoopToken()
+        looptoken2.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken2)
+
+        # install it
+        self.cpu.redirect_call_assembler(looptoken, looptoken2)
+
+        # now, our call_assembler should go to looptoken2
+        self.cpu.set_future_value_float(0, 6.0)
+        self.cpu.set_future_value_float(1, 1.5)    # 6.0-1.5 == 1.25+3.25
+        res = self.cpu.execute_token(othertoken)
+        assert self.cpu.get_latest_value_float(0) == 13.5
+        assert called
 
 
 class OOtypeBackendTest(BaseBackendTest):

@@ -555,6 +555,32 @@ class BasicTests:
         assert res == -2
         self.check_loop_count(1)
 
+    def test_can_never_inline(self):
+        def can_never_inline(x):
+            return x > 50
+        myjitdriver = JitDriver(greens = ['x'], reds = ['y'],
+                                can_never_inline = can_never_inline)
+        @dont_look_inside
+        def marker():
+            pass
+        def f(x, y):
+            while y >= 0:
+                myjitdriver.can_enter_jit(x=x, y=y)
+                myjitdriver.jit_merge_point(x=x, y=y)
+                x += 1
+                if x == 4 or x == 61:
+                    marker()
+                y -= x
+            return y
+        #
+        res = self.meta_interp(f, [3, 6], repeat=7)
+        assert res == 6 - 4 - 5
+        self.check_history(call=0)   # because the trace starts in the middle
+        #
+        res = self.meta_interp(f, [60, 84], repeat=7)
+        assert res == 84 - 61 - 62
+        self.check_history(call=1)   # because the trace starts immediately
+
     def test_format(self):
         def f(n):
             return len("<%d>" % n)

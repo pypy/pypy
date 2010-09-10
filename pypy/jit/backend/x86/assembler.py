@@ -328,6 +328,7 @@ class Assembler386(object):
         looptoken._x86_direct_bootstrap_code = self.mc.tell()
         self._assemble_bootstrap_direct_call(arglocs, curadr,
                                              frame_depth+param_depth)
+        #
         debug_print("Loop #", looptoken.number, "has address",
                     looptoken._x86_loop_code, "to", self.mc.tell())
         self.mc.end_function()
@@ -527,7 +528,6 @@ class Assembler386(object):
                 assert isinstance(loc, StackLoc)
                 self.mc.MOVSD_bx(loc.value, xmmtmp.value)
         self.mc.JMP_l(jmpadr)
-        return adr_stackadjust
 
     def _assemble_bootstrap_direct_call_64(self, arglocs, jmpadr, stackdepth):
         # XXX: Very similar to _emit_call_64
@@ -580,9 +580,23 @@ class Assembler386(object):
                 # clobber the scratch register
                 self.mc.MOV(loc, X86_64_SCRATCH_REG)
 
+        finaljmp = self.mc.tell()
         self.mc.JMP(imm(jmpadr))
 
-        return adr_stackadjust
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        # some minimal sanity checking
+        oldnonfloatlocs, oldfloatlocs = oldlooptoken._x86_arglocs
+        newnonfloatlocs, newfloatlocs = newlooptoken._x86_arglocs
+        assert len(oldnonfloatlocs) == len(newnonfloatlocs)
+        assert len(oldfloatlocs) == len(newfloatlocs)
+        # we overwrite the instructions at the old _x86_direct_bootstrap_code
+        # to start with a JMP to the new _x86_direct_bootstrap_code.
+        # Ideally we should rather patch all existing CALLs, but well.
+        oldadr = oldlooptoken._x86_direct_bootstrap_code
+        target = newlooptoken._x86_direct_bootstrap_code
+        mc = codebuf.InMemoryCodeBuilder(oldadr, oldadr + 16)
+        mc.JMP(imm(target))
+        mc.done()
 
     def _assemble_bootstrap_code(self, inputargs, arglocs):
         nonfloatlocs, floatlocs = arglocs
