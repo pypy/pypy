@@ -48,9 +48,8 @@ if sys.platform == "win32":
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
-    # The _locale module is probably incomplete,
-    # but enough for the tests to pass on Windows
-    working_modules["_locale"] = None
+    # The _locale module is needed by site.py on Windows
+    default_modules["_locale"] = None
 
 if sys.platform == "sunos5":
     del working_modules['mmap']   # depend on ctypes, can't get at c-level 'errono'
