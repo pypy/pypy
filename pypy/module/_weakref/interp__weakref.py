@@ -118,7 +118,7 @@ class W_WeakrefBase(Wrappable):
             try:
                 w_self.space.call_function(w_self.w_callable, w_self)
             except OperationError, e:
-                e.write_unraisable(w_self.space, 'function', w_self.w_callable)
+                e.write_unraisable(w_self.space, 'weakref callback ', w_self.w_callable)
 
 
 class W_Weakref(W_WeakrefBase):
