@@ -178,15 +178,17 @@ def test_compile_tmp_callback():
         portal_runner_adr = llmemory.cast_ptr_to_adr(portal_runner_ptr)
         portal_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
         portal_finishtoken = compile.DoneWithThisFrameDescrInt()
+        num_red_args = 2
         result_type = INT
     #
     loop_token = compile_tmp_callback(cpu, FakeJitDriverSD(),
                                       [ConstInt(12), ConstInt(34)],
-                                      [BoxInt(56), ConstInt(78)])
+                                      [BoxInt(56), ConstInt(78), BoxInt(90)])
     #
     raiseme = None
     cpu.set_future_value_int(0, -156)
     cpu.set_future_value_int(1, -178)
+    cpu.set_future_value_int(2, -190)     # passed in, but dropped
     fail_descr = cpu.execute_token(loop_token)
     assert fail_descr is FakeJitDriverSD().portal_finishtoken
     #
@@ -195,6 +197,7 @@ def test_compile_tmp_callback():
     raiseme = LLException("exception class", llexc)
     cpu.set_future_value_int(0, -156)
     cpu.set_future_value_int(1, -178)
+    cpu.set_future_value_int(2, -190)
     fail_descr = cpu.execute_token(loop_token)
     assert isinstance(fail_descr, compile.PropagateExceptionDescr)
     got = cpu.grab_exc_value()
@@ -208,6 +211,7 @@ def test_compile_tmp_callback():
         pass
     cpu.set_future_value_int(0, -156)
     cpu.set_future_value_int(1, -178)
+    cpu.set_future_value_int(2, -190)
     fail_descr = cpu.execute_token(loop_token)
     try:
         fail_descr.handle_fail(FakeMetaInterpSD(), FakeJitDriverSD())
