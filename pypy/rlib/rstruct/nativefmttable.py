@@ -80,7 +80,10 @@ def setup():
                '?': '_Bool',
                }
 
-    pre_include_bits = []
+    pre_include_bits = ["""
+        #ifdef _MSC_VER
+        #define _Bool char
+        #endif"""]
     field_names = dict.fromkeys(INSPECT)
     for fmtchar, ctype in INSPECT.iteritems():
         field_name = ctype.replace(" ", "_").replace("*", "star")
