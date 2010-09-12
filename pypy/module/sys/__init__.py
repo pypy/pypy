@@ -75,6 +75,7 @@ class Module(MixedModule):
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
 
         'float_info'            : 'system.get_float_info(space)',
+        'long_info'             : 'system.get_long_info(space)',
         }
 
     if sys.platform == 'win32':
