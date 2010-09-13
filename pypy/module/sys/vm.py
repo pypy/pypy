@@ -112,6 +112,15 @@ def setprofile(space, w_func):
 and return.  See the profiler chapter in the library manual."""
     space.getexecutioncontext().setprofile(w_func)
 
+def getprofile(space):
+    """Set the profiling function.  It will be called on each function call
+and return.  See the profiler chapter in the library manual."""
+    w_func = space.getexecutioncontext().getprofile()
+    if w_func is not None:
+        return w_func
+    else:
+        return space.w_None
+
 def call_tracing(space, w_func, w_args):
     """Call func(*args), while tracing is enabled.  The tracing state is
 saved, and restored afterwards.  This is intended to be called from
