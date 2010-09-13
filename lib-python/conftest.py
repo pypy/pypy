@@ -465,6 +465,7 @@ testmap = [
     RegrTest('test_ttk_guionly.py'),
     RegrTest('test_ttk_textonly.py'),
     RegrTest('test_tokenize.py'),
+    RegrTest('test_trace.py'),
     RegrTest('test_traceback.py', core=True),
     RegrTest('test_transformer.py', core=True),
     RegrTest('test_tuple.py', core=True),
