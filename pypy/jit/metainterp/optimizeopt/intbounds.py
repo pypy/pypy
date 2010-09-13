@@ -1,6 +1,6 @@
 from optimizer import Optimization, CONST_1, CONST_0
 from pypy.jit.metainterp.optimizeutil import _findall
-from intutils import IntBound, IntUnbounded
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
 from pypy.jit.metainterp.history import Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
