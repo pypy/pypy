@@ -252,6 +252,7 @@ str_translate  = SMM('translate', 3, defaults=('',), #unicode mimic not supporte
                          ' mapped through the given\ntranslation table, which'
                          ' must be a string of length 256.')
 str_decode     = SMM('decode', 3, defaults=(None, None),
+                     argnames=['encoding', 'errors'],
                      doc='S.decode([encoding[,errors]]) -> object\n\nDecodes S'
                          ' using the codec registered for encoding. encoding'
                          ' defaults\nto the default encoding. errors may be'
@@ -262,6 +263,7 @@ str_decode     = SMM('decode', 3, defaults=(None, None),
                          ' name registerd with codecs.register_error that'
                          ' is\nable to handle UnicodeDecodeErrors.')
 str_encode     = SMM('encode', 3, defaults=(None, None),
+                     argnames=['encoding', 'errors'],
                      doc='S.encode([encoding[,errors]]) -> object\n\nEncodes S'
                          ' using the codec registered for encoding. encoding'
                          ' defaults\nto the default encoding. errors may be'
