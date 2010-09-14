@@ -32,6 +32,9 @@ class MathTests:
     for name in unary_math_functions:
         try:
             input, output = (0.3,), getattr(math, name)(0.3)
+        except AttributeError:
+            # cannot test this function
+            pass
         except ValueError:
             input, output = (1.3,), getattr(math, name)(1.3)
         REGCASES.append((name, input, output))
