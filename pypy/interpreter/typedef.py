@@ -843,6 +843,7 @@ BuiltinFunction.typedef.rawdict.update({
     '__new__': interp2app(BuiltinFunction.descr_builtinfunction__new__.im_func),
     '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
     '__repr__': interp2app(BuiltinFunction.descr_function_repr),
+    '__doc__': getset_func_doc,
     })
 del BuiltinFunction.typedef.rawdict['__get__']
 BuiltinFunction.typedef.acceptable_as_base_class = False
