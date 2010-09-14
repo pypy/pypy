@@ -265,9 +265,11 @@ endDFAs = {"'" : singleDFA,
            "r" : None,
            "R" : None,
            "u" : None,
-           "U" : None}
+           "U" : None,
+           "b" : None,
+           "B" : None}
 
-for uniPrefix in ("", "u", "U"):
+for uniPrefix in ("", "u", "U", "b", "B"):
     for rawPrefix in ("", "r", "R"):
         prefix = uniPrefix + rawPrefix
         endDFAs[prefix + "'''"] = single3DFA

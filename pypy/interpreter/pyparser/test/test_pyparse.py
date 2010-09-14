@@ -16,9 +16,9 @@ class TestPythonParser:
             info = pyparse.CompileInfo("<test>", mode)
         return self.parser.parse_source(source, info)
 
-    def test_with_and_as_no_future(self):
-        self.parse("with = 23")
-        self.parse("as = 2")
+    def test_with_and_as(self):
+        py.test.raises(SyntaxError, self.parse, "with = 23")
+        py.test.raises(SyntaxError, self.parse, "as = 2")
 
     def test_dont_imply_dedent(self):
         info = pyparse.CompileInfo("<test>", "single",
@@ -99,3 +99,12 @@ pass"""
         py.test.raises(SyntaxError, self.parse, "x = 54", "eval")
         tree = self.parse("x = 43", "single")
         assert tree.type == syms.single_input
+
+    def test_bytes_literal(self):
+        self.parse('b" "')
+        self.parse('br" "')
+        self.parse('b""" """')
+        self.parse("b''' '''")
+        self.parse("br'\\\n'")
+
+        py.test.raises(SyntaxError, self.parse, "b'a\\n")
