@@ -1,7 +1,8 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root, unwrap_spec
+from pypy.interpreter.argument import Arguments
 from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
@@ -542,6 +543,67 @@ W_IZip.typedef = TypeDef(
         while iterables:
             result = [i.next() for i in iterables]
             yield tuple(result)
+    """)
+
+
+class W_IZipLongest(W_IMap):
+    _error_name = "izip_longest"
+
+    def next_w(self):
+        space = self.space
+        nb = len(self.iterators_w)
+
+        if nb == 0:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        objects_w = [None] * nb
+        for index in range(nb):
+            w_value = self.w_fillvalue
+            w_it = self.iterators_w[index]
+            if w_it is not None:
+                try:
+                    w_value = space.next(w_it)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+
+                    self.active -= 1
+                    if self.active == 0:
+                        # It was the last active iterator
+                        raise
+                    self.iterators_w[index] = None
+
+            objects_w[index] = w_value
+        return space.newtuple(objects_w)
+
+@unwrap_spec(ObjSpace, W_Root, Arguments)
+def W_IZipLongest___new__(space, w_subtype, __args__):
+    kwds = __args__.keywords
+    w_fillvalue = space.w_None
+    if kwds:
+        if kwds[0] == "fillvalue" and len(kwds) == 1:
+            w_fillvalue = __args__.keywords_w[0]
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "izip_longest() got unexpected keyword argument"))
+
+    self = W_IZipLongest(space, space.w_None, __args__.arguments_w)
+    self.w_fillvalue = w_fillvalue
+    self.active = len(self.iterators_w)
+
+    return space.wrap(self)
+
+W_IZipLongest.typedef = TypeDef(
+        'izip_longest',
+        __new__  = interp2app(W_IZipLongest___new__),
+        __iter__ = interp2app(W_IZipLongest.iter_w, unwrap_spec=['self']),
+        next     = interp2app(W_IZipLongest.next_w, unwrap_spec=['self']),
+        __doc__  = """Return an izip_longest object whose .next() method returns a tuple where
+    the i-th element comes from the i-th iterable argument.  The .next()
+    method continues until the longest iterable in the argument sequence
+    is exhausted and then it raises StopIteration.  When the shorter iterables
+    are exhausted, the fillvalue is substituted in their place.  The fillvalue
+    defaults to None or can be specified by a keyword argument.
     """)
 
 

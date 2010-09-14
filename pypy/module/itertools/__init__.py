@@ -35,6 +35,7 @@ class Module(MixedModule):
         'imap'          : 'interp_itertools.W_IMap',
         'islice'        : 'interp_itertools.W_ISlice',
         'izip'          : 'interp_itertools.W_IZip',
+        'izip_longest'  : 'interp_itertools.W_IZipLongest',
         'repeat'        : 'interp_itertools.W_Repeat',
         'starmap'       : 'interp_itertools.W_StarMap',
         'takewhile'     : 'interp_itertools.W_TakeWhile',

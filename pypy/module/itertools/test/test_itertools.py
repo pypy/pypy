@@ -626,3 +626,85 @@ class AppTestItertools:
         a, b = itertools.tee(iter('abc'))
         ref = weakref.ref(b)
         assert ref() is b
+
+    def test_iziplongest(self):
+        from itertools import izip_longest, islice, count
+        for args in [
+                ['abc', range(6)],
+                [range(6), 'abc'],
+                [range(100), range(200,210), range(300,305)],
+                [range(100), range(0), range(300,305), range(120), range(150)],
+                [range(100), range(0), range(300,305), range(120), range(0)],
+            ]:
+            # target = map(None, *args) <- this raises a py3k warning
+            # this is the replacement:
+            target = [tuple([arg[i] if i < len(arg) else None for arg in args])
+                      for i in range(max(map(len, args)))]
+            assert list(izip_longest(*args)) == target
+            assert list(izip_longest(*args, **{})) == target
+
+            # Replace None fills with 'X'
+            target = [tuple((e is None and 'X' or e) for e in t) for t in target]
+            assert list(izip_longest(*args, **dict(fillvalue='X'))) ==  target
+
+        # take 3 from infinite input
+        assert (list(islice(izip_longest('abcdef', count()),3)) ==
+                zip('abcdef', range(3)))
+
+        assert list(izip_longest()) == zip()
+        assert list(izip_longest([])) ==  zip([])
+        assert list(izip_longest('abcdef')) ==  zip('abcdef')
+
+        assert (list(izip_longest('abc', 'defg', **{})) ==
+                zip(list('abc') + [None], 'defg'))  # empty keyword dict
+        raises(TypeError, izip_longest, 3)
+        raises(TypeError, izip_longest, range(3), 3)
+
+        for stmt in [
+            "izip_longest('abc', fv=1)",
+            "izip_longest('abc', fillvalue=1, bogus_keyword=None)",
+        ]:
+            try:
+                eval(stmt, globals(), locals())
+            except TypeError:
+                pass
+            else:
+                self.fail('Did not raise Type in:  ' + stmt)
+
+    def test_izip_longest2(self):
+        import itertools
+        class Repeater(object):
+            # this class is similar to itertools.repeat
+            def __init__(self, o, t, e):
+                self.o = o
+                self.t = int(t)
+                self.e = e
+            def __iter__(self): # its iterator is itself
+                return self
+            def next(self):
+                if self.t > 0:
+                    self.t -= 1
+                    return self.o
+                else:
+                    raise self.e
+
+        # Formerly this code in would fail in debug mode
+        # with Undetected Error and Stop Iteration
+        r1 = Repeater(1, 3, StopIteration)
+        r2 = Repeater(2, 4, StopIteration)
+        def run(r1, r2):
+            result = []
+            for i, j in itertools.izip_longest(r1, r2, fillvalue=0):
+                result.append((i, j))
+            return result
+        assert run(r1, r2) ==  [(1,2), (1,2), (1,2), (0,2)]
+
+        # Formerly, the RuntimeError would be lost
+        # and StopIteration would stop as expected
+        r1 = Repeater(1, 3, RuntimeError)
+        r2 = Repeater(2, 4, StopIteration)
+        it = itertools.izip_longest(r1, r2, fillvalue=0)
+        assert it.next() == (1, 2)
+        assert it.next() == (1, 2)
+        assert it.next()== (1, 2)
+        raises(RuntimeError, it.next)
