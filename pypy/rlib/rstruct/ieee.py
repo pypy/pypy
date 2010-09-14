@@ -50,18 +50,18 @@ def float_unpack(Q, size):
     one = r_ulonglong(1)
     sign = rarithmetic.intmask(Q >> BITS - 1)
     exp = rarithmetic.intmask((Q & ((one << BITS - 1) - (one << MANT_DIG - 1))) >> MANT_DIG - 1)
-    mant = Q & ((one << MANT_DIG - 1) - 1)
+    mant = Q & ((1 << MANT_DIG - 1) - 1)
 
     if exp == MAX_EXP - MIN_EXP + 2:
         # nan or infinity
         result = float('nan') if mant else float('inf')
     elif exp == 0:
         # subnormal or zero
-        result = math.ldexp(float(mant), MIN_EXP - MANT_DIG)
+        result = math.ldexp(mant, MIN_EXP - MANT_DIG)
     else:
         # normal
-        mant += r_ulonglong(1) << MANT_DIG - 1
-        result = math.ldexp(float(mant), exp + MIN_EXP - MANT_DIG - 1)
+        mant += 1 << MANT_DIG - 1
+        result = math.ldexp(mant, exp + MIN_EXP - MANT_DIG - 1)
     return -result if sign else result
 
 
