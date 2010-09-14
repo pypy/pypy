@@ -21,15 +21,20 @@ def finite(x):
 
 unary_math_functions = ['acos', 'asin', 'atan',
                         'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
-                        'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10']
+                        'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
+                        'acosh', 'asinh', 'atanh', 'log1p', 'expm1']
 binary_math_functions = ['atan2', 'fmod', 'hypot', 'pow']
 
 
 class MathTests:
 
-    REGCASES = [
-        (name, (0.3,), getattr(math, name)(0.3))
-        for name in unary_math_functions]
+    REGCASES = []
+    for name in unary_math_functions:
+        try:
+            input, output = (0.3,), getattr(math, name)(0.3)
+        except ValueError:
+            input, output = (1.3,), getattr(math, name)(1.3)
+        REGCASES.append((name, input, output))
 
     IRREGCASES = [
         ('atan2', (0.31, 0.123), math.atan2(0.31, 0.123)),

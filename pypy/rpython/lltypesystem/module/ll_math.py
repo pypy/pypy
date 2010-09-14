@@ -5,14 +5,24 @@ import sys
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.tool.autopath import pypydir
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
 
-if sys.platform[:3] == "win":
-    eci = ExternalCompilationInfo(libraries=[])
+if sys.platform == "win32":
+    eci = ExternalCompilationInfo()
+    # Some math functions are C99 and not defined by the Microsoft compiler
+    srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
+    math_eci = ExternalCompilationInfo(
+        separate_module_files=[srcdir.join('math.c')],
+        export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
+                        '_pypy_math_atanh',
+                        '_pypy_math_expm1', '_pypy_math_log1p'],
+        )
 else:
-    eci = ExternalCompilationInfo(libraries=['m'])
+    eci = ExternalCompilationInfo(
+        libraries=['m'])
 
 def llexternal(name, ARGS, RESULT):
     return rffi.llexternal(name, ARGS, RESULT, compilation_info=eci,
@@ -284,8 +294,13 @@ def ll_math_pow(x, y):
 #
 # Default implementations
 
-def new_unary_math_function(name, can_overflow):
-    c_func = llexternal(name, [rffi.DOUBLE], rffi.DOUBLE)
+def new_unary_math_function(name, can_overflow, c99):
+    if sys.platform == 'win32' and c99:
+        win32name = '_pypy_math_%s' % (name,)
+        c_func =  rffi.llexternal(win32name, [rffi.DOUBLE], rffi.DOUBLE,
+                                  compilation_info=math_eci, sandboxsafe=True)
+    else:
+        c_func = llexternal(name, [rffi.DOUBLE], rffi.DOUBLE)
 
     def ll_math(x):
         _error_reset()
@@ -316,12 +331,16 @@ unary_math_functions = [
     'acos', 'asin', 'atan',
     'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
     'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
-    'acosh', 'asinh', 'atanh', 'log1p', 'expm1'  # -- added in Python 2.6
+    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
     ]
 unary_math_functions_can_overflow = [
     'cosh', 'exp', 'log1p', 'sinh', 'expm1',
     ]
+unary_math_functions_c99 = [
+    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
+    ]
 
 for name in unary_math_functions:
     can_overflow = name in unary_math_functions_can_overflow
-    globals()['ll_math_' + name] = new_unary_math_function(name, can_overflow)
+    c99 = name in unary_math_functions_c99
+    globals()['ll_math_' + name] = new_unary_math_function(name, can_overflow, c99)
