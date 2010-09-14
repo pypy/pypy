@@ -11,6 +11,7 @@ from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.tool.udir import udir
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 
 # ____________________________________________________________
 #
@@ -380,7 +381,7 @@ class ConstantInteger(CConfigEntry):
         yield '}'
 
     def build_result(self, info, config_result):
-        return info['value']
+        return expose_value_as_rpython(info['value'])
 
 class DefinedConstantInteger(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
@@ -406,7 +407,7 @@ class DefinedConstantInteger(CConfigEntry):
 
     def build_result(self, info, config_result):
         if info["defined"]:
-            return info['value']
+            return expose_value_as_rpython(info['value'])
         return None
 
 class DefinedConstantDouble(CConfigEntry):
@@ -654,6 +655,20 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
     raise TypeError("conflicting field type %r for %r" % (fieldtype,
                                                           fieldname))
 
+def expose_value_as_rpython(value):
+    if intmask(value) == value:
+        return value
+    if r_uint(value) == value:
+        return r_uint(value)
+    try:
+        if r_longlong(value) == value:
+            return r_longlong(value)
+    except OverflowError:
+        pass
+    if r_ulonglong(value) == value:
+        return r_ulonglong(value)
+    raise OverflowError("value %d does not fit into any RPython integer type"
+                        % (value,))
 
 C_HEADER = """
 #include <stdio.h>

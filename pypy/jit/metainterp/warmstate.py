@@ -211,7 +211,11 @@ class WarmEnterState(object):
                                               entry_loop_token):
         cell = self.jit_cell_at_key(greenkey)
         cell.counter = -1
+        old_token = cell.entry_loop_token
         cell.entry_loop_token = entry_loop_token
+        if old_token is not None:
+            cpu = self.warmrunnerdesc.cpu
+            cpu.redirect_call_assembler(old_token, entry_loop_token)
 
     # ----------
 
@@ -491,8 +495,12 @@ class WarmEnterState(object):
         #
         unwrap_greenkey = self.make_unwrap_greenkey()
         jit_getter = self.make_jitcell_getter()
+        jd = self.jitdriver_sd
+        cpu = self.warmrunnerdesc.cpu
 
         def can_inline_greenargs(*greenargs):
+            if can_never_inline(*greenargs):
+                return False
             cell = jit_getter(False, *greenargs)
             if cell is not None and cell.dont_trace_here:
                 return False
@@ -503,11 +511,13 @@ class WarmEnterState(object):
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
 
-        def get_assembler_token(greenkey):
-            greenargs = unwrap_greenkey(greenkey)
-            cell = jit_getter(False, *greenargs)
-            if cell is None or cell.counter >= 0:
-                return None
+        def get_assembler_token(greenkey, redboxes):
+            # 'redboxes' is only used to know the types of red arguments
+            cell = self.jit_cell_at_key(greenkey)
+            if cell.entry_loop_token is None:
+                from pypy.jit.metainterp.compile import compile_tmp_callback
+                cell.entry_loop_token = compile_tmp_callback(cpu, jd, greenkey,
+                                                             redboxes)
             return cell.entry_loop_token
         self.get_assembler_token = get_assembler_token
         
@@ -546,3 +556,16 @@ class WarmEnterState(object):
                                                       confirm_enter_jit_ptr)
                 return fn(*args)
         self.confirm_enter_jit = confirm_enter_jit
+        #
+        can_never_inline_ptr = self.jitdriver_sd._can_never_inline_ptr
+        if can_never_inline_ptr is None:
+            def can_never_inline(*greenargs):
+                return False
+        else:
+            rtyper = self.warmrunnerdesc.rtyper
+            #
+            def can_never_inline(*greenargs):
+                fn = support.maybe_on_top_of_llinterp(rtyper,
+                                                      can_never_inline_ptr)
+                return fn(*greenargs)
+        self.can_never_inline = can_never_inline

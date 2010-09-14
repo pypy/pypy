@@ -455,6 +455,31 @@ class BasicTests:
         # the CALL_PURE is constant-folded away by optimizeopt.py
         self.check_loops(int_sub=1, call=0, call_pure=0)
 
+    def test_pure_function_returning_object(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        class V:
+            def __init__(self, x):
+                self.x = x
+        v1 = V(1)
+        v2 = V(2)
+        def externfn(x):
+            if x:
+                return v1
+            else:
+                return v2
+        externfn._pure_function_ = True
+        def f(n, m):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                m = V(m).x
+                n -= externfn(m).x + externfn(m + m - m).x
+            return n
+        res = self.meta_interp(f, [21, 5])
+        assert res == -1
+        # the CALL_PURE is constant-folded away by optimizeopt.py
+        self.check_loops(int_sub=1, call=0, call_pure=0, getfield_gc=1)
+
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         class X(object):
@@ -529,6 +554,32 @@ class BasicTests:
         res = self.meta_interp(f, [3, 19])
         assert res == -2
         self.check_loop_count(1)
+
+    def test_can_never_inline(self):
+        def can_never_inline(x):
+            return x > 50
+        myjitdriver = JitDriver(greens = ['x'], reds = ['y'],
+                                can_never_inline = can_never_inline)
+        @dont_look_inside
+        def marker():
+            pass
+        def f(x, y):
+            while y >= 0:
+                myjitdriver.can_enter_jit(x=x, y=y)
+                myjitdriver.jit_merge_point(x=x, y=y)
+                x += 1
+                if x == 4 or x == 61:
+                    marker()
+                y -= x
+            return y
+        #
+        res = self.meta_interp(f, [3, 6], repeat=7)
+        assert res == 6 - 4 - 5
+        self.check_history(call=0)   # because the trace starts in the middle
+        #
+        res = self.meta_interp(f, [60, 84], repeat=7)
+        assert res == 84 - 61 - 62
+        self.check_history(call=1)   # because the trace starts immediately
 
     def test_format(self):
         def f(n):

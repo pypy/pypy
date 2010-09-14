@@ -107,6 +107,12 @@ class AbstractCPU(object):
         GUARD_NO_EXCEPTION.  (Returns a GCREF)"""        # XXX remove me
         raise NotImplementedError
 
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        """Redirect oldlooptoken to newlooptoken.  More precisely, it is
+        enough to redirect all CALL_ASSEMBLERs already compiled that call
+        oldlooptoken so that from now own they will call newlooptoken."""
+        raise NotImplementedError
+
     @staticmethod
     def sizeof(S):
         raise NotImplementedError

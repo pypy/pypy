@@ -14,6 +14,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.specnode import NotSpecNode, more_general_specnodes
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.codewriter import heaptracker
 
 def giveup():
     from pypy.jit.metainterp.pyjitpl import SwitchToBlackhole
@@ -57,12 +58,9 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     loop.inputargs = history.inputargs
     for box in loop.inputargs:
         assert isinstance(box, Box)
-    if start > 0:
-        ops = history.operations[start:]
-    else:
-        ops = history.operations
     # make a copy, because optimize_loop can mutate the ops and descrs
-    loop.operations = [op.clone() for op in ops]
+    h_ops = history.operations
+    loop.operations = [h_ops[i].clone() for i in range(start, len(h_ops))]
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     loop_token = make_loop_token(len(loop.inputargs), jitdriver_sd)
@@ -550,3 +548,55 @@ def prepare_last_operation(new_loop, target_loop_token):
         descr = target_loop_token.finishdescr
         new_op = ResOperation(rop.FINISH, op.args, None, descr=descr)
         new_loop.operations[-1] = new_op
+
+# ____________________________________________________________
+
+class PropagateExceptionDescr(AbstractFailDescr):
+    def handle_fail(self, metainterp_sd, jitdriver_sd):
+        cpu = metainterp_sd.cpu
+        exception = cpu.grab_exc_value()
+        raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
+
+propagate_exception_descr = PropagateExceptionDescr()
+
+def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes):
+    """Make a LoopToken that corresponds to assembler code that just
+    calls back the interpreter.  Used temporarily: a fully compiled
+    version of the code may end up replacing it.
+    """
+    # 'redboxes' is only used to know the types of red arguments.
+    inputargs = [box.clonebox() for box in redboxes]
+    loop_token = make_loop_token(len(inputargs), jitdriver_sd)
+    # 'nb_red_args' might be smaller than len(redboxes),
+    # because it doesn't include the virtualizable boxes.
+    nb_red_args = jitdriver_sd.num_red_args
+    k = jitdriver_sd.portal_runner_adr
+    funcbox = history.ConstInt(heaptracker.adr2int(k))
+    callargs = [funcbox] + greenboxes + inputargs[:nb_red_args]
+    #
+    result_type = jitdriver_sd.result_type
+    if result_type == history.INT:
+        result = BoxInt()
+    elif result_type == history.REF:
+        result = BoxPtr()
+    elif result_type == history.FLOAT:
+        result = BoxFloat()
+    elif result_type == history.VOID:
+        result = None
+    else:
+        assert 0, "bad result_type"
+    if result is not None:
+        finishargs = [result]
+    else:
+        finishargs = []
+    #
+    jd = jitdriver_sd
+    faildescr = propagate_exception_descr
+    operations = [
+        ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
+        ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
+        ]
+    operations[1].fail_args = []
+    cpu.compile_loop(inputargs, operations, loop_token)
+    return loop_token

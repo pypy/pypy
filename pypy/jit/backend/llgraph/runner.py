@@ -102,6 +102,7 @@ class BaseCPU(model.AbstractCPU):
         llimpl._llinterp = LLInterpreter(self.rtyper)
         self._future_values = []
         self._descrs = {}
+        self._redirected_call_assembler = {}
 
     def _freeze_(self):
         assert self.translate_support_code
@@ -169,8 +170,8 @@ class BaseCPU(model.AbstractCPU):
                 elif isinstance(x, history.ConstFloat):
                     llimpl.compile_add_float_const(c, x.value)
                 else:
-                    raise Exception("%s args contain: %r" % (op.getopname(),
-                                                             x))
+                    raise Exception("'%s' args contain: %r" % (op.getopname(),
+                                                               x))
             if op.is_guard():
                 faildescr = op.descr
                 assert isinstance(faildescr, history.AbstractFailDescr)
@@ -259,6 +260,11 @@ class BaseCPU(model.AbstractCPU):
 
     def clear_latest_values(self, count):
         llimpl.frame_clear_latest_values(self.latest_frame, count)
+
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        if we_are_translated():
+            raise ValueError("CALL_ASSEMBLER not supported")
+        llimpl.redirect_call_assembler(self, oldlooptoken, newlooptoken)
 
     # ----------
 

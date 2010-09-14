@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
-from pypy.rlib import rarithmetic
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, isnan
 
 def import_ctypes():
     try:
@@ -117,7 +117,7 @@ def test_defined_constant_float():
     value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0e50000')
     assert value == float("inf")
     value = rffi_platform.getdefineddouble('BLAH', '#define BLAH (double)0/0')
-    assert rarithmetic.isnan(value)
+    assert isnan(value)
 
 def test_configure():
     test_h = udir.join('test_ctypes_platform.h')
@@ -370,3 +370,19 @@ def test_generate_padding():
     padding = list(S._hints['padding'])
     d = {'c_c1': 'char'}
     assert S._hints['get_padding_drop'](d) == padding
+
+def test_expose_value_as_rpython():
+    def get(x):
+        x = rffi_platform.expose_value_as_rpython(x)
+        return (x, type(x))
+    assert get(5) == (5, int)
+    assert get(-82) == (-82, int)
+    assert get(sys.maxint) == (sys.maxint, int)
+    assert get(sys.maxint+1) == (sys.maxint+1, r_uint)
+    if sys.maxint == 2147483647:
+        assert get(9999999999) == (9999999999, r_longlong)
+        assert get(-9999999999) == (-9999999999, r_longlong)
+        assert get(2**63) == (2**63, r_ulonglong)
+        assert get(-2**63) == (-2**63, r_longlong)
+    py.test.raises(OverflowError, get, -2**63-1)
+    py.test.raises(OverflowError, get, 2**64)

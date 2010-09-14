@@ -1046,7 +1046,7 @@ class RegisterOs(BaseLazyRegistering):
                                                         rffi.VOIDP,
                                                         rwin32.DWORD],
                                          rwin32.BOOL)
-            _open_osfhandle = self.llexternal('_open_osfhandle', [rffi.ULONG,
+            _open_osfhandle = self.llexternal('_open_osfhandle', [rffi.INTPTR_T,
                                                                   rffi.INT],
                                               rffi.INT)
             null = lltype.nullptr(rffi.VOIDP.TO)
@@ -1059,8 +1059,8 @@ class RegisterOs(BaseLazyRegistering):
                     error = 0
                 else:
                     error = rwin32.GetLastError()
-                hread = pread[0]
-                hwrite = pwrite[0]
+                hread = rffi.cast(rffi.INTPTR_T, pread[0])
+                hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
                 lltype.free(pwrite, flavor='raw')
                 lltype.free(pread, flavor='raw')
                 if error:

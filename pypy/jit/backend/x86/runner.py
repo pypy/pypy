@@ -134,6 +134,9 @@ class AbstractX86CPU(AbstractLLCPU):
         assert fail_index == fail_index_2
         return faildescr
 
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+
 class CPU386(AbstractX86CPU):
     WORD = 4
     NUM_REGS = 8

@@ -26,6 +26,11 @@ def w_array(space, w_cls, typecode, w_args=None):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     typecode = typecode[0]
 
+    if space.is_w(w_cls, space.gettypeobject(W_ArrayBase.typedef)):
+        if len(w_args.keywords_w) > 0:
+            msg = 'array.array() does not take keyword arguments'
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        
     for tc in unroll_typecodes:
         if typecode == tc:
             a = space.allocate_instance(types[tc].w_class, w_cls)
@@ -98,7 +103,6 @@ class W_ArrayBase(W_Object):
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
-
 
 class TypeCode(object):
     def __init__(self, itemtype, unwrap, canoverflow=False, signed=False):
@@ -645,12 +649,6 @@ def make_array(mytype):
             r = space.repr(array_tolist__Array(space, self))
             s = "array('%s', %s)" % (self.typecode, space.str_w(r))
             return space.wrap(s)
-
-    init_signature = Signature(['typecode', 'initializer'])
-    init_defaults = [None, None]
-
-    def init__Array(space, self, args):
-        args.parse_obj(None, 'array', init_signature, init_defaults)
 
     mytype.w_class = W_Array
 

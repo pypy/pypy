@@ -483,7 +483,6 @@ class BaseArrayTests:
                 b = self.array(t, v1)
                 c = self.array(t, v2)
 
-                print (a==7)
                 assert (a == 7) is False
                 assert (comparable() == a) is True
                 assert (a == comparable()) is True
@@ -697,7 +696,6 @@ class BaseArrayTests:
             assert isinstance(self.array(t), self.array)
 
     def test_subclass(self):
-        print type(self.array('b'))
         assert len(self.array('b')) == 0
 
         a = self.array('i')
@@ -708,14 +706,43 @@ class BaseArrayTests:
 
         class adder(array):
             def __getitem__(self, i):
-                print 25
                 return array.__getitem__(self, i) + 1
 
         a = adder('i', (1, 2, 3))
-        print type(a)
         assert len(a) == 3
         assert a[0] == 2
 
+    def test_subclass_new(self):
+        array = self.array
+        class Image(array):
+            def __new__(cls, width, height, typecode='d'):
+                self = array.__new__(cls, typecode, [0] * (width * height))
+                self.width = width
+                self.height = height
+                return self
+
+            def _index(self, (x,y)):
+                x = min(max(x, 0), self.width-1)
+                y = min(max(y, 0), self.height-1)
+                return y * self.width + x
+
+            def __getitem__(self, i):
+                return array.__getitem__(self, self._index(i))
+            
+            def __setitem__(self, i, val):
+                return array.__setitem__(self, self._index(i), val)
+
+        img = Image(5, 10, 'B')
+        for y in range(10):
+            for x in range(5):
+                img[x, y] = x * y
+        for y in range(10):
+            for x in range(5):
+                assert img[x, y] == x * y
+
+        assert img[3, 25] == 3 * 9
+
+                
     def test_override_from(self):
         class mya(self.array):
             def fromlist(self, lst):

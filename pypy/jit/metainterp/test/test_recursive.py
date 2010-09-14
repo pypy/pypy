@@ -612,9 +612,88 @@ class RecursiveTests:
                 driver.can_enter_jit(codeno=codeno, i=i, j=j)
 
         portal(2, 50)
-        self.meta_interp(portal, [2, 20], inline=True)
-        self.check_loops(call_assembler=0, call_may_force=1,
-                         everywhere=True)
+
+        from pypy.jit.metainterp import compile, pyjitpl
+        pyjitpl._warmrunnerdesc = None
+        trace = []
+        def my_ctc(*args):
+            looptoken = original_ctc(*args)
+            trace.append(looptoken)
+            return looptoken
+        original_ctc = compile.compile_tmp_callback
+        try:
+            compile.compile_tmp_callback = my_ctc
+            self.meta_interp(portal, [2, 20], inline=True)
+            self.check_loops(call_assembler=1, call_may_force=0,
+                             everywhere=True)
+        finally:
+            compile.compile_tmp_callback = original_ctc
+        # check that we made a temporary callback
+        assert len(trace) == 1
+        # and that we later redirected it to something else
+        try:
+            redirected = pyjitpl._warmrunnerdesc.cpu._redirected_call_assembler
+        except AttributeError:
+            pass    # not the llgraph backend
+        else:
+            print redirected
+            assert redirected.keys() == trace
+
+    def test_recursion_cant_call_assembler_directly_with_virtualizable(self):
+        # exactly the same logic as the previous test, but with 'frame.j'
+        # instead of just 'j'
+        class Frame(object):
+            _virtualizable2_ = ['j']
+            def __init__(self, j):
+                self.j = j
+
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
+                           virtualizables = ['frame'],
+                           get_printable_location = lambda codeno : str(codeno))
+
+        def portal(codeno, frame):
+            i = 0
+            while 1:
+                driver.jit_merge_point(codeno=codeno, i=i, frame=frame)
+                if i == 1:
+                    if frame.j == 0:
+                        return
+                    portal(2, Frame(frame.j - 1))
+                elif i == 3:
+                    return
+                i += 1
+                driver.can_enter_jit(codeno=codeno, i=i, frame=frame)
+
+        def main(codeno, j):
+            portal(codeno, Frame(j))
+
+        main(2, 50)
+
+        from pypy.jit.metainterp import compile, pyjitpl
+        pyjitpl._warmrunnerdesc = None
+        trace = []
+        def my_ctc(*args):
+            looptoken = original_ctc(*args)
+            trace.append(looptoken)
+            return looptoken
+        original_ctc = compile.compile_tmp_callback
+        try:
+            compile.compile_tmp_callback = my_ctc
+            self.meta_interp(main, [2, 20], inline=True)
+            self.check_loops(call_assembler=1, call_may_force=0,
+                             everywhere=True)
+        finally:
+            compile.compile_tmp_callback = original_ctc
+        # check that we made a temporary callback
+        assert len(trace) == 1
+        # and that we later redirected it to something else
+        try:
+            redirected = pyjitpl._warmrunnerdesc.cpu._redirected_call_assembler
+        except AttributeError:
+            pass    # not the llgraph backend
+        else:
+            print redirected
+            assert redirected.keys() == trace
 
     def test_directly_call_assembler_return(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],

@@ -250,13 +250,14 @@ def postprocess(loops, allloops, counts):
 class Counts(dict):
     pass
 
-def main(loopfile, options, view=True):
+def main(loopfile, use_threshold, view=True):
     countname = py.path.local(loopfile + '.count')
     if countname.check():
-        counts = [line.rsplit(':', 1) for line in countname.readlines()]
-        counts = Counts([(k, int(v.strip('\n'))) for k, v in counts])
+        counts = [re.split(r' +', line, 1) for line in countname.readlines()]
+        counts = Counts([(k.strip("\n"), int(v.strip('\n')))
+                         for v, k in counts])
         l = list(sorted(counts.values()))
-        if len(l) > 20 and options.use_threshold:
+        if len(l) > 20 and use_threshold:
             counts.threshold = l[-20]
         else:
             counts.threshold = 0
@@ -274,7 +275,7 @@ def main(loopfile, options, view=True):
 if __name__ == '__main__':
     parser = optparse.OptionParser(usage=__doc__)
     parser.add_option('--use-threshold', dest='use_threshold',
-                      action="store_true")
+                      action="store_true", default=False)
     options, args = parser.parse_args(sys.argv)
     if len(args) != 2:
         print __doc__

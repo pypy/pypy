@@ -8,11 +8,14 @@ class JitDriverStaticData:
     #    self.portal_graph      ... pypy.jit.metainterp.warmspot
     #    self.portal_runner_ptr ... pypy.jit.metainterp.warmspot
     #    self.portal_runner_adr ... pypy.jit.metainterp.warmspot
+    #    self.portal_calldescr  ... pypy.jit.metainterp.warmspot
     #    self.num_green_args    ... pypy.jit.metainterp.warmspot
+    #    self.num_red_args      ... pypy.jit.metainterp.warmspot
     #    self.result_type       ... pypy.jit.metainterp.warmspot
     #    self.virtualizable_info... pypy.jit.metainterp.warmspot
     #    self.warmstate         ... pypy.jit.metainterp.warmspot
     #    self.handle_jitexc_from_bh pypy.jit.metainterp.warmspot
+    #    self.portal_finishtoken... pypy.jit.metainterp.pyjitpl
     #    self.index             ... pypy.jit.codewriter.call
     #    self.mainjitcode       ... pypy.jit.codewriter.call
 
@@ -20,6 +23,7 @@ class JitDriverStaticData:
     #    self.assembler_helper_adr
     #    self.index_of_virtualizable
     #    self.vable_token_descr
+    #    self.portal_calldescr
 
     # warmspot sets extra attributes starting with '_' for its own use.
 

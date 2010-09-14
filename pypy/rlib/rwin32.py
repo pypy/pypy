@@ -81,9 +81,10 @@ def winexternal(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
 
 if WIN32:
-    HANDLE = rffi.ULONG
+    HANDLE = rffi.COpaquePtr(typedef='HANDLE')
     LPHANDLE = rffi.CArrayPtr(HANDLE)
     HMODULE = HANDLE
+    NULL_HANDLE = rffi.cast(HANDLE, 0)
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 

@@ -32,6 +32,9 @@ if _POSIX:
                 'arpa/inet.h',
                 'stdint.h', 
                 'errno.h',
+                'netpacket/packet.h',
+                'sys/ioctl.h',
+                'net/if.h',
                 )
     cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
     libraries = ()
@@ -190,6 +193,8 @@ WSA_WAIT_TIMEOUT WSA_WAIT_FAILED INFINITE
 FD_CONNECT_BIT FD_CLOSE_BIT
 WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
 WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
+
+SIOCGIFNAME
 '''.split()
 
 for name in constant_names:
@@ -309,6 +314,19 @@ if _POSIX:
                                             [('fd', socketfd_type),
                                              ('events', rffi.SHORT),
                                              ('revents', rffi.SHORT)])
+
+    CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
+                              [('sll_ifindex', rffi.INT),
+                               ('sll_protocol', rffi.INT),
+                               ('sll_pkttype', rffi.INT),
+                               ('sll_hatype', rffi.INT),
+                               ('sll_addr', rffi.CFixedArray(rffi.CHAR, 8)),
+                               ('sll_halen', rffi.INT)],
+                              )
+
+    CConfig.ifreq = platform.Struct('struct ifreq', [('ifr_ifindex', rffi.INT),
+                                 ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
+
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
     CConfig.WSANETWORKEVENTS = platform.Struct(
@@ -408,6 +426,8 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
+    sockaddr_ll = cConfig.sockaddr_ll
+    ifreq = cConfig.ifreq
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
@@ -510,6 +530,8 @@ if _POSIX:
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT)
+    ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
+                     rffi.INT)
 
 if _WIN32:
     ioctlsocket = external('ioctlsocket',
