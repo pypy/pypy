@@ -18,6 +18,18 @@
 
 #undef PyPy_NAN
 
+int
+_pypy_math_isinf(double x)
+{
+    return PyPy_IS_INFINITY(x);
+}
+
+int
+_pypy_math_isnan(double x)
+{
+    return PyPy_IS_NAN(x);
+}
+
 /* The following copyright notice applies to the original
    implementations of acosh, asinh and atanh. */
 
