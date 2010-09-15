@@ -21,7 +21,7 @@ def round_to_nearest(x):
     """
     int_part = r_ulonglong(x)
     frac_part = x - int_part
-    if frac_part > 0.5 or frac_part == 0.5 and int_part & 1 == 1:
+    if frac_part > 0.5 or frac_part == 0.5 and int_part & 1:
         int_part += 1
     return int_part
 
