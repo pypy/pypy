@@ -102,7 +102,7 @@ if WIN32:
     FreeLibrary = winexternal('FreeLibrary', [rffi.VOIDP], BOOL)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], lltype.Void)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)
 
     FormatMessage = winexternal(
         'FormatMessageA',
