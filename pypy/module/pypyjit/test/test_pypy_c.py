@@ -1091,6 +1091,28 @@ class PyPyCJITTests(object):
             return sa
         ''', 51, ([], 2000*3000))
 
+    def test_silly_max(self):
+        self.run_source('''
+        def main():
+            i=2
+            sa=0
+            while i < 2000: 
+                sa+=max(*range(i))
+                i+=1
+            return sa
+        ''', 125, ([], 1997001))
+
+    def test_iter_max(self):
+        self.run_source('''
+        def main():
+            i=2
+            sa=0
+            while i < 2000: 
+                sa+=max(range(i))
+                i+=1
+            return sa
+        ''', 0, ([], 1997001))
+
     # test_circular
 
 class AppTestJIT(PyPyCJITTests):
