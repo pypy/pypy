@@ -106,7 +106,7 @@ def min_max(space, args, implementation_of):
         compare = space.lt
 
     args_w = args.arguments_w
-    if len(args_w) > 1 and len(args_w) < 10 and not args.keywords:
+    if len(args_w) == 2 and not args.keywords:
         # Unrollable case
         w_max_item = None
         for w_item in args_w:
