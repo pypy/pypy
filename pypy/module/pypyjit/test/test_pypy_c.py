@@ -1111,7 +1111,7 @@ class PyPyCJITTests(object):
                 sa+=max(range(i))
                 i+=1
             return sa
-        ''', 0, ([], 1997001))
+        ''', 88, ([], 1997001))
 
     # test_circular
 
