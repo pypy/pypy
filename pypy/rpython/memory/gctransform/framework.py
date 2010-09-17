@@ -7,7 +7,7 @@ from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib import rstack
+from pypy.rlib import rstack, rgc
 from pypy.rlib.debug import ll_assert
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.support import var_needsgc
@@ -139,6 +139,8 @@ class FrameworkGCTransformer(GCTransformer):
     def __init__(self, translator):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
         from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
+        from pypy.rpython.memory.gc import inspect
+
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         if hasattr(self, 'GC_PARAMS'):
             # for tests: the GC choice can be specified as class attributes
@@ -387,6 +389,31 @@ class FrameworkGCTransformer(GCTransformer):
                                 minimal_transform = False)
         else:
             self.id_ptr = None
+
+        self.get_rpy_roots_ptr = getfn(inspect.get_rpy_roots,
+                                       [s_gc],
+                                       rgc.s_list_of_gcrefs(),
+                                       minimal_transform=False)
+        self.get_rpy_referents_ptr = getfn(inspect.get_rpy_referents,
+                                           [s_gc, s_gcref],
+                                           rgc.s_list_of_gcrefs(),
+                                           minimal_transform=False)
+        self.get_rpy_memory_usage_ptr = getfn(inspect.get_rpy_memory_usage,
+                                              [s_gc, s_gcref],
+                                              annmodel.SomeInteger(),
+                                              minimal_transform=False)
+        self.get_rpy_type_index_ptr = getfn(inspect.get_rpy_type_index,
+                                            [s_gc, s_gcref],
+                                            annmodel.SomeInteger(),
+                                            minimal_transform=False)
+        self.is_rpy_instance_ptr = getfn(inspect.is_rpy_instance,
+                                         [s_gc, s_gcref],
+                                         annmodel.SomeBool(),
+                                         minimal_transform=False)
+        self.dump_rpy_heap_ptr = getfn(inspect.dump_rpy_heap,
+                                       [s_gc, annmodel.SomeInteger()],
+                                       annmodel.s_None,
+                                       minimal_transform=False)
 
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
                                            [s_gc,
@@ -882,6 +909,53 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_gc_get_type_info_group(self, hop):
         return hop.cast_result(self.c_type_info_group)
+
+    def gct_gc_get_rpy_roots(self, hop):
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call",
+                  [self.get_rpy_roots_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_get_rpy_referents(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.get_rpy_referents_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_get_rpy_memory_usage(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.get_rpy_memory_usage_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_get_rpy_type_index(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.get_rpy_type_index_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_is_rpy_instance(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.is_rpy_instance_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_dump_rpy_heap(self, hop):
+        livevars = self.push_roots(hop)
+        [v_fd] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.dump_rpy_heap_ptr, self.c_const_gc, v_fd],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
 
     def gct_malloc_nonmovable_varsize(self, hop):
         TYPE = hop.spaceop.result.concretetype

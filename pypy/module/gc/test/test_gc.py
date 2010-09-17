@@ -59,13 +59,6 @@ class AppTestGC(object):
         raises(ValueError, gc.enable_finalizers)
         runtest(True)
 
-    def test_estimate_heap_size(self):
-        import sys, gc
-        if sys.platform == "linux2":
-            assert gc.estimate_heap_size() > 1024
-        else:
-            raises(RuntimeError, gc.estimate_heap_size)
-
     def test_enable(self):
         import gc
         assert gc.isenabled()

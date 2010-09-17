@@ -2,7 +2,7 @@ import py
 import sys, os, inspect
 
 from pypy.objspace.flow.model import summary
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.test import snippet
 from pypy.rlib import rgc
@@ -23,6 +23,7 @@ class TestUsingFramework(object):
     GC_CAN_SHRINK_ARRAY = False
 
     _isolated_func = None
+    c_allfuncs = None
 
     @classmethod
     def _makefunc_str_int(cls, f):
@@ -890,6 +891,202 @@ class TestUsingFramework(object):
 
     def test_arraycopy_writebarrier_ptr(self):
         self.run("arraycopy_writebarrier_ptr")
+
+    def define_get_rpy_roots(self):
+        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
+
+        def g(s):
+            lst = rgc.get_rpy_roots()
+            found = False
+            for x in lst:
+                if x == lltype.cast_opaque_ptr(llmemory.GCREF, s):
+                    found = True
+                if x == lltype.cast_opaque_ptr(llmemory.GCREF, s.u):
+                    os.write(2, "s.u should not be found!\n")
+                    assert False
+            return found == 1
+
+        def fn():
+            s = lltype.malloc(S)
+            s.u = lltype.malloc(U)
+            found = g(s)
+            if not found:
+                os.write(2, "not found!\n")
+                assert False
+            s.u.x = 42
+            return 0
+
+        return fn
+
+    def test_get_rpy_roots(self):
+        self.run("get_rpy_roots")
+
+    def define_get_rpy_referents(self):
+        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
+
+        def fn():
+            s = lltype.malloc(S)
+            s.u = lltype.malloc(U)
+            gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, s.u)
+            lst = rgc.get_rpy_referents(gcref1)
+            assert gcref2 in lst
+            assert gcref1 not in lst
+            s.u.x = 42
+            return 0
+
+        return fn
+
+    def test_get_rpy_referents(self):
+        self.run("get_rpy_referents")
+
+    def define_is_rpy_instance(self):
+        class Foo:
+            pass
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+
+        def check(gcref, expected):
+            result = rgc._is_rpy_instance(gcref)
+            assert result == expected
+
+        def fn():
+            s = lltype.malloc(S)
+            gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            check(gcref1, False)
+
+            f = Foo()
+            gcref3 = rgc.cast_instance_to_gcref(f)
+            check(gcref3, True)
+
+            return 0
+
+        return fn
+
+    def test_is_rpy_instance(self):
+        self.run("is_rpy_instance")
+
+    def define_try_cast_gcref_to_instance(self):
+        class Foo:
+            pass
+        class FooBar(Foo):
+            pass
+        class Biz(object):
+            pass
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+
+        def fn():
+            foo = Foo()
+            gcref1 = rgc.cast_instance_to_gcref(foo)
+            assert rgc.try_cast_gcref_to_instance(Foo,    gcref1) is foo
+            assert rgc.try_cast_gcref_to_instance(FooBar, gcref1) is None
+            assert rgc.try_cast_gcref_to_instance(Biz,    gcref1) is None
+
+            foobar = FooBar()
+            gcref2 = rgc.cast_instance_to_gcref(foobar)
+            assert rgc.try_cast_gcref_to_instance(Foo,    gcref2) is foobar
+            assert rgc.try_cast_gcref_to_instance(FooBar, gcref2) is foobar
+            assert rgc.try_cast_gcref_to_instance(Biz,    gcref2) is None
+
+            s = lltype.malloc(S)
+            gcref3 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            assert rgc.try_cast_gcref_to_instance(Foo,    gcref3) is None
+            assert rgc.try_cast_gcref_to_instance(FooBar, gcref3) is None
+            assert rgc.try_cast_gcref_to_instance(Biz,    gcref3) is None
+
+            return 0
+
+        return fn
+
+    def test_try_cast_gcref_to_instance(self):
+        self.run("try_cast_gcref_to_instance")
+
+    def define_get_rpy_memory_usage(self):
+        U = lltype.GcStruct('U', ('x1', lltype.Signed),
+                                 ('x2', lltype.Signed),
+                                 ('x3', lltype.Signed),
+                                 ('x4', lltype.Signed),
+                                 ('x5', lltype.Signed),
+                                 ('x6', lltype.Signed),
+                                 ('x7', lltype.Signed),
+                                 ('x8', lltype.Signed))
+        S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
+        A = lltype.GcArray(lltype.Ptr(S))
+
+        def fn():
+            s = lltype.malloc(S)
+            s.u = lltype.malloc(U)
+            a = lltype.malloc(A, 1000)
+            gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            int1 = rgc.get_rpy_memory_usage(gcref1)
+            assert 8 <= int1 <= 32
+            gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, s.u)
+            int2 = rgc.get_rpy_memory_usage(gcref2)
+            assert 4*9 <= int2 <= 8*12
+            gcref3 = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            int3 = rgc.get_rpy_memory_usage(gcref3)
+            assert 4*1001 <= int3 <= 8*1010
+            return 0
+
+        return fn
+
+    def test_get_rpy_memory_usage(self):
+        self.run("get_rpy_memory_usage")
+
+    def define_get_rpy_type_index(self):
+        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
+        A = lltype.GcArray(lltype.Ptr(S))
+
+        def fn():
+            s = lltype.malloc(S)
+            s.u = lltype.malloc(U)
+            a = lltype.malloc(A, 1000)
+            s2 = lltype.malloc(S)
+            gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            int1 = rgc.get_rpy_type_index(gcref1)
+            gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, s.u)
+            int2 = rgc.get_rpy_type_index(gcref2)
+            gcref3 = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            int3 = rgc.get_rpy_type_index(gcref3)
+            gcref4 = lltype.cast_opaque_ptr(llmemory.GCREF, s2)
+            int4 = rgc.get_rpy_type_index(gcref4)
+            assert int1 != int2
+            assert int1 != int3
+            assert int2 != int3
+            assert int1 == int4
+            return 0
+
+        return fn
+
+    def test_get_rpy_type_index(self):
+        self.run("get_rpy_type_index")
+
+    filename_dump = str(udir.join('test_dump_rpy_heap'))
+    def define_dump_rpy_heap(self):
+        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
+        A = lltype.GcArray(lltype.Ptr(S))
+        filename = self.filename_dump
+
+        def fn():
+            s = lltype.malloc(S)
+            s.u = lltype.malloc(U)
+            a = lltype.malloc(A, 1000)
+            s2 = lltype.malloc(S)
+            #
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
+            rgc.dump_rpy_heap(fd)
+            os.close(fd)
+            return 0
+
+        return fn
+
+    def test_dump_rpy_heap(self):
+        self.run("dump_rpy_heap")
+        assert os.path.exists(self.filename_dump)
+        assert os.path.getsize(self.filename_dump) > 0       # minimal test
 
 
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):

@@ -153,3 +153,29 @@ def test_ll_shrink_array_2():
     assert len(s2.vars) == 3
     for i in range(3):
         assert s2.vars[i] == 50 + i
+
+
+def test_get_objects():
+    class X(object):
+        pass
+    x1 = X()
+    lst = rgc._get_objects()
+    assert rgc.cast_instance_to_gcref(x1) in lst
+
+def test_get_referents():
+    class X(object):
+        __slots__ = ['stuff']
+    x1 = X()
+    x1.stuff = X()
+    x2 = X()
+    lst = rgc._get_referents(rgc.cast_instance_to_gcref(x1))
+    lst2 = [rgc.try_cast_gcref_to_instance(X, x) for x in lst]
+    assert x1.stuff in lst2
+    assert x2 not in lst2
+
+def test_get_memory_usage():
+    class X(object):
+        pass
+    x1 = X()
+    n = rgc._get_memory_usage(rgc.cast_instance_to_gcref(x1))
+    assert n >= 8 and n <= 64

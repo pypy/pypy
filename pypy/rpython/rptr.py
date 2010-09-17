@@ -35,6 +35,9 @@ class PtrRepr(Repr):
         id = lltype.cast_ptr_to_int(p)
         return ll_str.ll_int2hex(r_uint(id), True)
 
+    def get_ll_eq_function(self):
+        return None
+
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         if isinstance(hop.s_result, annmodel.SomeLLADTMeth):

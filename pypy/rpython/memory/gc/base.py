@@ -53,7 +53,8 @@ class GCBase(object):
                             varsize_offset_to_length,
                             varsize_offsets_to_gcpointers_in_var_part,
                             weakpointer_offset,
-                            member_index):
+                            member_index,
+                            is_rpython_class):
         self.getfinalizer = getfinalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
@@ -66,6 +67,7 @@ class GCBase(object):
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
         self.weakpointer_offset = weakpointer_offset
         self.member_index = member_index
+        self.is_rpython_class = is_rpython_class
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)
@@ -100,6 +102,9 @@ class GCBase(object):
 
     def get_size(self, obj):
         return self._get_size_for_typeid(obj, self.get_type_id(obj))
+
+    def get_size_incl_hash(self, obj):
+        return self.get_size(obj)
 
     def malloc(self, typeid, length=0, zero=False):
         """For testing.  The interface used by the gctransformer is
