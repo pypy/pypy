@@ -32,11 +32,13 @@ if _POSIX:
                 'arpa/inet.h',
                 'stdint.h', 
                 'errno.h',
-                'netpacket/packet.h',
-                'sys/ioctl.h',
-                'net/if.h',
                 )
-    cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
+
+    cond_includes = [('AF_NETLINK', 'linux/netlink.h'),
+                     ('AF_PACKET', 'netpacket/packet.h'),
+                     ('AF_PACKET', 'sys/ioctl.h'),
+                     ('AF_PACKET', 'net/if.h')]
+    
     libraries = ()
     calling_conv = 'c'
     HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
