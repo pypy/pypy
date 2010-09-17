@@ -33,7 +33,7 @@ class FakeMetaInterpStaticData(object):
         self.profiler = EmptyProfiler()
         self.options = Fake()
         self.globaldata = Fake()
-    
+
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
     from pypy.jit.metainterp.resume import tag, TAGBOX
@@ -75,7 +75,7 @@ def test_sharing_field_lists_of_virtual():
     assert lst3 == [LLtypeMixin.valuedescr]
     lst4 = virt1._get_field_descr_list()
     assert lst3 is lst4
-    
+
     virt2 = virtualize.AbstractVirtualStructValue(opt, None)
     lst5 = virt2._get_field_descr_list()
     assert lst5 is lst1
@@ -489,7 +489,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump()
         """
         self.optimize_loop(ops, 'Constant(myptr)', expected)
-        
+
     def test_ooisnull_oononnull_1(self):
         ops = """
         [p0]
@@ -842,7 +842,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(f, f1)
         """
         self.optimize_loop(ops, 'Not, Virtual(node_vtable, floatdescr=Not)',
-                           expected, checkspecnodes=False)        
+                           expected, checkspecnodes=False)
 
     def test_virtual_2(self):
         ops = """
@@ -2171,7 +2171,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i1, i0)
         """
         self.optimize_loop(ops, 'Not, Not', expected)
-    
+
     def test_fold_partially_constant_ops(self):
         ops = """
         [i0]
@@ -2183,7 +2183,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
         ops = """
         [i0]
         i1 = int_add(i0, 0)
@@ -2194,7 +2194,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
         ops = """
         [i0]
         i1 = int_add(0, i0)
@@ -2205,7 +2205,7 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-    
+
     # ----------
 
     def make_fail_descr(self):
@@ -3119,7 +3119,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_noguard(self):
         ops = """
         [i0]
@@ -3134,7 +3134,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i2)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_noopt(self):
         ops = """
         [i0]
@@ -3153,7 +3153,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(4)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_rev(self):
         ops = """
         [i0]
@@ -3170,7 +3170,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_tripple(self):
         ops = """
         [i0]
@@ -3189,7 +3189,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_add(self):
         ops = """
         [i0]
@@ -3204,11 +3204,11 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
-        i2 = int_add(i0, 10)        
+        i2 = int_add(i0, 10)
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_add_before(self):
         ops = """
         [i0]
@@ -3227,7 +3227,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_add_ovf(self):
         ops = """
         [i0]
@@ -3243,11 +3243,11 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
-        i2 = int_add(i0, 10)        
+        i2 = int_add(i0, 10)
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_add_ovf_before(self):
         ops = """
         [i0]
@@ -3268,7 +3268,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_sub(self):
         ops = """
         [i0]
@@ -3283,11 +3283,11 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
-        i2 = int_sub(i0, 10)        
+        i2 = int_sub(i0, 10)
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_lt_sub_before(self):
         ops = """
         [i0]
@@ -3306,7 +3306,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_ltle(self):
         ops = """
         [i0]
@@ -3357,7 +3357,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_gtge(self):
         ops = """
         [i0]
@@ -3374,7 +3374,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, 'Not', expected)
-        
+
     def test_bound_gegt(self):
         ops = """
         [i0]
@@ -3413,6 +3413,26 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i3)
         """
         self.optimize_loop(ops, 'Not', expected)
+
+    def test_bound_arraylen(self):
+        ops = """
+        [i0, p0]
+        p1 = new_array(i0, descr=arraydescr)
+        i1 = arraylen_gc(p1)
+        i2 = int_gt(i1, -1)
+        guard_true(i2) []
+        setarrayitem_gc(p0, 0, p1)
+        jump(i0, p0)
+        """
+        # The dead arraylen_gc will be eliminated by the backend.
+        expected = """
+        [i0, p0]
+        p1 = new_array(i0, descr=arraydescr)
+        i1 = arraylen_gc(p1)
+        setarrayitem_gc(p0, 0, p1)
+        jump(i0, p0)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_addsub_const(self):
         ops = """
@@ -3558,7 +3578,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         i14 = int_gt(i1, 10)
         guard_true(i14) []
         i15 = int_ge(i1, 20)
-        guard_true(i15) []        
+        guard_true(i15) []
         jump(i1)
         """
         expected = """
@@ -3571,7 +3591,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         i14 = int_gt(i1, 10)
         guard_true(i14) []
         i15 = int_ge(i1, 20)
-        guard_true(i15) []        
+        guard_true(i15) []
         jump(i1)
         """
         self.optimize_loop(ops, 'Not', expected)
@@ -3818,7 +3838,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         """
         self.optimize_loop(ops, 'Not, Not', expected)
 
-        
+
 
 
 ##class TestOOtype(BaseTestOptimizeOpt, OOtypeMixin):
@@ -3835,7 +3855,7 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
 ##        jump(1)
 ##        """
 ##        self.optimize_loop(ops, 'Not', expected)
- 
+
 ##    def test_instanceof_guard_class(self):
 ##        ops = """
 ##        [i0, p0]

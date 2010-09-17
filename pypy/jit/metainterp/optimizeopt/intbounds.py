@@ -1,6 +1,7 @@
 from optimizer import Optimization, CONST_1, CONST_0
 from pypy.jit.metainterp.optimizeutil import _findall
-from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
+    IntLowerBound
 from pypy.jit.metainterp.history import Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
@@ -25,7 +26,7 @@ class OptIntBounds(Optimization):
         b = v.intbound
         if b.has_lower and b.has_upper and b.lower == b.upper:
             v.make_constant(ConstInt(b.lower))
-            
+        
         try:
             op = self.optimizer.producer[box]
         except KeyError:
@@ -183,7 +184,12 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op.result, 1)
         else: 
             self.emit_operation(op)
-            
+    
+    def optimize_ARRAYLEN_GC(self, op):
+        self.emit_operation(op)
+        v1 = self.getvalue(op.result)
+        v1.intbound.make_ge(IntLowerBound(0))
+    
     def make_int_lt(self, args):
         v1 = self.getvalue(args[0])
         v2 = self.getvalue(args[1])
