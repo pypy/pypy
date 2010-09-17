@@ -154,14 +154,6 @@ def test_ll_shrink_array_2():
     for i in range(3):
         assert s2.vars[i] == 50 + i
 
-
-def test_get_objects():
-    class X(object):
-        pass
-    x1 = X()
-    lst = rgc._get_objects()
-    assert rgc.cast_instance_to_gcref(x1) in lst
-
 def test_get_referents():
     class X(object):
         __slots__ = ['stuff']
