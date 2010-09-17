@@ -210,6 +210,14 @@ class _AppTestSelect:
         assert len(res[2]) == 0
         assert res[0][0] == res[1][0]
 
+    def test_poll(self):
+        import select
+        class A(object):
+            def __int__(self):
+                return 3
+        
+        select.poll().poll(A()) # assert did not crash
+
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
     def setup_class(cls):
@@ -275,4 +283,3 @@ class AppTestSelectWithSockets(_AppTestSelect):
         s1, addr2 = cls.sock.accept()
 
         return s1, s2
-

@@ -54,14 +54,11 @@ class Poll(Wrappable):
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
         else:
-            # rationale for computing directly integer, instead
-            # of float + math.cell is that
-            # we have for free overflow check and noone really
-            # cares (since CPython does not try too hard to have
-            # a ceiling of value)
+            # we want to be compatible with cpython and also accept things
+            # that can be casted to integer (I think)
             try:
                 # compute the integer
-                timeout = space.int_w(w_timeout)
+                timeout = space.int_w(space.int(w_timeout))
             except (OverflowError, ValueError):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("math range error"))
