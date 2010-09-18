@@ -5,7 +5,7 @@ from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
 class OptRewrite(Optimization):
-    """Rewrite operations into equvivialent, cheaper operations.
+    """Rewrite operations into equivalent, cheaper operations.
        This includes already executed operations and constants.
     """
     
