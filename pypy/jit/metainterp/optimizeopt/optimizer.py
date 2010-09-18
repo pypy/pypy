@@ -351,9 +351,9 @@ class Optimizer(Optimization):
         if op.opnum == rop.GUARD_VALUE:
             if self.getvalue(op.args[0]) in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.
-                # This is done after the operation is emitted, to let
-                # store_final_boxes_in_guard set the guard_opnum field
-                # of the descr to the original rop.GUARD_VALUE.
+                # This is done after the operation is emitted to let
+                # store_final_boxes_in_guard set the guard_opnum field of the
+                # descr to the original rop.GUARD_VALUE.
                 constvalue = op.args[1].getint()
                 if constvalue == 0:
                     opnum = rop.GUARD_FALSE
