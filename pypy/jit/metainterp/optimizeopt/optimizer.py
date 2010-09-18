@@ -11,7 +11,7 @@ from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
-from intutils import IntBound, IntUnbounded
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
 
 LEVEL_UNKNOWN    = '\x00'
 LEVEL_NONNULL    = '\x01'

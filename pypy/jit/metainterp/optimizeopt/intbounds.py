@@ -1,4 +1,4 @@
-from optimizer import Optimization, CONST_1, CONST_0
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
     IntLowerBound

@@ -1,4 +1,4 @@
-from optimizer import *
+from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
 from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.optimizeutil import _findall
