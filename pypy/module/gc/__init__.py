@@ -17,6 +17,9 @@ class Module(MixedModule):
     def __init__(self, space, w_name):
         if (not space.config.translating or
             space.config.translation.gctransformer == "framework"):
+            self.appleveldefs.update({
+                'dump_rpy_heap': 'app_referents.dump_rpy_heap',
+                })
             self.interpleveldefs.update({
                 'get_rpy_roots': 'referents.get_rpy_roots',
                 'get_rpy_referents': 'referents.get_rpy_referents',
@@ -25,7 +28,7 @@ class Module(MixedModule):
                 'get_objects': 'referents.get_objects',
                 'get_referents': 'referents.get_referents',
                 'get_referrers': 'referents.get_referrers',
-                'dump_rpy_heap': 'referents.dump_rpy_heap',
+                '_dump_rpy_heap': 'referents._dump_rpy_heap',
                 'GcRef': 'referents.W_GcRef',
                 })
         MixedModule.__init__(self, space, w_name)

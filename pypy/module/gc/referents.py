@@ -149,20 +149,9 @@ def get_referrers(space, args_w):
     return space.newlist(result_w.keys())
 get_referrers.unwrap_spec = [ObjSpace, 'args_w']
 
-def dump_rpy_heap(space, fd):
-    """Write a full dump of the objects in the heap to the given file
-    descriptor.  Format for each object (each item is one machine word):
-
-        [addr] [typeindex] [size] [addr1]..[addrn] [-1]
-
-    where [addr] is the address of the object, [typeindex] and [size]
-    are as get_rpy_type_index() and get_rpy_memory_usage() would return,
-    and [addr1]..[addrn] are addresses of other objects that this object
-    points to.  The full dump is a list of such objects, with a marker
-    [0][0][0][-1] inserted after all GC roots, before all non-roots.
-    """
+def _dump_rpy_heap(space, fd):
     try:
         rgc.dump_rpy_heap(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-dump_rpy_heap.unwrap_spec = [ObjSpace, int]
+_dump_rpy_heap.unwrap_spec = [ObjSpace, int]
