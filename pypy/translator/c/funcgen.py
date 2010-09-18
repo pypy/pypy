@@ -733,6 +733,8 @@ class FunctionCodeGenerator(object):
                 continue
             elif T == Signed:
                 format.append('%ld')
+            elif T == Unsigned:
+                format.append('%lu')
             elif T == Float:
                 format.append('%f')
             elif isinstance(T, Ptr) or T == Address:

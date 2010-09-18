@@ -16,14 +16,20 @@ class ArenaError(Exception):
 class Arena(object):
     object_arena_location = {}     # {container: (arena, offset)}
     old_object_arena_location = weakref.WeakKeyDictionary()
+    _count_arenas = 0
 
     def __init__(self, nbytes, zero):
+        Arena._count_arenas += 1
+        self._arena_index = Arena._count_arenas
         self.nbytes = nbytes
         self.usagemap = array.array('c')
         self.objectptrs = {}        # {offset: ptr-to-container}
         self.objectsizes = {}       # {offset: size}
         self.freed = False
         self.reset(zero)
+
+    def __repr__(self):
+        return '<Arena #%d [%d bytes]>' % (self._arena_index, self.nbytes)
 
     def reset(self, zero, start=0, size=None):
         self.check()
@@ -297,6 +303,7 @@ def arena_free(arena_addr):
     assert isinstance(arena_addr, fakearenaaddress)
     assert arena_addr.offset == 0
     arena_addr.arena.reset(False)
+    assert not arena_addr.arena.objectptrs
     arena_addr.arena.freed = True
 
 def arena_reset(arena_addr, size, zero):
@@ -357,6 +364,11 @@ if sys.platform == 'linux2':
     # This only works with linux's madvise(), which is really not a memory
     # usage hint but a real command.  It guarantees that after MADV_DONTNEED
     # the pages are cleared again.
+
+    # Note that the trick of the general 'posix' section below, i.e.
+    # reading /dev/zero, does not seem to have the correct effect of
+    # lazily-allocating pages on all Linux systems.
+
     from pypy.rpython.tool import rffi_platform
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     _eci = ExternalCompilationInfo(includes=['sys/mman.h'])

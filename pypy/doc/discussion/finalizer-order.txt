@@ -133,8 +133,8 @@ when the state of the object changes from 0 to 1 to 2 to 3.  In a visit
 that doesn't change the state of an object, we don't follow its children
 recursively.
 
-In practice we can encode the 4 states with a single extra bit in the
-header:
+In practice, in the SemiSpace, Generation and Hybrid GCs, we can encode
+the 4 states with a single extra bit in the header:
 
       =====  =============  ========  ====================
       state  is_forwarded?  bit set?  bit set in the copy?
@@ -150,3 +150,17 @@ really just a copy(x) followed by scan_copied().  We must also clear the
 bit in the copy at the end, to clean up before the next collection
 (which means recursively bumping the state from 2 to 3 in the final
 loop).
+
+In the MiniMark GC, the objects don't move (apart from when they are
+copied out of the nursery), but we use the flag GCFLAG_VISITED to mark
+objects that survive, so we can also have a single extra bit for
+finalizers:
+
+      =====  ==============  ============================
+      state  GCFLAG_VISITED  GCFLAG_FINALIZATION_ORDERING
+      =====  ==============  ============================
+        0        no              no
+        1        no              yes
+        2        yes             yes
+        3        yes             no
+      =====  =============   ============================

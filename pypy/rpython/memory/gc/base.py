@@ -5,6 +5,7 @@ from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.support import AddressDict
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
+from pypy.rlib.rarithmetic import r_uint
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
                              ('size', lltype.Signed),
@@ -151,7 +152,7 @@ class GCBase(object):
         return False
 
     def set_max_heap_size(self, size):
-        pass
+        raise NotImplementedError
 
     def x_swap_pool(self, newpool):
         return newpool
@@ -345,6 +346,7 @@ def choose_gc_from_config(config):
                "generation": "generation.GenerationGC",
                "hybrid": "hybrid.HybridGC",
                "markcompact" : "markcompact.MarkCompactGC",
+               "minimark" : "minimark.MiniMarkGC",
                }
     try:
         modulename, classname = classes[config.translation.gc].split('.')
@@ -356,10 +358,12 @@ def choose_gc_from_config(config):
     GCClass = getattr(module, classname)
     return GCClass, GCClass.TRANSLATION_PARAMS
 
-def read_from_env(varname):
+def _read_float_and_factor_from_env(varname):
     import os
     value = os.environ.get(varname)
     if value:
+        if len(value) > 1 and value[-1] in 'bB':
+            value = value[:-1]
         realvalue = value[:-1]
         if value[-1] in 'kK':
             factor = 1024
@@ -371,7 +375,21 @@ def read_from_env(varname):
             factor = 1
             realvalue = value
         try:
-            return int(float(realvalue) * factor)
+            return (float(realvalue), factor)
         except ValueError:
             pass
-    return -1
+    return (0.0, 0)
+
+def read_from_env(varname):
+    value, factor = _read_float_and_factor_from_env(varname)
+    return int(value * factor)
+
+def read_uint_from_env(varname):
+    value, factor = _read_float_and_factor_from_env(varname)
+    return r_uint(value * factor)
+
+def read_float_from_env(varname):
+    value, factor = _read_float_and_factor_from_env(varname)
+    if factor != 1:
+        return 0.0
+    return value

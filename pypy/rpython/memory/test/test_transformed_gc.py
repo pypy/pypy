@@ -47,7 +47,7 @@ class GCTest(object):
     gcpolicy = None
     stacklessgc = False
     GC_CAN_MOVE = False
-    GC_CANNOT_MALLOC_NONMOVABLE = False
+    GC_CAN_MALLOC_NONMOVABLE = True
     taggedpointers = False
     
     def setup_class(cls):
@@ -602,8 +602,8 @@ class GenericGCTests(GCTest):
             rgc.collect()
             if a:
                 assert not rgc.can_move(a)
-                return 0
-            return 1
+                return 1
+            return 0
             #except Exception, e:
             #    return 2
 
@@ -611,7 +611,7 @@ class GenericGCTests(GCTest):
     
     def test_malloc_nonmovable(self):
         run = self.runner("malloc_nonmovable")
-        assert int(self.GC_CANNOT_MALLOC_NONMOVABLE) == run([])
+        assert int(self.GC_CAN_MALLOC_NONMOVABLE) == run([])
 
     def define_malloc_nonmovable_fixsize(cls):
         S = lltype.GcStruct('S', ('x', lltype.Float))
@@ -622,8 +622,8 @@ class GenericGCTests(GCTest):
                 rgc.collect()
                 if a:
                     assert not rgc.can_move(a)
-                    return 0
-                return 1
+                    return 1
+                return 0
             except Exception, e:
                 return 2
 
@@ -631,7 +631,7 @@ class GenericGCTests(GCTest):
     
     def test_malloc_nonmovable_fixsize(self):
         run = self.runner("malloc_nonmovable_fixsize")
-        assert run([]) == int(self.GC_CANNOT_MALLOC_NONMOVABLE)
+        assert run([]) == int(self.GC_CAN_MALLOC_NONMOVABLE)
 
     def define_shrink_array(cls):
         from pypy.rpython.lltypesystem.rstr import STR
@@ -680,7 +680,8 @@ class GenericGCTests(GCTest):
 
 class GenericMovingGCTests(GenericGCTests):
     GC_CAN_MOVE = True
-    GC_CANNOT_MALLOC_NONMOVABLE = True
+    GC_CAN_MALLOC_NONMOVABLE = False
+    GC_CAN_TEST_ID = False
 
     def define_many_ids(cls):
         class A(object):
@@ -710,7 +711,8 @@ class GenericMovingGCTests(GenericGCTests):
         return f
     
     def test_many_ids(self):
-        py.test.skip("fails for bad reasons in lltype.py :-(")
+        if not self.GC_CAN_TEST_ID:
+            py.test.skip("fails for bad reasons in lltype.py :-(")
         run = self.runner("many_ids")
         run([])
 
@@ -856,7 +858,7 @@ class GenericMovingGCTests(GenericGCTests):
         #     (and give fixedsize)
 
     def define_writebarrier_before_copy(cls):
-        S = lltype.GcStruct('S')
+        S = lltype.GcStruct('S', ('x', lltype.Char))
         TP = lltype.GcArray(lltype.Ptr(S))
         def fn():
             l = lltype.malloc(TP, 100)
@@ -1144,10 +1146,6 @@ class TestMarkCompactGC(GenericMovingGCTests):
             GC_PARAMS = {'space_size': 4096*WORD}
             root_stack_depth = 200
 
-    def test_writebarrier_before_copy(self):
-        py.test.skip("Not relevant, and crashes because llarena does not "
-                     "support empty GcStructs")
-
 class TestGenerationGC(GenericMovingGCTests):
     gcname = "generation"
     GC_CAN_SHRINK_ARRAY = True
@@ -1379,7 +1377,7 @@ class TestGenerationalNoFullCollectGC(GCTest):
 
 class TestHybridGC(TestGenerationGC):
     gcname = "hybrid"
-    GC_CANNOT_MALLOC_NONMOVABLE = False
+    GC_CAN_MALLOC_NONMOVABLE = True
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
@@ -1443,6 +1441,21 @@ class TestHybridGC(TestGenerationGC):
 
     def test_malloc_nonmovable_fixsize(self):
         py.test.skip("not supported")
+
+
+class TestMiniMarkGC(TestHybridGC):
+    gcname = "minimark"
+    GC_CAN_TEST_ID = True
+
+    class gcpolicy(gc.FrameworkGcPolicy):
+        class transformerclass(framework.FrameworkGCTransformer):
+            from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
+            GC_PARAMS = {'nursery_size': 32*WORD,
+                         'page_size': 16*WORD,
+                         'arena_size': 64*WORD,
+                         'small_request_threshold': 5*WORD,
+                         }
+            root_stack_depth = 200
 
 # ________________________________________________________________
 # tagged pointers

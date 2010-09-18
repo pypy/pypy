@@ -7,7 +7,7 @@ memory_alignment = struct.calcsize("P")
 primitive_to_fmt = {lltype.Signed:          "l",
                     lltype.Unsigned:        "L",
                     lltype.Char:            "c",
-                    lltype.UniChar:         "H",     # maybe
+                    lltype.UniChar:         "i",     # 4 bytes
                     lltype.Bool:            "B",
                     lltype.Float:           "d",
                     llmemory.Address:       "P",

@@ -449,7 +449,7 @@ class GenerationGC(SemiSpaceGC):
 
     # for the JIT: a minimal description of the write_barrier() method
     # (the JIT assumes it is of the shape
-    #  "if newvalue.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
+    #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
     JIT_WB_IF_FLAG = GCFLAG_NO_YOUNG_PTRS
 
     def write_barrier(self, newvalue, addr_struct):
