@@ -3434,6 +3434,22 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         """
         self.optimize_loop(ops, 'Not, Not', expected)
 
+    def test_bound_strlen(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_ge(i0, 0)
+        guard_true(i1) []
+        jump(p0)
+        """
+        # The dead strlen will be eliminated be the backend.
+        expected = """
+        [p0]
+        i0 = strlen(p0)
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected)
+
     def test_addsub_const(self):
         ops = """
         [i0]
