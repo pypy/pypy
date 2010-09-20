@@ -517,8 +517,8 @@ class Entry(ExtRegistryEntry):
 class Entry(ExtRegistryEntry):
     _about_ = dump_rpy_heap
     def compute_result_annotation(self, s_fd):
-        from pypy.annotation.model import s_None
-        return s_None
+        from pypy.annotation.model import s_Bool
+        return s_Bool
     def specialize_call(self, hop):
         vlist = hop.inputargs(lltype.Signed)
         hop.exception_is_here()

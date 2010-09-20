@@ -197,3 +197,4 @@ def dump_rpy_heap(gc, fd):
     heapdumper.walk(heapdumper.pending)
     heapdumper.flush()
     heapdumper.delete()
+    return True

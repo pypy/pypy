@@ -412,7 +412,7 @@ class FrameworkGCTransformer(GCTransformer):
                                          minimal_transform=False)
         self.dump_rpy_heap_ptr = getfn(inspect.dump_rpy_heap,
                                        [s_gc, annmodel.SomeInteger()],
-                                       annmodel.s_None,
+                                       annmodel.s_Bool,
                                        minimal_transform=False)
 
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,

@@ -224,3 +224,13 @@ void boehm_gc_startup_code(void)
 
 #define OP_CAST_PTR_TO_WEAKREFPTR(x, r)  r = x
 #define OP_CAST_WEAKREFPTR_TO_PTR(x, r)  r = x
+
+/************************************************************/
+/* dummy version of these operations, e.g. with Boehm */
+
+#define OP_GC_GET_RPY_ROOTS(r)           r = 0
+#define OP_GC_GET_RPY_REFERENTS(x, r)    r = 0
+#define OP_GC_GET_RPY_MEMORY_USAGE(x, r) r = -1
+#define OP_GC_GET_RPY_TYPE_INDEX(x, r)   r = -1
+#define OP_GC_IS_RPY_INSTANCE(x, r)      r = 0
+#define OP_GC_DUMP_RPY_HEAP(r)           r = 0

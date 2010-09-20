@@ -467,6 +467,13 @@ LL_OPERATIONS = {
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canunwindgc=True),
 
+    'gc_get_rpy_roots'    : LLOp(),
+    'gc_get_rpy_referents': LLOp(),
+    'gc_get_rpy_memory_usage': LLOp(),
+    'gc_get_rpy_type_index': LLOp(),
+    'gc_is_rpy_instance'  : LLOp(),
+    'gc_dump_rpy_heap'    : LLOp(),
+
     # ------- JIT & GC interaction, only for some GCs ----------
     
     'gc_adr_of_nursery_free' : LLOp(),

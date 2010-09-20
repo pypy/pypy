@@ -2,7 +2,7 @@ from pypy.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace
-from pypy.interpreter.error import wrap_oserror
+from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rlib.objectmodel import we_are_translated
 
 
@@ -33,8 +33,14 @@ def unwrap(space, w_obj):
         gcref = rgc.cast_instance_to_gcref(w_obj)
     return gcref
 
+def missing_operation(space):
+    return OperationError(space.w_NotImplementedError,
+                          space.wrap("operation not implemented by this GC"))
+
 def get_rpy_roots(space):
     lst = rgc.get_rpy_roots()
+    if lst is None:
+        raise missing_operation(space)
     return space.newlist([wrap(space, gcref) for gcref in lst if gcref])
 
 def get_rpy_referents(space, w_obj):
@@ -42,6 +48,8 @@ def get_rpy_referents(space, w_obj):
     This is likely to contain a lot of GcRefs."""
     gcref = unwrap(space, w_obj)
     lst = rgc.get_rpy_referents(gcref)
+    if lst is None:
+        raise missing_operation(space)
     return space.newlist([wrap(space, gcref) for gcref in lst])
 
 def get_rpy_memory_usage(space, w_obj):
@@ -49,6 +57,8 @@ def get_rpy_memory_usage(space, w_obj):
     This does not include the internal structures of the object."""
     gcref = unwrap(space, w_obj)
     size = rgc.get_rpy_memory_usage(gcref)
+    if size < 0:
+        raise missing_operation(space)
     return space.wrap(size)
 
 def get_rpy_type_index(space, w_obj):
@@ -57,6 +67,8 @@ def get_rpy_type_index(space, w_obj):
     file typeids.txt produced at translation."""
     gcref = unwrap(space, w_obj)
     index = rgc.get_rpy_type_index(gcref)
+    if index < 0:
+        raise missing_operation(space)
     return space.wrap(index)
 
 def _list_w_obj_referents(gcref, result_w):
@@ -151,7 +163,9 @@ get_referrers.unwrap_spec = [ObjSpace, 'args_w']
 
 def _dump_rpy_heap(space, fd):
     try:
-        rgc.dump_rpy_heap(fd)
+        ok = rgc.dump_rpy_heap(fd):
     except OSError, e:
         raise wrap_oserror(space, e)
+    if not ok:
+        raise missing_operation(space)
 _dump_rpy_heap.unwrap_spec = [ObjSpace, int]
