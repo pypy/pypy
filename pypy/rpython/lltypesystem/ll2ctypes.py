@@ -349,6 +349,9 @@ def get_common_subclass(cls1, cls2, cache={}):
         cache[cls1, cls2] = subcls
         return subcls
 
+_hack_stay_alive = [None] * 64
+_hack_stay_alive_index = 0
+
 def add_storage(instance, mixin_cls, ctypes_storage):
     """Put ctypes_storage on the instance, changing its __class__ so that it
     sees the methods of the given mixin class."""
@@ -357,6 +360,12 @@ def add_storage(instance, mixin_cls, ctypes_storage):
     subcls = get_common_subclass(mixin_cls, instance.__class__)
     instance.__class__ = subcls
     instance._storage = ctypes_storage
+    #
+    # hack hack hack.  Avoids reusing too fast the same hashes :-/
+    global _hack_stay_alive_index
+    _hack_stay_alive_index = (_hack_stay_alive_index + 1) & 63
+    _hack_stay_alive[_hack_stay_alive_index] = instance
+
 
 class _parentable_mixin(object):
     """Mixin added to _parentable containers when they become ctypes-based.
