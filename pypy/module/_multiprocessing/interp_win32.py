@@ -14,6 +14,7 @@ CONSTANTS = """
     PIPE_UNLIMITED_INSTANCES
     NMPWAIT_WAIT_FOREVER
     ERROR_PIPE_CONNECTED ERROR_SEM_TIMEOUT ERROR_PIPE_BUSY
+    ERROR_NO_SYSTEM_RESOURCES
 """.split()
 
 class CConfig:
@@ -25,9 +26,8 @@ class CConfig:
     for name in CONSTANTS:
         locals()[name] = rffi_platform.ConstantInteger(name)
 
-class cConfig:
-    pass
-cConfig.__dict__.update(rffi_platform.configure(CConfig))
+config = rffi_platform.configure(CConfig)
+globals().update(config)
 
 def handle_w(space, w_handle):
     return rffi.cast(rwin32.HANDLE, space.int_w(w_handle))
@@ -57,6 +57,20 @@ _CreateFile = rwin32.winexternal(
         rwin32.DWORD, rwin32.DWORD, rffi.VOIDP,
         rwin32.DWORD, rwin32.DWORD, rwin32.HANDLE],
     rwin32.HANDLE)
+
+_WriteFile = rwin32.winexternal(
+    'WriteFile', [
+        rwin32.HANDLE,
+        rffi.VOIDP, rwin32.DWORD,
+        rwin32.LPDWORD, rffi.VOIDP],
+    rwin32.BOOL)
+
+_ReadFile = rwin32.winexternal(
+    'ReadFile', [
+        rwin32.HANDLE,
+        rffi.VOIDP, rwin32.DWORD,
+        rwin32.LPDWORD, rffi.VOIDP],
+    rwin32.BOOL)
 
 _ExitProcess = rwin32.winexternal(
     'ExitProcess', [rffi.UINT], lltype.Void)
@@ -146,7 +160,7 @@ def win32_namespace(space):
     for name in CONSTANTS:
         space.setattr(w_win32,
                       space.wrap(name),
-                      space.wrap(getattr(cConfig, name)))
+                      space.wrap(config[name]))
     space.setattr(w_win32,
                   space.wrap('NULL'),
                   space.newint(0))

@@ -12,6 +12,12 @@ class AppTestWin32:
         from _multiprocessing import win32
         raises(WindowsError, win32.CloseHandle, -1)
 
+    def test_CreateFile(self):
+        from _multiprocessing import win32
+        err = raises(WindowsError, win32.CreateFile,
+                     "in/valid", 0, 0, 0, 0, 0, 0)
+        assert err.value.winerror == 87 # ERROR_INVALID_PARAMETER
+
     def test_pipe(self):
         from _multiprocessing import win32
         import os

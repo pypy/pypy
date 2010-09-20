@@ -14,6 +14,8 @@ class AppTestConnection:
                                                 #'_rawffi', # on win32
                                                 ))
         if sys.platform == "win32":
+            # stubs for the 'msvcrt' and '_subprocess' module,
+            # just for multiprocessing to import correctly.
             space = cls.space
             space.setitem(space.sys.get('modules'),
                           space.wrap('msvcrt'), space.sys)
