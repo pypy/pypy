@@ -46,7 +46,7 @@ class Arena(object):
                 assert offset >= stop, "object overlaps cleared area"
             else:
                 obj = ptr._obj
-                del Arena.object_arena_location[obj]
+                _dictdel(Arena.object_arena_location, obj)
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
                 obj._free()
@@ -257,6 +257,16 @@ def _oldobj_to_address(obj):
             msg = "taking address of %r, but it is not in an arena"
         raise RuntimeError(msg % (obj,))
     return arena.getaddr(offset)
+
+def _dictdel(d, key):
+    # hack
+    try:
+        del d[key]
+    except KeyError:
+        items = d.items()
+        d.clear()
+        d.update(items)
+        del d[key]
 
 class RoundedUpForAllocation(llmemory.AddressOffset):
     """A size that is rounded up in order to preserve alignment of objects
