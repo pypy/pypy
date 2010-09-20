@@ -10,17 +10,14 @@ class AppTestConnection:
     def setup_class(cls):
         if sys.platform != "win32":
             py.test.skip("win32 only")
-        cls.space = gettestobjspace(usemodules=('thread', '_multiprocessing',
-                                                #'_rawffi', # on win32
-                                                ))
+        cls.space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
         if sys.platform == "win32":
-            # stubs for the 'msvcrt' and '_subprocess' module,
+            # stubs for some modules,
             # just for multiprocessing to import correctly.
             space = cls.space
-            space.setitem(space.sys.get('modules'),
-                          space.wrap('msvcrt'), space.sys)
-            space.setitem(space.sys.get('modules'),
-                          space.wrap('_subprocess'), space.sys)
+            w_modules = space.sys.get('modules')
+            space.setitem(w_modules, space.wrap('msvcrt'), space.sys)
+            space.setitem(w_modules, space.wrap('_subprocess'), space.sys)
 
     def test_pipe_connection(self):
         import multiprocessing
