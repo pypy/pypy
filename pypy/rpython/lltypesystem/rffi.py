@@ -551,6 +551,7 @@ r_singlefloat = rarithmetic.r_singlefloat
 # void *   - for now, represented as char *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 VOIDP_real = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+NULL = lltype.nullptr(VOIDP.TO)
 
 # void **
 VOIDPP = CArrayPtr(VOIDP)
