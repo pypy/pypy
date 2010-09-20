@@ -1,8 +1,8 @@
-from optimizer import Optimizer
-from rewrite import OptRewrite
-from intbounds import OptIntBounds
-from virtualize import OptVirtualize
-from heap import OptHeap
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimizer
+from pypy.jit.metainterp.optimizeopt.rewrite import OptRewrite
+from pypy.jit.metainterp.optimizeopt.intbounds import OptIntBounds
+from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
+from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 
 def optimize_loop_1(metainterp_sd, loop, virtuals=True):
     """Optimize loop.operations to make it match the input of loop.specnodes

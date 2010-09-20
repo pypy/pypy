@@ -4,10 +4,11 @@ Version numbers exposed by PyPy through the 'sys' module.
 import os
 
 
-CPYTHON_VERSION            = (2, 7, 0, "final", 42)
-CPYTHON_API_VERSION        = 1012
+#XXX # the release serial 42 is not in range(16)
+CPYTHON_VERSION            = (2, 7, 0, "final", 42)   #XXX # sync patchlevel.h
+CPYTHON_API_VERSION        = 1012   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 3, 0, "beta", '?')
+PYPY_VERSION               = (1, 3, 0, "beta", '?')  #XXX # sync patchlevel.h
 # the last item is replaced by the svn revision ^^^
 
 TRIM_URL_UP_TO = 'svn/pypy/'

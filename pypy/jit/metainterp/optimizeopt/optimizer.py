@@ -11,7 +11,7 @@ from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
-from intutils import IntBound, IntUnbounded
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
 
 LEVEL_UNKNOWN    = '\x00'
 LEVEL_NONNULL    = '\x01'
@@ -187,7 +187,7 @@ class Optimization(object):
     
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=[], virtuals=True):
+    def __init__(self, metainterp_sd, loop, optimizations=None, virtuals=True):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
@@ -199,10 +199,8 @@ class Optimizer(Optimization):
         self.pure_operations = args_dict()
         self.producer = {}
         self.pendingfields = []
-        
-        if len(optimizations) == 0:
-            self.first_optimization = self
-        else:
+
+        if optimizations:
             self.first_optimization = optimizations[0]
             for i in range(1, len(optimizations)):
                 optimizations[i - 1].next_optimization = optimizations[i]
@@ -210,6 +208,8 @@ class Optimizer(Optimization):
             for o in optimizations:
                 o.optimizer = self
                 o.setup(virtuals)
+        else:
+            self.first_optimization = self
 
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(jitprof.OPT_FORCINGS)
@@ -351,9 +351,9 @@ class Optimizer(Optimization):
         if op.opnum == rop.GUARD_VALUE:
             if self.getvalue(op.args[0]) in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.
-                # This is done after the operation is emitted, to let
-                # store_final_boxes_in_guard set the guard_opnum field
-                # of the descr to the original rop.GUARD_VALUE.
+                # This is done after the operation is emitted to let
+                # store_final_boxes_in_guard set the guard_opnum field of the
+                # descr to the original rop.GUARD_VALUE.
                 constvalue = op.args[1].getint()
                 if constvalue == 0:
                     opnum = rop.GUARD_FALSE

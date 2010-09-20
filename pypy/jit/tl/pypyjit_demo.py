@@ -39,16 +39,24 @@
 
 try:
     from array import array
+
+    def coords(w,h):
+        y = 0
+        while y < h:
+            x = 0
+            while x < w:
+                yield x,y
+                x += 1
+            y += 1
+
     def f(img):
-        i=0
         sa=0
-        while i < img.__len__():
-            sa+=img[i]
-            i+=1
+        for x, y in coords(4,4):
+            sa += x * y
         return sa
 
-    img=array('h',(1,2,3,4))
-    print f(img)
+    #img=array('h',(1,2,3,4))
+    print f(3)
 except Exception, e:
     print "Exception: ", type(e)
     print e

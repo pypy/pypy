@@ -6,7 +6,7 @@ from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.rlib.objectmodel import we_are_translated
-from optimizer import *
+from pypy.jit.metainterp.optimizeopt.optimizer import *
 
 
 class AbstractVirtualValue(OptValue):

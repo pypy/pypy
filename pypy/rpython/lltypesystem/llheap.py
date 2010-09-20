@@ -8,7 +8,8 @@ from operator import setitem as setarrayitem
 from pypy.rlib.rgc import collect
 from pypy.rlib.rgc import can_move
 
-def setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue):
+def setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue,
+                offsets=None):
     assert typeOf(newvalue) == INNERTYPE
     # xxx access the address object's ref() directly for performance
     inneraddr.ref()[0] = newvalue

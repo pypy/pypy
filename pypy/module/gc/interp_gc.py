@@ -24,36 +24,6 @@ disable_finalizers.unwrap_spec = [ObjSpace]
 
 # ____________________________________________________________
 
-import sys
-platform = sys.platform
-
-def estimate_heap_size(space):
-    # XXX should be done with the help of the GCs
-    if platform == "linux2":
-        import os
-        pid = os.getpid()
-        try:
-            fd = os.open("/proc/" + str(pid) + "/status", os.O_RDONLY, 0777)
-        except OSError:
-            pass
-        else:
-            try:
-                content = os.read(fd, 1000000)
-            finally:
-                os.close(fd)
-            lines = content.split("\n")
-            for line in lines:
-                if line.startswith("VmSize:"):
-                    start = line.find(" ") # try to ignore tabs
-                    assert start > 0
-                    stop = len(line) - 3
-                    assert stop > 0
-                    result = int(line[start:stop].strip(" ")) * 1024
-                    return space.wrap(result)
-    raise OperationError(space.w_RuntimeError,
-                         space.wrap("can't estimate the heap size"))
-estimate_heap_size.unwrap_spec = [ObjSpace]
-
 def dump_heap_stats(space, filename):
     tb = rgc._heap_stats()
     if not tb:

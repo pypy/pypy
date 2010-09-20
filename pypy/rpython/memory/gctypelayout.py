@@ -101,6 +101,10 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return infobits & T_MEMBER_INDEX
 
+    def q_is_rpython_class(self, typeid):
+        infobits = self.get(typeid).infobits
+        return infobits & T_IS_RPYTHON_INSTANCE != 0
+
     def set_query_functions(self, gc):
         gc.set_query_functions(
             self.q_is_varsize,
@@ -114,7 +118,8 @@ class GCData(object):
             self.q_varsize_offset_to_length,
             self.q_varsize_offsets_to_gcpointers_in_var_part,
             self.q_weakpointer_offset,
-            self.q_member_index)
+            self.q_member_index,
+            self.q_is_rpython_class)
 
 
 # the lowest 16bits are used to store group member index
@@ -123,6 +128,7 @@ T_IS_VARSIZE           = 0x10000
 T_HAS_GCPTR_IN_VARSIZE = 0x20000
 T_IS_GCARRAY_OF_GCPTR  = 0x40000
 T_IS_WEAKREF           = 0x80000
+T_IS_RPYTHON_INSTANCE  = 0x100000    # the type is a subclass of OBJECT
 T_KEY_MASK             = intmask(0xFF000000)
 T_KEY_VALUE            = intmask(0x7A000000)    # bug detection only
 
@@ -181,6 +187,8 @@ def encode_type_shape(builder, info, TYPE, index):
         varinfo.varitemsize = llmemory.sizeof(ARRAY.OF)
     if builder.is_weakref_type(TYPE):
         infobits |= T_IS_WEAKREF
+    if is_subclass_of_object(TYPE):
+        infobits |= T_IS_RPYTHON_INSTANCE
     info.infobits = infobits | T_KEY_VALUE
 
 # ____________________________________________________________
@@ -259,9 +267,7 @@ class TypeLayoutBuilder(object):
         else:
             # no vtable from lltype2vtable -- double-check to be sure
             # that it's not a subclass of OBJECT.
-            while isinstance(TYPE, lltype.GcStruct):
-                assert TYPE is not rclass.OBJECT
-                _, TYPE = TYPE._first_struct()
+            assert not is_subclass_of_object(TYPE)
 
     def get_info(self, type_id):
         res = llop.get_group_member(GCData.TYPE_INFO_PTR,
@@ -436,6 +442,13 @@ def zero_gc_pointers_inside(p, TYPE):
         elif isinstance(ITEM, lltype.ContainerType):
             for i in range(p._obj.getlength()):
                 zero_gc_pointers_inside(p[i], ITEM)
+
+def is_subclass_of_object(TYPE):
+    while isinstance(TYPE, lltype.GcStruct):
+        if TYPE is rclass.OBJECT:
+            return True
+        _, TYPE = TYPE._first_struct()
+    return False
 
 ########## weakrefs ##########
 # framework: weakref objects are small structures containing only an address

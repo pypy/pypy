@@ -2,7 +2,7 @@ from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 
-from optimizer import Optimization
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 
 class CachedArrayItems(object):
     def __init__(self):

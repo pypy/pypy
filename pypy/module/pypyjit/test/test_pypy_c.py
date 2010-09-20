@@ -762,6 +762,8 @@ class PyPyCJITTests(object):
                 else:
                     n = 215
 
+                print
+                print 'Test:', e1, e2, n, res
                 self.run_source('''
                 class tst:
                     pass
@@ -778,6 +780,25 @@ class PyPyCJITTests(object):
                         if i > 750: a = b
                     return sa
                 '''%(e1, e2), n, ([], res))
+
+    def test_boolrewrite_ptr_single(self):
+        self.run_source('''
+            class tst:
+                pass
+            def main():
+                a = tst()
+                b = tst()
+                c = tst()
+                sa = 0
+                for i in range(1000):
+                    if a == b: sa += 1
+                    else: sa += 2
+                    if a != b: sa += 10000
+                    else: sa += 20000
+                    if i > 750: a = b
+                return sa
+            ''', 215, ([], 12481752))
+        assert False
 
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
@@ -1059,7 +1080,38 @@ class PyPyCJITTests(object):
 
         ''', 170, ([], 1239690.0))
 
-        
+    def test_min_max(self):
+        self.run_source('''
+        def main():
+            i=0
+            sa=0
+            while i < 2000: 
+                sa+=min(max(i, 3000), 4000)
+                i+=1
+            return sa
+        ''', 51, ([], 2000*3000))
+
+    def test_silly_max(self):
+        self.run_source('''
+        def main():
+            i=2
+            sa=0
+            while i < 2000: 
+                sa+=max(*range(i))
+                i+=1
+            return sa
+        ''', 125, ([], 1997001))
+
+    def test_iter_max(self):
+        self.run_source('''
+        def main():
+            i=2
+            sa=0
+            while i < 2000: 
+                sa+=max(range(i))
+                i+=1
+            return sa
+        ''', 88, ([], 1997001))
 
     # test_circular
 

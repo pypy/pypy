@@ -13,6 +13,7 @@ from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.module.__builtin__.app_functional import range as app_range
 from inspect import getsource, getfile
+from pypy.rlib.jit import unroll_safe
 
 """
 Implementation of the common integer case of range. Instead of handling
@@ -96,8 +97,28 @@ def range_withspecialized_implementation(space, start, step, howmany):
     return W_RangeListObject(start, step, howmany)
 
 
+@unroll_safe
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
+    if implementation_of == "max":
+        compare = space.gt
+    else:
+        compare = space.lt
+
+    args_w = args.arguments_w
+    if len(args_w) == 2 and not args.keywords:
+        # Unrollable case
+        w_max_item = None
+        for w_item in args_w:
+            if w_max_item is None or \
+                   space.is_true(compare(w_item, w_max_item)):
+                w_max_item = w_item
+        return w_max_item
+    else:
+        return min_max_loop(space, args, implementation_of)
+
+@specialize.arg(2)
+def min_max_loop(space, args, implementation_of):
     if implementation_of == "max":
         compare = space.gt
     else:

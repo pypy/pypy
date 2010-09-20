@@ -50,6 +50,11 @@ LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
 LONG_TEST = _Ltest
 
+LONG_BIT_SHIFT = 0
+while (1 << LONG_BIT_SHIFT) != LONG_BIT:
+    LONG_BIT_SHIFT += 1
+    assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
+
 INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
 

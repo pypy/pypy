@@ -438,6 +438,7 @@ LL_OPERATIONS = {
     'do_malloc_fixedsize_clear':LLOp(canraise=(MemoryError,),canunwindgc=True),
     'do_malloc_varsize_clear':  LLOp(canraise=(MemoryError,),canunwindgc=True),
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
+    'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
 
     # __________ GC operations __________
@@ -468,6 +469,13 @@ LL_OPERATIONS = {
     'gc_assume_young_pointers': LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canunwindgc=True),
+
+    'gc_get_rpy_roots'    : LLOp(),
+    'gc_get_rpy_referents': LLOp(),
+    'gc_get_rpy_memory_usage': LLOp(),
+    'gc_get_rpy_type_index': LLOp(),
+    'gc_is_rpy_instance'  : LLOp(),
+    'gc_dump_rpy_heap'    : LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
     

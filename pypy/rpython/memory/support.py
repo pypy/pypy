@@ -216,6 +216,24 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
             self.index_in_oldest = index + 1
             return result
 
+        def foreach(self, callback, arg):
+            """Invoke 'callback(address, arg)' for all addresses in the deque.
+            Typically, 'callback' is a bound method and 'arg' can be None.
+            """
+            chunk = self.oldest_chunk
+            index = self.index_in_oldest
+            while chunk is not self.newest_chunk:
+                while index < chunk_size:
+                    callback(chunk.items[index], arg)
+                    index += 1
+                chunk = chunk.next
+                index = 0
+            limit = self.index_in_newest
+            while index < limit:
+                callback(chunk.items[index], arg)
+                index += 1
+        foreach._annspecialcase_ = 'specialize:arg(1)'
+
         def delete(self):
             cur = self.oldest_chunk
             while cur:

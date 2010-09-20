@@ -1,16 +1,17 @@
 import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
-from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT,\
-     LoopToken
+from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
+                                         LoopToken)
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
-from pypy.jit.backend.x86.regalloc import RegAlloc, \
-     X86RegisterManager, X86XMMRegisterManager, get_ebp_ofs
+from pypy.jit.backend.x86.regalloc import (RegAlloc, X86RegisterManager,
+                                           X86XMMRegisterManager, get_ebp_ofs)
 
-from pypy.jit.backend.x86.arch import FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD, IS_X86_32, IS_X86_64
+from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
+                                       IS_X86_32, IS_X86_64)
 
 from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
                                          esp, ebp, esi, edi,
@@ -474,6 +475,7 @@ class Assembler386(object):
         # align, e.g. for Mac OS X        
         aligned_words = align_stack_words(words+2)-2 # 2 = EIP+EBP
         mc.writeimm32(-WORD * aligned_words)
+        mc.valgrind_invalidated()
         mc.done()
 
     def _call_header(self):
@@ -596,6 +598,7 @@ class Assembler386(object):
         target = newlooptoken._x86_direct_bootstrap_code
         mc = codebuf.InMemoryCodeBuilder(oldadr, oldadr + 16)
         mc.JMP(imm(target))
+        mc.valgrind_invalidated()
         mc.done()
 
     def _assemble_bootstrap_code(self, inputargs, arglocs):

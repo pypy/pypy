@@ -71,7 +71,8 @@ class W_Root(object):
                              space.wrap("__class__ assignment: only for heap types"))
 
     def user_setup(self, space, w_subtype):
-        assert False, "only for interp-level user subclasses from typedef.py"
+        raise NotImplementedError("only for interp-level user subclasses "
+                                  "from typedef.py")
 
     def getname(self, space, default):
         try:

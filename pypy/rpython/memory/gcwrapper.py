@@ -15,6 +15,8 @@ class GCManagedHeap(object):
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
+        self.has_write_barrier_from_array = hasattr(self.gc,
+                                                    'write_barrier_from_array')
 
     def prepare_graphs(self, flowgraphs):
         lltype2vtable = self.llinterp.typer.lltype2vtable
@@ -78,13 +80,30 @@ class GCManagedHeap(object):
         ARRAY = lltype.typeOf(array).TO
         addr = llmemory.cast_ptr_to_adr(array)
         addr += llmemory.itemoffsetof(ARRAY, index)
-        self.setinterior(array, addr, ARRAY.OF, newitem)
+        self.setinterior(array, addr, ARRAY.OF, newitem, (index,))
 
-    def setinterior(self, toplevelcontainer, inneraddr, INNERTYPE, newvalue):
+    def setinterior(self, toplevelcontainer, inneraddr, INNERTYPE, newvalue,
+                    offsets=()):
         if (lltype.typeOf(toplevelcontainer).TO._gckind == 'gc' and
             isinstance(INNERTYPE, lltype.Ptr) and INNERTYPE.TO._gckind == 'gc'):
-            self.gc.write_barrier(llmemory.cast_ptr_to_adr(newvalue),
-                                  llmemory.cast_ptr_to_adr(toplevelcontainer))
+            #
+            wb = True
+            if self.has_write_barrier_from_array:
+                for index in offsets:
+                    if type(index) is not str:
+                        assert (type(index) is int    # <- fast path
+                                or lltype.typeOf(index) == lltype.Signed)
+                        self.gc.write_barrier_from_array(
+                            llmemory.cast_ptr_to_adr(newvalue),
+                            llmemory.cast_ptr_to_adr(toplevelcontainer),
+                            index)
+                        wb = False
+                        break
+            #
+            if wb:
+                self.gc.write_barrier(
+                    llmemory.cast_ptr_to_adr(newvalue),
+                    llmemory.cast_ptr_to_adr(toplevelcontainer))
         llheap.setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue)
 
     def collect(self, *gen):

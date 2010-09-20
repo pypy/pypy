@@ -113,6 +113,27 @@ class TestAddressDeque:
                 deque.append(x)
                 expected.append(x)
 
+    def test_foreach(self):
+        AddressDeque = get_address_deque(10)
+        ll = AddressDeque()
+        for num_entries in range(30, -1, -1):
+            addrs = [raw_malloc(llmemory.sizeof(lltype.Signed))
+                     for i in range(num_entries)]
+            for a in addrs:
+                ll.append(a)
+
+            seen = []
+            def callback(addr, fortytwo):
+                assert fortytwo == 42
+                seen.append(addr)
+
+            ll.foreach(callback, 42)
+            assert seen == addrs
+            for a in addrs:
+                b = ll.popleft()
+                assert a == b
+            assert not ll.non_empty()
+
 
 def test_stack_annotate():
     AddressStack = get_address_stack(60)

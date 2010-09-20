@@ -7,7 +7,7 @@ from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib import rstack
+from pypy.rlib import rstack, rgc
 from pypy.rlib.debug import ll_assert
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.support import var_needsgc
@@ -139,6 +139,8 @@ class FrameworkGCTransformer(GCTransformer):
     def __init__(self, translator):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
         from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
+        from pypy.rpython.memory.gc import inspect
+
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         if hasattr(self, 'GC_PARAMS'):
             # for tests: the GC choice can be specified as class attributes
@@ -180,6 +182,7 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.gc.set_root_walker(root_walker)
         self.num_pushs = 0
         self.write_barrier_calls = 0
+        self.write_barrier_from_array_calls = 0
 
         def frameworkgc_setup():
             # run-time initialization code
@@ -388,11 +391,38 @@ class FrameworkGCTransformer(GCTransformer):
         else:
             self.id_ptr = None
 
+        self.get_rpy_roots_ptr = getfn(inspect.get_rpy_roots,
+                                       [s_gc],
+                                       rgc.s_list_of_gcrefs(),
+                                       minimal_transform=False)
+        self.get_rpy_referents_ptr = getfn(inspect.get_rpy_referents,
+                                           [s_gc, s_gcref],
+                                           rgc.s_list_of_gcrefs(),
+                                           minimal_transform=False)
+        self.get_rpy_memory_usage_ptr = getfn(inspect.get_rpy_memory_usage,
+                                              [s_gc, s_gcref],
+                                              annmodel.SomeInteger(),
+                                              minimal_transform=False)
+        self.get_rpy_type_index_ptr = getfn(inspect.get_rpy_type_index,
+                                            [s_gc, s_gcref],
+                                            annmodel.SomeInteger(),
+                                            minimal_transform=False)
+        self.is_rpy_instance_ptr = getfn(inspect.is_rpy_instance,
+                                         [s_gc, s_gcref],
+                                         annmodel.SomeBool(),
+                                         minimal_transform=False)
+        self.dump_rpy_heap_ptr = getfn(inspect.dump_rpy_heap,
+                                       [s_gc, annmodel.SomeInteger()],
+                                       annmodel.s_Bool,
+                                       minimal_transform=False)
+
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
                                            [s_gc,
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
 
+        self.write_barrier_ptr = None
+        self.write_barrier_from_array_ptr = None
         if GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
                                            [s_gc,
@@ -408,8 +438,26 @@ class FrameworkGCTransformer(GCTransformer):
                                                [annmodel.SomeAddress(),
                                                 annmodel.SomeAddress()],
                                                annmodel.s_None)
-        else:
-            self.write_barrier_ptr = None
+            func = getattr(GCClass, 'write_barrier_from_array', None)
+            if func is not None:
+                self.write_barrier_from_array_ptr = getfn(func.im_func,
+                                           [s_gc,
+                                            annmodel.SomeAddress(),
+                                            annmodel.SomeAddress(),
+                                            annmodel.SomeInteger()],
+                                           annmodel.s_None,
+                                           inline=True)
+                func = getattr(gcdata.gc, 'remember_young_pointer_from_array',
+                               None)
+                if func is not None:
+                    # func should not be a bound method, but a real function
+                    assert isinstance(func, types.FunctionType)
+                    self.write_barrier_from_array_failing_case_ptr = \
+                                             getfn(func,
+                                                   [annmodel.SomeAddress(),
+                                                    annmodel.SomeInteger(),
+                                                    annmodel.SomeAddress()],
+                                                   annmodel.s_None)
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],
                                     annmodel.SomeInteger())
@@ -496,6 +544,9 @@ class FrameworkGCTransformer(GCTransformer):
         if self.write_barrier_ptr:
             log.info("inserted %s write barrier calls" % (
                          self.write_barrier_calls, ))
+        if self.write_barrier_from_array_ptr:
+            log.info("inserted %s write_barrier_from_array calls" % (
+                         self.write_barrier_from_array_calls, ))
 
         # XXX because we call inputconst already in replace_malloc, we can't
         # modify the instance, we have to modify the 'rtyped instance'
@@ -766,6 +817,12 @@ class FrameworkGCTransformer(GCTransformer):
                   [self.write_barrier_failing_case_ptr],
                   resultvar=op.result)
 
+    def gct_get_write_barrier_from_array_failing_case(self, hop):
+        op = hop.spaceop
+        hop.genop("same_as",
+                  [self.write_barrier_from_array_failing_case_ptr],
+                  resultvar=op.result)
+
     def gct_zero_gc_pointers_inside(self, hop):
         if not self.malloc_zero_filled:
             v_ob = hop.spaceop.args[0]
@@ -883,6 +940,53 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_gc_get_type_info_group(self, hop):
         return hop.cast_result(self.c_type_info_group)
 
+    def gct_gc_get_rpy_roots(self, hop):
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call",
+                  [self.get_rpy_roots_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_get_rpy_referents(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.get_rpy_referents_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_get_rpy_memory_usage(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.get_rpy_memory_usage_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_get_rpy_type_index(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.get_rpy_type_index_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_is_rpy_instance(self, hop):
+        livevars = self.push_roots(hop)
+        [v_ptr] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.is_rpy_instance_ptr, self.c_const_gc, v_ptr],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_dump_rpy_heap(self, hop):
+        livevars = self.push_roots(hop)
+        [v_fd] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.dump_rpy_heap_ptr, self.c_const_gc, v_fd],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
     def gct_malloc_nonmovable_varsize(self, hop):
         TYPE = hop.spaceop.result.concretetype
         if self.gcdata.gc.can_malloc_nonmovable():
@@ -897,6 +1001,15 @@ class FrameworkGCTransformer(GCTransformer):
         c = rmodel.inputconst(TYPE, lltype.nullptr(TYPE.TO))
         return hop.cast_result(c)
 
+    def _set_into_gc_array_part(self, op):
+        if op.opname == 'setarrayitem':
+            return op.args[1]
+        if op.opname == 'setinteriorfield':
+            for v in op.args[1:-1]:
+                if v.concretetype is not lltype.Void:
+                    return v
+        return None
+
     def transform_generic_set(self, hop):
         from pypy.objspace.flow.model import Constant
         opname = hop.spaceop.opname
@@ -910,15 +1023,26 @@ class FrameworkGCTransformer(GCTransformer):
             and not isinstance(v_newvalue, Constant)
             and v_struct.concretetype.TO._gckind == "gc"
             and hop.spaceop not in self.clean_sets):
-            self.write_barrier_calls += 1
             v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
                                    resulttype = llmemory.Address)
             v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
                                      resulttype = llmemory.Address)
-            hop.genop("direct_call", [self.write_barrier_ptr,
-                                      self.c_const_gc,
-                                      v_newvalue,
-                                      v_structaddr])
+            if (self.write_barrier_from_array_ptr is not None and
+                    self._set_into_gc_array_part(hop.spaceop) is not None):
+                self.write_barrier_from_array_calls += 1
+                v_index = self._set_into_gc_array_part(hop.spaceop)
+                assert v_index.concretetype == lltype.Signed
+                hop.genop("direct_call", [self.write_barrier_from_array_ptr,
+                                          self.c_const_gc,
+                                          v_newvalue,
+                                          v_structaddr,
+                                          v_index])
+            else:
+                self.write_barrier_calls += 1
+                hop.genop("direct_call", [self.write_barrier_ptr,
+                                          self.c_const_gc,
+                                          v_newvalue,
+                                          v_structaddr])
         hop.rename('bare_' + opname)
 
     def transform_getfield_typeptr(self, hop):

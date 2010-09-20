@@ -95,7 +95,10 @@ class DirectGCTest(object):
         if self.gc.needs_write_barrier:
             newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
-            self.gc.write_barrier(newaddr, addr_struct)
+            if hasattr(self.gc, 'write_barrier_from_array'):
+                self.gc.write_barrier_from_array(newaddr, addr_struct, index)
+            else:
+                self.gc.write_barrier(newaddr, addr_struct)
         p[index] = newvalue
 
     def malloc(self, TYPE, n=None):
@@ -326,6 +329,27 @@ class DirectGCTest(object):
         self.gc.collect()
         assert hash == self.gc.identityhash(self.stackroots[-1])
         self.stackroots.pop()
+        # (6) ask for the hash of varsized objects, larger and larger
+        for i in range(10):
+            self.gc.collect()
+            p = self.malloc(VAR, i)
+            self.stackroots.append(p)
+            hash = self.gc.identityhash(p)
+            self.gc.collect()
+            assert hash == self.gc.identityhash(self.stackroots[-1])
+            self.stackroots.pop()
+
+    def test_memory_alignment(self):
+        A1 = lltype.GcArray(lltype.Char)
+        for i in range(50):
+            p1 = self.malloc(A1, i)
+            if i:
+                p1[i-1] = chr(i)
+            self.stackroots.append(p1)
+        self.gc.collect()
+        for i in range(1, 50):
+            p = self.stackroots[-50+i]
+            assert p[i-1] == chr(i)
 
 class TestSemiSpaceGC(DirectGCTest):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
@@ -456,3 +480,35 @@ class TestMarkCompactGC(DirectGCTest):
     def test_varsized_from_prebuilt_gc(self):
         DirectGCTest.test_varsized_from_prebuilt_gc(self)
     test_varsized_from_prebuilt_gc.GC_PARAMS = {'space_size': 3 * 1024 * WORD}
+
+
+class TestMiniMarkGCSimple(DirectGCTest):
+    from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
+    from pypy.rpython.memory.gc.minimark import SimpleArenaCollection
+    # test the GC itself, providing a simple class for ArenaCollection
+    GC_PARAMS = {'ArenaCollectionClass': SimpleArenaCollection}
+
+    def test_card_marker(self):
+        for arraylength in (range(4, 17)
+                            + [69]      # 3 bytes
+                            + [300]):   # 10 bytes
+            print 'array length:', arraylength
+            nums = {}
+            a = self.malloc(VAR, arraylength)
+            self.stackroots.append(a)
+            for i in range(50):
+                p = self.malloc(S)
+                p.x = -i
+                a = self.stackroots[-1]
+                index = (i*i) % arraylength
+                self.writearray(a, index, p)
+                nums[index] = p.x
+                #
+                for index, expected_x in nums.items():
+                    assert a[index].x == expected_x
+            self.stackroots.pop()
+    test_card_marker.GC_PARAMS = {"card_page_indices": 4,
+                                  "card_page_indices_min": 7}
+
+class TestMiniMarkGCFull(DirectGCTest):
+    from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass

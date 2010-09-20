@@ -1,11 +1,11 @@
-from optimizer import *
+from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
 from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
 class OptRewrite(Optimization):
-    """Rewrite operations into equvivialent, cheeper operations.
+    """Rewrite operations into equivalent, cheaper operations.
        This includes already executed operations and constants.
     """
     

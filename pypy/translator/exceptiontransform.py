@@ -277,7 +277,9 @@ class BaseExceptionTransformer(object):
               block.exits[0].target is graph.returnblock and
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
-               block.exits[0].args[0] is block.operations[-1].result)):
+               block.exits[0].args[0] is block.operations[-1].result) and
+              block.operations[-1].opname not in ('malloc',     # special cases
+                                                  'malloc_nonmovable')):
             last_operation -= 1
         lastblock = block
         for i in range(last_operation, -1, -1):
@@ -466,6 +468,9 @@ class BaseExceptionTransformer(object):
             c_flags = spaceop.args[1]
             c_flags.value = c_flags.value.copy()
             spaceop.args[1].value['zero'] = True
+        # NB. when inserting more special-cases here, keep in mind that
+        # you also need to list the opnames in transform_block()
+        # (see "special cases")
 
         if insert_zeroing_op:
             if normalafterblock is None:

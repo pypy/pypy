@@ -650,7 +650,7 @@ class LLFrame(object):
         offsets, fieldvalue = fieldnamesval[:-1], fieldnamesval[-1]
         inneraddr, FIELD = self.getinneraddr(obj, *offsets)
         if FIELD is not lltype.Void:
-            self.heap.setinterior(obj, inneraddr, FIELD, fieldvalue)
+            self.heap.setinterior(obj, inneraddr, FIELD, fieldvalue, offsets)
 
     def op_bare_setinteriorfield(self, obj, *fieldnamesval):
         offsets, fieldvalue = fieldnamesval[:-1], fieldnamesval[-1]
@@ -916,6 +916,24 @@ class LLFrame(object):
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
 
+    def op_gc_get_rpy_memory_usage(self):
+        raise NotImplementedError("gc_get_rpy_memory_usage")
+
+    def op_gc_get_rpy_roots(self):
+        raise NotImplementedError("gc_get_rpy_roots")
+
+    def op_gc_get_rpy_referents(self):
+        raise NotImplementedError("gc_get_rpy_referents")
+
+    def op_gc_is_rpy_instance(self):
+        raise NotImplementedError("gc_is_rpy_instance")
+
+    def op_gc_get_rpy_type_index(self):
+        raise NotImplementedError("gc_get_rpy_type_index")
+
+    def op_gc_dump_rpy_heap(self):
+        raise NotImplementedError("gc_dump_rpy_heap")
+
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
 
@@ -924,6 +942,9 @@ class LLFrame(object):
 
     def op_get_write_barrier_failing_case(self):
         raise NotImplementedError("get_write_barrier_failing_case")
+
+    def op_get_write_barrier_from_array_failing_case(self):
+        raise NotImplementedError("get_write_barrier_from_array_failing_case")
 
     def op_yield_current_frame_to_caller(self):
         raise NotImplementedError("yield_current_frame_to_caller")

@@ -409,6 +409,9 @@ class fakeaddress(object):
         if self.ptr is None:
             s = 'NULL'
         else:
+            #try:
+            #    s = hex(self.ptr._cast_to_int())
+            #except:
             s = str(self.ptr)
         return '<fakeaddr %s>' % (s,)
 

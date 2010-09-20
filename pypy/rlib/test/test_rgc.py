@@ -16,7 +16,7 @@ def test_collect():
     assert len(op.args) == 0
 
     res = interpret(f, [])
-    
+
     assert res is None
 
 def test_collect_0():
@@ -31,13 +31,13 @@ def test_collect_0():
     assert len(ops) == 1
     op = ops[0][1]
     assert op.opname == 'gc__collect'
-    assert len(op.args) == 1    
+    assert len(op.args) == 1
     assert op.args[0].value == 0
 
     res = interpret(f, [])
-    
-    assert res is None    
-    
+
+    assert res is None
+
 def test_can_move():
     T0 = lltype.GcStruct('T')
     T1 = lltype.GcArray(lltype.Float)
@@ -53,9 +53,9 @@ def test_can_move():
     assert len(res) == 2
 
     res = interpret(f, [1])
-    
+
     assert res == True
-    
+
 def test_ll_arraycopy_1():
     TYPE = lltype.GcArray(lltype.Signed)
     a1 = lltype.malloc(TYPE, 10)
@@ -153,3 +153,21 @@ def test_ll_shrink_array_2():
     assert len(s2.vars) == 3
     for i in range(3):
         assert s2.vars[i] == 50 + i
+
+def test_get_referents():
+    class X(object):
+        __slots__ = ['stuff']
+    x1 = X()
+    x1.stuff = X()
+    x2 = X()
+    lst = rgc.get_rpy_referents(rgc.cast_instance_to_gcref(x1))
+    lst2 = [rgc.try_cast_gcref_to_instance(X, x) for x in lst]
+    assert x1.stuff in lst2
+    assert x2 not in lst2
+
+def test_get_memory_usage():
+    class X(object):
+        pass
+    x1 = X()
+    n = rgc.get_rpy_memory_usage(rgc.cast_instance_to_gcref(x1))
+    assert n >= 8 and n <= 64

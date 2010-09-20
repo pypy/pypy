@@ -16,14 +16,20 @@ class ArenaError(Exception):
 class Arena(object):
     object_arena_location = {}     # {container: (arena, offset)}
     old_object_arena_location = weakref.WeakKeyDictionary()
+    _count_arenas = 0
 
     def __init__(self, nbytes, zero):
+        Arena._count_arenas += 1
+        self._arena_index = Arena._count_arenas
         self.nbytes = nbytes
         self.usagemap = array.array('c')
         self.objectptrs = {}        # {offset: ptr-to-container}
         self.objectsizes = {}       # {offset: size}
         self.freed = False
         self.reset(zero)
+
+    def __repr__(self):
+        return '<Arena #%d [%d bytes]>' % (self._arena_index, self.nbytes)
 
     def reset(self, zero, start=0, size=None):
         self.check()
@@ -40,7 +46,7 @@ class Arena(object):
                 assert offset >= stop, "object overlaps cleared area"
             else:
                 obj = ptr._obj
-                del Arena.object_arena_location[obj]
+                _dictdel(Arena.object_arena_location, obj)
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
                 obj._free()
@@ -63,7 +69,7 @@ class Arena(object):
             raise ArenaError("Address offset is outside the arena")
         return fakearenaaddress(self, offset)
 
-    def allocate_object(self, offset, size):
+    def allocate_object(self, offset, size, letter='x'):
         self.check()
         bytes = llmemory.raw_malloc_usage(size)
         if offset + bytes > self.nbytes:
@@ -78,7 +84,7 @@ class Arena(object):
                 raise ArenaError("new object overlaps a previous object")
         assert offset not in self.objectptrs
         addr2 = size._raw_malloc([], zero=zero)
-        pattern = 'X' + 'x'*(bytes-1)
+        pattern = letter.upper() + letter*(bytes-1)
         self.usagemap[offset:offset+bytes] = array.array('c', pattern)
         self.setobject(addr2, offset, bytes)
         # common case: 'size' starts with a GCHeaderOffset.  In this case
@@ -252,6 +258,16 @@ def _oldobj_to_address(obj):
         raise RuntimeError(msg % (obj,))
     return arena.getaddr(offset)
 
+def _dictdel(d, key):
+    # hack
+    try:
+        del d[key]
+    except KeyError:
+        items = d.items()
+        d.clear()
+        d.update(items)
+        del d[key]
+
 class RoundedUpForAllocation(llmemory.AddressOffset):
     """A size that is rounded up in order to preserve alignment of objects
     following it.  For arenas containing heterogenous objects.
@@ -297,6 +313,7 @@ def arena_free(arena_addr):
     assert isinstance(arena_addr, fakearenaaddress)
     assert arena_addr.offset == 0
     arena_addr.arena.reset(False)
+    assert not arena_addr.arena.objectptrs
     arena_addr.arena.freed = True
 
 def arena_reset(arena_addr, size, zero):
@@ -317,10 +334,13 @@ def arena_reserve(addr, size, check_alignment=True):
     this is used to know what type of lltype object to allocate."""
     from pypy.rpython.memory.lltypelayout import memory_alignment
     addr = getfakearenaaddress(addr)
-    if check_alignment and (addr.offset & (memory_alignment-1)) != 0:
+    letter = 'x'
+    if llmemory.raw_malloc_usage(size) == 1:
+        letter = 'b'    # for Byte-aligned allocations
+    elif check_alignment and (addr.offset & (memory_alignment-1)) != 0:
         raise ArenaError("object at offset %d would not be correctly aligned"
                          % (addr.offset,))
-    addr.arena.allocate_object(addr.offset, size)
+    addr.arena.allocate_object(addr.offset, size, letter)
 
 def arena_shrink_obj(addr, newsize):
     """ Mark object as shorter than it was
@@ -357,6 +377,11 @@ if sys.platform == 'linux2':
     # This only works with linux's madvise(), which is really not a memory
     # usage hint but a real command.  It guarantees that after MADV_DONTNEED
     # the pages are cleared again.
+
+    # Note that the trick of the general 'posix' section below, i.e.
+    # reading /dev/zero, does not seem to have the correct effect of
+    # lazily-allocating pages on all Linux systems.
+
     from pypy.rpython.tool import rffi_platform
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
@@ -459,6 +484,7 @@ register_external(arena_malloc, [int, bool], llmemory.Address,
                   sandboxsafe=True)
 
 def llimpl_arena_free(arena_addr):
+    # NB. minimark.py assumes that arena_free() is actually just a raw_free().
     llmemory.raw_free(arena_addr)
 register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
                   llimpl=llimpl_arena_free,
