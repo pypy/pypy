@@ -82,6 +82,8 @@ def winexternal(name, args, result):
 
 if WIN32:
     HANDLE = rffi.COpaquePtr(typedef='HANDLE')
+    assert rffi.cast(HANDLE, -1) == rffi.cast(HANDLE, -1)
+
     LPHANDLE = rffi.CArrayPtr(HANDLE)
     HMODULE = HANDLE
     NULL_HANDLE = rffi.cast(HANDLE, 0)
