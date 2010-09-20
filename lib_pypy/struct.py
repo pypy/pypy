@@ -113,7 +113,7 @@ def pack_float(x, size, le):
     return ''.join(result)
 
 def unpack_float(data, index, size, le):
-    binary = data[index:index + 8]
+    binary = [data[i] for i in range(index, index + 8)]
     if le == "big":
         binary.reverse()
     unsigned = 0
