@@ -1,16 +1,17 @@
 import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
-from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT,\
-     LoopToken
+from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
+                                         LoopToken)
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
-from pypy.jit.backend.x86.regalloc import RegAlloc, \
-     X86RegisterManager, X86XMMRegisterManager, get_ebp_ofs
+from pypy.jit.backend.x86.regalloc import (RegAlloc, X86RegisterManager,
+                                           X86XMMRegisterManager, get_ebp_ofs)
 
-from pypy.jit.backend.x86.arch import FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD, IS_X86_32, IS_X86_64
+from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
+                                       IS_X86_32, IS_X86_64)
 
 from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
                                          esp, ebp, esi, edi,
