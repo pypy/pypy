@@ -650,7 +650,7 @@ class LLFrame(object):
         offsets, fieldvalue = fieldnamesval[:-1], fieldnamesval[-1]
         inneraddr, FIELD = self.getinneraddr(obj, *offsets)
         if FIELD is not lltype.Void:
-            self.heap.setinterior(obj, inneraddr, FIELD, fieldvalue)
+            self.heap.setinterior(obj, inneraddr, FIELD, fieldvalue, offsets)
 
     def op_bare_setinteriorfield(self, obj, *fieldnamesval):
         offsets, fieldvalue = fieldnamesval[:-1], fieldnamesval[-1]

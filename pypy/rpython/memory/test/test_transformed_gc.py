@@ -242,6 +242,26 @@ class GenericGCTests(GCTest):
         heap_size = self.heap_usage(statistics)
         assert heap_size < 16000 * WORD / 4 # xxx
 
+    def define_llinterp_dict(self):
+        class A(object):
+            pass
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = (1, 2, i)
+                b = {a: A()}
+                j = 0
+                while j < 20:
+                    j += 1
+                    b[1, j, i] = A()
+            return 0
+        return malloc_a_lot
+
+    def test_llinterp_dict(self):
+        run = self.runner("llinterp_dict")
+        run([])
+
     def skipdefine_global_list(cls):
         gl = []
         class Box:
@@ -1454,6 +1474,8 @@ class TestMiniMarkGC(TestHybridGC):
                          'page_size': 16*WORD,
                          'arena_size': 64*WORD,
                          'small_request_threshold': 5*WORD,
+                         'card_page_indices': 4,
+                         'card_page_indices_min': 10,
                          }
             root_stack_depth = 200
 

@@ -69,7 +69,7 @@ class Arena(object):
             raise ArenaError("Address offset is outside the arena")
         return fakearenaaddress(self, offset)
 
-    def allocate_object(self, offset, size):
+    def allocate_object(self, offset, size, letter='x'):
         self.check()
         bytes = llmemory.raw_malloc_usage(size)
         if offset + bytes > self.nbytes:
@@ -84,7 +84,7 @@ class Arena(object):
                 raise ArenaError("new object overlaps a previous object")
         assert offset not in self.objectptrs
         addr2 = size._raw_malloc([], zero=zero)
-        pattern = 'X' + 'x'*(bytes-1)
+        pattern = letter.upper() + letter*(bytes-1)
         self.usagemap[offset:offset+bytes] = array.array('c', pattern)
         self.setobject(addr2, offset, bytes)
         # common case: 'size' starts with a GCHeaderOffset.  In this case
@@ -324,10 +324,13 @@ def arena_reserve(addr, size, check_alignment=True):
     this is used to know what type of lltype object to allocate."""
     from pypy.rpython.memory.lltypelayout import memory_alignment
     addr = getfakearenaaddress(addr)
-    if check_alignment and (addr.offset & (memory_alignment-1)) != 0:
+    letter = 'x'
+    if llmemory.raw_malloc_usage(size) == 1:
+        letter = 'b'    # for Byte-aligned allocations
+    elif check_alignment and (addr.offset & (memory_alignment-1)) != 0:
         raise ArenaError("object at offset %d would not be correctly aligned"
                          % (addr.offset,))
-    addr.arena.allocate_object(addr.offset, size)
+    addr.arena.allocate_object(addr.offset, size, letter)
 
 def arena_shrink_obj(addr, newsize):
     """ Mark object as shorter than it was
@@ -471,6 +474,7 @@ register_external(arena_malloc, [int, bool], llmemory.Address,
                   sandboxsafe=True)
 
 def llimpl_arena_free(arena_addr):
+    # NB. minimark.py assumes that arena_free() is actually just a raw_free().
     llmemory.raw_free(arena_addr)
 register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
                   llimpl=llimpl_arena_free,

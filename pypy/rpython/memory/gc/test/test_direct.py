@@ -95,7 +95,10 @@ class DirectGCTest(object):
         if self.gc.needs_write_barrier:
             newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
-            self.gc.write_barrier(newaddr, addr_struct)
+            if hasattr(self.gc, 'write_barrier_from_array'):
+                self.gc.write_barrier_from_array(newaddr, addr_struct, index)
+            else:
+                self.gc.write_barrier(newaddr, addr_struct)
         p[index] = newvalue
 
     def malloc(self, TYPE, n=None):
@@ -484,6 +487,28 @@ class TestMiniMarkGCSimple(DirectGCTest):
     from pypy.rpython.memory.gc.minimark import SimpleArenaCollection
     # test the GC itself, providing a simple class for ArenaCollection
     GC_PARAMS = {'ArenaCollectionClass': SimpleArenaCollection}
+
+    def test_card_marker(self):
+        for arraylength in (range(4, 17)
+                            + [69]      # 3 bytes
+                            + [300]):   # 10 bytes
+            print 'array length:', arraylength
+            nums = {}
+            a = self.malloc(VAR, arraylength)
+            self.stackroots.append(a)
+            for i in range(50):
+                p = self.malloc(S)
+                p.x = -i
+                a = self.stackroots[-1]
+                index = (i*i) % arraylength
+                self.writearray(a, index, p)
+                nums[index] = p.x
+                #
+                for index, expected_x in nums.items():
+                    assert a[index].x == expected_x
+            self.stackroots.pop()
+    test_card_marker.GC_PARAMS = {"card_page_indices": 4,
+                                  "card_page_indices_min": 7}
 
 class TestMiniMarkGCFull(DirectGCTest):
     from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass

@@ -770,3 +770,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
     GC_CAN_SHRINK_BIG_ARRAY = False
     GC_CAN_MALLOC_NONMOVABLE = True
+
+class TestMiniMarkGCCardMarking(TestMiniMarkGC):
+    GC_PARAMS = {'card_page_indices': 4,
+                 'card_page_indices_min': 10}

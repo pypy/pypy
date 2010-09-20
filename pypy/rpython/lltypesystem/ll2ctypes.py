@@ -353,6 +353,7 @@ def add_storage(instance, mixin_cls, ctypes_storage):
     """Put ctypes_storage on the instance, changing its __class__ so that it
     sees the methods of the given mixin class."""
     assert not isinstance(instance, _parentable_mixin)  # not yet
+    ctypes_storage._preserved_hash = hash(instance)
     subcls = get_common_subclass(mixin_cls, instance.__class__)
     instance.__class__ = subcls
     instance._storage = ctypes_storage
@@ -402,6 +403,8 @@ class _parentable_mixin(object):
 
     def __hash__(self):
         if self._storage is not None:
+            if hasattr(self._storage, '_preserved_hash'):
+                return self._storage._preserved_hash
             return ctypes.addressof(self._storage)
         else:
             return object.__hash__(self)

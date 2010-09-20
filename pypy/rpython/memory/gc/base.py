@@ -200,6 +200,39 @@ class GCBase(object):
                 length -= 1
     trace._annspecialcase_ = 'specialize:arg(2)'
 
+    def trace_partial(self, obj, start, stop, callback, arg):
+        """Like trace(), but only walk the array part, for indices in
+        range(start, stop).  Must only be called if has_gcptr_in_varsize().
+        """
+        length = stop - start
+        typeid = self.get_type_id(obj)
+        if self.is_gcarrayofgcptr(typeid):
+            # a performance shortcut for GcArray(gcptr)
+            item = obj + llmemory.gcarrayofptr_itemsoffset
+            item += llmemory.gcarrayofptr_singleitemoffset * start
+            while length > 0:
+                if self.points_to_valid_gc_object(item):
+                    callback(item, arg)
+                item += llmemory.gcarrayofptr_singleitemoffset
+                length -= 1
+            return
+        ll_assert(self.has_gcptr_in_varsize(typeid),
+                  "trace_partial() on object without has_gcptr_in_varsize()")
+        item = obj + self.varsize_offset_to_variable_part(typeid)
+        offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+        itemlength = self.varsize_item_sizes(typeid)
+        item += itemlength * start
+        while length > 0:
+            j = 0
+            while j < len(offsets):
+                itemobj = item + offsets[j]
+                if self.points_to_valid_gc_object(itemobj):
+                    callback(itemobj, arg)
+                j += 1
+            item += itemlength
+            length -= 1
+    trace_partial._annspecialcase_ = 'specialize:arg(4)'
+
     def points_to_valid_gc_object(self, addr):
         return self.is_valid_gc_object(addr.address[0])
 
