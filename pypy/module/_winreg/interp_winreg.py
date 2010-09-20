@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import rwinreg, rwin32
+from pypy.rlib.rarithmetic import r_uint
 
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)
@@ -596,7 +597,7 @@ raised, indicating no more values are available."""
     try:
         retValueSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
         try:
-            retValueSize[0] = 256 # includes NULL terminator
+            retValueSize[0] = r_uint(256) # includes NULL terminator
             ret = rwinreg.RegEnumKeyEx(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
                                        lltype.nullptr(rwin32.PFILETIME.TO))
