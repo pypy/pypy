@@ -163,7 +163,7 @@ get_referrers.unwrap_spec = [ObjSpace, 'args_w']
 
 def _dump_rpy_heap(space, fd):
     try:
-        ok = rgc.dump_rpy_heap(fd):
+        ok = rgc.dump_rpy_heap(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
     if not ok:
