@@ -58,6 +58,9 @@ _CreateFile = rwin32.winexternal(
         rwin32.DWORD, rwin32.DWORD, rwin32.HANDLE],
     rwin32.HANDLE)
 
+_ExitProcess = rwin32.winexternal(
+    'ExitProcess', [rffi.UINT], lltype.Void)
+
 def CloseHandle(space, w_handle):
     handle = handle_w(space, w_handle)
     if not rwin32.CloseHandle(handle):
@@ -129,6 +132,10 @@ def CreateFile(space, filename, access, share, w_security,
 
     return w_handle(space, handle)
 
+@unwrap_spec(ObjSpace, r_uint)
+def ExitProcess(space, code):
+    _ExitProcess(code)
+
 def win32_namespace(space):
     "NOT_RPYTHON"
     w_win32 = space.call_function(space.w_type,
@@ -148,6 +155,7 @@ def win32_namespace(space):
     for name in ['CloseHandle', 'GetLastError', 'CreateFile',
                  'CreateNamedPipe', 'ConnectNamedPipe',
                  'SetNamedPipeHandleState',
+                 'ExitProcess',
                  ]:
         function = globals()[name]
         w_function = space.wrap(interp2app(function))

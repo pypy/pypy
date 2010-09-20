@@ -5,6 +5,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'Connection'      : 'interp_connection.W_SocketConnection',
+        'PipeConnection'  : 'interp_connection.W_PipeConnection',
     }
 
     appleveldefs = {
