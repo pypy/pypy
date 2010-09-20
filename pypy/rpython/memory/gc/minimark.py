@@ -358,6 +358,7 @@ class MiniMarkGC(MovingGCBase):
 
 
     def _full_collect_if_needed(self, reserving_size):
+        reserving_size = llmemory.raw_malloc_usage(reserving_size)
         if (float(self.get_total_memory_used()) + reserving_size >
                 self.next_major_collection_threshold):
             self.minor_collection()
