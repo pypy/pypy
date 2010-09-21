@@ -3,6 +3,7 @@ from _ctypes.basics import _CData, sizeof, alignment, byref, addressof,\
      ArgumentError, COMError
 from _ctypes.primitive import _SimpleCData
 from _ctypes.pointer import _Pointer, _cast_addr
+from _ctypes.pointer import POINTER, pointer, _pointer_type_cache
 from _ctypes.function import CFuncPtr
 from _ctypes.dll import dlopen as LoadLibrary
 from _ctypes.structure import Structure
