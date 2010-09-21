@@ -2,7 +2,7 @@ import _rawffi
 import weakref
 import sys
 
-SIMPLE_TYPE_CHARS = "cbBhHiIlLdfuzZqQPXOv"
+SIMPLE_TYPE_CHARS = "cbBhHiIlLdfguzZqQPXOv?"
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
      CArgObject
@@ -29,11 +29,13 @@ TP_TO_DEFAULT = {
         'Q': 0,
         'f': 0.0,
         'd': 0.0,
+        'g': 0.0,
         'P': None,
         # not part of struct
         'O': NULL,
         'z': None,
         'Z': None,
+        '?': False,
 }
 
 if sys.platform == 'win32':

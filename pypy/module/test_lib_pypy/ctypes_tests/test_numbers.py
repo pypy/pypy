@@ -25,7 +25,7 @@ ArgType = type(byref(c_int(0)))
 unsigned_types = [c_ubyte, c_ushort, c_uint, c_ulong]
 signed_types = [c_byte, c_short, c_int, c_long, c_longlong]
 
-float_types = [c_double, c_float]
+float_types = [c_double, c_float, c_longdouble]
 
 try:
     c_ulonglong

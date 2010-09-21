@@ -57,6 +57,7 @@ class TestStructure(BaseCTypesTestChecker):
                "Q": c_ulonglong,
                "f": c_float,
                "d": c_double,
+               "g": c_longdouble,
                }
 
     def test_simple_structs(self):

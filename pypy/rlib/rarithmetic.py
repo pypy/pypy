@@ -610,6 +610,25 @@ class r_singlefloat(object):
     def __cmp__(self, other):
         raise TypeError("not supported on r_singlefloat instances")
 
+class r_longfloat(object):
+    """A value of the C type 'long double'.
+
+    Note that we consider this as a black box for now - the only thing
+    you can do with it is cast it back to a regular float."""
+
+    def __init__(self, floatval):
+        self.value = floatval
+
+    def __float__(self):
+        return self.value
+
+    def __nonzero__(self):
+        raise TypeError("not supported on r_longfloat instances")
+
+    def __cmp__(self, other):
+        raise TypeError("not supported on r_longfloat instances")
+
+
 
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
     _type_ = r_singlefloat

@@ -542,6 +542,7 @@ INTPTR_T = SSIZE_T
 
 # double
 DOUBLE = lltype.Float
+LONGDOUBLE = lltype.LongFloat
 
 # float - corresponds to pypy.rlib.rarithmetic.r_float, and supports no
 #         operation except rffi.cast() between FLOAT and DOUBLE

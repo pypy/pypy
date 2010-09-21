@@ -4,8 +4,8 @@ import sys
 
 import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
-                                   r_ulonglong, r_longlong, base_int,
-                                   normalizedinttype)
+                                   r_ulonglong, r_longlong, r_longfloat,
+                                   base_int, normalizedinttype)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
@@ -624,6 +624,7 @@ UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
 
 Float       = Primitive("Float",       0.0)                  # C type 'double'
 SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # C type 'float'
+LongFloat   = Primitive("LongFloat",   r_longfloat(0.0))     # C type 'long double'
 r_singlefloat._TYPE = SingleFloat
 
 Char     = Primitive("Char", '\x00')
@@ -734,6 +735,8 @@ def typeOf(val):
             return build_number(None, tp)
         if tp is float:
             return Float
+        if tp is r_longfloat:
+            return LongFloat
         if tp is str:
             assert len(val) == 1
             return Char
@@ -765,6 +768,8 @@ def cast_primitive(TGT, value):
     elif ORIG == Float:
         if TGT == SingleFloat:
             return r_singlefloat(value)
+        elif TGT == LongFloat:
+            return r_longfloat(value)
         value = long(value)
     cast = _to_primitive.get(TGT)
     if cast is not None:
@@ -772,6 +777,8 @@ def cast_primitive(TGT, value):
     if isinstance(TGT, Number):
         return TGT._cast(value)
     if ORIG == SingleFloat and TGT == Float:
+        return float(value)
+    if ORIG == LongFloat and TGT == Float:
         return float(value)
     raise TypeError, "unsupported cast"
 

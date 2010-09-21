@@ -54,6 +54,7 @@ class AppTestFfi:
         const char *static_str = "xxxxxx";
         const long static_int = 42;
         const double static_double = 42.42;
+        const long double static_longdouble = 42.42;
         
         unsigned short add_shorts(short one, short two)
         {
@@ -181,7 +182,7 @@ class AppTestFfi:
                      some_huge_value some_huge_uvalue pass_ll
                      runcallback
                      allocate_array
-                     static_int static_double
+                     static_int static_double static_longdouble
                      sum_x_y
                      give perturb get_s2a check_s2a
                      AAA_first_ordinal_function
@@ -816,6 +817,8 @@ class AppTestFfi:
         a = getprimitive("l", "static_int")
         assert a[0] == 42
         a = getprimitive("d", "static_double")
+        assert a[0] == 42.42
+        a = getprimitive("g", "static_longdouble")
         assert a[0] == 42.42
         raises(ValueError, getprimitive, 'z', 'ddddddd')
         raises(ValueError, getprimitive, 'zzz', 'static_int')

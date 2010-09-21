@@ -35,14 +35,16 @@ TYPEMAP = {
     'Q' : cast_type_to_ffitype(rffi.ULONGLONG),
     'f' : ffi_type_float,
     'd' : ffi_type_double,
+    'g' : ffi_type_longdouble,
     's' : ffi_type_pointer,
     'P' : ffi_type_pointer,
     'z' : ffi_type_pointer,
     'O' : ffi_type_pointer,
     'Z' : ffi_type_pointer,
+    '?' : cast_type_to_ffitype(lltype.Bool),
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
-TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ"
+TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ?"
 
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
@@ -68,11 +70,13 @@ LL_TYPEMAP = {
     'Q' : rffi.ULONGLONG,
     'f' : rffi.FLOAT,
     'd' : rffi.DOUBLE,
+    'g' : rffi.LONGDOUBLE,
     's' : rffi.CCHARP,
     'z' : rffi.CCHARP,
     'Z' : rffi.CArrayPtr(lltype.UniChar),
     'O' : rffi.VOIDP,
     'P' : rffi.VOIDP,
+    '?' : lltype.Bool,
 }
 
 if _MS_WINDOWS:
@@ -353,7 +357,7 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
             elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
                 return space.wrap(func(add_arg, argdesc, ll_type))
-            elif c == 'f' or c == 'd':
+            elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             else:
                 return space.wrap(intmask(func(add_arg, argdesc, ll_type)))
