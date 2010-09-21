@@ -25,6 +25,8 @@ class Module(MixedModule):
         'CallbackPtr'        : 'callback.W_CallbackPtr',
         '_num_of_allocated_objects' : 'tracker.num_of_allocated_objects',
         'get_libc'           : 'interp_rawffi.get_libc',
+        'get_errno'          : 'interp_rawffi.get_errno',
+        'set_errno'          : 'interp_rawffi.set_errno',
     }
 
     appleveldefs = {
@@ -41,6 +43,7 @@ class Module(MixedModule):
 
         from pypy.rlib import libffi
         for name in ['FUNCFLAG_STDCALL', 'FUNCFLAG_CDECL', 'FUNCFLAG_PYTHONAPI',
+                     'FUNCFLAG_USE_ERRNO', 'FUNCFLAG_USE_LASTERROR',
                      ]:
             if hasattr(libffi, name):
                 Module.interpleveldefs[name] = "space.wrap(%r)" % getattr(libffi, name)

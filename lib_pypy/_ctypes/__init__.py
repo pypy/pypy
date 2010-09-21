@@ -4,7 +4,7 @@ from _ctypes.basics import _CData, sizeof, alignment, byref, addressof,\
 from _ctypes.primitive import _SimpleCData
 from _ctypes.pointer import _Pointer, _cast_addr
 from _ctypes.function import CFuncPtr
-from _ctypes.dll import dlopen
+from _ctypes.dll import dlopen as LoadLibrary
 from _ctypes.structure import Structure
 from _ctypes.array import Array
 from _ctypes.builtin import _memmove_addr, _string_at, _memset_addr,\
@@ -19,6 +19,8 @@ if _os.name in ("nt", "ce"):
     CopyComPointer = None # XXX
 
 from _rawffi import FUNCFLAG_STDCALL, FUNCFLAG_CDECL, FUNCFLAG_PYTHONAPI
+from _rawffi import FUNCFLAG_USE_ERRNO, FUNCFLAG_USE_LASTERROR
+from _rawffi import get_errno, set_errno
 
 __version__ = '1.1.0'
 #XXX platform dependant?

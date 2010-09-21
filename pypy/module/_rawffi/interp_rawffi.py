@@ -8,6 +8,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib.libffi import *
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
+import pypy.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
 
@@ -505,3 +506,9 @@ def get_libc(space):
         return space.wrap(W_CDLL(space, get_libc_name()))
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def get_errno(space):
+    return space.wrap(rposix.get_errno())
+
+def set_errno(space, w_errno):
+    rposix.set_errno(space.int_w(w_errno))
