@@ -23,6 +23,9 @@ from _rawffi import FUNCFLAG_STDCALL, FUNCFLAG_CDECL, FUNCFLAG_PYTHONAPI
 from _rawffi import FUNCFLAG_USE_ERRNO, FUNCFLAG_USE_LASTERROR
 from _rawffi import get_errno, set_errno
 
+if _os.name in ("nt", "ce"):
+    from _rawffi import get_last_error, set_last_error
+
 __version__ = '1.1.0'
 #XXX platform dependant?
 RTLD_LOCAL = 0

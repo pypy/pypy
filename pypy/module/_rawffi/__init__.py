@@ -6,6 +6,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._rawffi.interp_rawffi import W_CDLL
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module._rawffi.tracker import Tracker
+import sys
 
 class Module(MixedModule):
 
@@ -28,6 +29,10 @@ class Module(MixedModule):
         'get_errno'          : 'interp_rawffi.get_errno',
         'set_errno'          : 'interp_rawffi.set_errno',
     }
+
+    if sys.platform == 'win32':
+        interpleveldefs['get_last_error'] = 'interp_rawffi.get_last_error'
+        interpleveldefs['set_last_error'] = 'interp_rawffi.set_last_error'
 
     appleveldefs = {
         'SegfaultException'  : 'error.SegfaultException',
