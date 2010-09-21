@@ -1252,6 +1252,32 @@ class TestLL2Ctypes(object):
         assert i == llmemory.cast_adr_to_int(a, "forced")
         lltype.free(p, flavor='raw')
 
+    def test_freelist(self):
+        S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        SP = lltype.Ptr(S)
+        chunk = lltype.malloc(rffi.CArrayPtr(S).TO, 10, flavor='raw')
+        assert lltype.typeOf(chunk) == rffi.CArrayPtr(S)
+        free_list = lltype.nullptr(rffi.VOIDP.TO)
+        # build list
+        current = chunk
+        for i in range(10):
+            rffi.cast(rffi.VOIDPP, current)[0] = free_list
+            free_list = rffi.cast(rffi.VOIDP, current)
+            current = rffi.ptradd(current, 1)
+        # get one
+        p = free_list
+        free_list = rffi.cast(rffi.VOIDPP, p)[0]
+        rffi.cast(SP, p).x = 0
+        # get two
+        p = free_list
+        free_list = rffi.cast(rffi.VOIDPP, p)[0]
+        rffi.cast(SP, p).x = 0
+        # get three
+        p = free_list
+        free_list = rffi.cast(rffi.VOIDPP, p)[0]
+        rffi.cast(SP, p).x = 0
+        lltype.free(chunk, flavor='raw')
+
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from pypy.translator.platform import platform
