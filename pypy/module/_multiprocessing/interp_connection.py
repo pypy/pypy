@@ -2,7 +2,8 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rpython.lltypesystem import rffi, lltype
-import sys
+from pypy.rlib.rarithmetic import r_uint
+import sys, os
 
 READABLE = 1
 WRITABLE = 2
@@ -13,22 +14,14 @@ PY_SSIZE_T_MIN = -sys.maxint - 1
 class W_BaseConnection(Wrappable):
     BUFFER_SIZE = 1024
 
-    def __init__(self, handle, flags):
-        self.handle = handle
+    def __init__(self, flags):
         self.flags = flags
-
         self.buffer = lltype.malloc(rffi.CCHARP.TO, self.BUFFER_SIZE,
                                     flavor='raw')
 
     def __del__(self):
         lltype.free(self.buffer, flavor='raw')
         self.do_close()
-
-    def descr_repr(self, space):
-        conn_type = ["read-only", "write-only", "read-write"][self.flags]
-
-        return space.wrap("<%s %s, handle %zd>" % (
-            conn_type, space.type(self).getname(space, '?'), self.handle))
 
     def close(self):
         self.do_close()
@@ -178,20 +171,109 @@ base_typedef = TypeDef(
     send = interp2app(W_BaseConnection.send),
     recv = interp2app(W_BaseConnection.recv),
     ## poll = interp2app(W_BaseConnection.poll),
-    ## fileno = interp2app(W_BaseConnection.fileno),
     close = interp2app(W_BaseConnection.close),
     )
 
-class W_SocketConnection(W_BaseConnection):
-    pass
+class W_FileConnection(W_BaseConnection):
+    INVALID_HANDLE_VALUE = -1
 
-W_SocketConnection.typedef = TypeDef(
+    def __init__(self, fd, flags):
+        W_BaseConnection.__init__(self, flags)
+        self.fd = fd
+
+    @unwrap_spec(ObjSpace, W_Root, int, bool, bool)
+    def descr_new(space, w_subtype, fd, readable=True, writable=True):
+        flags = (readable and READABLE) | (writable and WRITABLE)
+
+        self = space.allocate_instance(W_FileConnection, w_subtype)
+        W_FileConnection.__init__(self, fd, flags)
+        return space.wrap(self)
+
+    @unwrap_spec('self', ObjSpace)
+    def fileno(self, space):
+        return space.wrap(self.fd)
+
+    def is_valid(self):
+        return self.fd != self.INVALID_HANDLE_VALUE
+
+    def do_close(self):
+        if self.is_valid():
+            os.close(self.fd)
+            self.fd = self.INVALID_HANDLE_VALUE
+
+    def do_send_string(self, space, buffer, offset, size):
+        # Since str2charp copies the buffer anyway, always combine the
+        # "header" and the "body" of the message and send them at once.
+        message = lltype.malloc(rffi.CCHARP.TO, size + 4, flavor='raw')
+        try:
+            rffi.cast(rffi.UINTP, message)[0] = r_uint(size) # XXX htonl!
+            i = size - 1
+            while i >= 0:
+                message[4 + i] = buffer[offset + i]
+                i -= 1
+            self._sendall(space, message, size + 4)
+        finally:
+            lltype.free(message, flavor='raw')
+
+    def do_recv_string(self, space, maxlength):
+        length_ptr = lltype.malloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                   flavor='raw')
+        self._recvall(rffi.cast(rffi.CCHARP, length_ptr), 4)
+        length = length_ptr[0]
+        if length > maxlength:
+            return MP_BAD_MESSAGE_LENGTH
+
+        if length <= self.BUFFER_SIZE:
+            self._recvall(self.buffer, length)
+            return length, None
+        else:
+            newbuf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
+            self._recvall(newbuf, length)
+            return length, newbuf
+
+    def _sendall(self, space, message, size):
+        while size > 0:
+            # XXX inefficient
+            data = rffi.charpsize2str(message, size)
+            try:
+                count = os.write(self.fd, data)
+            except OSError, e:
+                raise wrap_oserror(space, e)
+            size -= count
+            message = rffi.ptradd(message, count)
+
+    def _recvall(self, buffer, length):
+        remaining = length
+        while remaining > 0:
+            try:
+                data = os.read(self.fd, remaining)
+            except OSError, e:
+                raise wrap_oserror(space, e)
+            count = len(data)
+            if count == 0:
+                if remaining == length:
+                    return MP_END_OF_FILE
+                else:
+                    return MP_EARLY_END_OF_FILE
+            # XXX inefficient
+            for i in range(count):
+                buffer[i] = data[i]
+            remaining -= count
+            buffer = rffi.ptradd(buffer, count)
+
+W_FileConnection.typedef = TypeDef(
     'Connection', base_typedef,
+    __new__ = interp2app(W_FileConnection.descr_new.im_func),
+    fileno = interp2app(W_FileConnection.fileno),
 )
 
 class W_PipeConnection(W_BaseConnection):
     if sys.platform == 'win32':
         from pypy.rlib.rwin32 import INVALID_HANDLE_VALUE
+
+    def __init__(self, handle, flags):
+        W_BaseConnection.__init__(self, flags)
+        self.handle = handle
 
     @unwrap_spec(ObjSpace, W_Root, W_Root, bool, bool)
     def descr_new(space, w_subtype, w_handle, readable=True, writable=True):
@@ -203,8 +285,19 @@ class W_PipeConnection(W_BaseConnection):
         W_PipeConnection.__init__(self, handle, flags)
         return space.wrap(self)
 
+    def descr_repr(self, space):
+        conn_type = ["read-only", "write-only", "read-write"][self.flags]
+
+        return space.wrap("<%s %s, handle %zd>" % (
+            conn_type, space.type(self).getname(space, '?'), self.do_fileno()))
+
     def is_valid(self):
         return self.handle != self.INVALID_HANDLE_VALUE
+
+    @unwrap_spec('self', ObjSpace)
+    def fileno(self, space):
+        from pypy.module._multiprocessing.interp_win32 import w_handle
+        return w_handle(space, self.handle)
 
     def do_close(self):
         from pypy.rlib.rwin32 import CloseHandle
@@ -283,4 +376,5 @@ class W_PipeConnection(W_BaseConnection):
 W_PipeConnection.typedef = TypeDef(
     'PipeConnection', base_typedef,
     __new__ = interp2app(W_PipeConnection.descr_new.im_func),
+    fileno = interp2app(W_PipeConnection.fileno),
 )

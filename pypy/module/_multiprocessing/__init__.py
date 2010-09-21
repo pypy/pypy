@@ -4,7 +4,7 @@ import sys
 class Module(MixedModule):
 
     interpleveldefs = {
-        'Connection'      : 'interp_connection.W_SocketConnection',
+        'Connection'      : 'interp_connection.W_FileConnection',
         'PipeConnection'  : 'interp_connection.W_PipeConnection',
     }
 
