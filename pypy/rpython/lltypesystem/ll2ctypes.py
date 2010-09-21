@@ -734,10 +734,10 @@ def ctypes2lltype(T, cobj):
         elif isinstance(T.TO, lltype.Array):
             if T.TO._hints.get('nolength', False):
                 container = _array_of_unknown_length(T.TO)
-                container._storage = cobj
+                container._storage = type(cobj)(cobj.contents)
             else:
                 container = _array_of_known_length(T.TO)
-                container._storage = cobj
+                container._storage = type(cobj)(cobj.contents)
         elif isinstance(T.TO, lltype.FuncType):
             cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
             if cobjkey in _int2obj:
