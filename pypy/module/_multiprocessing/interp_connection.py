@@ -2,7 +2,6 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.rarithmetic import r_uint
 import sys, os
 
 READABLE = 1
@@ -206,7 +205,7 @@ class W_FileConnection(W_BaseConnection):
         # "header" and the "body" of the message and send them at once.
         message = lltype.malloc(rffi.CCHARP.TO, size + 4, flavor='raw')
         try:
-            rffi.cast(rffi.UINTP, message)[0] = r_uint(size) # XXX htonl!
+            rffi.cast(rffi.UINTP, message)[0] = rffi.r_uint(size) # XXX htonl!
             i = size - 1
             while i >= 0:
                 message[4 + i] = buffer[offset + i]
