@@ -419,7 +419,6 @@ class Assembler386(object):
             mc.MOV_ri(X86_64_SCRATCH_REG.value, adr_new_target)
             mc.JMP_r(X86_64_SCRATCH_REG.value)
 
-        mc.valgrind_invalidated()
         mc.done()
 
     def _inject_debugging_code(self, operations):
@@ -475,7 +474,6 @@ class Assembler386(object):
         # align, e.g. for Mac OS X        
         aligned_words = align_stack_words(words+2)-2 # 2 = EIP+EBP
         mc.writeimm32(-WORD * aligned_words)
-        mc.valgrind_invalidated()
         mc.done()
 
     def _call_header(self):
@@ -598,7 +596,6 @@ class Assembler386(object):
         target = newlooptoken._x86_direct_bootstrap_code
         mc = codebuf.InMemoryCodeBuilder(oldadr, oldadr + 16)
         mc.JMP(imm(target))
-        mc.valgrind_invalidated()
         mc.done()
 
     def _assemble_bootstrap_code(self, inputargs, arglocs):

@@ -29,6 +29,9 @@ class InMemoryCodeBuilder(codebuilder_cls, LocationCodeBuilder):
         self._pos = 0
 
     def overwrite(self, pos, listofchars):
+        """ Overwrite a specified position with a given list of chars
+        (position is relative
+        """
         make_sure_not_resized(listofchars)
         assert pos + len(listofchars) <= self._size
         for c in listofchars:
@@ -49,35 +52,38 @@ class InMemoryCodeBuilder(codebuilder_cls, LocationCodeBuilder):
         self.writechar(chr(n))
 
     def get_relative_pos(self):
+        """ Current position, relative to code start
+        """
         return self._pos
 
     def tell(self):
+        """ Tell the current address at machine code block
+        """
         baseaddr = rffi.cast(lltype.Signed, self._data)
         return baseaddr + self._pos
 
-    def seekback(self, count):
-        pos = self._pos - count
-        self._pos = pos
-        self._last_dump_start = pos
-
     def done(self):
-        # normally, no special action is needed here
+        """ Called at the end of writing of each piece of machine code.
+        Even though this function doesn't do much, it's extremely important
+        to call this for all tools to work, like valgrind or machine code
+        dumping
+        """
+        self.valgrind_invalidated()
         if machine_code_dumper.enabled:
             machine_code_dumper.dump_range(self, self._last_dump_start,
                                            self._pos)
             self._last_dump_start = self._pos
 
-    def redone(self, frm, to):
-        if machine_code_dumper.enabled:
-            baseaddr = rffi.cast(lltype.Signed, self._data)
-            machine_code_dumper.dump_range(self, frm - baseaddr, to - baseaddr)
-
     def log(self, msg):
+        """ Insert information into machine code dumper, if enabled
+        """
         if machine_code_dumper.enabled:
             machine_code_dumper.dump(self, 'LOG', self._pos, msg)
 
     def valgrind_invalidated(self):
-        # mark the range of the InMemoryCodeBuilder as invalidated for Valgrind
+        """ Mark the range of the InMemoryCodeBuilder as invalidated
+        for Valgrind
+        """
         from pypy.jit.backend.x86 import valgrind
         valgrind.discard_translations(self._data, self._size)
 
