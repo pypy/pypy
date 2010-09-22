@@ -42,7 +42,7 @@ def test_store_final_boxes_in_guard():
     opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
                                 None)
     fdescr = ResumeGuardDescr(None, None)
-    op = ResOperation(rop.GUARD_TRUE, [], None, descr=fdescr)
+    op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
     # setup rd data
     fi0 = resume.FrameInfo(None, "code0", 11)
     fdescr.rd_frame_info_list = resume.FrameInfo(fi0, "code1", 33)
@@ -50,11 +50,11 @@ def test_store_final_boxes_in_guard():
     fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
     #
     opt.store_final_boxes_in_guard(op)
-    if op.fail_args == [b0, b1]:
+    if op.getfailargs() == [b0, b1]:
         assert fdescr.rd_numb.nums      == [tag(1, TAGBOX)]
         assert fdescr.rd_numb.prev.nums == [tag(0, TAGBOX)]
     else:
-        assert op.fail_args == [b1, b0]
+        assert op.getfailargs() == [b1, b0]
         assert fdescr.rd_numb.nums      == [tag(0, TAGBOX)]
         assert fdescr.rd_numb.prev.nums == [tag(1, TAGBOX)]
     assert fdescr.rd_virtuals is None
@@ -140,24 +140,26 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):
             print '%-39s| %s' % (txt1[:39], txt2[:39])
             txt1 = txt1[39:]
             txt2 = txt2[39:]
-        assert op1.opnum == op2.opnum
-        assert len(op1.args) == len(op2.args)
-        for x, y in zip(op1.args, op2.args):
+        assert op1.getopnum() == op2.getopnum()
+        assert op1.numargs() == op2.numargs()
+        for i in range(op1.numargs()):
+            x = op1.getarg(i)
+            y = op2.getarg(i)
             assert x == remap.get(y, y)
         if op2.result in remap:
             assert op1.result == remap[op2.result]
         else:
             remap[op2.result] = op1.result
-        if op1.opnum != rop.JUMP:      # xxx obscure
-            assert op1.descr == op2.descr
-        if op1.fail_args or op2.fail_args:
-            assert len(op1.fail_args) == len(op2.fail_args)
+        if op1.getopnum() != rop.JUMP:      # xxx obscure
+            assert op1.getdescr() == op2.getdescr()
+        if op1.getfailargs() or op2.getfailargs():
+            assert len(op1.getfailargs()) == len(op2.getfailargs())
             if strict_fail_args:
-                for x, y in zip(op1.fail_args, op2.fail_args):
+                for x, y in zip(op1.getfailargs(), op2.getfailargs()):
                     assert x == remap.get(y, y)
             else:
-                fail_args1 = set(op1.fail_args)
-                fail_args2 = set([remap.get(y, y) for y in op2.fail_args])
+                fail_args1 = set(op1.getfailargs())
+                fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
                 assert fail_args1 == fail_args2
     assert len(oplist1) == len(oplist2)
     print '-'*57
@@ -209,7 +211,7 @@ class Storage(compile.ResumeGuardDescr):
         self.metainterp_sd = metainterp_sd
         self.original_greenkey = original_greenkey
     def store_final_boxes(self, op, boxes):
-        op.fail_args = boxes
+        op.setfailargs(boxes)
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure
 
@@ -2361,8 +2363,8 @@ class BaseTestOptimizeOpt(BaseTest):
         from pypy.jit.metainterp.test.test_resume import ResumeDataFakeReader
         from pypy.jit.metainterp.test.test_resume import MyMetaInterp
         guard_op, = [op for op in self.loop.operations if op.is_guard()]
-        fail_args = guard_op.fail_args
-        fdescr = guard_op.descr
+        fail_args = guard_op.getfailargs()
+        fdescr = guard_op.getdescr()
         assert fdescr.guard_opnum == guard_opnum
         reader = ResumeDataFakeReader(fdescr, fail_args,
                                       MyMetaInterp(self.cpu))

@@ -265,7 +265,7 @@ class TestX86(LLtypeBackendTest):
                         ResOperation(rop.FINISH, [ConstInt(0)], None,
                                      descr=BasicFailDescr()),
                         ]
-                    ops[-2].fail_args = [i1]
+                    ops[-2].setfailargs([i1])
                     looptoken = LoopToken()
                     self.cpu.compile_loop([b], ops, looptoken)
                     if op == rop.INT_IS_TRUE:
@@ -314,7 +314,7 @@ class TestX86(LLtypeBackendTest):
                         ResOperation(rop.FINISH, [ConstInt(0)], None,
                                      descr=BasicFailDescr()),
                         ]
-                    ops[-2].fail_args = [i1]
+                    ops[-2].setfailargs([i1])
                     inputargs = [i for i in (a, b) if isinstance(i, Box)]
                     looptoken = LoopToken()
                     self.cpu.compile_loop(inputargs, ops, looptoken)
@@ -353,7 +353,7 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.JUMP, [i1], None, descr=looptoken),
             ]
         inputargs = [i0]
-        operations[3].fail_args = [i1]
+        operations[3].setfailargs([i1])
         self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
         assert name == "Loop # 0: hello"
@@ -368,7 +368,7 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye")], None),
             ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
         ]
-        bridge[1].fail_args = [i1b]
+        bridge[1].setfailargs([i1b])
 
         self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
         name, address, size = agent.functions[1]
@@ -462,7 +462,7 @@ class TestX86OverflowMC(TestX86):
                 cmp_result = BoxInt()
                 ops.append(ResOperation(float_op, args, cmp_result))
                 ops.append(ResOperation(guard_op, [cmp_result], None, descr=BasicFailDescr()))
-                ops[-1].fail_args = [failed]
+                ops[-1].setfailargs([failed])
 
             ops.append(ResOperation(rop.FINISH, [finished], None, descr=BasicFailDescr()))
 

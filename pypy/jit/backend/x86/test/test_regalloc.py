@@ -9,13 +9,18 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.regalloc import RegAlloc, X86RegisterManager,\
-     FloatConstants
+     FloatConstants, is_comparison_or_ovf_op
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.backend.x86.rx86 import *
+
+def test_is_comparison_or_ovf_op():
+    assert not is_comparison_or_ovf_op(rop.INT_ADD)
+    assert is_comparison_or_ovf_op(rop.INT_ADD_OVF)
+    assert is_comparison_or_ovf_op(rop.INT_EQ)
 
 CPU = getcpuclass()
 class MockGcDescr(GcCache):
@@ -159,8 +164,8 @@ class BaseTestRegalloc(object):
         assert guard_op.is_guard()
         bridge = self.parse(ops, **kwds)
         assert ([box.type for box in bridge.inputargs] ==
-                [box.type for box in guard_op.fail_args])
-        faildescr = guard_op.descr
+                [box.type for box in guard_op.getfailargs()])
+        faildescr = guard_op.getdescr()
         self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations)
         return bridge
 
@@ -607,7 +612,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         '''
         bridge = self.attach_bridge(ops, loop, -2)
 
-        assert loop.operations[-2].descr._x86_bridge_param_depth == self.expected_param_depth(2)
+        assert loop.operations[-2].getdescr()._x86_bridge_param_depth == self.expected_param_depth(2)
 
         self.cpu.set_future_value_int(0, 4)
         self.cpu.set_future_value_int(1, 7)        
@@ -630,7 +635,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         '''
         bridge = self.attach_bridge(ops, loop, -2)
 
-        assert loop.operations[-2].descr._x86_bridge_param_depth == self.expected_param_depth(2)
+        assert loop.operations[-2].getdescr()._x86_bridge_param_depth == self.expected_param_depth(2)
 
         self.cpu.set_future_value_int(0, 4)
         self.cpu.set_future_value_int(1, 7)        

@@ -559,12 +559,12 @@ class GcLLDescr_framework(GcLLDescription):
         #
         newops = []
         for op in operations:
-            if op.opnum == rop.DEBUG_MERGE_POINT:
+            if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             # ---------- replace ConstPtrs with GETFIELD_RAW ----------
             # xxx some performance issue here
-            for i in range(len(op.args)):
-                v = op.args[i]
+            for i in range(op.numargs()):
+                v = op.getarg(i)
                 if isinstance(v, ConstPtr) and bool(v.value):
                     addr = self.gcrefs.get_address_of_gcref(v.value)
                     # ^^^even for non-movable objects, to record their presence
@@ -574,23 +574,21 @@ class GcLLDescr_framework(GcLLDescription):
                         newops.append(ResOperation(rop.GETFIELD_RAW,
                                                    [ConstInt(addr)], box,
                                                    self.single_gcref_descr))
-                        op.args[i] = box
+                        op.setarg(i, box)
             # ---------- write barrier for SETFIELD_GC ----------
-            if op.opnum == rop.SETFIELD_GC:
-                v = op.args[1]
+            if op.getopnum() == rop.SETFIELD_GC:
+                v = op.getarg(1)
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.args[0], v)
-                    op = ResOperation(rop.SETFIELD_RAW, op.args, None,
-                                      descr=op.descr)
+                    self._gen_write_barrier(newops, op.getarg(0), v)
+                    op = op.copy_and_change(rop.SETFIELD_RAW)
             # ---------- write barrier for SETARRAYITEM_GC ----------
-            if op.opnum == rop.SETARRAYITEM_GC:
-                v = op.args[2]
+            if op.getopnum() == rop.SETARRAYITEM_GC:
+                v = op.getarg(2)
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.args[0], v)
-                    op = ResOperation(rop.SETARRAYITEM_RAW, op.args, None,
-                                      descr=op.descr)
+                    self._gen_write_barrier(newops, op.getarg(0), v)
+                    op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ----------
             newops.append(op)
         del operations[:]

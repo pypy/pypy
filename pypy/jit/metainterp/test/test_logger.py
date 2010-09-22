@@ -100,8 +100,8 @@ class TestLogger(object):
         debug_merge_point("info")
         '''
         loop, oloop = self.reparse(inp, check_equal=False)
-        assert loop.operations[0].args[0]._get_str() == 'info'
-        assert oloop.operations[0].args[0]._get_str() == 'info'
+        assert loop.operations[0].getarg(0)._get_str() == 'info'
+        assert oloop.operations[0].getarg(0)._get_str() == 'info'
         
     def test_floats(self):
         inp = '''

@@ -105,7 +105,7 @@ class CliCPU(model.AbstractCPU):
     def _attach_token_to_faildescrs(self, token, operations):
         for op in operations:
             if op.is_guard():
-                descr = op.descr
+                descr = op.getdescr()
                 assert isinstance(descr, AbstractFailDescr)
                 descr._loop_token = token
                 descr._guard_op = op
@@ -136,7 +136,7 @@ class CliCPU(model.AbstractCPU):
         func = cliloop.funcbox.holder.GetFunc()
         func(self.get_inputargs())
         op = self.failing_ops[self.inputargs.get_failed_op()]
-        return op.descr
+        return op.getdescr()
         
     def set_future_value_int(self, index, intvalue):
         self.get_inputargs().set_int(index, intvalue)

@@ -43,7 +43,7 @@ def _optimize_bridge(metainterp_sd, old_loop_tokens, bridge):
     finder.find_nodes_bridge(bridge)
     for old_loop_token in old_loop_tokens:
         if finder.bridge_matches(old_loop_token.specnodes):
-            bridge.operations[-1].descr = old_loop_token   # patch jump target
+            bridge.operations[-1].setdescr(old_loop_token)   # patch jump target
             optimize_bridge_1(metainterp_sd, bridge)
             return old_loop_token
     return None

@@ -151,16 +151,17 @@ class BaseCPU(model.AbstractCPU):
 
     def _compile_operations(self, c, operations, var2index):
         for op in operations:
-            llimpl.compile_add(c, op.opnum)
-            descr = op.descr
+            llimpl.compile_add(c, op.getopnum())
+            descr = op.getdescr()
             if isinstance(descr, Descr):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo)
-            if isinstance(descr, history.LoopToken) and op.opnum != rop.JUMP:
+            if isinstance(descr, history.LoopToken) and op.getopnum() != rop.JUMP:
                 llimpl.compile_add_loop_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
-                c._obj.externalobj.operations[-1].descr = descr
-            for x in op.args:
+                c._obj.externalobj.operations[-1].setdescr(descr)
+            for i in range(op.numargs()):
+                x = op.getarg(i)
                 if isinstance(x, history.Box):
                     llimpl.compile_add_var(c, var2index[x])
                 elif isinstance(x, history.ConstInt):
@@ -173,10 +174,10 @@ class BaseCPU(model.AbstractCPU):
                     raise Exception("'%s' args contain: %r" % (op.getopname(),
                                                                x))
             if op.is_guard():
-                faildescr = op.descr
+                faildescr = op.getdescr()
                 assert isinstance(faildescr, history.AbstractFailDescr)
                 faildescr._fail_args_types = []
-                for box in op.fail_args:
+                for box in op.getfailargs():
                     if box is None:
                         type = history.HOLE
                     else:
@@ -185,7 +186,7 @@ class BaseCPU(model.AbstractCPU):
                 fail_index = self.get_fail_descr_number(faildescr)
                 index = llimpl.compile_add_fail(c, fail_index)
                 faildescr._compiled_fail = c, index
-                for box in op.fail_args:
+                for box in op.getfailargs():
                     if box is not None:
                         llimpl.compile_add_fail_arg(c, var2index[box])
                     else:
@@ -203,13 +204,13 @@ class BaseCPU(model.AbstractCPU):
                                                                x))
         op = operations[-1]
         assert op.is_final()
-        if op.opnum == rop.JUMP:
-            targettoken = op.descr
+        if op.getopnum() == rop.JUMP:
+            targettoken = op.getdescr()
             assert isinstance(targettoken, history.LoopToken)
             compiled_version = targettoken._llgraph_compiled_version
             llimpl.compile_add_jump_target(c, compiled_version)
-        elif op.opnum == rop.FINISH:
-            faildescr = op.descr
+        elif op.getopnum() == rop.FINISH:
+            faildescr = op.getdescr()
             index = self.get_fail_descr_number(faildescr)
             llimpl.compile_add_fail(c, index)
         else:
@@ -280,7 +281,7 @@ class LLtypeCPU(BaseCPU):
     def __init__(self, *args, **kwds):
         BaseCPU.__init__(self, *args, **kwds)
         self.fielddescrof_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
-        
+
     def fielddescrof(self, S, fieldname):
         ofs, size = symbolic.get_field_token(S, fieldname)
         token = history.getkind(getattr(S, fieldname))
@@ -504,7 +505,7 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
             return ootype.cast_to_object(e)
         else:
             return ootype.NULL
-        
+
     def get_exc_value(self):
         if llimpl._last_exception:
             earg = llimpl._last_exception.args[1]
@@ -580,7 +581,7 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
         x = descr.callmeth(selfbox, argboxes)
         # XXX: return None if METH.RESULT is Void
         return x
-    
+
 
 def make_getargs(ARGS):
     argsiter = unrolling_iterable(ARGS)
@@ -612,7 +613,7 @@ boxresult._annspecialcase_ = 'specialize:arg(0)'
 class KeyManager(object):
     """
     Helper class to convert arbitrary dictionary keys to integers.
-    """    
+    """
 
     def __init__(self):
         self.keys = {}
@@ -695,7 +696,7 @@ class TypeDescr(OODescr):
         self.ARRAY = ARRAY = ootype.Array(TYPE)
         def create():
             return boxresult(TYPE, ootype.new(TYPE))
-        
+
         def create_array(lengthbox):
             n = lengthbox.getint()
             return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
@@ -757,7 +758,7 @@ class FieldDescr(OODescr):
             obj = objbox.getref(TYPE)
             value = unwrap(T, valuebox)
             setattr(obj, fieldname, value)
-            
+
         self.getfield = getfield
         self.setfield = setfield
         self._is_pointer_field = (history.getkind(T) == 'ref')

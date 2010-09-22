@@ -107,7 +107,7 @@ class LLVMJITCompiler(object):
         # store away the exception into self.backup_exc_xxx, *unless* the
         # branch starts with a further GUARD_EXCEPTION/GUARD_NO_EXCEPTION.
         if exc:
-            opnum = operations[0].opnum
+            opnum = operations[0].getopnum()
             if opnum not in (rop.GUARD_EXCEPTION, rop.GUARD_NO_EXCEPTION):
                 self._store_away_exception()
         # Normal handling of the operations follows.
@@ -115,7 +115,7 @@ class LLVMJITCompiler(object):
             self._generate_op(op)
 
     def _generate_op(self, op):
-        opnum = op.opnum
+        opnum = op.getopnum()
         for i, name in all_operations:
             if opnum == i:
                 meth = getattr(self, name)
@@ -475,7 +475,7 @@ class LLVMJITCompiler(object):
         return location
 
     def generate_GETFIELD_GC(self, op):
-        loc = self._generate_field_gep(op.args[0], op.descr)
+        loc = self._generate_field_gep(op.args[0], op.getdescr())
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
 
     generate_GETFIELD_GC_PURE  = generate_GETFIELD_GC
@@ -483,7 +483,7 @@ class LLVMJITCompiler(object):
     generate_GETFIELD_RAW_PURE = generate_GETFIELD_GC
 
     def generate_SETFIELD_GC(self, op):
-        fielddescr = op.descr
+        fielddescr = op.getdescr()
         loc = self._generate_field_gep(op.args[0], fielddescr)
         assert isinstance(fielddescr, FieldDescr)
         getarg = self.cpu.getarg_by_index[fielddescr.size_index]
@@ -491,7 +491,7 @@ class LLVMJITCompiler(object):
         llvm_rffi.LLVMBuildStore(self.builder, value_ref, loc, "")
 
     def generate_CALL(self, op):
-        calldescr = op.descr
+        calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
         ty_function_ptr = self.cpu.get_calldescr_ty_function_ptr(calldescr)
         v = op.args[0]
@@ -579,7 +579,7 @@ class LLVMJITCompiler(object):
         self.vars[op.result] = llvm_rffi.LLVMBuildLoad(self.builder, loc, "")
 
     def generate_ARRAYLEN_GC(self, op):
-        arraydescr = op.descr
+        arraydescr = op.getdescr()
         assert isinstance(arraydescr, ArrayDescr)
         self._generate_len(op, arraydescr.ty_array_ptr,
                            self.cpu.const_array_index_length)
@@ -598,7 +598,7 @@ class LLVMJITCompiler(object):
         return location
 
     def _generate_array_gep(self, op):
-        arraydescr = op.descr
+        arraydescr = op.getdescr()
         assert isinstance(arraydescr, ArrayDescr)
         location = self._generate_gep(op, arraydescr.ty_array_ptr,
                                       self.cpu.const_array_index_array)
@@ -612,7 +612,7 @@ class LLVMJITCompiler(object):
 
     def generate_SETARRAYITEM_GC(self, op):
         loc = self._generate_array_gep(op)
-        arraydescr = op.descr
+        arraydescr = op.getdescr()
         assert isinstance(arraydescr, ArrayDescr)
         getarg = self.cpu.getarg_by_index[arraydescr.itemsize_index]
         value_ref = getarg(self, op.args[2])
@@ -660,7 +660,7 @@ class LLVMJITCompiler(object):
         return res
 
     def generate_NEW(self, op):
-        sizedescr = op.descr
+        sizedescr = op.getdescr()
         assert isinstance(sizedescr, SizeDescr)
         res = self._generate_new(self.cpu._make_const_int(sizedescr.size))
         self.vars[op.result] = res
@@ -695,7 +695,7 @@ class LLVMJITCompiler(object):
         self.vars[op.result] = res
 
     def generate_NEW_ARRAY(self, op):
-        arraydescr = op.descr
+        arraydescr = op.getdescr()
         assert isinstance(arraydescr, ArrayDescr)
         self._generate_new_array(op, arraydescr.ty_array_ptr,
                                  self.cpu._make_const_int(arraydescr.itemsize),

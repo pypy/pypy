@@ -16,10 +16,10 @@ def test_basic_parse():
     """
     loop = parse(x)
     assert len(loop.operations) == 3
-    assert [op.opnum for op in loop.operations] == [rop.INT_ADD, rop.INT_SUB,
+    assert [op.getopnum() for op in loop.operations] == [rop.INT_ADD, rop.INT_SUB,
                                                     rop.FINISH]
     assert len(loop.inputargs) == 2
-    assert loop.operations[-1].descr
+    assert loop.operations[-1].getdescr()
 
 def test_const_ptr_subops():
     x = """
@@ -30,8 +30,8 @@ def test_const_ptr_subops():
     vtable = lltype.nullptr(S)
     loop = parse(x, None, locals())
     assert len(loop.operations) == 1
-    assert loop.operations[0].descr
-    assert loop.operations[0].fail_args == []
+    assert loop.operations[0].getdescr()
+    assert loop.operations[0].getfailargs() == []
 
 def test_descr():
     class Xyz(AbstractDescr):
@@ -43,7 +43,7 @@ def test_descr():
     """
     stuff = Xyz()
     loop = parse(x, None, locals())
-    assert loop.operations[0].descr is stuff
+    assert loop.operations[0].getdescr() is stuff
 
 def test_after_fail():
     x = """
@@ -64,7 +64,7 @@ def test_descr_setfield():
     """
     stuff = Xyz()
     loop = parse(x, None, locals())
-    assert loop.operations[0].descr is stuff
+    assert loop.operations[0].getdescr() is stuff
 
 def test_boxname():
     x = """
@@ -111,7 +111,7 @@ def test_getvar_const_ptr():
     TP = lltype.GcArray(lltype.Signed)
     NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
     loop = parse(x, None, {'func_ptr' : NULL})
-    assert loop.operations[0].args[0].value == NULL
+    assert loop.operations[0].getarg(0).value == NULL
 
 def test_jump_target():
     x = '''
@@ -119,7 +119,7 @@ def test_jump_target():
     jump()
     '''
     loop = parse(x)
-    assert loop.operations[0].descr is loop.token
+    assert loop.operations[0].getdescr() is loop.token
 
 def test_jump_target_other():
     looptoken = LoopToken()
@@ -128,7 +128,7 @@ def test_jump_target_other():
     jump(descr=looptoken)
     '''
     loop = parse(x, namespace=locals())
-    assert loop.operations[0].descr is looptoken
+    assert loop.operations[0].getdescr() is looptoken
 
 def test_floats():
     x = '''
@@ -136,7 +136,7 @@ def test_floats():
     f1 = float_add(f0, 3.5)
     '''
     loop = parse(x)
-    assert isinstance(loop.operations[0].args[0], BoxFloat)
+    assert isinstance(loop.operations[0].getarg(0), BoxFloat)
     
 def test_debug_merge_point():
     x = '''
@@ -147,10 +147,10 @@ def test_debug_merge_point():
     debug_merge_point('(stuff) #1')
     '''
     loop = parse(x)
-    assert loop.operations[0].args[0]._get_str() == 'info'
-    assert loop.operations[1].args[0]._get_str() == 'info'
-    assert loop.operations[2].args[0]._get_str() == "<some ('other,')> info"
-    assert loop.operations[3].args[0]._get_str() == "(stuff) #1"
+    assert loop.operations[0].getarg(0)._get_str() == 'info'
+    assert loop.operations[1].getarg(0)._get_str() == 'info'
+    assert loop.operations[2].getarg(0)._get_str() == "<some ('other,')> info"
+    assert loop.operations[3].getarg(0)._get_str() == "(stuff) #1"
     
 
 def test_descr_with_obj_print():

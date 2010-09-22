@@ -144,7 +144,7 @@ class NodeFinder(object):
 
     def find_nodes(self, operations):
         for op in operations:
-            opnum = op.opnum
+            opnum = op.getopnum()
             for value, func in find_nodes_ops:
                 if opnum == value:
                     func(self, op)
@@ -154,18 +154,20 @@ class NodeFinder(object):
 
     def find_nodes_default(self, op):
         if op.is_always_pure():
-            for arg in op.args:
+            for i in range(op.numargs()):
+                arg = op.getarg(i)
                 if self.get_constant_box(arg) is None:
                     break
             else:
                 # all constant arguments: we can constant-fold
-                argboxes = [self.get_constant_box(arg) for arg in op.args]
+                argboxes = [self.get_constant_box(op.getarg(i))
+                            for i in range(op.numargs())]
                 resbox = execute_nonspec(self.cpu, None,
-                                         op.opnum, argboxes, op.descr)
+                                         op.getopnum(), argboxes, op.getdescr())
                 self.set_constant_node(op.result, resbox.constbox())
         # default case: mark the arguments as escaping
-        for box in op.args:
-            self.getnode(box).mark_escaped()
+        for i in range(op.numargs()):
+            self.getnode(op.getarg(i)).mark_escaped()
 
     def find_nodes_no_escape(self, op):
         pass    # for operations that don't escape their arguments
@@ -178,53 +180,53 @@ class NodeFinder(object):
 
     def find_nodes_NEW_WITH_VTABLE(self, op):
         instnode = InstanceNode()
-        box = op.args[0]
+        box = op.getarg(0)
         assert isinstance(box, Const)
         instnode.knownclsbox = box
         self.nodes[op.result] = instnode
 
     def find_nodes_NEW(self, op):
         instnode = InstanceNode()
-        instnode.structdescr = op.descr
+        instnode.structdescr = op.getdescr()
         self.nodes[op.result] = instnode
 
     def find_nodes_NEW_ARRAY(self, op):
-        lengthbox = op.args[0]
+        lengthbox = op.getarg(0)
         lengthbox = self.get_constant_box(lengthbox)
         if lengthbox is None:
             return     # var-sized arrays are not virtual
         arraynode = InstanceNode()
         arraynode.arraysize = lengthbox.getint()
-        arraynode.arraydescr = op.descr
+        arraynode.arraydescr = op.getdescr()
         self.nodes[op.result] = arraynode
 
     def find_nodes_ARRAYLEN_GC(self, op):
-        arraynode = self.getnode(op.args[0])
+        arraynode = self.getnode(op.getarg(0))
         if arraynode.arraydescr is not None:
             resbox = ConstInt(arraynode.arraysize)
             self.set_constant_node(op.result, resbox)
 
     def find_nodes_GUARD_CLASS(self, op):
-        instnode = self.getnode(op.args[0])
+        instnode = self.getnode(op.getarg(0))
         if instnode.fromstart:    # only useful (and safe) in this case
-            box = op.args[1]
+            box = op.getarg(1)
             assert isinstance(box, Const)
             instnode.knownclsbox = box
 
     def find_nodes_GUARD_VALUE(self, op):
-        instnode = self.getnode(op.args[0])
+        instnode = self.getnode(op.getarg(0))
         if instnode.fromstart:    # only useful (and safe) in this case
-            box = op.args[1]
+            box = op.getarg(1)
             assert isinstance(box, Const)
             instnode.knownvaluebox = box
 
     def find_nodes_SETFIELD_GC(self, op):
-        instnode = self.getnode(op.args[0])
-        fieldnode = self.getnode(op.args[1])
+        instnode = self.getnode(op.getarg(0))
+        fieldnode = self.getnode(op.getarg(1))
         if instnode.escaped:
             fieldnode.mark_escaped()
             return     # nothing to be gained from tracking the field
-        field = op.descr
+        field = op.getdescr()
         assert isinstance(field, AbstractValue)
         if instnode.curfields is None:
             instnode.curfields = {}
@@ -232,10 +234,10 @@ class NodeFinder(object):
         instnode.add_escape_dependency(fieldnode)
 
     def find_nodes_GETFIELD_GC(self, op):
-        instnode = self.getnode(op.args[0])
+        instnode = self.getnode(op.getarg(0))
         if instnode.escaped:
             return     # nothing to be gained from tracking the field
-        field = op.descr
+        field = op.getdescr()
         assert isinstance(field, AbstractValue)
         if instnode.curfields is not None and field in instnode.curfields:
             fieldnode = instnode.curfields[field]
@@ -254,13 +256,13 @@ class NodeFinder(object):
     find_nodes_GETFIELD_GC_PURE = find_nodes_GETFIELD_GC
 
     def find_nodes_SETARRAYITEM_GC(self, op):
-        indexbox = op.args[1]
+        indexbox = op.getarg(1)
         indexbox = self.get_constant_box(indexbox)
         if indexbox is None:
             self.find_nodes_default(op)            # not a Const index
             return
-        arraynode = self.getnode(op.args[0])
-        itemnode = self.getnode(op.args[2])
+        arraynode = self.getnode(op.getarg(0))
+        itemnode = self.getnode(op.getarg(2))
         if arraynode.escaped:
             itemnode.mark_escaped()
             return     # nothing to be gained from tracking the item
@@ -270,12 +272,12 @@ class NodeFinder(object):
         arraynode.add_escape_dependency(itemnode)
 
     def find_nodes_GETARRAYITEM_GC(self, op):
-        indexbox = op.args[1]
+        indexbox = op.getarg(1)
         indexbox = self.get_constant_box(indexbox)
         if indexbox is None:
             self.find_nodes_default(op)            # not a Const index
             return
-        arraynode = self.getnode(op.args[0])
+        arraynode = self.getnode(op.getarg(0))
         if arraynode.escaped:
             return     # nothing to be gained from tracking the item
         index = indexbox.getint()
@@ -298,13 +300,15 @@ class NodeFinder(object):
     def find_nodes_JUMP(self, op):
         # only set up the 'unique' field of the InstanceNodes;
         # real handling comes later (build_result_specnodes() for loops).
-        for box in op.args:
+        for i in range(op.numargs()):
+            box = op.getarg(i)
             self.getnode(box).set_unique_nodes()
 
     def find_nodes_FINISH(self, op):
         # only for bridges, and only for the ones that end in a 'return'
         # or 'raise'; all other cases end with a JUMP.
-        for box in op.args:
+        for i in range(op.numargs()):
+            box = op.getarg(i)
             self.getnode(box).unique = UNIQUE_NO
 
 find_nodes_ops = _findall(NodeFinder, 'find_nodes_')
@@ -324,7 +328,7 @@ class PerfectSpecializationFinder(NodeFinder):
     def show(self):
         from pypy.jit.metainterp.viewnode import viewnodes, view
         op = self._loop.operations[-1]
-        assert op.opnum == rop.JUMP
+        assert op.getopnum() == rop.JUMP
         exitnodes = [self.getnode(arg) for arg in op.args]
         viewnodes(self.inputnodes, exitnodes)
         if hasattr(self._loop.token, "specnodes"):
@@ -343,14 +347,14 @@ class PerfectSpecializationFinder(NodeFinder):
         # Build the list of specnodes based on the result
         # computed by NodeFinder.find_nodes().
         op = loop.operations[-1]
-        assert op.opnum == rop.JUMP
-        assert len(self.inputnodes) == len(op.args)
+        assert op.getopnum() == rop.JUMP
+        assert len(self.inputnodes) == op.numargs()
         while True:
             self.restart_needed = False
             specnodes = []
-            for i in range(len(op.args)):
+            for i in range(op.numargs()):
                 inputnode = self.inputnodes[i]
-                exitnode = self.getnode(op.args[i])
+                exitnode = self.getnode(op.getarg(i))
                 specnodes.append(self.intersect(inputnode, exitnode))
             if not self.restart_needed:
                 break
@@ -562,9 +566,9 @@ class BridgeSpecializationFinder(NodeFinder):
 
     def bridge_matches(self, nextloop_specnodes):
         jump_op = self.jump_op
-        assert len(jump_op.args) == len(nextloop_specnodes)
+        assert jump_op.numargs() == len(nextloop_specnodes)
         for i in range(len(nextloop_specnodes)):
-            exitnode = self.getnode(jump_op.args[i])
+            exitnode = self.getnode(jump_op.getarg(i))
             if not nextloop_specnodes[i].matches_instance_node(exitnode):
                 return False
         return True

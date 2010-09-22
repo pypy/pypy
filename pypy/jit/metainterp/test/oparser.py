@@ -6,7 +6,7 @@ in a nicer fashion
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
      ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
      LoopToken
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.codewriter.heaptracker import adr2int
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -16,9 +16,21 @@ from pypy.rpython.annlowlevel import llstr
 class ParseError(Exception):
     pass
 
-
 class Boxes(object):
     pass
+
+class ESCAPE_OP(N_aryOp, ResOpWithDescr):
+
+    OPNUM = -123
+
+    def __init__(self, opnum, args, result, descr=None):
+        assert opnum == self.OPNUM
+        self.result = result
+        self.initarglist(args)
+        self.setdescr(descr)
+
+    def getopnum(self):
+        return self.OPNUM
 
 class ExtendedTreeLoop(TreeLoop):
 
@@ -26,7 +38,7 @@ class ExtendedTreeLoop(TreeLoop):
         def opboxes(operations):
             for op in operations:
                 yield op.result
-                for box in op.args:
+                for box in op.getarglist():
                     yield box
         def allboxes():
             for box in self.inputargs:
@@ -171,7 +183,7 @@ class OpParser(object):
             opnum = getattr(rop, opname.upper())
         except AttributeError:
             if opname == 'escape':
-                opnum = -123
+                opnum = ESCAPE_OP.OPNUM
             else:
                 raise ParseError("unknown op: %s" % opname)
         endnum = line.rfind(')')
@@ -228,6 +240,12 @@ class OpParser(object):
                     descr = self.looptoken
         return opnum, args, descr, fail_args
 
+    def create_op(self, opnum, args, result, descr):
+        if opnum == ESCAPE_OP.OPNUM:
+            return ESCAPE_OP(opnum, args, result, descr)
+        else:
+            return ResOperation(opnum, args, result, descr)
+
     def parse_result_op(self, line):
         res, op = line.split("=", 1)
         res = res.strip()
@@ -237,14 +255,16 @@ class OpParser(object):
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         rvar = self.box_for_var(res)
         self.vars[res] = rvar
-        res = ResOperation(opnum, args, rvar, descr)
-        res.fail_args = fail_args
+        res = self.create_op(opnum, args, rvar, descr)
+        if fail_args is not None:
+            res.setfailargs(fail_args)
         return res
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)
-        res = ResOperation(opnum, args, None, descr)
-        res.fail_args = fail_args
+        res = self.create_op(opnum, args, None, descr)
+        if fail_args is not None:
+            res.setfailargs(fail_args)
         return res
 
     def parse_next_op(self, line):

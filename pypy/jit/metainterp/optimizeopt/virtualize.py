@@ -258,7 +258,7 @@ class OptVirtualize(Optimization):
     def setup(self, virtuals):
         if not virtuals:
             return
-        
+
         inputargs = self.optimizer.loop.inputargs
         specnodes = self.optimizer.loop.token.specnodes
         assert len(inputargs) == len(specnodes)
@@ -285,18 +285,18 @@ class OptVirtualize(Optimization):
     def optimize_JUMP(self, op):
         orgop = self.optimizer.loop.operations[-1]
         exitargs = []
-        target_loop_token = orgop.descr
+        target_loop_token = orgop.getdescr()
         assert isinstance(target_loop_token, LoopToken)
         specnodes = target_loop_token.specnodes
-        assert len(op.args) == len(specnodes)
+        assert op.numargs() == len(specnodes)
         for i in range(len(specnodes)):
-            value = self.getvalue(op.args[i])
+            value = self.getvalue(op.getarg(i))
             specnodes[i].teardown_virtual_node(self, value, exitargs)
-        op.args = exitargs[:]
+        op = op.copy_and_change(op.getopnum(), args=exitargs[:])
         self.emit_operation(op)
 
     def optimize_VIRTUAL_REF(self, op):
-        indexbox = op.args[1]
+        indexbox = op.getarg(1)
         #
         # get some constants
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
@@ -322,17 +322,17 @@ class OptVirtualize(Optimization):
         # typically a PyPy PyFrame, and now is the end of its execution, so
         # forcing it now does not have catastrophic effects.
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
-        # op.args[1] should really never point to null here
+        # op.getarg(1) should really never point to null here
         # - set 'forced' to point to the real object
-        op1 = ResOperation(rop.SETFIELD_GC, op.args, None,
+        op1 = ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
                           descr = vrefinfo.descr_forced)
         self.optimize_SETFIELD_GC(op1)
         # - set 'virtual_token' to TOKEN_NONE
-        args = [op.args[0], ConstInt(vrefinfo.TOKEN_NONE)]
+        args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
         op1 = ResOperation(rop.SETFIELD_GC, args, None,
                       descr = vrefinfo.descr_virtual_token)
         self.optimize_SETFIELD_GC(op1)
-        # Note that in some cases the virtual in op.args[1] has been forced
+        # Note that in some cases the virtual in op.getarg(1) has been forced
         # already.  This is fine.  In that case, and *if* a residual
         # CALL_MAY_FORCE suddenly turns out to access it, then it will
         # trigger a ResumeGuardForcedDescr.handle_async_forcing() which
@@ -340,11 +340,11 @@ class OptVirtualize(Optimization):
         # was already forced).
 
     def optimize_GETFIELD_GC(self, op):
-        value = self.getvalue(op.args[0])
+        value = self.getvalue(op.getarg(0))
         if value.is_virtual():
             # optimizefindnode should ensure that fieldvalue is found
             assert isinstance(value, AbstractVirtualValue)
-            fieldvalue = value.getfield(op.descr, None)
+            fieldvalue = value.getfield(op.getdescr(), None)
             assert fieldvalue is not None
             self.make_equal_to(op.result, fieldvalue)
         else:
@@ -357,36 +357,36 @@ class OptVirtualize(Optimization):
     optimize_GETFIELD_GC_PURE = optimize_GETFIELD_GC
 
     def optimize_SETFIELD_GC(self, op):
-        value = self.getvalue(op.args[0])
-        fieldvalue = self.getvalue(op.args[1])
+        value = self.getvalue(op.getarg(0))
+        fieldvalue = self.getvalue(op.getarg(1))
         if value.is_virtual():
-            value.setfield(op.descr, fieldvalue)
+            value.setfield(op.getdescr(), fieldvalue)
         else:
             value.ensure_nonnull()
             ###self.heap_op_optimizer.optimize_SETFIELD_GC(op, value, fieldvalue)
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
-        self.make_virtual(op.args[0], op.result, op)
+        self.make_virtual(op.getarg(0), op.result, op)
 
     def optimize_NEW(self, op):
-        self.make_vstruct(op.descr, op.result, op)
+        self.make_vstruct(op.getdescr(), op.result, op)
 
     def optimize_NEW_ARRAY(self, op):
-        sizebox = self.get_constant_box(op.args[0])
+        sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
             # if the original 'op' did not have a ConstInt as argument,
             # build a new one with the ConstInt argument
-            if not isinstance(op.args[0], ConstInt):
+            if not isinstance(op.getarg(0), ConstInt):
                 op = ResOperation(rop.NEW_ARRAY, [sizebox], op.result,
-                                  descr=op.descr)
-            self.make_varray(op.descr, sizebox.getint(), op.result, op)
+                                  descr=op.getdescr())
+            self.make_varray(op.getdescr(), sizebox.getint(), op.result, op)
         else:
             ###self.optimize_default(op)
             self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
-        value = self.getvalue(op.args[0])
+        value = self.getvalue(op.getarg(0))
         if value.is_virtual():
             self.make_constant_int(op.result, value.getlength())
         else:
@@ -395,9 +395,9 @@ class OptVirtualize(Optimization):
             self.emit_operation(op)
 
     def optimize_GETARRAYITEM_GC(self, op):
-        value = self.getvalue(op.args[0])
+        value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            indexbox = self.get_constant_box(op.args[1])
+            indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 itemvalue = value.getitem(indexbox.getint())
                 self.make_equal_to(op.result, itemvalue)
@@ -411,22 +411,22 @@ class OptVirtualize(Optimization):
     optimize_GETARRAYITEM_GC_PURE = optimize_GETARRAYITEM_GC
 
     def optimize_SETARRAYITEM_GC(self, op):
-        value = self.getvalue(op.args[0])
+        value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            indexbox = self.get_constant_box(op.args[1])
+            indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                value.setitem(indexbox.getint(), self.getvalue(op.args[2]))
+                value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
                 return
         value.ensure_nonnull()
         ###self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
         self.emit_operation(op)
 
     def optimize_ARRAYCOPY(self, op):
-        source_value = self.getvalue(op.args[2])
-        dest_value = self.getvalue(op.args[3])
-        source_start_box = self.get_constant_box(op.args[4])
-        dest_start_box = self.get_constant_box(op.args[5])
-        length = self.get_constant_box(op.args[6])
+        source_value = self.getvalue(op.getarg(2))
+        dest_value = self.getvalue(op.getarg(3))
+        source_start_box = self.get_constant_box(op.getarg(4))
+        dest_start_box = self.get_constant_box(op.getarg(5))
+        length = self.get_constant_box(op.getarg(6))
         if (source_value.is_virtual() and source_start_box and dest_start_box
             and length and dest_value.is_virtual()):
             # XXX optimize the case where dest value is not virtual,
@@ -439,13 +439,14 @@ class OptVirtualize(Optimization):
             return
         if length and length.getint() == 0:
             return # 0-length arraycopy
-        descr = op.args[0]
+        descr = op.getarg(0)
         assert isinstance(descr, AbstractDescr)
-        self.emit_operation(ResOperation(rop.CALL, op.args[1:], op.result,
+        args = op.getarglist()[1:]
+        self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          descr))
 
     def propagate_forward(self, op):
-        opnum = op.opnum
+        opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:
                 func(self, op)

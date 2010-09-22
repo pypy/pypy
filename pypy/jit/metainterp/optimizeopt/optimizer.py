@@ -16,12 +16,12 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
 LEVEL_UNKNOWN    = '\x00'
 LEVEL_NONNULL    = '\x01'
 LEVEL_KNOWNCLASS = '\x02'     # might also mean KNOWNARRAYDESCR, for arrays
-LEVEL_CONSTANT   = '\x03'        
+LEVEL_CONSTANT   = '\x03'
 
 import sys
 MAXINT = sys.maxint
 MININT = -sys.maxint - 1
-        
+
 class OptValue(object):
     _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound')
     last_guard_index = -1
@@ -36,7 +36,7 @@ class OptValue(object):
         if isinstance(box, Const):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
-        
+
     def force_box(self):
         return self.box
 
@@ -171,7 +171,7 @@ class Optimization(object):
 
     def new_const_item(self, arraydescr):
         return self.optimizer.new_const_item(arraydescr)
-    
+
     def pure(self, opnum, args, result):
         op = ResOperation(opnum, args, result)
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
@@ -184,7 +184,7 @@ class Optimization(object):
 
     def setup(self, virtuals):
         pass
-    
+
 class Optimizer(Optimization):
 
     def __init__(self, metainterp_sd, loop, optimizations=None, virtuals=True):
@@ -308,7 +308,7 @@ class Optimizer(Optimization):
 
     def propagate_forward(self, op):
         self.producer[op.result] = op
-        opnum = op.opnum
+        opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:
                 func(self, op)
@@ -323,15 +323,15 @@ class Optimizer(Optimization):
         self._emit_operation(op)
 
     def _emit_operation(self, op):
-        for i in range(len(op.args)):
-            arg = op.args[i]
+        for i in range(op.numargs()):
+            arg = op.getarg(i)
             if arg in self.values:
                 box = self.values[arg].force_box()
-                op.args[i] = box
+                op.setarg(i, box)
         self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
-            self.store_final_boxes_in_guard(op)
+            op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
         elif op.returns_bool_result():
@@ -340,7 +340,7 @@ class Optimizer(Optimization):
 
     def store_final_boxes_in_guard(self, op):
         ###pendingfields = self.heap_op_optimizer.force_lazy_setfields_for_guard()
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values, self.pendingfields)
@@ -348,49 +348,54 @@ class Optimizer(Optimization):
             compile.giveup()
         descr.store_final_boxes(op, newboxes)
         #
-        if op.opnum == rop.GUARD_VALUE:
-            if self.getvalue(op.args[0]) in self.bool_boxes:
+        if op.getopnum() == rop.GUARD_VALUE:
+            if self.getvalue(op.getarg(0)) in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.
                 # This is done after the operation is emitted to let
                 # store_final_boxes_in_guard set the guard_opnum field of the
                 # descr to the original rop.GUARD_VALUE.
-                constvalue = op.args[1].getint()
+                constvalue = op.getarg(1).getint()
                 if constvalue == 0:
                     opnum = rop.GUARD_FALSE
                 elif constvalue == 1:
                     opnum = rop.GUARD_TRUE
                 else:
                     raise AssertionError("uh?")
-                op.opnum = opnum
-                op.args = [op.args[0]]
+                newop = ResOperation(opnum, [op.getarg(0)], op.result, descr)
+                newop.setfailargs(op.getfailargs())
+                return newop
             else:
                 # a real GUARD_VALUE.  Make it use one counter per value.
                 descr.make_a_counter_per_value(op)
+        return op
 
     def make_args_key(self, op):
-        args = op.args[:]
-        for i in range(len(args)):
-            arg = args[i]
+        args = []
+        for i in range(op.numargs()):
+            arg = op.getarg(i)
             if arg in self.values:
-                args[i] = self.values[arg].get_key_box()
-        args.append(ConstInt(op.opnum))
+                args.append(self.values[arg].get_key_box())
+            else:
+                args.append(arg)
+        args.append(ConstInt(op.getopnum()))
         return args
-            
+
     def optimize_default(self, op):
         canfold = op.is_always_pure()
         is_ovf = op.is_ovf()
         if is_ovf:
             nextop = self.loop.operations[self.i + 1]
-            canfold = nextop.opnum == rop.GUARD_NO_OVERFLOW
+            canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
         if canfold:
-            for arg in op.args:
-                if self.get_constant_box(arg) is None:
+            for i in range(op.numargs()):
+                if self.get_constant_box(op.getarg(i)) is None:
                     break
             else:
                 # all constant arguments: constant-fold away
-                argboxes = [self.get_constant_box(arg) for arg in op.args]
+                argboxes = [self.get_constant_box(op.getarg(i))
+                            for i in range(op.numargs())]
                 resbox = execute_nonspec(self.cpu, None,
-                                         op.opnum, argboxes, op.descr)
+                                         op.getopnum(), argboxes, op.getdescr())
                 self.make_constant(op.result, resbox.constbox())
                 if is_ovf:
                     self.i += 1 # skip next operation, it is the unneeded guard
@@ -399,8 +404,8 @@ class Optimizer(Optimization):
             # did we do the exact same operation already?
             args = self.make_args_key(op)
             oldop = self.pure_operations.get(args, None)
-            if oldop is not None and oldop.descr is op.descr:
-                assert oldop.opnum == op.opnum
+            if oldop is not None and oldop.getdescr() is op.getdescr():
+                assert oldop.getopnum() == op.getopnum()
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 if is_ovf:
                     self.i += 1 # skip next operation, it is the unneeded guard
