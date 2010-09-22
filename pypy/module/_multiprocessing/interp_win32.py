@@ -1,6 +1,6 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, unwrap_spec, interp2app
 from pypy.interpreter.function import StaticMethod
-from pypy.interpreter.error import wrap_windowserror
+from pypy.interpreter.error import wrap_windowserror, OperationError
 from pypy.rlib import rwin32
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -14,7 +14,7 @@ CONSTANTS = """
     PIPE_UNLIMITED_INSTANCES
     NMPWAIT_WAIT_FOREVER
     ERROR_PIPE_CONNECTED ERROR_SEM_TIMEOUT ERROR_PIPE_BUSY
-    ERROR_NO_SYSTEM_RESOURCES
+    ERROR_NO_SYSTEM_RESOURCES ERROR_BROKEN_PIPE ERROR_MORE_DATA
 """.split()
 
 class CConfig:
@@ -51,6 +51,14 @@ _SetNamedPipeHandleState = rwin32.winexternal(
         rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD],
     rwin32.BOOL)
 
+_PeekNamedPipe = rwin32.winexternal(
+    'PeekNamedPipe', [
+        rwin32.HANDLE,
+        rffi.VOIDP,
+        rwin32.DWORD,
+        rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD],
+    rwin32.BOOL) 
+
 _CreateFile = rwin32.winexternal(
     'CreateFileA', [
         rwin32.LPCSTR,
@@ -81,7 +89,7 @@ def CloseHandle(space, w_handle):
         raise wrap_windowserror(space, rwin32.lastWindowsError())
 
 def GetLastError(space):
-    return space.wrap(rwin32.lastWindowsError())
+    return space.wrap(rwin32.GetLastError())
 
 @unwrap_spec(ObjSpace, str, r_uint, r_uint, r_uint, r_uint, r_uint, r_uint, W_Root)
 def CreateNamedPipe(space, name, openmode, pipemode, maxinstances,

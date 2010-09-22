@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.rlib.rarithmetic import intmask
 import sys, os
 
@@ -348,15 +348,16 @@ class W_PipeConnection(W_BaseConnection):
                 rwin32.GetLastError() == ERROR_NO_SYSTEM_RESOURCES):
                 raise operationerrfmt(
                     space.w_ValueError,
-                    "Cannot send %ld bytes over connection", size)
+                    "Cannot send %d bytes over connection", size)
         finally:
             rffi.free_charp(charp)
             lltype.free(written_ptr, flavor='raw')
 
     def do_recv_string(self, space, maxlength):
         from pypy.module._multiprocessing.interp_win32 import (
-            _ReadFile)
+            _ReadFile, _PeekNamedPipe, ERROR_BROKEN_PIPE, ERROR_MORE_DATA)
         from pypy.rlib import rwin32
+        from pypy.interpreter.error import wrap_windowserror
 
         read_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
                                  flavor='raw')
@@ -371,31 +372,34 @@ class W_PipeConnection(W_BaseConnection):
 
             err = rwin32.GetLastError()
             if err == ERROR_BROKEN_PIPE:
-                return MP_END_OF_FILE
+                return MP_END_OF_FILE, lltype.nullptr(rffi.CCHARP.TO)
             elif err != ERROR_MORE_DATA:
-                return MP_STANDARD_ERROR
+                raise wrap_windowserror(space, WindowsError(err, "_ReadFile"))
 
             # More data...
             if not _PeekNamedPipe(self.handle, rffi.NULL, 0,
-                                  rffi.NULL, rffi.NULL, left_ptr):
-                return MP_STANDARD_ERROR
+                                  lltype.nullptr(rwin32.LPDWORD.TO),
+                                  lltype.nullptr(rwin32.LPDWORD.TO),
+                                  left_ptr):
+                raise wrap_windowserror(space, rwin32.lastWindowsError())
 
-            length = read_ptr[0] + left_ptr[0]
+            length = intmask(read_ptr[0] + left_ptr[0])
             if length > maxlength:
                 return MP_BAD_MESSAGE_LENGTH, lltype.nullptr(rffi.CCHARP.TO)
 
             newbuf = lltype.malloc(rffi.CCHARP.TO, length + 1, flavor='raw')
-            raw_memcopy(self.buffer, newbuf, read_ptr[0])
+            for i in range(read_ptr[0]):
+                newbuf[i] = self.buffer[i]
 
             result = _ReadFile(self.handle,
                                rffi.ptradd(newbuf, read_ptr[0]), left_ptr[0],
                                read_ptr, rffi.NULL)
-            if result:
-                assert read_ptr[0] == left_ptr[0]
-                return length, newbuf
-            else:
+            if not result:
                 rffi.free_charp(newbuf)
-                return MP_STANDARD_ERROR, lltype.nullptr(rffi.CCHARP.TO)
+                raise wrap_windowserror(space, rwin32.lastWindowsError())
+
+            assert read_ptr[0] == left_ptr[0]
+            return length, newbuf
         finally:
             lltype.free(read_ptr, flavor='raw')
 
