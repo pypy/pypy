@@ -185,6 +185,7 @@ EXTENDED_ARG = 143
 # pypy modification, experimental bytecode
 def_op('CALL_LIKELY_BUILTIN', 144)    # #args + (#kwargs << 8)
 def_op('LOOKUP_METHOD', 145)          # Index in name list
+hasname.append(145)
 def_op('CALL_METHOD', 146)            # #args not including 'self'
 
 
