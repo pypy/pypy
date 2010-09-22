@@ -41,9 +41,12 @@ class GcLLDescr_boehm(GcLLDescription):
     moving_gc = False
     gcrootmap = None
 
-    def __init__(self, gcdescr, translator, rtyper):
-        GcLLDescription.__init__(self, gcdescr, translator, rtyper)
-        # grab a pointer to the Boehm 'malloc' function
+    @classmethod
+    def configure_boehm_once(cls):
+        """ Configure boehm only once, since we don't cache failures
+        """
+        if hasattr(cls, 'malloc_fn_ptr'):
+            return cls.malloc_fn_ptr
         from pypy.rpython.tool import rffi_platform
         compilation_info = rffi_platform.configure_boehm()
 
@@ -59,13 +62,20 @@ class GcLLDescr_boehm(GcLLDescription):
             GC_MALLOC = "GC_local_malloc"
         else:
             GC_MALLOC = "GC_malloc"
-
         malloc_fn_ptr = rffi.llexternal(GC_MALLOC,
                                         [lltype.Signed], # size_t, but good enough
                                         llmemory.GCREF,
                                         compilation_info=compilation_info,
                                         sandboxsafe=True,
                                         _nowrapper=True)
+        cls.malloc_fn_ptr = malloc_fn_ptr
+        cls.compilation_info = compilation_info
+        return malloc_fn_ptr
+
+    def __init__(self, gcdescr, translator, rtyper):
+        GcLLDescription.__init__(self, gcdescr, translator, rtyper)
+        # grab a pointer to the Boehm 'malloc' function
+        malloc_fn_ptr = self.configure_boehm_once()
         self.funcptr_for_new = malloc_fn_ptr
 
         # on some platform GC_init is required before any other
@@ -73,7 +83,7 @@ class GcLLDescr_boehm(GcLLDescription):
         # XXX move this to tests
         init_fn_ptr = rffi.llexternal("GC_init",
                                       [], lltype.Void,
-                                      compilation_info=compilation_info,
+                                      compilation_info=self.compilation_info,
                                       sandboxsafe=True,
                                       _nowrapper=True)
 
