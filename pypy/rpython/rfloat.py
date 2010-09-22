@@ -209,8 +209,8 @@ class __extend__(pairtype(FloatRepr, PyObjRepr)):
                                      _callable=lambda x: pyobjectptr(x))
         return NotImplemented
 
-# ____________________________________________________________
-# Support for r_singlefloat from pypy.rlib.rarithmetic
+# ______________________________________________________________________
+# Support for r_singlefloat and r_longfloat from pypy.rlib.rarithmetic
 
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rmodel import Repr
@@ -228,5 +228,21 @@ class SingleFloatRepr(Repr):
         v, = hop.inputargs(lltype.SingleFloat)
         hop.exception_cannot_occur()
         # we use cast_primitive to go between Float and SingleFloat.
+        return hop.genop('cast_primitive', [v],
+                         resulttype = lltype.Float)
+
+class __extend__(annmodel.SomeLongFloat):
+    def rtyper_makerepr(self, rtyper):
+        return LongFloatRepr()
+    def rtyper_makekey(self):
+        return self.__class__,
+
+class LongFloatRepr(Repr):
+    lowleveltype = lltype.LongFloat
+
+    def rtype_float(self, hop):
+        v, = hop.inputargs(lltype.LongFloat)
+        hop.exception_cannot_occur()
+        # we use cast_primitive to go between Float and LongFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.Float)

@@ -34,7 +34,7 @@ from pypy.tool import descriptor
 from pypy.tool.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
-from pypy.rlib.rarithmetic import r_singlefloat, isnan
+from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat, isnan
 import inspect, weakref
 
 DEBUG = False    # set to False to disable recording of debugging information
@@ -177,6 +177,15 @@ class SomeSingleFloat(SomeObject):
     "Stands for an r_singlefloat."
     # No operation supported, not even union with a regular float
     knowntype = r_singlefloat
+    immutable = True
+
+    def can_be_none(self):
+        return False
+
+class SomeLongFloat(SomeObject):
+    "Stands for an r_longfloat."
+    # No operation supported, not even union with a regular float
+    knowntype = r_longfloat
     immutable = True
 
     def can_be_none(self):
@@ -580,6 +589,7 @@ annotation_to_ll_map = [
     (SomeInteger(knowntype=r_ulonglong), NUMBER),    
     (SomeFloat(), lltype.Float),
     (SomeSingleFloat(), lltype.SingleFloat),
+    (SomeLongFloat(), lltype.LongFloat),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),
