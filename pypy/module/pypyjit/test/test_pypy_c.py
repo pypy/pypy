@@ -869,6 +869,24 @@ class PyPyCJITTests(object):
                 return intimg[i - 1]
             ''', maxops, ([tc], res))
 
+    def test_unpackiterable(self):
+        self.run_source('''
+        from array import array
+
+        def main():
+            i = 0
+            t = array('l', (1, 2))
+            while i < 2000:
+                a, b = t
+                i += 1
+            return 3
+
+        ''', 100, ([], 3))
+        bytecode, = self.get_by_bytecode("UNPACK_SEQUENCE")
+        # we allocate virtual ref and frame, we don't want block
+        assert len(bytecode.get_opnames('call_may_force')) == 0
+        
+
     def test_intbound_simple(self):
         ops = ('<', '>', '<=', '>=', '==', '!=')
         nbr = (3, 7)

@@ -637,7 +637,7 @@ class __extend__(pyframe.PyFrame):
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
-        items = self.space.fixedview(w_iterable, itemcount)
+        items = self.space.fixedview_unroll(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
 
     def STORE_ATTR(self, nameindex, next_instr):
