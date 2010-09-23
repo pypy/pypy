@@ -43,8 +43,12 @@ def float_unpack(Q, size):
     else:
         raise ValueError("invalid size value")
 
-    if Q >> BITS:
-         raise ValueError("input out of range")
+    if not objectmodel.we_are_translated():
+        # This tests generates wrong code when translated:
+        # with gcc, shifting a 64bit int by 64 bits does
+        # not change the value.
+        if Q >> BITS:
+            raise ValueError("input out of range")
 
     # extract pieces
     one = r_ulonglong(1)
