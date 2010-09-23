@@ -1,7 +1,9 @@
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rlib.rstruct.runpack import runpack
+from pypy.rlib.rstruct import ieee
 from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.translator.c.test.test_genc import compile
 import struct
 
 class BaseTestRStruct(BaseRtypingTest):
@@ -34,3 +36,18 @@ class TestLLType(BaseTestRStruct, LLRtypeMixin):
 
 class TestOOType(BaseTestRStruct, OORtypeMixin):
     pass
+
+class TestCompiled:
+    def test_pack_float(self):
+        def pack(x):
+            result = []
+            ieee.pack_float(result, x, 8, False)
+            return ''.join(result)
+        c_pack = compile(pack, [float])
+        def unpack(s):
+            return ieee.unpack_float(s, False)
+        c_unpack = compile(unpack, [str])
+
+        s = c_pack(123.456)
+        assert s == pack(123.456)
+        assert c_unpack(s) == 123.456
