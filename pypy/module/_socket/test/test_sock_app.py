@@ -471,6 +471,19 @@ class AppTestSocket:
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
 
+    def test_socket_ioctl(self):
+        import _socket, sys
+        if sys.platform != 'win32':
+            skip("win32 only")
+        assert hasattr(_socket.socket, 'ioctl')
+        assert hasattr(_socket, 'SIO_RCVALL')
+        assert hasattr(_socket, 'RCVALL_ON')
+        assert hasattr(_socket, 'RCVALL_OFF')
+        assert hasattr(_socket, 'SIO_KEEPALIVE_VALS')
+        s = _socket.socket()
+        raises(ValueError, s.ioctl, -1, None)
+        s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
+
     def test_dup(self):
         import _socket as socket
         if not hasattr(socket.socket, 'dup'):
