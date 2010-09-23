@@ -253,9 +253,10 @@ class Counts(dict):
 def main(loopfile, use_threshold, view=True):
     countname = py.path.local(loopfile + '.count')
     if countname.check():
-        counts = [re.split(r' +', line, 1) for line in countname.readlines()]
-        counts = Counts([(k.strip("\n"), int(v.strip('\n')))
-                         for v, k in counts])
+        counts = [re.split('(<code)|(<loop)', line, maxsplit=1)
+                  for line in countname.readlines()]
+        counts = Counts([('<code' + k.strip("\n"), int(v.strip('\n').strip()))
+                         for v, _, _, k in counts])
         l = list(sorted(counts.values()))
         if len(l) > 20 and use_threshold:
             counts.threshold = l[-20]
