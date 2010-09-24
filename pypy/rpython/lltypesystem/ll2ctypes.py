@@ -26,6 +26,60 @@ from pypy.rpython import raddress
 from pypy.translator.platform import platform
 from array import array
 
+# ____________________________________________________________
+
+far_regions = None
+
+def allocate_ctypes(ctype):
+    if far_regions:
+        import random
+        pieces = far_regions._ll2ctypes_pieces
+        num = random.randrange(len(pieces))
+        i1, stop = pieces[num]
+        i2 = i1 + (ctypes.sizeof(ctype) + 7) & ~7
+        if i2 > stop:
+            raise MemoryError("out of memory in far_regions")
+        pieces[num] = i2, stop
+        p = lltype2ctypes(far_regions.getptr(i1))
+        return ctypes.cast(p, ctypes.POINTER(ctype)).contents
+    else:
+        return ctype()
+
+def do_allocation_in_far_regions():
+    """On 32 bits: this reserves 1.25GB of address space, or 2.5GB on Linux,
+       which helps test this module for address values that are signed or
+       unsigned.
+
+       On 64-bits: reserves 10 times 2GB of address space.  This should help
+       to find 32-vs-64-bit issues in the JIT.  It is likely that objects
+       are further apart than 32 bits can represent; it is also possible
+       to hit the corner case of being precisely e.g. 2GB - 8 bytes apart.
+
+       Avoid this function if your OS reserves actual RAM from mmap() eagerly.
+    """
+    global far_regions
+    if not far_regions:
+        from pypy.rlib import rmmap
+        if sys.maxint > 0x7FFFFFFF:
+            PIECESIZE = 0x80000000
+        else:
+            if sys.platform == 'linux':
+                PIECESIZE = 0x10000000
+            else:
+                PIECESIZE = 0x08000000
+        PIECES = 10
+        m = rmmap.mmap(-1, PIECES * PIECESIZE,
+                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS,
+                       rmmap.PROT_READ|rmmap.PROT_WRITE)
+        m.close = lambda : None    # leak instead of giving a spurious
+                                   # error at CPython's shutdown
+        m._ll2ctypes_pieces = []
+        for i in range(PIECES):
+            m._ll2ctypes_pieces.append((i * PIECESIZE, (i+1) * PIECESIZE))
+        far_regions = m
+
+# ____________________________________________________________
+
 _ctypes_cache = {}
 _eci_cache = {}
 
@@ -87,13 +141,13 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
             if S._arrayfld is None:
                 if n is not None:
                     raise TypeError("%r is not variable-sized" % (S,))
-                storage = cls()
+                storage = allocate_ctypes(cls)
                 return storage
             else:
                 if n is None:
                     raise TypeError("%r is variable-sized" % (S,))
                 biggercls = build_ctypes_struct(S, None, n)
-                bigstruct = biggercls()
+                bigstruct = allocate_ctypes(biggercls)
                 array = getattr(bigstruct, S._arrayfld)
                 if hasattr(array, 'length'):
                     array.length = n
@@ -135,7 +189,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if not isinstance(n, int):
                 raise TypeError, "array length must be an int"
             biggercls = get_ctypes_array_of_size(A, n)
-            bigarray = biggercls()
+            bigarray = allocate_ctypes(biggercls)
             if hasattr(bigarray, 'length'):
                 bigarray.length = n
             return bigarray

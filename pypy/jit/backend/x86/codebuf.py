@@ -152,7 +152,7 @@ class MachineCodeBlock(InMemoryCodeBuilder):
             # Hack to make sure that mcs are not within 32-bits of one
             # another for testing purposes
             from pypy.rlib.rmmap import hint
-            hint.pos += 0xFFFFFFFF
+            hint.pos += 0x80000000 - map_size
             
         self._init(data, map_size)
 

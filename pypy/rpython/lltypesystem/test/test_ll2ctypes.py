@@ -16,6 +16,12 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 
+
+if False:    # for now, please keep it False by default
+    from pypy.rpython.lltypesystem import ll2ctypes
+    ll2ctypes.do_allocation_in_far_regions()
+
+
 class TestLL2Ctypes(object):
 
     def setup_method(self, meth):

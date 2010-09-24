@@ -292,7 +292,8 @@ class MMap(object):
                 c_munmap(self.getptr(0), self.size)
                 self.setdata(NODATA, 0)
 
-    __del__ = close
+    def __del__(self):
+        self.close()
 
     def unmapview(self):
         UnmapViewOfFile(self.getptr(0))
