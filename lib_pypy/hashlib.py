@@ -50,10 +50,24 @@ More condensed:
     'a4337bc45a8fc544c03f52dc550cd6e1e87021bc896588bd79e901e2'
 
 """
-try:
-    import _hashlib
-except ImportError:
-    _hashlib = None
+
+# Don't import _hashlib now: our implementation
+# uses ctypes.util, which itself somehow import hashlib again...
+def __import_hashlib(__memo=[]):
+    "Cache the result of the import, module or failure"
+    if __memo:
+        _hashlib = __memo[0]
+    else:
+        try:
+            import _hashlib
+        except ImportError:
+            _hashlib = None
+        __memo.append(_hashlib)
+
+    if _hashlib:
+        return _hashlib
+    else:
+        raise ImportError("_hashlib")
 
 def __get_builtin_constructor(name):
     if name in ('SHA1', 'sha1'):
@@ -81,9 +95,9 @@ def __hash_new(name, string=''):
     optionally initialized with a string.
     """
     try:
-        if _hashlib:
-            return _hashlib.new(name, string)
-    except ValueError:
+        _hashlib = __import_hashlib()
+        return _hashlib.new(name, string)
+    except (ValueError, ImportError):
         # If the _hashlib module (OpenSSL) doesn't support the named
         # hash, try using our builtin implementations.
         # This allows for SHA224/256 and SHA384/512 support even though
@@ -94,35 +108,14 @@ def __hash_new(name, string=''):
 
 new = __hash_new
 
-def _setfuncs():
-    # use the wrapper of the C implementation
+def __getfunc(name):
+    def new(string=''):
+        return __hash_new(name, string)
+    return new
 
-    sslprefix = 'openssl_'
-    for opensslfuncname, func in vars(_hashlib).items():
-        if not opensslfuncname.startswith(sslprefix):
-            continue
-        funcname = opensslfuncname[len(sslprefix):]
-        try:
-            # try them all, some may not work due to the OpenSSL
-            # version not supporting that algorithm.
-            func() 
-            # Use the C function directly (very fast)
-            globals()[funcname] = func 
-        except ValueError:
-            try:
-                # Use the builtin implementation directly (fast)
-                globals()[funcname] = __get_builtin_constructor(funcname) 
-            except ValueError:
-                # this one has no builtin implementation, don't define it
-                pass
-
-if _hashlib:
-    _setfuncs()
-else:
-    # lookup the C function to use directly for the named constructors
-    md5 = __get_builtin_constructor('md5')
-    sha1 = __get_builtin_constructor('sha1')
-    sha224 = __get_builtin_constructor('sha224')
-    sha256 = __get_builtin_constructor('sha256')
-    sha384 = __get_builtin_constructor('sha384')
-    sha512 = __get_builtin_constructor('sha512')
+md5 = __getfunc('md5')
+sha1 = __getfunc('sha1')
+sha224 = __getfunc('sha224')
+sha256 = __getfunc('sha256')
+sha384 = __getfunc('sha384')
+sha512 = __getfunc('sha512')
