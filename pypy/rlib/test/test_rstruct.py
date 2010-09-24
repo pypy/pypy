@@ -51,3 +51,7 @@ class TestCompiled:
         s = c_pack(123.456)
         assert s == pack(123.456)
         assert c_unpack(s) == 123.456
+
+        s = c_pack(-123.456)
+        assert s == pack(-123.456)
+        assert c_unpack(s) == -123.456

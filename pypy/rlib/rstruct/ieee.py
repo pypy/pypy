@@ -130,6 +130,7 @@ def float_pack(x, size):
         assert 0 <= sign <= 1
 
     exp = r_ulonglong(exp)
+    sign = r_ulonglong(sign)
     return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
 
 
