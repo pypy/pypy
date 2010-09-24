@@ -1,0 +1,20 @@
+TODO list for 2.7.0
+===================
+
+- Missing builtin: bytes = str
+
+- Missing builtin: next = space.next(w_obj)
+
+- Missing builtin: bytearray (possibly reuse module.__pypy__.bytebuffer)
+
+- Octal literals: 0o777
+
+- Seen in test_inspect, this has never worked in pypy::
+
+      assert eval('a', None, dict(a=42)) == 42
+
+- Implement the _io module.  At least _io.FileIO, and have io.py import
+  everything from _pyio.py
+
+- Finish _multiprocessing
+
