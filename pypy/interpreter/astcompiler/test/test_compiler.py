@@ -704,6 +704,10 @@ class TestCompiler:
         source = "call(a, b, c) = 3"
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
+    def test_augassig_to_sequence(self):
+        source = "a, b += 3"
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
     def test_broken_setups(self):
         source = """if 1:
         try:

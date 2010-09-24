@@ -379,7 +379,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(self._op_for_augassign(assign.op))
             self.name_op(target.id, ast.Store)
         else:
-            raise AssertionError("unknown augassign")
+            self.error("illegal expression for augmented assignment", assign)
 
     def visit_Assert(self, asrt):
         self.update_position(asrt.lineno)
