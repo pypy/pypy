@@ -856,7 +856,6 @@ class FunctionGcRootTracker32(FunctionGcRootTracker):
     visit_and = FunctionGcRootTracker._visit_and
 
     visit_xchgl = FunctionGcRootTracker._visit_xchg
-    visit_xchgq = FunctionGcRootTracker._visit_xchg
 
     # used in "xor reg, reg" to create a NULL GC ptr
     visit_xorl = FunctionGcRootTracker.binary_insn
@@ -914,6 +913,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
     visit_leaq = FunctionGcRootTracker._visit_lea
 
     visit_xorq = FunctionGcRootTracker.binary_insn
+    visit_xchgq = FunctionGcRootTracker._visit_xchg
 
     # FIXME: similar to visit_popl for 32-bit
     def visit_popq(self, line):
