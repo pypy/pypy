@@ -375,7 +375,7 @@ class _parentable_mixin(object):
         "Returns the storage address as an int"
         if self._storage is None or self._storage is True:
             raise ValueError("Not a ctypes allocated structure")
-        return ctypes.cast(self._storage, ctypes.c_void_p).value
+        return intmask(ctypes.cast(self._storage, ctypes.c_void_p).value)
 
     def _free(self):
         self._check()   # no double-frees
