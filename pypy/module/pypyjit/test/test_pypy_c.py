@@ -798,7 +798,6 @@ class PyPyCJITTests(object):
                     if i > 750: a = b
                 return sa
             ''', 215, ([], 12481752))
-        assert False
 
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
