@@ -137,6 +137,12 @@ class AddressLoc(AssemblerLocation):
                 self._location_code = 'a'
                 self.loc_a = (base_loc.value, scaled_loc.value, scale, static_offset)
 
+    def __repr__(self):
+        dict = {'j': 'value', 'a': 'loc_a', 'm': 'loc_m', 'a':'loc_a'}
+        attr = dict.get(self._location_code, '?')
+        info = getattr(self, attr, '?')
+        return '<AddressLoc %r: %s>' % (self._location_code, info)
+
     def location_code(self):
         return self._location_code
 
@@ -158,6 +164,9 @@ class ConstFloatLoc(AssemblerLocation):
     def __init__(self, address, const_id):
         self.value = address
         self.const_id = const_id
+
+    def __repr__(self):
+        return '<ConstFloatLoc(%s, %s)>' % (self.value, self.const_id)
 
     def _getregkey(self):
         # XXX: 1000 is kind of magic: We just don't want to be confused
@@ -248,6 +257,14 @@ class LocationCodeBuilder(object):
                                 methname = name + "_" + possible_code1 + "m"
                                 _rx86_getattr(self, methname)(val1, reg_offset)
                             else:
+                                if possible_code1 == 'm' and not rx86.fits_in_32bits(val1[1]):
+                                    val1 = self._fix_static_offset_64_m(val1)
+                                if possible_code2 == 'm' and not rx86.fits_in_32bits(val2[1]):
+                                    val2 = self._fix_static_offset_64_m(val2)
+                                if possible_code1 == 'a' and not rx86.fits_in_32bits(val1[3]):
+                                    val1 = self._fix_static_offset_64_a(val1)
+                                if possible_code2 == 'a' and not rx86.fits_in_32bits(val2[3]):
+                                    val2 = self._fix_static_offset_64_a(val2)
                                 methname = name + "_" + possible_code1 + possible_code2
                                 _rx86_getattr(self, methname)(val1, val2)
 
@@ -316,6 +333,34 @@ class LocationCodeBuilder(object):
 
         self.MOV_ri(X86_64_SCRATCH_REG.value, addr)
         return (X86_64_SCRATCH_REG.value, 0)
+
+    def _fix_static_offset_64_m(self, (basereg, static_offset)):
+        # For cases where an AddressLoc has the location_code 'm', but
+        # where the static offset does not fit in 32-bits.  We have to fall
+        # back to the X86_64_SCRATCH_REG.  It is even more annoying because
+        # we want to keep using the mode 'm'.  These are all possibly rare
+        # cases; don't try to reuse a past value of the scratch register at
+        # all.
+        self._scratch_register_known = False
+        self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
+        self.LEA_ra(X86_64_SCRATCH_REG.value,
+                    (basereg, X86_64_SCRATCH_REG.value, 0, 0))
+        return (X86_64_SCRATCH_REG.value, 0)
+
+    def _fix_static_offset_64_a(self, (basereg, scalereg,
+                                       scale, static_offset)):
+        # For cases where an AddressLoc has the location_code 'a', but
+        # where the static offset does not fit in 32-bits.  We have to fall
+        # back to the X86_64_SCRATCH_REG.  In one case it is even more
+        # annoying.  These are all possibly rare cases; don't try to reuse a
+        # past value of the scratch register at all.
+        self._scratch_register_known = False
+        self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
+        #
+        if basereg != rx86.NO_BASE_REGISTER:
+            self.LEA_ra(X86_64_SCRATCH_REG.value,
+                        (basereg, X86_64_SCRATCH_REG.value, 0, 0))
+        return (X86_64_SCRATCH_REG.value, scalereg, scale, 0)
 
     def begin_reuse_scratch_register(self):
         # Flag the beginning of a block where it is okay to reuse the value
