@@ -78,3 +78,62 @@ def test_reuse_scratch_register():
             '\x49\x8B\x4B\x08'
     )
     assert cb.getvalue() == expected_instructions
+
+def test_64bit_address_1():
+    base_addr = 0xFEDCBA9876543210
+    cb = LocationCodeBuilder64()
+    cb.CMP(ecx, AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr))
+    #
+    expected_instructions = (
+            # mov r11, 0xFEDCBA9876543210
+            '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+            # cmp rcx, [r11]
+            '\x49\x3B\x0B'
+    )
+    assert cb.getvalue() == expected_instructions
+
+def test_64bit_address_2():
+    base_addr = 0xFEDCBA9876543210
+    cb = LocationCodeBuilder64()
+    cb.MOV(ecx, AddressLoc(ImmedLoc(0), edx, 3, base_addr))
+    #
+    expected_instructions = (
+            # mov r11, 0xFEDCBA9876543210
+            '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+            # mov rcx, [r11+8*rdx]
+            '\x49\x8B\x0C\xD3'
+    )
+    assert cb.getvalue() == expected_instructions
+
+def test_64bit_address_3():
+    base_addr = 0xFEDCBA9876543210
+    cb = LocationCodeBuilder64()
+    cb.MOV(ecx, AddressLoc(edx, ImmedLoc(0), 0, base_addr))
+    #
+    expected_instructions = (
+            # mov r11, 0xFEDCBA9876543210
+            '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+            # mov rcx, [rdx+r11]
+            '\x4A\x8B\x0C\x1A'
+    )
+    assert cb.getvalue() == expected_instructions
+
+def test_64bit_address_4():
+    base_addr = 0xFEDCBA9876543210
+    cb = LocationCodeBuilder64()
+    cb.begin_reuse_scratch_register()
+    assert cb._reuse_scratch_register is True
+    assert cb._scratch_register_known is False
+    cb.MOV(ecx, AddressLoc(edx, esi, 2, base_addr))
+    assert cb._reuse_scratch_register is True
+    assert cb._scratch_register_known is False
+    #
+    expected_instructions = (
+            # mov r11, 0xFEDCBA9876543210
+            '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+            # lea r11, [rdx+r11]
+            '\x4E\x8D\x1C\x1A'
+            # mov rcx, [r11+4*rsi]
+            '\x49\x8B\x0C\xB3'
+    )
+    assert cb.getvalue() == expected_instructions
