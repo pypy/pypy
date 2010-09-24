@@ -613,10 +613,6 @@ class ReallyRunFileExternal(py.test.collect.Item):
                                    'run-script', 'regrverbose.py')
         
         regrrun = str(regr_script)
-        if pypy_option.verbose:
-            regrrun_verbosity = '1'
-        else:
-            regrrun_verbosity = '0'
         
         TIMEOUT = gettimeout()
         if option.pypy:
@@ -634,9 +630,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
                     py.test.skip("%s module not included in %s" % (mod,
                                                                    execpath))
                     
-            cmd = "%s %s %s %s" %(
+            cmd = "%s %s %s" %(
                 execpath, 
-                regrrun, regrrun_verbosity, fspath.purebasename)
+                regrrun, fspath.purebasename)
 
             # add watchdog for timing out
             cmd = "%s %s %s %s" %(

@@ -2,8 +2,8 @@
 import sys
 import unittest
 from test import test_support
-test_support.verbose = int(sys.argv[1])
-sys.argv[:] = sys.argv[2:]
+test_support.verbose = 1
+sys.argv[:] = sys.argv[1:]
 
 modname = sys.argv[0]
 impname = 'test.' + modname
