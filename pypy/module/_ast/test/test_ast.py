@@ -15,6 +15,10 @@ class AppTestAST:
         return mod
     return get_ast""")
 
+    def test_module(self):
+        ast = self.ast
+        assert isinstance(ast.__version__, str)
+
     def test_build_ast(self):
         ast = self.ast
         mod = self.get_ast("x = 4")
