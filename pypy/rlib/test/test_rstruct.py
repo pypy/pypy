@@ -2,7 +2,7 @@
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rlib.rstruct import ieee
-from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rarithmetic import LONG_BIT, INFINITY, NAN, isnan
 from pypy.translator.c.test.test_genc import compile
 import struct
 
@@ -48,10 +48,18 @@ class TestCompiled:
             return ieee.unpack_float(s, False)
         c_unpack = compile(unpack, [str])
 
-        s = c_pack(123.456)
-        assert s == pack(123.456)
-        assert c_unpack(s) == 123.456
+        def check_roundtrip(x):
+            s = c_pack(x)
+            assert s == pack(x)
+            if not isnan(x):
+                assert unpack(s) == x
+                assert c_unpack(s) == x
+            else:
+                assert isnan(unpack(s))
+                assert isnan(c_unpack(s))
 
-        s = c_pack(-123.456)
-        assert s == pack(-123.456)
-        assert c_unpack(s) == -123.456
+        check_roundtrip(123.456)
+        check_roundtrip(-123.456)
+        check_roundtrip(INFINITY)
+        check_roundtrip(NAN)
+
