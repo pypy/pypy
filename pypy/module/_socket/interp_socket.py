@@ -347,37 +347,34 @@ class W_RSocket(Wrappable, RSocket):
         recv_ptr = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
         try:
             if cmd == _c.SIO_RCVALL:
-                option_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-                try:
-                    option_ptr[0] = space.uint_w(w_option)
-                    option_ptr = rffi.cast(rffi.VOIDP, option_ptr)
-                    res = _c.WSAIoctl(
-                        self.fd, cmd,
-                        option_ptr, rffi.sizeof(rffi.INTP),
-                        rffi.NULL, 0, recv_ptr, rffi.NULL, rffi.NULL)
-                    if res < 0:
-                        raise error()
-                finally:
-                    lltype.free(option_ptr, flavor='raw')
+                value_size = rffi.sizeof(rffi.INTP)
             elif cmd == _c.SIO_KEEPALIVE_VALS:
-                w_onoff, w_time, w_interval = space.unpackiterable(w_option)
-                option_ptr = lltype.malloc(_c.tcp_keepalive, flavor='raw')
-                try:
-                    option_ptr.c_onoff = space.uint_w(w_onoff)
-                    option_ptr.c_keepalivetime = space.uint_w(w_time)
-                    option_ptr.c_keepaliveinterval = space.uint_w(w_interval)
-                    option_ptr = rffi.cast(rffi.VOIDP, option_ptr)
-                    res = _c.WSAIoctl(
-                        self.fd, cmd,
-                        option_ptr, rffi.sizeof(_c.tcp_keepalive),
-                        rffi.NULL, 0, recv_ptr, rffi.NULL, rffi.NULL)
-                    if res < 0:
-                        raise error()
-                finally:
-                    lltype.free(option_ptr, flavor='raw')
+                value_size = rffi.sizeof(_c.tcp_keepalive)
             else:
                 raise operationerrfmt(space.w_ValueError,
                                       "invalid ioctl command %d", cmd)
+
+            value_ptr = lltype.malloc(rffi.VOIDP.TO, value_size, flavor='raw')
+            try:
+                if cmd == _c.SIO_RCVALL:
+                    option_ptr = rffi.cast(rffi.INTP, value_ptr)
+                    option_ptr[0] = space.int_w(w_option)
+                elif cmd == _c.SIO_KEEPALIVE_VALS:
+                    w_onoff, w_time, w_interval = space.unpackiterable(w_option)
+                    option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
+                    option_ptr.c_onoff = space.uint_w(w_onoff)
+                    option_ptr.c_keepalivetime = space.uint_w(w_time)
+                    option_ptr.c_keepaliveinterval = space.uint_w(w_interval)
+
+                res = _c.WSAIoctl(
+                    self.fd, cmd, value_ptr, value_size,
+                    rffi.NULL, 0, recv_ptr, rffi.NULL, rffi.NULL)
+                if res < 0:
+                    raise converted_error(space, rsocket.last_error())
+            finally:
+                if value_ptr:
+                    lltype.free(value_ptr, flavor='raw')
+
             return space.wrap(recv_ptr[0])
         finally:
             lltype.free(recv_ptr, flavor='raw')
