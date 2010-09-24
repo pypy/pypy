@@ -1028,7 +1028,7 @@ class Assembler386(object):
         if self.cpu.vtable_offset is not None:
             assert isinstance(loc, RegLoc)
             assert isinstance(loc_vtable, ImmedLoc)
-            self.mc.MOV_mi((loc.value, self.cpu.vtable_offset), loc_vtable.value)
+            self.mc.MOV(mem(loc, self.cpu.vtable_offset), loc_vtable)
 
     # XXX genop_new is abused for all varsized mallocs with Boehm, for now
     # (instead of genop_new_array, genop_newstr, genop_newunicode)
@@ -1863,6 +1863,7 @@ class Assembler386(object):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, [chr(offset)])
+        # on 64-bits, 'tid' is a value that fits in 31 bits
         self.mc.MOV_mi((eax.value, 0), tid)
         self.mc.MOV(heap(nursery_free_adr), edx)
         
