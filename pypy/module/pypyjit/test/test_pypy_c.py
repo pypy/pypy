@@ -140,7 +140,7 @@ class PyPyCJITTests(object):
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     sliced_loop = BytecodeTrace()
-                    sliced_loop.bytecode = op.args[0]._get_str().rsplit(" ", 1)[1]
+                    sliced_loop.bytecode = op.getarg(0)._get_str().rsplit(" ", 1)[1]
                     self.sliced_loops.append(sliced_loop)
                 else:
                     sliced_loop.append(op)
