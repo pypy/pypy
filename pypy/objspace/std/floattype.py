@@ -106,7 +106,7 @@ def descr_fromhex(space, w_cls, s):
         i += 1
         if length - i >= 2 and s[i:i + 2].lower() == "an":
             i += 2
-            value = float("nan")
+            value = rarithmetic.NAN
     else:
         if (s[i] == "0" and length - i > 1 and
             (s[i + 1] == "x" or s[i + 1] == "X")):
