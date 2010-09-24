@@ -36,7 +36,7 @@ def allocate_ctypes(ctype):
         pieces = far_regions._ll2ctypes_pieces
         num = random.randrange(len(pieces))
         i1, stop = pieces[num]
-        i2 = i1 + (ctypes.sizeof(ctype) + 7) & ~7
+        i2 = i1 + ((ctypes.sizeof(ctype) or 1) + 7) & ~7
         if i2 > stop:
             raise MemoryError("out of memory in far_regions")
         pieces[num] = i2, stop
