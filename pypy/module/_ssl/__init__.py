@@ -16,7 +16,7 @@ class Module(MixedModule):
         from pypy.module._ssl.interp_ssl import constants, HAVE_OPENSSL_RAND
 
         for constant, value in constants.iteritems():
-            Module.interpleveldefs[constant] = "space.wrap(%r)" % value
+            Module.interpleveldefs[constant] = "space.wrap(%r)" % (value,)
 
         if HAVE_OPENSSL_RAND:
             Module.interpleveldefs['RAND_add'] = "interp_ssl.RAND_add"

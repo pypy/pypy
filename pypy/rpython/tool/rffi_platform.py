@@ -438,14 +438,14 @@ class DefinedConstantDouble(CConfigEntry):
 class DefinedConstantString(CConfigEntry):
     """
     """
-    def __init__(self, macro):
+    def __init__(self, macro, name=None):
         self.macro = macro
-        self.name = macro
+        self.name = name or macro
 
     def prepare_code(self):
         yield '#ifdef %s' % self.macro
         yield 'int i;'
-        yield 'char *p = %s;' % self.macro
+        yield 'char *p = %s;' % self.name
         yield 'dump("defined", 1);'
         yield 'for (i = 0; p[i] != 0; i++ ) {'
         yield '  printf("value_%d: %d\\n", i, (int)(unsigned char)p[i]);'

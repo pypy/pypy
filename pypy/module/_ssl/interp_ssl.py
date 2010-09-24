@@ -69,6 +69,8 @@ class CConfig:
 
     OPENSSL_VERSION_NUMBER = rffi_platform.ConstantInteger(
         "OPENSSL_VERSION_NUMBER")
+    SSLEAY_VERSION = rffi_platform.DefinedConstantString(
+        "SSLEAY_VERSION", "SSLeay_version(SSLEAY_VERSION)")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
@@ -110,6 +112,16 @@ constants["SSL_ERROR_SSL"] = PY_SSL_ERROR_SSL
 constants["SSL_ERROR_WANT_CONNECT"] = PY_SSL_ERROR_WANT_CONNECT
 constants["SSL_ERROR_EOF"] = PY_SSL_ERROR_EOF
 constants["SSL_ERROR_INVALID_ERROR_CODE"] = PY_SSL_ERROR_INVALID_ERROR_CODE
+
+constants["OPENSSL_VERSION_NUMBER"] = OPENSSL_VERSION_NUMBER
+ver = OPENSSL_VERSION_NUMBER
+ver, status = divmod(ver, 16)
+ver, patch  = divmod(ver, 256)
+ver, fix    = divmod(ver, 256)
+ver, minor  = divmod(ver, 256)
+ver, major  = divmod(ver, 256)
+constants["OPENSSL_VERSION_INFO"] = (major, minor, fix, patch, status)
+constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
 def ssl_external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
