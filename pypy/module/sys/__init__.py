@@ -80,6 +80,7 @@ class Module(MixedModule):
         }
 
     if sys.platform == 'win32':
+        interpleveldefs['dllhandle'] = 'space.wrap(0)' # XXX for the moment
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
     
