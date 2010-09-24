@@ -308,6 +308,7 @@ class LocationCodeBuilder(object):
                                 if possible_code2 == 'a' and not rx86.fits_in_32bits(val2[3]):
                                     val2 = self._fix_static_offset_64_a(val2)
                                 invoke(self, possible_code1 + possible_code2, val1, val2)
+                            return
 
         return func_with_new_name(INSN, "INSN_" + name)
 
