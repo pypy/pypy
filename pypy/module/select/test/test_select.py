@@ -112,6 +112,7 @@ class _AppTestSelect:
                 # more data is available
                 if sys.platform != 'win32':
                     writeend.close()
+                    import gc; gc.collect()
             assert 1 <= total_out <= 512
             total_in = 0
             while True:
@@ -140,6 +141,7 @@ class _AppTestSelect:
         readend, writeend = self.getpair()
         try:
             readend.close()
+            import gc; gc.collect()
             iwtd, owtd, ewtd = select.select([writeend], [], [], 0)
             assert iwtd == [writeend]
             assert owtd == ewtd == []
