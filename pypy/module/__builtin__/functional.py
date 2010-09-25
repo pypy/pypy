@@ -164,9 +164,11 @@ def min_max_loop(space, args, implementation_of):
     return w_max_item
 
 def max(space, __args__):
-    """Return the largest item in a sequence.
-
-    If more than one argument is passed, return the maximum of them.
+    """max(iterable[, key=func]) -> value
+    max(a, b, c, ...[, key=func]) -> value
+    
+    With a single iterable argument, return its largest item.
+    With two or more arguments, return the largest argument.
     """
     return min_max(space, __args__, "max")
 max.unwrap_spec = [ObjSpace, Arguments]
