@@ -643,7 +643,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
             pypy_options.extend(
                 ['--withmod-%s' % mod for mod in regrtest.usemodules])
             sopt = " ".join(pypy_options) 
-            cmd = "%s %s %d %s -S %s %s -v %s" %(
+            cmd = "%s %s %d %s -S %s %s %s -v" %(
                 python, alarm_script, TIMEOUT, 
                 pypy_script, sopt, 
                 regrrun, fspath.purebasename)
