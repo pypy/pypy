@@ -132,6 +132,10 @@ class TinyObjSpace(object):
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
                     "while pypy-c was built with %s" % (key, value, has))
 
+        for name in ('int', 'long', 'str', 'unicode'):
+            setattr(self, 'w_' + name, eval(name))
+        
+
     def appexec(self, args, body):
         body = body.lstrip()
         assert body.startswith('(')
