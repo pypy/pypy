@@ -24,6 +24,12 @@ Probably easy tasks
 
       @test_support.cpython_only
 
+Medium tasks
+------------
+
+- Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
+  test_pickle()
+
 Longer tasks
 ------------
 
