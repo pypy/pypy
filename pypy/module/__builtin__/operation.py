@@ -185,6 +185,17 @@ iter(callable, sentinel) -> iterator calling callable() until it returns
     else:
         return iter_sentinel(space, w_collection_or_callable, w_sentinel)
 
+def next(space, w_iterator, w_default=NoneNotWrapped):
+    """next(iterator[, default])
+Return the next item from the iterator. If default is given and the iterator
+is exhausted, it is returned instead of raising StopIteration."""
+    try:
+        return space.next(w_iterator)
+    except OperationError, e:
+        if w_default is not None and e.match(space, space.w_StopIteration):
+            return w_default
+        raise
+
 def ord(space, w_val):
     """Return the integer ordinal of a character."""
     return space.ord(w_val)

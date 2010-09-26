@@ -84,6 +84,7 @@ class Module(MixedModule):
         'delattr'       : 'operation.delattr',
         'hasattr'       : 'operation.hasattr',
         'iter'          : 'operation.iter',
+        'next'          : 'operation.next',
         'id'            : 'operation.id',
         'intern'        : 'operation.intern',
         'callable'      : 'operation.callable',

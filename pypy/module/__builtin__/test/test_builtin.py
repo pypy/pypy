@@ -196,6 +196,26 @@ class AppTestBuiltinApp:
         enum = enumerate(range(5), 2)
         assert list(enum) == zip(range(2, 7), range(5))
 
+    def test_next(self):
+        x = iter(['a', 'b', 'c'])
+        assert next(x) == 'a'
+        assert next(x) == 'b'
+        assert next(x) == 'c'
+        raises(StopIteration, next, x)
+        assert next(x, 42) == 42
+
+    def test_next__next__(self):
+        class Counter:
+            def __init__(self):
+                self.count = 0
+            def next(self):
+                self.count += 1
+                return self.count
+        x = Counter()
+        assert next(x) == 1
+        assert next(x) == 2
+        assert next(x) == 3
+
     def test_xrange_args(self):
 ##        # xrange() attributes are deprecated and were removed in Python 2.3.
 ##        x = xrange(2)

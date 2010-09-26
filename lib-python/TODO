@@ -6,8 +6,6 @@ Probably easy tasks
 
 - Missing builtin: bytes = str
 
-- Missing builtin: next = space.next(w_obj)
-
 - Missing builtin: bytearray (possibly reuse module.__pypy__.bytebuffer)
 
 - Octal literals: 0o777
