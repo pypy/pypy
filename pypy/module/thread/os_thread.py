@@ -59,6 +59,8 @@ class Bootstrapper(object):
     # theoretically nicer, but comes with messy memory management issues.
     # This is much more straightforward.
 
+    nbthreads = 0
+
     # The following lock is held whenever the fields
     # 'bootstrapper.w_callable' and 'bootstrapper.args' are in use.
     lock = None
@@ -80,12 +82,14 @@ class Bootstrapper(object):
         space = bootstrapper.space
         w_callable = bootstrapper.w_callable
         args = bootstrapper.args
+        bootstrapper.nbthreads += 1
         bootstrapper.release()
         # run!
         space.threadlocals.enter_thread(space)
         try:
             bootstrapper.run(space, w_callable, args)
         finally:
+            bootstrapper.nbthreads -= 1
             # clean up space.threadlocals to remove the ExecutionContext
             # entry corresponding to the current thread
             try:
@@ -206,3 +210,15 @@ the suggested approach in the absence of more specific information)."""
         raise wrap_thread_error(space, "setting stack size not supported")
     return space.wrap(old_size)
 stack_size.unwrap_spec = [ObjSpace, int]
+
+def _count(space):
+    """_count() -> integer
+Return the number of currently running Python threads, excluding
+the main thread. The returned number comprises all threads created
+through `start_new_thread()` as well as `threading.Thread`, and not
+yet finished.
+
+This function is meant for internal and specialized purposes only.
+In most applications `threading.enumerate()` should be used instead."""
+    return space.wrap(bootstrapper.nbthreads)
+

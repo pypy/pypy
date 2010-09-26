@@ -18,8 +18,6 @@ Probably easy tasks
 
 - Missing complex.__trunc__
 
-- Missing thread._count()
-
 - Mark some tests as "implementation specific"::
 
       @test_support.cpython_only

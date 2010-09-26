@@ -14,6 +14,7 @@ class Module(MixedModule):
         'start_new':              'os_thread.start_new_thread', # obsolete syn.
         'get_ident':              'os_thread.get_ident',
         'stack_size':             'os_thread.stack_size',
+        '_count':                 'os_thread._count',
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.getlocktype(space)',
