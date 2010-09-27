@@ -108,14 +108,12 @@ def __hash_new(name, string=''):
 
 new = __hash_new
 
+algorithms = ['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512']
+
 def __getfunc(name):
     def new(string=''):
         return __hash_new(name, string)
     return new
 
-md5 = __getfunc('md5')
-sha1 = __getfunc('sha1')
-sha224 = __getfunc('sha224')
-sha256 = __getfunc('sha256')
-sha384 = __getfunc('sha384')
-sha512 = __getfunc('sha512')
+for __name in algorithms:
+    globals()[name] = __getfunc(__name)
