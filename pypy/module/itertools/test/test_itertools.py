@@ -271,21 +271,11 @@ class AppTestItertools:
         assert it.next() == 1
         raises(StopIteration, it.next)
 
-    def test_chain_wrongargs(self):
+    def test_chain_fromiterable(self):
         import itertools
-        
-        raises(TypeError, itertools.chain, None)
-        raises(TypeError, itertools.chain, [], None)
-
-        # The error message should indicate which argument was dodgy
-        for x in range(10):
-            args = [()] * x + [None] + [()] * (9 - x)
-            try:
-                itertools.chain(*args)
-            except TypeError, e:
-                assert str(e).find("#" + str(x + 1) + " ") >= 0
-            else:
-                fail("TypeError expected")
+        l = [[1, 2, 3], [4], [5, 6]]
+        it = itertools.chain.from_iterable(l)
+        assert list(it) == sum(l, [])
 
     def test_imap(self):
         import itertools

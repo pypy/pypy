@@ -372,49 +372,30 @@ W_ISlice.typedef = TypeDef(
 
 
 class W_Chain(Wrappable):
-    def __init__(self, space, args_w):
+    def __init__(self, space, w_iterables):
         self.space = space
-        iterators_w = []
-        i = 0
-        for iterable_w in args_w:
-            try:
-                iterator_w = space.iter(iterable_w)
-            except OperationError, e:
-                if e.match(self.space, self.space.w_TypeError):
-                    raise OperationError(space.w_TypeError, space.wrap("chain argument #" + str(i + 1) + " must support iteration"))
-                else:
-                    raise
-            else:
-                iterators_w.append(iterator_w)
-
-            i += 1
-
-        self.iterators_w = iterators_w
-        self.current_iterator = 0
-        self.num_iterators = len(iterators_w)
-        self.started = False
+        self.w_iterables = w_iterables
+        self.w_it = None
 
     def iter_w(self):
         return self.space.wrap(self)
 
+    def _advance(self):
+        self.w_it = self.space.iter(self.space.next(self.w_iterables))
+
     def next_w(self):
-        if self.current_iterator >= self.num_iterators:
+        if not self.w_iterables:
+            # already stopped
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        if not self.started:
-            self.current_iterator = 0
-            self.w_it = self.iterators_w[self.current_iterator]
-            self.started = True
+        if not self.w_it:
+            self._advance()
 
         while True:
             try:
                 w_obj = self.space.next(self.w_it)
             except OperationError, e:
                 if e.match(self.space, self.space.w_StopIteration):
-                    self.current_iterator += 1
-                    if self.current_iterator >= self.num_iterators:
-                        raise OperationError(self.space.w_StopIteration, self.space.w_None)
-                    else:
-                        self.w_it = self.iterators_w[self.current_iterator]
+                    self._advance() # may raise StopIteration itself
                 else:
                     raise
             else:
@@ -422,13 +403,23 @@ class W_Chain(Wrappable):
         return w_obj
 
 def W_Chain___new__(space, w_subtype, args_w):
-    return space.wrap(W_Chain(space, args_w))
+    w_args = space.newtuple(args_w)
+    return space.wrap(W_Chain(space, space.iter(w_args)))
+
+def chain_from_iterable(space, w_cls, w_arg):
+    """chain.from_iterable(iterable) --> chain object
+
+    Alternate chain() contructor taking a single iterable argument
+    that evaluates lazily."""
+    return space.wrap(W_Chain(space, space.iter(w_arg)))
 
 W_Chain.typedef = TypeDef(
         'chain',
         __new__  = interp2app(W_Chain___new__, unwrap_spec=[ObjSpace, W_Root, 'args_w']),
         __iter__ = interp2app(W_Chain.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_Chain.next_w, unwrap_spec=['self']),
+        from_iterable = interp2app(chain_from_iterable, unwrap_spec=[ObjSpace, W_Root, W_Root],
+                                   as_classmethod=True),
         __doc__  = """Make an iterator that returns elements from the first iterable
     until it is exhausted, then proceeds to the next iterable, until
     all of the iterables are exhausted. Used for treating consecutive
