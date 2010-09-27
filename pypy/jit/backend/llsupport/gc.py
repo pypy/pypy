@@ -404,7 +404,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(
             [lltype.Signed, lltype.Signed], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address, llmemory.Address], lltype.Void))
+            [llmemory.Address], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
         #
         def malloc_array(itemsize, tid, num_elem):
@@ -550,8 +550,7 @@ class GcLLDescr_framework(GcLLDescription):
             # the GC, and call it immediately
             llop1 = self.llop1
             funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
-                    llmemory.cast_ptr_to_adr(gcref_newptr))
+            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
 
     def rewrite_assembler(self, cpu, operations):
         # Perform two kinds of rewrites in parallel:
@@ -590,22 +589,24 @@ class GcLLDescr_framework(GcLLDescription):
                 v = op.getarg(1)
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.getarg(0), v)
+                    self._gen_write_barrier(newops, op.getarg(0))
                     op = op.copy_and_change(rop.SETFIELD_RAW)
             # ---------- write barrier for SETARRAYITEM_GC ----------
             if op.getopnum() == rop.SETARRAYITEM_GC:
                 v = op.getarg(2)
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.getarg(0), v)
+                    # XXX detect when we should produce a
+                    # write_barrier_from_array
+                    self._gen_write_barrier(newops, op.getarg(0))
                     op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ----------
             newops.append(op)
         del operations[:]
         operations.extend(newops)
 
-    def _gen_write_barrier(self, newops, v_base, v_value):
-        args = [v_base, v_value]
+    def _gen_write_barrier(self, newops, v_base):
+        args = [v_base]
         newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                    descr=self.write_barrier_descr))
 

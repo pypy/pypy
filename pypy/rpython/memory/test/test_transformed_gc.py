@@ -1475,7 +1475,6 @@ class TestMiniMarkGC(TestHybridGC):
                          'arena_size': 64*WORD,
                          'small_request_threshold': 5*WORD,
                          'card_page_indices': 4,
-                         'card_page_indices_min': 10,
                          }
             root_stack_depth = 200
 

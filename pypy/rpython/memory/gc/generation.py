@@ -321,7 +321,7 @@ class GenerationGC(SemiSpaceGC):
         addr = pointer.address[0]
         newaddr = self.copy(addr)
         pointer.address[0] = newaddr
-        self.write_into_last_generation_obj(obj, newaddr)
+        self.write_into_last_generation_obj(obj)
 
     # ____________________________________________________________
     # Implementation of nursery-only collections
@@ -452,11 +452,12 @@ class GenerationGC(SemiSpaceGC):
     #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
     JIT_WB_IF_FLAG = GCFLAG_NO_YOUNG_PTRS
 
-    def write_barrier(self, newvalue, addr_struct):
+    def write_barrier(self, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
-            self.remember_young_pointer(addr_struct, newvalue)
+            self.remember_young_pointer(addr_struct)
 
     def _setup_wb(self):
+        DEBUG = self.DEBUG
         # The purpose of attaching remember_young_pointer to the instance
         # instead of keeping it as a regular method is to help the JIT call it.
         # Additionally, it makes the code in write_barrier() marginally smaller
@@ -464,33 +465,24 @@ class GenerationGC(SemiSpaceGC):
         # For x86, there is also an extra requirement: when the JIT calls
         # remember_young_pointer(), it assumes that it will not touch the SSE
         # registers, so it does not save and restore them (that's a *hack*!).
-        def remember_young_pointer(addr_struct, addr):
+        def remember_young_pointer(addr_struct):
             #llop.debug_print(lltype.Void, "\tremember_young_pointer",
             #                 addr_struct, "<-", addr)
-            ll_assert(not self.is_in_nursery(addr_struct),
-                         "nursery object with GCFLAG_NO_YOUNG_PTRS")
-            # if we have tagged pointers around, we first need to check whether
-            # we have valid pointer here, otherwise we can do it after the
-            # is_in_nursery check
-            if (self.config.taggedpointers and
-                not self.is_valid_gc_object(addr)):
-                return
-            if self.is_in_nursery(addr):
-                self.old_objects_pointing_to_young.append(addr_struct)
-                self.header(addr_struct).tid &= ~GCFLAG_NO_YOUNG_PTRS
-            elif (not self.config.taggedpointers and
-                  not self.is_valid_gc_object(addr)):
-                return
-            self.write_into_last_generation_obj(addr_struct, addr)
+            if DEBUG:
+                ll_assert(not self.is_in_nursery(addr_struct),
+                          "nursery object with GCFLAG_NO_YOUNG_PTRS")
+            self.old_objects_pointing_to_young.append(addr_struct)
+            self.header(addr_struct).tid &= ~GCFLAG_NO_YOUNG_PTRS
+            self.write_into_last_generation_obj(addr_struct)
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
 
-    def write_into_last_generation_obj(self, addr_struct, addr):
+    def write_into_last_generation_obj(self, addr_struct):
         objhdr = self.header(addr_struct)
         if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-            if not self.is_last_generation(addr):
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.last_generation_root_objects.append(addr_struct)
+            objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+            self.last_generation_root_objects.append(addr_struct)
+    write_into_last_generation_obj._always_inline_ = True
 
     def assume_young_pointers(self, addr_struct):
         objhdr = self.header(addr_struct)

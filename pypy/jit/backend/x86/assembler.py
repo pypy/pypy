@@ -1765,6 +1765,7 @@ class Assembler386(object):
         jz_location = self.mc.get_relative_pos()
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
+        # XXX improve a bit, particularly for IS_X86_64.
         for i in range(len(arglocs)-1, -1, -1):
             loc = arglocs[i]
             if isinstance(loc, RegLoc):
@@ -1777,12 +1778,11 @@ class Assembler386(object):
                     self.mc.PUSH_i32(loc.getint())
         
         if IS_X86_64:
-            # We clobber these registers to pass the arguments, but that's
+            # We clobber this register to pass the arguments, but that's
             # okay, because consider_cond_call_gc_wb makes sure that any
             # caller-save registers with values in them are present in arglocs,
             # so they are saved on the stack above and restored below 
             self.mc.MOV_rs(edi.value, 0)
-            self.mc.MOV_rs(esi.value, 8)
 
         # misaligned stack in the call, but it's ok because the write barrier
         # is not going to call anything more.  Also, this assumes that the

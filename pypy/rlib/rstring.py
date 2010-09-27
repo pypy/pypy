@@ -46,9 +46,7 @@ def rsplit(value, by, maxsplit=-1):
 
 # -------------- public API ---------------------------------
 
-# the following number is the maximum size of an RPython unicode
-# string that goes into the nursery of the minimark GC.
-INIT_SIZE = 56
+INIT_SIZE = 100 # XXX tweak
 
 class AbstractStringBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
