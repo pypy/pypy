@@ -336,7 +336,7 @@ def start_of_page(addr, page_size):
 
 def _start_of_page_untranslated(addr, page_size):
     assert isinstance(addr, llarena.fakearenaaddress)
-    shift = 4     # for testing, we assume that the whole arena is not
+    shift = WORD  # for testing, we assume that the whole arena is not
                   # on a page boundary
     ofs = ((addr.offset - shift) // page_size) * page_size + shift
     return llarena.fakearenaaddress(addr.arena, ofs)

@@ -11,6 +11,8 @@ DEFL_PROF_BASED_INLINE_THRESHOLD = 32.4
 DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
+DEFL_GC = "minimark"
+
 IS_64_BITS = sys.maxint > 2147483647
 
 PLATFORMS = [
@@ -105,7 +107,7 @@ translation_optiondescription = OptionDescription(
     # JIT generation: use -Ojit to enable it
     BoolOption("jit", "generate a JIT",
                default=False,
-               suggests=[("translation.gc", "hybrid"),
+               suggests=[("translation.gc", DEFL_GC),
                          ("translation.gcrootfinder", "asmgcc"),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
@@ -337,10 +339,10 @@ OPT_TABLE = {
     '0':    'boehm       nobackendopt',
     '1':    'boehm       lowinline',
     'size': 'boehm       lowinline     remove_asserts',
-    'mem':  'markcompact lowinline     remove_asserts    removetypeptr',
-    '2':    'hybrid      extraopts',
-    '3':    'hybrid      extraopts     remove_asserts',
-    'jit':  'hybrid      extraopts     jit',
+    'mem':  DEFL_GC + '  lowinline     remove_asserts    removetypeptr',
+    '2':    DEFL_GC + '  extraopts',
+    '3':    DEFL_GC + '  extraopts     remove_asserts',
+    'jit':  DEFL_GC + '  extraopts     jit',
     }
 
 def final_check_config(config):

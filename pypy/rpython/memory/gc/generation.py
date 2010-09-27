@@ -147,6 +147,11 @@ class GenerationGC(SemiSpaceGC):
     def get_young_var_basesize(nursery_size):
         return nursery_size // 4 - 1
 
+    @classmethod
+    def JIT_max_size_of_young_obj(cls):
+        min_nurs_size = cls.TRANSLATION_PARAMS['min_nursery_size']
+        return cls.get_young_fixedsize(min_nurs_size)
+
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
                   "odd-valued (i.e. tagged) pointer unexpected here")

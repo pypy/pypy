@@ -133,7 +133,7 @@ class GcLLDescr_boehm(GcLLDescription):
 
 
 # ____________________________________________________________
-# All code below is for the hybrid GC
+# All code below is for the hybrid or minimark GC
 
 
 class GcRefList:
@@ -167,7 +167,7 @@ class GcRefList:
 
     def alloc_gcref_list(self, n):
         # Important: the GRREF_LISTs allocated are *non-movable*.  This
-        # requires support in the gc (only the hybrid GC supports it so far).
+        # requires support in the gc (hybrid GC or minimark GC so far).
         if we_are_translated():
             list = rgc.malloc_nonmovable(self.GCREF_LIST, n)
             assert list, "malloc_nonmovable failed!"
@@ -350,8 +350,9 @@ class GcLLDescr_framework(GcLLDescription):
         self.translator = translator
         self.llop1 = llop1
 
-        # we need the hybrid GC for GcRefList.alloc_gcref_list() to work
-        if gcdescr.config.translation.gc != 'hybrid':
+        # we need the hybrid or minimark GC for GcRefList.alloc_gcref_list()
+        # to work
+        if gcdescr.config.translation.gc not in ('hybrid', 'minimark'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (gcdescr.config.translation.gc,))
 
@@ -382,8 +383,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
         (self.array_basesize, _, self.array_length_ofs) = \
              symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
-        min_ns = self.GCClass.TRANSLATION_PARAMS['min_nursery_size']
-        self.max_size_of_young_obj = self.GCClass.get_young_fixedsize(min_ns)
+        self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()
 
         # make a malloc function, with three arguments
         def malloc_basic(size, tid):

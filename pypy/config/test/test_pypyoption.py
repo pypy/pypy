@@ -41,7 +41,7 @@ def test_set_opt_level():
     assert not conf.translation.backendopt.none
     conf = get_pypy_config()
     set_opt_level(conf, 'mem')
-    assert conf.translation.gc == 'markcompact'
+    assert conf.translation.gcremovetypeptr
     assert not conf.translation.backendopt.none
 
 def test_set_pypy_opt_level():

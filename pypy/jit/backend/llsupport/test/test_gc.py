@@ -149,11 +149,12 @@ class FakeLLOp:
 
 
 class TestFramework:
+    gc = 'hybrid'
 
     def setup_method(self, meth):
         class config_:
             class translation:
-                gc = 'hybrid'
+                gc = self.gc
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
@@ -387,3 +388,7 @@ class TestFramework:
         assert operations[1].getarg(1) == v_index
         assert operations[1].getarg(2) == v_value
         assert operations[1].getdescr() == array_descr
+
+
+class TestFrameworkMiniMark(TestFramework):
+    gc = 'minimark'

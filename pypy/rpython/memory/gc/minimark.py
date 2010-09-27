@@ -719,6 +719,10 @@ class MiniMarkGC(MovingGCBase):
     #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
     JIT_WB_IF_FLAG = GCFLAG_NO_YOUNG_PTRS
 
+    @classmethod
+    def JIT_max_size_of_young_obj(cls):
+        return cls.TRANSLATION_PARAMS['large_object']
+
     def write_barrier(self, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct)

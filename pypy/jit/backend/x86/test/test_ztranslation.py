@@ -8,6 +8,7 @@ from pypy.jit.backend.test.support import CCompiledMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.translator.translator import TranslationContext
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
+from pypy.config.translationoption import DEFL_GC
 
 class TestTranslationX86(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -118,7 +119,7 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
 
     def _get_TranslationContext(self):
         t = TranslationContext()
-        t.config.translation.gc = 'hybrid'
+        t.config.translation.gc = DEFL_GC   # 'hybrid' or 'minimark'
         t.config.translation.gcrootfinder = 'asmgcc'
         t.config.translation.list_comprehension_operations = True
         t.config.translation.gcremovetypeptr = True

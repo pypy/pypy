@@ -18,6 +18,7 @@ from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
 from pypy.jit.backend.x86.arch import IS_X86_64
+from pypy.config.translationoption import DEFL_GC
 import py.test
 
 class X(object):
@@ -126,7 +127,8 @@ def test_compile_boehm():
 
 # ______________________________________________________________________
 
-class TestCompileHybrid(object):
+class TestCompileFramework(object):
+    # Test suite using (so far) the minimark GC.
     def setup_class(cls):
         funcs = []
         name_to_func = {}
@@ -175,13 +177,13 @@ class TestCompileHybrid(object):
         OLD_DEBUG = GcLLDescr_framework.DEBUG
         try:
             GcLLDescr_framework.DEBUG = True
-            cls.cbuilder = compile(get_entry(allfuncs), "hybrid",
+            cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
                                    gcrootfinder="asmgcc", jit=True)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
     def run(self, name, n=2000):
-        pypylog = udir.join('TestCompileHybrid.log')
+        pypylog = udir.join('TestCompileFramework.log')
         res = self.cbuilder.cmdexec("%s %d" %(name, n),
                                     env={'PYPYLOG': ':%s' % pypylog})
         assert int(res) == 20
@@ -189,7 +191,7 @@ class TestCompileHybrid(object):
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
 
-    def define_compile_hybrid_1(cls):
+    def define_compile_framework_1(cls):
         # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
         # without write_barriers and root stack enumeration.
         def f(n, x, *args):
@@ -199,10 +201,10 @@ class TestCompileHybrid(object):
             return (n, x) + args
         return None, f, None
 
-    def test_compile_hybrid_1(self):
-        self.run('compile_hybrid_1')
+    def test_compile_framework_1(self):
+        self.run('compile_framework_1')
 
-    def define_compile_hybrid_2(cls):
+    def define_compile_framework_2(cls):
         # More complex test, requires root stack enumeration but
         # not write_barriers.
         def f(n, x, *args):
@@ -215,10 +217,10 @@ class TestCompileHybrid(object):
             return (n, x) + args
         return None, f, None
 
-    def test_compile_hybrid_2(self):
-        self.run('compile_hybrid_2')
+    def test_compile_framework_2(self):
+        self.run('compile_framework_2')
 
-    def define_compile_hybrid_3(cls):
+    def define_compile_framework_3(cls):
         # Third version of the test.  Really requires write_barriers.
         def f(n, x, *args):
             x.next = None
@@ -241,13 +243,13 @@ class TestCompileHybrid(object):
 
 
 
-    def test_compile_hybrid_3(self):
+    def test_compile_framework_3(self):
         x_test = X()
         x_test.foo = 5
-        self.run_orig('compile_hybrid_3', 6, x_test)     # check that it does not raise CheckError
-        self.run('compile_hybrid_3')
+        self.run_orig('compile_framework_3', 6, x_test)     # check that it does not raise CheckError
+        self.run('compile_framework_3')
 
-    def define_compile_hybrid_3_extra(cls):
+    def define_compile_framework_3_extra(cls):
         # Extra version of the test, with tons of live vars around the residual
         # call that all contain a GC pointer.
         @dont_look_inside
@@ -287,11 +289,11 @@ class TestCompileHybrid(object):
             return n, None, x0, x1, x2, x3, x4, x5, x6, x7, None, None
         return before, f, None
 
-    def test_compile_hybrid_3_extra(self):
-        self.run_orig('compile_hybrid_3_extra', 6, None)     # check that it does not raise CheckError
-        self.run('compile_hybrid_3_extra')
+    def test_compile_framework_3_extra(self):
+        self.run_orig('compile_framework_3_extra', 6, None)     # check that it does not raise CheckError
+        self.run('compile_framework_3_extra')
 
-    def define_compile_hybrid_4(cls):
+    def define_compile_framework_4(cls):
         # Fourth version of the test, with __del__.
         from pypy.rlib.debug import debug_print
         class Counter:
@@ -311,10 +313,10 @@ class TestCompileHybrid(object):
             return (n, x) + args
         return before, f, None
 
-    def test_compile_hybrid_4(self):
-        self.run('compile_hybrid_4')
+    def test_compile_framework_4(self):
+        self.run('compile_framework_4')
 
-    def define_compile_hybrid_5(cls):
+    def define_compile_framework_5(cls):
         # Test string manipulation.
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
             n -= x.foo
@@ -324,10 +326,10 @@ class TestCompileHybrid(object):
             check(len(s) == 1*5 + 2*45 + 3*450 + 4*500)
         return None, f, after
 
-    def test_compile_hybrid_5(self):
-        self.run('compile_hybrid_5')
+    def test_compile_framework_5(self):
+        self.run('compile_framework_5')
 
-    def define_compile_hybrid_7(cls):
+    def define_compile_framework_7(cls):
         # Array of pointers (test the write barrier for setarrayitem_gc)
         def before(n, x):
             return n, x, None, None, None, None, None, None, None, None, [X(123)], None
@@ -391,10 +393,10 @@ class TestCompileHybrid(object):
             check(l[15].x == 142)
         return before, f, after
 
-    def test_compile_hybrid_7(self):
-        self.run('compile_hybrid_7')
+    def test_compile_framework_7(self):
+        self.run('compile_framework_7')
 
-    def define_compile_hybrid_external_exception_handling(cls):
+    def define_compile_framework_external_exception_handling(cls):
         def before(n, x):
             x = X(0)
             return n, x, None, None, None, None, None, None, None, None, None, None        
@@ -427,10 +429,10 @@ class TestCompileHybrid(object):
 
         return before, f, None
 
-    def test_compile_hybrid_external_exception_handling(self):
-        self.run('compile_hybrid_external_exception_handling')
+    def test_compile_framework_external_exception_handling(self):
+        self.run('compile_framework_external_exception_handling')
             
-    def define_compile_hybrid_bug1(self):
+    def define_compile_framework_bug1(self):
         @purefunction
         def nonmoving():
             x = X(1)
@@ -453,10 +455,10 @@ class TestCompileHybrid(object):
 
         return None, f, None
 
-    def test_compile_hybrid_bug1(self):
-        self.run('compile_hybrid_bug1', 200)
+    def test_compile_framework_bug1(self):
+        self.run('compile_framework_bug1', 200)
 
-    def define_compile_hybrid_vref(self):
+    def define_compile_framework_vref(self):
         from pypy.rlib.jit import virtual_ref, virtual_ref_finish
         class A:
             pass
@@ -469,10 +471,10 @@ class TestCompileHybrid(object):
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
         return None, f, None
 
-    def test_compile_hybrid_vref(self):
-        self.run('compile_hybrid_vref', 200)
+    def test_compile_framework_vref(self):
+        self.run('compile_framework_vref', 200)
 
-    def define_compile_hybrid_float(self):
+    def define_compile_framework_float(self):
         # test for a bug: the fastpath_malloc does not save and restore
         # xmm registers around the actual call to the slow path
         class A:
@@ -519,5 +521,5 @@ class TestCompileHybrid(object):
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
         return None, f, None
 
-    def test_compile_hybrid_float(self):
-        self.run('compile_hybrid_float')
+    def test_compile_framework_float(self):
+        self.run('compile_framework_float')

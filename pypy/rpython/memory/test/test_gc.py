@@ -29,7 +29,7 @@ class GCTest(object):
     GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = False
     GC_CAN_SHRINK_BIG_ARRAY = False
-    BUT_HOW_BIG_IS_A_BIG_STRING = 12
+    BUT_HOW_BIG_IS_A_BIG_STRING = 3*WORD
 
     def setup_class(cls):
         cls._saved_logstate = py.log._getstate()
