@@ -10,6 +10,8 @@ Probably easy tasks
 
 - Octal literals: 0o777
 
+- float('infinity'), float('nan')
+
 - Seen in test_inspect, this has never worked in pypy::
 
       assert eval('a', None, dict(a=42)) == 42
@@ -28,6 +30,9 @@ Medium tasks
 - Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
   test_pickle()
 
+- "exceptions must be old-style classes or derived from BaseException, not str"
+  in the 'raise' statement and generator.throw()
+
 Longer tasks
 ------------
 
@@ -36,7 +41,7 @@ Longer tasks
 
 - Finish _multiprocessing
 
-- Update the _ssl module
+- Update the _ssl module (entry point is now _ssl.sslwrap)
 
 More difficult issues
 ---------------------
