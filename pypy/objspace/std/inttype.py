@@ -140,6 +140,12 @@ def descr_get_numerator(space, w_obj):
 def descr_get_denominator(space, w_obj):
     return space.wrap(1)
 
+def descr_get_real(space, w_obj):
+    return w_obj
+
+def descr_get_imag(space, w_obj):
+    return space.wrap(0)
+
 # ____________________________________________________________
 
 int_typedef = StdTypeDef("int",
@@ -154,4 +160,6 @@ will be returned instead.''',
     __new__ = gateway.interp2app(descr__new__),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),
-    )
+    real = typedef.GetSetProperty(descr_get_real),
+    imag = typedef.GetSetProperty(descr_get_imag),
+)
