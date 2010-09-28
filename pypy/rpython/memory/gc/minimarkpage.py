@@ -4,6 +4,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
 
 WORD = LONG_BIT // 8
+WORD_POWER_2 = {32: 2, 64: 3}[LONG_BIT]
 NULL = llmemory.NULL
 
 
@@ -90,7 +91,7 @@ class ArenaCollection(object):
         self.total_memory_used += nsize
         #
         # Get the page to use from the size
-        size_class = nsize / WORD
+        size_class = nsize >> WORD_POWER_2
         page = self.page_for_size[size_class]
         if page == PAGE_NULL:
             page = self.allocate_new_page(size_class)
@@ -193,7 +194,7 @@ class ArenaCollection(object):
         self.total_memory_used = r_uint(0)
         #
         # For each size class:
-        size_class = self.small_request_threshold / WORD
+        size_class = self.small_request_threshold >> WORD_POWER_2
         while size_class >= 1:
             #
             # Walk the pages in 'page_for_size[size_class]' and
