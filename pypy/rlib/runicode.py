@@ -3,7 +3,7 @@ from pypy.rlib.bitmanipulation import splitter
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
@@ -438,6 +438,9 @@ def str_decode_utf_32_le(s, size, errors, final=True,
                                                          errorhandler, "little")
     return result, length
 
+BOM32_DIRECT  = intmask(0x0000FEFF)
+BOM32_REVERSE = intmask(0xFFFE0000)
+
 def str_decode_utf_32_helper(s, size, errors, final=True,
                              errorhandler=None,
                              byteorder="native"):
@@ -460,18 +463,18 @@ def str_decode_utf_32_helper(s, size, errors, final=True,
             bom = ((ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
                    (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
             if BYTEORDER == 'little':
-                if bom == 0x0000FEFF:
+                if bom == BOM32_DIRECT:
                     pos += 4
                     bo = -1
-                elif bom == 0xFFFE0000:
+                elif bom == BOM32_REVERSE:
                     pos += 4
                     bo = 1
             else:
-                if bom == 0x0000FEFF:
-                    pos += 2
+                if bom == BOM32_DIRECT:
+                    pos += 4
                     bo = 1
-                elif bom == 0xFFFE0000:
-                    pos += 2
+                elif bom == BOM32_REVERSE:
+                    pos += 4
                     bo = -1
     elif byteorder == 'little':
         bo = -1
