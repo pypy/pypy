@@ -479,10 +479,11 @@ llimpl_free = rffi.llexternal('free', [llmemory.Address], lltype.Void,
 
 def llimpl_arena_malloc(nbytes, zero):
     addr = llimpl_malloc(nbytes)
-    if zero and bool(addr):
-        clear_large_memory_chunk(addr, nbytes)
+    if bool(addr):
+        llimpl_arena_reset(addr, nbytes, zero)
     return addr
-register_external(arena_malloc, [int, bool], llmemory.Address,
+llimpl_arena_malloc._always_inline_ = True
+register_external(arena_malloc, [int, int], llmemory.Address,
                   'll_arena.arena_malloc',
                   llimpl=llimpl_arena_malloc,
                   llfakeimpl=arena_malloc,
@@ -499,6 +500,7 @@ def llimpl_arena_reset(arena_addr, size, zero):
             clear_large_memory_chunk(arena_addr, size)
         else:
             llmemory.raw_memclear(arena_addr, size)
+llimpl_arena_reset._always_inline_ = True
 register_external(arena_reset, [llmemory.Address, int, int], None,
                   'll_arena.arena_reset',
                   llimpl=llimpl_arena_reset,

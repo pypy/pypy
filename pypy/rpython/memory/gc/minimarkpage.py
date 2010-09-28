@@ -39,6 +39,9 @@ PAGE_HEADER = lltype.Struct('PageHeader',
     # -- The chained list of free blocks.  If there are none, points to the
     #    first uninitialized block.
     ('freeblock', llmemory.Address),
+    # -- The structure above is 4 words, which is a good value:
+    #    '(1024-4) % N' is zero or very small for various small N's,
+    #    i.e. there is not much wasted space.
     )
 PAGE_PTR.TO.become(PAGE_HEADER)
 PAGE_NULL = lltype.nullptr(PAGE_HEADER)

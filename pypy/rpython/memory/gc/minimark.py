@@ -101,9 +101,10 @@ class MiniMarkGC(MovingGCBase):
         # fall-back number.
         "nursery_size": 896*1024,
 
-        # The system page size.  Like obmalloc.c, we assume that it is 4K,
-        # which is OK for most systems.
-        "page_size": 4096,
+        # The system page size.  Like obmalloc.c, we assume that it is 4K
+        # for 32-bit systems; unlike obmalloc.c, we assume that it is 8K
+        # for 64-bit systems, for consistent results.
+        "page_size": 1024*WORD,
 
         # The size of an arena.  Arenas are groups of pages allocated
         # together.
@@ -279,7 +280,7 @@ class MiniMarkGC(MovingGCBase):
         # in malloc_fixedsize_clear().  The few extra pages are never used
         # anyway so it doesn't even count.
         extra = self.nonlarge_gcptrs_max + 1
-        self.nursery = llarena.arena_malloc(self.nursery_size + extra, True)
+        self.nursery = llarena.arena_malloc(self.nursery_size + extra, 2)
         if not self.nursery:
             raise MemoryError("cannot allocate nursery")
         # the current position in the nursery:
@@ -523,14 +524,10 @@ class MiniMarkGC(MovingGCBase):
             # Allocate the object using arena_malloc(), which we assume here
             # is just the same as raw_malloc(), but allows the extra
             # flexibility of saying that we have extra words in the header.
-            arena = llarena.arena_malloc(allocsize, False)
+            # The memory returned is cleared by a raw_memclear().
+            arena = llarena.arena_malloc(allocsize, 2)
             if not arena:
                 raise MemoryError("cannot allocate large object")
-            #
-            # Clear it using method 2 of llarena.arena_reset(), which is the
-            # same as just a raw_memclear().  This also clears the card mark
-            # bits, if any.
-            llarena.arena_reset(arena, allocsize, 2)
             #
             # Reserve the card mark bits as a list of single bytes
             # (the loop is empty in C).
