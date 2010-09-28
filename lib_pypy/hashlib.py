@@ -116,4 +116,4 @@ def __getfunc(name):
     return new
 
 for __name in algorithms:
-    globals()[name] = __getfunc(__name)
+    globals()[__name] = __getfunc(__name)
