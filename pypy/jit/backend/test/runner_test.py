@@ -816,6 +816,23 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.STRGETITEM, [s_box, BoxInt(4)], 'int')
         assert r.value == 153
 
+    def test_copystrcontent(self):
+        s_box = self.alloc_string("abcdef")
+        for s_box in [s_box, s_box.constbox()]:
+            for srcstart_box in [BoxInt(2), ConstInt(2)]:
+                for dststart_box in [BoxInt(3), ConstInt(3)]:
+                    for length_box in [BoxInt(4), ConstInt(4)]:
+                        for r_box_is_const in [False, True]:
+                            r_box = self.alloc_string("!???????!")
+                            if r_box_is_const:
+                                r_box = r_box.constbox()
+                                self.execute_operation(rop.COPYSTRCONTENT,
+                                                       [s_box, r_box,
+                                                        srcstart_box,
+                                                        dststart_box,
+                                                        length_box], 'void')
+                                assert self.look_string(r_box) == "!??cdef?!"
+
     def test_do_unicode_basic(self):
         u = self.cpu.bh_newunicode(5)
         self.cpu.bh_unicodesetitem(u, 4, 123)
@@ -1198,6 +1215,10 @@ class LLtypeBackendTest(BaseBackendTest):
             s.chars[i] = string[i]
         s_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))
         return s_box
+
+    def look_string(self, string_box):
+        s = string_box.getref(lltype.Ptr(rstr.STR))
+        return ''.join(s.chars)
 
     def alloc_unicode(self, unicode):
         u = rstr.mallocunicode(len(unicode))

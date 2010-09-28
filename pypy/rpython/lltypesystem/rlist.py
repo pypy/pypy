@@ -159,7 +159,6 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
         if isinstance(self.LIST, GcForwardReference):
-            ITEM = self.item_repr.lowleveltype
             ITEMARRAY = self.get_itemarray_lowleveltype()
             self.LIST.become(ITEMARRAY)
 

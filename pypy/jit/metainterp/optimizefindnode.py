@@ -174,7 +174,7 @@ class NodeFinder(object):
 
     find_nodes_PTR_EQ        = find_nodes_no_escape
     find_nodes_PTR_NE        = find_nodes_no_escape
-    find_nodes_INSTANCEOF    = find_nodes_no_escape
+    ##find_nodes_INSTANCEOF    = find_nodes_no_escape
     find_nodes_GUARD_NONNULL = find_nodes_no_escape
     find_nodes_GUARD_ISNULL  = find_nodes_no_escape
 

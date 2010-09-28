@@ -506,6 +506,7 @@ class AbstractX86CodeBuilder(object):
     LEA32_rb = insn(rex_w, '\x8D', register(1,8),stack_bp(2,force_32bits=True))
     LEA_ra = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_scaled_reg_plus_const(2))
     LEA_rm = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_const(2))
+    LEA_rj = insn(rex_w, '\x8D', register(1, 8), '\x05', immediate(2))
 
     CALL_l = insn('\xE8', relative(1))
     CALL_r = insn(rex_nw, '\xFF', register(1), chr(0xC0 | (2<<3)))

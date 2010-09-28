@@ -1,7 +1,8 @@
 import py
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.annlowlevel import llstr
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.jit.codewriter.support import decode_builtin_call
+from pypy.jit.codewriter.support import decode_builtin_call, LLtypeHelpers
 
 def newconst(x):
     return Constant(x, lltype.typeOf(x))
@@ -65,3 +66,70 @@ def test_decode_builtin_call_method():
     assert opargs == [newconst(myarray), newconst(2), vc, vi]
     #impl = runner.get_oopspec_impl('spam.foobar', lltype.Ptr(A))
     #assert impl(myarray, 2, 'A', 5) == 42 * ord('A')
+
+def test_streq_slice_checknull():
+    p1 = llstr("hello world")
+    p2 = llstr("wor")
+    func = LLtypeHelpers._ll_4_str_eq_slice_checknull.im_func
+    assert func(p1, 6, 3, p2) == True
+    assert func(p1, 6, 2, p2) == False
+    assert func(p1, 5, 3, p2) == False
+    assert func(p1, 2, 1, llstr(None)) == False
+
+def test_streq_slice_nonnull():
+    p1 = llstr("hello world")
+    p2 = llstr("wor")
+    func = LLtypeHelpers._ll_4_str_eq_slice_nonnull.im_func
+    assert func(p1, 6, 3, p2) == True
+    assert func(p1, 6, 2, p2) == False
+    assert func(p1, 5, 3, p2) == False
+    py.test.raises(AttributeError, func, p1, 2, 1, llstr(None))
+
+def test_streq_slice_char():
+    p1 = llstr("hello world")
+    func = LLtypeHelpers._ll_4_str_eq_slice_char.im_func
+    assert func(p1, 6, 3, "w") == False
+    assert func(p1, 6, 0, "w") == False
+    assert func(p1, 6, 1, "w") == True
+    assert func(p1, 6, 1, "x") == False
+
+def test_streq_nonnull():
+    p1 = llstr("wor")
+    p2 = llstr("wor")
+    assert p1 != p2
+    func = LLtypeHelpers._ll_2_str_eq_nonnull.im_func
+    assert func(p1, p1) == True
+    assert func(p1, p2) == True
+    assert func(p1, llstr("wrl")) == False
+    assert func(p1, llstr("world")) == False
+    assert func(p1, llstr("w")) == False
+    py.test.raises(AttributeError, func, p1, llstr(None))
+    py.test.raises(AttributeError, func, llstr(None), p2)
+
+def test_streq_nonnull_char():
+    func = LLtypeHelpers._ll_2_str_eq_nonnull_char.im_func
+    assert func(llstr("wor"), "x") == False
+    assert func(llstr("w"), "x") == False
+    assert func(llstr(""), "x") == False
+    assert func(llstr("x"), "x") == True
+    py.test.raises(AttributeError, func, llstr(None), "x")
+
+def test_streq_checknull_char():
+    func = LLtypeHelpers._ll_2_str_eq_checknull_char.im_func
+    assert func(llstr("wor"), "x") == False
+    assert func(llstr("w"), "x") == False
+    assert func(llstr(""), "x") == False
+    assert func(llstr("x"), "x") == True
+    assert func(llstr(None), "x") == False
+
+def test_streq_lengthok():
+    p1 = llstr("wor")
+    p2 = llstr("wor")
+    assert p1 != p2
+    func = LLtypeHelpers._ll_2_str_eq_lengthok.im_func
+    assert func(p1, p1) == True
+    assert func(p1, p2) == True
+    assert func(p1, llstr("wrl")) == False
+    py.test.raises(IndexError, func, p1, llstr("w"))
+    py.test.raises(AttributeError, func, p1, llstr(None))
+    py.test.raises(AttributeError, func, llstr(None), p2)

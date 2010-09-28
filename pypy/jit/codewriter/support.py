@@ -275,10 +275,86 @@ class LLtypeHelpers:
 
     # ---------- strings and unicode ----------
 
-    _ll_5_string_copy_contents = ll_rstr.copy_string_contents
-
     _ll_1_str_str2unicode = ll_rstr.LLHelpers.ll_str2unicode
-    _ll_5_unicode_copy_contents = ll_rstr.copy_unicode_contents
+
+    def _ll_4_str_eq_slice_checknull(s1, start, length, s2):
+        """str1[start : start + length] == str2."""
+        if not s2:
+            return 0
+        chars2 = s2.chars
+        if len(chars2) != length:
+            return 0
+        j = 0
+        chars1 = s1.chars
+        while j < length:
+            if chars1[start + j] != chars2[j]:
+                return 0
+            j += 1
+        return 1
+
+    def _ll_4_str_eq_slice_nonnull(s1, start, length, s2):
+        """str1[start : start + length] == str2, assuming str2 != NULL."""
+        chars2 = s2.chars
+        if len(chars2) != length:
+            return 0
+        j = 0
+        chars1 = s1.chars
+        while j < length:
+            if chars1[start + j] != chars2[j]:
+                return 0
+            j += 1
+        return 1
+
+    def _ll_4_str_eq_slice_char(s1, start, length, c2):
+        """str1[start : start + length] == c2."""
+        if length != 1:
+            return 0
+        if s1.chars[start] != c2:
+            return 0
+        return 1
+
+    def _ll_2_str_eq_nonnull(s1, s2):
+        len1 = len(s1.chars)
+        len2 = len(s2.chars)
+        if len1 != len2:
+            return 0
+        j = 0
+        chars1 = s1.chars
+        chars2 = s2.chars
+        while j < len1:
+            if chars1[j] != chars2[j]:
+                return 0
+            j += 1
+        return 1
+
+    def _ll_2_str_eq_nonnull_char(s1, c2):
+        chars = s1.chars
+        if len(chars) != 1:
+            return 0
+        if chars[0] != c2:
+            return 0
+        return 1
+
+    def _ll_2_str_eq_checknull_char(s1, c2):
+        if not s1:
+            return 0
+        chars = s1.chars
+        if len(chars) != 1:
+            return 0
+        if chars[0] != c2:
+            return 0
+        return 1
+
+    def _ll_2_str_eq_lengthok(s1, s2):
+        j = 0
+        chars1 = s1.chars
+        chars2 = s2.chars
+        len1 = len(chars1)
+        while j < len1:
+            if chars1[j] != chars2[j]:
+                return 0
+            j += 1
+        return 1
 
     # ---------- malloc with del ----------
 

@@ -685,6 +685,19 @@ def make_hashable_int(i):
         return llmemory.cast_adr_to_int(adr, "emulated")
     return i
 
+def get_const_ptr_for_string(s):
+    from pypy.rpython.annlowlevel import llstr
+    if not we_are_translated():
+        try:
+            return _const_ptr_for_string[s]
+        except KeyError:
+            pass
+    result = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, llstr(s)))
+    if not we_are_translated():
+        _const_ptr_for_string[s] = result
+    return result
+_const_ptr_for_string = {}
+
 # ____________________________________________________________
 
 # The TreeLoop class contains a loop or a generalized loop, i.e. a tree

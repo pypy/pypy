@@ -450,7 +450,6 @@ _oplist = [
     'SETARRAYITEM_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
-    'ARRAYCOPY/7d',      # removed before it's passed to the backend
     'NEWSTR/1',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
@@ -459,6 +458,8 @@ _oplist = [
     'COND_CALL_GC_WB/1d',  # [objptr]   (for the write barrier)
     'DEBUG_MERGE_POINT/1',      # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
+    'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
+    'COPYUNICODECONTENT/5',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL/*d',

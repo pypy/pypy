@@ -1382,6 +1382,20 @@ def do_unicodesetitem(string, index, newvalue):
     uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
     uni.chars[index] = unichr(newvalue)
 
+def do_copystrcontent(src, dst, srcstart, dststart, length):
+    src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), src)
+    dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), dst)
+    assert 0 <= srcstart <= srcstart + length <= len(src.chars)
+    assert 0 <= dststart <= dststart + length <= len(dst.chars)
+    rstr.copy_string_contents(src, dst, srcstart, dststart, length)
+
+def do_copyunicodecontent(src, dst, srcstart, dststart, length):
+    src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), src)
+    dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), dst)
+    assert 0 <= srcstart <= srcstart + length <= len(src.chars)
+    assert 0 <= dststart <= dststart + length <= len(dst.chars)
+    rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
+
 # ---------- call ----------
 
 _call_args_i = []

@@ -185,7 +185,7 @@ class CallControl(object):
                                          FUNC.RESULT)
         return (fnaddr, calldescr)
 
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -226,7 +226,8 @@ class CallControl(object):
             extraeffect = EffectInfo.EF_CANNOT_RAISE
         #
         effectinfo = effectinfo_from_writeanalyze(
-            self.readwrite_analyzer.analyze(op), self.cpu, extraeffect)
+            self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
+            oopspecindex)
         #
         if pure or loopinvariant:
             assert effectinfo is not None

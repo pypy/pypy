@@ -4,7 +4,7 @@ from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.jit import purefunction
+from pypy.rlib.jit import purefunction, we_are_jitted
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
@@ -65,8 +65,8 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
     copy_string_contents._always_inline_ = True
-    copy_string_contents.oopspec = (
-        '%s.copy_contents(src, dst, srcstart, dststart, length)' % name)
+    #copy_string_contents.oopspec = (
+    #    '%s.copy_contents(src, dst, srcstart, dststart, length)' % name)
     return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
 
 copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')
@@ -326,6 +326,7 @@ class LLHelpers(AbstractLLHelpers):
         s1.copy_contents(s1, newstr, 0, 0, len1)
         s1.copy_contents(s2, newstr, 0, len1, len2)
         return newstr
+    ll_strconcat.oopspec = 'stroruni.concat(s1, s2)'
 
     @purefunction
     def ll_strip(s, ch, left, right):
@@ -443,8 +444,8 @@ class LLHelpers(AbstractLLHelpers):
             if chars1[j] != chars2[j]:
                 return False
             j += 1
-
         return True
+    ll_streq.oopspec = 'stroruni.equal(s1, s2)'
 
     @purefunction
     def ll_startswith(s1, s2):
@@ -694,35 +695,32 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @purefunction
-    def ll_stringslice_startonly(s1, start):
-        len1 = len(s1.chars)
-        newstr = s1.malloc(len1 - start)
-        lgt = len1 - start
-        assert lgt >= 0
-        assert start >= 0
-        s1.copy_contents(s1, newstr, start, 0, lgt)
-        return newstr
-
-    @purefunction
-    def ll_stringslice_startstop(s1, start, stop):
-        if stop >= len(s1.chars):
-            if start == 0:
-                return s1
-            stop = len(s1.chars)
-        newstr = s1.malloc(stop - start)
-        assert start >= 0
+    def _ll_stringslice(s1, start, stop):
         lgt = stop - start
+        assert start >= 0
         assert lgt >= 0
+        newstr = s1.malloc(lgt)
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr
+    _ll_stringslice.oopspec = 'stroruni.slice(s1, start, stop)'
 
-    @purefunction
+    def ll_stringslice_startonly(s1, start):
+        return LLHelpers._ll_stringslice(s1, start, len(s1.chars))
+
+    def ll_stringslice_startstop(s1, start, stop):
+        if we_are_jitted():
+            if stop > len(s1.chars):
+                stop = len(s1.chars)
+        else:
+            if stop >= len(s1.chars):
+                if start == 0:
+                    return s1
+                stop = len(s1.chars)
+        return LLHelpers._ll_stringslice(s1, start, stop)
+
     def ll_stringslice_minusone(s1):
         newlen = len(s1.chars) - 1
-        newstr = s1.malloc(newlen)
-        assert newlen >= 0
-        s1.copy_contents(s1, newstr, 0, 0, newlen)
-        return newstr
+        return LLHelpers._ll_stringslice(s1, 0, newlen)
 
     def ll_split_chr(LIST, s, c):
         chars = s.chars

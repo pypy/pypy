@@ -21,6 +21,7 @@ class TranslationTest:
         # - full optimizer
         # - jitdriver hooks
         # - two JITs
+        # - string concatenation, slicing and comparison
 
         class Frame(object):
             _virtualizable2_ = ['i']
@@ -60,11 +61,15 @@ class TranslationTest:
                 frame.i -= 1
             return total * 10
         #
-        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 'x'])
+        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 'x', 's'])
         def f2(g, m, x):
+            s = ""
             while m > 0:
-                myjitdriver2.can_enter_jit(g=g, m=m, x=x)
-                myjitdriver2.jit_merge_point(g=g, m=m, x=x)
+                myjitdriver2.can_enter_jit(g=g, m=m, x=x, s=s)
+                myjitdriver2.jit_merge_point(g=g, m=m, x=x, s=s)
+                s += 'xy'
+                if s[:2] == 'yz':
+                    return -666
                 m -= 1
                 x += 3
             return x

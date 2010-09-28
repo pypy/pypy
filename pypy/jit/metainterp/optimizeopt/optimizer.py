@@ -12,6 +12,7 @@ from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
+from pypy.tool.pairtype import extendabletype
 
 LEVEL_UNKNOWN    = '\x00'
 LEVEL_NONNULL    = '\x01'
@@ -23,6 +24,7 @@ MAXINT = sys.maxint
 MININT = -sys.maxint - 1
 
 class OptValue(object):
+    __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound')
     last_guard_index = -1
 
@@ -126,6 +128,7 @@ class OptValue(object):
     def setitem(self, index, value):
         raise NotImplementedError
 
+
 class ConstantValue(OptValue):
     def __init__(self, box):
         self.make_constant(box)
@@ -134,6 +137,7 @@ CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(ConstFloat(0.0))
+CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
@@ -249,6 +253,7 @@ class Optimizer(Optimization):
         return None
 
     def make_equal_to(self, box, value):
+        assert isinstance(value, OptValue)
         assert box not in self.values
         self.values[box] = value
 
@@ -305,6 +310,9 @@ class Optimizer(Optimization):
         self.loop.operations = self.newoperations
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
+
+    def send_extra_operation(self, op):
+        self.first_optimization.propagate_forward(op)
 
     def propagate_forward(self, op):
         self.producer[op.result] = op

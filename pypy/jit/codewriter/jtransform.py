@@ -1,16 +1,18 @@
 import py, sys
-from pypy.rpython.lltypesystem import lltype, rstr, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rclass
 from pypy.rpython import rlist
 from pypy.jit.metainterp.history import getkind
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter import support, heaptracker
+from pypy.jit.codewriter.effectinfo import EffectInfo, _callinfo_for_oopspec
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
 from pypy.translator.simplify import get_funcobj
+from pypy.translator.unsimplify import varoftype
 
 
 def transform_graph(graph, cpu=None, callcontrol=None, portal_jd=None):
@@ -248,11 +250,13 @@ class Transformer(object):
         kind = self.callcontrol.guess_call_kind(op)
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
 
-    def rewrite_call(self, op, namebase, initialargs):
+    def rewrite_call(self, op, namebase, initialargs, args=None):
         """Turn 'i0 = direct_call(fn, i1, i2, ref1, ref2)'
            into 'i0 = xxx_call_ir_i(fn, descr, [i1,i2], [ref1,ref2])'.
            The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
-        lst_i, lst_r, lst_f = self.make_three_lists(op.args[1:])
+        if args is None:
+            args = op.args[1:]
+        lst_i, lst_r, lst_f = self.make_three_lists(args)
         reskind = getkind(op.result.concretetype)[0]
         if lst_f or reskind == 'f': kinds = 'irf'
         elif lst_i: kinds = 'ir'
@@ -310,6 +314,8 @@ class Transformer(object):
         # dispatch to various implementations depending on the oopspec_name
         if oopspec_name.startswith('list.') or oopspec_name == 'newlist':
             prepare = self._handle_list_call
+        elif oopspec_name.startswith('stroruni.'):
+            prepare = self._handle_stroruni_call
         elif oopspec_name.startswith('virtual_ref'):
             prepare = self._handle_virtual_ref_call
         else:
@@ -982,10 +988,7 @@ class Transformer(object):
         return extraop + [op]
 
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
-        calldescr = self.callcontrol.getcalldescr(op)
-        return SpaceOperation('arraycopy',
-                              [calldescr, op.args[0]] + args + [arraydescr],
-                              op.result)
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
 
     # ---------- resizable lists ----------
 
@@ -1021,6 +1024,92 @@ class Transformer(object):
                               itemsdescr, structdescr):
         return SpaceOperation('getfield_gc_i',
                               [args[0], lengthdescr], op.result)
+
+    # ----------
+    # Strings and Unicodes.
+
+    def _handle_oopspec_call(self, op, args, oopspecindex):
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
+        if isinstance(op.args[0].value, str):
+            pass  # for tests only
+        else:
+            func = heaptracker.adr2int(
+                llmemory.cast_ptr_to_adr(op.args[0].value))
+            _callinfo_for_oopspec[oopspecindex] = calldescr, func
+        op1 = self.rewrite_call(op, 'residual_call',
+                                [op.args[0], calldescr],
+                                args=args)
+        if self.callcontrol.calldescr_canraise(calldescr):
+            op1 = [op1, SpaceOperation('-live-', [], None)]
+        return op1
+
+    def _register_extra_helper(self, oopspecindex, oopspec_name,
+                               argtypes, resulttype):
+        # a bit hackish
+        if oopspecindex in _callinfo_for_oopspec:
+            return
+        c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
+                                                   oopspec_name, argtypes,
+                                                   resulttype)
+        op = SpaceOperation('pseudo_call',
+                            [c_func] + [varoftype(T) for T in argtypes],
+                            varoftype(resulttype))
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
+        func = heaptracker.adr2int(
+            llmemory.cast_ptr_to_adr(c_func.value))
+        _callinfo_for_oopspec[oopspecindex] = calldescr, func
+
+    def _handle_stroruni_call(self, op, oopspec_name, args):
+        if args[0].concretetype.TO == rstr.STR:
+            dict = {"stroruni.concat": EffectInfo.OS_STR_CONCAT,
+                    "stroruni.slice":  EffectInfo.OS_STR_SLICE,
+                    "stroruni.equal":  EffectInfo.OS_STR_EQUAL,
+                    }
+        elif args[0].concretetype.TO == rstr.UNICODE:
+            dict = {"stroruni.concat": EffectInfo.OS_UNI_CONCAT,
+                    "stroruni.slice":  EffectInfo.OS_UNI_SLICE,
+                    "stroruni.equal":  EffectInfo.OS_UNI_EQUAL,
+                    }
+        else:
+            assert 0, "args[0].concretetype must be STR or UNICODE"
+        #
+        if oopspec_name == "stroruni.equal":
+            SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
+            for otherindex, othername, argtypes, resulttype in [
+
+                (EffectInfo.OS_STREQ_SLICE_CHECKNULL,
+                     "str.eq_slice_checknull",
+                     [SoU, lltype.Signed, lltype.Signed, SoU],
+                     lltype.Signed),
+                (EffectInfo.OS_STREQ_SLICE_NONNULL,
+                     "str.eq_slice_nonnull",
+                     [SoU, lltype.Signed, lltype.Signed, SoU],
+                     lltype.Signed),
+                (EffectInfo.OS_STREQ_SLICE_CHAR,
+                     "str.eq_slice_char",
+                     [SoU, lltype.Signed, lltype.Signed, lltype.Char],
+                     lltype.Signed),
+                (EffectInfo.OS_STREQ_NONNULL,
+                     "str.eq_nonnull",
+                     [SoU, SoU],
+                     lltype.Signed),
+                (EffectInfo.OS_STREQ_NONNULL_CHAR,
+                     "str.eq_nonnull_char",
+                     [SoU, lltype.Char],
+                     lltype.Signed),
+                (EffectInfo.OS_STREQ_CHECKNULL_CHAR,
+                     "str.eq_checknull_char",
+                     [SoU, lltype.Char],
+                     lltype.Signed),
+                (EffectInfo.OS_STREQ_LENGTHOK,
+                     "str.eq_lengthok",
+                     [SoU, SoU],
+                     lltype.Signed),
+                ]:
+                self._register_extra_helper(otherindex, othername,
+                                            argtypes, resulttype)
+        #
+        return self._handle_oopspec_call(op, args, dict[oopspec_name])
 
     # ----------
     # VirtualRefs.

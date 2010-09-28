@@ -397,6 +397,8 @@ def make_string_entries(strtype):
     assert strtype in (str, unicode)
 
     def hlstr(ll_s):
+        if not ll_s:
+            return None
         if hasattr(ll_s, 'chars'):
             if strtype is str:
                 return ''.join(ll_s.chars)
@@ -423,9 +425,14 @@ def make_string_entries(strtype):
 
     def llstr(s):
         from pypy.rpython.lltypesystem.rstr import mallocstr, mallocunicode
+        from pypy.rpython.lltypesystem.rstr import STR, UNICODE
         if strtype is str:
+            if s is None:
+                return lltype.nullptr(STR)
             ll_s = mallocstr(len(s))
         else:
+            if s is None:
+                return lltype.nullptr(UNICODE)
             ll_s = mallocunicode(len(s))
         for i, c in enumerate(s):
             ll_s.chars[i] = c

@@ -181,6 +181,7 @@ class Assembler386(object):
         self.malloc_fixedsize_slowpath1 = 0
         self.malloc_fixedsize_slowpath2 = 0
         self.pending_guard_tokens = None
+        self.memcpy_addr = 0
         self.setup_failure_recovery()
         self._debug = False
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
@@ -212,6 +213,7 @@ class Assembler386(object):
                 ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
                 self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
                                                           ll_new_unicode)
+            self.memcpy_addr = self.cpu.cast_ptr_to_int(codebuf.memcpy_fn)
             self.mc = MachineCodeBlockWrapper(self, self.mc_size, self.cpu.profile_agent)
             self._build_failure_recovery(False)
             self._build_failure_recovery(True)
@@ -709,8 +711,8 @@ class Assembler386(object):
         self.regalloc_perform_with_guard(None, guard_op, faillocs, arglocs,
                                          resloc, current_depths)
 
-    def load_effective_addr(self, sizereg, baseofs, scale, result):
-        self.mc.LEA(result, addr_add(imm(0), sizereg, baseofs, scale))
+    def load_effective_addr(self, sizereg, baseofs, scale, result, frm=imm(0)):
+        self.mc.LEA(result, addr_add(frm, sizereg, baseofs, scale))
 
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):

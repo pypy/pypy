@@ -5,13 +5,12 @@ in a nicer fashion
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
      ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
-     LoopToken
+     LoopToken, get_const_ptr_for_string
 from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.codewriter.heaptracker import adr2int
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import llstr
 
 class ParseError(Exception):
     pass
@@ -157,8 +156,7 @@ class OpParser(object):
             if arg.startswith('"') or arg.startswith("'"):
                 # XXX ootype
                 info = arg.strip("'\"")
-                return ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                       llstr(info)))
+                return get_const_ptr_for_string(info)
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')

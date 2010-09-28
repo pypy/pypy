@@ -9,16 +9,11 @@ EMPTY_VALUES = {}
 
 def transform(op):
     from pypy.jit.metainterp.history import AbstractDescr
-    # change ARRAYCOPY to call, so we don't have to pass around
-    # unnecessary information to the backend.  Do the same with VIRTUAL_REF_*.
-    if op.getopnum() == rop.ARRAYCOPY:
-        descr = op.getarg(0)
-        assert isinstance(descr, AbstractDescr)
-        args = op.getarglist()[1:]
-        op = ResOperation(rop.CALL, args, op.result, descr=descr)
-    elif op.getopnum() == rop.CALL_PURE:
-        args = op.getarglist()[1:]
-        op = ResOperation(rop.CALL, args, op.result, op.getdescr())
+    # Rename CALL_PURE to CALL.
+    # Simplify the VIRTUAL_REF_* so that they don't show up in the backend.
+    if op.getopnum() == rop.CALL_PURE:
+        op = ResOperation(rop.CALL, op.getarglist()[1:], op.result,
+                          op.getdescr())
     elif op.getopnum() == rop.VIRTUAL_REF:
         op = ResOperation(rop.SAME_AS, [op.getarg(0)], op.result)
     elif op.getopnum() == rop.VIRTUAL_REF_FINISH:

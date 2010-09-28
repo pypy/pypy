@@ -954,6 +954,41 @@ class RegAlloc(object):
 
     consider_unicodegetitem = consider_strgetitem
 
+    def consider_copystrcontent(self, op):
+        # compute the source address
+        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.args[2], op.args)
+        self.rm.possibly_free_var(op.args[0])
+        self.rm.possibly_free_var(op.args[2])
+        srcaddr_box = TempBox()
+        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box)
+        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc)
+        # compute the destination address
+        base_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.args[3], op.args)
+        self.rm.possibly_free_var(op.args[1])
+        self.rm.possibly_free_var(op.args[3])
+        dstaddr_box = TempBox()
+        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box)
+        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc)
+        # call memcpy()
+        length_loc = self.loc(op.args[4])
+        self.rm.before_call()
+        self.xrm.before_call()
+        self.assembler._emit_call(imm(self.assembler.memcpy_addr),
+                                  [dstaddr_loc, srcaddr_loc, length_loc])
+        self.rm.possibly_free_var(op.args[4])
+        self.rm.possibly_free_var(dstaddr_box)
+        self.rm.possibly_free_var(srcaddr_box)
+
+    def _gen_address_inside_string(self, baseloc, ofsloc, resloc):
+        cpu = self.assembler.cpu
+        ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                                  self.translate_support_code)
+        assert itemsize == 1
+        self.assembler.load_effective_addr(ofsloc, ofs_items, 0,
+                                           resloc, baseloc)
+
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None

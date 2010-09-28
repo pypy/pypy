@@ -1,6 +1,6 @@
 import py, random
 
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 
@@ -115,6 +115,36 @@ class LLtypeMixin(object):
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                  EffectInfo([nextdescr], [], [],
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE))
+    arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_ARRAYCOPY))
+    strconcatdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR_CONCAT))
+    slicedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR_SLICE))
+    strequaldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR_EQUAL))
+    streq_slice_checknull_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [],
+                     oopspecindex=EffectInfo.OS_STREQ_SLICE_CHECKNULL))
+    streq_slice_nonnull_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [],
+                     oopspecindex=EffectInfo.OS_STREQ_SLICE_NONNULL))
+    streq_slice_char_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [],
+                     oopspecindex=EffectInfo.OS_STREQ_SLICE_CHAR))
+    streq_nonnull_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [],
+                     oopspecindex=EffectInfo.OS_STREQ_NONNULL))
+    streq_nonnull_char_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [],
+                     oopspecindex=EffectInfo.OS_STREQ_NONNULL_CHAR))
+    streq_checknull_char_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [],
+                     oopspecindex=EffectInfo.OS_STREQ_CHECKNULL_CHAR))
+    streq_lengthok_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                 EffectInfo([], [], [],
+                     oopspecindex=EffectInfo.OS_STREQ_LENGTHOK))
+
     class LoopToken(AbstractDescr):
         pass
     asmdescr = LoopToken() # it can be whatever, it's not a descr though
