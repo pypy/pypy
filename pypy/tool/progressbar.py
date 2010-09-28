@@ -17,11 +17,11 @@ class ProgressBar(object):
     )
     PADDING = 7
  
-    def __init__(self, color=None, width=None, block='█', empty=' '):
+    def __init__(self, color=None, width=None, block='.', empty=' '):
         """
         color -- color name (BLUE GREEN CYAN RED MAGENTA YELLOW WHITE BLACK)
         width -- bar width (optinal)
-        block -- progress display character (default '█')
+        block -- progress display character (default '.')
         empty -- bar display character (default ' ')
         """
         if color:
