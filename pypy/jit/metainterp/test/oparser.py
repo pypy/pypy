@@ -63,7 +63,8 @@ def default_fail_descr(fail_args=None):
 
 class OpParser(object):
     def __init__(self, input, cpu, namespace, type_system, boxkinds,
-                 invent_fail_descr=default_fail_descr):
+                 invent_fail_descr=default_fail_descr,
+                 nonstrict=False):
         self.input = input
         self.vars = {}
         self.cpu = cpu
@@ -75,6 +76,7 @@ class OpParser(object):
         else:
             self._cache = {}
         self.invent_fail_descr = invent_fail_descr
+        self.nonstrict = nonstrict
         self.looptoken = LoopToken()
 
     def get_const(self, name, typ):
@@ -133,10 +135,13 @@ class OpParser(object):
         vars = []
         for elem in elements:
             elem = elem.strip()
-            box = self.box_for_var(elem)
-            vars.append(box)
-            self.vars[elem] = box
+            vars.append(self.newvar(elem))
         return vars
+
+    def newvar(self, elem):
+        box = self.box_for_var(elem)
+        self.vars[elem] = box
+        return box
 
     def is_float(self, arg):
         try:
@@ -170,6 +175,8 @@ class OpParser(object):
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
                 return self.get_const(name, 'ptr')
+            if arg not in self.vars and self.nonstrict:
+                self.newvar(arg)
             return self.vars[arg]
 
     def parse_op(self, line):
@@ -210,7 +217,7 @@ class OpParser(object):
         if rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST:
             i = line.find('[', endnum) + 1
             j = line.find(']', i)
-            if i <= 0 or j <= 0:
+            if (i <= 0 or j <= 0) and not self.nonstrict:
                 raise ParseError("missing fail_args for guard operation")
             fail_args = []
             if i < j:
@@ -276,11 +283,14 @@ class OpParser(object):
         lines = self.input.splitlines()
         ops = []
         newlines = []
+        first_comment = None
         for line in lines:
             # for simplicity comments are not allowed on
             # debug_merge_point lines
             if '#' in line and 'debug_merge_point(' not in line:
                 if line.lstrip()[0] == '#': # comment only
+                    if first_comment is None:
+                        first_comment = line
                     continue
                 comm = line.rfind('#')
                 rpar = line.find(')') # assume there's a op(...)
@@ -289,12 +299,12 @@ class OpParser(object):
             if not line.strip():
                 continue  # a comment or empty line
             newlines.append(line)
-        base_indent, inpargs = self.parse_inpargs(newlines[0])
-        newlines = newlines[1:]
+        base_indent, inpargs, newlines = self.parse_inpargs(newlines)
         num, ops = self.parse_ops(base_indent, newlines, 0)
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = ExtendedTreeLoop("loop")
+        loop.comment = first_comment
         loop.token = self.looptoken
         loop.operations = ops
         loop.inputargs = inpargs
@@ -315,23 +325,27 @@ class OpParser(object):
                 num += 1
         return num, ops
 
-    def parse_inpargs(self, line):
-        base_indent = line.find('[')
+    def parse_inpargs(self, lines):
+        line = lines[0]
+        base_indent = len(line) - len(line.lstrip(' '))
         line = line.strip()
+        if not line.startswith('[') and self.nonstrict:
+            return base_indent, [], lines
+        lines = lines[1:]
         if line == '[]':
-            return base_indent, []
-        if base_indent == -1 or not line.endswith(']'):
+            return base_indent, [], lines
+        if not line.startswith('[') or not line.endswith(']'):
             raise ParseError("Wrong header: %s" % line)
         inpargs = self.parse_header_line(line[1:-1])
-        return base_indent, inpargs
+        return base_indent, inpargs, lines
 
 def parse(input, cpu=None, namespace=None, type_system='lltype',
           boxkinds=None, invent_fail_descr=default_fail_descr,
-          no_namespace=False):
+          no_namespace=False, nonstrict=False):
     if namespace is None and not no_namespace:
         namespace = {}
     return OpParser(input, cpu, namespace, type_system, boxkinds,
-                    invent_fail_descr).parse()
+                    invent_fail_descr, nonstrict).parse()
 
 def pure_parse(*args, **kwds):
     kwds['invent_fail_descr'] = None
