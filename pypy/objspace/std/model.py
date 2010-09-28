@@ -47,6 +47,7 @@ class StdTypeModel:
             from pypy.objspace.std.dicttype   import dict_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
+            from pypy.objspace.std.bytearraytype import bytearray_typedef
             from pypy.objspace.std.typetype   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
@@ -71,6 +72,7 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import stringobject
+        from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import ropeobject
         from pypy.objspace.std import ropeunicodeobject
         from pypy.objspace.std import strsliceobject
@@ -102,6 +104,7 @@ class StdTypeModel:
             dictmultiobject.W_DictMultiObject: [],
             dictmultiobject.W_DictMultiIterObject: [],
             stringobject.W_StringObject: [],
+            bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
             longobject.W_LongObject: [],
