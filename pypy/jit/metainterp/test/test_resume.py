@@ -1062,13 +1062,14 @@ def test_virtual_adder_make_virtual():
     b4set = [(rop.SETFIELD_GC, [b4t, b2t],     None, LLtypeMixin.nextdescr),
              (rop.SETFIELD_GC, [b4t, b3t],     None, LLtypeMixin.valuedescr),
              (rop.SETFIELD_GC, [b4t, b5t],     None, LLtypeMixin.otherdescr)]
-    if untag(modifier._gettagged(b2s))[0] == -2:
-        expected = [b2new, b4new] + b4set + b2set
-    else:
-        expected = [b4new, b2new] + b2set + b4set
-        
-    for x, y in zip(expected, trace):
-        assert x == y
+    expected = [b2new, b4new] + b4set + b2set
+
+    # check that we get the operations in 'expected', in a possibly different
+    # order.
+    assert len(trace) == len(expected)
+    for x in trace:
+        assert x in expected
+        expected.remove(x)
     ptr = b2t.value._obj.container._as_ptr()
     assert lltype.typeOf(ptr) == lltype.Ptr(LLtypeMixin.NODE)
     assert ptr.value == 111
