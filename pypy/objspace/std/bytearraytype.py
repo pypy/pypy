@@ -20,10 +20,7 @@ bytearray_index = SMM("index", 4, defaults=(0, sys.maxint),
 def descr__new__(space, w_bytearraytype,
                  w_source='', w_encoding=None, w_errors=None):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-    if w_source is None:
-        data = []
-    else:
-        data = space.str_w(w_source)
+    data = [c for c in space.str_w(w_source)]
     w_obj = space.allocate_instance(W_BytearrayObject, w_bytearraytype)
     W_BytearrayObject.__init__(w_obj, data)
     return w_obj

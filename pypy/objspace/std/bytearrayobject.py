@@ -49,7 +49,8 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     length = len(data)
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
-    return W_BytearrayObject(data[start:stop:step])
+    newdata = [data[start + i*step] for i in range(slicelength)]
+    return W_BytearrayObject(newdata)
 
 def getslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
     length = len(w_bytearray.data)
@@ -159,20 +160,19 @@ def repr__Bytearray(space, w_bytearray):
 
     return space.wrap(buf.build())
 
-def getnewargs__Bytearray(space, w_bytearray):
-    return space.newbytearray([W_BytearrayObject(w_bytearray.wrappeditems)])
-
-def bytearray_count__Bytearray_ANY(space, w_bytearray, w_obj):
+def bytearray_count__Bytearray_Int(space, w_bytearray, w_char):
+    char = w_char.intval
     count = 0
-    for w_item in w_bytearray.wrappeditems:
-        if space.eq_w(w_item, w_obj):
+    for c in w_bytearray.data:
+        if ord(c) == char:
             count += 1
     return space.wrap(count)
 
-def bytearray_index__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_obj, w_start, w_stop):
+def bytearray_index__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    char = w_char.intval
     start = slicetype._Eval_SliceIndex(space, w_start)
     stop = slicetype._Eval_SliceIndex(space, w_stop)
-    length = len(w_bytearray.wrappeditems)
+    length = len(w_bytearray.data)
     if start < 0:
         start += length
         if start < 0:
@@ -182,8 +182,8 @@ def bytearray_index__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_obj, w_start, w
         if stop < 0:
             stop = 0
     for i in range(start, min(stop, length)):
-        w_item = w_bytearray.wrappeditems[i]
-        if space.eq_w(w_item, w_obj):
+        c = w_bytearray.data[i]
+        if ord(c) == char:
             return space.wrap(i)
     raise OperationError(space.w_ValueError,
                          space.wrap("bytearray.index(x): x not in bytearray"))
