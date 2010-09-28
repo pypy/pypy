@@ -16,27 +16,46 @@ from pypy.rpython.lltypesystem import llmemory, lltype
 def main(loopfile, options):
     print 'Loading file:'
     log = logparser.parse_log_file(loopfile)
-    print
-    loops = logparser.extract_category(log, "jit-log-opt-")
+    loops, summary = consider_category(log, options, "jit-log-opt-")
+    if not options.quiet:
+        for loop in loops:
+            loop.show()
+            
+    if options.summary:
+        print
+        print 'Summary:'
+        print_summary(summary)
+
+    if options.diff:
+        # non-optimized loops and summary
+        nloops, nsummary = consider_category(log, options, "jit-log-noopt-")
+        print
+        print 'Summary of optimized-away operations'
+        diff = {}
+        keys = set(summary.keys()).union(set(nsummary))
+        for key in keys:
+            diff[key] = nsummary.get(key, 0) - summary.get(key, 0)
+        print_summary(diff)
+
+def consider_category(log, options, category):
+    loops = logparser.extract_category(log, category)
     if options.loopnum is None:
         input_loops = loops
     else:
         input_loops = [loops[options.loopnum]]
-    loops = [parse(inp, no_namespace=True) for inp in input_loops]
-    if not options.quiet:
-        for loop in loops:
-            loop.show()
-    if options.summary:
-        summary = {}
-        for loop in loops:
-            summary = loop.summary(summary)
-        print 'Summary:'
-        print_summary(summary)
+    loops = [parse(inp, no_namespace=True, nonstrict=True)
+             for inp in input_loops]
+    summary = {}
+    for loop in loops:
+        summary = loop.summary(summary)
+    return loops, summary
+        
 
 def print_summary(summary):
-    keys = sorted(summary)
-    for key in keys:
-        print '%4d' % summary[key], key
+    ops = [(summary[key], key) for key in summary]
+    ops.sort(reverse=True)
+    for n, key in ops:
+        print '%4d' % n, key
 
 if __name__ == '__main__':
     parser = optparse.OptionParser(usage="%prog loopfile [options]")
@@ -46,6 +65,8 @@ if __name__ == '__main__':
                       help='show all loops in the file')
     parser.add_option('-s', '--summary', dest='summary', action='store_true', default=False,
                       help='print a summary of the operations in the loop(s)')
+    parser.add_option('-d', '--diff', dest='diff', action='store_true', default=False,
+                      help='print the difference between non-optimized and optimized operations in the loop(s)')
     parser.add_option('-q', '--quiet', dest='quiet', action='store_true', default=False,
                       help='do not show the graphical representation of the loop')
     
