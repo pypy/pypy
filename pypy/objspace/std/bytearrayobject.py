@@ -7,6 +7,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
@@ -101,14 +102,30 @@ def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
             return space.w_False
     return space.w_True
 
-def eq__Bytearray_String(space, w_bytearray1, w_string2):
-    data1 = w_bytearray1.data
-    data2 = w_string2._value
-    if len(data1) != len(data2):
-        return space.w_False
-    for i in range(len(data1)):
-        if data1[i] != data2[i]:
-            return space.w_False
+# bytearray-to-string delegation
+def delegate_Bytearray2String(space, w_bytearray):
+    return W_StringObject(''.join(w_bytearray.data))
+
+def String2Bytearray(space, w_str):
+    data = [c for c in space.str_w(w_str)]
+    return W_BytearrayObject(data)
+
+def eq__Bytearray_String(space, w_bytearray, w_other):
+    return space.eq(delegate_Bytearray2String(space, w_bytearray), w_other)
+
+def eq__Bytearray_Unicode(space, w_bytearray, w_other):
+    return space.w_False
+
+def eq__Unicode_Bytearray(space, w_other, w_bytearray):
+    return space.w_False
+
+def ne__Bytearray_String(space, w_bytearray, w_other):
+    return space.ne(delegate_Bytearray2String(space, w_bytearray), w_other)
+
+def ne__Bytearray_Unicode(space, w_bytearray, w_other):
+    return space.w_True
+
+def ne__Unicode_Bytearray(space, w_other, w_bytearray):
     return space.w_True
 
 def _min(a, b):
@@ -171,19 +188,10 @@ def repr__Bytearray(space, w_bytearray):
 
     return space.wrap(buf.build())
 
-def bytearray_count__Bytearray_Int(space, w_bytearray, w_char):
-    char = w_char.intval
-    count = 0
-    for c in w_bytearray.data:
-        if ord(c) == char:
-            count += 1
-    return space.wrap(count)
-
-def bytearray_index__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    char = w_char.intval
+def _convert_idx_params(space, w_self, w_start, w_stop):
     start = slicetype._Eval_SliceIndex(space, w_start)
     stop = slicetype._Eval_SliceIndex(space, w_stop)
-    length = len(w_bytearray.data)
+    length = len(w_self.data)
     if start < 0:
         start += length
         if start < 0:
@@ -192,12 +200,39 @@ def bytearray_index__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, 
         stop += length
         if stop < 0:
             stop = 0
+    return start, stop, length
+
+def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    char = w_char.intval
+    start, stop, length = _convert_idx_params(space, w_bytearray, w_start, w_stop)
+    count = 0
+    for i in range(start, min(stop, length)):
+        c = w_bytearray.data[i]
+        if ord(c) == char:
+            count += 1
+    return space.wrap(count)
+
+def str_index__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    char = w_char.intval
+    start, stop, length = _convert_idx_params(space, w_bytearray, w_start, w_stop)
     for i in range(start, min(stop, length)):
         c = w_bytearray.data[i]
         if ord(c) == char:
             return space.wrap(i)
     raise OperationError(space.w_ValueError,
                          space.wrap("bytearray.index(x): x not in bytearray"))
+
+# These methods could just delegate to the string implementation,
+# but they have to return a bytearray.
+def str_zfill__Bytearray_ANY(space, w_bytearray, w_width):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "zfill", w_width)
+    return String2Bytearray(space, w_res)
+
+def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "expandtabs", w_tabsize)
+    return String2Bytearray(space, w_res)
 
 from pypy.objspace.std import bytearraytype
 register_all(vars(), bytearraytype)

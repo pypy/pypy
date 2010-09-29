@@ -42,9 +42,34 @@ class AppTestBytesArray:
         assert bytearray('world') > bytearray('hello')
 
     def test_compare_str(self):
-        assert bytearray('hello') == 'hello'
-        assert 'hello' == bytearray('hello')
+        assert bytearray('hello1') == 'hello1'
+        assert not (bytearray('hello1') != 'hello1')
+        assert 'hello2' == bytearray('hello2')
+        assert not ('hello1' != bytearray('hello1'))
         # unicode is always different
-        assert bytearray('hello') != u'hello'
-        assert u'hello' != bytearray('hello')
+        assert not (bytearray('hello3') == unicode('world'))
+        assert bytearray('hello3') != unicode('hello3')
+        assert unicode('hello3') != bytearray('world')
+        assert unicode('hello4') != bytearray('hello4')
+        assert not (bytearray('') == u'')
+        assert not (u'' == bytearray(''))
+        assert bytearray('') != u''
+        assert u'' != bytearray('')
+
+    def test_stringlike_operations(self):
+        assert bytearray('hello').islower()
+        assert bytearray('HELLO').isupper()
+
+        assert bytearray('hello').count('l') == 2
+        assert bytearray('hello').count(bytearray('l')) == 2
+        assert bytearray('hello').count(ord('l')) == 2
+
+        assert bytearray('hello').index('e') == 1
+        assert bytearray('hello').count(bytearray('e')) == 1
+        assert bytearray('hello').index(ord('e')) == 1
+
+        r = bytearray('1').zfill(5)
+        assert type(r) is bytearray and r == '00001'
+        r = bytearray('1\t2').expandtabs(5)
+        assert type(r) is bytearray and r == '1    2'
 

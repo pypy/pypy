@@ -210,6 +210,9 @@ class StdTypeModel:
                 self.typeorder[ropeobject.W_RopeObject] += [
                  (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
                     ]
+        self.typeorder[bytearrayobject.W_BytearrayObject] += [
+             (stringobject.W_StringObject, bytearrayobject.delegate_Bytearray2String),
+                ]
 
         if config.objspace.std.withstrslice:
             self.typeorder[strsliceobject.W_StringSliceObject] += [

@@ -4,17 +4,10 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
 
-
-bytearray_count = SMM(
-    "count", 2,
-    doc="B.count(sub [,start [,end]]) -> int\n"
-    "Return the number of non-overlapping occurrences of subsection sub in\n"
-    "bytes B[start:end].  Optional arguments start and end are interpreted\n"
-    "as in slice notation.")
-
-bytearray_index = SMM("index", 4, defaults=(0, sys.maxint),
-                  doc="index(obj, [start, [stop]]) -> first index that obj "
-                  "appears in the bytearray")
+from pypy.objspace.std.stringtype import str_islower, str_isupper
+from pypy.objspace.std.stringtype import str_count, str_index
+from pypy.objspace.std.stringtype import str_expandtabs, str_zfill
+from pypy.objspace.std.stringtype import str_splitlines
 
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root, W_Root)
 def descr__new__(space, w_bytearraytype,
