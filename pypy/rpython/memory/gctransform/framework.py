@@ -606,8 +606,10 @@ class FrameworkGCTransformer(GCTransformer):
             
         if self.write_barrier_ptr:
             self.clean_sets = (
-                find_clean_setarrayitems(self.collect_analyzer, graph).union(
-                find_initializing_stores(self.collect_analyzer, graph)))
+                find_initializing_stores(self.collect_analyzer, graph))
+            if self.gcdata.gc.can_optimize_clean_setarrayitems():
+                self.clean_sets = self.clean_sets.union(
+                    find_clean_setarrayitems(self.collect_analyzer, graph))
         super(FrameworkGCTransformer, self).transform_graph(graph)
         if self.write_barrier_ptr:
             self.clean_sets = None

@@ -564,6 +564,11 @@ class MiniMarkGC(MovingGCBase):
     def can_malloc_nonmovable(self):
         return True
 
+    def can_optimize_clean_setarrayitems(self):
+        if self.card_page_indices > 0:
+            return False
+        return MovingGCBase.can_optimize_clean_setarrayitems(self)
+
     def can_move(self, obj):
         """Overrides the parent can_move()."""
         return self.is_in_nursery(obj)
@@ -688,8 +693,9 @@ class MiniMarkGC(MovingGCBase):
                   "unexpected GCFLAG_CARDS_SET")
         # if the GCFLAG_HAS_CARDS is set, check that all bits are zero now
         if self.header(obj).tid & GCFLAG_HAS_CARDS:
-            ll_assert(self.card_page_indices > 0,
-                      "GCFLAG_HAS_CARDS but not using card marking")
+            if self.card_page_indices <= 0:
+                ll_assert(False, "GCFLAG_HAS_CARDS but not using card marking")
+                return
             typeid = self.get_type_id(obj)
             ll_assert(self.has_gcptr_in_varsize(typeid),
                       "GCFLAG_HAS_CARDS but not has_gcptr_in_varsize")
@@ -961,6 +967,8 @@ class MiniMarkGC(MovingGCBase):
                         if cardbyte & 1:
                             if interval_stop > length:
                                 interval_stop = length
+                                ll_assert(cardbyte <= 1 and bytes == 0,
+                                          "premature end of object")
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
