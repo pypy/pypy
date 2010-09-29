@@ -703,6 +703,7 @@ class LLHelpers(AbstractLLHelpers):
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr
     _ll_stringslice.oopspec = 'stroruni.slice(s1, start, stop)'
+    _ll_stringslice._annenforceargs_ = [None, int, int]
 
     def ll_stringslice_startonly(s1, start):
         return LLHelpers._ll_stringslice(s1, start, len(s1.chars))
