@@ -139,12 +139,12 @@ def callinfo_for_oopspec(oopspecindex):
     try:
         return _callinfo_for_oopspec[oopspecindex]
     except KeyError:
-        return None
+        return (None, 0)
 
 
 def _funcptr_for_oopspec_memo(oopspecindex):
     from pypy.jit.codewriter import heaptracker
-    _, func_as_int = _callinfo_for_oopspec.get(oopspecindex, (None, 0))
+    _, func_as_int = callinfo_for_oopspec(oopspecindex)
     funcadr = heaptracker.int2adr(func_as_int)
     return funcadr.ptr
 _funcptr_for_oopspec_memo._annspecialcase_ = 'specialize:memo'
