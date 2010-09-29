@@ -1,9 +1,10 @@
 """ String builder interface and string functions
 """
 
-from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation.model import SomeObject, SomeString, s_None,\
      SomeChar, SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rpython.extregistry import ExtRegistryEntry
 
 
 # -------------- public API for string functions -----------------------
@@ -78,6 +79,11 @@ def string_repeat(s, mul):
     result = None
     factor = 1
     assert mul > 0
+    try:
+        ovfcheck(len(s) * mul)
+    except OverflowError:
+        raise MemoryError
+    
     limit = mul >> 1
     while True:
         if mul & factor:
