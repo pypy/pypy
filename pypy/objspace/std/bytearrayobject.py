@@ -6,6 +6,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
@@ -93,6 +94,16 @@ def mul__ANY_Bytearray(space, w_times, w_bytearray):
 def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
     data2 = w_bytearray2.data
+    if len(data1) != len(data2):
+        return space.w_False
+    for i in range(len(data1)):
+        if data1[i] != data2[i]:
+            return space.w_False
+    return space.w_True
+
+def eq__Bytearray_String(space, w_bytearray1, w_string2):
+    data1 = w_bytearray1.data
+    data2 = w_string2._value
     if len(data1) != len(data2):
         return space.w_False
     for i in range(len(data1)):

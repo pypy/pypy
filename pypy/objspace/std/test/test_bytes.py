@@ -41,3 +41,10 @@ class AppTestBytesArray:
         assert bytearray('hello') < bytearray('world')
         assert bytearray('world') > bytearray('hello')
 
+    def test_compare_str(self):
+        assert bytearray('hello') == 'hello'
+        assert 'hello' == bytearray('hello')
+        # unicode is always different
+        assert bytearray('hello') != u'hello'
+        assert u'hello' != bytearray('hello')
+
