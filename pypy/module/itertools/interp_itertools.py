@@ -7,9 +7,10 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
 
-    def __init__(self, space, firstval):
+    def __init__(self, space, firstval, step):
         self.space = space
         self.c = firstval
+        self.step = step
 
     def iter_w(self):
         return self.space.wrap(self)
@@ -17,7 +18,7 @@ class W_Count(Wrappable):
     def next_w(self):
         c = self.c
         try:
-            self.c = ovfcheck(self.c + 1)
+            self.c = ovfcheck(self.c + self.step)
         except OverflowError:
             raise OperationError(self.space.w_OverflowError,
                     self.space.wrap("cannot count beyond sys.maxint"))
@@ -25,16 +26,20 @@ class W_Count(Wrappable):
         return self.space.wrap(c)
 
     def repr_w(self):
-        s = 'count(%d)' % (self.c,)
+        if self.step == 1:
+            s = 'count(%d)' % (self.c,)
+        else:
+            s = 'count(%d, %d)' % (self.c, self.step)
         return self.space.wrap(s)
+        
 
 
-def W_Count___new__(space, w_subtype, firstval=0):
-    return space.wrap(W_Count(space, firstval))
+def W_Count___new__(space, w_subtype, firstval=0, step=1):
+    return space.wrap(W_Count(space, firstval, step))
 
 W_Count.typedef = TypeDef(
         'count',
-        __new__ = interp2app(W_Count___new__, unwrap_spec=[ObjSpace, W_Root, int]),
+        __new__ = interp2app(W_Count___new__, unwrap_spec=[ObjSpace, W_Root, int, int]),
         __iter__ = interp2app(W_Count.iter_w, unwrap_spec=['self']),
         next = interp2app(W_Count.next_w, unwrap_spec=['self']),
         __repr__ = interp2app(W_Count.repr_w, unwrap_spec=['self']),
