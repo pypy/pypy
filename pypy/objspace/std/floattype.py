@@ -2,7 +2,7 @@ import math
 import sys
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import rfloat, rarithmetic
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, typedef
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
@@ -213,6 +213,11 @@ def descr_fromhex(space, w_cls, s):
     w_float = space.wrap(sign * value)
     return space.call_function(w_cls, w_float)
 
+def descr_get_real(space, w_obj):
+    return w_obj
+
+def descr_get_imag(space, w_obj):
+    return space.wrap(0.0)
 
 # ____________________________________________________________
 
@@ -227,5 +232,7 @@ Convert a string or number to a floating point number, if possible.''',
     fromhex = gateway.interp2app(descr_fromhex,
                                  unwrap_spec=[ObjSpace, W_Root, str],
                                  as_classmethod=True),
-    )
+    real = typedef.GetSetProperty(descr_get_real),
+    imag = typedef.GetSetProperty(descr_get_imag),
+)
 float_typedef.registermethods(globals())
