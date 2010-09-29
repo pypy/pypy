@@ -38,6 +38,7 @@ class AppTestBytesArray:
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
 
     def test_compare(self):
+        assert bytearray('hello') == bytearray('hello')
         assert bytearray('hello') < bytearray('world')
         assert bytearray('world') > bytearray('hello')
 
@@ -72,4 +73,5 @@ class AppTestBytesArray:
         assert type(r) is bytearray and r == '00001'
         r = bytearray('1\t2').expandtabs(5)
         assert type(r) is bytearray and r == '1    2'
+
 
