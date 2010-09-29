@@ -224,7 +224,7 @@ class RegAlloc(object):
         assert tmpreg not in nonfloatlocs
         assert xmmtmp not in floatlocs
         # note: we need to make a copy of inputargs because possibly_free_vars
-        # is also used on op.args, which is a non-resizable list
+        # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
         return nonfloatlocs, floatlocs
 
@@ -307,7 +307,7 @@ class RegAlloc(object):
             if reg not in used:
                 self.xrm.free_regs.append(reg)
         # note: we need to make a copy of inputargs because possibly_free_vars
-        # is also used on op.args, which is a non-resizable list
+        # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
         self.rm._check_invariants()
         self.xrm._check_invariants()
@@ -956,28 +956,29 @@ class RegAlloc(object):
 
     def consider_copystrcontent(self, op):
         # compute the source address
-        base_loc = self.rm.make_sure_var_in_reg(op.args[0], op.args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.args[2], op.args)
-        self.rm.possibly_free_var(op.args[0])
-        self.rm.possibly_free_var(op.args[2])
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
+        ofs_loc = self.rm.make_sure_var_in_reg(args[2], args)
+        self.rm.possibly_free_var(args[0])
+        self.rm.possibly_free_var(args[2])
         srcaddr_box = TempBox()
         srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc)
         # compute the destination address
-        base_loc = self.rm.make_sure_var_in_reg(op.args[1], op.args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.args[3], op.args)
-        self.rm.possibly_free_var(op.args[1])
-        self.rm.possibly_free_var(op.args[3])
+        base_loc = self.rm.make_sure_var_in_reg(args[1], args)
+        ofs_loc = self.rm.make_sure_var_in_reg(args[3], args)
+        self.rm.possibly_free_var(args[1])
+        self.rm.possibly_free_var(args[3])
         dstaddr_box = TempBox()
         dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc)
         # call memcpy()
-        length_loc = self.loc(op.args[4])
+        length_loc = self.loc(args[4])
         self.rm.before_call()
         self.xrm.before_call()
         self.assembler._emit_call(imm(self.assembler.memcpy_addr),
                                   [dstaddr_loc, srcaddr_loc, length_loc])
-        self.rm.possibly_free_var(op.args[4])
+        self.rm.possibly_free_var(args[4])
         self.rm.possibly_free_var(dstaddr_box)
         self.rm.possibly_free_var(srcaddr_box)
 
