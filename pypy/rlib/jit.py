@@ -224,7 +224,8 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 OPTIMIZER_SIMPLE = 0
-OPTIMIZER_FULL = 1
+OPTIMIZER_NO_PERFECTSPEC = 1
+OPTIMIZER_FULL = 2
 
 DEBUG_OFF = 0
 DEBUG_PROFILE = 1

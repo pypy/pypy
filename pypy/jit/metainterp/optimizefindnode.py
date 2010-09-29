@@ -319,11 +319,12 @@ find_nodes_ops = _findall(NodeFinder, 'find_nodes_')
 class PerfectSpecializationFinder(NodeFinder):
     node_fromstart = InstanceNode(fromstart=True)
 
-    def find_nodes_loop(self, loop):
+    def find_nodes_loop(self, loop, build_specnodes=True):
         self._loop = loop
         self.setup_input_nodes(loop.inputargs)
         self.find_nodes(loop.operations)
-        self.build_result_specnodes(loop)
+        if build_specnodes:
+            self.build_result_specnodes(loop)
 
     def show(self):
         from pypy.jit.metainterp.viewnode import viewnodes, view
