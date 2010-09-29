@@ -140,7 +140,7 @@ class PyPyCJITTests(object):
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     sliced_loop = BytecodeTrace()
-                    sliced_loop.bytecode = op.args[0]._get_str().rsplit(" ", 1)[1]
+                    sliced_loop.bytecode = op.getarg(0)._get_str().rsplit(" ", 1)[1]
                     self.sliced_loops.append(sliced_loop)
                 else:
                     sliced_loop.append(op)
@@ -798,7 +798,6 @@ class PyPyCJITTests(object):
                     if i > 750: a = b
                 return sa
             ''', 215, ([], 12481752))
-        assert False
 
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
@@ -868,6 +867,24 @@ class PyPyCJITTests(object):
                     i += 1
                 return intimg[i - 1]
             ''', maxops, ([tc], res))
+
+    def test_unpackiterable(self):
+        self.run_source('''
+        from array import array
+
+        def main():
+            i = 0
+            t = array('l', (1, 2))
+            while i < 2000:
+                a, b = t
+                i += 1
+            return 3
+
+        ''', 100, ([], 3))
+        bytecode, = self.get_by_bytecode("UNPACK_SEQUENCE")
+        # we allocate virtual ref and frame, we don't want block
+        assert len(bytecode.get_opnames('call_may_force')) == 0
+        
 
     def test_intbound_simple(self):
         ops = ('<', '>', '<=', '>=', '==', '!=')

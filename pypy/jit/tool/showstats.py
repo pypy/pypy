@@ -17,7 +17,7 @@ def main(argv):
         num_dmp = 0
         num_guards = 0
         for op in loop.operations:
-            if op.opnum == rop.DEBUG_MERGE_POINT:
+            if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 num_dmp += 1
             else:
                 num_ops += 1

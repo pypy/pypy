@@ -129,7 +129,7 @@ TYPES = {
     'arraylen_gc'     : (('ref',), 'int'),
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('varargs',), 'intorptr'),
-    'cond_call_gc_wb' : (('ptr', 'ptr'), None),
+    'cond_call_gc_wb' : (('ptr',), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
@@ -810,7 +810,7 @@ class Frame(object):
                  FLOAT: 0.0}
             return d[calldescr.typeinfo]
 
-    def op_cond_call_gc_wb(self, descr, a, b):
+    def op_cond_call_gc_wb(self, descr, a):
         py.test.skip("cond_call_gc_wb not supported")
 
     def op_oosend(self, descr, obj, *args):
@@ -1381,6 +1381,20 @@ def do_strsetitem(string, index, newvalue):
 def do_unicodesetitem(string, index, newvalue):
     uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
     uni.chars[index] = unichr(newvalue)
+
+def do_copystrcontent(src, dst, srcstart, dststart, length):
+    src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), src)
+    dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), dst)
+    assert 0 <= srcstart <= srcstart + length <= len(src.chars)
+    assert 0 <= dststart <= dststart + length <= len(dst.chars)
+    rstr.copy_string_contents(src, dst, srcstart, dststart, length)
+
+def do_copyunicodecontent(src, dst, srcstart, dststart, length):
+    src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), src)
+    dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), dst)
+    assert 0 <= srcstart <= srcstart + length <= len(src.chars)
+    assert 0 <= dststart <= dststart + length <= len(dst.chars)
+    rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
 # ---------- call ----------
 

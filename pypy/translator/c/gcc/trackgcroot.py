@@ -913,6 +913,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
     visit_leaq = FunctionGcRootTracker._visit_lea
 
     visit_xorq = FunctionGcRootTracker.binary_insn
+    visit_xchgq = FunctionGcRootTracker._visit_xchg
 
     # FIXME: similar to visit_popl for 32-bit
     def visit_popq(self, line):

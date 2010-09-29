@@ -47,7 +47,7 @@ class TestRecompilation(BaseTestRegalloc):
         finish(i3, i4, i5, i6, i7, i8, i9, descr=fdescr2)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
-        descr = loop.operations[2].descr
+        descr = loop.operations[2].getdescr()
         new = descr._x86_bridge_frame_depth
         assert descr._x86_bridge_param_depth == 0        
         # XXX: Maybe add enough ops to force stack on 64-bit as well?
@@ -114,8 +114,8 @@ class TestRecompilation(BaseTestRegalloc):
         assert loop.token._x86_param_depth == 0
         # XXX: Maybe add enough ops to force stack on 64-bit as well?
         if IS_X86_32:
-            assert guard_op.descr._x86_bridge_frame_depth > loop_frame_depth
-        assert guard_op.descr._x86_bridge_param_depth == 0
+            assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
+        assert guard_op.getdescr()._x86_bridge_param_depth == 0
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 0)
         self.cpu.set_future_value_int(2, 0)

@@ -81,6 +81,10 @@ class RegisterManager(object):
         for v in vars:
             self.possibly_free_var(v)
 
+    def possibly_free_vars_for_op(self, op):
+        for i in range(op.numargs()):
+            self.possibly_free_var(op.getarg(i))
+
     def _check_invariants(self):
         if not we_are_translated():
             # make sure no duplicates

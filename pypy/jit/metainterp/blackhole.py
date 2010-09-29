@@ -1024,10 +1024,6 @@ class BlackholeInterpreter(object):
     def bhimpl_arraylen_gc(cpu, array, arraydescr):
         return cpu.bh_arraylen_gc(arraydescr, array)
 
-    @arguments("cpu", "d", "i", "r", "r", "i", "i", "i", "d")
-    def bhimpl_arraycopy(cpu, calldescr, func, x1, x2, x3, x4, x5, arraydescr):
-        cpu.bh_call_v(func, calldescr, [x3, x4, x5], [x1, x2], None)
-
     @arguments("cpu", "r", "d", "d", "i", returns="i")
     def bhimpl_getarrayitem_vable_i(cpu, vable, fielddescr, arraydescr, index):
         array = cpu.bh_getfield_gc_r(vable, fielddescr)

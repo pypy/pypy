@@ -45,7 +45,7 @@ class OptHeap(Optimization):
             op = self.lazy_setfields.get(descr, None)
             if op is None:
                 return None
-            return self.getvalue(op.args[1])
+            return self.getvalue(op.getarg(1))
         return d.get(value, None)
 
     def cache_arrayitem_value(self, descr, value, indexvalue, fieldvalue, write=False):
@@ -105,7 +105,7 @@ class OptHeap(Optimization):
         if op.is_guard():
             self.optimizer.pendingfields = self.force_lazy_setfields_for_guard()
             return
-        opnum = op.opnum
+        opnum = op.getopnum()
         if (opnum == rop.SETFIELD_GC or
             opnum == rop.SETARRAYITEM_GC or
             opnum == rop.DEBUG_MERGE_POINT):
@@ -117,7 +117,7 @@ class OptHeap(Optimization):
             if opnum == rop.CALL_ASSEMBLER:
                 effectinfo = None
             else:
-                effectinfo = op.descr.get_extra_info()
+                effectinfo = op.getdescr().get_extra_info()
             if effectinfo is not None:
                 # XXX we can get the wrong complexity here, if the lists
                 # XXX stored on effectinfo are large
@@ -142,7 +142,7 @@ class OptHeap(Optimization):
                 return
             self.force_all_lazy_setfields()
         elif op.is_final() or (not we_are_translated() and
-                               op.opnum < 0):   # escape() operations
+                               op.getopnum() < 0):   # escape() operations
             self.force_all_lazy_setfields()
         self.clean_caches()
 
@@ -166,10 +166,11 @@ class OptHeap(Optimization):
             # - is_comparison() for cases like "int_eq/setfield_gc/guard_true"
             # - CALL_MAY_FORCE: "call_may_force/setfield_gc/guard_not_forced"
             # - is_ovf(): "int_add_ovf/setfield_gc/guard_no_overflow"
-            opnum = prevop.opnum
+            opnum = prevop.getopnum()
+            lastop_args = lastop.getarglist()
             if ((prevop.is_comparison() or opnum == rop.CALL_MAY_FORCE
                  or prevop.is_ovf())
-                and prevop.result not in lastop.args):
+                and prevop.result not in lastop_args):
                 newoperations[-2] = lastop
                 newoperations[-1] = prevop
 
@@ -189,9 +190,9 @@ class OptHeap(Optimization):
             # the only really interesting case that we need to handle in the
             # guards' resume data is that of a virtual object that is stored
             # into a field of a non-virtual object.
-            value = self.getvalue(op.args[0])
+            value = self.getvalue(op.getarg(0))
             assert not value.is_virtual()      # it must be a non-virtual
-            fieldvalue = self.getvalue(op.args[1])
+            fieldvalue = self.getvalue(op.getarg(1))
             if fieldvalue.is_virtual():
                 # this is the case that we leave to resume.py
                 pendingfields.append((descr, value.box,
@@ -202,20 +203,20 @@ class OptHeap(Optimization):
 
     def force_lazy_setfield_if_necessary(self, op, value, write=False):
         try:
-            op1 = self.lazy_setfields[op.descr]
+            op1 = self.lazy_setfields[op.getdescr()]
         except KeyError:
             if write:
-                self.lazy_setfields_descrs.append(op.descr)
+                self.lazy_setfields_descrs.append(op.getdescr())
         else:
-            if self.getvalue(op1.args[0]) is not value:
-                self.force_lazy_setfield(op.descr)
+            if self.getvalue(op1.getarg(0)) is not value:
+                self.force_lazy_setfield(op.getdescr())
 
     def optimize_GETFIELD_GC(self, op):
-        value = self.getvalue(op.args[0])
+        value = self.getvalue(op.getarg(0))
         self.force_lazy_setfield_if_necessary(op, value)
         # check if the field was read from another getfield_gc just before
         # or has been written to recently
-        fieldvalue = self.read_cached_field(op.descr, value)
+        fieldvalue = self.read_cached_field(op.getdescr(), value)
         if fieldvalue is not None:
             self.make_equal_to(op.result, fieldvalue)
             return
@@ -225,38 +226,38 @@ class OptHeap(Optimization):
         self.emit_operation(op) # FIXME: These might need constant propagation?
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
-        self.cache_field_value(op.descr, value, fieldvalue)
+        self.cache_field_value(op.getdescr(), value, fieldvalue)
 
     def optimize_SETFIELD_GC(self, op):
-        value = self.getvalue(op.args[0])
-        fieldvalue = self.getvalue(op.args[1])
+        value = self.getvalue(op.getarg(0))
+        fieldvalue = self.getvalue(op.getarg(1))
         self.force_lazy_setfield_if_necessary(op, value, write=True)
-        self.lazy_setfields[op.descr] = op
+        self.lazy_setfields[op.getdescr()] = op
         # remember the result of future reads of the field
-        self.cache_field_value(op.descr, value, fieldvalue, write=True)
+        self.cache_field_value(op.getdescr(), value, fieldvalue, write=True)
 
     def optimize_GETARRAYITEM_GC(self, op):
-        value = self.getvalue(op.args[0])
-        indexvalue = self.getvalue(op.args[1])
-        fieldvalue = self.read_cached_arrayitem(op.descr, value, indexvalue)
+        value = self.getvalue(op.getarg(0))
+        indexvalue = self.getvalue(op.getarg(1))
+        fieldvalue = self.read_cached_arrayitem(op.getdescr(), value, indexvalue)
         if fieldvalue is not None:
             self.make_equal_to(op.result, fieldvalue)
             return
         ###self.optimizer.optimize_default(op)
         self.emit_operation(op) # FIXME: These might need constant propagation?
         fieldvalue = self.getvalue(op.result)
-        self.cache_arrayitem_value(op.descr, value, indexvalue, fieldvalue)
+        self.cache_arrayitem_value(op.getdescr(), value, indexvalue, fieldvalue)
 
     def optimize_SETARRAYITEM_GC(self, op):
         self.emit_operation(op)
-        value = self.getvalue(op.args[0])
-        fieldvalue = self.getvalue(op.args[2])
-        indexvalue = self.getvalue(op.args[1])
-        self.cache_arrayitem_value(op.descr, value, indexvalue, fieldvalue,
+        value = self.getvalue(op.getarg(0))
+        fieldvalue = self.getvalue(op.getarg(2))
+        indexvalue = self.getvalue(op.getarg(1))
+        self.cache_arrayitem_value(op.getdescr(), value, indexvalue, fieldvalue,
                                    write=True)
 
     def propagate_forward(self, op):
-        opnum = op.opnum
+        opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:
                 func(self, op)

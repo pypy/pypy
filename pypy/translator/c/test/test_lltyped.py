@@ -783,6 +783,17 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         res = fn()
         assert res == 42
 
+    def test_llarena(self):
+        from pypy.rpython.lltypesystem import llmemory, llarena
+        #
+        def f():
+            a = llarena.arena_malloc(800, False)
+            llarena.arena_reset(a, 800, 2)
+            llarena.arena_free(a)
+        #
+        fn = self.getcompiled(f, [])
+        fn()
+
     def test_padding_in_prebuilt_struct(self):
         from pypy.rpython.lltypesystem import rffi
         from pypy.rpython.tool import rffi_platform

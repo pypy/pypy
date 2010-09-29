@@ -12,6 +12,7 @@ from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
+from pypy.tool.sourcetools import func_with_new_name
 import os, sys, py
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -749,11 +750,16 @@ class ObjSpace(object):
                                 (i, plural)))
         return items
 
+    unpackiterable_unroll = jit.unroll_safe(func_with_new_name(unpackiterable,
+                                            'unpackiterable_unroll'))
+
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result
         """
         return make_sure_not_resized(self.unpackiterable(w_iterable,
                                                          expected_length)[:])
+
+    fixedview_unroll = fixedview
 
     def listview(self, w_iterable, expected_length=-1):
         """ A non-fixed view of w_iterable. Don't modify the result

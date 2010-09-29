@@ -14,6 +14,11 @@ class InvalidLoop(JitException):
 
 def _findall(Class, name_prefix):
     result = []
+    for name in dir(Class):
+        if name.startswith(name_prefix):
+            opname = name[len(name_prefix):]
+            if opname.isupper():
+                assert hasattr(resoperation.rop, opname)
     for value, name in resoperation.opname.items():
         if hasattr(Class, name_prefix + name):
             result.append((value, getattr(Class, name_prefix + name)))

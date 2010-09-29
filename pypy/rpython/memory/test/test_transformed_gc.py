@@ -1474,10 +1474,36 @@ class TestMiniMarkGC(TestHybridGC):
                          'page_size': 16*WORD,
                          'arena_size': 64*WORD,
                          'small_request_threshold': 5*WORD,
+                         'large_object': 8*WORD,
+                         'large_object_gcptrs': 10*WORD,
                          'card_page_indices': 4,
-                         'card_page_indices_min': 10,
                          }
             root_stack_depth = 200
+
+    def define_no_clean_setarrayitems(cls):
+        # The optimization find_clean_setarrayitems() in
+        # gctransformer/framework.py does not work with card marking.
+        # Check that it is turned off.
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        A = lltype.GcArray(lltype.Ptr(S))
+        def sub(lst):
+            lst[15] = lltype.malloc(S)   # 'lst' is set the single mark "12-15"
+            lst[15].x = 123
+            lst[0] = lst[15]   # that would be a "clean_setarrayitem"
+        def f():
+            lst = lltype.malloc(A, 16)   # 16 > 10
+            rgc.collect()
+            sub(lst)
+            null = lltype.nullptr(S)
+            lst[15] = null     # clear, so that A() is only visible via lst[0]
+            rgc.collect()      # -> crash
+            return lst[0].x
+        return f
+
+    def test_no_clean_setarrayitems(self):
+        run = self.runner("no_clean_setarrayitems")
+        res = run([])
+        assert res == 123
 
 # ________________________________________________________________
 # tagged pointers

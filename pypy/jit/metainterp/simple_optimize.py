@@ -9,17 +9,14 @@ EMPTY_VALUES = {}
 
 def transform(op):
     from pypy.jit.metainterp.history import AbstractDescr
-    # change ARRAYCOPY to call, so we don't have to pass around
-    # unnecessary information to the backend.  Do the same with VIRTUAL_REF_*.
-    if op.opnum == rop.ARRAYCOPY:
-        descr = op.args[0]
-        assert isinstance(descr, AbstractDescr)
-        op = ResOperation(rop.CALL, op.args[1:], op.result, descr=descr)
-    elif op.opnum == rop.CALL_PURE:
-        op = ResOperation(rop.CALL, op.args[1:], op.result, op.descr)
-    elif op.opnum == rop.VIRTUAL_REF:
-        op = ResOperation(rop.SAME_AS, [op.args[0]], op.result)
-    elif op.opnum == rop.VIRTUAL_REF_FINISH:
+    # Rename CALL_PURE to CALL.
+    # Simplify the VIRTUAL_REF_* so that they don't show up in the backend.
+    if op.getopnum() == rop.CALL_PURE:
+        op = ResOperation(rop.CALL, op.getarglist()[1:], op.result,
+                          op.getdescr())
+    elif op.getopnum() == rop.VIRTUAL_REF:
+        op = ResOperation(rop.SAME_AS, [op.getarg(0)], op.result)
+    elif op.getopnum() == rop.VIRTUAL_REF_FINISH:
         return []
     return [op]
 
@@ -36,7 +33,7 @@ def optimize_loop(metainterp_sd, old_loops, loop):
         newoperations = []
         for op in loop.operations:
             if op.is_guard():
-                descr = op.descr
+                descr = op.getdescr()
                 assert isinstance(descr, compile.ResumeGuardDescr)
                 modifier = resume.ResumeDataVirtualAdder(descr, memo)
                 newboxes = modifier.finish(EMPTY_VALUES)

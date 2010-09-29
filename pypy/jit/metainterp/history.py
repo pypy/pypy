@@ -532,7 +532,7 @@ class BoxInt(Box):
 class BoxFloat(Box):
     type = FLOAT
     _attrs_ = ('value',)
-    
+
     def __init__(self, floatval=0.0):
         assert isinstance(floatval, float)
         self.value = floatval
@@ -685,6 +685,19 @@ def make_hashable_int(i):
         return llmemory.cast_adr_to_int(adr, "emulated")
     return i
 
+def get_const_ptr_for_string(s):
+    from pypy.rpython.annlowlevel import llstr
+    if not we_are_translated():
+        try:
+            return _const_ptr_for_string[s]
+        except KeyError:
+            pass
+    result = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, llstr(s)))
+    if not we_are_translated():
+        _const_ptr_for_string[s] = result
+    return result
+_const_ptr_for_string = {}
+
 # ____________________________________________________________
 
 # The TreeLoop class contains a loop or a generalized loop, i.e. a tree
@@ -759,33 +772,34 @@ class TreeLoop(object):
         assert len(seen) == len(inputargs), (
                "duplicate Box in the Loop.inputargs")
         TreeLoop.check_consistency_of_branch(operations, seen)
-        
+
     @staticmethod
     def check_consistency_of_branch(operations, seen):
         "NOT_RPYTHON"
         for op in operations:
-            for box in op.args:
+            for i in range(op.numargs()):
+                box = op.getarg(i)
                 if isinstance(box, Box):
                     assert box in seen
             if op.is_guard():
-                assert op.descr is not None
-                if hasattr(op.descr, '_debug_suboperations'):
-                    ops = op.descr._debug_suboperations
+                assert op.getdescr() is not None
+                if hasattr(op.getdescr(), '_debug_suboperations'):
+                    ops = op.getdescr()._debug_suboperations
                     TreeLoop.check_consistency_of_branch(ops, seen.copy())
-                for box in op.fail_args or []:
+                for box in op.getfailargs() or []:
                     if box is not None:
                         assert isinstance(box, Box)
                         assert box in seen
             else:
-                assert op.fail_args is None
+                assert op.getfailargs() is None
             box = op.result
             if box is not None:
                 assert isinstance(box, Box)
                 assert box not in seen
                 seen[box] = True
         assert operations[-1].is_final()
-        if operations[-1].opnum == rop.JUMP:
-            target = operations[-1].descr
+        if operations[-1].getopnum() == rop.JUMP:
+            target = operations[-1].getdescr()
             if target is not None:
                 assert isinstance(target, LoopToken)
 
@@ -793,7 +807,8 @@ class TreeLoop(object):
         # RPython-friendly
         print '%r: inputargs =' % self, self._dump_args(self.inputargs)
         for op in self.operations:
-            print '\t', op.getopname(), self._dump_args(op.args), \
+            args = op.getarglist()
+            print '\t', op.getopname(), self._dump_args(args), \
                   self._dump_box(op.result)
 
     def _dump_args(self, boxes):
@@ -809,14 +824,14 @@ class TreeLoop(object):
         return '<%s>' % (self.name,)
 
 def _list_all_operations(result, operations, omit_finish=True):
-    if omit_finish and operations[-1].opnum == rop.FINISH:
+    if omit_finish and operations[-1].getopnum() == rop.FINISH:
         # xxx obscure
         return
     result.extend(operations)
     for op in operations:
-        if op.is_guard() and op.descr:
-            if hasattr(op.descr, '_debug_suboperations'):
-                ops = op.descr._debug_suboperations
+        if op.is_guard() and op.getdescr():
+            if hasattr(op.getdescr(), '_debug_suboperations'):
+                ops = op.getdescr()._debug_suboperations
                 _list_all_operations(result, ops, omit_finish)
 
 # ____________________________________________________________
@@ -885,7 +900,7 @@ class Stats(object):
         self.aborted_count += 1
 
     def entered(self):
-        self.enter_count += 1        
+        self.enter_count += 1
 
     def compiled(self):
         self.compiled_count += 1
@@ -898,7 +913,7 @@ class Stats(object):
 
     def add_new_loop(self, loop):
         self.loops.append(loop)
-        
+
     # test read interface
 
     def get_all_loops(self):

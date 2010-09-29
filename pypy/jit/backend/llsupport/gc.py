@@ -41,9 +41,12 @@ class GcLLDescr_boehm(GcLLDescription):
     moving_gc = False
     gcrootmap = None
 
-    def __init__(self, gcdescr, translator, rtyper):
-        GcLLDescription.__init__(self, gcdescr, translator, rtyper)
-        # grab a pointer to the Boehm 'malloc' function
+    @classmethod
+    def configure_boehm_once(cls):
+        """ Configure boehm only once, since we don't cache failures
+        """
+        if hasattr(cls, 'malloc_fn_ptr'):
+            return cls.malloc_fn_ptr
         from pypy.rpython.tool import rffi_platform
         compilation_info = rffi_platform.configure_boehm()
 
@@ -59,13 +62,20 @@ class GcLLDescr_boehm(GcLLDescription):
             GC_MALLOC = "GC_local_malloc"
         else:
             GC_MALLOC = "GC_malloc"
-
         malloc_fn_ptr = rffi.llexternal(GC_MALLOC,
                                         [lltype.Signed], # size_t, but good enough
                                         llmemory.GCREF,
                                         compilation_info=compilation_info,
                                         sandboxsafe=True,
                                         _nowrapper=True)
+        cls.malloc_fn_ptr = malloc_fn_ptr
+        cls.compilation_info = compilation_info
+        return malloc_fn_ptr
+
+    def __init__(self, gcdescr, translator, rtyper):
+        GcLLDescription.__init__(self, gcdescr, translator, rtyper)
+        # grab a pointer to the Boehm 'malloc' function
+        malloc_fn_ptr = self.configure_boehm_once()
         self.funcptr_for_new = malloc_fn_ptr
 
         # on some platform GC_init is required before any other
@@ -73,7 +83,7 @@ class GcLLDescr_boehm(GcLLDescription):
         # XXX move this to tests
         init_fn_ptr = rffi.llexternal("GC_init",
                                       [], lltype.Void,
-                                      compilation_info=compilation_info,
+                                      compilation_info=self.compilation_info,
                                       sandboxsafe=True,
                                       _nowrapper=True)
 
@@ -123,7 +133,7 @@ class GcLLDescr_boehm(GcLLDescription):
 
 
 # ____________________________________________________________
-# All code below is for the hybrid GC
+# All code below is for the hybrid or minimark GC
 
 
 class GcRefList:
@@ -157,7 +167,7 @@ class GcRefList:
 
     def alloc_gcref_list(self, n):
         # Important: the GRREF_LISTs allocated are *non-movable*.  This
-        # requires support in the gc (only the hybrid GC supports it so far).
+        # requires support in the gc (hybrid GC or minimark GC so far).
         if we_are_translated():
             list = rgc.malloc_nonmovable(self.GCREF_LIST, n)
             assert list, "malloc_nonmovable failed!"
@@ -340,8 +350,9 @@ class GcLLDescr_framework(GcLLDescription):
         self.translator = translator
         self.llop1 = llop1
 
-        # we need the hybrid GC for GcRefList.alloc_gcref_list() to work
-        if gcdescr.config.translation.gc != 'hybrid':
+        # we need the hybrid or minimark GC for GcRefList.alloc_gcref_list()
+        # to work
+        if gcdescr.config.translation.gc not in ('hybrid', 'minimark'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (gcdescr.config.translation.gc,))
 
@@ -372,8 +383,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
         (self.array_basesize, _, self.array_length_ofs) = \
              symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
-        min_ns = self.GCClass.TRANSLATION_PARAMS['min_nursery_size']
-        self.max_size_of_young_obj = self.GCClass.get_young_fixedsize(min_ns)
+        self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()
 
         # make a malloc function, with three arguments
         def malloc_basic(size, tid):
@@ -394,7 +404,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(
             [lltype.Signed, lltype.Signed], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address, llmemory.Address], lltype.Void))
+            [llmemory.Address], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
         #
         def malloc_array(itemsize, tid, num_elem):
@@ -540,8 +550,7 @@ class GcLLDescr_framework(GcLLDescription):
             # the GC, and call it immediately
             llop1 = self.llop1
             funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
-                    llmemory.cast_ptr_to_adr(gcref_newptr))
+            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
 
     def rewrite_assembler(self, cpu, operations):
         # Perform two kinds of rewrites in parallel:
@@ -559,12 +568,12 @@ class GcLLDescr_framework(GcLLDescription):
         #
         newops = []
         for op in operations:
-            if op.opnum == rop.DEBUG_MERGE_POINT:
+            if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             # ---------- replace ConstPtrs with GETFIELD_RAW ----------
             # xxx some performance issue here
-            for i in range(len(op.args)):
-                v = op.args[i]
+            for i in range(op.numargs()):
+                v = op.getarg(i)
                 if isinstance(v, ConstPtr) and bool(v.value):
                     addr = self.gcrefs.get_address_of_gcref(v.value)
                     # ^^^even for non-movable objects, to record their presence
@@ -574,30 +583,30 @@ class GcLLDescr_framework(GcLLDescription):
                         newops.append(ResOperation(rop.GETFIELD_RAW,
                                                    [ConstInt(addr)], box,
                                                    self.single_gcref_descr))
-                        op.args[i] = box
+                        op.setarg(i, box)
             # ---------- write barrier for SETFIELD_GC ----------
-            if op.opnum == rop.SETFIELD_GC:
-                v = op.args[1]
+            if op.getopnum() == rop.SETFIELD_GC:
+                v = op.getarg(1)
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.args[0], v)
-                    op = ResOperation(rop.SETFIELD_RAW, op.args, None,
-                                      descr=op.descr)
+                    self._gen_write_barrier(newops, op.getarg(0))
+                    op = op.copy_and_change(rop.SETFIELD_RAW)
             # ---------- write barrier for SETARRAYITEM_GC ----------
-            if op.opnum == rop.SETARRAYITEM_GC:
-                v = op.args[2]
+            if op.getopnum() == rop.SETARRAYITEM_GC:
+                v = op.getarg(2)
                 if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                              bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.args[0], v)
-                    op = ResOperation(rop.SETARRAYITEM_RAW, op.args, None,
-                                      descr=op.descr)
+                    # XXX detect when we should produce a
+                    # write_barrier_from_array
+                    self._gen_write_barrier(newops, op.getarg(0))
+                    op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ----------
             newops.append(op)
         del operations[:]
         operations.extend(newops)
 
-    def _gen_write_barrier(self, newops, v_base, v_value):
-        args = [v_base, v_value]
+    def _gen_write_barrier(self, newops, v_base):
+        args = [v_base]
         newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                    descr=self.write_barrier_descr))
 

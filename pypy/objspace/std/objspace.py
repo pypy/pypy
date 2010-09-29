@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod, proxyobject)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.rlib.objectmodel import instantiate, r_dict
+from pypy.rlib.objectmodel import instantiate, r_dict, specialize
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int
 from pypy.rlib.objectmodel import we_are_translated
@@ -350,7 +350,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise self._wrap_expected_length(expected_length, len(t))
         return t
 
-    def fixedview(self, w_obj, expected_length=-1):
+    @specialize.arg(3)
+    def fixedview(self, w_obj, expected_length=-1, unroll=False):
         """ Fast paths
         """
         if isinstance(w_obj, W_TupleObject):
@@ -358,10 +359,18 @@ class StdObjSpace(ObjSpace, DescrOperation):
         elif isinstance(w_obj, W_ListObject):
             t = w_obj.wrappeditems[:]
         else:
-            return ObjSpace.fixedview(self, w_obj, expected_length)
+            if unroll:
+                return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
+                    self, w_obj, expected_length)[:])
+            else:
+                return make_sure_not_resized(ObjSpace.unpackiterable(
+                    self, w_obj, expected_length)[:])
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
         return t
+
+    def fixedview_unroll(self, w_obj, expected_length=-1):
+        return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_ListObject):
@@ -369,7 +378,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         elif isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems[:]
         else:
-            return ObjSpace.listview(self, w_obj, expected_length)
+            return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
         return t

@@ -4,6 +4,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 
 from sys import maxint
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.jit import we_are_jitted
 
 def wrapstr(space, s):
     from pypy.objspace.std.stringobject import W_StringObject
@@ -32,7 +33,7 @@ def wrapstr(space, s):
 def wrapchar(space, c):
     from pypy.objspace.std.stringobject import W_StringObject
     from pypy.objspace.std.ropeobject import rope, W_RopeObject
-    if space.config.objspace.std.withprebuiltchar:
+    if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
         if space.config.objspace.std.withrope:
             return W_RopeObject.PREBUILT[ord(c)]
         return W_StringObject.PREBUILT[ord(c)]

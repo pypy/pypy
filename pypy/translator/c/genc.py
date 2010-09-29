@@ -592,7 +592,7 @@ class CStandaloneBuilder(CBuilder):
             if sys.platform == 'win32':
                 python = sys.executable.replace('\\', '/') + ' '
             else:
-                python = ''
+                python = sys.executable + ' '
 
             if self.translator.platform.name == 'msvc':
                 lblofiles = []

@@ -29,6 +29,7 @@ class GCTest(object):
     GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = False
     GC_CAN_SHRINK_BIG_ARRAY = False
+    BUT_HOW_BIG_IS_A_BIG_STRING = 3*WORD
 
     def setup_class(cls):
         cls._saved_logstate = py.log._getstate()
@@ -495,7 +496,8 @@ class GCTest(object):
         # with larger numbers, it gets allocated outside the semispace
         # with some GCs.
         flag = self.GC_CAN_SHRINK_BIG_ARRAY
-        assert self.interpret(f, [12, 0, flag]) == 0x62024241
+        bigsize = self.BUT_HOW_BIG_IS_A_BIG_STRING
+        assert self.interpret(f, [bigsize, 0, flag]) == 0x62024241
 
     def test_tagged_simple(self):
         from pypy.rlib.objectmodel import UnboxedValue
@@ -770,7 +772,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
     GC_CAN_SHRINK_BIG_ARRAY = False
     GC_CAN_MALLOC_NONMOVABLE = True
+    BUT_HOW_BIG_IS_A_BIG_STRING = 11*WORD
 
 class TestMiniMarkGCCardMarking(TestMiniMarkGC):
-    GC_PARAMS = {'card_page_indices': 4,
-                 'card_page_indices_min': 10}
+    GC_PARAMS = {'card_page_indices': 4}

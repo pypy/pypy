@@ -4,6 +4,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
 
 WORD = LONG_BIT // 8
+WORD_POWER_2 = {32: 2, 64: 3}[LONG_BIT]
 NULL = llmemory.NULL
 
 
@@ -39,6 +40,9 @@ PAGE_HEADER = lltype.Struct('PageHeader',
     # -- The chained list of free blocks.  If there are none, points to the
     #    first uninitialized block.
     ('freeblock', llmemory.Address),
+    # -- The structure above is 4 words, which is a good value:
+    #    '(1024-4) % N' is zero or very small for various small N's,
+    #    i.e. there is not much wasted space.
     )
 PAGE_PTR.TO.become(PAGE_HEADER)
 PAGE_NULL = lltype.nullptr(PAGE_HEADER)
@@ -87,7 +91,7 @@ class ArenaCollection(object):
         self.total_memory_used += nsize
         #
         # Get the page to use from the size
-        size_class = nsize / WORD
+        size_class = nsize >> WORD_POWER_2
         page = self.page_for_size[size_class]
         if page == PAGE_NULL:
             page = self.allocate_new_page(size_class)
@@ -190,7 +194,7 @@ class ArenaCollection(object):
         self.total_memory_used = r_uint(0)
         #
         # For each size class:
-        size_class = self.small_request_threshold / WORD
+        size_class = self.small_request_threshold >> WORD_POWER_2
         while size_class >= 1:
             #
             # Walk the pages in 'page_for_size[size_class]' and
@@ -336,7 +340,7 @@ def start_of_page(addr, page_size):
 
 def _start_of_page_untranslated(addr, page_size):
     assert isinstance(addr, llarena.fakearenaaddress)
-    shift = 4     # for testing, we assume that the whole arena is not
+    shift = WORD  # for testing, we assume that the whole arena is not
                   # on a page boundary
     ofs = ((addr.offset - shift) // page_size) * page_size + shift
     return llarena.fakearenaaddress(addr.arena, ofs)

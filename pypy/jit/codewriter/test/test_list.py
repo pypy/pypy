@@ -36,10 +36,16 @@ class FakeCPU:
 
 class FakeCallControl:
     class getcalldescr(AbstractDescr):
-        def __init__(self, op):
+        def __init__(self, op, oopspecindex=0):
             self.op = op
+            self.oopspecindex = oopspecindex
         def __repr__(self):
-            return '<CallDescr>'
+            if self.oopspecindex == 0:
+                return '<CallDescr>'
+            else:
+                return '<CallDescrOS%d>' % self.oopspecindex
+    def calldescr_canraise(self, calldescr):
+        return False
 
 def builtin_test(oopspec_name, args, RESTYPE, expected):
     v_result = varoftype(RESTYPE)
@@ -99,7 +105,7 @@ def test_fixed_ll_arraycopy():
                   varoftype(lltype.Signed), 
                   varoftype(lltype.Signed)],
                  lltype.Void, """
-                     arraycopy <CallDescr>, $'myfunc', %r0, %r1, %i0, %i1, %i2, <ArrayDescr>
+                     residual_call_ir_v $'myfunc', <CallDescrOS1>, I[%i0, %i1, %i2], R[%r0, %r1]
                  """)
 
 def test_fixed_getitem():

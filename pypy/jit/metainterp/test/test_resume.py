@@ -199,10 +199,10 @@ def test_simple_read_tagged_ints():
 
 def test_prepare_virtuals():
     class FakeVinfo(object):
-        def allocate(self, decoder):
-            return "allocated"
-        def setfields(self, decoder, virtual):
-            assert virtual == "allocated"
+        def allocate(self, decoder, index):
+            s = "allocated"
+            decoder.virtuals_cache[index] = s
+            return s
     class FakeStorage(object):
         rd_virtuals = [FakeVinfo(), None]
         rd_numb = []
@@ -212,7 +212,97 @@ def test_prepare_virtuals():
         _already_allocated_resume_virtuals = None
         cpu = None
     reader = ResumeDataDirectReader(None, FakeStorage())
-    assert reader.virtuals == ["allocated", reader.virtual_default]
+    assert reader.force_all_virtuals() == ["allocated", reader.virtual_default]
+
+# ____________________________________________________________
+
+class FakeResumeDataReader(AbstractResumeDataReader):
+    def allocate_with_vtable(self, known_class):
+        return FakeBuiltObject(vtable=known_class)
+    def allocate_struct(self, typedescr):
+        return FakeBuiltObject(typedescr=typedescr)
+    def allocate_array(self, arraydescr, length):
+        return FakeBuiltObject(arraydescr=arraydescr, items=[None]*length)
+    def setfield(self, descr, struct, fieldnum):
+        setattr(struct, descr, fieldnum)
+    def setarrayitem_int(self, arraydescr, array, i, fieldnum):
+        assert 0 <= i < len(array.items)
+        assert arraydescr is array.arraydescr
+        array.items[i] = fieldnum
+    def allocate_string(self, length):
+        return FakeBuiltObject(string=[None]*length)
+    def string_setitem(self, string, i, fieldnum):
+        value, tag = untag(fieldnum)
+        assert tag == TAGINT
+        assert 0 <= i < len(string.string)
+        string.string[i] = value
+    def concat_strings(self, left, right):
+        return FakeBuiltObject(strconcat=[left, right])
+    def slice_string(self, str, start, length):
+        return FakeBuiltObject(strslice=[str, start, length])
+
+class FakeBuiltObject(object):
+    def __init__(self, **kwds):
+        self.__dict__ = kwds
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__ and
+                self.__dict__ == other.__dict__)
+    def __repr__(self):
+        return 'FakeBuiltObject(%s)' % (
+            ', '.join(['%s=%r' % item for item in self.__dict__.items()]))
+
+class FakeArrayDescr(object):
+    def is_array_of_pointers(self): return False
+    def is_array_of_floats(self): return False
+
+def test_virtualinfo():
+    info = VirtualInfo(123, ["fielddescr1"])
+    info.fieldnums = [tag(456, TAGINT)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(vtable=123, fielddescr1=tag(456, TAGINT))]
+
+def test_vstructinfo():
+    info = VStructInfo(124, ["fielddescr1"])
+    info.fieldnums = [tag(456, TAGINT)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(typedescr=124, fielddescr1=tag(456, TAGINT))]
+
+def test_varrayinfo():
+    arraydescr = FakeArrayDescr()
+    info = VArrayInfo(arraydescr)
+    info.fieldnums = [tag(456, TAGINT)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(arraydescr=arraydescr, items=[tag(456, TAGINT)])]
+
+def test_vstrplaininfo():
+    info = VStrPlainInfo()
+    info.fieldnums = [tag(60, TAGINT)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(string=[60])]
+
+def test_vstrconcatinfo():
+    info = VStrConcatInfo()
+    info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(strconcat=info.fieldnums)]
+
+def test_vstrsliceinfo():
+    info = VStrSliceInfo()
+    info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX), tag(30, TAGBOX)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(strslice=info.fieldnums)]
 
 # ____________________________________________________________
 
@@ -957,7 +1047,7 @@ def test_virtual_adder_make_virtual():
 
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
-    assert len(reader.virtuals) == 2
+    assert len(reader.virtuals_cache) == 2
     b2t = reader.decode_ref(modifier._gettagged(b2s))
     b4t = reader.decode_ref(modifier._gettagged(b4s))
     trace = metainterp.trace
@@ -972,13 +1062,14 @@ def test_virtual_adder_make_virtual():
     b4set = [(rop.SETFIELD_GC, [b4t, b2t],     None, LLtypeMixin.nextdescr),
              (rop.SETFIELD_GC, [b4t, b3t],     None, LLtypeMixin.valuedescr),
              (rop.SETFIELD_GC, [b4t, b5t],     None, LLtypeMixin.otherdescr)]
-    if untag(modifier._gettagged(b2s))[0] == -2:
-        expected = [b2new, b4new] + b2set + b4set
-    else:
-        expected = [b4new, b2new] + b4set + b2set
-        
-    for x, y in zip(expected, trace):
-        assert x == y
+    expected = [b2new, b4new] + b4set + b2set
+
+    # check that we get the operations in 'expected', in a possibly different
+    # order.
+    assert len(trace) == len(expected)
+    for x in trace:
+        assert x in expected
+        expected.remove(x)
     ptr = b2t.value._obj.container._as_ptr()
     assert lltype.typeOf(ptr) == lltype.Ptr(LLtypeMixin.NODE)
     assert ptr.value == 111
@@ -1020,7 +1111,7 @@ def test_virtual_adder_make_varray():
     # resume
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
-    assert len(reader.virtuals) == 1
+    assert len(reader.virtuals_cache) == 1
     b2t = reader.decode_ref(tag(0, TAGVIRTUAL))
     trace = metainterp.trace
     expected = [
@@ -1065,7 +1156,7 @@ def test_virtual_adder_make_vstruct():
     NULL = ConstPtr.value
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
-    assert len(reader.virtuals) == 1
+    assert len(reader.virtuals_cache) == 1
     b2t = reader.decode_ref(tag(0, TAGVIRTUAL))
 
     trace = metainterp.trace
@@ -1112,7 +1203,7 @@ def test_virtual_adder_pending_fields():
 
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
-    assert reader.virtuals is None
+    assert reader.virtuals_cache is None
     trace = metainterp.trace
     b2set = (rop.SETFIELD_GC, [b2t, b4t], None, LLtypeMixin.nextdescr)
     expected = [b2set]

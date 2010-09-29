@@ -71,11 +71,11 @@ class VRefTests:
         #
         ops = self.metainterp.staticdata.stats.loops[0].operations
         [guard_op] = [op for op in ops
-                         if op.opnum == rop.GUARD_NOT_FORCED]
-        bxs1 = [box for box in guard_op.fail_args
+                         if op.getopnum() == rop.GUARD_NOT_FORCED]
+        bxs1 = [box for box in guard_op.getfailargs()
                   if str(box._getrepr_()).endswith('.X')]
         assert len(bxs1) == 1
-        bxs2 = [box for box in guard_op.fail_args
+        bxs2 = [box for box in guard_op.getfailargs()
                   if str(box._getrepr_()).endswith('JitVirtualRef')]
         assert len(bxs2) == 1
         JIT_VIRTUAL_REF = self.vrefinfo.JIT_VIRTUAL_REF
@@ -84,11 +84,11 @@ class VRefTests:
         # try reloading from blackhole.py's point of view
         from pypy.jit.metainterp.resume import ResumeDataDirectReader
         cpu = self.metainterp.cpu
-        cpu.get_latest_value_count = lambda : len(guard_op.fail_args)
-        cpu.get_latest_value_int = lambda i:guard_op.fail_args[i].getint()
-        cpu.get_latest_value_ref = lambda i:guard_op.fail_args[i].getref_base()
+        cpu.get_latest_value_count = lambda : len(guard_op.getfailargs())
+        cpu.get_latest_value_int = lambda i:guard_op.getfailargs()[i].getint()
+        cpu.get_latest_value_ref = lambda i:guard_op.getfailargs()[i].getref_base()
         cpu.clear_latest_values = lambda count: None
-        resumereader = ResumeDataDirectReader(cpu, guard_op.descr)
+        resumereader = ResumeDataDirectReader(cpu, guard_op.getdescr())
         vrefinfo = self.metainterp.staticdata.virtualref_info
         lst = []
         vrefinfo.continue_tracing = lambda vref, virtual: \
@@ -100,7 +100,7 @@ class VRefTests:
                                lst[0][0])  # assert correct type
         #
         # try reloading from pyjitpl's point of view
-        self.metainterp.rebuild_state_after_failure(guard_op.descr)
+        self.metainterp.rebuild_state_after_failure(guard_op.getdescr())
         assert len(self.metainterp.framestack) == 1
         assert len(self.metainterp.virtualref_boxes) == 2
         assert self.metainterp.virtualref_boxes[0].value == bxs1[0].value

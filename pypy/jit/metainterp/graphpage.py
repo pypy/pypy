@@ -17,13 +17,13 @@ def display_loops(loops, errmsg=None, highlight_loops=()):
     for graph, highlight in graphs:
         for op in graph.get_operations():
             if is_interesting_guard(op):
-                graphs.append((SubGraph(op.descr._debug_suboperations),
+                graphs.append((SubGraph(op.getdescr()._debug_suboperations),
                                highlight))
     graphpage = ResOpGraphPage(graphs, errmsg)
     graphpage.display()
 
 def is_interesting_guard(op):
-    return hasattr(op.descr, '_debug_suboperations')
+    return hasattr(op.getdescr(), '_debug_suboperations')
 
 
 class ResOpGraphPage(GraphPage):
@@ -76,7 +76,7 @@ class ResOpGen(object):
             for i, op in enumerate(graph.get_operations()):
                 if is_interesting_guard(op):
                     self.mark_starter(graphindex, i+1)
-                if op.opnum == rop.DEBUG_MERGE_POINT:
+                if op.getopnum() == rop.DEBUG_MERGE_POINT:
                     if not last_was_mergepoint:
                         last_was_mergepoint = True
                         self.mark_starter(graphindex, i)
@@ -155,7 +155,7 @@ class ResOpGen(object):
             op = operations[opindex]
             lines.append(repr(op))
             if is_interesting_guard(op):
-                tgt = op.descr._debug_suboperations[0]
+                tgt = op.getdescr()._debug_suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
                 self.genedge((graphindex, opstartindex),
                              (tgt_g, tgt_i),
@@ -167,8 +167,8 @@ class ResOpGen(object):
                 self.genedge((graphindex, opstartindex),
                              (graphindex, opindex))
                 break
-        if op.opnum == rop.JUMP:
-            tgt = op.descr
+        if op.getopnum() == rop.JUMP:
+            tgt = op.getdescr()
             tgt_g = -1
             if tgt is None:
                 tgt_g = graphindex
@@ -191,7 +191,8 @@ class ResOpGen(object):
     def getlinks(self):
         boxes = {}
         for op in self.all_operations:
-            for box in op.args + [op.result]:
+            args = op.getarglist() + [op.result]
+            for box in args:
                 if getattr(box, 'is_box', False):
                     boxes[box] = True
         links = {}

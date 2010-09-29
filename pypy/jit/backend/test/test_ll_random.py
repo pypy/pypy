@@ -464,7 +464,7 @@ class CallOperation(BaseCallOperation):
         self.put(builder, args, descr)
         op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
                           descr=BasicFailDescr())
-        op.fail_args = fail_subset
+        op.setfailargs(fail_subset)
         builder.loop.operations.append(op)
 
 # 5. Non raising-call and GUARD_EXCEPTION
@@ -486,7 +486,7 @@ class CallOperationException(BaseCallOperation):
         exc_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
         op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr(),
                           descr=BasicFailDescr())
-        op.fail_args = builder.subset_of_intvars(r)
+        op.setfailargs(builder.subset_of_intvars(r))
         op._exc_box = None
         builder.should_fail_by = op
         builder.guard_op = op
@@ -507,7 +507,7 @@ class RaisingCallOperation(BaseCallOperation):
         exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
         op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr(),
                           descr=BasicFailDescr())
-        op.fail_args = fail_subset
+        op.setfailargs(fail_subset)
         builder.loop.operations.append(op)
 
 # 4. raising call and guard_no_exception
@@ -524,7 +524,7 @@ class RaisingCallOperationGuardNoException(BaseCallOperation):
         op = ResOperation(rop.GUARD_NO_EXCEPTION, [], BoxPtr(),
                           descr=BasicFailDescr())
         op._exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
-        op.fail_args = builder.subset_of_intvars(r)
+        op.setfailargs(builder.subset_of_intvars(r))
         builder.should_fail_by = op
         builder.guard_op = op
         builder.loop.operations.append(op)
@@ -548,7 +548,7 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
         op = ResOperation(rop.GUARD_EXCEPTION, [other_box], BoxPtr(),
                           descr=BasicFailDescr())
         op._exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
-        op.fail_args = builder.subset_of_intvars(r)
+        op.setfailargs(builder.subset_of_intvars(r))
         builder.should_fail_by = op
         builder.guard_op = op
         builder.loop.operations.append(op)

@@ -79,27 +79,27 @@ class Logger(object):
             debug_print('[' + args + ']')
         for i in range(len(operations)):
             op = operations[i]
-            if op.opnum == rop.DEBUG_MERGE_POINT:
-                loc = op.args[0]._get_str()
+            if op.getopnum() == rop.DEBUG_MERGE_POINT:
+                loc = op.getarg(0)._get_str()
                 debug_print("debug_merge_point('%s')" % (loc,))
                 continue
-            args = ", ".join([self.repr_of_arg(memo, arg) for arg in op.args])
+            args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
             if op.result is not None:
                 res = self.repr_of_arg(memo, op.result) + " = "
             else:
                 res = ""
             is_guard = op.is_guard()
-            if op.descr is not None:
-                descr = op.descr
+            if op.getdescr() is not None:
+                descr = op.getdescr()
                 if is_guard and self.guard_number:
                     index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
                     r = "<Guard%d>" % index
                 else:
                     r = self.repr_of_descr(descr)
                 args += ', descr=' +  r
-            if is_guard and op.fail_args is not None:
+            if is_guard and op.getfailargs() is not None:
                 fail_args = ' [' + ", ".join([self.repr_of_arg(memo, arg)
-                                              for arg in op.fail_args]) + ']'
+                                              for arg in op.getfailargs()]) + ']'
             else:
                 fail_args = ''
             debug_print(res + op.getopname() +

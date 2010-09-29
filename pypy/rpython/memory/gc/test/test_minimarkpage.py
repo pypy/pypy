@@ -7,22 +7,22 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.lltypesystem.llmemory import cast_ptr_to_adr
 
 NULL = llmemory.NULL
-SHIFT = 4
+SHIFT = WORD
 hdrsize = llmemory.raw_malloc_usage(llmemory.sizeof(PAGE_HEADER))
 
 
 def test_allocate_arena():
-    ac = ArenaCollection(SHIFT + 8*20, 8, 1)
+    ac = ArenaCollection(SHIFT + 16*20, 16, 1)
     ac.allocate_new_arena()
     assert ac.num_uninitialized_pages == 20
-    ac.uninitialized_pages + 8*20   # does not raise
-    py.test.raises(llarena.ArenaError, "ac.uninitialized_pages + 8*20 + 1")
+    ac.uninitialized_pages + 16*20   # does not raise
+    py.test.raises(llarena.ArenaError, "ac.uninitialized_pages + 16*20 + 1")
     #
-    ac = ArenaCollection(SHIFT + 8*20 + 7, 8, 1)
+    ac = ArenaCollection(SHIFT + 16*20 + 7, 16, 1)
     ac.allocate_new_arena()
     assert ac.num_uninitialized_pages == 20
-    ac.uninitialized_pages + 8*20 + 7   # does not raise
-    py.test.raises(llarena.ArenaError, "ac.uninitialized_pages + 8*20 + 8")
+    ac.uninitialized_pages + 16*20 + 7   # does not raise
+    py.test.raises(llarena.ArenaError, "ac.uninitialized_pages + 16*20 + 16")
 
 
 def test_allocate_new_page():

@@ -51,7 +51,7 @@ def make_loop_token(nb_args, jitdriver_sd):
 def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     """Try to compile a new loop by closing the current history back
     to the first operation.
-    """    
+    """
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.greenkey = greenkey
@@ -65,7 +65,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     jitdriver_sd = metainterp.jitdriver_sd
     loop_token = make_loop_token(len(loop.inputargs), jitdriver_sd)
     loop.token = loop_token
-    loop.operations[-1].descr = loop_token     # patch the target of the JUMP
+    loop.operations[-1].setdescr(loop_token)     # patch the target of the JUMP
     try:
         old_loop_token = jitdriver_sd.warmstate.optimize_loop(
             metainterp_sd, old_loop_tokens, loop)
@@ -133,7 +133,7 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
     metainterp_sd.profiler.end_backend()
     if not we_are_translated():
         metainterp_sd.stats.compiled()
-    metainterp_sd.log("compiled new bridge")            
+    metainterp_sd.log("compiled new bridge")
 
 # ____________________________________________________________
 
@@ -177,7 +177,7 @@ prebuiltNotSpecNode = NotSpecNode()
 
 class TerminatingLoopToken(LoopToken):
     terminating = True
-    
+
     def __init__(self, nargs, finishdescr):
         self.specnodes = [prebuiltNotSpecNode]*nargs
         self.finishdescr = finishdescr
@@ -233,14 +233,14 @@ class ResumeGuardDescr(ResumeDescr):
         self.metainterp_sd = metainterp_sd
 
     def store_final_boxes(self, guard_op, boxes):
-        guard_op.fail_args = boxes
-        self.guard_opnum = guard_op.opnum
+        guard_op.setfailargs(boxes)
+        self.guard_opnum = guard_op.getopnum()
 
     def make_a_counter_per_value(self, guard_value_op):
-        assert guard_value_op.opnum == rop.GUARD_VALUE
-        box = guard_value_op.args[0]
+        assert guard_value_op.getopnum() == rop.GUARD_VALUE
+        box = guard_value_op.getarg(0)
         try:
-            i = guard_value_op.fail_args.index(box)
+            i = guard_value_op.getfailargs().index(box)
         except ValueError:
             return     # xxx probably very rare
         else:
@@ -508,7 +508,7 @@ class ResumeFromInterpDescr(ResumeDescr):
 def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
-    """    
+    """
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
     #
@@ -540,13 +540,14 @@ def prepare_last_operation(new_loop, target_loop_token):
     op = new_loop.operations[-1]
     if not isinstance(target_loop_token, TerminatingLoopToken):
         # normal case
-        op.descr = target_loop_token     # patch the jump target
+        op.setdescr(target_loop_token)     # patch the jump target
     else:
         # The target_loop_token is a pseudo loop token,
         # e.g. loop_tokens_done_with_this_frame_void[0]
         # Replace the operation with the real operation we want, i.e. a FINISH
         descr = target_loop_token.finishdescr
-        new_op = ResOperation(rop.FINISH, op.args, None, descr=descr)
+        args = op.getarglist()
+        new_op = ResOperation(rop.FINISH, args, None, descr=descr)
         new_loop.operations[-1] = new_op
 
 # ____________________________________________________________
@@ -597,6 +598,6 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes):
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
         ]
-    operations[1].fail_args = []
+    operations[1].setfailargs([])
     cpu.compile_loop(inputargs, operations, loop_token)
     return loop_token

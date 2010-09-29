@@ -5,20 +5,31 @@ in a nicer fashion
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
      ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
-     LoopToken
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+     LoopToken, get_const_ptr_for_string
+from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.codewriter.heaptracker import adr2int
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import llstr
 
 class ParseError(Exception):
     pass
 
-
 class Boxes(object):
     pass
+
+class ESCAPE_OP(N_aryOp, ResOpWithDescr):
+
+    OPNUM = -123
+
+    def __init__(self, opnum, args, result, descr=None):
+        assert opnum == self.OPNUM
+        self.result = result
+        self.initarglist(args)
+        self.setdescr(descr)
+
+    def getopnum(self):
+        return self.OPNUM
 
 class ExtendedTreeLoop(TreeLoop):
 
@@ -26,7 +37,7 @@ class ExtendedTreeLoop(TreeLoop):
         def opboxes(operations):
             for op in operations:
                 yield op.result
-                for box in op.args:
+                for box in op.getarglist():
                     yield box
         def allboxes():
             for box in self.inputargs:
@@ -52,7 +63,8 @@ def default_fail_descr(fail_args=None):
 
 class OpParser(object):
     def __init__(self, input, cpu, namespace, type_system, boxkinds,
-                 invent_fail_descr=default_fail_descr):
+                 invent_fail_descr=default_fail_descr,
+                 nonstrict=False):
         self.input = input
         self.vars = {}
         self.cpu = cpu
@@ -64,6 +76,7 @@ class OpParser(object):
         else:
             self._cache = {}
         self.invent_fail_descr = invent_fail_descr
+        self.nonstrict = nonstrict
         self.looptoken = LoopToken()
 
     def get_const(self, name, typ):
@@ -122,10 +135,13 @@ class OpParser(object):
         vars = []
         for elem in elements:
             elem = elem.strip()
-            box = self.box_for_var(elem)
-            vars.append(box)
-            self.vars[elem] = box
+            vars.append(self.newvar(elem))
         return vars
+
+    def newvar(self, elem):
+        box = self.box_for_var(elem)
+        self.vars[elem] = box
+        return box
 
     def is_float(self, arg):
         try:
@@ -145,8 +161,7 @@ class OpParser(object):
             if arg.startswith('"') or arg.startswith("'"):
                 # XXX ootype
                 info = arg.strip("'\"")
-                return ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                       llstr(info)))
+                return get_const_ptr_for_string(info)
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')
@@ -160,6 +175,8 @@ class OpParser(object):
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
                 return self.get_const(name, 'ptr')
+            if arg not in self.vars and self.nonstrict:
+                self.newvar(arg)
             return self.vars[arg]
 
     def parse_op(self, line):
@@ -171,7 +188,7 @@ class OpParser(object):
             opnum = getattr(rop, opname.upper())
         except AttributeError:
             if opname == 'escape':
-                opnum = -123
+                opnum = ESCAPE_OP.OPNUM
             else:
                 raise ParseError("unknown op: %s" % opname)
         endnum = line.rfind(')')
@@ -184,7 +201,8 @@ class OpParser(object):
             if opname == 'debug_merge_point':
                 allargs = [argspec]
             else:
-                allargs = argspec.split(",")
+                allargs = [arg for arg in argspec.split(",")
+                           if arg != '']
 
             poss_descr = allargs[-1].strip()
             if poss_descr.startswith('descr='):
@@ -199,7 +217,7 @@ class OpParser(object):
         if rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST:
             i = line.find('[', endnum) + 1
             j = line.find(']', i)
-            if i <= 0 or j <= 0:
+            if (i <= 0 or j <= 0) and not self.nonstrict:
                 raise ParseError("missing fail_args for guard operation")
             fail_args = []
             if i < j:
@@ -228,6 +246,12 @@ class OpParser(object):
                     descr = self.looptoken
         return opnum, args, descr, fail_args
 
+    def create_op(self, opnum, args, result, descr):
+        if opnum == ESCAPE_OP.OPNUM:
+            return ESCAPE_OP(opnum, args, result, descr)
+        else:
+            return ResOperation(opnum, args, result, descr)
+
     def parse_result_op(self, line):
         res, op = line.split("=", 1)
         res = res.strip()
@@ -237,14 +261,16 @@ class OpParser(object):
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         rvar = self.box_for_var(res)
         self.vars[res] = rvar
-        res = ResOperation(opnum, args, rvar, descr)
-        res.fail_args = fail_args
+        res = self.create_op(opnum, args, rvar, descr)
+        if fail_args is not None:
+            res.setfailargs(fail_args)
         return res
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)
-        res = ResOperation(opnum, args, None, descr)
-        res.fail_args = fail_args
+        res = self.create_op(opnum, args, None, descr)
+        if fail_args is not None:
+            res.setfailargs(fail_args)
         return res
 
     def parse_next_op(self, line):
@@ -257,11 +283,14 @@ class OpParser(object):
         lines = self.input.splitlines()
         ops = []
         newlines = []
+        first_comment = None
         for line in lines:
             # for simplicity comments are not allowed on
             # debug_merge_point lines
             if '#' in line and 'debug_merge_point(' not in line:
                 if line.lstrip()[0] == '#': # comment only
+                    if first_comment is None:
+                        first_comment = line
                     continue
                 comm = line.rfind('#')
                 rpar = line.find(')') # assume there's a op(...)
@@ -270,12 +299,12 @@ class OpParser(object):
             if not line.strip():
                 continue  # a comment or empty line
             newlines.append(line)
-        base_indent, inpargs = self.parse_inpargs(newlines[0])
-        newlines = newlines[1:]
+        base_indent, inpargs, newlines = self.parse_inpargs(newlines)
         num, ops = self.parse_ops(base_indent, newlines, 0)
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = ExtendedTreeLoop("loop")
+        loop.comment = first_comment
         loop.token = self.looptoken
         loop.operations = ops
         loop.inputargs = inpargs
@@ -296,23 +325,27 @@ class OpParser(object):
                 num += 1
         return num, ops
 
-    def parse_inpargs(self, line):
-        base_indent = line.find('[')
+    def parse_inpargs(self, lines):
+        line = lines[0]
+        base_indent = len(line) - len(line.lstrip(' '))
         line = line.strip()
+        if not line.startswith('[') and self.nonstrict:
+            return base_indent, [], lines
+        lines = lines[1:]
         if line == '[]':
-            return base_indent, []
-        if base_indent == -1 or not line.endswith(']'):
+            return base_indent, [], lines
+        if not line.startswith('[') or not line.endswith(']'):
             raise ParseError("Wrong header: %s" % line)
         inpargs = self.parse_header_line(line[1:-1])
-        return base_indent, inpargs
+        return base_indent, inpargs, lines
 
 def parse(input, cpu=None, namespace=None, type_system='lltype',
           boxkinds=None, invent_fail_descr=default_fail_descr,
-          no_namespace=False):
+          no_namespace=False, nonstrict=False):
     if namespace is None and not no_namespace:
         namespace = {}
     return OpParser(input, cpu, namespace, type_system, boxkinds,
-                    invent_fail_descr).parse()
+                    invent_fail_descr, nonstrict).parse()
 
 def pure_parse(*args, **kwds):
     kwds['invent_fail_descr'] = None

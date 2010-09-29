@@ -7,7 +7,8 @@ from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
+from pypy.rlib.jit import (PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL,
+                           OPTIMIZER_NO_PERFECTSPEC)
 from pypy.rlib.jit import DEBUG_PROFILE
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
@@ -83,6 +84,9 @@ def wrap(cpu, value, in_const_box=False):
             return history.ConstFloat(value)
         else:
             return history.BoxFloat(value)
+    elif isinstance(value, str) or isinstance(value, unicode):
+        assert len(value) == 1     # must be a character
+        value = ord(value)
     else:
         value = intmask(value)
     if in_const_box:
@@ -187,6 +191,10 @@ class WarmEnterState(object):
             from pypy.jit.metainterp import simple_optimize
             self.optimize_loop = simple_optimize.optimize_loop
             self.optimize_bridge = simple_optimize.optimize_bridge
+        elif optimizer == OPTIMIZER_NO_PERFECTSPEC:
+            from pypy.jit.metainterp import optimize_nopspec
+            self.optimize_loop = optimize_nopspec.optimize_loop
+            self.optimize_bridge = optimize_nopspec.optimize_bridge
         elif optimizer == OPTIMIZER_FULL:
             from pypy.jit.metainterp import optimize
             self.optimize_loop = optimize.optimize_loop

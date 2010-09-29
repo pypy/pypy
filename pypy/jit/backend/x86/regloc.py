@@ -33,6 +33,8 @@ class AssemblerLocation(object):
     def value_a(self): raise AssertionError("value_a undefined")
     def value_m(self): raise AssertionError("value_m undefined")
 
+    def find_unused_reg(self): return eax
+
 class StackLoc(AssemblerLocation):
     _immutable_ = True
     def __init__(self, position, ebp_offset, num_words, type):
@@ -88,6 +90,12 @@ class RegLoc(AssemblerLocation):
     def assembler(self):
         return '%' + repr(self)
 
+    def find_unused_reg(self):
+        if self.value == eax.value:
+            return edx
+        else:
+            return eax
+
 class ImmedLoc(AssemblerLocation):
     _immutable_ = True
     width = WORD
@@ -137,6 +145,12 @@ class AddressLoc(AssemblerLocation):
                 self._location_code = 'a'
                 self.loc_a = (base_loc.value, scaled_loc.value, scale, static_offset)
 
+    def __repr__(self):
+        dict = {'j': 'value', 'a': 'loc_a', 'm': 'loc_m', 'a':'loc_a'}
+        attr = dict.get(self._location_code, '?')
+        info = getattr(self, attr, '?')
+        return '<AddressLoc %r: %s>' % (self._location_code, info)
+
     def location_code(self):
         return self._location_code
 
@@ -145,6 +159,21 @@ class AddressLoc(AssemblerLocation):
 
     def value_m(self):
         return self.loc_m
+
+    def find_unused_reg(self):
+        if self._location_code == 'm':
+            if self.loc_m[0] == eax.value:
+                return edx
+        elif self._location_code == 'a':
+            if self.loc_a[0] == eax.value:
+                if self.loc_a[1] == edx.value:
+                    return ecx
+                return edx
+            if self.loc_a[1] == eax.value:
+                if self.loc_a[0] == edx.value:
+                    return ecx
+                return edx
+        return eax
 
 class ConstFloatLoc(AssemblerLocation):
     # XXX: We have to use this class instead of just AddressLoc because
@@ -158,6 +187,9 @@ class ConstFloatLoc(AssemblerLocation):
     def __init__(self, address, const_id):
         self.value = address
         self.const_id = const_id
+
+    def __repr__(self):
+        return '<ConstFloatLoc(%s, %s)>' % (self.value, self.const_id)
 
     def _getregkey(self):
         # XXX: 1000 is kind of magic: We just don't want to be confused
@@ -206,6 +238,32 @@ class LocationCodeBuilder(object):
     _scratch_register_value = 0
 
     def _binaryop(name):
+
+        def insn_with_64_bit_immediate(self, loc1, loc2):
+            # These are the worst cases:
+            val2 = loc2.value_i()
+            code1 = loc1.location_code()
+            if (code1 == 'j'
+                or (code1 == 'm' and not rx86.fits_in_32bits(loc1.value_m()[1]))
+                or (code1 == 'a' and not rx86.fits_in_32bits(loc1.value_a()[3]))):
+                # INSN_ji, and both operands are 64-bit; or INSN_mi or INSN_ai
+                # and the constant offset in the address is 64-bit.
+                # Hopefully this doesn't happen too often
+                freereg = loc1.find_unused_reg()
+                self.PUSH_r(freereg.value)
+                self.MOV_ri(freereg.value, val2)
+                INSN(self, loc1, freereg)
+                self.POP_r(freereg.value)
+            else:
+                # For this case, we should not need the scratch register more than here.
+                self._load_scratch(val2)
+                INSN(self, loc1, X86_64_SCRATCH_REG)
+
+        def invoke(self, codes, val1, val2):
+            methname = name + "_" + codes
+            _rx86_getattr(self, methname)(val1, val2)
+        invoke._annspecialcase_ = 'specialize:arg(1)'
+
         def INSN(self, loc1, loc2):
             code1 = loc1.location_code()
             code2 = loc2.location_code()
@@ -218,38 +276,39 @@ class LocationCodeBuilder(object):
             if loc1 is X86_64_SCRATCH_REG and not name.startswith("MOV"):
                 assert code2 not in ('j', 'i')
 
-            for possible_code1 in unrolling_location_codes:
-                if code1 == possible_code1:
-                    for possible_code2 in unrolling_location_codes:
-                        if code2 == possible_code2:
+            for possible_code2 in unrolling_location_codes:
+                if code2 == possible_code2:
+                    val2 = getattr(loc2, "value_" + possible_code2)()
+                    #
+                    # Fake out certain operations for x86_64
+                    if self.WORD == 8 and possible_code2 == 'i' and not rx86.fits_in_32bits(val2):
+                        insn_with_64_bit_immediate(self, loc1, loc2)
+                        return
+                    #
+                    # Regular case
+                    for possible_code1 in unrolling_location_codes:
+                        if code1 == possible_code1:
                             val1 = getattr(loc1, "value_" + possible_code1)()
-                            val2 = getattr(loc2, "value_" + possible_code2)()
-                            # Fake out certain operations for x86_64
-                            if self.WORD == 8 and possible_code2 == 'i' and not rx86.fits_in_32bits(val2):
-                                if possible_code1 == 'j':
-                                    # This is the worst case: INSN_ji, and both operands are 64-bit
-                                    # Hopefully this doesn't happen too often
-                                    self.PUSH_r(eax.value)
-                                    self.MOV_ri(eax.value, val1)
-                                    self.MOV_ri(X86_64_SCRATCH_REG.value, val2)
-                                    methname = name + "_mr"
-                                    _rx86_getattr(self, methname)((eax.value, 0), X86_64_SCRATCH_REG.value)
-                                    self.POP_r(eax.value)
-                                else:
-                                    self.MOV_ri(X86_64_SCRATCH_REG.value, val2)
-                                    methname = name + "_" + possible_code1 + "r"
-                                    _rx86_getattr(self, methname)(val1, X86_64_SCRATCH_REG.value)
-                            elif self.WORD == 8 and possible_code1 == 'j':
-                                reg_offset = self._addr_as_reg_offset(val1)
-                                methname = name + "_" + "m" + possible_code2
-                                _rx86_getattr(self, methname)(reg_offset, val2)
+                            # More faking out of certain operations for x86_64
+                            if self.WORD == 8 and possible_code1 == 'j':
+                                val1 = self._addr_as_reg_offset(val1)
+                                invoke(self, "m" + possible_code2, val1, val2)
                             elif self.WORD == 8 and possible_code2 == 'j':
-                                reg_offset = self._addr_as_reg_offset(val2)
-                                methname = name + "_" + possible_code1 + "m"
-                                _rx86_getattr(self, methname)(val1, reg_offset)
+                                val2 = self._addr_as_reg_offset(val2)
+                                invoke(self, possible_code1 + "m", val1, val2)
+                            elif possible_code1 == 'm' and not rx86.fits_in_32bits(val1[1]):
+                                val1 = self._fix_static_offset_64_m(val1)
+                                invoke(self, "a" + possible_code2, val1, val2)
+                            elif possible_code2 == 'm' and not rx86.fits_in_32bits(val2[1]):
+                                val2 = self._fix_static_offset_64_m(val2)
+                                invoke(self, possible_code1 + "a", val1, val2)
                             else:
-                                methname = name + "_" + possible_code1 + possible_code2
-                                _rx86_getattr(self, methname)(val1, val2)
+                                if possible_code1 == 'a' and not rx86.fits_in_32bits(val1[3]):
+                                    val1 = self._fix_static_offset_64_a(val1)
+                                if possible_code2 == 'a' and not rx86.fits_in_32bits(val2[3]):
+                                    val2 = self._fix_static_offset_64_a(val2)
+                                invoke(self, possible_code1 + possible_code2, val1, val2)
+                            return
 
         return func_with_new_name(INSN, "INSN_" + name)
 
@@ -260,7 +319,7 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if self.WORD == 8 and possible_code == 'i' and not rx86.fits_in_32bits(val):
-                        self.MOV_ri(X86_64_SCRATCH_REG.value, val)
+                        self._load_scratch(val)
                         _rx86_getattr(self, name + "_r")(X86_64_SCRATCH_REG.value)
                     else:
                         methname = name + "_" + possible_code
@@ -280,7 +339,7 @@ class LocationCodeBuilder(object):
                             _rx86_getattr(self, name + "_l")(val)
                         else:
                             assert self.WORD == 8
-                            self.MOV_ri(X86_64_SCRATCH_REG.value, val)
+                            self._load_scratch(val)
                             _rx86_getattr(self, name + "_r")(X86_64_SCRATCH_REG.value)
                     else:
                         methname = name + "_" + possible_code
@@ -316,6 +375,40 @@ class LocationCodeBuilder(object):
 
         self.MOV_ri(X86_64_SCRATCH_REG.value, addr)
         return (X86_64_SCRATCH_REG.value, 0)
+
+    def _fix_static_offset_64_m(self, (basereg, static_offset)):
+        # For cases where an AddressLoc has the location_code 'm', but
+        # where the static offset does not fit in 32-bits.  We have to fall
+        # back to the X86_64_SCRATCH_REG.  Note that this returns a location
+        # encoded as mode 'a'.  These are all possibly rare cases; don't try
+        # to reuse a past value of the scratch register at all.
+        self._scratch_register_known = False
+        self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
+        return (basereg, X86_64_SCRATCH_REG.value, 0, 0)
+
+    def _fix_static_offset_64_a(self, (basereg, scalereg,
+                                       scale, static_offset)):
+        # For cases where an AddressLoc has the location_code 'a', but
+        # where the static offset does not fit in 32-bits.  We have to fall
+        # back to the X86_64_SCRATCH_REG.  In one case it is even more
+        # annoying.  These are all possibly rare cases; don't try to reuse a
+        # past value of the scratch register at all.
+        self._scratch_register_known = False
+        self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
+        #
+        if basereg != rx86.NO_BASE_REGISTER:
+            self.LEA_ra(X86_64_SCRATCH_REG.value,
+                        (basereg, X86_64_SCRATCH_REG.value, 0, 0))
+        return (X86_64_SCRATCH_REG.value, scalereg, scale, 0)
+
+    def _load_scratch(self, value):
+        if (self._scratch_register_known
+            and value == self._scratch_register_value):
+            return
+        if self._reuse_scratch_register:
+            self._scratch_register_known = True
+            self._scratch_register_value = value
+        self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
     def begin_reuse_scratch_register(self):
         # Flag the beginning of a block where it is okay to reuse the value

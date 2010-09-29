@@ -232,3 +232,11 @@ class Assembler(object):
                 return
             addr = llmemory.cast_ptr_to_adr(value)
             self.list_of_addr2name.append((addr, name))
+
+    def finished(self):
+        # Helper called at the end of assembling.  Registers the extra
+        # functions shown in _callinfo_for_oopspec.
+        from pypy.jit.codewriter.effectinfo import _callinfo_for_oopspec
+        for _, func in _callinfo_for_oopspec.values():
+            func = heaptracker.int2adr(func)
+            self.see_raw_object(func.ptr)

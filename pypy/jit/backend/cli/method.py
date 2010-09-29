@@ -207,9 +207,9 @@ class Method(object):
 
     def _collect_types(self, operations, box2classes):
         for op in operations:
-            if op.opnum in (rop.GETFIELD_GC, rop.SETFIELD_GC):
+            if op.getopnum() in (rop.GETFIELD_GC, rop.SETFIELD_GC):
                 box = op.args[0]
-                descr = op.descr
+                descr = op.getdescr()
                 assert isinstance(descr, runner.FieldDescr)
                 box2classes.setdefault(box, []).append(descr.selfclass)
             if op in self.cliloop.guard2ops:
@@ -335,7 +335,7 @@ class Method(object):
         while self.i < N:
             op = oplist[self.i]
             self.emit_debug(op.repr())
-            func = self.operations[op.opnum]
+            func = self.operations[op.getopnum()]
             assert func is not None
             func(self, op)
             self.i += 1
@@ -357,10 +357,10 @@ class Method(object):
         assert op.is_guard()
         if op in self.cliloop.guard2ops:
             inputargs, suboperations = self.cliloop.guard2ops[op]
-            self.match_var_fox_boxes(op.fail_args, inputargs)
+            self.match_var_fox_boxes(op.getfailargs(), inputargs)
             self.emit_operations(suboperations)
         else:
-            self.emit_return_failed_op(op, op.fail_args)
+            self.emit_return_failed_op(op, op.getfailargs())
 
     def emit_end(self):
         assert self.branches == []
@@ -410,7 +410,7 @@ class Method(object):
 
     def emit_ovf_op(self, op, emit_op):
         next_op = self.oplist[self.i+1]
-        if next_op.opnum == rop.GUARD_NO_OVERFLOW:
+        if next_op.getopnum() == rop.GUARD_NO_OVERFLOW:
                 self.i += 1
                 self.emit_ovf_op_and_guard(op, next_op, emit_op)
                 return
@@ -544,7 +544,7 @@ class Method(object):
         self.emit_guard_overflow_impl(op, OpCodes.Brfalse)
 
     def emit_op_jump(self, op):
-        target_token = op.descr
+        target_token = op.getdescr()
         assert isinstance(target_token, LoopToken)
         if target_token.cliloop is self.cliloop:
             # jump to the beginning of the loop
@@ -586,7 +586,7 @@ class Method(object):
         self.store_result(op)
 
     def emit_op_instanceof(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.TypeDescr)
         clitype = descr.get_clitype()
         op.args[0].load(self)
@@ -604,7 +604,7 @@ class Method(object):
         self.store_result(op)
 
     def emit_op_call_impl(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.StaticMethDescr)
         delegate_type = descr.get_delegate_clitype()
         meth_invoke = descr.get_meth_info()
@@ -619,7 +619,7 @@ class Method(object):
     emit_op_call_pure = emit_op_call
 
     def emit_op_oosend(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.MethDescr)
         clitype = descr.get_self_clitype()
         methinfo = descr.get_meth_info()
@@ -639,7 +639,7 @@ class Method(object):
             self.store_result(op)
 
     def emit_op_getfield_gc(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.FieldDescr)
         clitype = descr.get_self_clitype()
         fieldinfo = descr.get_field_info()
@@ -653,7 +653,7 @@ class Method(object):
     emit_op_getfield_gc_pure = emit_op_getfield_gc
 
     def emit_op_setfield_gc(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.FieldDescr)
         clitype = descr.get_self_clitype()
         fieldinfo = descr.get_field_info()
@@ -665,7 +665,7 @@ class Method(object):
         self.il.Emit(OpCodes.Stfld, fieldinfo)
 
     def emit_op_getarrayitem_gc(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.TypeDescr)
         clitype = descr.get_array_clitype()
         itemtype = descr.get_clitype()
@@ -678,7 +678,7 @@ class Method(object):
     emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
 
     def emit_op_setarrayitem_gc(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.TypeDescr)
         clitype = descr.get_array_clitype()
         itemtype = descr.get_clitype()
@@ -689,7 +689,7 @@ class Method(object):
         self.il.Emit(OpCodes.Stelem, itemtype)
 
     def emit_op_arraylen_gc(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.TypeDescr)
         clitype = descr.get_array_clitype()
         op.args[0].load(self)
@@ -698,7 +698,7 @@ class Method(object):
         self.store_result(op)
 
     def emit_op_new_array(self, op):
-        descr = op.descr
+        descr = op.getdescr()
         assert isinstance(descr, runner.TypeDescr)
         item_clitype = descr.get_clitype()
         if item_clitype is None:
