@@ -1,6 +1,10 @@
 TODO list for 2.7.0
 ===================
 
+You can find the results of the most recent buildbot run at:
+http://buildbot.pypy.org/summary?branch=branch/fast-forward
+
+
 Probably easy tasks
 -------------------
 
