@@ -66,6 +66,12 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     loop_token = make_loop_token(len(loop.inputargs), jitdriver_sd)
     loop.token = loop_token
     loop.operations[-1].setdescr(loop_token)     # patch the target of the JUMP
+
+    loop.preamble = create_empty_loop(metainterp)
+    loop.preamble.greenkey = greenkey
+    loop.preamble.inputargs = loop.inputargs
+    loop.preamble.token = make_loop_token(len(loop.inputargs), jitdriver_sd)
+
     try:
         old_loop_token = jitdriver_sd.warmstate.optimize_loop(
             metainterp_sd, old_loop_tokens, loop)
@@ -74,9 +80,18 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     if old_loop_token is not None:
         metainterp.staticdata.log("reusing old loop")
         return old_loop_token
-    send_loop_to_backend(metainterp_sd, loop, "loop")
-    insert_loop_token(old_loop_tokens, loop_token)
-    return loop_token
+
+    if loop.preamble.operations:
+        loop.token.specnodes = [prebuiltNotSpecNode] * len(loop.inputargs) # FIXME
+        loop.preamble.token.specnodes = [prebuiltNotSpecNode] * len(loop.preamble.inputargs) # FIXME
+        send_loop_to_backend(metainterp_sd, loop, "loop")
+        send_loop_to_backend(metainterp_sd, loop.preamble, "loop")
+        insert_loop_token(old_loop_tokens, loop.preamble.token)
+        return loop.preamble.token
+    else:
+        send_loop_to_backend(metainterp_sd, loop, "loop")
+        insert_loop_token(old_loop_tokens, loop_token)
+        return loop_token
 
 def insert_loop_token(old_loop_tokens, loop_token):
     # Find where in old_loop_tokens we should insert this new loop_token.

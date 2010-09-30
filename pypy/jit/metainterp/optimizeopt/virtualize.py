@@ -283,6 +283,8 @@ class OptVirtualize(Optimization):
         return vvalue
 
     def optimize_JUMP(self, op):
+        self.emit_operation(op) # FIXME
+        return
         orgop = self.optimizer.loop.operations[-1]
         exitargs = []
         target_loop_token = orgop.getdescr()

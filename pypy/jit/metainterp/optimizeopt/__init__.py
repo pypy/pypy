@@ -4,6 +4,7 @@ from pypy.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.string import OptString
+from pypy.jit.metainterp.optimizeopt.unroll import OptUnroll
 
 def optimize_loop_1(metainterp_sd, loop, virtuals=True):
     """Optimize loop.operations to make it match the input of loop.specnodes
@@ -11,7 +12,8 @@ def optimize_loop_1(metainterp_sd, loop, virtuals=True):
     must be applicable to the loop; you will probably get an AssertionError
     if not.
     """
-    optimizations = [OptIntBounds(),
+    optimizations = [OptUnroll(),
+                     OptIntBounds(),
                      OptRewrite(),
                      OptVirtualize(),
 #                     OptString(),
