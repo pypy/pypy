@@ -60,18 +60,64 @@ class AppTestBytesArray:
     def test_stringlike_operations(self):
         assert bytearray('hello').islower()
         assert bytearray('HELLO').isupper()
+        assert bytearray('hello').isalpha()
+        assert not bytearray('hello2').isalpha()
+        assert bytearray('hello2').isalnum()
+        assert bytearray('1234').isdigit()
+        assert bytearray('   ').isspace()
+        assert bytearray('Abc').istitle()
 
         assert bytearray('hello').count('l') == 2
         assert bytearray('hello').count(bytearray('l')) == 2
         assert bytearray('hello').count(ord('l')) == 2
 
         assert bytearray('hello').index('e') == 1
-        assert bytearray('hello').count(bytearray('e')) == 1
+        assert bytearray('hello').rindex('l') == 3
+        assert bytearray('hello').index(bytearray('e')) == 1
         assert bytearray('hello').index(ord('e')) == 1
+        assert bytearray('hello').find('l') == 2
+        assert bytearray('hello').rfind('l') == 3
 
-        r = bytearray('1').zfill(5)
-        assert type(r) is bytearray and r == '00001'
-        r = bytearray('1\t2').expandtabs(5)
-        assert type(r) is bytearray and r == '1    2'
+        assert bytearray('hello').startswith('he')
+        assert bytearray('hello').startswith(bytearray('he'))
+        assert bytearray('hello').endswith('lo')
+        assert bytearray('hello').endswith(bytearray('lo'))
 
+    def test_stringlike_conversions(self):
+        # methods that should return bytearray (and not str)
+        def check(result, expected):
+            assert result == expected
+            assert type(result) is bytearray
 
+        check(bytearray('abc').replace('b', bytearray('d')), 'adc')
+
+        check(bytearray('abc').upper(), 'ABC')
+        check(bytearray('ABC').lower(), 'abc')
+        check(bytearray('abc').title(), 'Abc')
+        check(bytearray('AbC').swapcase(), 'aBc')
+        check(bytearray('abC').capitalize(), 'Abc')
+
+        check(bytearray('abc').ljust(5),  'abc  ')
+        check(bytearray('abc').rjust(5),  '  abc')
+        check(bytearray('abc').center(5), ' abc ')
+        check(bytearray('1').zfill(5), '00001')
+        check(bytearray('1\t2').expandtabs(5), '1    2')
+
+        check(bytearray(',').join(['a', bytearray('b')]), 'a,b')
+        check(bytearray('abc').lstrip('a'), 'bc')
+        check(bytearray('abc').rstrip('c'), 'ab')
+        check(bytearray('aba').strip('a'), 'b')
+
+    def test_split(self):
+        # methods that should return a sequence of bytearrays
+        def check(result, expected):
+            assert result == expected
+            assert set(type(x) for x in result) == set([bytearray])
+
+        b = bytearray('mississippi')
+        check(b.split('i'), [b'm', b'ss', b'ss', b'pp', b''])
+        check(b.rsplit('i'), [b'm', b'ss', b'ss', b'pp', b''])
+        check(b.rsplit('i', 2), [b'mississ', b'pp', b''])
+
+        check(b.partition(b'ss'), (b'mi', b'ss', b'issippi'))
+        check(b.rpartition(b'ss'), (b'missi', b'ss', b'ippi'))

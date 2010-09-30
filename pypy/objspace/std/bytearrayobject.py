@@ -222,8 +222,90 @@ def str_index__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop
     raise OperationError(space.w_ValueError,
                          space.wrap("bytearray.index(x): x not in bytearray"))
 
+def str_join__Bytearray_ANY(space, w_self, w_list):
+    list_w = space.listview(w_list)
+    if not list_w:
+        return W_BytearrayObject([])
+    data = w_self.data
+    reslen = 0
+    for i in range(len(list_w)):
+        w_s = list_w[i]
+        if not (space.is_true(space.isinstance(w_s, space.w_str)) or
+                space.is_true(space.isinstance(w_s, space.w_bytearray))):
+            raise operationerrfmt(
+                space.w_TypeError,
+                "sequence item %d: expected string, %s "
+                "found", i, space.type(w_s).getname(space, '?'))
+        reslen += len(space.str_w(w_s))
+    newdata = []
+    for i in range(len(list_w)):
+        if data and i != 0:
+            newdata.extend(data)
+        newdata.extend(c for c in space.str_w(list_w[i]))
+    return W_BytearrayObject(newdata)
+
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.
+def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "replace", w_str1, w_str2, w_max)
+    return String2Bytearray(space, w_res)
+
+def str_upper__Bytearray(space, w_bytearray):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "upper")
+    return String2Bytearray(space, w_res)
+
+def str_lower__Bytearray(space, w_bytearray):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "lower")
+    return String2Bytearray(space, w_res)
+
+def str_title__Bytearray(space, w_bytearray):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "title")
+    return String2Bytearray(space, w_res)
+
+def str_swapcase__Bytearray(space, w_bytearray):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "swapcase")
+    return String2Bytearray(space, w_res)
+
+def str_capitalize__Bytearray(space, w_bytearray):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "capitalize")
+    return String2Bytearray(space, w_res)
+
+def str_lstrip__Bytearray_ANY(space, w_bytearray, w_chars):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "lstrip", w_chars)
+    return String2Bytearray(space, w_res)
+
+def str_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "rstrip", w_chars)
+    return String2Bytearray(space, w_res)
+
+def str_strip__Bytearray_ANY(space, w_bytearray, w_chars):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "strip", w_chars)
+    return String2Bytearray(space, w_res)
+
+def str_ljust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "ljust", w_width, w_fillchar)
+    return String2Bytearray(space, w_res)
+
+def str_rjust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "rjust", w_width, w_fillchar)
+    return String2Bytearray(space, w_res)
+
+def str_center__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_res = space.call_method(w_str, "center", w_width, w_fillchar)
+    return String2Bytearray(space, w_res)
+
 def str_zfill__Bytearray_ANY(space, w_bytearray, w_width):
     w_str = delegate_Bytearray2String(space, w_bytearray)
     w_res = space.call_method(w_str, "zfill", w_width)
@@ -233,6 +315,40 @@ def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
     w_str = delegate_Bytearray2String(space, w_bytearray)
     w_res = space.call_method(w_str, "expandtabs", w_tabsize)
     return String2Bytearray(space, w_res)
+
+def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_list = space.call_method(w_str, "split", w_by, w_maxsplit)
+    list_w = space.listview(w_list)
+    for i in range(len(list_w)):
+        list_w[i] = String2Bytearray(space, list_w[i])
+    return w_list
+
+def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_list = space.call_method(w_str, "rsplit", w_by, w_maxsplit)
+    list_w = space.listview(w_list)
+    for i in range(len(list_w)):
+        list_w[i] = String2Bytearray(space, list_w[i])
+    return w_list
+
+def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_tuple = space.call_method(w_str, "partition", w_sub)
+    w_a, w_b, w_c = space.fixedview(w_tuple, 3)
+    return space.newtuple([
+        String2Bytearray(space, w_a),
+        String2Bytearray(space, w_b),
+        String2Bytearray(space, w_c)])
+
+def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
+    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_tuple = space.call_method(w_str, "rpartition", w_sub)
+    w_a, w_b, w_c = space.fixedview(w_tuple, 3)
+    return space.newtuple([
+        String2Bytearray(space, w_a),
+        String2Bytearray(space, w_b),
+        String2Bytearray(space, w_c)])
 
 from pypy.objspace.std import bytearraytype
 register_all(vars(), bytearraytype)
