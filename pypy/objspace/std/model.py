@@ -368,6 +368,7 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
         self.operatorsymbol = operatorsymbol
         if specialnames is None:
             specialnames = [operatorsymbol]
+        assert isinstance(specialnames, list)
         self.specialnames = specialnames  # e.g. ['__xxx__', '__rxxx__']
         self.extras = extras
         # transform  '+'  =>  'add'  etc.
