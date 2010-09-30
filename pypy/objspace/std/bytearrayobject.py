@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
@@ -241,7 +241,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
     for i in range(len(list_w)):
         if data and i != 0:
             newdata.extend(data)
-        newdata.extend(c for c in space.str_w(list_w[i]))
+        newdata.extend([c for c in space.str_w(list_w[i])])
     return W_BytearrayObject(newdata)
 
 # These methods could just delegate to the string implementation,
