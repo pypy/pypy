@@ -254,3 +254,12 @@ class AppTestLong:
         class myotherlong(long):
             pass
         assert long(myotherlong(21)) == 21L
+    
+    def test_conjugate(self):
+        assert (7L).conjugate() == 7L
+        assert (-7L).conjugate() == -7L
+        
+        class L(long):
+            pass
+        
+        assert type(L(7).conjugate()) is long

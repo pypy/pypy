@@ -1,7 +1,16 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway, typedef
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
+
+long_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any long.")
+
+def long_conjugate__ANY(space, w_int):
+    return space.pos(w_int)
+
+register_all(vars(), globals())
+
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject
@@ -71,6 +80,12 @@ def descr_get_numerator(space, w_obj):
 def descr_get_denominator(space, w_obj):
     return space.newlong(1)
 
+def descr_get_real(space, w_obj):
+    return w_obj
+
+def descr_get_imag(space, w_obj):
+    return space.newlong(0)
+
 # ____________________________________________________________
 
 long_typedef = StdTypeDef("long",
@@ -84,4 +99,7 @@ converting a non-string.''',
     __new__ = gateway.interp2app(descr__new__),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),
-    )
+    real = typedef.GetSetProperty(descr_get_real),
+    imag = typedef.GetSetProperty(descr_get_imag),
+)
+long_typedef.registermethods(globals())
