@@ -430,16 +430,20 @@ def temp_cwd(name='tempcwd', quiet=False):
             rmtree(name)
 
 
-def findfile(file, here=__file__, subdir=None):
+def findfile(file, here=None, subdir=None):
     """Try to find a file on sys.path and the working directory.  If it is not
     found the argument passed to the function is returned (this does not
     necessarily signal failure; could still be the legitimate path)."""
+    import test
     if os.path.isabs(file):
         return file
     if subdir is not None:
         file = os.path.join(subdir, file)
     path = sys.path
-    path = [os.path.dirname(here)] + path
+    if here is None:
+        path = test.__path__ + path
+    else:
+        path = [os.path.dirname(here)] + path
     for dn in path:
         fn = os.path.join(dn, file)
         if os.path.exists(fn): return fn
