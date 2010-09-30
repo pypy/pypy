@@ -24,6 +24,8 @@ Probably easy tasks
 
       @test_support.cpython_only
 
+- (list|str|unicode|bytearray).(index|find) should accept None as indices
+
 Medium tasks
 ------------
 
@@ -48,4 +50,8 @@ More difficult issues
 
 - In socket.py, """The implementation currently relies on reference counting to
   close the underlying socket object."""
+
+- Implement an after-fork hook (See PyOS_AfterFork in CPython) to clear thread
+  state in a forked interpreter.
+  Then unskip test_3_join_in_forked_from_thread() in test_threading.py.
 
