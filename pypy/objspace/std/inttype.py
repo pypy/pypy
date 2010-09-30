@@ -1,6 +1,7 @@
 from pypy.interpreter import gateway, typedef
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import (string_to_int, string_to_w_long,
                                        ParseStringError,
                                        ParseStringOverflowError)
@@ -8,6 +9,13 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.objectmodel import instantiate
 
 # ____________________________________________________________
+
+int_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any int.")
+
+def int_conjugate__ANY(space, w_int):
+    return space.pos(w_int)
+
+register_all(vars(), globals())
 
 
 def wrapint(space, x):
@@ -163,3 +171,4 @@ will be returned instead.''',
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
 )
+int_typedef.registermethods(globals())

@@ -5,6 +5,7 @@ from pypy.rlib import rfloat, rarithmetic
 from pypy.interpreter import gateway, typedef
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import ParseStringError
 from pypy.objspace.std.strutil import interp_string_to_float
@@ -12,6 +13,13 @@ from pypy.objspace.std.strutil import interp_string_to_float
 
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
 float_hex = SMM("hex", 1)
+
+float_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any float.")
+
+def float_conjugate__ANY(space, w_float):
+    return space.pos(w_float)
+
+register_all(vars(), globals())
 
 
 def descr__new__(space, w_floattype, w_x=0.0):
