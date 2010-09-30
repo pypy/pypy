@@ -16,8 +16,6 @@ Probably easy tasks
 
       assert eval('a', None, dict(a=42)) == 42
 
-- Missing (float|int).(imag|real)
-
 - Missing complex.__trunc__
 
 - Mark some tests as "implementation specific"::
