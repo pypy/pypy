@@ -437,6 +437,18 @@ class AppTestInt:
         # __eq__ & the others.
         assert 1 .__cmp__
         assert int .__cmp__
+    
+    def test_bit_length(self):
+        for val, bits in [
+            (0, 0),
+            (1, 1),
+            (10, 4),
+            (150, 8),
+            (-1, 1),
+            (-10, 4),
+            (-150, 8),
+        ]:
+            assert val.bit_length() == bits
 
 
 class AppTestIntOptimizedAdd(AppTestInt):

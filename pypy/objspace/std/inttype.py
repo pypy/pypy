@@ -15,6 +15,18 @@ int_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of 
 def int_conjugate__ANY(space, w_int):
     return space.pos(w_int)
 
+int_bit_length = SMM("bit_length", 1, doc="int.bit_length() -> int\n\nNumber of bits necessary to represent self in binary.\n>>> bin(37)\n'0b100101'\n>>> (37).bit_length()\n6")
+
+def int_bit_length__ANY(space, w_int):
+    val = space.int_w(w_int)
+    if val < 0:
+        val = -val
+    bits = 0
+    while val:
+        bits += 1
+        val >>= 1
+    return space.wrap(bits)
+
 register_all(vars(), globals())
 
 
