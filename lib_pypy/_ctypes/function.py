@@ -171,7 +171,7 @@ class CFuncPtr(_CData):
         return self._build_result(restype, resbuffer, argtypes, argsandobjs)
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
-        if self._ptr is not None:
+        if self._ptr is not None and argtypes is self._argtypes_:
             return self._ptr
         if restype is None or not isinstance(restype, _CDataMeta):
             import ctypes
