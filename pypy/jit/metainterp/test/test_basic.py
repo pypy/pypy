@@ -316,8 +316,8 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 252
         self.check_loop_count(2)
-        self.check_loops({'guard_true': 1,
-                          'int_add': 1, 'int_sub': 1, 'int_gt': 1,
+        self.check_loops({'guard_true': 2,
+                          'int_add': 2, 'int_sub': 2, 'int_gt': 2,
                           'int_mul': 1,
                           'jump': 2})
 
