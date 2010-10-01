@@ -135,7 +135,7 @@ class AppTestRCTime:
         raises(TypeError, rctime.struct_time, (1, 2, 3))
         tup = (1, 2, 3, 4, 5, 6, 7, 8, 9)
         st_time = rctime.struct_time(tup)
-        assert str(st_time) == str(tup)
+        assert str(st_time).startswith('time.struct_time(tm_year=1, ')
         assert len(st_time) == len(tup)
     
     def test_tzset(self):
@@ -224,8 +224,11 @@ class AppTestRCTime:
         import time as rctime
 
         tt = rctime.gmtime()
-        result = rctime.strftime('%D', tt)
-        if result != '':    # else format not supported and we got ''
+        try:
+            result = rctime.strftime('%D', tt)
+        except ValueError:
+            pass
+        else:
             assert result == rctime.strftime('%m/%d/%y', tt)
 
     def test_strftime_bounds_checking(self):

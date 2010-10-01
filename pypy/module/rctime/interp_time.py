@@ -450,6 +450,21 @@ def strftime(space, format, w_tup=None):
         raise OperationError(space.w_ValueError,
                              space.wrap("daylight savings flag out of range"))
 
+    if _WIN:
+        # check that the format string contains only valid directives
+        length = len(format)
+        i = 0
+        while i < length:
+            if format[i] == '%':
+                i += 1
+                if i < length and format[i] == '#':
+                    # not documented by python
+                    i += 1
+                if i >= length or format[i] not in "aAbBcdfHIjmMpSUwWxXyYzZ%":
+                    raise OperationError(space.w_ValueError,
+                                         space.wrap("invalid format string"))
+            i += 1
+
     i = 1024
     while True:
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
