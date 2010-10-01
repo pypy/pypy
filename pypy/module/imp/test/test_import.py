@@ -360,6 +360,12 @@ class AppTestImport:
         """.rstrip()
         raises(ValueError, imp)
 
+    def test_future_relative_import_error_when_in_non_package2(self):
+        exec """def imp():
+                    from .. import inpackage
+        """.rstrip()
+        raises(ValueError, imp)
+
     def test_relative_import_with___name__(self):
         import sys
         mydict = {'__name__': 'sys.foo'}
