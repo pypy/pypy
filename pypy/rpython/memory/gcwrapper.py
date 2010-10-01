@@ -9,7 +9,10 @@ class GCManagedHeap(object):
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
         translator = llinterp.typer.annotator.translator
         config = translator.config.translation
-        self.gc = gc_class(config, chunk_size = 10, **GC_PARAMS)
+        self.gc = gc_class(config,
+                           chunk_size      = 10,
+                           translated_to_c = False,
+                           **GC_PARAMS)
         self.gc.set_root_walker(LLInterpRootWalker(self))
         self.gc.DEBUG = True
         self.llinterp = llinterp
@@ -94,6 +97,7 @@ class GCManagedHeap(object):
                         assert (type(index) is int    # <- fast path
                                 or lltype.typeOf(index) == lltype.Signed)
                         self.gc.write_barrier_from_array(
+                            llmemory.cast_ptr_to_adr(newvalue),
                             llmemory.cast_ptr_to_adr(toplevelcontainer),
                             index)
                         wb = False
@@ -101,6 +105,7 @@ class GCManagedHeap(object):
             #
             if wb:
                 self.gc.write_barrier(
+                    llmemory.cast_ptr_to_adr(newvalue),
                     llmemory.cast_ptr_to_adr(toplevelcontainer))
         llheap.setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue)
 

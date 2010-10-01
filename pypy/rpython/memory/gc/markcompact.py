@@ -2,7 +2,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.memory.gc.base import MovingGCBase, read_from_env
 from pypy.rlib.debug import ll_assert, have_debug_prints
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
-from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.support import AddressDict
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
@@ -86,9 +85,9 @@ class MarkCompactGC(MovingGCBase):
     free = NULL
     next_collect_after = -1
 
-    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096,
-                 min_next_collect_after=128):
-        MovingGCBase.__init__(self, config, chunk_size)
+    def __init__(self, config, space_size=4096,
+                 min_next_collect_after=128, **kwds):
+        MovingGCBase.__init__(self, config, **kwds)
         self.space_size = space_size
         self.min_next_collect_after = min_next_collect_after
 

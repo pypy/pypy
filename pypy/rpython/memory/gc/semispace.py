@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
 from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
-from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.support import AddressDict
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi, llgroup
@@ -59,11 +58,11 @@ class SemiSpaceGC(MovingGCBase):
     # translating to a real backend.
     TRANSLATION_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
 
-    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096,
-                 max_space_size=sys.maxint//2+1):
+    def __init__(self, config, space_size=4096, max_space_size=sys.maxint//2+1,
+                 **kwds):
         self.param_space_size = space_size
         self.param_max_space_size = max_space_size
-        MovingGCBase.__init__(self, config, chunk_size)
+        MovingGCBase.__init__(self, config, **kwds)
 
     def setup(self):
         #self.total_collection_time = 0.0
