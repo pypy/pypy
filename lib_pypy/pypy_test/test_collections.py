@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from .. import collections
+from .. import _collections as collections
 import py
 
 def test_deque_remove_empty():

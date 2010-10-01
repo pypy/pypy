@@ -10,7 +10,7 @@ if sys.version_info < (2, 5):
 
 import copy
 
-from ..collections import defaultdict
+from .._collections import defaultdict
 
 def foobar():
     return list
