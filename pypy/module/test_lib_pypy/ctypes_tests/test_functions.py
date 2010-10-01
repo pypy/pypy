@@ -29,6 +29,7 @@ class POINT(Structure):
 class RECT(Structure):
     _fields_ = [("left", c_int), ("top", c_int),
                 ("right", c_int), ("bottom", c_int)]
+
 class TestFunctions(BaseCTypesTestChecker):
 
     def test_mro(self):
@@ -390,6 +391,18 @@ class TestFunctions(BaseCTypesTestChecker):
         f.argtypes = [c_char_p]
         f.restype = c_char_p
         result = f("abcd", ord("b"))
+        assert result == "bcd"
+
+    def test_caching_bug_1(self):
+        # the same test as test_call_some_args, with two extra lines
+        # in the middle that trigger caching in f._ptr, which then
+        # makes the last two lines fail
+        f = dll.my_strchr
+        f.argtypes = [c_char_p, c_int]
+        f.restype = c_char_p
+        result = f("abcd", ord("b"))
+        assert result == "bcd"
+        result = f("abcd", ord("b"), 42)
         assert result == "bcd"
 
     def test_sf1651235(self):
