@@ -396,8 +396,6 @@ class DescrOperation:
             typename = space.type(w_obj).getname(space, '?')
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' objects are unhashable", typename)
-        # XXX CPython has a special case for types with "__hash__ = None"
-        # to produce a nicer error message, namely "unhashable type: 'X'".
         w_result = space.get_and_call_function(w_hash, w_obj)
         w_resulttype = space.type(w_result)
         if space.is_w(w_resulttype, space.w_int):
