@@ -164,6 +164,21 @@ class AppTestFunction:
         raises(
             TypeError, func, 42, {'arg1': 23})
 
+    def test_kwargs_nondict_mapping(self):
+        class Mapping:
+            def keys(self):
+                return ('a', 'b')
+            def __getitem__(self, key):
+                return key
+        def func(arg1, **kw):
+            return arg1, kw
+        res = func(23, **Mapping())
+        assert res[0] == 23
+        assert res[1] == {'a': 'a', 'b': 'b'}
+        error = raises(TypeError, lambda: func(42, **[]))
+        assert error.value.message == ('argument after ** must be a mapping, '
+                                       'not list')
+
     def test_default_arg(self):
         def func(arg1,arg2=42):
             return arg1, arg2

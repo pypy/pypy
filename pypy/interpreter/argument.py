@@ -149,14 +149,25 @@ class Arguments(object):
         # unpack the ** arguments
         if w_starstararg is not None:
             space = self.space
-            if not space.is_true(space.isinstance(w_starstararg, space.w_dict)):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("argument after ** must be "
-                                                "a dictionary"))
-            keywords_w = [None] * space.int_w(space.len(w_starstararg))
-            keywords = [None] * space.int_w(space.len(w_starstararg))
+            if space.isinstance_w(w_starstararg, space.w_dict):
+                keys_w = space.unpackiterable(w_starstararg)
+            else:
+                try:
+                    w_keys = space.call_method(w_starstararg, "keys")
+                except OperationError, e:
+                    if e.match(space, space.w_AttributeError):
+                        w_type = space.type(w_starstararg)
+                        typename = w_type.getname(space, '?')
+                        raise OperationError(
+                            space.w_TypeError,
+                            space.wrap("argument after ** must be "
+                                       "a mapping, not %s" % (typename,)))
+                    raise
+                keys_w = space.unpackiterable(w_keys)
+            keywords_w = [None] * len(keys_w)
+            keywords = [None] * len(keys_w)
             i = 0
-            for w_key in space.unpackiterable(w_starstararg):
+            for w_key in keys_w:
                 try:
                     key = space.str_w(w_key)
                 except OperationError, e:
