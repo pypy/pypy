@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, no_hash_descr, SMM
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
 set_add                         = SMM('add', 2,
                                       doc='Add an element to a set.\n\nThis'
@@ -78,7 +78,7 @@ Build an unordered collection.""",
     __new__ = gateway.interp2app(descr__new__, unwrap_spec=[gateway.ObjSpace,
                                                             gateway.W_Root,
                                                             gateway.Arguments]),
-    __hash__ = no_hash_descr,
+    __hash__ = None,
     )
 
 set_typedef.registermethods(globals())

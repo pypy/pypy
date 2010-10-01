@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter import gateway
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 
 dict_copy       = SMM('copy',          1,
@@ -179,7 +179,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
                                  unwrap_spec=
                                  [gateway.ObjSpace,
                                   gateway.W_Root,gateway.Arguments]),
-    __hash__ = no_hash_descr,
+    __hash__ = None,
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     )
 dict_typedef.registermethods(globals())

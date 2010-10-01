@@ -4,7 +4,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.descroperation import Object
-from pypy.objspace.std.stdtypedef import StdTypeDef, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.register_all import register_all
 
 

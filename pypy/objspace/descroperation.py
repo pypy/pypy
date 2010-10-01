@@ -392,6 +392,10 @@ class DescrOperation:
             # default __hash__.  This path should only be taken under very
             # obscure circumstances.
             return default_identity_hash(space, w_obj)
+        if space.is_w(w_hash, space.w_None):
+            typename = space.type(w_obj).getname(space, '?')
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' objects are unhashable", typename)
         # XXX CPython has a special case for types with "__hash__ = None"
         # to produce a nicer error message, namely "unhashable type: 'X'".
         w_result = space.get_and_call_function(w_hash, w_obj)

@@ -51,13 +51,6 @@ class TypeDef:
 def default_identity_hash(space, w_obj):
     return space.wrap(compute_identity_hash(w_obj))
 
-def descr__hash__unhashable(space, w_obj):
-    typename = space.type(w_obj).getname(space, '?')
-    raise operationerrfmt(space.w_TypeError,
-                          "'%s' objects are unhashable", typename)
-
-no_hash_descr = interp2app(descr__hash__unhashable)
-
 # ____________________________________________________________
 #
 # For each built-in app-level type Xxx that can be subclassed at
@@ -885,7 +878,7 @@ Cell.typedef = TypeDef("cell",
     __eq__       = interp2app(Cell.descr__eq__,
                               unwrap_spec=['self', ObjSpace, W_Root]),
     __ne__       = descr_generic_ne,
-    __hash__     = no_hash_descr,
+    __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(Cell.descr__setstate__,

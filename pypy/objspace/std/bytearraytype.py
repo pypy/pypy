@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
 from pypy.objspace.std.stringtype import (
     str_count, str_index, str_rindex, str_find, str_rfind, str_replace,
@@ -31,6 +31,6 @@ bytearray(sequence) -> bytearray initialized from sequence\'s items
 
 If the argument is a bytearray, the return value is the same object.''',
     __new__ = gateway.interp2app(descr__new__),
-    __hash__ = no_hash_descr,
+    __hash__ = None,
     )
 bytearray_typedef.registermethods(globals())
