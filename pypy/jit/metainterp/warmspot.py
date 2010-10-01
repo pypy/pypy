@@ -67,9 +67,16 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
                     debug_level=DEBUG_STEPS, inline=False, **kwds):
+    from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
-    translator.config.translation.gc = "boehm"
-    translator.config.translation.list_comprehension_operations = True
+    try:
+        translator.config.translation.gc = "boehm"
+    except ConfigError:
+        pass
+    try:
+        translator.config.translation.list_comprehension_operations = True
+    except ConfigError:
+        pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests

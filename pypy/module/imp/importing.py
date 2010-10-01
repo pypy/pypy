@@ -122,7 +122,7 @@ def importhook(space, modulename, w_globals=None,
                     n = len(ctxt_name_prefix_parts)-level+1
                     assert n>=0
                     ctxt_name_prefix_parts = ctxt_name_prefix_parts[:n]
-                if ctxt_w_path is None: # plain module
+                if ctxt_name_prefix_parts and ctxt_w_path is None: # plain module
                     ctxt_name_prefix_parts.pop()
                 if ctxt_name_prefix_parts:
                     rel_modulename = '.'.join(ctxt_name_prefix_parts)

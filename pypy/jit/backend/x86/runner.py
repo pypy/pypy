@@ -87,7 +87,9 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def execute_token(self, executable_token):
         addr = executable_token._x86_bootstrap_code
+        #llop.debug_print(lltype.Void, ">>>> Entering", addr)
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
+        #llop.debug_print(lltype.Void, "<<<< Back")
         fail_index = self._execute_call(func)
         return self.get_fail_descr_from_number(fail_index)
 
@@ -99,10 +101,7 @@ class AbstractX86CPU(AbstractLLCPU):
             LLInterpreter.current_interpreter = self.debug_ll_interpreter
         res = 0
         try:
-            #llop.debug_print(lltype.Void, ">>>> Entering",
-            #                 rffi.cast(lltype.Signed, func))
             res = func()
-            #llop.debug_print(lltype.Void, "<<<< Back")
         finally:
             if not self.translate_support_code:
                 LLInterpreter.current_interpreter = prev_interpreter

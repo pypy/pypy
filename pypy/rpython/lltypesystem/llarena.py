@@ -124,6 +124,9 @@ class Arena(object):
             assert self.usagemap[i] == 'x'
             self.usagemap[i] = '#'
 
+    def mark_freed(self):
+        self.freed = True    # this method is a hook for tests
+
 class fakearenaaddress(llmemory.fakeaddress):
 
     def __init__(self, arena, offset):
@@ -314,7 +317,7 @@ def arena_free(arena_addr):
     assert arena_addr.offset == 0
     arena_addr.arena.reset(False)
     assert not arena_addr.arena.objectptrs
-    arena_addr.arena.freed = True
+    arena_addr.arena.mark_freed()
 
 def arena_reset(arena_addr, size, zero):
     """Free all objects in the arena, which can then be reused.

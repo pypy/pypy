@@ -1,3 +1,7 @@
+"""
+This conftest adds options used by test/test_random and
+x86/test/test_zll_random.
+"""
 import py, random
 
 option = py.test.config.option
@@ -29,4 +33,3 @@ def pytest_addoption(parser):
     group.addoption('--output', '-O', action="store", type="str",
                     default="", dest="output",
                     help="dump output to a file")
-

@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
 from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
-from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, llgroup
@@ -48,9 +47,9 @@ class MarkSweepGC(GCBase):
     # translating to a real backend.
     TRANSLATION_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
 
-    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
+    def __init__(self, config, start_heap_size=4096, **kwds):
         self.param_start_heap_size = start_heap_size
-        GCBase.__init__(self, config, chunk_size)
+        GCBase.__init__(self, config, **kwds)
 
     def setup(self):
         GCBase.setup(self)
@@ -714,8 +713,8 @@ class PrintingMarkSweepGC(MarkSweepGC):
     _alloc_flavor_ = "raw"
     COLLECT_EVERY = 2000
 
-    def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
-        MarkSweepGC.__init__(self, chunk_size, start_heap_size)
+    def __init__(self, config, **kwds):
+        MarkSweepGC.__init__(self, config, **kwds)
         self.count_mallocs = 0
 
     def maybe_collect(self):
