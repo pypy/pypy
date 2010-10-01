@@ -216,7 +216,10 @@ def pos__Complex(space, w_complex):
     return W_ComplexObject(w_complex.realval, w_complex.imagval)
 
 def abs__Complex(space, w_complex):
-    return space.newfloat(math.hypot(w_complex.realval, w_complex.imagval))
+    try:
+        return space.newfloat(math.hypot(w_complex.realval, w_complex.imagval))
+    except OverflowError, e:
+        raise OperationError(space.w_OverflowError, space.wrap(str(e)))
 
 def eq__Complex_Complex(space, w_complex1, w_complex2):
     return space.newbool((w_complex1.realval == w_complex2.realval) and 
