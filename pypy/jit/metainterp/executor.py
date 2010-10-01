@@ -205,8 +205,8 @@ def do_same_as(cpu, _, box):
 
 def do_copystrcontent(cpu, _, srcbox, dstbox,
                       srcstartbox, dststartbox, lengthbox):
-    src = srcbox.getptr(lltype.Ptr(rstr.STR))
-    dst = dstbox.getptr(lltype.Ptr(rstr.STR))
+    src = srcbox.getref(lltype.Ptr(rstr.STR))
+    dst = dstbox.getref(lltype.Ptr(rstr.STR))
     srcstart = srcstartbox.getint()
     dststart = dststartbox.getint()
     length = lengthbox.getint()
@@ -214,8 +214,8 @@ def do_copystrcontent(cpu, _, srcbox, dstbox,
 
 def do_copyunicodecontent(cpu, _, srcbox, dstbox,
                           srcstartbox, dststartbox, lengthbox):
-    src = srcbox.getptr(lltype.Ptr(rstr.UNICODE))
-    dst = dstbox.getptr(lltype.Ptr(rstr.UNICODE))
+    src = srcbox.getref(lltype.Ptr(rstr.UNICODE))
+    dst = dstbox.getref(lltype.Ptr(rstr.UNICODE))
     srcstart = srcstartbox.getint()
     dststart = dststartbox.getint()
     length = lengthbox.getint()
@@ -428,6 +428,10 @@ def execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None):
         if arity == 3:
             func = get_execute_funclist(3, False)[opnum]
             return func(cpu, metainterp, argboxes[0], argboxes[1], argboxes[2])
+        if arity == 5:    # copystrcontent, copyunicodecontent
+            func = get_execute_funclist(5, False)[opnum]
+            return func(cpu, metainterp, argboxes[0], argboxes[1],
+                        argboxes[2], argboxes[3], argboxes[4])
     raise NotImplementedError
 
 

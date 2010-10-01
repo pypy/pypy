@@ -426,6 +426,22 @@ class TranslationDriver(SimpleTaskEngine):
                                   [OOTYPE],
                                   "JIT compiler generation")
 
+    def task_jittest_lltype(self):
+        """ Run with the JIT on top of the llgraph backend
+        """
+        # parent process loop: spawn a child, wait for the child to finish,
+        # print a message, and restart
+        from pypy.translator.goal import unixcheckpoint
+        unixcheckpoint.restartable_point(auto='run')
+        # load the module pypy/jit/tl/jittest.py, which you can hack at
+        # and restart without needing to restart the whole translation process
+        from pypy.jit.tl import jittest
+        jittest.jittest(self)
+    #
+    task_jittest_lltype = taskdef(task_jittest_lltype,
+                                  [RTYPE],
+                                  "test of the JIT on the llgraph backend")
+
     def task_backendopt_lltype(self):
         """ Run all backend optimizations - lltype version
         """
@@ -433,7 +449,8 @@ class TranslationDriver(SimpleTaskEngine):
         backend_optimizations(self.translator)
     #
     task_backendopt_lltype = taskdef(task_backendopt_lltype,
-                                     [RTYPE, '??pyjitpl_lltype'],
+                                     [RTYPE, '??pyjitpl_lltype',
+                                             '??jittest_lltype'],
                                      "lltype back-end optimisations")
     BACKENDOPT = 'backendopt_lltype'
 

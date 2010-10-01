@@ -959,18 +959,23 @@ class RegAlloc(object):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(args[0], args)
         ofs_loc = self.rm.make_sure_var_in_reg(args[2], args)
+        assert args[0] is not args[1]    # forbidden case of aliasing
         self.rm.possibly_free_var(args[0])
-        self.rm.possibly_free_var(args[2])
+        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
+            self.rm.possibly_free_var(args[2])     # it if ==args[3] or args[4]
         srcaddr_box = TempBox()
-        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box)
+        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
+        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc)
         # compute the destination address
-        base_loc = self.rm.make_sure_var_in_reg(args[1], args)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[3], args)
+        base_loc = self.rm.make_sure_var_in_reg(args[1], forbidden_vars)
+        ofs_loc = self.rm.make_sure_var_in_reg(args[3], forbidden_vars)
         self.rm.possibly_free_var(args[1])
-        self.rm.possibly_free_var(args[3])
+        if args[3] is not args[4]:     # more of the MESS described above
+            self.rm.possibly_free_var(args[3])
+        forbidden_vars = [args[4], srcaddr_box]
         dstaddr_box = TempBox()
-        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box)
+        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc)
         # call memcpy()
         length_loc = self.loc(args[4])
