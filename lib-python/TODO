@@ -28,6 +28,8 @@ Probably easy tasks
 
 - (list|str|unicode|bytearray).(index|find) should accept None as indices
 
+- Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
+
 Medium tasks
 ------------
 
@@ -36,6 +38,8 @@ Medium tasks
 
 - "exceptions must be old-style classes or derived from BaseException, not str"
   in the 'raise' statement and generator.throw()
+
+- missing builtin: memoryview
 
 Longer tasks
 ------------
