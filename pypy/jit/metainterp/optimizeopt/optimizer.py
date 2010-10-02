@@ -182,12 +182,6 @@ class Optimization(object):
         op = ResOperation(opnum, args, result)
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
-    def nextop(self):
-        return self.optimizer.loop.operations[self.optimizer.i + 1]
-
-    def skip_nextop(self):
-        self.optimizer.i += 1
-
     def setup(self, virtuals):
         pass
 
@@ -205,6 +199,7 @@ class Optimizer(Optimization):
         self.pure_operations = args_dict()
         self.producer = {}
         self.pendingfields = []
+        self.posponedop = None
 
         if optimizations:
             self.first_optimization = optimizations[0]
@@ -254,9 +249,9 @@ class Optimizer(Optimization):
             return constbox
         return None
 
-    def make_equal_to(self, box, value):
+    def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
-        assert box not in self.values
+        assert replace or box not in self.values
         self.values[box] = value
 
     def make_constant(self, box, constbox):
@@ -392,10 +387,17 @@ class Optimizer(Optimization):
 
     def optimize_default(self, op):
         canfold = op.is_always_pure()
-        is_ovf = op.is_ovf()
-        if is_ovf:
-            nextop = self.loop.operations[self.i + 1]
+        if op.is_ovf():
+            self.posponedop = op
+            return
+        if self.posponedop:
+            nextop = op
+            op = self.posponedop
+            self.posponedop = None
             canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
+        else:
+            nextop = None
+            
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:
@@ -406,9 +408,8 @@ class Optimizer(Optimization):
                             for i in range(op.numargs())]
                 resbox = execute_nonspec(self.cpu, None,
                                          op.getopnum(), argboxes, op.getdescr())
+                # FIXME: Don't we need to check for an overflow here?
                 self.make_constant(op.result, resbox.constbox())
-                if is_ovf:
-                    self.i += 1 # skip next operation, it is the unneeded guard
                 return
 
             # did we do the exact same operation already?
@@ -416,20 +417,22 @@ class Optimizer(Optimization):
             oldop = self.pure_operations.get(args, None)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 assert oldop.getopnum() == op.getopnum()
-                self.make_equal_to(op.result, self.getvalue(oldop.result))
-                if is_ovf:
-                    self.i += 1 # skip next operation, it is the unneeded guard
+                self.make_equal_to(op.result, self.getvalue(oldop.result),
+                                   True)
                 return
             else:
                 self.pure_operations[args] = op
 
         # otherwise, the operation remains
         self.emit_operation(op)
+        if nextop:
+            self.emit_operation(nextop)
 
-    def optimize_GUARD_NO_OVERFLOW(self, op):
-        # otherwise the default optimizer will clear fields, which is unwanted
-        # in this case
-        self.emit_operation(op)
+    #def optimize_GUARD_NO_OVERFLOW(self, op):
+    #    # otherwise the default optimizer will clear fields, which is unwanted
+    #    # in this case
+    #    self.emit_operation(op)
+    # FIXME: Is this still needed?
 
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)

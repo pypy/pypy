@@ -334,11 +334,11 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 308
-        self.check_loop_count(1)
-        self.check_loops({'guard_true': 1, 'guard_no_overflow': 1,
-                          'int_add': 2, 'int_sub': 1, 'int_gt': 1,
-                          'int_mul': 1, 'int_mul_ovf': 1,
-                          'jump': 1})
+        self.check_loop_count(2)
+        self.check_loops({'guard_true': 2, 'guard_no_overflow': 1,
+                          'int_add': 4, 'int_sub': 2, 'int_gt': 2,
+                          'int_mul': 2, 'int_mul_ovf': 1,
+                          'jump': 2})
 
     def test_loop_invariant_mul_bridge1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -364,12 +364,12 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
                 res += x * x
-                if y<8:
+                if y<16:
                     res += 1
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 16])
-        assert res == 583
+        res = self.meta_interp(f, [6, 32])
+        assert res == 1167
         self.check_loop_count(3)
         self.check_loops({'int_lt': 1, 'int_gt': 1,
                           'guard_false': 1, 'guard_true': 1,
