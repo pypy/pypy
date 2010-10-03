@@ -98,12 +98,27 @@ class DummySpace(object):
 
     def isinstance(self, obj, cls):
         return isinstance(obj, cls)
+    isinstance_w = isinstance
 
     def exception_match(self, w_type1, w_type2):
         return issubclass(w_type1, w_type2)
 
+    def call_method(self, obj, name, *args):
+        try:
+            method = getattr(obj, name)
+        except AttributeError:
+            raise OperationError(AttributeError, name)
+        return method(*args)
+
+    def type(self, obj):
+        class Type:
+            def getname(self, space, default):
+                return type(obj).__name__
+        return Type()
+
 
     w_TypeError = TypeError
+    w_AttributeError = AttributeError
     w_dict = dict
 
 class TestArgumentsNormal(object):
