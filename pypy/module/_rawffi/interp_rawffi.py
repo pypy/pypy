@@ -243,7 +243,7 @@ class W_DataShape(Wrappable):
     _array_shapes = None
     size = 0
     alignment = 0
-    itemcode = '?'
+    itemcode = '\0'
 
     def allocate(self, space, length, autofree=False):
         raise NotImplementedError
