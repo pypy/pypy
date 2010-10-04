@@ -1025,19 +1025,17 @@ class MiniMarkGC(MovingGCBase):
 
 
     def _trace_drag_out1(self, root):
-        self._trace_drag_out(root, None)
+        root.address[0] = self._trace_drag_out(root.address[0], None)
 
-    def _trace_drag_out(self, root, ignored):
-        obj = root.address[0]
+    def _trace_drag_out(self, obj, ignored):
         #
         # If 'obj' is not in the nursery, nothing to change.
         if not self.is_in_nursery(obj):
-            return
+            return obj
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
         if self.is_forwarded(obj):
-            root.address[0] = self.get_forwarding_address(obj)
-            return
+            return self.get_forwarding_address(obj)
         #
         # First visit to 'obj': we must move it out of the nursery.
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1075,14 +1073,14 @@ class MiniMarkGC(MovingGCBase):
         newobj = newhdr + size_gc_header
         llmemory.cast_adr_to_ptr(obj, FORWARDSTUBPTR).forw = newobj
         #
-        # Change the original pointer to this object.
-        root.address[0] = newobj
-        #
         # Add the newobj to the list 'old_objects_pointing_to_young',
         # because it can contain further pointers to other young objects.
         # We will fix such references to point to the copy of the young
         # objects when we walk 'old_objects_pointing_to_young'.
         self.old_objects_pointing_to_young.append(newobj)
+        #
+        # Change the original pointer to this newly built object.
+        return newobj
 
 
     def _malloc_out_of_nursery(self, totalsize):
@@ -1279,8 +1277,8 @@ class MiniMarkGC(MovingGCBase):
     def _collect_ref(self, root):
         self.objects_to_trace.append(root.address[0])
 
-    def _collect_ref_rec(self, root, ignored):
-        self.objects_to_trace.append(root.address[0])
+    def _collect_ref_rec(self, obj, ignored):
+        self.objects_to_trace.append(obj)
 
     def visit_all_objects(self):
         pending = self.objects_to_trace
@@ -1421,8 +1419,8 @@ class MiniMarkGC(MovingGCBase):
         self.objects_with_finalizers.delete()
         self.objects_with_finalizers = new_with_finalizer
 
-    def _append_if_nonnull(pointer, stack):
-        stack.append(pointer.address[0])
+    def _append_if_nonnull(obj, stack):
+        stack.append(obj)
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 
     def _finalization_state(self, obj):

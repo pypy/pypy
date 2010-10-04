@@ -193,6 +193,11 @@ translation_optiondescription = OptionDescription(
                "When true, enable the use of tagged pointers. "
                "If false, use normal boxing",
                default=False),
+    BoolOption("compressptr", "Compress pointers; limits the program to 32GB",
+               default=False, cmdline="--compressptr",
+               requires=[("translation.type_system", "lltype"),
+                         ("translation.taggedpointers", False)]
+               + [("compressptr (64-bit only)", True)]*(not IS_64_BITS)),
 
     # options for ootype
     OptionDescription("ootype", "Object Oriented Typesystem options", [

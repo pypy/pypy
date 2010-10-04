@@ -4,6 +4,7 @@ from pypy.tool.pairtype import pairtype, pair
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, warning, mangle
+from pypy.rpython.rmodel import externalvsinternalfield
 from pypy.rpython.rclass import AbstractClassRepr,\
                                 AbstractInstanceRepr,\
                                 MissingRTypeAttribute,\
@@ -326,7 +327,8 @@ class InstanceRepr(AbstractInstanceRepr):
         fields = {}
         allinstancefields = {}
         if self.classdef is None:
-            fields['__class__'] = 'typeptr', get_type_repr(self.rtyper)
+            r = get_type_repr(self.rtyper)
+            fields['__class__'] = 'typeptr', r, r
         else:
             # instance attributes
             if llfields is None:
@@ -337,8 +339,12 @@ class InstanceRepr(AbstractInstanceRepr):
                 if not attrdef.readonly:
                     r = self.rtyper.getrepr(attrdef.s_value)
                     mangled_name = 'inst_' + name
-                    fields[name] = mangled_name, r
-                    llfields.append((mangled_name, r.lowleveltype))
+                    if self.gcflavor == 'gc':
+                        r, internal_r = externalvsinternalfield(self.rtyper, r)
+                    else:
+                        internal_r = r
+                    fields[name] = mangled_name, r, internal_r
+                    llfields.append((mangled_name, internal_r.lowleveltype))
 
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
                                          self.gcflavor)
@@ -394,7 +400,7 @@ class InstanceRepr(AbstractInstanceRepr):
         return getinstancerepr(self.rtyper, None, self.gcflavor)
 
     def _get_field(self, attr):
-        return self.fields[attr]
+        return self.fields[attr][:2]
 
     def null_instance(self):
         return nullptr(self.object_type)
@@ -410,7 +416,7 @@ class InstanceRepr(AbstractInstanceRepr):
             # recursively build the parent part of the instance
             self.rbase.initialize_prebuilt_data(value, classdef, result.super)
             # then add instance attributes from this level
-            for name, (mangled_name, r) in self.fields.items():
+            for name, (mangled_name, _, r) in self.fields.items():
                 if r.lowleveltype is Void:
                     llattrvalue = None
                 else:
@@ -440,7 +446,7 @@ class InstanceRepr(AbstractInstanceRepr):
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
         if attr in self.fields:
-            mangled_name, r = self.fields[attr]
+            mangled_name, r, internal_r = self.fields[attr]
             return r
         else:
             if self.classdef is None:
@@ -450,12 +456,13 @@ class InstanceRepr(AbstractInstanceRepr):
     def getfield(self, vinst, attr, llops, force_cast=False, flags={}):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
         if attr in self.fields:
-            mangled_name, r = self.fields[attr]
+            mangled_name, r, internal_r = self.fields[attr]
             cname = inputconst(Void, mangled_name)
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
             self.hook_access_field(vinst, cname, llops, flags)
-            return llops.genop('getfield', [vinst, cname], resulttype=r)
+            v = llops.genop('getfield', [vinst, cname], resulttype=internal_r)
+            return llops.convertvar(v, internal_r, r)
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
@@ -466,7 +473,8 @@ class InstanceRepr(AbstractInstanceRepr):
                  flags={}):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
         if attr in self.fields:
-            mangled_name, r = self.fields[attr]
+            mangled_name, r, internal_r = self.fields[attr]
+            vvalue = llops.convertvar(vvalue, r, internal_r)
             cname = inputconst(Void, mangled_name)
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
@@ -499,7 +507,7 @@ class InstanceRepr(AbstractInstanceRepr):
             for fldname in flds:
                 if fldname == '__class__':
                     continue
-                mangled_name, r = self.allinstancefields[fldname]
+                mangled_name, r, internal_r = self.allinstancefields[fldname]
                 if r.lowleveltype is Void:
                     continue
                 value = self.classdef.classdesc.read_attribute(fldname, None)

@@ -77,6 +77,23 @@ class GCTest(object):
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
         #print "size before: %s, size after %s" % (curr, simulator.current_size)
 
+    def test_llinterp_instances(self):
+        class Cons(object):
+            def __init__(self, car, cdr):
+                self.car = car
+                self.cdr = cdr
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = Cons(1, Cons(2, Cons(i, None)))
+                b = a
+                j = 0
+                while j < 20:
+                    j += 1
+                    b = Cons(j, b)
+        res = self.interpret(malloc_a_lot, [])
+
     def test_global_list(self):
         lst = []
         def append_to_list(i, j):
@@ -776,3 +793,20 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
 class TestMiniMarkGCCardMarking(TestMiniMarkGC):
     GC_PARAMS = {'card_page_indices': 4}
+
+class TestMiniMarkGCCompressPtr(TestMiniMarkGC):
+    def setup_class(cls):
+        TestMiniMarkGC.setup_class.im_func(cls)
+        #
+        from pypy.config.translationoption import IS_64_BITS
+        if not IS_64_BITS:
+            py.test.skip("only for 64-bits")
+        from pypy.config.pypyoption import get_pypy_config
+        cls._config = get_pypy_config(translating=True)
+        cls._config.translation.compressptr = True
+
+    def interpret(self, *args, **kwds):
+        if kwds.get('taggedpointers'):
+            py.test.skip("cannot have both taggedpointers and compressptr")
+        kwds['config'] = self._config
+        return super(TestMiniMarkGCCompressPtr, self).interpret(*args, **kwds)

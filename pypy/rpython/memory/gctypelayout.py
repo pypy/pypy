@@ -16,6 +16,8 @@ class GCData(object):
     """
     _alloc_flavor_ = 'raw'
 
+    # if config.translation.compressptr, the OFFSETS_TO_GC_PTR lists
+    # as odd integers the fields that are compressed pointers (UINT).
     OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
     ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
     FINALIZERTYPE = lltype.Ptr(ADDRESS_VOID_FUNC)
@@ -389,6 +391,8 @@ def offsets_to_gc_pointers(TYPE):
         #    (adr + off)
     elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
         offsets.append(0)
+    elif TYPE == llmemory.HiddenGcRef32:
+        offsets.append(llmemory.OddValueMarker())
     return offsets
 
 def gc_pointers_inside(v, adr, mutable_only=False):

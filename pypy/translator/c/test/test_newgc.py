@@ -18,6 +18,7 @@ class TestUsingFramework(object):
     should_be_moving = False
     removetypeptr = False
     taggedpointers = False
+    compressptr = False
     GC_CAN_MOVE = False
     GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = False
@@ -41,7 +42,8 @@ class TestUsingFramework(object):
         t = Translation(main, standalone=True, gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy(),
                         taggedpointers=cls.taggedpointers,
-                        gcremovetypeptr=cls.removetypeptr)
+                        gcremovetypeptr=cls.removetypeptr,
+                        compressptr=cls.compressptr)
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_debug_defines=True)
         t.rtype()
@@ -623,7 +625,7 @@ class TestUsingFramework(object):
         assert open(self.filename, 'r').read() == "hello world\n"
         os.unlink(self.filename)
 
-    def define_callback_with_collect(cls):
+    def XXXXXXXXXdefine_callback_with_collect(cls):
         from pypy.rlib.libffi import ffi_type_pointer, cast_type_to_ffitype,\
              CDLL, ffi_type_void, CallbackFuncPtr, ffi_type_sint
         from pypy.rpython.lltypesystem import rffi, ll2ctypes
@@ -1332,6 +1334,15 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
     def test_gc_heap_stats(self):
         py.test.skip("not implemented")
+
+class TestMiniMarkGCCompressPtr(TestMiniMarkGC):
+    compressptr = True
+
+    def setup_class(cls):
+        from pypy.config.translationoption import IS_64_BITS
+        if not IS_64_BITS:
+            py.test.skip("only for 64-bits")
+        TestMiniMarkGC.setup_class.im_func(cls)
 
 # ____________________________________________________________________
 

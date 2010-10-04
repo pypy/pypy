@@ -438,9 +438,21 @@ def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)i
     from pypy.rpython import rclass
     if (isinstance(item_repr, rclass.AbstractInstanceRepr) and
         getattr(item_repr, 'gcflavor', 'gc') == 'gc'):
+        #if rtyper.annotator.translator.config.translation.compressptr:
+        #    return externalvsinternalfield(rtyper, item_repr)
         return item_repr, rclass.getinstancerepr(rtyper, None)
-    else:
-        return item_repr, item_repr
+    return item_repr, item_repr
+
+def externalvsinternalfield(rtyper, field_repr):
+    # usually a no-op, except if config.translation.compressptr, in which case
+    # it tries hard to return a wrapping compressed_gcref_repr
+    if rtyper.annotator.translator.config.translation.compressptr:
+        if (isinstance(field_repr.lowleveltype, Ptr) and
+            field_repr.lowleveltype.TO._gckind == 'gc'):
+            from pypy.rpython.lltypesystem import rcompressed
+            return (field_repr,
+                    rcompressed.get_compressed_gcref_repr(rtyper, field_repr))
+    return field_repr, field_repr
 
 
 class DummyValueBuilder(object):

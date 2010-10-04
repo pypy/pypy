@@ -8,6 +8,7 @@ import weakref
 from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
+from pypy.rlib.objectmodel import we_are_translated
 
 class AddressOffset(Symbolic):
 
@@ -562,6 +563,61 @@ def array_type_match(A1, A2):
 def array_item_type_match(T1, T2):
     return T1 == T2 or (T2 == GCREF and isinstance(T1, lltype.Ptr))
 
+# ____________________________________________________________
+
+class _hiddengcref32(object):
+    """A 'hidden' compressed 32-bit value that represents a
+    full, 64-bit GC pointer."""
+
+    def __init__(self, adr64):
+        self.adr64 = adr64
+
+    def __repr__(self):
+        return '<_hiddengcref32>'
+
+    def __str__(self):
+        return '<_hiddengcref32 %s>' % (self.adr64,)
+
+compressed_null_addr = _hiddengcref32(NULL)
+HiddenGcRef32 = lltype.Primitive("HiddenGcRef32", compressed_null_addr)
+_hiddengcref32._TYPE = HiddenGcRef32
+
+class OddValueMarker(AddressOffset):
+    """This is the value '1'.  Used as an odd-valued marker by the GC."""
+    def __repr__(self):
+        return '< OddValueMarker 1 >'
+    def ref(self, ptr):
+        raise AssertionError("should not try to directly get the address"
+                             " from a HiddenGcRef32")
+
+def has_odd_value_marker(addressofs):
+    if we_are_translated():
+        return bool(addressofs & 1)
+    return _has_odd_value_marker(addressofs)
+
+def _has_odd_value_marker(addressofs):
+    while isinstance(addressofs, CompositeOffset):
+        addressofs = addressofs.offsets[-1]
+    return isinstance(addressofs, OddValueMarker)
+
+def remove_odd_value_marker(addressofs):
+    if we_are_translated():
+        return addressofs - 1
+    return _remove_odd_value_marker(addressofs)
+
+def _remove_odd_value_marker(addressofs):
+    if isinstance(addressofs, CompositeOffset):
+        offsets = list(addressofs.offsets)
+        offsets[-1] = _remove_odd_value_marker(offsets[-1])
+        if offsets[-1] == 0:
+            del offsets[-1]
+            if len(offsets) == 1:
+                return offsets[0]
+        return CompositeOffset(*offsets)
+    assert isinstance(addressofs, OddValueMarker)
+    return 0
+
+# ____________________________________________________________
 
 class _fakeaccessor(object):
     def __init__(self, addr):
@@ -597,6 +653,9 @@ class _float_fakeaccessor(_fakeaccessor):
 class _char_fakeaccessor(_fakeaccessor):
     TYPE = lltype.Char
 
+class _hiddengcref32_fakeaccessor(_fakeaccessor):
+    TYPE = HiddenGcRef32
+
 class _address_fakeaccessor(_fakeaccessor):
     TYPE = Address
 
@@ -624,12 +683,14 @@ supported_access_types = {"signed":    lltype.Signed,
                           "char":      lltype.Char,
                           "address":   Address,
                           "float":     lltype.Float,
+                          "hiddengcref32": HiddenGcRef32,
                           }
 
 fakeaddress.signed = property(_signed_fakeaccessor)
 fakeaddress.float = property(_float_fakeaccessor)
 fakeaddress.char = property(_char_fakeaccessor)
 fakeaddress.address = property(_address_fakeaccessor)
+fakeaddress.hiddengcref32 = property(_hiddengcref32_fakeaccessor)
 fakeaddress._TYPE = Address
 
 # the obtained address will not keep the object alive. e.g. if the object is

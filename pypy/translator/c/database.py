@@ -55,6 +55,7 @@ class LowLevelDatabase(object):
         # assign to a constant object is something C doesn't think is
         # constant
         self.late_initializations = []
+        self.late_initializations_hiddengcref32 = []
         self.namespace = CNameManager()
 
         if translator is None or translator.rtyper is None:

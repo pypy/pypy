@@ -805,6 +805,8 @@ def sizeof(tp):
         return 8
     if tp is lltype.SingleFloat:
         return 4
+    if tp is llmemory.HiddenGcRef32:
+        return 4
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return ULONG._type.BITS/8

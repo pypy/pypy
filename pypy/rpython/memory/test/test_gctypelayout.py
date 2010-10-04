@@ -37,6 +37,15 @@ def test_struct():
     for T, c in [(GC_S, 0), (GC_S2, 2), (GC_A, 0), (GC_A2, 0), (GC_S3, 2)]:
         assert len(offsets_to_gc_pointers(T)) == c
 
+def test_hiddenptr32():
+    from pypy.rpython.lltypesystem.llmemory import HIDDENPTR32
+    from pypy.rpython.lltypesystem.llmemory import has_odd_value_marker
+    T = lltype.GcStruct('T', ('foo', lltype.Ptr(GC_S3)), ('bar', HIDDENPTR32))
+    ofs = offsets_to_gc_pointers(T)
+    assert len(ofs) == 2
+    assert not has_odd_value_marker(ofs[0])
+    assert has_odd_value_marker(ofs[1])
+
 def test_layout_builder(lltype2vtable=None):
     # XXX a very minimal test
     layoutbuilder = TypeLayoutBuilder(FakeGC, lltype2vtable)

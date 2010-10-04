@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import rffi, llgroup
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
-     GCHeaderOffset, GCREF, AddressAsInt
+     GCHeaderOffset, GCREF, AddressAsInt, HiddenGcRef32, OddValueMarker
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
@@ -63,6 +63,8 @@ def name_signed(value, db):
             return '(%s+%dL)' % (name, value.rest)
         elif isinstance(value, AddressAsInt):
             return '((long)%s)' % name_address(value.adr, db)
+        elif isinstance(value, OddValueMarker):
+            return '1 /*OddValueMarker*/'
         else:
             raise Exception("unimplemented symbolic %r"%value)
     if value is None:
@@ -145,6 +147,12 @@ def name_gcref(value, db):
     else:
         return 'NULL'
 
+def name_hiddengcref32(value, db):
+    # The only prebuilt HiddenGcRef32 that should occur in a translated C
+    # program occur as fields or items of a GcStruct or GcArray.
+    db.get(value.adr64)
+    return 'HIDE_INTO_ADR32(???) /* see primitive.py, name_hiddengcref32() */'
+
 def name_small_integer(value, db):
     """Works for integers of size at most INT or UINT."""
     if isinstance(value, Symbolic):
@@ -173,6 +181,7 @@ PrimitiveName = {
     Void:     name_void,
     Address:  name_address,
     GCREF:    name_gcref,
+    HiddenGcRef32: name_hiddengcref32,
     }
 
 PrimitiveType = {
@@ -188,6 +197,7 @@ PrimitiveType = {
     Void:     'void @',
     Address:  'void* @',
     GCREF:    'void* @',
+    HiddenGcRef32: 'hiddengcref32_t @',
     }
 
 def define_c_primitive(ll_type, c_name, suffix=''):

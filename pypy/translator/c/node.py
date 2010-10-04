@@ -771,25 +771,33 @@ class FixedSizeArrayNode(ContainerNode):
         yield '}'
 
 def generic_initializationexpr(db, value, access_expr, decoration):
-    if isinstance(typeOf(value), ContainerType):
+    TYPE = typeOf(value)
+    if isinstance(TYPE, ContainerType):
         node = db.getcontainernode(value)
         lines = list(node.initializationexpr(decoration+'.'))
         lines[-1] += ','
         return lines
     else:
         comma = ','
-        if typeOf(value) == Ptr(PyObject) and value:
+        if TYPE == Ptr(PyObject) and value:
             # cannot just write 'gxxx' as a constant in a structure :-(
             node = db.getcontainernode(value._obj)
             expr = 'NULL /*%s*/' % node.name
             node.where_to_copy_me.append('&%s' % access_expr)
-        elif typeOf(value) == Float and (isinf(value) or isnan(value)):
-            db.late_initializations.append(('%s' % access_expr, db.get(value)))
+        elif TYPE == Float and (isinf(value) or isnan(value)):
+            db.late_initializations.append((access_expr, db.get(value)))
             expr = '0.0 /* patched later by %sinfinity */' % (
                 '-+'[value > 0])
+        elif TYPE == llmemory.HiddenGcRef32:
+            if value.adr64:
+                db.late_initializations_hiddengcref32.append((access_expr,
+                                                              value))
+                expr = '0 /*HIDE_INTO_ADR32%s*/' % db.get(value.adr64.ptr)
+            else:
+                expr = '0'
         else:
             expr = db.get(value)
-            if typeOf(value) is Void:
+            if TYPE is Void:
                 comma = ''
         expr += comma
         i = expr.find('\n')

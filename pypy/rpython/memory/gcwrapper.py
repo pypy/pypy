@@ -88,7 +88,9 @@ class GCManagedHeap(object):
     def setinterior(self, toplevelcontainer, inneraddr, INNERTYPE, newvalue,
                     offsets=()):
         if (lltype.typeOf(toplevelcontainer).TO._gckind == 'gc' and
-            isinstance(INNERTYPE, lltype.Ptr) and INNERTYPE.TO._gckind == 'gc'):
+            (isinstance(INNERTYPE, lltype.Ptr) and
+             INNERTYPE.TO._gckind == 'gc')
+            or INNERTYPE == llmemory.HiddenGcRef32):
             #
             wb = True
             if self.has_write_barrier_from_array:

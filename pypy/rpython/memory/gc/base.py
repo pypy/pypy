@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -168,8 +169,10 @@ class GCBase(object):
 
     def trace(self, obj, callback, arg):
         """Enumerate the locations inside the given obj that can contain
-        GC pointers.  For each such location, callback(pointer, arg) is
-        called, where 'pointer' is an address inside the object.
+        GC pointers.  For each such GC pointer, callback(object, arg) is
+        called, where 'object' is the address of the stored object.
+        'callback' can return a new address that replaces the old one in
+        'obj', or it can return None.
         Typically, 'callback' is a bound method and 'arg' can be None.
         """
         typeid = self.get_type_id(obj)
@@ -179,16 +182,16 @@ class GCBase(object):
             item = obj + llmemory.gcarrayofptr_itemsoffset
             while length > 0:
                 if self.points_to_valid_gc_object(item):
-                    callback(item, arg)
+                    newaddr = callback(item.address[0], arg)
+                    if newaddr is not None:
+                        item.address[0] = newaddr
                 item += llmemory.gcarrayofptr_singleitemoffset
                 length -= 1
             return
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
-            item = obj + offsets[i]
-            if self.points_to_valid_gc_object(item):
-                callback(item, arg)
+            self._trace_see(obj, offsets[i], callback, arg)
             i += 1
         if self.has_gcptr_in_varsize(typeid):
             item = obj + self.varsize_offset_to_variable_part(typeid)
@@ -198,13 +201,34 @@ class GCBase(object):
             while length > 0:
                 j = 0
                 while j < len(offsets):
-                    itemobj = item + offsets[j]
-                    if self.points_to_valid_gc_object(itemobj):
-                        callback(itemobj, arg)
+                    self._trace_see(item, offsets[j], callback, arg)
                     j += 1
                 item += itemlength
                 length -= 1
     trace._annspecialcase_ = 'specialize:arg(2)'
+
+    def _trace_see(self, obj, ofs, callback, arg):
+        if self.config.compressptr and llmemory.has_odd_value_marker(ofs):
+            # special handling of HiddenGcRef32 on 64-bit platforms
+            ofs = llmemory.remove_odd_value_marker(ofs)
+            item = obj + ofs
+            address = llop.show_from_adr32(llmemory.Address,
+                                           item.hiddengcref32[0])
+            if self.is_valid_gc_object(address):
+                newaddr = callback(address, arg)
+                if newaddr is not None:
+                    newaddr32 = llop.hide_into_adr32(llmemory.HiddenGcRef32,
+                                                     newaddr)
+                    item.hiddengcref32[0] = newaddr32
+        else:
+            # common case
+            item = obj + ofs
+            if self.points_to_valid_gc_object(item):
+                newaddr = callback(item.address[0], arg)
+                if newaddr is not None:
+                    item.address[0] = newaddr
+    _trace_see._annspecialcase_ = 'specialize:arg(3)'
+    _trace_see._always_inline_ = True
 
     def trace_partial(self, obj, start, stop, callback, arg):
         """Like trace(), but only walk the array part, for indices in
@@ -218,7 +242,9 @@ class GCBase(object):
             item += llmemory.gcarrayofptr_singleitemoffset * start
             while length > 0:
                 if self.points_to_valid_gc_object(item):
-                    callback(item, arg)
+                    newaddr = callback(item.address[0], arg)
+                    if newaddr is not None:
+                        item.address[0] = newaddr
                 item += llmemory.gcarrayofptr_singleitemoffset
                 length -= 1
             return
@@ -231,9 +257,7 @@ class GCBase(object):
         while length > 0:
             j = 0
             while j < len(offsets):
-                itemobj = item + offsets[j]
-                if self.points_to_valid_gc_object(itemobj):
-                    callback(itemobj, arg)
+                self._trace_see(item, offsets[j], callback, arg)
                 j += 1
             item += itemlength
             length -= 1
@@ -279,8 +303,7 @@ class GCBase(object):
         obj = root.address[0]
         ll_assert(bool(obj), "NULL address from walk_roots()")
         self._debug_record(obj)
-    def _debug_callback2(self, pointer, ignored):
-        obj = pointer.address[0]
+    def _debug_callback2(self, obj, ignored):
         ll_assert(bool(obj), "NULL address from self.trace()")
         self._debug_record(obj)
 

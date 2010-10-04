@@ -2,7 +2,7 @@
 from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.llmemory import NULL, Address, \
-     cast_adr_to_int, fakeaddress
+     cast_adr_to_int, fakeaddress, HiddenGcRef32, _hiddengcref32
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
@@ -23,6 +23,13 @@ class __extend__(annmodel.SomeTypedAddressAccess):
 
     def rtyper_makekey(self):
         return self.__class__, self.type
+
+class __extend__(annmodel.SomeHiddenGcRef32):
+    def rtyper_makerepr(self, rtyper):
+        return hiddengcref32_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
 
 class AddressRepr(Repr):
     lowleveltype = Address
@@ -139,4 +146,13 @@ class __extend__(pairtype(PtrRepr, AddressRepr)):
     def convert_from_to((r_ptr, r_addr), v, llops):
         return llops.genop('cast_ptr_to_adr', [v], resulttype=Address)
 
+# ____________________________________________________________
 
+class HiddenGcRef32Repr(Repr):
+    lowleveltype = HiddenGcRef32
+
+    def convert_const(self, value):
+        assert isinstance(value, _hiddengcref32)
+        return value
+
+hiddengcref32_repr = HiddenGcRef32Repr()
