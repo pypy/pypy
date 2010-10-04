@@ -10,6 +10,9 @@ class ParserModuleTest:
         cls.w_m = space.appexec([], """():
     import parser
     return parser""")
+        cls.w_symbol = space.appexec([], """():
+    import symbol
+    return symbol""")
 
 
 class AppTestParser(ParserModuleTest):
@@ -36,7 +39,7 @@ class AppTestParser(ParserModuleTest):
             seq = getattr(s, meth)()
             assert isinstance(seq, tp)
             assert len(seq) == 4
-            assert seq[0] == 286
+            assert seq[0] == self.symbol.file_input
             assert len(seq[2]) == 2
             assert len(seq[3]) == 2
             assert seq[2][0] == 4
