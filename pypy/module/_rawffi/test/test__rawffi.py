@@ -710,7 +710,7 @@ class AppTestFfi:
         # fragile
         S = _rawffi.Structure([('x', 'c'), ('y', 'l')])
         assert (repr(_rawffi.Array((S, 2))) ==
-                "<_rawffi.Array '?' (%d, %d)>" % (4*lsize, lsize))
+                "<_rawffi.Array '\0' (%d, %d)>" % (4*lsize, lsize))
 
         assert (repr(_rawffi.Structure([('x', 'i'), ('yz', 'i')])) ==
                 "<_rawffi.Structure 'x' 'yz' (%d, %d)>" % (2*isize, isize))
