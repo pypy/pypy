@@ -359,6 +359,10 @@ class SSLObject(Wrappable):
         return self.space.wrap(result)
     read.unwrap_spec = ['self', int]
 
+    def do_handshake(self):
+        # XXX
+        pass
+
 
 SSLObject.typedef = TypeDef("SSLObject",
     server = interp2app(SSLObject.server,
@@ -367,11 +371,12 @@ SSLObject.typedef = TypeDef("SSLObject",
         unwrap_spec=SSLObject.issuer.unwrap_spec),
     write = interp2app(SSLObject.write,
         unwrap_spec=SSLObject.write.unwrap_spec),
-    read = interp2app(SSLObject.read, unwrap_spec=SSLObject.read.unwrap_spec)
+    read = interp2app(SSLObject.read, unwrap_spec=SSLObject.read.unwrap_spec),
+    do_handshake=interp2app(SSLObject.do_handshake, unwrap_spec=['self']),
 )
 
 
-def new_sslobject(space, w_sock, w_key_file, w_cert_file):
+def new_sslobject(space, w_sock, side, w_key_file, w_cert_file):
     ss = SSLObject(space)
     
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
@@ -562,8 +567,12 @@ def _ssl_seterror(space, ss, ret):
     return errstr, errval
 
 
-def ssl(space, w_socket, w_key_file=None, w_cert_file=None):
-    """ssl(socket, [keyfile, certfile]) -> sslobject"""
-    return space.wrap(new_sslobject(space, w_socket, w_key_file, w_cert_file))
-ssl.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
+def sslwrap(space, w_socket, side, w_key_file=None, w_cert_file=None,
+            cert_mode=PY_SSL_CERT_NONE, protocol=PY_SSL_VERSION_SSL23,
+            w_cacerts_file=None, w_cipher=None):
+    """sslwrap(socket, side, [keyfile, certfile]) -> sslobject"""
+    return space.wrap(new_sslobject(
+        space, w_socket, side, w_key_file, w_cert_file))
+sslwrap.unwrap_spec = [ObjSpace, W_Root, int, W_Root, W_Root,
+                       int, int, W_Root, W_Root]
 

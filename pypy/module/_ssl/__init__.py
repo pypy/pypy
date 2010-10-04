@@ -2,7 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     interpleveldefs = {
-        'ssl': 'interp_ssl.ssl',
+        'sslwrap': 'interp_ssl.sslwrap',
     }
 
     appleveldefs = {
