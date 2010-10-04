@@ -162,7 +162,8 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
 STARTF_USESHOWWINDOW = 0x001
 STARTF_USESTDHANDLES = 0x100
 SW_HIDE              = 0
-CREATE_NEW_CONSOLE   = 0x010
+CREATE_NEW_CONSOLE       = 0x010
+CREATE_NEW_PROCESS_GROUP = 0x200
 
 def WaitForSingleObject(handle, milliseconds):
     res = _WaitForSingleObject(handle.handle, milliseconds)
