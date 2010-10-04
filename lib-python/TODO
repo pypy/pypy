@@ -30,6 +30,8 @@ Probably easy tasks
 
 - Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
 
+- Missing module future_builtins
+
 Medium tasks
 ------------
 
