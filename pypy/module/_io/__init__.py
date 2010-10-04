@@ -22,9 +22,8 @@ class Module(MixedModule):
         'BufferedRWPair': 'interp_io.W_BufferedRWPair',
         'BufferedRandom': 'interp_io.W_BufferedRandom',
         'TextIOWrapper': 'interp_io.W_TextIOWrapper',
-        }
 
-    def startup(self, space):
-        for name in """UnsupportedOperation open IncrementalNewlineDecoder 
-                    """.split():
-            space.setattr(self, space.wrap(name), space.w_None)
+        'open': 'space.w_None',
+        'UnsupportedOperation': 'space.w_None',
+        'IncrementalNewlineDecoder': 'space.w_None',
+        }
