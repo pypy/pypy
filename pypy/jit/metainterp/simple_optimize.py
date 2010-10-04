@@ -9,9 +9,10 @@ EMPTY_VALUES = {}
 
 def transform(op):
     from pypy.jit.metainterp.history import AbstractDescr
-    # Rename CALL_PURE to CALL.
+    # Rename CALL_PURE and CALL_INVARIANT to CALL.
     # Simplify the VIRTUAL_REF_* so that they don't show up in the backend.
-    if op.getopnum() == rop.CALL_PURE:
+    if (op.getopnum() == rop.CALL_PURE or
+        op.getopnum() == rop.CALL_LOOPINVARIANT):
         op = ResOperation(rop.CALL, op.getarglist()[1:], op.result,
                           op.getdescr())
     elif op.getopnum() == rop.VIRTUAL_REF:
