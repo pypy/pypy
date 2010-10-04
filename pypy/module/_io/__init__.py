@@ -16,7 +16,7 @@ class Module(MixedModule):
 
         'FileIO': 'interp_io.W_FileIO',
         'BytesIO': 'interp_io.W_BytesIO',
-        'StringIO': 'interp_io.W_StringIO',
+        'StringIO': 'interp_stringio.W_StringIO',
         'BufferedReader': 'interp_io.W_BufferedReader',
         'BufferedWriter': 'interp_io.W_BufferedWriter',
         'BufferedRWPair': 'interp_io.W_BufferedRWPair',

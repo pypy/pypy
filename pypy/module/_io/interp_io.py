@@ -67,12 +67,6 @@ W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
     )
 
-class W_StringIO(W_TextIOBase):
-    pass
-W_StringIO.typedef = TypeDef(
-    'StringIO', W_TextIOBase.typedef,
-    )
-
 class W_BufferedReader(W_BufferedIOBase):
     pass
 W_BufferedReader.typedef = TypeDef(
