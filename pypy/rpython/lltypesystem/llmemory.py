@@ -5,10 +5,11 @@
 # sizeof, offsetof
 
 import weakref
-from pypy.rlib.objectmodel import Symbolic
+from pypy.rlib.objectmodel import Symbolic, we_are_translated
+from pypy.rlib.objectmodel import running_on_llinterp
+from pypy.rlib.debug import llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
-from pypy.rlib.objectmodel import we_are_translated
 
 class AddressOffset(Symbolic):
 
@@ -580,9 +581,11 @@ class OddValueMarker(AddressOffset):
                              " from a HiddenGcRef32")
 
 def has_odd_value_marker(addressofs):
-    if we_are_translated():
+    if not we_are_translated():
+        return _has_odd_value_marker(addressofs)
+    if not running_on_llinterp:
         return bool(addressofs & 1)
-    return _has_odd_value_marker(addressofs)
+    return llinterpcall(lltype.Bool, _has_odd_value_marker, addressofs)
 
 def _has_odd_value_marker(addressofs):
     while isinstance(addressofs, CompositeOffset):
@@ -590,9 +593,11 @@ def _has_odd_value_marker(addressofs):
     return isinstance(addressofs, OddValueMarker)
 
 def remove_odd_value_marker(addressofs):
-    if we_are_translated():
+    if not we_are_translated():
+        return _remove_odd_value_marker(addressofs)
+    if not running_on_llinterp:
         return addressofs - 1
-    return _remove_odd_value_marker(addressofs)
+    return llinterpcall(lltype.Signed, _remove_odd_value_marker, addressofs)
 
 def _remove_odd_value_marker(addressofs):
     if isinstance(addressofs, CompositeOffset):

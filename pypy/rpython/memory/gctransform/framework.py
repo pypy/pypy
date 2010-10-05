@@ -10,6 +10,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib import rstack, rgc
 from pypy.rlib.debug import ll_assert
 from pypy.translator.backendopt import graphanalyze
+from pypy.translator.backendopt.support import var_needsgc
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import annlowlevel
@@ -68,7 +69,9 @@ def find_initializing_stores(collect_analyzer, graph):
                     mallocvars[op.result] = True
             elif op.opname in ("setfield", "setarrayitem", "setinteriorfield"):
                 TYPE = op.args[-1].concretetype
-                if op.args[0] in mallocvars and is_gc_pointer_or_hidden(TYPE):
+                if (op.args[0] in mallocvars and
+                    isinstance(TYPE, lltype.Ptr) and
+                    TYPE.TO._gckind == "gc"):
                     result.add(op)
             else:
                 if collect_analyzer.analyze(op):
@@ -1014,7 +1017,7 @@ class FrameworkGCTransformer(GCTransformer):
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
         assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
-        assert is_gc_pointer_or_hidden(v_newvalue.concretetype)
+        assert var_needsgc(v_newvalue)
         if (self.write_barrier_ptr is not None
             and v_struct.concretetype.TO._gckind == "gc"
             and hop.spaceop not in self.clean_sets):
@@ -1056,12 +1059,12 @@ class FrameworkGCTransformer(GCTransformer):
 
     def _fetch_unpacked_pointer(self, hop, v_value):
         # optimization for the common case where this setfield is preceded
-        # by hide_into_adr32()
+        # by v_value = cast_opaque_ptr(v_normal_pointer)
         for op in hop.llops[::-1]:
-            if op.opname == 'hide_into_adr32' and op.result == v_value:
+            if op.opname == 'cast_opaque_ptr' and op.result == v_value:
                 return op.args[0]
         else:
-            return hop.genop("show_from_adr32", [v_value],
+            return hop.genop("cast_opaque_ptr", [v_value],
                              resulttype = llmemory.Address)
 
     def transform_getfield_typeptr(self, hop):
@@ -1107,7 +1110,7 @@ class FrameworkGCTransformer(GCTransformer):
             GCTransformer.gct_setfield(self, hop)
 
     def var_needs_set_transform(self, var):
-        return is_gc_pointer_or_hidden(var.concretetype)
+        return var_needsgc(var)
 
     def push_alive_nopyobj(self, var, llops):
         pass

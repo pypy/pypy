@@ -49,7 +49,8 @@ class GCTest(object):
     GC_CAN_MOVE = False
     GC_CAN_MALLOC_NONMOVABLE = True
     taggedpointers = False
-    
+    compressptr = False
+
     def setup_class(cls):
         funcs0 = []
         funcs2 = []
@@ -105,7 +106,8 @@ class GCTest(object):
         s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
         t = rtype(entrypoint, [s_args], gcname=cls.gcname,
                   stacklessgc=cls.stacklessgc,
-                  taggedpointers=cls.taggedpointers)
+                  taggedpointers=cls.taggedpointers,
+                  compressptr=cls.compressptr)
 
         for fixup in mixlevelstuff:
             if fixup:
@@ -1512,6 +1514,15 @@ class TestMiniMarkGC(TestHybridGC):
         run = self.runner("no_clean_setarrayitems")
         res = run([])
         assert res == 123
+
+class TestMiniMarkGCCompressPtr(TestMiniMarkGC):
+    compressptr = True
+
+    def setup_class(cls):
+        from pypy.config.translationoption import IS_64_BITS
+        if not IS_64_BITS:
+            py.test.skip("only for 64-bits")
+        TestMiniMarkGC.setup_class.im_func(cls)
 
 # ________________________________________________________________
 # tagged pointers
