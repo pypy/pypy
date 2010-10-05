@@ -100,6 +100,10 @@ pass"""
         tree = self.parse("x = 43", "single")
         assert tree.type == syms.single_input
 
+    def test_multiline_string(self):
+        self.parse("''' \n '''")
+        self.parse("r''' \n '''")
+
     def test_bytes_literal(self):
         self.parse('b" "')
         self.parse('br" "')
