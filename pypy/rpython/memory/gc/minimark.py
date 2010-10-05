@@ -516,7 +516,8 @@ class MiniMarkGC(MovingGCBase):
                 #
                 # We get here for large fixed-size objects.  Complain if
                 # self.config.compressptr is set.
-                if self.config.compressptr and not self.is_varsize(typeid):
+                if (self.translated_to_c and self.config.compressptr
+                        and not self.is_varsize(typeid)):
                     raise FixedSizeObjectTooLarge
                 #
             else:
