@@ -52,6 +52,9 @@ class TestStrUtil:
                  ('0X',   0, 0),    #     "           "
                  ('0x',  16, 0),    #     "           "
                  ('0X',  16, 0),    #     "           "
+                 ('0b11', 2, 3),
+                 ('0B10', 2, 2),
+                 ('0o77', 8, 63),
                  ]
         for s, base, expected in cases:
             assert string_to_int(s, base) == expected
@@ -65,6 +68,8 @@ class TestStrUtil:
         space = self.space
         cases = ['0x123',    # must use base 0 or 16
                  ' 0X12 ',
+                 '0b01',
+                 '0o01',
                  '',
                  '++12',
                  '+-12',

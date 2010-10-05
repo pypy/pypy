@@ -52,7 +52,9 @@ class NumberStringParser:
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
                 base = 16
-            elif s.startswith('0'):
+            elif s.startswith('0b') or s.startswith('0B'):
+                base = 2
+            elif s.startswith('0'): # also covers the '0o' case
                 base = 8
             else:
                 base = 10
@@ -63,6 +65,10 @@ class NumberStringParser:
         if not s:
             self.error()
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
+            s = s[2:]
+        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
+            s = s[2:]
+        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
             s = s[2:]
         self.s = s
         self.n = len(s)
