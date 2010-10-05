@@ -11,6 +11,7 @@ from pypy.rlib import rstack, rgc
 from pypy.rlib.debug import ll_assert
 from pypy.translator.backendopt import graphanalyze
 from pypy.annotation import model as annmodel
+from pypy.objspace.flow.model import Constant
 from pypy.rpython import annlowlevel
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF
@@ -1010,44 +1011,59 @@ class FrameworkGCTransformer(GCTransformer):
         return None
 
     def transform_generic_set(self, hop):
-        from pypy.objspace.flow.model import Constant
         opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
         assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
         assert is_gc_pointer_or_hidden(v_newvalue.concretetype)
-        # XXX for some GCs the skipping if the newvalue is a constant won't be
-        # ok
         if (self.write_barrier_ptr is not None
-            and not isinstance(v_newvalue, Constant)
             and v_struct.concretetype.TO._gckind == "gc"
             and hop.spaceop not in self.clean_sets):
-            if v_newvalue.concretetype == llmemory.HiddenGcRef32:
-                ...
-                v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
-                                       resulttype = llmemory.Address)
-            else:
-                v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
-                                       resulttype = llmemory.Address)
-            v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
-                                     resulttype = llmemory.Address)
-            if (self.write_barrier_from_array_ptr is not None and
-                    self._set_into_gc_array_part(hop.spaceop) is not None):
-                self.write_barrier_from_array_calls += 1
-                v_index = self._set_into_gc_array_part(hop.spaceop)
-                assert v_index.concretetype == lltype.Signed
-                hop.genop("direct_call", [self.write_barrier_from_array_ptr,
-                                          self.c_const_gc,
-                                          v_newvalue,
-                                          v_structaddr,
-                                          v_index])
-            else:
-                self.write_barrier_calls += 1
-                hop.genop("direct_call", [self.write_barrier_ptr,
-                                          self.c_const_gc,
-                                          v_newvalue,
-                                          v_structaddr])
+            self._add_write_barrier_call(hop, v_struct, v_newvalue)
         hop.rename('bare_' + opname)
+
+    def _add_write_barrier_call(self, hop, v_struct, v_newvalue):
+        if isinstance(v_newvalue, Constant):
+            # comes from a Constant -- skip
+            # XXX for some GCs the skipping if the newvalue is
+            # a constant won't be ok
+            return
+        if v_newvalue.concretetype == llmemory.HiddenGcRef32:
+            v_newvalue = self._fetch_unpacked_pointer(hop, v_newvalue)
+            if isinstance(v_newvalue, Constant):
+                # comes from a Constant -- skip
+                return
+        else:
+            v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
+                                   resulttype = llmemory.Address)
+        v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
+                                 resulttype = llmemory.Address)
+        if (self.write_barrier_from_array_ptr is not None and
+                self._set_into_gc_array_part(hop.spaceop) is not None):
+            self.write_barrier_from_array_calls += 1
+            v_index = self._set_into_gc_array_part(hop.spaceop)
+            assert v_index.concretetype == lltype.Signed
+            hop.genop("direct_call", [self.write_barrier_from_array_ptr,
+                                      self.c_const_gc,
+                                      v_newvalue,
+                                      v_structaddr,
+                                      v_index])
+        else:
+            self.write_barrier_calls += 1
+            hop.genop("direct_call", [self.write_barrier_ptr,
+                                      self.c_const_gc,
+                                      v_newvalue,
+                                      v_structaddr])
+
+    def _fetch_unpacked_pointer(self, hop, v_value):
+        # optimization for the common case where this setfield is preceded
+        # by hide_into_adr32()
+        for op in hop.llops[::-1]:
+            if op.opname == 'hide_into_adr32' and op.result == v_value:
+                return op.args[0]
+        else:
+            return hop.genop("show_from_adr32", [v_value],
+                             resulttype = llmemory.Address)
 
     def transform_getfield_typeptr(self, hop):
         # this would become quite a lot of operations, even if it compiles

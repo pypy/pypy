@@ -923,7 +923,7 @@ static void pypy_init_hiddengcref32(void)
 \t{
 \t\thiddengcref32_t h;
 \t\tOP_HIDE_INTO_ADR32((p[1]), h);
-\t\t*(hiddengcref32_t**)(p[0]) = h;
+\t\t*(hiddengcref32_t*)(p[0]) = h;
 \t}
 }
 '''
