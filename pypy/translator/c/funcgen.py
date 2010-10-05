@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
-from pypy.rpython.lltypesystem.llmemory import Address
+from pypy.rpython.lltypesystem.llmemory import Address, HiddenGcRef32
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.innerloop import find_inner_loops
 from pypy.tool.identity_dict import identity_dict
@@ -649,7 +649,15 @@ class FunctionCodeGenerator(object):
 
     OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
-    OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
+
+    def OP_CAST_OPAQUE_PTR(self, op):
+        if op.result.concretetype == HiddenGcRef32:
+            return 'OP_HIDE_INTO_ADR32(%s, %s);' % (self.expr(op.args[0]),
+                                                    self.expr(op.result))
+        if op.args[0].concretetype == HiddenGcRef32:
+            return 'OP_SHOW_FROM_ADR32(%s, %s);' % (self.expr(op.args[0]),
+                                                    self.expr(op.result))
+        return self.OP_CAST_OPAQUE_PTR(op)
 
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)

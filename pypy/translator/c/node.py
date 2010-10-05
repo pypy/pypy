@@ -2,7 +2,8 @@ from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
      GcStruct, GcArray, RttiStruct, ContainerType, \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
-     RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray
+     RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray, \
+     cast_opaque_ptr
 from pypy.rpython.lltypesystem import llmemory, llgroup
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
@@ -788,17 +789,15 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             db.late_initializations.append((access_expr, db.get(value)))
             expr = '0.0 /* patched later by %sinfinity */' % (
                 '-+'[value > 0])
-        elif TYPE == llmemory.HiddenGcRef32:
-            if value.special_value is None:
-                name = db.get(value.adr64.ptr)
-                db.late_initializations_hiddengcref32.append((access_expr,
-                                                              name))
-                if not name.startswith('('):
-                    name = '(%s)' % name
-                expr = '0 /*HIDE_INTO_ADR32%s*/' % name
-            else:
-                assert isinstance(value.special_value, int)
-                expr = str(value.special_value)
+        elif (TYPE == llmemory.HiddenGcRef32
+              and value and not hasattr(value, 'dummy_value')):
+            realobj = value._obj.container
+            realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
+            name = db.get(realvalue)
+            db.late_initializations_hiddengcref32.append((access_expr, name))
+            if not name.startswith('('):
+                name = '(%s)' % name
+            expr = '0 /*HIDE_INTO_ADR32%s*/' % name
         else:
             expr = db.get(value)
             if TYPE is Void:

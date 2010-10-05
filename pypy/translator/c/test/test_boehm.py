@@ -469,3 +469,41 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res[2] != compute_hash(c)     # likely
         assert res[3] == compute_hash(d)
         assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
+
+    def test_hiddengcref32(self):
+        from pypy.config.translationoption import IS_64_BITS
+        if not IS_64_BITS:
+            py.test.skip("only for 64-bits")
+        py.test.skip("not a stand-alone executable: the static data is "
+                     "after the limit of 32GB")
+        #
+        HiddenGcRef32 = llmemory.HiddenGcRef32
+        S = lltype.GcStruct('S', ('x', lltype.Signed),
+                                 ('y', HiddenGcRef32))
+        prebuilt = lltype.malloc(S, immortal=True)
+        prebuilt2 = lltype.malloc(S, immortal=True)
+        prebuilt.x = 42
+        prebuilt2.x = 53
+        prebuilt.y = lltype.cast_opaque_ptr(HiddenGcRef32, prebuilt2)
+        prebuilt2.y = lltype.cast_opaque_ptr(HiddenGcRef32, prebuilt)
+
+        def check(a, b):
+            p = lltype.cast_opaque_ptr(lltype.Ptr(S), a.y)
+            assert p == b
+
+        def fn():
+            assert prebuilt.x == 42
+            assert prebuilt2.x == 53
+            check(prebuilt, prebuilt2)
+            check(prebuilt2, prebuilt)
+            p = lltype.malloc(S)
+            p.y = lltype.cast_opaque_ptr(HiddenGcRef32, prebuilt)
+            prebuilt2.y = lltype.cast_opaque_ptr(HiddenGcRef32, p)
+            check(p, prebuilt)
+            check(prebuilt2, p)
+            check(prebuilt, prebuilt2)
+            return 0
+
+        f = self.getcompiled(fn)
+        res = fn()
+        assert res == 0

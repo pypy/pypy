@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem.lltype import \
      ContainerType, OpaqueType, FixedSizeArray, _uninitialized
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
+from pypy.rpython.lltypesystem.llmemory import HiddenGcRef32
 from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.rpython.lltypesystem import llgroup
 from pypy.tool.sourcetools import valid_identifier
@@ -99,7 +100,7 @@ class LowLevelDatabase(object):
         return node
 
     def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
-        if isinstance(T, Primitive) or T == GCREF:
+        if isinstance(T, Primitive) or T == GCREF or T == HiddenGcRef32:
             return PrimitiveType[T]
         elif isinstance(T, Ptr):
             if (isinstance(T.TO, OpaqueType) and
@@ -181,7 +182,7 @@ class LowLevelDatabase(object):
         if isinstance(obj, CConstant):
             return obj.c_name  # without further checks
         T = typeOf(obj)
-        if isinstance(T, Primitive) or T == GCREF:
+        if isinstance(T, Primitive) or T == GCREF or T == HiddenGcRef32:
             return PrimitiveName[T](obj, self)
         elif isinstance(T, Ptr):
             if (isinstance(T.TO, OpaqueType) and

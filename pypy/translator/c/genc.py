@@ -910,6 +910,7 @@ def gen_startupcode(f, database):
     print >> f, '}'
 
 def gen_late_initializations_hiddengcref32(f, database):
+    print >> f
     print >> f, 'static void* pypy_hiddengcref32[] = {'
     for access_expr, name in database.late_initializations_hiddengcref32:
         print >> f, '\t&%s, %s,' % (access_expr, name)
@@ -922,7 +923,7 @@ static void pypy_init_hiddengcref32(void)
 \tfor (p = pypy_hiddengcref32; p[0] != NULL; p += 2)
 \t{
 \t\thiddengcref32_t h;
-\t\tOP_HIDE_INTO_ADR32((p[1]), h);
+\t\tOP_HIDE_INTO_ADR32_CHECK((p[1]), h);
 \t\t*(hiddengcref32_t*)(p[0]) = h;
 \t}
 }

@@ -389,10 +389,10 @@ def offsets_to_gc_pointers(TYPE):
         #adr = llmemory.cast_ptr_to_adr(ex)
         #for off in offsets:
         #    (adr + off)
-    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-        offsets.append(0)
     elif TYPE == llmemory.HiddenGcRef32:
         offsets.append(llmemory.OddValueMarker())
+    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
+        offsets.append(0)
     return offsets
 
 def gc_pointers_inside(v, adr, mutable_only=False):

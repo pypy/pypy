@@ -9,7 +9,6 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import rarithmetic
 
 class AddressOffset(Symbolic):
 
@@ -643,12 +642,6 @@ class _float_fakeaccessor(_fakeaccessor):
 class _char_fakeaccessor(_fakeaccessor):
     TYPE = lltype.Char
 
-r_int32 = rarithmetic.build_int("r_int", True, 32)
-INT32 = lltype.build_number("INT", r_int32)
-
-class _int32_fakeaccessor(_fakeaccessor):
-    TYPE = INT32
-
 class _address_fakeaccessor(_fakeaccessor):
     TYPE = Address
 
@@ -671,19 +664,22 @@ class _address_fakeaccessor(_fakeaccessor):
             raise TypeError(TARGETTYPE)
         ptr[0] = value
 
+class _address32_fakeaccessor(_address_fakeaccessor):
+    pass
+
 supported_access_types = {"signed":    lltype.Signed,
                           "unsigned":  lltype.Unsigned,
                           "char":      lltype.Char,
                           "address":   Address,
                           "float":     lltype.Float,
-                          "int32":     INT32,
+                          "address32": Address,
                           }
 
 fakeaddress.signed = property(_signed_fakeaccessor)
 fakeaddress.float = property(_float_fakeaccessor)
 fakeaddress.char = property(_char_fakeaccessor)
 fakeaddress.address = property(_address_fakeaccessor)
-fakeaddress.int32 = property(_int32_fakeaccessor)
+fakeaddress.address32 = property(_address32_fakeaccessor)
 fakeaddress._TYPE = Address
 
 # the obtained address will not keep the object alive. e.g. if the object is

@@ -65,15 +65,6 @@
 #  define SIZEOF_LONG       8
 #  define SIZEOF_LONG_LONG  8
 
-   /* HiddenGcRef32 support (on 64-bits only) */
-   typedef unsigned int hiddengcref32_t;
-#  define uint32_t hiddengcref32_t
-#  define OP_SHOW_FROM_ADR32(x, r)  r = (void*)(((unsigned long)(x)) << 3)
-#  define OP_HIDE_INTO_ADR32(x, r)  \
-     r = (hiddengcref32_t)(((unsigned long)(x)) >> 3); \
-     RPyAssert((void*)(((unsigned long)(r)) << 3) == (x), \
-               "pointer too big or misaligned!")
-
 #endif
 
 /********************************************************/

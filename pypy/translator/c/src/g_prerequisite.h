@@ -29,3 +29,8 @@ typedef unsigned char bool_t;
 
 
 #include "src/align.h"
+
+
+#if PYPY_LONG_BIT == 64
+#  include "src/hiddengcref32.h"
+#endif

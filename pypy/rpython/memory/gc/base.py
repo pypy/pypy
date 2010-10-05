@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -212,14 +211,11 @@ class GCBase(object):
             # special handling of HiddenGcRef32 on 64-bit platforms
             ofs = llmemory.remove_odd_value_marker(ofs)
             item = obj + ofs
-            address = llop.show_from_adr32(llmemory.Address,
-                                           item.hiddengcref32[0])
+            address = item.address32[0]
             if self.is_valid_gc_object(address):
                 newaddr = callback(address, arg)
                 if newaddr is not None:
-                    newaddr32 = llop.hide_into_adr32(llmemory.HiddenGcRef32,
-                                                     newaddr)
-                    item.hiddengcref32[0] = newaddr32
+                    item.address32[0] = newaddr
         else:
             # common case
             item = obj + ofs
