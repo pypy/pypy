@@ -217,6 +217,8 @@ def ovfcheck_lshift(a, b):
 # successfully be casted to an int.
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
+        if isnan(x):
+            raise OverflowError
         if -2147483649.0 < x < 2147483648.0:
             return int(x)
         raise OverflowError
@@ -225,6 +227,8 @@ else:
     # Note the "<= x <" here, as opposed to "< x <" above.
     # This is justified by test_typed in translator/c/test.
     def ovfcheck_float_to_int(x):
+        if isnan(x):
+            raise OverflowError
         if -9223372036854776832.0 <= x < 9223372036854775296.0:
             return int(x)
         raise OverflowError

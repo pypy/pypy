@@ -74,21 +74,20 @@ def long__Float(space, w_floatobj):
     try:
         return W_LongObject.fromfloat(w_floatobj.floatval)
     except OverflowError:
+        if isnan(w_floatobj.floatval):
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("cannot convert float NaN to integer"))
         raise OperationError(space.w_OverflowError,
                              space.wrap("cannot convert float infinity to long"))
 def trunc__Float(space, w_floatobj):
     whole = math.modf(w_floatobj.floatval)[1]
     try:
-        i = ovfcheck_float_to_int(whole)
+        value = ovfcheck_float_to_int(whole)
     except OverflowError:
-        pass
+        return long__Float(space, w_floatobj)
     else:
-        return space.wrap(i)
-    try:
-        return W_LongObject.fromfloat(w_floatobj.floatval)
-    except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("cannot convert infinity to long"))
+        return space.newint(value)
 
 def float_w__Float(space, w_float):
     return w_float.floatval

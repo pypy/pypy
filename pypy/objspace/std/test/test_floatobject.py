@@ -89,6 +89,11 @@ class AppTestAppFloatTest:
         assert int(42.1234) == 42
         assert int(4e10) == 40000000000L
 
+        raises(OverflowError, int, float('inf'))
+        raises(OverflowError, long, float('inf'))
+        raises(ValueError, int, float('nan'))
+        raises(ValueError, long, float('nan'))
+
     def test_float_string(self):
         assert 42 == float("42")
         assert 42.25 == float("42.25")

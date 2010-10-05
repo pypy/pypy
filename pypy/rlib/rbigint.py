@@ -1,5 +1,5 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, isinf, isnan
 from pypy.rlib.debug import make_sure_not_resized
 
 import math, sys
@@ -109,7 +109,7 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         neg = 0
-        if isinf(dval):
+        if isinf(dval) or isnan(dval):
             raise OverflowError
         if dval < 0.0:
             neg = 1
@@ -1258,9 +1258,6 @@ def _AsScaledDouble(v):
     exponent = i
     assert x > 0.0
     return x * sign, exponent
-
-def isinf(x):
-    return x != 0.0 and x / 2 == x
 
 ##def ldexp(x, exp):
 ##    assert type(x) is float
