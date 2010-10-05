@@ -170,7 +170,7 @@ def makePyPseudoDFA ():
                           group(states,
                                 newArcPair(states, '"'),
                                 makeLineCont())))
-    triple = group(states,
+    triple = chain(states,
                    makeStrPrefix(),
                    group(states,
                          chainStr(states, "'''"),
