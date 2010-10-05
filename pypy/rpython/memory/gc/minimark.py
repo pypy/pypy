@@ -514,6 +514,11 @@ class MiniMarkGC(MovingGCBase):
                 cardheadersize = 0
                 extra_flags = 0
                 #
+                # We get here for large fixed-size objects.  Complain if
+                # self.config.compressptr is set.
+                if self.config.compressptr and not self.is_varsize(typeid):
+                    raise FixedSizeObjectTooLarge
+                #
             else:
                 # Reserve N extra words containing card bits before the object.
                 extra_words = self.card_marking_words_for_length(length)
@@ -1564,3 +1569,7 @@ class SimpleArenaCollection(object):
             else:
                 self.all_objects.append((rawobj, nsize))
                 self.total_memory_used += nsize
+
+
+class FixedSizeObjectTooLarge(Exception):
+    pass
