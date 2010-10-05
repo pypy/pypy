@@ -328,6 +328,10 @@ def exp(space, w_x):
     return math1(space, math.exp, w_x)
 exp.unwrap_spec = [ObjSpace, W_Root]
 
+def expm1(space, w_x):
+    return math1(space, math.expm1, w_x)
+expm1.unwrap_spec = [ObjSpace, W_Root]
+
 def acos(space, w_x):
     """acos(x)
 

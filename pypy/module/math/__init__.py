@@ -34,6 +34,7 @@ class Module(MixedModule):
        'atan2'          : 'interp_math.atan2',
        'modf'           : 'interp_math.modf',
        'exp'            : 'interp_math.exp',
+       'expm1'          : 'interp_math.expm1',
        'acos'           : 'interp_math.acos',
        'isinf'          : 'interp_math.isinf',
        'isnan'          : 'interp_math.isnan',
