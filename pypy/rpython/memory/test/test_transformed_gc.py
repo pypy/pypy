@@ -1315,7 +1315,8 @@ class TestGenerationGC(GenericMovingGCTests):
     def test_immutable_to_old_promotion(self):
         run, transformer = self.runner("immutable_to_old_promotion", transformer=True)
         run([1, 4])
-        if not transformer.GCClass.prebuilt_gc_objects_are_static_roots:
+        if (not transformer.GCClass.prebuilt_gc_objects_are_static_roots
+            and not transformer.GCClass.DEBUG):
             assert len(transformer.layoutbuilder.addresses_of_static_ptrs) == 0
         else:
             assert len(transformer.layoutbuilder.addresses_of_static_ptrs) >= 4
