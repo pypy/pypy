@@ -1031,7 +1031,8 @@ class FrameworkGCTransformer(GCTransformer):
             # a constant won't be ok
             return
         if v_newvalue.concretetype == llmemory.HiddenGcRef32:
-            v_newvalue = self._fetch_unpacked_pointer(hop, v_newvalue)
+            v_newvalue = self._fetch_unpacked_address(hop, v_newvalue)
+            assert v_newvalue.concretetype == llmemory.Address
             if isinstance(v_newvalue, Constant):
                 # comes from a Constant -- skip
                 return
@@ -1057,12 +1058,16 @@ class FrameworkGCTransformer(GCTransformer):
                                       v_newvalue,
                                       v_structaddr])
 
-    def _fetch_unpacked_pointer(self, hop, v_value):
+    def _fetch_unpacked_address(self, hop, v_value):
         # optimization for the common case where this setfield is preceded
         # by v_value = hide_into_adr32(v_normal_pointer)
         for op in hop.llops[::-1]:
             if op.opname == 'hide_into_adr32' and op.result == v_value:
-                return op.args[0]
+                v_value = op.args[0]
+                if v_value.concretetype != llmemory.Address:
+                    v_value = hop.genop("cast_ptr_to_adr", [v_value],
+                                        resulttype = llmemory.Address)
+                return v_value
         else:
             return hop.genop("show_from_adr32", [v_value],
                              resulttype = llmemory.Address)
