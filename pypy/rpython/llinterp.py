@@ -1025,22 +1025,14 @@ class LLFrame(object):
 
     def op_raw_load(self, addr, typ, offset):
         checkadr(addr)
-        if typ == llmemory.HiddenGcRef32:
-            name = 'hiddengcref32'
-        else:
-            name = str(typ).lower()
-        value = getattr(addr, name)[offset]
+        value = getattr(addr, str(typ).lower())[offset]
         assert lltype.typeOf(value) == typ
         return value
 
     def op_raw_store(self, addr, typ, offset, value):
         checkadr(addr)
-        if typ == llmemory.HiddenGcRef32:
-            name = 'hiddengcref32'
-        else:
-            name = str(typ).lower()
         assert lltype.typeOf(value) == typ
-        getattr(addr, name)[offset] = value
+        getattr(addr, str(typ).lower())[offset] = value
 
     def op_stack_malloc(self, size): # mmh
         raise NotImplementedError("backend only")

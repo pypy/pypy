@@ -13,6 +13,8 @@ TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
                              ('links', lltype.Array(lltype.Signed)))
 ARRAY_TYPEID_MAP = lltype.GcArray(lltype.Ptr(TYPEID_MAP))
 
+HIDDENGCREFFIELD = lltype.FixedSizeArray(llmemory.HiddenGcRef32, 1)
+
 class GCBase(object):
     _alloc_flavor_ = "raw"
     moving_gc = False
@@ -212,13 +214,13 @@ class GCBase(object):
             # special handling of HiddenGcRef32 on 64-bit platforms
             ofs = llmemory.remove_odd_value_marker(ofs)
             item = obj + ofs
-            address = llop.show_from_adr32(
-                llmemory.Address, item.hiddengcref32[0])
+            item = llmemory.cast_adr_to_ptr(item, lltype.Ptr(HIDDENGCREFFIELD))
+            address = llop.show_from_adr32(llmemory.Address, item[0])
             if self.is_valid_gc_object(address):
                 newaddr = callback(address, arg)
                 if newaddr is not None:
-                    item.hiddengcref32[0] = llop.hide_into_adr32(
-                        llmemory.HiddenGcRef32, newaddr)
+                    item[0] = llop.hide_into_adr32(llmemory.HiddenGcRef32,
+                                                   newaddr)
         else:
             # common case
             item = obj + ofs

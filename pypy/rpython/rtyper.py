@@ -100,8 +100,7 @@ class RPythonTyper(object):
             return self.primitive_to_repr[lltype]
         except KeyError:
             pass
-        from pypy.rpython.lltypesystem import llmemory
-        if isinstance(lltype, Primitive) or lltype == llmemory.HiddenGcRef32:
+        if isinstance(lltype, Primitive):
             repr = self.primitive_to_repr[lltype] = self.getrepr(annmodel.lltype_to_annotation(lltype))
             return repr
         raise TyperError('There is no primitive repr for %r'%(lltype,))
