@@ -98,6 +98,9 @@ class AppTestAppFloatTest:
         assert float("-INf") == -inf
         assert str(inf) == "inf"
         assert str(-inf) == "-inf"
+        assert str(float("infinity")) == 'inf'
+        assert str(float("+infinity")) == 'inf'
+        assert str(float("-infinity")) == '-inf'
         assert str(float("nan")) == "nan"
         assert str(float("-nAn")) == "nan"
         assert repr(inf) == "inf"

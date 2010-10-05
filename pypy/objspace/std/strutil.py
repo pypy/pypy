@@ -178,9 +178,11 @@ def interp_string_to_float(space, s):
 
     
     low = s.lower()
-    if low == "-inf":
+    if low == "-inf" or low == "-infinity":
         return -INFINITY
     elif low == "inf" or low == "+inf":
+        return INFINITY
+    elif low == "infinity" or low == "+infinity":
         return INFINITY
     elif low == "nan" or low == "-nan" or low == "+nan":
         return NAN
