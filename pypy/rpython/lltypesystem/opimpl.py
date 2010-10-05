@@ -526,16 +526,21 @@ def op_gc_assume_young_pointers(addr):
 def op_shrink_array(array, smallersize):
     return False
 
-def op_hide_into_adr32(adr):
-    if lltype.typeOf(adr) != llmemory.Address:
-        adr = llmemory.cast_ptr_to_adr(adr)
-    return llmemory._hiddengcref32(adr)
+def op_hide_into_adr32(ptr):
+    if lltype.typeOf(ptr) == llmemory.Address:
+        if not ptr:
+            return lltype.nullptr(llmemory.HiddenGcRef32.TO)
+        ptr = ptr.ptr
+    return lltype.cast_opaque_ptr(llmemory.HiddenGcRef32, ptr)
 
-def op_show_from_adr32(RESTYPE, adr32):
+def op_show_from_adr32(RESTYPE, ptr32):
     if RESTYPE == llmemory.Address:
-        return adr32.adr64
-    else:
-        return llmemory.cast_adr_to_ptr(adr32.adr64, RESTYPE)
+        if not ptr32:
+            return llmemory.NULL
+        PTRTYPE = lltype.Ptr(ptr32._obj.container._TYPE)
+        ptr = lltype.cast_opaque_ptr(PTRTYPE, ptr32)
+        return llmemory.cast_ptr_to_adr(ptr)
+    return lltype.cast_opaque_ptr(RESTYPE, ptr32)
 op_show_from_adr32.need_result_type = True
 
 # ____________________________________________________________

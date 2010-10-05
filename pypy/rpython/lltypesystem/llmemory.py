@@ -669,22 +669,22 @@ class _address_fakeaccessor(_fakeaccessor):
             raise TypeError(TARGETTYPE)
         ptr[0] = value
 
-class _address32_fakeaccessor(_address_fakeaccessor):
-    pass
+class _hiddengcref32_fakeaccessor(_fakeaccessor):
+    TYPE = HiddenGcRef32
 
 supported_access_types = {"signed":    lltype.Signed,
                           "unsigned":  lltype.Unsigned,
                           "char":      lltype.Char,
                           "address":   Address,
                           "float":     lltype.Float,
-                          "address32": Address,
+                          "hiddengcref32": HiddenGcRef32,
                           }
 
 fakeaddress.signed = property(_signed_fakeaccessor)
 fakeaddress.float = property(_float_fakeaccessor)
 fakeaddress.char = property(_char_fakeaccessor)
 fakeaddress.address = property(_address_fakeaccessor)
-fakeaddress.address32 = property(_address32_fakeaccessor)
+fakeaddress.hiddengcref32 = property(_hiddengcref32_fakeaccessor)
 fakeaddress._TYPE = Address
 
 # the obtained address will not keep the object alive. e.g. if the object is

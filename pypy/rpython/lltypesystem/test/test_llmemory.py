@@ -650,8 +650,10 @@ def test_HiddenGcRef32():
     from pypy.config.translationoption import IS_64_BITS
     if not IS_64_BITS:
         py.test.skip("only on 64-bits")
+    #
+    from pypy.rpython.lltypesystem.lloperation import llop
     S = lltype.GcStruct('S')
     p = lltype.malloc(S)
-    q = lltype.cast_opaque_ptr(HiddenGcRef32, p)
-    r = lltype.cast_opaque_ptr(lltype.Ptr(S), q)
+    q = llop.hide_into_adr32(HiddenGcRef32, p)
+    r = llop.show_from_adr32(lltype.Ptr(S), q)
     assert r == p

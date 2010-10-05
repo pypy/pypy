@@ -1059,12 +1059,12 @@ class FrameworkGCTransformer(GCTransformer):
 
     def _fetch_unpacked_pointer(self, hop, v_value):
         # optimization for the common case where this setfield is preceded
-        # by v_value = cast_opaque_ptr(v_normal_pointer)
+        # by v_value = hide_into_adr32(v_normal_pointer)
         for op in hop.llops[::-1]:
-            if op.opname == 'cast_opaque_ptr' and op.result == v_value:
+            if op.opname == 'hide_into_adr32' and op.result == v_value:
                 return op.args[0]
         else:
-            return hop.genop("cast_opaque_ptr", [v_value],
+            return hop.genop("show_from_adr32", [v_value],
                              resulttype = llmemory.Address)
 
     def transform_getfield_typeptr(self, hop):
