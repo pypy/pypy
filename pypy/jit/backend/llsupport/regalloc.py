@@ -44,7 +44,7 @@ class RegisterManager(object):
     all_regs              = []
     no_lower_byte_regs    = []
     save_around_call_regs = []
-    
+
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.longevity = longevity
@@ -244,7 +244,7 @@ class RegisterManager(object):
         if isinstance(v, Const):
             return self.return_constant(v, forbidden_vars, selected_reg,
                                         imm_fine)
-        
+
         prev_loc = self.loc(v)
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
                                       need_lower_byte=need_lower_byte)
@@ -349,3 +349,37 @@ class RegisterManager(object):
         be stored by the cpu, according to the variable type
         """
         raise NotImplementedError("Abstract")
+
+def compute_vars_longevity(inputargs, operations):
+    # compute a dictionary that maps variables to index in
+    # operations that is a "last-time-seen"
+    longevity = {}
+    start_live = {}
+    for inputarg in inputargs:
+        start_live[inputarg] = 0
+    for i in range(len(operations)):
+        op = operations[i]
+        if op.result is not None:
+            start_live[op.result] = i
+        for j in range(op.numargs()):
+            arg = op.getarg(j)
+            if isinstance(arg, Box):
+                if arg not in start_live:
+                    print "Bogus arg in operation %d at %d" % (op.getopnum(), i)
+                    raise AssertionError
+                longevity[arg] = (start_live[arg], i)
+        if op.is_guard():
+            for arg in op.getfailargs():
+                if arg is None: # hole
+                    continue
+                assert isinstance(arg, Box)
+                if arg not in start_live:
+                    print "Bogus arg in guard %d at %d" % (op.getopnum(), i)
+                    raise AssertionError
+                longevity[arg] = (start_live[arg], i)
+    for arg in inputargs:
+        if arg not in longevity:
+            longevity[arg] = (-1, -1)
+    for arg in longevity:
+        assert isinstance(arg, Box)
+    return longevity

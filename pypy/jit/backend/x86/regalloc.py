@@ -16,7 +16,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
-     TempBox
+     TempBox, compute_vars_longevity
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE, IS_X86_32, IS_X86_64
 
 class X86RegisterManager(RegisterManager):
@@ -106,7 +106,7 @@ class X86XMMRegisterManager(RegisterManager):
     def convert_to_imm(self, c):
         const_id, adr = self.float_constants.record_float(c.getfloat())
         return ConstFloatLoc(adr, const_id)
-        
+
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,
         # so genop_call will move it to some frame location immediately
@@ -152,7 +152,7 @@ class RegAlloc(object):
         cpu = self.assembler.cpu
         cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
         # compute longevity of variables
-        longevity = self._compute_vars_longevity(inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         # XXX
         if cpu.WORD == 4:
@@ -163,7 +163,7 @@ class RegAlloc(object):
             xmm_reg_mgr_cls = X86_64_XMMRegisterManager
         else:
             raise AssertionError("Word size should be 4 or 8")
-            
+
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
@@ -173,7 +173,7 @@ class RegAlloc(object):
     def prepare_loop(self, inputargs, operations, looptoken):
         self._prepare(inputargs, operations)
         jump = operations[-1]
-        loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
+        loop_consts = compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
         return self._process_inputargs(inputargs)
 
@@ -340,11 +340,11 @@ class RegAlloc(object):
                                                       arglocs))
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
-        current_depths = (self.fm.frame_depth, self.param_depth)                
+        current_depths = (self.fm.frame_depth, self.param_depth)
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)
-        self.possibly_free_vars(guard_op.getfailargs())        
+        self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -397,39 +397,6 @@ class RegAlloc(object):
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
 
-    def _compute_vars_longevity(self, inputargs, operations):
-        # compute a dictionary that maps variables to index in
-        # operations that is a "last-time-seen"
-        longevity = {}
-        start_live = {}
-        for inputarg in inputargs:
-            start_live[inputarg] = 0
-        for i in range(len(operations)):
-            op = operations[i]
-            if op.result is not None:
-                start_live[op.result] = i
-            for j in range(op.numargs()):
-                arg = op.getarg(j)
-                if isinstance(arg, Box):
-                    if arg not in start_live:
-                        print "Bogus arg in operation %d at %d" % (op.getopnum(), i)
-                        raise AssertionError
-                    longevity[arg] = (start_live[arg], i)
-            if op.is_guard():
-                for arg in op.getfailargs():
-                    if arg is None: # hole
-                        continue
-                    assert isinstance(arg, Box)
-                    if arg not in start_live:
-                        print "Bogus arg in guard %d at %d" % (op.getopnum(), i)
-                        raise AssertionError
-                    longevity[arg] = (start_live[arg], i)
-        for arg in inputargs:
-            if arg not in longevity:
-                longevity[arg] = (-1, -1)
-        for arg in longevity:
-            assert isinstance(arg, Box)
-        return longevity
 
     def loc(self, v):
         if v is None: # xxx kludgy
@@ -692,7 +659,7 @@ class RegAlloc(object):
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
-        
+
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
@@ -1006,13 +973,13 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
         dst_locations = [loc for loc in nonfloatlocs if loc is not None]
         remap_frame_layout(assembler, src_locations, dst_locations, tmploc)
         # Part about floats
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type == FLOAT]
         dst_locations = [loc for loc in floatlocs if loc is not None]
         remap_frame_layout(assembler, src_locations, dst_locations, xmmtmp)
