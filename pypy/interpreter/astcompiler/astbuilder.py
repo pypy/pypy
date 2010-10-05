@@ -1047,7 +1047,11 @@ class ASTBuilder(object):
             i = 0
             limit = len(raw) - 1
             while i < limit:
-                if raw[i] not in "0xXoOBb":
+                if base == 16 and raw[i] not in "0xX":
+                    break
+                if base == 8 and raw[i] not in "0oO":
+                    break
+                if base == 2 and raw[i] not in "0bB":
                     break
                 i += 1
             raw = raw[i:]

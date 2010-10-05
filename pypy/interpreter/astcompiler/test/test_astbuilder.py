@@ -1129,6 +1129,7 @@ class TestAstBuilder:
         assert space.eq_w(get_num("00053"), space.wrap(053))
         for num in ("0x53", "0X53", "0x0000053", "0X00053"):
             assert space.eq_w(get_num(num), space.wrap(0x53))
+        assert space.eq_w(get_num("0Xb0d2"), space.wrap(0xb0d2))
         assert space.eq_w(get_num("0X53"), space.wrap(0x53))
         assert space.eq_w(get_num("0"), space.wrap(0))
         assert space.eq_w(get_num("00000"), space.wrap(0))
