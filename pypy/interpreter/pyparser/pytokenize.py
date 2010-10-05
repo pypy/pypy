@@ -21,39 +21,40 @@ from pypy.interpreter.pyparser import automata
 __all__ = [ "tokenize" ]
 
 # ______________________________________________________________________
-# Automatically generated DFA's (with one or two hand tweeks):
-pseudoStatesAccepts = [True, True, True, True, True, True, True, True,
-                       True, True, False, True, True, True, False, False,
-                       False, False, True, False, False, True, True, False,
-                       True, False, True, False, True, False, True, False,
-                       False, False, True, False, False, False, True]
+# Automatically generated DFA's
 
-pseudoStates = [
-    {'\t': 0, '\n': 13, '\x0c': 0, '\r': 14, ' ': 0, '!': 10,
-     '"': 16, '#': 18, '%': 12, '&': 12,
-     "'": 15, '(': 13, ')': 13, '*': 7,
-     '+': 12, ',': 13, '-': 12, '.': 6,
-     '/': 11, '0': 4, '1': 5, '2': 5,
-     '3': 5, '4': 5, '5': 5, '6': 5,
-     '7': 5, '8': 5, '9': 5, ':': 13,
-     ';': 13, '<': 9, '=': 12, '>': 8,
-     '@': 13, 'A': 1,
-     'B': 3, 'C': 1, 'D': 1, 'E': 1,
-     'F': 1, 'G': 1, 'H': 1, 'I': 1,
-     'J': 1, 'K': 1, 'L': 1, 'M': 1,
-     'N': 1, 'O': 1, 'P': 1, 'Q': 1,
-     'R': 2, 'S': 1, 'T': 1, 'U': 3,
-     'V': 1, 'W': 1, 'X': 1, 'Y': 1,
-     'Z': 1, '[': 13, '\\': 17, ']': 13,
-     '^': 12, '_': 1, '`': 13, 'a': 1,
-     'b': 3, 'c': 1, 'd': 1, 'e': 1,
-     'f': 1, 'g': 1, 'h': 1, 'i': 1,
-     'j': 1, 'k': 1, 'l': 1, 'm': 1,
-     'n': 1, 'o': 1, 'p': 1, 'q': 1,
-     'r': 2, 's': 1, 't': 1, 'u': 3,
-     'v': 1, 'w': 1, 'x': 1, 'y': 1,
-     'z': 1, '{': 13, '|': 12, '}': 13,
-     '~': 13},
+accepts = [True, True, True, True, True, True, True, True,
+           True, True, False, True, True, True, False, False,
+           False, False, True, False, False, True, True,
+           False, True, False, True, False, True, False,
+           True, False, False, False, True, False, False,
+           False, True]
+states = [
+    {'\t': 0, '\n': 13, '\x0c': 0,
+     '\r': 14, ' ': 0, '!': 10, '"': 16,
+     '#': 18, '%': 12, '&': 12, "'": 15,
+     '(': 13, ')': 13, '*': 7, '+': 12,
+     ',': 13, '-': 12, '.': 6, '/': 11,
+     '0': 4, '1': 5, '2': 5, '3': 5,
+     '4': 5, '5': 5, '6': 5, '7': 5,
+     '8': 5, '9': 5, ':': 13, ';': 13,
+     '<': 9, '=': 12, '>': 8, '@': 13,
+     'A': 1, 'B': 2, 'C': 1, 'D': 1,
+     'E': 1, 'F': 1, 'G': 1, 'H': 1,
+     'I': 1, 'J': 1, 'K': 1, 'L': 1,
+     'M': 1, 'N': 1, 'O': 1, 'P': 1,
+     'Q': 1, 'R': 3, 'S': 1, 'T': 1,
+     'U': 2, 'V': 1, 'W': 1, 'X': 1,
+     'Y': 1, 'Z': 1, '[': 13, '\\': 17,
+     ']': 13, '^': 12, '_': 1, '`': 13,
+     'a': 1, 'b': 2, 'c': 1, 'd': 1,
+     'e': 1, 'f': 1, 'g': 1, 'h': 1,
+     'i': 1, 'j': 1, 'k': 1, 'l': 1,
+     'm': 1, 'n': 1, 'o': 1, 'p': 1,
+     'q': 1, 'r': 3, 's': 1, 't': 1,
+     'u': 2, 'v': 1, 'w': 1, 'x': 1,
+     'y': 1, 'z': 1, '{': 13, '|': 12,
+     '}': 13, '~': 13},
 
     {'0': 1, '1': 1, '2': 1, '3': 1,
      '4': 1, '5': 1, '6': 1, '7': 1,
@@ -72,7 +73,25 @@ pseudoStates = [
      't': 1, 'u': 1, 'v': 1, 'w': 1,
      'x': 1, 'y': 1, 'z': 1},
 
-    {'"': 16, "'": 15, '0': 1, '1': 1,
+    {'"': 20, "'": 19, '0': 1, '1': 1,
+     '2': 1, '3': 1, '4': 1, '5': 1,
+     '6': 1, '7': 1, '8': 1, '9': 1,
+     'A': 1, 'B': 1, 'C': 1, 'D': 1,
+     'E': 1, 'F': 1, 'G': 1, 'H': 1,
+     'I': 1, 'J': 1, 'K': 1, 'L': 1,
+     'M': 1, 'N': 1, 'O': 1, 'P': 1,
+     'Q': 1, 'R': 3, 'S': 1, 'T': 1,
+     'U': 1, 'V': 1, 'W': 1, 'X': 1,
+     'Y': 1, 'Z': 1, '_': 1, 'a': 1,
+     'b': 1, 'c': 1, 'd': 1, 'e': 1,
+     'f': 1, 'g': 1, 'h': 1, 'i': 1,
+     'j': 1, 'k': 1, 'l': 1, 'm': 1,
+     'n': 1, 'o': 1, 'p': 1, 'q': 1,
+     'r': 3, 's': 1, 't': 1, 'u': 1,
+     'v': 1, 'w': 1, 'x': 1, 'y': 1,
+     'z': 1},
+
+    {'"': 20, "'": 19, '0': 1, '1': 1,
      '2': 1, '3': 1, '4': 1, '5': 1,
      '6': 1, '7': 1, '8': 1, '9': 1,
      'A': 1, 'B': 1, 'C': 1, 'D': 1,
@@ -87,24 +106,6 @@ pseudoStates = [
      'j': 1, 'k': 1, 'l': 1, 'm': 1,
      'n': 1, 'o': 1, 'p': 1, 'q': 1,
      'r': 1, 's': 1, 't': 1, 'u': 1,
-     'v': 1, 'w': 1, 'x': 1, 'y': 1,
-     'z': 1},
-
-    {'"': 16, "'": 15, '0': 1, '1': 1,
-     '2': 1, '3': 1, '4': 1, '5': 1,
-     '6': 1, '7': 1, '8': 1, '9': 1,
-     'A': 1, 'B': 1, 'C': 1, 'D': 1,
-     'E': 1, 'F': 1, 'G': 1, 'H': 1,
-     'I': 1, 'J': 1, 'K': 1, 'L': 1,
-     'M': 1, 'N': 1, 'O': 1, 'P': 1,
-     'Q': 1, 'R': 2, 'S': 1, 'T': 1,
-     'U': 1, 'V': 1, 'W': 1, 'X': 1,
-     'Y': 1, 'Z': 1, '_': 1, 'a': 1,
-     'b': 1, 'c': 1, 'd': 1, 'e': 1,
-     'f': 1, 'g': 1, 'h': 1, 'i': 1,
-     'j': 1, 'k': 1, 'l': 1, 'm': 1,
-     'n': 1, 'o': 1, 'p': 1, 'q': 1,
-     'r': 2, 's': 1, 't': 1, 'u': 1,
      'v': 1, 'w': 1, 'x': 1, 'y': 1,
      'z': 1},
 
@@ -128,11 +129,11 @@ pseudoStates = [
 
     {'=': 13, '>': 12},
 
-    {'=': 13, '<': 12, '>': 13},
+    {'<': 12, '=': 13, '>': 13},
 
     {'=': 13},
 
-    {'=': 13, '/': 12},
+    {'/': 12, '=': 13},
 
     {'=': 13},
 
@@ -140,77 +141,85 @@ pseudoStates = [
 
     {'\n': 13},
 
-    {automata.DEFAULT: 19, '\n': 27, '\\': 29, "'": 28},
+    {automata.DEFAULT: 19, '\n': 27,
+     "'": 28, '\\': 29},
 
-    {automata.DEFAULT: 20, '"': 30, '\n': 27, '\\': 31},
+    {automata.DEFAULT: 20, '\n': 27,
+     '"': 30, '\\': 31},
 
     {'\n': 13, '\r': 14},
 
-    {automata.DEFAULT: 18, '\n': 27, '\r': 27},
+    {automata.DEFAULT: 18, '\n': 27,
+     '\r': 27},
 
-    {automata.DEFAULT: 19, '\n': 27, '\\': 29, "'": 13},
+    {automata.DEFAULT: 19, '\n': 27,
+     "'": 13, '\\': 29},
 
-    {automata.DEFAULT: 20, '"': 13, '\n': 27, '\\': 31},
-                
+    {automata.DEFAULT: 20, '\n': 27,
+     '"': 13, '\\': 31},
+
     {'0': 21, '1': 21, '2': 21, '3': 21,
      '4': 21, '5': 21, '6': 21, '7': 21,
      '8': 21, '9': 21, 'A': 21, 'B': 21,
      'C': 21, 'D': 21, 'E': 21, 'F': 21,
      'L': 13, 'a': 21, 'b': 21, 'c': 21,
      'd': 21, 'e': 21, 'f': 21, 'l': 13},
-    
+
     {'.': 24, '0': 22, '1': 22, '2': 22,
      '3': 22, '4': 22, '5': 22, '6': 22,
      '7': 22, '8': 23, '9': 23, 'E': 25,
      'J': 13, 'L': 13, 'e': 25, 'j': 13,
      'l': 13},
-    
+
     {'.': 24, '0': 23, '1': 23, '2': 23,
      '3': 23, '4': 23, '5': 23, '6': 23,
      '7': 23, '8': 23, '9': 23, 'E': 25,
      'J': 13, 'e': 25, 'j': 13},
-    
+
     {'0': 24, '1': 24, '2': 24, '3': 24,
      '4': 24, '5': 24, '6': 24, '7': 24,
      '8': 24, '9': 24, 'E': 32, 'J': 13,
      'e': 32, 'j': 13},
-    
+
     {'+': 33, '-': 33, '0': 34, '1': 34,
      '2': 34, '3': 34, '4': 34, '5': 34,
      '6': 34, '7': 34, '8': 34, '9': 34},
-    
+
     {'0': 26, '1': 26, '2': 26, '3': 26,
      '4': 26, '5': 26, '6': 26, '7': 26,
      '8': 26, '9': 26, 'E': 32, 'J': 13,
      'e': 32, 'j': 13},
-    
+
     {},
 
     {"'": 13},
 
-    {automata.DEFAULT: 35, '\n': 13, '\r': 14},
+    {automata.DEFAULT: 35, '\n': 13,
+     '\r': 14},
 
     {'"': 13},
 
-    {automata.DEFAULT: 36, '\n': 13, '\r': 14},
+    {automata.DEFAULT: 36, '\n': 13,
+     '\r': 14},
 
     {'+': 37, '-': 37, '0': 38, '1': 38,
      '2': 38, '3': 38, '4': 38, '5': 38,
      '6': 38, '7': 38, '8': 38, '9': 38},
-    
-    
+
     {'0': 34, '1': 34, '2': 34, '3': 34,
      '4': 34, '5': 34, '6': 34, '7': 34,
      '8': 34, '9': 34},
-    
+
     {'0': 34, '1': 34, '2': 34, '3': 34,
      '4': 34, '5': 34, '6': 34, '7': 34,
      '8': 34, '9': 34, 'J': 13, 'j': 13},
-    
-    {automata.DEFAULT: 35, '\n': 27, '\\': 29, "'": 13},
-    
-    {automata.DEFAULT: 36, '"': 13, '\n': 27, '\\': 31},
-    
+
+    {automata.DEFAULT: 35, '\n': 27,
+     "'": 13, '\\': 29},
+
+    {automata.DEFAULT: 36, '\n': 27,
+     '"': 13, '\\': 31},
+
     {'0': 38, '1': 38, '2': 38, '3': 38,
      '4': 38, '5': 38, '6': 38, '7': 38,
      '8': 38, '9': 38},
@@ -218,56 +227,95 @@ pseudoStates = [
     {'0': 38, '1': 38, '2': 38, '3': 38,
      '4': 38, '5': 38, '6': 38, '7': 38,
      '8': 38, '9': 38, 'J': 13, 'j': 13},
+
     ]
+pseudoDFA = automata.DFA(states, accepts)
 
-pseudoDFA = automata.DFA(pseudoStates, pseudoStatesAccepts)
+accepts = [False, False, False, False, False, True]
+states = [
+    {automata.DEFAULT: 0, '"': 1,
+     '\\': 2},
 
-double3StatesAccepts = [False, False, False, False, False, True]
-double3States = [
-    {automata.DEFAULT: 0, '"': 1, '\\': 2},
-    {automata.DEFAULT: 4, '"': 3, '\\': 2},
+    {automata.DEFAULT: 4, '"': 3,
+     '\\': 2},
+
     {automata.DEFAULT: 4},
-    {automata.DEFAULT: 4, '"': 5, '\\': 2},
-    {automata.DEFAULT: 4, '"': 1, '\\': 2},
-    {automata.DEFAULT: 4, '"': 5, '\\': 2},
-    ]
-double3DFA = automata.NonGreedyDFA(double3States, double3StatesAccepts)
 
-single3StatesAccepts = [False, False, False, False, False, True]
-single3States = [
-    {automata.DEFAULT: 0, '\\': 2, "'": 1},
-    {automata.DEFAULT: 4, '\\': 2, "'": 3},
+    {automata.DEFAULT: 4, '"': 5,
+     '\\': 2},
+
+    {automata.DEFAULT: 4, '"': 1,
+     '\\': 2},
+
+    {automata.DEFAULT: 4, '"': 5,
+     '\\': 2},
+
+    ]
+double3DFA = automata.NonGreedyDFA(states, accepts)
+
+accepts = [False, False, False, False, False, True]
+states = [
+    {automata.DEFAULT: 0, "'": 1,
+     '\\': 2},
+
+    {automata.DEFAULT: 4, "'": 3,
+     '\\': 2},
+
     {automata.DEFAULT: 4},
-    {automata.DEFAULT: 4, '\\': 2, "'": 5},
-    {automata.DEFAULT: 4, '\\': 2, "'": 1},
-    {automata.DEFAULT: 4, '\\': 2, "'": 5},
-    ]
-single3DFA = automata.NonGreedyDFA(single3States, single3StatesAccepts)
 
-singleStatesAccepts = [False, True, False]
-singleStates = [
-    {automata.DEFAULT: 0, '\\': 2, "'": 1},
-    {},
-    {automata.DEFAULT: 0},
-    ]
-singleDFA = automata.DFA(singleStates, singleStatesAccepts)
+    {automata.DEFAULT: 4, "'": 5,
+     '\\': 2},
 
-doubleStatesAccepts = [False, True, False]
-doubleStates = [
-    {automata.DEFAULT: 0, '"': 1, '\\': 2},
-    {},
-    {automata.DEFAULT: 0},
+    {automata.DEFAULT: 4, "'": 1,
+     '\\': 2},
+
+    {automata.DEFAULT: 4, "'": 5,
+     '\\': 2},
+
     ]
-doubleDFA = automata.DFA(doubleStates, doubleStatesAccepts)
+single3DFA = automata.NonGreedyDFA(states, accepts)
+
+accepts = [False, True, False, False]
+states = [
+    {automata.DEFAULT: 0, '"': 1,
+     '\\': 2},
+
+    {},
+
+    {automata.DEFAULT: 3},
+
+    {automata.DEFAULT: 3, '"': 1,
+     '\\': 2},
+
+    ]
+doubleDFA = automata.DFA(states, accepts)
+
+accepts = [False, True, False, False]
+states = [
+    {automata.DEFAULT: 0, "'": 1,
+     '\\': 2},
+
+    {},
+
+    {automata.DEFAULT: 3},
+
+    {automata.DEFAULT: 3, "'": 1,
+     '\\': 2},
+
+    ]
+singleDFA = automata.DFA(states, accepts)
 
 endDFAs = {"'" : singleDFA,
            '"' : doubleDFA,
-           "r" : None,
-           "R" : None,
-           "u" : None,
-           "U" : None,
-           "b" : None,
-           "B" : None}
+           'r' : None,
+           'R' : None,
+           'u' : None,
+           'U' : None,
+           'b' : None,
+           'B' : None}
+
+#_______________________________________________________________________
+# End of automatically generated DFA's
 
 for uniPrefix in ("", "u", "U", "b", "B"):
     for rawPrefix in ("", "r", "R"):
