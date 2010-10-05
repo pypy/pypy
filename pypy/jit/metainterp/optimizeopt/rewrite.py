@@ -245,6 +245,9 @@ class OptRewrite(Optimization):
     def optimize_CALL_LOOPINVARIANT(self, op):
         funcvalue = self.getvalue(op.getarg(0))
         if not funcvalue.is_constant():
+            # XXX this code path is never executed in tests nor in production.
+            # in fact, it can't even happen since residual_call in codewriter
+            # expects a compile-time constant
             self.emit_operation(op)
             return
         key = make_hashable_int(op.getarg(0).getint())
