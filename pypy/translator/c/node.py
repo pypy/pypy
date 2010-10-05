@@ -790,9 +790,12 @@ def generic_initializationexpr(db, value, access_expr, decoration):
                 '-+'[value > 0])
         elif TYPE == llmemory.HiddenGcRef32:
             if value.adr64:
+                name = db.get(value.adr64.ptr)
                 db.late_initializations_hiddengcref32.append((access_expr,
-                                                              value))
-                expr = '0 /*HIDE_INTO_ADR32%s*/' % db.get(value.adr64.ptr)
+                                                              name))
+                if not name.startswith('('):
+                    name = '(%s)' % name
+                expr = '0 /*HIDE_INTO_ADR32%s*/' % name
             else:
                 expr = '0'
         else:

@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llheap
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython import llinterp
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.memory import gctypelayout
@@ -88,9 +89,12 @@ class GCManagedHeap(object):
     def setinterior(self, toplevelcontainer, inneraddr, INNERTYPE, newvalue,
                     offsets=()):
         if (lltype.typeOf(toplevelcontainer).TO._gckind == 'gc' and
-            (isinstance(INNERTYPE, lltype.Ptr) and
-             INNERTYPE.TO._gckind == 'gc')
-            or INNERTYPE == llmemory.HiddenGcRef32):
+            is_gc_pointer_or_hidden(INNERTYPE)):
+            #
+            if INNERTYPE == llmemory.HiddenGcRef32:
+                newvalueaddr = llop.show_from_adr32(llmemory.Address, newvalue)
+            else:
+                newvalueaddr = llmemory.cast_ptr_to_adr(newvalue)
             #
             wb = True
             if self.has_write_barrier_from_array:
@@ -99,7 +103,7 @@ class GCManagedHeap(object):
                         assert (type(index) is int    # <- fast path
                                 or lltype.typeOf(index) == lltype.Signed)
                         self.gc.write_barrier_from_array(
-                            llmemory.cast_ptr_to_adr(newvalue),
+                            newvalueaddr,
                             llmemory.cast_ptr_to_adr(toplevelcontainer),
                             index)
                         wb = False
@@ -107,7 +111,7 @@ class GCManagedHeap(object):
             #
             if wb:
                 self.gc.write_barrier(
-                    llmemory.cast_ptr_to_adr(newvalue),
+                    newvalueaddr,
                     llmemory.cast_ptr_to_adr(toplevelcontainer))
         llheap.setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue)
 

@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.rlib.rarithmetic import LONG_BIT, r_uint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
+from pypy.rlib import rmmap
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -13,32 +14,12 @@ assert 1 << WORD_POWER_2 == WORD
 # A page contains a number of allocated objects, called "blocks".
 
 # The actual allocation occurs in whole arenas, which are then subdivided
-# into pages.  For each arena we allocate one of the following structures:
+# into pages.  Arenas are allocated (after translation to C) as an mmap()
+# at fixed addresses:
 
-ARENA_PTR = lltype.Ptr(lltype.ForwardReference())
-ARENA = lltype.Struct('ArenaReference',
-    # -- The address of the arena, as returned by malloc()
-    ('base', llmemory.Address),
-    # -- The number of free and the total number of pages in the arena
-    ('nfreepages', lltype.Signed),
-    ('totalpages', lltype.Signed),
-    # -- A chained list of free pages in the arena.  Ends with NULL.
-    ('freepages', llmemory.Address),
-    # -- A linked list of arenas.  See below.
-    ('nextarena', ARENA_PTR),
-    )
-ARENA_PTR.TO.become(ARENA)
-ARENA_NULL = lltype.nullptr(ARENA)
-
-# The idea is that when we need a free page, we take it from the arena
-# which currently has the *lowest* number of free pages.  This allows
-# arenas with a lot of free pages to eventually become entirely free, at
-# which point they are returned to the OS.  If an arena has a total of
-# 64 pages, then we have 64 global lists, arenas_lists[0] to
-# arenas_lists[63], such that arenas_lists[i] contains exactly those
-# arenas that have 'nfreepages == i'.  We allocate pages out of the
-# arena in 'current_arena'; when it is exhausted we pick another arena
-# with the smallest value for nfreepages (but > 0).
+ARENA_SIZE       = 0x100000      # 1MB
+ARENA_ADDR_START = 0x10000000    # 256MB  (too low a number, segfault on linux)
+ARENA_ADDR_STOP  = 0x800000000   # 32GB
 
 # ____________________________________________________________
 #
@@ -63,28 +44,30 @@ PAGE_HEADER = lltype.Struct('PageHeader',
     #    pages, it is a chained list of pages having the same size class,
     #    rooted in 'page_for_size[size_class]'.  For full pages, it is a
     #    different chained list rooted in 'full_page_for_size[size_class]'.
-    #    For free pages, it is the list 'freepages' in the arena header.
+    #    For free pages, it is the list 'freepages'.
     ('nextpage', PAGE_PTR),
-    # -- The arena this page is part of.
-    ('arena', ARENA_PTR),
     # -- The number of free blocks.  The numbers of uninitialized and
     #    allocated blocks can be deduced from the context if needed.
-    ('nfree', lltype.Signed),
-    # -- The chained list of free blocks.  It ends as a pointer to the
+    ('nfree', rffi.INT),
+    # -- The chained list of free blocks.  It ends as a reference to the
     #    first uninitialized block (pointing to data that is uninitialized,
-    #    or to the end of the page).
-    ('freeblock', llmemory.Address),
-    # -- The structure above is 4 words, which is a good value:
-    #    '(1024-4) % N' is zero or very small for various small N's,
+    #    or to the end of the page).  Each entry in the free list is encoded
+    #    as an offset to the start of the page.
+    ('freeblock', rffi.INT),
+    # -- The structure above is 2 words, which is a good value:
+    #    '(512-2) % N' is zero or very small for various small N's,
     #    i.e. there is not much wasted space.
     )
 PAGE_PTR.TO.become(PAGE_HEADER)
 PAGE_NULL = lltype.nullptr(PAGE_HEADER)
 
+FREEBLOCK = lltype.Struct('FreeBlock', ('freeblock', rffi.INT))
+FREEBLOCK_PTR = lltype.Ptr(FREEBLOCK)
+
 # ----------
 
 
-class ArenaCollection(object):
+class ArenaCollection2(object):
     _alloc_flavor_ = "raw"
 
     def __init__(self, arena_size, page_size, small_request_threshold):
@@ -111,38 +94,19 @@ class ArenaCollection(object):
         for i in range(1, length):
             self.nblocks_for_size[i] = (page_size - self.hdrsize) // (WORD * i)
         #
-        self.max_pages_per_arena = arena_size // page_size
-        self.arenas_lists = lltype.malloc(rffi.CArray(ARENA_PTR),
-                                          self.max_pages_per_arena,
-                                          flavor='raw', zero=True)
-        # this is used in mass_free() only
-        self.old_arenas_lists = lltype.malloc(rffi.CArray(ARENA_PTR),
-                                              self.max_pages_per_arena,
-                                              flavor='raw', zero=True)
+        # The next address to get an arena from
+        self.next_arena_addr = ARENA_ADDR_START
         #
-        # the arena currently consumed; it must have at least one page
-        # available, or be NULL.  The arena object that we point to is
-        # not in any 'arenas_lists'.  We will consume all its pages before
-        # we choose a next arena, even if there is a major collection
-        # in-between.
-        self.current_arena = ARENA_NULL
-        #
-        # guarantee that 'arenas_lists[1:min_empty_nfreepages]' are all empty
-        self.min_empty_nfreepages = self.max_pages_per_arena
-        #
-        # part of current_arena might still contain uninitialized pages
+        # Uninitialized pages from the current arena
+        self.next_uninitialized_page = NULL
         self.num_uninitialized_pages = 0
         #
         # the total memory used, counting every block in use, without
         # the additional bookkeeping stuff.
         self.total_memory_used = r_uint(0)
-
-
-    def allocate_big_chunk(self, arena_size):
-        return llarena.arena_malloc(arena_size, False)
-
-    def free_big_chunk(self, arena):
-        llarena.arena_free(arena)
+        #
+        # Chained list of pages that used to contain stuff but are now free.
+        self.freepages = NULL
 
 
     def malloc(self, size):
@@ -160,24 +124,28 @@ class ArenaCollection(object):
             page = self.allocate_new_page(size_class)
         #
         # The result is simply 'page.freeblock'
-        result = page.freeblock
-        if page.nfree > 0:
+        pageaddr = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
+        resultofs = rffi.getintfield(page, 'freeblock')
+        result = pageaddr + resultofs
+        page_nfree = rffi.getintfield(page, 'nfree')
+        if page_nfree > 0:
             #
             # The 'result' was part of the chained list; read the next.
-            page.nfree -= 1
-            freeblock = result.address[0]
+            page_nfree -= 1
+            rffi.setintfield(page, 'nfree', page_nfree)
+            freeblockptr = llmemory.cast_adr_to_ptr(result, FREEBLOCK_PTR)
+            freeblock = rffi.getintfield(freeblockptr, 'freeblock')
             llarena.arena_reset(result,
-                                llmemory.sizeof(llmemory.Address),
+                                llmemory.sizeof(FREEBLOCK),
                                 0)
             #
         else:
             # The 'result' is part of the uninitialized blocks.
-            freeblock = result + nsize
+            freeblock = resultofs + nsize
         #
-        page.freeblock = freeblock
+        rffi.setintfield(page, 'freeblock', freeblock)
         #
-        pageaddr = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
-        if freeblock - pageaddr > self.page_size - nsize:
+        if freeblock > self.page_size - nsize:
             # This was the last free block, so unlink the page from the
             # chained list and put it in the 'full_page_for_size' list.
             self.page_for_size[size_class] = page.nextpage
@@ -191,48 +159,38 @@ class ArenaCollection(object):
     def allocate_new_page(self, size_class):
         """Allocate and return a new page for the given size_class."""
         #
-        # Allocate a new arena if needed.
-        if self.current_arena == ARENA_NULL:
-            self.allocate_new_arena()
-        #
-        # The result is simply 'current_arena.freepages'.
-        arena = self.current_arena
-        result = arena.freepages
-        if arena.nfreepages > 0:
-            #
-            # The 'result' was part of the chained list; read the next.
-            arena.nfreepages -= 1
-            freepages = result.address[0]
+        # If available, return the next page in self.freepages
+        if self.freepages != NULL:
+            result = self.freepages
+            self.freepages = result.address[0]
             llarena.arena_reset(result,
                                 llmemory.sizeof(llmemory.Address),
                                 0)
             #
         else:
-            # The 'result' is part of the uninitialized pages.
+            #
+            # No more free page.  Allocate a new arena if needed.
+            if self.next_uninitialized_page == NULL:
+                self.allocate_new_arena()
+            #
+            # The result is simply 'self.next_uninitialized_page'.
+            result = self.next_uninitialized_page
+            #
             ll_assert(self.num_uninitialized_pages > 0,
-                      "fully allocated arena found in self.current_arena")
+                      "fully allocated arena found in next_uninitialized_page")
             self.num_uninitialized_pages -= 1
             if self.num_uninitialized_pages > 0:
                 freepages = result + self.page_size
             else:
                 freepages = NULL
-        #
-        arena.freepages = freepages
-        if freepages == NULL:
-            # This was the last page, so put the arena away into
-            # arenas_lists[0].
-            ll_assert(arena.nfreepages == 0, 
-                      "freepages == NULL but nfreepages > 0")
-            arena.nextarena = self.arenas_lists[0]
-            self.arenas_lists[0] = arena
-            self.current_arena = ARENA_NULL
+            #
+            self.next_uninitialized_page = freepages
         #
         # Initialize the fields of the resulting page
         llarena.arena_reserve(result, llmemory.sizeof(PAGE_HEADER))
         page = llmemory.cast_adr_to_ptr(result, PAGE_PTR)
-        page.arena = arena
-        page.nfree = 0
-        page.freeblock = result + self.hdrsize
+        rffi.setintfield(page, 'nfree', 0)
+        rffi.setintfield(page, 'freeblock', self.hdrsize)
         page.nextpage = PAGE_NULL
         ll_assert(self.page_for_size[size_class] == PAGE_NULL,
                   "allocate_new_page() called but a page is already waiting")
@@ -240,63 +198,52 @@ class ArenaCollection(object):
         return page
 
 
-    def _all_arenas(self):
-        """For testing.  Enumerates all arenas."""
-        if self.current_arena:
-            yield self.current_arena
-        for arena in self.arenas_lists:
-            while arena:
-                yield arena
-                arena = arena.nextarena
-
-
     def allocate_new_arena(self):
-        """Loads in self.current_arena the arena to allocate from next."""
-        #
-        # Pick an arena from 'arenas_lists[i]', with i as small as possible
-        # but > 0.  Use caching with 'min_empty_nfreepages', which guarantees
-        # that 'arenas_lists[1:min_empty_nfreepages]' are all empty.
-        i = self.min_empty_nfreepages
-        while i < self.max_pages_per_arena:
-            #
-            if self.arenas_lists[i] != ARENA_NULL:
-                #
-                # Found it.
-                self.current_arena = self.arenas_lists[i]
-                self.arenas_lists[i] = self.current_arena.nextarena
-                return
-            #
-            i += 1
-            self.min_empty_nfreepages = i
-        #
-        # No more arena with any free page.  We must allocate a new arena.
-        if not we_are_translated():
-            for a in self._all_arenas():
-                assert a.nfreepages == 0
-        #
-        # 'arena_base' points to the start of malloced memory; it might not
-        # be a page-aligned address
-        arena_base = llarena.arena_malloc(self.arena_size, False)
-        if not arena_base:
-            raise MemoryError("couldn't allocate the next arena")
-        arena_end = arena_base + self.arena_size
-        #
-        # 'firstpage' points to the first unused page
-        firstpage = start_of_page(arena_base + self.page_size - 1,
-                                  self.page_size)
-        # 'npages' is the number of full pages just allocated
-        npages = (arena_end - firstpage) // self.page_size
-        #
-        # Allocate an ARENA object and initialize it
-        arena = lltype.malloc(ARENA, flavor='raw')
-        arena.base = arena_base
-        arena.nfreepages = 0        # they are all uninitialized pages
-        arena.totalpages = npages
-        arena.freepages = firstpage
-        self.num_uninitialized_pages = npages
-        self.current_arena = arena
-        #
+        """Allocates an arena and load it in self.next_uninitialized_page."""
+        arena_base = self.allocate_big_chunk(self.arena_size)
+        self.next_uninitialized_page = arena_base
+        self.num_uninitialized_pages = self.arena_size // self.page_size
     allocate_new_arena._dont_inline_ = True
+
+    def allocate_big_chunk(self, arena_size):
+        if we_are_translated():
+            return self._allocate_new_arena_mmap(arena_size)
+        else:
+            return llarena.arena_malloc(arena_size, False)
+
+    def free_big_chunk(self, arena):
+        if we_are_translated():
+            pass     # good enough
+        else:
+            llarena.arena_free(arena)
+
+    def _allocate_new_arena_mmap(self, arena_size):
+        #
+        # Round up the number in arena_size.
+        arena_size = (arena_size + ARENA_SIZE - 1) & ~(ARENA_SIZE-1)
+        #
+        # Try to mmap() at a MAP_FIXED address, in a 'while' loop until it
+        # succeeds.  The important part is that it must return an address
+        # that is in the lower 32GB of the addressable space.
+        while 1:
+            addr = self.next_arena_addr
+            if addr + arena_size > ARENA_ADDR_STOP:
+                raise MemoryError("exhausted the 32GB of memory")
+            self.next_arena_addr = addr + arena_size
+            flags = rmmap.MAP_PRIVATE | rmmap.MAP_ANONYMOUS | rmmap.MAP_FIXED
+            prot = rmmap.PROT_READ | rmmap.PROT_WRITE
+            arena_base = rmmap.c_mmap_safe(rffi.cast(rffi.CCHARP, addr),
+                                           arena_size, prot, flags, -1, 0)
+            if arena_base != rffi.cast(rffi.CCHARP, -1):
+                break
+        #
+        # 'arena_base' points to the start of mmap()ed memory.
+        # Sanity-check it.
+        if rffi.cast(lltype.Unsigned, arena_base) >= ARENA_ADDR_STOP:
+            raise MMapIgnoredFIXED("mmap() ignored the MAP_FIXED and returned"
+                                   " an address that is not in the first 32GB")
+        #
+        return rffi.cast(llmemory.Address, arena_base)
 
 
     def mass_free(self, ok_to_free_func):
@@ -311,48 +258,13 @@ class ArenaCollection(object):
             #
             # Walk the pages in 'page_for_size[size_class]' and
             # 'full_page_for_size[size_class]' and free some objects.
-            # Pages completely freed are added to 'page.arena.freepages',
+            # Pages completely freed are added to 'self.freepages',
             # and become available for reuse by any size class.  Pages
             # not completely freed are re-chained either in
             # 'full_page_for_size[]' or 'page_for_size[]'.
             self.mass_free_in_pages(size_class, ok_to_free_func)
             #
             size_class -= 1
-        #
-        # Rehash arenas into the correct arenas_lists[i].  If
-        # 'self.current_arena' contains an arena too, it remains there.
-        (self.old_arenas_lists, self.arenas_lists) = (
-            self.arenas_lists, self.old_arenas_lists)
-        #
-        i = 0
-        while i < self.max_pages_per_arena:
-            self.arenas_lists[i] = ARENA_NULL
-            i += 1
-        #
-        i = 0
-        while i < self.max_pages_per_arena:
-            arena = self.old_arenas_lists[i]
-            while arena != ARENA_NULL:
-                nextarena = arena.nextarena
-                #
-                if arena.nfreepages == arena.totalpages:
-                    #
-                    # The whole arena is empty.  Free it.
-                    llarena.arena_free(arena.base)
-                    lltype.free(arena, flavor='raw')
-                    #
-                else:
-                    # Insert 'arena' in the correct arenas_lists[n]
-                    n = arena.nfreepages
-                    ll_assert(n < self.max_pages_per_arena,
-                             "totalpages != nfreepages >= max_pages_per_arena")
-                    arena.nextarena = self.arenas_lists[n]
-                    self.arenas_lists[n] = arena
-                #
-                arena = nextarena
-            i += 1
-        #
-        self.min_empty_nfreepages = 1
 
 
     def mass_free_in_pages(self, size_class, ok_to_free_func):
@@ -405,33 +317,29 @@ class ArenaCollection(object):
     def free_page(self, page):
         """Free a whole page."""
         #
-        # Insert the freed page in the arena's 'freepages' list.
-        # If nfreepages == totalpages, then it will be freed at the
-        # end of mass_free().
-        arena = page.arena
-        arena.nfreepages += 1
+        # Insert the freed page in the 'freepages' list.
         pageaddr = llmemory.cast_ptr_to_adr(page)
         pageaddr = llarena.getfakearenaaddress(pageaddr)
         llarena.arena_reset(pageaddr, self.page_size, 0)
         llarena.arena_reserve(pageaddr, llmemory.sizeof(llmemory.Address))
-        pageaddr.address[0] = arena.freepages
-        arena.freepages = pageaddr
+        pageaddr.address[0] = self.freepages
+        self.freepages = pageaddr
 
 
     def walk_page(self, page, block_size, ok_to_free_func):
         """Walk over all objects in a page, and ask ok_to_free_func()."""
         #
+        pageaddr = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
+        #
         # 'freeblock' is the next free block
-        freeblock = page.freeblock
+        freeblock = pageaddr + rffi.getintfield(page, 'freeblock')
         #
         # 'prevfreeblockat' is the address of where 'freeblock' was read from.
         prevfreeblockat = lltype.direct_fieldptr(page, 'freeblock')
-        prevfreeblockat = llmemory.cast_ptr_to_adr(prevfreeblockat)
         #
-        obj = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
-        obj += self.hdrsize
+        obj = pageaddr + self.hdrsize
         surviving = 0    # initially
-        skip_free_blocks = page.nfree
+        skip_free_blocks = rffi.getintfield(page, 'nfree')
         #
         while True:
             #
@@ -444,11 +352,14 @@ class ArenaCollection(object):
                     break
                 #
                 # 'obj' points to a free block.  It means that
-                # 'prevfreeblockat.address[0]' does not need to be updated.
+                # 'prevfreeblockat[0]' does not need to be updated.
                 # Just read the next free block from 'obj.address[0]'.
                 skip_free_blocks -= 1
-                prevfreeblockat = obj
-                freeblock = obj.address[0]
+                prevfreeblockat = llmemory.cast_adr_to_ptr(obj, FREEBLOCK_PTR)
+                freeblock = pageaddr + rffi.getintfield(prevfreeblockat,
+                                                        'freeblock')
+                prevfreeblockat = lltype.direct_fieldptr(prevfreeblockat,
+                                                         'freeblock')
                 #
             else:
                 # 'obj' points to a valid object.
@@ -459,15 +370,20 @@ class ArenaCollection(object):
                     #
                     # The object should die.
                     llarena.arena_reset(obj, _dummy_size(block_size), 0)
-                    llarena.arena_reserve(obj,
-                                          llmemory.sizeof(llmemory.Address))
+                    llarena.arena_reserve(obj, llmemory.sizeof(FREEBLOCK))
                     # Insert 'obj' in the linked list of free blocks.
-                    prevfreeblockat.address[0] = obj
-                    prevfreeblockat = obj
-                    obj.address[0] = freeblock
+                    prevfreeblockat[0] = rffi.cast(rffi.INT, obj - pageaddr)
+                    prevfreeblockat = llmemory.cast_adr_to_ptr(obj,
+                                                               FREEBLOCK_PTR)
+                    prevfreeblockat.freeblock = rffi.cast(rffi.INT,
+                                                          freeblock - pageaddr)
+                    prevfreeblockat = lltype.direct_fieldptr(prevfreeblockat,
+                                                             'freeblock')
                     #
                     # Update the number of free objects in the page.
-                    page.nfree += 1
+                    page_nfree = rffi.getintfield(page, 'nfree')
+                    page_nfree += 1
+                    rffi.setintfield(page, 'nfree', page_nfree)
                     #
                 else:
                     # The object survives.
@@ -484,35 +400,26 @@ class ArenaCollection(object):
 
     def _nuninitialized(self, page, size_class):
         # Helper for debugging: count the number of uninitialized blocks
-        freeblock = page.freeblock
+        freeblock = rffi.getintfield(page, 'freeblock')
+        pageaddr = llmemory.cast_ptr_to_adr(page)
+        pageaddr = llarena.getfakearenaaddress(pageaddr)
         for i in range(page.nfree):
-            freeblock = freeblock.address[0]
-        assert freeblock != NULL
-        pageaddr = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
+            freeblockaddr = pageaddr + freeblock
+            freeblockptr = llmemory.cast_adr_to_ptr(freeblockaddr,
+                                                    FREEBLOCK_PTR)
+            freeblock = rffi.getintfield(freeblockptr, 'freeblock')
+        assert freeblock != 0
         num_initialized_blocks, rem = divmod(
-            freeblock - pageaddr - self.hdrsize, size_class * WORD)
+            freeblock - self.hdrsize, size_class * WORD)
         assert rem == 0, "page size_class misspecified?"
         nblocks = self.nblocks_for_size[size_class]
         return nblocks - num_initialized_blocks
 
 
 # ____________________________________________________________
-# Helpers to go from a pointer to the start of its page
 
-def start_of_page(addr, page_size):
-    """Return the address of the start of the page that contains 'addr'."""
-    if we_are_translated():
-        offset = llmemory.cast_adr_to_int(addr) % page_size
-        return addr - offset
-    else:
-        return _start_of_page_untranslated(addr, page_size)
-
-def _start_of_page_untranslated(addr, page_size):
-    assert isinstance(addr, llarena.fakearenaaddress)
-    shift = WORD  # for testing, we assume that the whole arena is not
-                  # on a page boundary
-    ofs = ((addr.offset - shift) // page_size) * page_size + shift
-    return llarena.fakearenaaddress(addr.arena, ofs)
+class MMapIgnoredFIXED(Exception):
+    pass
 
 def _dummy_size(size):
     if we_are_translated():

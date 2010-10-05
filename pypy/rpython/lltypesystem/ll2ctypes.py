@@ -1154,16 +1154,14 @@ class ForcePtrAddEntry(ExtRegistryEntry):
         return hop.genop('direct_ptradd', [v_ptr, v_n],
                          resulttype = v_ptr.concretetype)
 
-class _lladdress(long):
+class _lladdress(object):
     _TYPE = llmemory.Address
 
-    def __new__(cls, void_p):
+    def __init__(self, void_p):
         if isinstance(void_p, (int, long)):
             void_p = ctypes.c_void_p(void_p)
-        self = long.__new__(cls, void_p.value)
         self.void_p = void_p
         self.intval = intmask(void_p.value)
-        return self
 
     def _cast_to_ptr(self, TP):
         return force_cast(TP, self.intval)
@@ -1178,6 +1176,12 @@ class _lladdress(long):
 
     def __ne__(self, other):
         return not self == other
+
+    def __add__(self, other):
+        return _lladdress(self.intval + other)
+
+    def __sub__(self, other):
+        return _lladdress(self.intval - other)
 
 class _llgcopaque(lltype._container):
     _TYPE = llmemory.GCREF.TO

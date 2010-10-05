@@ -196,7 +196,8 @@ translation_optiondescription = OptionDescription(
     BoolOption("compressptr", "Compress pointers; limits the program to 32GB",
                default=False, cmdline="--compressptr",
                requires=[("translation.type_system", "lltype"),
-                         ("translation.taggedpointers", False)]
+                         ("translation.taggedpointers", False),
+                         ("translation.gc", "minimark")]    # for now
                + [("compressptr (64-bit only)", True)]*(not IS_64_BITS)),
 
     # options for ootype

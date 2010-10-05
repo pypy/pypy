@@ -881,15 +881,20 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
+    if database.late_initializations_hiddengcref32:
+        gen_late_initializations_hiddengcref32(f, database)
     print >> f, 'char *RPython_StartupCode(void) {'
     print >> f, '\tchar *error = NULL;'
-    for line in database.gcpolicy.gc_startup_code():
-        print >> f,"\t" + line
 
     # put float infinities in global constants, we should not have so many of them for now to make
     # a table+loop preferable
     for dest, value in database.late_initializations:
         print >> f, "\t%s = %s;" % (dest, value)
+    if database.late_initializations_hiddengcref32:
+        print >> f, "\tpypy_init_hiddengcref32();"
+
+    for line in database.gcpolicy.gc_startup_code():
+        print >> f,"\t" + line
 
     firsttime = True
     for node in database.containerlist:
@@ -903,6 +908,25 @@ def gen_startupcode(f, database):
                 print >> f, '\t'+line
     print >> f, '\treturn error;'
     print >> f, '}'
+
+def gen_late_initializations_hiddengcref32(f, database):
+    print >> f, 'static void* pypy_hiddengcref32[] = {'
+    for access_expr, name in database.late_initializations_hiddengcref32:
+        print >> f, '\t&%s, %s,' % (access_expr, name)
+    print >> f, '''\tNULL  /* sentinel */
+};
+
+static void pypy_init_hiddengcref32(void)
+{
+\tvoid** p;
+\tfor (p = pypy_hiddengcref32; p[0] != NULL; p += 2)
+\t{
+\t\thiddengcref32_t h;
+\t\tOP_HIDE_INTO_ADR32((p[1]), h);
+\t\t*(hiddengcref32_t**)(p[0]) = h;
+\t}
+}
+'''
 
 def commondefs(defines):
     from pypy.rlib.rarithmetic import LONG_BIT

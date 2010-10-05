@@ -7,6 +7,13 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 
 
 def get_compressed_gcref_repr(rtyper, baserepr):
+    # Return either the original baserepr, or another repr standing for
+    # a HiddenGcRef32.  The idea is that we only get a HiddenGcRef32 for
+    # fixed-sized structures (XXX that are not too big); thus this is only
+    # for structures that gets allocated by the minimarkpage2 mmap()-
+    # within-32GB-of-RAM.
+    if baserepr.lowleveltype.TO._is_varsize():
+        return baserepr
     try:
         comprmgr = rtyper.compressed_gcref_manager
     except AttributeError:

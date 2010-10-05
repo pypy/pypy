@@ -10,12 +10,12 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib import rstack, rgc
 from pypy.rlib.debug import ll_assert
 from pypy.translator.backendopt import graphanalyze
-from pypy.translator.backendopt.support import var_needsgc
 from pypy.annotation import model as annmodel
 from pypy.rpython import annlowlevel
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF
 from pypy.rpython.memory.gctypelayout import convert_weakref_to, WEAKREFPTR
+from pypy.rpython.memory.gctypelayout import is_gc_pointer_or_hidden
 from pypy.rpython.memory.gctransform.log import log
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
@@ -68,9 +68,7 @@ def find_initializing_stores(collect_analyzer, graph):
                     mallocvars[op.result] = True
             elif op.opname in ("setfield", "setarrayitem", "setinteriorfield"):
                 TYPE = op.args[-1].concretetype
-                if (op.args[0] in mallocvars and
-                    isinstance(TYPE, lltype.Ptr) and
-                    TYPE.TO._gckind == "gc"):
+                if op.args[0] in mallocvars and is_gc_pointer_or_hidden(TYPE):
                     result.add(op)
             else:
                 if collect_analyzer.analyze(op):
@@ -1017,15 +1015,20 @@ class FrameworkGCTransformer(GCTransformer):
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
         assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
-        assert isinstance(v_newvalue.concretetype, lltype.Ptr)
+        assert is_gc_pointer_or_hidden(v_newvalue.concretetype)
         # XXX for some GCs the skipping if the newvalue is a constant won't be
         # ok
         if (self.write_barrier_ptr is not None
             and not isinstance(v_newvalue, Constant)
             and v_struct.concretetype.TO._gckind == "gc"
             and hop.spaceop not in self.clean_sets):
-            v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
-                                   resulttype = llmemory.Address)
+            if v_newvalue.concretetype == llmemory.HiddenGcRef32:
+                ...
+                v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
+                                       resulttype = llmemory.Address)
+            else:
+                v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
+                                       resulttype = llmemory.Address)
             v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
                                      resulttype = llmemory.Address)
             if (self.write_barrier_from_array_ptr is not None and
@@ -1089,7 +1092,7 @@ class FrameworkGCTransformer(GCTransformer):
             GCTransformer.gct_setfield(self, hop)
 
     def var_needs_set_transform(self, var):
-        return var_needsgc(var)
+        return is_gc_pointer_or_hidden(var.concretetype)
 
     def push_alive_nopyobj(self, var, llops):
         pass

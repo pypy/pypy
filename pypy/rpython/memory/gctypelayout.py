@@ -366,6 +366,10 @@ class TypeLayoutBuilder(object):
 #
 # Helpers to discover GC pointers inside structures
 
+def is_gc_pointer_or_hidden(TYPE):
+    return ((isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc')
+            or TYPE == llmemory.HiddenGcRef32)
+
 def offsets_to_gc_pointers(TYPE):
     offsets = []
     if isinstance(TYPE, lltype.Struct):

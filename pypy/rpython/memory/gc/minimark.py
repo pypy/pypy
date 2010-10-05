@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
-from pypy.rpython.memory.gc import minimarkpage, base, generation
+from pypy.rpython.memory.gc import base, generation
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -102,11 +102,12 @@ class MiniMarkGC(MovingGCBase):
 
         # The system page size.  Like obmalloc.c, we assume that it is 4K
         # for 32-bit systems; unlike obmalloc.c, we assume that it is 8K
-        # for 64-bit systems, for consistent results.
+        # for 64-bit systems, for consistent results.  (ignored if we
+        # use minimarkpage2.py)
         "page_size": 1024*WORD,
 
         # The size of an arena.  Arenas are groups of pages allocated
-        # together.
+        # together.  (ignored if we use minimarkpage2.py)
         "arena_size": 65536*WORD,
 
         # The maximum size of an object allocated compactly.  All objects
@@ -181,7 +182,14 @@ class MiniMarkGC(MovingGCBase):
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
         if ArenaCollectionClass is None:
-            ArenaCollectionClass = minimarkpage.ArenaCollection
+            if self.translated_to_c and self.config.compressptr:
+                from pypy.rpython.memory.gc import minimarkpage2
+                ArenaCollectionClass = minimarkpage2.ArenaCollection2
+                arena_size = minimarkpage2.ARENA_SIZE
+                page_size = 4096
+            else:
+                from pypy.rpython.memory.gc import minimarkpage
+                ArenaCollectionClass = minimarkpage.ArenaCollection
         self.ac = ArenaCollectionClass(arena_size, page_size,
                                        small_request_threshold)
         #
@@ -267,7 +275,7 @@ class MiniMarkGC(MovingGCBase):
                 self.max_heap_size = float(max_heap_size)
             #
             self.minor_collection()    # to empty the nursery
-            llarena.arena_free(self.nursery)
+            self.ac.free_big_chunk(self.nursery)
             self.nursery_size = newsize
             self.allocate_nursery()
 
@@ -280,9 +288,11 @@ class MiniMarkGC(MovingGCBase):
         # in malloc_fixedsize_clear().  The few extra pages are never used
         # anyway so it doesn't even count.
         extra = self.nonlarge_gcptrs_max + 1
-        self.nursery = llarena.arena_malloc(self.nursery_size + extra, 2)
+        fullsize = self.nursery_size + extra
+        self.nursery = self.ac.allocate_big_chunk(fullsize)
         if not self.nursery:
             raise MemoryError("cannot allocate nursery")
+        llarena.arena_reset(self.nursery, fullsize, 2)
         # the current position in the nursery:
         self.nursery_free = self.nursery
         # the end of the nursery:
@@ -1525,6 +1535,12 @@ class SimpleArenaCollection(object):
         self.small_request_threshold = small_request_threshold
         self.all_objects = []
         self.total_memory_used = 0
+
+    def allocate_big_chunk(self, arena_size):
+        return llarena.arena_malloc(arena_size, False)
+
+    def free_big_chunk(self, arena):
+        llarena.arena_free(arena)
 
     def malloc(self, size):
         nsize = raw_malloc_usage(size)
