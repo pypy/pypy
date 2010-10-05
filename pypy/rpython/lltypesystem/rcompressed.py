@@ -3,7 +3,8 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.config.translationoption import IS_64_BITS
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.error import TyperError
 
 
 def get_compressed_gcref_repr(rtyper, baserepr):
@@ -38,6 +39,8 @@ class ComprGcRefManager(object):
 
 class CompressedGcRefRepr(Repr):
     lowleveltype = llmemory.HiddenGcRef32
+    ll_hash_function = None
+    ll_fasthash_function = None
 
     def __init__(self, mgr, baserepr):
         self.mgr = mgr
@@ -49,6 +52,42 @@ class CompressedGcRefRepr(Repr):
         T = lltype.typeOf(ptr)
         assert T == self.BASETYPE
         return llmemory._hiddengcref32(llmemory.cast_ptr_to_adr(ptr))
+
+    def get_ll_eq_function(self):
+        if self.baserepr.get_ll_eq_function() is not None:
+            raise TyperError("%r has an eq function" % (self.baserepr,))
+        return None
+
+    def get_ll_hash_function(self):
+        if self.ll_hash_function is None:
+            basefunc = self.baserepr.get_ll_hash_function()
+            BASETYPE = self.BASETYPE
+            #
+            def ll_hiddengcref32_hash(x):
+                x = llop.show_from_adr32(BASETYPE, x)
+                return basefunc(x)
+            #
+        return self.ll_hash_function
+
+    def get_ll_fasthash_function(self):
+        if self.ll_fasthash_function is None:
+            basefunc = self.baserepr.get_ll_fasthash_function()
+            if basefunc is None:
+                return None
+            BASETYPE = self.BASETYPE
+            #
+            def ll_hiddengcref32_fasthash(x):
+                x = llop.show_from_adr32(BASETYPE, x)
+                return basefunc(x)
+            #
+        return self.ll_fasthash_function
+
+    def get_ll_dummyval_obj(self, rtyper, s_value):
+        DummyVal()
+
+
+class DummyVal(object):
+    ll_dummy_value = llop.hide_into_adr32xxx
 
 
 class __extend__(pairtype(Repr, CompressedGcRefRepr)):

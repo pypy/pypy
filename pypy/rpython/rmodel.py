@@ -438,8 +438,11 @@ def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)i
     from pypy.rpython import rclass
     if (isinstance(item_repr, rclass.AbstractInstanceRepr) and
         getattr(item_repr, 'gcflavor', 'gc') == 'gc'):
-        #if rtyper.annotator.translator.config.translation.compressptr:
-        #    return externalvsinternalfield(rtyper, item_repr)
+        if rtyper.annotator.translator.config.translation.compressptr:
+            item_repr, internal_item_repr = externalvsinternalfield(rtyper,
+                                                                    item_repr)
+            if internal_item_repr is not item_repr:
+                return item_repr, internal_item_repr
         return item_repr, rclass.getinstancerepr(rtyper, None)
     return item_repr, item_repr
 

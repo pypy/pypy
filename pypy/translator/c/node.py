@@ -789,7 +789,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             expr = '0.0 /* patched later by %sinfinity */' % (
                 '-+'[value > 0])
         elif TYPE == llmemory.HiddenGcRef32:
-            if value.adr64:
+            if value.special_value is None:
                 name = db.get(value.adr64.ptr)
                 db.late_initializations_hiddengcref32.append((access_expr,
                                                               name))
@@ -797,7 +797,8 @@ def generic_initializationexpr(db, value, access_expr, decoration):
                     name = '(%s)' % name
                 expr = '0 /*HIDE_INTO_ADR32%s*/' % name
             else:
-                expr = '0'
+                assert isinstance(value.special_value, int)
+                expr = str(value.special_value)
         else:
             expr = db.get(value)
             if TYPE is Void:

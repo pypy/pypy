@@ -150,7 +150,8 @@ def name_gcref(value, db):
 def name_hiddengcref32(value, db):
     # The only prebuilt HiddenGcRef32 that should occur in a translated C
     # program occur as fields or items of a GcStruct or GcArray.
-    db.get(value.adr64)
+    if not value.special_value:
+        db.get(value.adr64)
     return 'HIDE_INTO_ADR32(???) /* see primitive.py, name_hiddengcref32() */'
 
 def name_small_integer(value, db):
