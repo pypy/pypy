@@ -50,7 +50,7 @@ class CompressedGcRefRepr(Repr):
         ptr = self.baserepr.convert_const(value)
         T = lltype.typeOf(ptr)
         assert T == self.BASETYPE
-        return llop.hide_into_adr32(self.lowleveltype, ptr)
+        return llop.hide_into_ptr32(self.lowleveltype, ptr)
 
     def get_ll_eq_function(self):
         if self.baserepr.get_ll_eq_function() is not None:
@@ -63,7 +63,7 @@ class CompressedGcRefRepr(Repr):
             BASETYPE = self.BASETYPE
             #
             def ll_hiddengcref32_hash(x):
-                x = llop.show_from_adr32(BASETYPE, x)
+                x = llop.show_from_ptr32(BASETYPE, x)
                 return basefunc(x)
             #
             self.ll_hash_function = ll_hiddengcref32_hash
@@ -77,7 +77,7 @@ class CompressedGcRefRepr(Repr):
             BASETYPE = self.BASETYPE
             #
             def ll_hiddengcref32_fasthash(x):
-                x = llop.show_from_adr32(BASETYPE, x)
+                x = llop.show_from_ptr32(BASETYPE, x)
                 return basefunc(x)
             #
             self.ll_fasthash_function = ll_hiddengcref32_hash
@@ -98,12 +98,12 @@ class __extend__(pairtype(Repr, CompressedGcRefRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         assert r_from.lowleveltype.TO._gckind == 'gc'
         assert not isinstance(r_from.lowleveltype.TO, lltype.GcOpaqueType)
-        return llops.genop('hide_into_adr32', [v],
+        return llops.genop('hide_into_ptr32', [v],
                            resulttype=llmemory.HiddenGcRef32)
 
 class __extend__(pairtype(CompressedGcRefRepr, Repr)):
     def convert_from_to((r_from, r_to), v, llops):
         assert r_to.lowleveltype.TO._gckind == 'gc'
         assert not isinstance(r_to.lowleveltype.TO, lltype.GcOpaqueType)
-        return llops.genop('show_from_adr32', [v],
+        return llops.genop('show_from_ptr32', [v],
                            resulttype=r_to.lowleveltype)

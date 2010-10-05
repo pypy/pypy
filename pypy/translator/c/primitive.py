@@ -148,17 +148,17 @@ def name_gcref(value, db):
         return 'NULL'
 
 def name_hiddengcref32(value, db):
-    if hasattr(value, 'dummy_value'):
-        return '1 /* dummy value */'
-    elif not value:
+    if not value:
         return '0'   # NULL
+    elif hasattr(value._obj, 'dummy_value'):
+        return '1 /* dummy value */'
     # The only prebuilt HiddenGcRef32 that should occur in a translated C
     # program occur as fields or items of a GcStruct or GcArray.  They are
     # handled by late_initializations_hiddengcref32.
     realobj = value._obj.container
     realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
     db.get(realvalue)      # force following dependencies
-    return 'HIDE_INTO_ADR32(???) /* see primitive.py, name_hiddengcref32() */'
+    return 'HIDE_INTO_PTR32(???) /* see primitive.py, name_hiddengcref32() */'
 
 def name_small_integer(value, db):
     """Works for integers of size at most INT or UINT."""

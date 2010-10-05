@@ -647,17 +647,28 @@ class FunctionCodeGenerator(object):
                                         self.expr(op.args[0])))
         return '\t'.join(result)
 
-    OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
-    OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
+    def OP_CAST_PTR_TO_ADR(self, op):
+        # detect a case that is not supported and should be handled with
+        # show_from_ptr32.
+        if op.args[0].concretetype == HiddenGcRef32:
+            raise Exception("cast_ptr_to_adr(hiddengcref32): not supported")
+        return self.OP_CAST_POINTER(op)
+
+    def OP_CAST_ADR_TO_PTR(self, op):
+        # detect a case that is not supported and should be handled with
+        # hide_into_ptr32.
+        if op.result.concretetype == HiddenGcRef32:
+            raise Exception("hiddengcref32 = cast_adr_to_ptr(): not supported")
+        return self.OP_CAST_POINTER(op)
 
     def OP_CAST_OPAQUE_PTR(self, op):
+        # detect cases that are not supported and should be handled with
+        # hide_into_ptr32 or show_from_ptr32.
         if op.result.concretetype == HiddenGcRef32:
-            return 'OP_HIDE_INTO_ADR32(%s, %s);' % (self.expr(op.args[0]),
-                                                    self.expr(op.result))
+            raise Exception("hiddengcref32 = cast_opaque_ptr(): not supported")
         if op.args[0].concretetype == HiddenGcRef32:
-            return 'OP_SHOW_FROM_ADR32(%s, %s);' % (self.expr(op.args[0]),
-                                                    self.expr(op.result))
-        return self.OP_CAST_OPAQUE_PTR(op)
+            raise Exception("cast_opaque_ptr(hiddengcref32): not supported")
+        return self.OP_CAST_POINTER(op)
 
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)

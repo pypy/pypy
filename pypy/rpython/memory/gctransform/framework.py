@@ -1060,16 +1060,16 @@ class FrameworkGCTransformer(GCTransformer):
 
     def _fetch_unpacked_address(self, hop, v_value):
         # optimization for the common case where this setfield is preceded
-        # by v_value = hide_into_adr32(v_normal_pointer)
+        # by v_value = hide_into_ptr32(v_normal_pointer)
         for op in hop.llops[::-1]:
-            if op.opname == 'hide_into_adr32' and op.result == v_value:
+            if op.opname == 'hide_into_ptr32' and op.result == v_value:
                 v_value = op.args[0]
                 if v_value.concretetype != llmemory.Address:
                     v_value = hop.genop("cast_ptr_to_adr", [v_value],
                                         resulttype = llmemory.Address)
                 return v_value
         else:
-            return hop.genop("show_from_adr32", [v_value],
+            return hop.genop("show_from_ptr32", [v_value],
                              resulttype = llmemory.Address)
 
     def transform_getfield_typeptr(self, hop):

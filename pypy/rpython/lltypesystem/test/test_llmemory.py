@@ -654,6 +654,6 @@ def test_HiddenGcRef32():
     from pypy.rpython.lltypesystem.lloperation import llop
     S = lltype.GcStruct('S')
     p = lltype.malloc(S)
-    q = llop.hide_into_adr32(HiddenGcRef32, p)
-    r = llop.show_from_adr32(lltype.Ptr(S), q)
+    q = llop.hide_into_ptr32(HiddenGcRef32, p)
+    r = llop.show_from_ptr32(lltype.Ptr(S), q)
     assert r == p

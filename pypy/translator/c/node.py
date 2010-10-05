@@ -790,14 +790,14 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             expr = '0.0 /* patched later by %sinfinity */' % (
                 '-+'[value > 0])
         elif (TYPE == llmemory.HiddenGcRef32
-              and value and not hasattr(value, 'dummy_value')):
+              and value and not hasattr(value._obj, 'dummy_value')):
             realobj = value._obj.container
             realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
             name = db.get(realvalue)
             db.late_initializations_hiddengcref32.append((access_expr, name))
             if not name.startswith('('):
                 name = '(%s)' % name
-            expr = '0 /*HIDE_INTO_ADR32%s*/' % name
+            expr = '0 /*HIDE_INTO_PTR32%s*/' % name
         else:
             expr = db.get(value)
             if TYPE is Void:

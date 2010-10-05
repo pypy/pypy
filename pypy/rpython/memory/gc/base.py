@@ -215,11 +215,11 @@ class GCBase(object):
             ofs = llmemory.remove_odd_value_marker(ofs)
             item = obj + ofs
             item = llmemory.cast_adr_to_ptr(item, lltype.Ptr(HIDDENGCREFFIELD))
-            address = llop.show_from_adr32(llmemory.Address, item[0])
+            address = llop.show_from_ptr32(llmemory.Address, item[0])
             if self.is_valid_gc_object(address):
                 newaddr = callback(address, arg)
                 if newaddr is not None:
-                    item[0] = llop.hide_into_adr32(llmemory.HiddenGcRef32,
+                    item[0] = llop.hide_into_ptr32(llmemory.HiddenGcRef32,
                                                    newaddr)
         else:
             # common case
