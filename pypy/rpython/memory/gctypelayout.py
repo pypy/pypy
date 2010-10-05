@@ -131,6 +131,7 @@ T_HAS_GCPTR_IN_VARSIZE = 0x20000
 T_IS_GCARRAY_OF_GCPTR  = 0x40000
 T_IS_WEAKREF           = 0x80000
 T_IS_RPYTHON_INSTANCE  = 0x100000    # the type is a subclass of OBJECT
+T_IS_GCARRAY_OF_HIDDENGCREF32 = 0x200000
 T_KEY_MASK             = intmask(0xFF000000)
 T_KEY_VALUE            = intmask(0x7A000000)    # bug detection only
 
@@ -175,7 +176,10 @@ def encode_type_shape(builder, info, TYPE, index):
             ARRAY = TYPE
             if (isinstance(ARRAY.OF, lltype.Ptr)
                 and ARRAY.OF.TO._gckind == 'gc'):
-                infobits |= T_IS_GCARRAY_OF_GCPTR
+                if ARRAY.OF == llmemory.HiddenGcRef32:
+                    pass   # infobits |= T_IS_GCARRAY_OF_HIDDENGCREF32
+                else:
+                    infobits |= T_IS_GCARRAY_OF_GCPTR
             varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
             varinfo.ofstovar = llmemory.itemoffsetof(TYPE, 0)
         assert isinstance(ARRAY, lltype.Array)

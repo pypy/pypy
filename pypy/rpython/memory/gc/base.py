@@ -178,6 +178,7 @@ class GCBase(object):
         Typically, 'callback' is a bound method and 'arg' can be None.
         """
         typeid = self.get_type_id(obj)
+        # XXX missing performance shortcut for GcArray(HiddenGcRef32)
         if self.is_gcarrayofgcptr(typeid):
             # a performance shortcut for GcArray(gcptr)
             length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
