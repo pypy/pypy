@@ -25,5 +25,5 @@ void RPyPointerTooBig(void) {
      RPyPointerTooBig()
 
 #define OP_HIDE_INTO_PTR32(x, r)  \
-   RPyAssert(!(((long)(x)) & 0x7FFFFFFF8), "Pointer too big or misaligned"); \
+   RPyAssert(!(((long)(x)) & ~0x7FFFFFFF8), "Pointer too big or misaligned"); \
    r = (hiddengcref32_t)(((unsigned long)(x)) >> 3)
