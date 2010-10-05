@@ -197,7 +197,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--compressptr",
                requires=[("translation.type_system", "lltype"),
                          ("translation.taggedpointers", False),
-                         ("translation.gc", "minimark")]    # for now
+                         ("translation.gc", "minimark"),    # for now
+                         ("translation.gcrootfinder", "shadowstack")]  # xxx
                + [("compressptr (64-bit only)", True)]*(not IS_64_BITS)),
 
     # options for ootype

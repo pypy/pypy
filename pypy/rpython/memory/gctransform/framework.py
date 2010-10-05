@@ -1166,6 +1166,9 @@ class FrameworkGCTransformer(GCTransformer):
                 c_k = rmodel.inputconst(lltype.Signed, k)
                 v_newaddr = hop.genop("raw_load", [base_addr, c_type, c_k],
                                       resulttype=llmemory.Address)
+                if var.concretetype == llmemory.HiddenGcRef32:
+                    v_newaddr = gen_cast(hop.llops, llmemory.HiddenGcRef32,
+                                         v_newaddr)
                 hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
 
     def compute_borrowed_vars(self, graph):

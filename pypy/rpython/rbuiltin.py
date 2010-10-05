@@ -464,12 +464,20 @@ def gen_cast(llops, TGT, v_value):
             else:
                 return llops.genop('cast_pointer', [v_value], resulttype = TGT)
         elif ORIG == llmemory.Address:
-            return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
+            if TGT == llmemory.HiddenGcRef32:
+                return llops.genop('hide_into_ptr32', [v_value],
+                                   resulttype = TGT)
+            else:
+                return llops.genop('cast_adr_to_ptr', [v_value],
+                                   resulttype = TGT)
         elif isinstance(ORIG, lltype.Primitive):
             v_value = gen_cast(llops, lltype.Signed, v_value)            
             return llops.genop('cast_int_to_ptr', [v_value], resulttype=TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):
-        return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
+        if ORIG == llmemory.HiddenGcRef32:
+            return llops.genop('show_from_ptr32', [v_value], resulttype = TGT)
+        else:
+            return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
     elif isinstance(TGT, lltype.Primitive):
         if isinstance(ORIG, lltype.Ptr):
             v_value = llops.genop('cast_ptr_to_int', [v_value],
