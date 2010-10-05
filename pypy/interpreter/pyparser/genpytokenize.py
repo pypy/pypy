@@ -58,6 +58,7 @@ def makePyPseudoDFA ():
                       maybe(states, groupStr(states, "lL")))
     octNumber = chain(states,
                       newArcPair(states, "0"),
+                      maybe(states, groupStr(states, "oO")),
                       any(states, groupStr(states, "01234567")),
                       maybe(states, groupStr(states, "lL")))
     decNumber = chain(states,

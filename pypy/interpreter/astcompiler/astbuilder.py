@@ -1037,13 +1037,15 @@ class ASTBuilder(object):
         if raw.startswith("0"):
             if len(raw) > 2 and raw[1] in "Xx":
                 base = 16
+            ## elif len(raw) > 2 and raw[1] in "Oo": # Fallback below is enough
+            ##     base = 8
             elif len(raw) > 1:
                 base = 8
             # strip leading characters
             i = 0
             limit = len(raw) - 1
             while i < limit:
-                if raw[i] not in "0xX":
+                if raw[i] not in "0xXoO":
                     break
                 i += 1
             raw = raw[i:]

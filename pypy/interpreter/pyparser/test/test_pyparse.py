@@ -108,3 +108,8 @@ pass"""
         self.parse("br'\\\n'")
 
         py.test.raises(SyntaxError, self.parse, "b'a\\n")
+
+    def test_new_octal_literal(self):
+        self.parse('0777')
+        self.parse('0o777')
+        py.test.raises(SyntaxError, self.parse, "0o778")

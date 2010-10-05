@@ -1137,6 +1137,8 @@ class TestAstBuilder:
         assert space.eq_w(get_num("-0xAAAAAAL"), space.wrap(-0xAAAAAAL))
         n = get_num(str(-sys.maxint - 1))
         assert space.is_true(space.isinstance(n, space.w_int))
+        for num in ("0o53", "0O53", "0o0000053", "0O00053"):
+            assert space.eq_w(get_num(num), space.wrap(053))
 
     def check_comprehension(self, brackets, ast_type):
         def brack(s):
