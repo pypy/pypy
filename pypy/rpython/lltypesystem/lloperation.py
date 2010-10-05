@@ -426,9 +426,6 @@ LL_OPERATIONS = {
     'gc_gettypeptr_group':  LLOp(canfold=True),
     'get_member_index':     LLOp(canfold=True),
 
-    'hide_into_adr32':      LLOp(canrun=True),
-    'show_from_adr32':      LLOp(canrun=True),
-
     # __________ used by the JIT ________
 
     'jit_marker':           LLOp(),

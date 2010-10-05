@@ -518,14 +518,6 @@ class SomeTypedAddressAccess(SomeObject):
     def can_be_none(self):
         return False
 
-# for compressed 32-bit "pointers" on 64-bit platforms
-
-class SomeHiddenGcRef32(SomeObject):
-    immutable = True
-
-    def can_be_none(self):
-        return False
-
 #____________________________________________________________
 # annotation of low-level types
 
@@ -590,7 +582,6 @@ annotation_to_ll_map = [
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),
-    (SomeHiddenGcRef32(), llmemory.HiddenGcRef32),
 ]
 
 def annotation_to_lltype(s_val, info=None):

@@ -645,3 +645,13 @@ def test_cast_adr_to_int():
     #assert cast_int_to_adr(i) == adr -- depends on ll2ctypes details
     i = cast_adr_to_int(NULL, mode="forced")
     assert type(i) is int and i == 0
+
+def test_HiddenGcRef32():
+    from pypy.config.translationoption import IS_64_BITS
+    if not IS_64_BITS:
+        py.test.skip("only on 64-bits")
+    S = lltype.GcStruct('S')
+    p = lltype.malloc(S)
+    q = lltype.cast_opaque_ptr(HiddenGcRef32, p)
+    r = lltype.cast_opaque_ptr(lltype.Ptr(S), q)
+    assert r == p

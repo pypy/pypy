@@ -9,6 +9,7 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import rarithmetic
 
 class AddressOffset(Symbolic):
 
@@ -565,22 +566,11 @@ def array_item_type_match(T1, T2):
 
 # ____________________________________________________________
 
-class _hiddengcref32(object):
-    """A 'hidden' compressed 32-bit value that represents a
-    full, 64-bit GC pointer."""
-
-    def __init__(self, adr64):
-        self.adr64 = adr64
-
-    def __repr__(self):
-        return '<_hiddengcref32>'
-
-    def __str__(self):
-        return '<_hiddengcref32 %s>' % (self.adr64,)
-
-compressed_null_addr = _hiddengcref32(NULL)
-HiddenGcRef32 = lltype.Primitive("HiddenGcRef32", compressed_null_addr)
-_hiddengcref32._TYPE = HiddenGcRef32
+# HiddenGcRef32 is only on 64-bits with 'compressptr' enabled.
+# It is actually a 32-bit pointer, not a normal 64-bit pointer,
+# but it's represented as a regular lltype.Ptr() in order to integrate
+# better with the rest of the code.
+HiddenGcRef32 = lltype.Ptr(lltype.GcOpaqueType('HIDDENGCREF32'))
 
 class OddValueMarker(AddressOffset):
     """This is the value '1'.  Used as an odd-valued marker by the GC."""
@@ -653,8 +643,11 @@ class _float_fakeaccessor(_fakeaccessor):
 class _char_fakeaccessor(_fakeaccessor):
     TYPE = lltype.Char
 
-class _hiddengcref32_fakeaccessor(_fakeaccessor):
-    TYPE = HiddenGcRef32
+r_int32 = rarithmetic.build_int("r_int", True, 32)
+INT32 = lltype.build_number("INT", r_int32)
+
+class _int32_fakeaccessor(_fakeaccessor):
+    TYPE = INT32
 
 class _address_fakeaccessor(_fakeaccessor):
     TYPE = Address
@@ -683,14 +676,14 @@ supported_access_types = {"signed":    lltype.Signed,
                           "char":      lltype.Char,
                           "address":   Address,
                           "float":     lltype.Float,
-                          "hiddengcref32": HiddenGcRef32,
+                          "int32":     INT32,
                           }
 
 fakeaddress.signed = property(_signed_fakeaccessor)
 fakeaddress.float = property(_float_fakeaccessor)
 fakeaddress.char = property(_char_fakeaccessor)
 fakeaddress.address = property(_address_fakeaccessor)
-fakeaddress.hiddengcref32 = property(_hiddengcref32_fakeaccessor)
+fakeaddress.int32 = property(_int32_fakeaccessor)
 fakeaddress._TYPE = Address
 
 # the obtained address will not keep the object alive. e.g. if the object is

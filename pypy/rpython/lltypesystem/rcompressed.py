@@ -3,16 +3,14 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.config.translationoption import IS_64_BITS
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.error import TyperError
 
 
 def get_compressed_gcref_repr(rtyper, baserepr):
     # Return either the original baserepr, or another repr standing for
     # a HiddenGcRef32.  The idea is that we only get a HiddenGcRef32 for
-    # fixed-sized structures (XXX that are not too big); thus this is only
-    # for structures that gets allocated by the minimarkpage2 mmap()-
-    # within-32GB-of-RAM.
+    # fixed-sized structures; they get allocated by the minimarkpage2
+    # mmap()-within-32GB-of-RAM.
     if baserepr.lowleveltype.TO._is_varsize():
         return baserepr
     try:
@@ -51,7 +49,7 @@ class CompressedGcRefRepr(Repr):
         ptr = self.baserepr.convert_const(value)
         T = lltype.typeOf(ptr)
         assert T == self.BASETYPE
-        return llmemory._hiddengcref32(llmemory.cast_ptr_to_adr(ptr))
+        return lltype.cast_opaque_ptr(self.lowleveltype, ptr)
 
     def get_ll_eq_function(self):
         if self.baserepr.get_ll_eq_function() is not None:
@@ -64,9 +62,10 @@ class CompressedGcRefRepr(Repr):
             BASETYPE = self.BASETYPE
             #
             def ll_hiddengcref32_hash(x):
-                x = llop.show_from_adr32(BASETYPE, x)
+                x = lltype.cast_opaque_ptr(BASETYPE, x)
                 return basefunc(x)
             #
+            self.ll_hash_function = ll_hiddengcref32_hash
         return self.ll_hash_function
 
     def get_ll_fasthash_function(self):
@@ -77,27 +76,33 @@ class CompressedGcRefRepr(Repr):
             BASETYPE = self.BASETYPE
             #
             def ll_hiddengcref32_fasthash(x):
-                x = llop.show_from_adr32(BASETYPE, x)
+                x = lltype.cast_opaque_ptr(BASETYPE, x)
                 return basefunc(x)
             #
+            self.ll_fasthash_function = ll_hiddengcref32_hash
         return self.ll_fasthash_function
 
     def get_ll_dummyval_obj(self, rtyper, s_value):
-        DummyVal()
+        return DummyVal()
 
 
 class DummyVal(object):
-    ll_dummy_value = llop.hide_into_adr32xxx
+    TYPE = llmemory.HiddenGcRef32.TO
+    ll_dummy_value = lltype.opaqueptr(TYPE, "dummy_value", dummy_value=True)
+    def _freeze_(self):
+        return True
 
 
 class __extend__(pairtype(Repr, CompressedGcRefRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         assert r_from.lowleveltype.TO._gckind == 'gc'
-        return llops.genop('hide_into_adr32', [v],
+        assert not isinstance(r_from.lowleveltype.TO, lltype.GcOpaqueType)
+        return llops.genop('cast_opaque_ptr', [v],
                            resulttype=llmemory.HiddenGcRef32)
 
 class __extend__(pairtype(CompressedGcRefRepr, Repr)):
     def convert_from_to((r_from, r_to), v, llops):
         assert r_to.lowleveltype.TO._gckind == 'gc'
-        return llops.genop('show_from_adr32', [v],
+        assert not isinstance(r_to.lowleveltype.TO, lltype.GcOpaqueType)
+        return llops.genop('cast_opaque_ptr', [v],
                            resulttype=r_to.lowleveltype)
