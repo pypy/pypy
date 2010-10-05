@@ -1,4 +1,4 @@
-# base annotation policy for overrides and specialization
+# base annotation policy for specialization
 from pypy.annotation.specialize import default_specialize as default
 from pypy.annotation.specialize import specialize_argvalue, specialize_argtype, specialize_arglistitemtype
 from pypy.annotation.specialize import memo
@@ -41,7 +41,7 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         if directive is None:
             return pol.default_specialize
 
-        # specialize|override:name[(args)]
+        # specialize[(args)]
         directive_parts = directive.split('(', 1)
         if len(directive_parts) == 1:
             [name] = directive_parts
@@ -60,14 +60,6 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         except AttributeError:
             raise AttributeError("%r specialize tag not defined in annotation"
                                  "policy %s" % (name, pol))
-        if directive.startswith('override:'):
-            # different signature: override__xyz(*args_s)
-            if parms:
-                raise Exception, "override:* specialisations don't support parameters"
-            def specialize_override(funcdesc, args_s):
-                funcdesc.overridden = True
-                return specializer(*args_s)
-            return specialize_override
         else:
             if not parms:
                 return specializer
@@ -91,10 +83,6 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     def specialize__ll_and_arg(pol, *args):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         return LowLevelAnnotatorPolicy.specialize__ll_and_arg(*args)
-
-    def override__ignore(pol, *args):
-        bk = getbookkeeper()
-        return bk.immutablevalue(None)
 
 class StrictAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False

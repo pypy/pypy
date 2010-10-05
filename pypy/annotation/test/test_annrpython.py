@@ -766,28 +766,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [list])
         assert s.classdef is a.bookkeeper.getuniqueclassdef(IndexError)  # KeyError ignored because l is a list
 
-    def test_overrides(self):
-        excs = []
-        def record_exc(e):
-            """NOT_RPYTHON"""
-            excs.append(sys.exc_info)
-        record_exc._annspecialcase_ = "override:record_exc"
-        def g():
-            pass
-        def f():
-            try:
-                g()
-            except Exception, e:
-                record_exc(e)
-        class MyAnnotatorPolicy(policy.AnnotatorPolicy):
-
-            def override__record_exc(pol, s_e):
-                return a.bookkeeper.immutablevalue(None)
-            
-        a = self.RPythonAnnotator(policy=MyAnnotatorPolicy())
-        s = a.build_types(f, [])
-        assert s.const is None
-
     def test_freeze_protocol(self):
         class Stuff:
             def __init__(self, flag):

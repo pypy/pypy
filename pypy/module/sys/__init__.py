@@ -7,13 +7,15 @@ class Module(MixedModule):
     """Sys Builtin Module. """
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
+        if space.config.translating:
+            del self.__class__.interpleveldefs['pypy_getudir']
         super(Module, self).__init__(space, w_name) 
         self.checkinterval = 100
         self.recursionlimit = 100
         self.w_default_encoder = None
         self.defaultencoding = "ascii"
         self.filesystemencoding = None
-        
+
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))', 
         '__doc__'               : '(space.wrap("PyPy sys module"))', 
@@ -37,7 +39,7 @@ class Module(MixedModule):
         'argv'                  : 'state.get(space).w_argv', 
         'warnoptions'           : 'state.get(space).w_warnoptions', 
         'builtin_module_names'  : 'state.w_None',
-        'pypy_getudir'          : 'state.pypy_getudir', 
+        'pypy_getudir'          : 'state.pypy_getudir',    # not translated
         'pypy_initial_path'     : 'state.pypy_initial_path',
 
         '_getframe'             : 'vm._getframe', 

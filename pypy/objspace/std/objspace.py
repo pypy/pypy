@@ -242,7 +242,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = getattr(self, 'w_' + x.__name__)
             return w_result
         return None
-    wrap_exception_cls._annspecialcase_ = "override:wrap_exception_cls"
 
     def unwrap(self, w_obj):
         if isinstance(w_obj, Wrappable):
