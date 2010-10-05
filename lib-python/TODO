@@ -12,10 +12,6 @@ Probably easy tasks
 
 - Missing builtin: bytearray (possibly reuse module.__pypy__.bytebuffer)
 
-- Octal literals: 0o777
-
-- float('infinity'), float('nan')
-
 - Seen in test_inspect, this has never worked in pypy::
 
       assert eval('a', None, dict(a=42)) == 42
