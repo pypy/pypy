@@ -1037,6 +1037,8 @@ class ASTBuilder(object):
         if raw.startswith("0"):
             if len(raw) > 2 and raw[1] in "Xx":
                 base = 16
+            elif len(raw) > 2 and raw[1] in "Bb":
+                base = 2
             ## elif len(raw) > 2 and raw[1] in "Oo": # Fallback below is enough
             ##     base = 8
             elif len(raw) > 1:
@@ -1045,7 +1047,7 @@ class ASTBuilder(object):
             i = 0
             limit = len(raw) - 1
             while i < limit:
-                if raw[i] not in "0xXoO":
+                if raw[i] not in "0xXoOBb":
                     break
                 i += 1
             raw = raw[i:]
