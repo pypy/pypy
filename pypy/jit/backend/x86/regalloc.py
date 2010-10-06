@@ -16,7 +16,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
-     TempBox, compute_vars_longevity
+     TempBox, compute_vars_longevity, compute_loop_consts
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE, IS_X86_32, IS_X86_64
 
 class X86RegisterManager(RegisterManager):
@@ -266,16 +266,6 @@ class RegAlloc(object):
         else:
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
-
-    def _compute_loop_consts(self, inputargs, jump, looptoken):
-        if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
-            loop_consts = {}
-        else:
-            loop_consts = {}
-            for i in range(len(inputargs)):
-                if inputargs[i] is jump.getarg(i):
-                    loop_consts[inputargs[i]] = i
-        return loop_consts
 
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py

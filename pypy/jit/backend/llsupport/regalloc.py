@@ -383,3 +383,14 @@ def compute_vars_longevity(inputargs, operations):
     for arg in longevity:
         assert isinstance(arg, Box)
     return longevity
+
+def compute_loop_consts(self, inputargs, jump, looptoken):
+    if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
+        loop_consts = {}
+    else:
+        loop_consts = {}
+        for i in range(len(inputargs)):
+            if inputargs[i] is jump.getarg(i):
+                loop_consts[inputargs[i]] = i
+    return loop_consts
+
