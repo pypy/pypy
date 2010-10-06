@@ -17,7 +17,7 @@ class AssemblerARM(object):
     def assemble_loop(self, inputargs, operations, looptoken):
         assert len(inputargs) == 1
         reg = 0
-        self.gen_preamble()
+        self.gen_func_prolog()
         addr = self.fail_boxes_int.get_addr_for_num(0)
         self.gen_load_int(r.r3, addr)
         self.mc.LDR_ri(r.r2, r.r3)
@@ -28,19 +28,18 @@ class AssemblerARM(object):
                 n = self.cpu.get_fail_descr_number(op.getdescr())
                 self.mc.MOV_ri(r.r0, n)
                 self.mc.STR_ri(r.r1, r.r3)
-                self.gen_out()
+                self.gen_func_epilog()
 
-    def gen_out(self):
+    def gen_func_epilog(self):
         self.mc.write32(0xe50b3010) #        str     r3, [fp, #-16]
         self.mc.write32(0xe51b3010) #        ldr     r3, [fp, #-16]
         #self.mc.write32(0xe1a00003) #        mov     r0, r3
         self.mc.write32(0xe24bd00c) #        sub     sp, fp, #12     ; 0xc
         self.mc.write32(0xe89da800) #        ldm     sp, {fp, sp, pc}
 
-    def gen_preamble(self):
+    def gen_func_prolog(self):
         self.mc.MOV_rr(r.ip, r.sp)
-        #self.mc.write32(0xe1a0c00d) # mov     ip, sp
-        self.mc.write32(0xe92dd800) #push    {fp, ip, lr, pc}
+        self.mc.PUSH([r.fp, r.ip, r.lr, r.pc])
         self.mc.write32(0xe24cb004) # sub     fp, ip, #4      ; 0x4
         self.mc.write32(0xe24dd008) #sub     sp, sp, #8      ; 0x8
         self.mc.write32(0xe50b0014) # str     r0, [fp, #-20]

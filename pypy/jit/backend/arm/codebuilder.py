@@ -70,6 +70,12 @@ class ARMv7Builder(object):
                     | (shifttype & 0x3) << 5
                     | (rm & 0xFF))
 
+    def PUSH(self, regs, cond=cond.AL):
+        instr = cond << 28 | 0x92D << 16
+        for reg in regs:
+            instr |= 0x1 << reg
+        self.write32(instr)
+
     def write32(self, word):
         self.writechar(chr(word & 0xFF))
         self.writechar(chr((word >> 8) & 0xFF))
