@@ -38,7 +38,8 @@ class AssemblerARM(object):
         self.mc.write32(0xe89da800) #        ldm     sp, {fp, sp, pc}
 
     def gen_preamble(self):
-        self.mc.write32(0xe1a0c00d) # mov     ip, sp
+        self.mc.MOV_rr(r.ip, r.sp)
+        #self.mc.write32(0xe1a0c00d) # mov     ip, sp
         self.mc.write32(0xe92dd800) #push    {fp, ip, lr, pc}
         self.mc.write32(0xe24cb004) # sub     fp, ip, #4      ; 0x4
         self.mc.write32(0xe24dd008) #sub     sp, sp, #8      ; 0x8

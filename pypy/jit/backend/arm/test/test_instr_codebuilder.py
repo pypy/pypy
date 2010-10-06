@@ -24,6 +24,10 @@ class TestInstrCodeBuilder(object):
         self.cb.ADD_ri(r.r0, r.r1, 1)
         self.assert_equal("ADD r0, r1, #1")
 
+    def test_mov_rr(self):
+        self.cb.MOV_rr(r.r7, r.r12)
+        self.assert_equal("MOV r7, r12")
+
     def test_mov_ri(self):
         self.cb.MOV_ri(r.r9, 123)
         self.assert_equal("MOV r9, #123")

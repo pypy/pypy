@@ -25,6 +25,13 @@ class ARMv7Builder(object):
                         | (rn & 0xF) << 16
                         | (rt & 0xF) << 12
                         | (imm & 0xFFF))
+    def MOV_rr(self, rd, rm, cond=cond.AL, s=0):
+        self.write32(cond << 28
+                    | 0xD << 21
+                    | (s & 0x1) << 20
+                    | (rd & 0xFF) << 12
+                    | (rm & 0xFF))
+
     def MOV_ri(self, rt, imm=0, cond=cond.AL):
         # XXX Check the actual allowed size for imm
         # XXX S bit
