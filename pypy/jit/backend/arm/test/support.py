@@ -7,15 +7,15 @@ def run_asm(asm):
     func = rffi.cast(lltype.Ptr(BOOTSTRAP_TP), addr)
     return func()
 
-def skip_unless_arm(f):
+def skip_unless_arm():
     import os
-    def skip_it(*args):
-        import py
-        py.test.skip('only for arm')
+    import py
 
-    func = skip_it
+    skip = True
     try:
         if os.uname()[4].index('arm') >= 0:
-            func=f
+            skip = False
     finally:
-        return func
+        if skip:
+            py.test.skip('only for arm')
+
