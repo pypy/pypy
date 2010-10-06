@@ -1,6 +1,6 @@
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder
 from pypy.jit.backend.arm import registers as r
-from pypy.jit.backend.arm.regalloc import RegAlloc, ARMRegisterManager
+#from pypy.jit.backend.arm.regalloc import RegAlloc, ARMRegisterManager
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype
 # XXX Move to llsupport
