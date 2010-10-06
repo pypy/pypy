@@ -253,6 +253,12 @@ class PyCode(eval.Code):
                          tuple(self.co_freevars),
                          tuple(self.co_cellvars) )
 
+    def exec_host_bytecode(self, w_dict, w_globals, w_locals):
+        from pypy.interpreter.pyframe import CPythonFrame
+        frame = CPythonFrame(self.space, self, w_globals, None)
+        frame.setdictscope(w_locals)
+        return frame.run()
+
     def dump(self):
         """A dis.dis() dump of the code object."""
         co = self._to_code()
