@@ -8,8 +8,6 @@ http://buildbot.pypy.org/summary?branch=branch/fast-forward
 Probably easy tasks
 -------------------
 
-- Missing builtin: bytes = str
-
 - Missing builtin: bytearray (possibly reuse module.__pypy__.bytebuffer)
 
 - Missing complex.__trunc__
