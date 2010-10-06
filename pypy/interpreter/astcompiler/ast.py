@@ -1499,6 +1499,8 @@ class SetComp(expr):
 
     def mutate_over(self, visitor):
         self.elt = self.elt.mutate_over(visitor)
+        if self.generators:
+            visitor._mutate_sequence(self.generators)
         return visitor.visit_SetComp(self)
 
     def sync_app_attrs(self, space):
@@ -1540,6 +1542,8 @@ class DictComp(expr):
     def mutate_over(self, visitor):
         self.key = self.key.mutate_over(visitor)
         self.value = self.value.mutate_over(visitor)
+        if self.generators:
+            visitor._mutate_sequence(self.generators)
         return visitor.visit_DictComp(self)
 
     def sync_app_attrs(self, space):
