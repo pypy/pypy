@@ -34,14 +34,14 @@ class AssemblerARM(object):
         self.mc.write32(0xe50b3010) #        str     r3, [fp, #-16]
         self.mc.write32(0xe51b3010) #        ldr     r3, [fp, #-16]
         #self.mc.write32(0xe1a00003) #        mov     r0, r3
-        self.mc.write32(0xe24bd00c) #        sub     sp, fp, #12     ; 0xc
+        self.mc.SUB_ri(r.sp, r.fp, 12)
         self.mc.write32(0xe89da800) #        ldm     sp, {fp, sp, pc}
 
     def gen_func_prolog(self):
         self.mc.MOV_rr(r.ip, r.sp)
         self.mc.PUSH([r.fp, r.ip, r.lr, r.pc])
-        self.mc.write32(0xe24cb004) # sub     fp, ip, #4      ; 0x4
-        self.mc.write32(0xe24dd008) #sub     sp, sp, #8      ; 0x8
+        self.mc.SUB_ri(r.fp, r.ip, 4)
+        self.mc.SUB_ri(r.sp, r.sp, 8)
         self.mc.write32(0xe50b0014) # str     r0, [fp, #-20]
 
     def gen_load_int(self, reg, value):

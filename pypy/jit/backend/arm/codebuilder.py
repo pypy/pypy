@@ -25,6 +25,16 @@ class ARMv7Builder(object):
                         | (rn & 0xF) << 16
                         | (rt & 0xF) << 12
                         | (imm & 0xFFF))
+
+    def SUB_ri(self, rd, rn, imm=0, cond=cond.AL, s=0):
+        self.write32(cond << 28
+                        | 9 << 22
+                        | (s & 0x1) << 20
+                        | (rn & 0xF) << 16
+                        | (rd & 0xF) << 12
+                        | (imm & 0xFFF))
+
+
     def MOV_rr(self, rd, rm, cond=cond.AL, s=0):
         self.write32(cond << 28
                     | 0xD << 21

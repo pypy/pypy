@@ -34,3 +34,10 @@ class TestRunningAssembler():
         self.a.mc.ORR_rr(r.r0, r.r1, r.r2, 4)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 0x88
+
+    def test_sub(self):
+        self.a.gen_func_prolog()
+        self.a.gen_load_int(r.r1, 123456)
+        self.a.mc.SUB_ri(r.r0, r.r1, 123)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 123333

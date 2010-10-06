@@ -69,6 +69,15 @@ class TestInstrCodeBuilder(object):
         self.cb.PUSH([r.fp, r.ip, r.lr, r.pc])
         self.assert_equal('PUSH {fp, ip, lr, pc}')
 
+    def test_sub_ri(self):
+        self.cb.SUB_ri(r.r2, r.r4, 123)
+        self.assert_equal('SUB r2, r4, #123')
+
+    def test_sub_ri2(self):
+        py.test.skip('XXX check the actual largest value')
+        self.cb.SUB_ri(r.r3, r.r7, 0xFFF)
+        self.assert_equal('SUB r3, r7, #4095')
+
     def assert_equal(self, asm):
         assert self.cb.hexdump() == assemble(asm)
 
