@@ -432,6 +432,7 @@ class AppTestBuiltinApp:
         assert eval("3", None, None) == 3
         i = 4
         assert eval("i", None, None) == 4
+        assert eval('a', None, dict(a=42)) == 42
 
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
