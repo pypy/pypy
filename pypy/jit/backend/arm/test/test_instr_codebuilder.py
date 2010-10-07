@@ -49,6 +49,14 @@ class TestInstrCodeBuilder(object):
         self.cb.STR_ri(r.r9, r.r14)
         self.assert_equal('STR r9, [r14]')
 
+    def test_str_ri_offset(self):
+        self.cb.STR_ri(r.r9, r.r14, 23)
+        self.assert_equal('STR r9, [r14, #23]')
+
+    def test_str_ri_offset(self):
+        self.cb.STR_ri(r.r9, r.r14, -20)
+        self.assert_equal('STR r9, [r14, #-20]')
+
     def test_asr_ri(self):
         self.cb.ASR_ri(r.r7, r.r5, 24)
         self.assert_equal('ASR r7, r5, #24')

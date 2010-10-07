@@ -31,7 +31,7 @@ class AssemblerARM(object):
                 self.gen_func_epilog()
 
     def gen_func_epilog(self):
-        self.mc.write32(0xe50b3010) #        str     r3, [fp, #-16]
+        self.mc.STR_ri(r.r3, r.fp, -16)
         self.mc.LDR_ri(r.r3, r.fp, -16)
         #self.mc.write32(0xe1a00003) #        mov     r0, r3
         self.mc.SUB_ri(r.sp, r.fp, 12)
@@ -42,7 +42,7 @@ class AssemblerARM(object):
         self.mc.PUSH([r.fp, r.ip, r.lr, r.pc])
         self.mc.SUB_ri(r.fp, r.ip, 4)
         self.mc.SUB_ri(r.sp, r.sp, 8)
-        self.mc.write32(0xe50b0014) # str     r0, [fp, #-20]
+        self.mc.STR_ri(r.r0, r.fp, -20)
 
     def gen_load_int(self, reg, value):
         self.mc.MOV_ri(reg, (value & 0xFF))
