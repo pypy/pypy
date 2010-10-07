@@ -109,7 +109,7 @@ c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
 if _POSIX:
     has_mremap = cConfig['has_mremap']
-    c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
+    c_mmap, _c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
                                rffi.INT, off_t], PTR)
     c_munmap, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
@@ -117,7 +117,9 @@ if _POSIX:
         c_mremap, _ = external('mremap',
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
 
-    c_mmap_safe._annenforceargs_ = (None, int, int, int, int, int)
+    def c_mmap_safe(addr, length, prot, flags, fd, offset):
+        return _c_mmap_safe(addr, length, prot, flags, fd, offset)
+    c_mmap_safe._annenforceargs_ = (PTR, int, int, int, int, int)
 
     # this one is always safe
     _, _get_page_size = external('getpagesize', [], rffi.INT)
