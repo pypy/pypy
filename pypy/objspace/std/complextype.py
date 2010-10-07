@@ -192,7 +192,11 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
                                      space.wrap("complex() second arg"
                                                 " can't be a string"))
             else:
-                imagval += space.float_w(space.float(w_imag))
+                a = space.float_w(space.float(w_imag))
+                if imagval != 0.0:
+                    imagval += a
+                else:
+                    imagval = a
     # done
     w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
     W_ComplexObject.__init__(w_obj, realval, imagval)

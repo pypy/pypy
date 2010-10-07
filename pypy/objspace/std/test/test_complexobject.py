@@ -321,12 +321,16 @@ class AppTestAppComplexTest:
         raises(ValueError, complex, unicode("1"*500))
         
     def test_repr(self):
-        h = self.helper
-        h.assertEqual(repr(1+6j), '(1+6j)')
-        h.assertEqual(repr(1-6j), '(1-6j)')
+        assert repr(1+6j) == '(1+6j)'
+        assert repr(1-6j) == '(1-6j)'
 
-        h.assertNotEqual(repr(-(1+0j)), '(-1+-0j)')
+        assert repr(-(1+0j)) == '(-1-0j)'
+        assert repr(complex( 0.0,  0.0)) == '0j'
+        assert repr(complex( 0.0, -0.0)) == '-0j'
+        assert repr(complex(-0.0,  0.0)) == '(-0+0j)'
+        assert repr(complex(-0.0, -0.0)) == '(-0-0j)'
         assert repr(complex(1e45)) == "(" + repr(1e45) + "+0j)"
+        assert repr(complex(1e200*1e200)) == '(inf+0j)'
 
     def test_neg(self):
         h = self.helper

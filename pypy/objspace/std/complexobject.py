@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
+from pypy.rlib.rarithmetic import formatd, isinf, isnan
 
 import math
 
@@ -254,33 +255,37 @@ def complex_conjugate__Complex(space, w_self):
     #w_imag = space.call_function(space.w_float,space.wrap(-w_self.imagval))
     return space.newcomplex(w_self.realval,-w_self.imagval)
 
-app = gateway.applevel(""" 
-    import math
-    import sys
-    def possint(f):
-        ff = math.floor(f)
-        if f == ff and abs(f) < sys.maxint:
-            return int(ff)
-        return f
+def format_float(x, format):
+    # like float2string, except that the ".0" is not necessary
+    if isinf(x):
+        if x > 0.0:
+            return "inf"
+        else:
+            return "-inf"
+    elif isnan(x):
+        return "nan"
+    else:
+        return formatd(format, x)
 
-    def repr__Complex(f):
-        if not f.real:
-            return repr(possint(f.imag))+'j'
-        imag = f.imag
-        sign = ((imag >= 0) and '+') or ''
-        return '('+repr(possint(f.real)) + sign + repr(possint(f.imag))+'j)'
+def repr_format(x):
+    return format_float(x, "%.17g")
+def str_format(x):
+    return format_float(x, "%.12g")
 
-    def str__Complex(f):
-        if not f.real:
-            return str(possint(f.imag))+'j'
-        imag = f.imag
-        sign = ((imag >= 0) and '+') or ''
-        return '('+str(possint(f.real)) + sign + str(possint(f.imag))+'j)'
+def repr__Complex(space, w_complex):
+    print "AFA REPR", (w_complex, w_complex.realval, w_complex.imagval)
+    if w_complex.realval == 0 and math.copysign(1., w_complex.realval) == 1.:
+        return space.wrap(repr_format(w_complex.imagval) + 'j')
+    sign = (math.copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    return space.wrap('(' + repr_format(w_complex.realval)
+                      + sign + repr_format(w_complex.imagval) + 'j)')
 
-""", filename=__file__) 
-
-repr__Complex = app.interphook('repr__Complex') 
-str__Complex = app.interphook('str__Complex') 
+def str__Complex(space, w_complex):
+    if w_complex.realval == 0 and math.copysign(1., w_complex.realval) == 1.:
+        return space.wrap(str_format(w_complex.imagval) + 'j')
+    sign = (math.copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    return space.wrap('(' + str_format(w_complex.realval)
+                      + sign + str_format(w_complex.imagval) + 'j)')
 
 from pypy.objspace.std import complextype
 register_all(vars(), complextype)
