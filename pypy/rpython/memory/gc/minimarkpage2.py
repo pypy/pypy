@@ -1,3 +1,7 @@
+"""
+This is a variant of minimarkpage.py, for the case of a 64-bit translation
+with --compressptr.  xxx it should not be a whole copy
+"""
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.rlib.rarithmetic import LONG_BIT, r_uint
 from pypy.rlib.objectmodel import we_are_translated
