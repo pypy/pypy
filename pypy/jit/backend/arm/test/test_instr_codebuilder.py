@@ -20,6 +20,10 @@ class TestInstrCodeBuilder(object):
         self.cb.LDR_ri(r.r0, r.r1)
         self.assert_equal('LDR r0, [r1]')
 
+    def test_ldr_neg(self):
+        self.cb.LDR_ri(r.r3, r.fp, -16)
+        self.assert_equal('LDR r3, [fp, #-16]')
+
     def test_add_ri(self):
         self.cb.ADD_ri(r.r0, r.r1, 1)
         self.assert_equal('ADD r0, r1, #1')

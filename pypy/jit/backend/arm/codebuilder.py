@@ -9,10 +9,19 @@ class ARMv7Builder(object):
         self._pos = 0
 
     def LDR_ri(self, rt, rn, imm=0, cond=cond.AL):
-        #  XXX U and P bits are not encoded yet
+        #  XXX W and P bits are not encoded yet
+        p = 1
+        u = 1
+        w = 0
+        if imm < 0:
+            u = 0
+            imm = -imm
         self.write32(cond << 28
-                        | 5 << 24
-                        | 9 << 20
+                        | 0x1 << 26
+                        | (p & 0x1) << 24
+                        | (u & 0x1) << 23
+                        | (w & 0x1) << 21
+                        | 0x1 << 20
                         | (rn & 0xF) << 16
                         | (rt & 0xF) << 12
                         | (imm & 0xFFF))

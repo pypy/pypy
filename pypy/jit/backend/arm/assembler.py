@@ -32,7 +32,7 @@ class AssemblerARM(object):
 
     def gen_func_epilog(self):
         self.mc.write32(0xe50b3010) #        str     r3, [fp, #-16]
-        self.mc.write32(0xe51b3010) #        ldr     r3, [fp, #-16]
+        self.mc.LDR_ri(r.r3, r.fp, -16)
         #self.mc.write32(0xe1a00003) #        mov     r0, r3
         self.mc.SUB_ri(r.sp, r.fp, 12)
         self.mc.write32(0xe89da800) #        ldm     sp, {fp, sp, pc}
