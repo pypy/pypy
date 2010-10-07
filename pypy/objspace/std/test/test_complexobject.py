@@ -362,3 +362,24 @@ class AppTestAppComplexTest:
     def test_convert(self):
         raises(TypeError, int, 1+1j)
         raises(TypeError, float, 1+1j)
+
+        class complex0(complex):
+            """Test usage of __complex__() when inheriting from 'complex'"""
+            def __complex__(self):
+                return 42j
+        assert complex(complex0(1j)) ==  42j
+
+        class complex1(complex):
+            """Test usage of __complex__() with a __new__() method"""
+            def __new__(self, value=0j):
+                return complex.__new__(self, 2*value)
+            def __complex__(self):
+                return self
+        assert complex(complex1(1j)) == 2j
+
+        class complex2(complex):
+            """Make sure that __complex__() calls fail if anything other than a
+            complex is returned"""
+            def __complex__(self):
+                return None
+        raises(TypeError, complex, complex2(1j))
