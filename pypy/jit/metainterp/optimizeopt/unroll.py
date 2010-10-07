@@ -51,6 +51,7 @@ class OptUnroll(Optimization):
                 argmap[op.result] = newop.result
             descr = newop.getdescr()
             if isinstance(descr, ResumeGuardDescr):
+                op.getdescr().rd_snapshot = None #FIXME: In the right place?
                 descr.rd_numb = None
 
             if newop.getopnum() == rop.JUMP:
@@ -71,6 +72,7 @@ class OptUnroll(Optimization):
                             pass
                         args.append(a)
                     op.setfailargs(args)
+                    op.getdescr().rd_snapshot = None #FIXME: In the right place?
                     
                 for a in op.getarglist():
                     if not isinstance(a, Const) and a in self.optimizer.values:
