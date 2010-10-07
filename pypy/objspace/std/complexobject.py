@@ -273,7 +273,6 @@ def str_format(x):
     return format_float(x, "%.12g")
 
 def repr__Complex(space, w_complex):
-    print "AFA REPR", (w_complex, w_complex.realval, w_complex.imagval)
     if w_complex.realval == 0 and math.copysign(1., w_complex.realval) == 1.:
         return space.wrap(repr_format(w_complex.imagval) + 'j')
     sign = (math.copysign(1., w_complex.imagval) == 1.) and '+' or ''
