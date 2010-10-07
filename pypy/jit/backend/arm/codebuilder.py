@@ -100,10 +100,19 @@ class ARMv7Builder(object):
                     | (rm & 0xFF))
 
     def PUSH(self, regs, cond=cond.AL):
-        instr = cond << 28 | 0x92D << 16
+        instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
+        self.write32(instr)
+
+    def LDM(self, rn, regs, cond=cond.AL):
+        w = 0
+        instr = cond << 28 | 0x89 << 20 | w << 21 | (rn & 0xFF) << 16
+        instr = self._encode_reg_list(instr, regs)
+        self.write32(instr)
+
+    def _encode_reg_list(self, instr, regs):
         for reg in regs:
             instr |= 0x1 << reg
-        self.write32(instr)
+        return instr
 
     def write32(self, word):
         self.writechar(chr(word & 0xFF))

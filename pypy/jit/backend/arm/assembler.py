@@ -35,7 +35,8 @@ class AssemblerARM(object):
         self.mc.LDR_ri(r.r3, r.fp, -16)
         #self.mc.write32(0xe1a00003) #        mov     r0, r3
         self.mc.SUB_ri(r.sp, r.fp, 12)
-        self.mc.write32(0xe89da800) #        ldm     sp, {fp, sp, pc}
+        self.mc.LDM(r.sp, [r.fp, r.sp, r.pc])
+        #self.mc.write32(0xe89da800) #        ldm     sp, {fp, sp, pc}
 
     def gen_func_prolog(self):
         self.mc.MOV_rr(r.ip, r.sp)

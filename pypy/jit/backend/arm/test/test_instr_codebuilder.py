@@ -81,6 +81,18 @@ class TestInstrCodeBuilder(object):
         self.cb.PUSH([r.fp, r.ip, r.lr, r.pc])
         self.assert_equal('PUSH {fp, ip, lr, pc}')
 
+    def test_ldm_one_reg(self):
+        self.cb.LDM(r.sp, [r.fp])
+        self.assert_equal('LDM sp, {fp}')
+
+    def test_ldm_multiple_reg(self):
+        self.cb.LDM(r.sp, [r.fp, r.ip, r.lr])
+        self.assert_equal('LDM sp, {fp, ip, lr}')
+
+    def test_ldm_multiple_reg2(self):
+        self.cb.LDM(r.sp, [r.fp, r.sp, r.pc])
+        self.assert_equal("LDM sp, {fp, sp, pc}")
+
     def test_sub_ri(self):
         self.cb.SUB_ri(r.r2, r.r4, 123)
         self.assert_equal('SUB r2, r4, #123')
