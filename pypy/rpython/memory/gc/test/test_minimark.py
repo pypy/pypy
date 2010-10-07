@@ -6,7 +6,7 @@ from pypy.rlib.rarithmetic import LONG_BIT
 
 
 def test_card_marking_words_for_length():
-    gc = MiniMarkGC(None, card_page_indices=128)
+    gc = MiniMarkGC(None, card_page_indices=128, translated_to_c=False)
     assert gc.card_page_shift == 7
     P = 128 * LONG_BIT
     assert gc.card_marking_words_for_length(1) == 1
@@ -18,7 +18,7 @@ def test_card_marking_words_for_length():
     assert gc.card_marking_words_for_length(P+P+P+P+P+P+P+P+1) == 9
 
 def test_card_marking_bytes_for_length():
-    gc = MiniMarkGC(None, card_page_indices=128)
+    gc = MiniMarkGC(None, card_page_indices=128, translated_to_c=False)
     assert gc.card_page_shift == 7
     P = 128 * 8
     assert gc.card_marking_bytes_for_length(1) == 1

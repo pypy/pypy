@@ -52,7 +52,7 @@ class GCBase(object):
     # collection.  It is automatically set to True by test_gc.py.  The
     # checking logic is translatable, so the flag can be set to True
     # here before translation.
-    DEBUG = True
+    DEBUG = False
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
@@ -169,7 +169,7 @@ class GCBase(object):
     def x_clone(self, clonedata):
         raise RuntimeError("no support for x_clone in the GC")
 
-    def trace(self, obj, callback, arg):
+    def do_trace(self, obj, callback, arg):
         """Enumerate the locations inside the given obj that can contain
         GC pointers.  For each such GC pointer, callback(object, arg) is
         called, where 'object' is the address of the stored object.
@@ -208,7 +208,7 @@ class GCBase(object):
                     j += 1
                 item += itemlength
                 length -= 1
-    trace._annspecialcase_ = 'specialize:arg(2)'
+    do_trace._annspecialcase_ = 'specialize:arg(2)'
 
     def _trace_see(self, obj, ofs, callback, arg):
         if self.config.compressptr and llmemory.has_odd_value_marker(ofs):
@@ -233,7 +233,7 @@ class GCBase(object):
     _trace_see._always_inline_ = True
 
     def trace_partial(self, obj, start, stop, callback, arg):
-        """Like trace(), but only walk the array part, for indices in
+        """Like do_trace(), but only walk the array part, for indices in
         range(start, stop).  Must only be called if has_gcptr_in_varsize().
         """
         length = stop - start
@@ -291,7 +291,7 @@ class GCBase(object):
             pending = self._debug_pending
             while pending.non_empty():
                 obj = pending.pop()
-                self.trace(obj, self._debug_callback2, None)
+                self.do_trace(obj, self._debug_callback2, None)
             self._debug_seen.delete()
             self._debug_pending.delete()
 
@@ -306,7 +306,7 @@ class GCBase(object):
         ll_assert(bool(obj), "NULL address from walk_roots()")
         self._debug_record(obj)
     def _debug_callback2(self, obj, ignored):
-        ll_assert(bool(obj), "NULL address from self.trace()")
+        ll_assert(bool(obj), "NULL address from self.do_trace()")
         self._debug_record(obj)
 
     def debug_check_object(self, obj):
@@ -397,6 +397,7 @@ class MovingGCBase(GCBase):
         else:
             self.id_free_list.append(id)
 
+# ____________________________________________________________
 
 def choose_gc_from_config(config):
     """Return a (GCClass, GC_PARAMS) from the given config object.

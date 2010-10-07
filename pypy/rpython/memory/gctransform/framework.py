@@ -557,6 +557,13 @@ class FrameworkGCTransformer(GCTransformer):
         r_gcdata = self.translator.rtyper.getrepr(s_gcdata)
         ll_instance = rmodel.inputconst(r_gcdata, self.gcdata).value
 
+        if (self.layoutbuilder.addresses_of_static_ptrs and
+            self.translator.config.translation.compressptr):
+            raise Exception("not supported: compressptr together with a "
+                            "non-empty list of addresses_of_static_ptrs "
+                            "(as you would get with some GCs or with "
+                            "DEBUG=True in rpython/memory/gc/base.py)")
+
         addresses_of_static_ptrs = (
             self.layoutbuilder.addresses_of_static_ptrs_in_nongc +
             self.layoutbuilder.addresses_of_static_ptrs)

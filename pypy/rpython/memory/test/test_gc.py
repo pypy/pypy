@@ -4,7 +4,7 @@ import sys
 from pypy.rpython.memory import gcwrapper
 from pypy.rpython.memory.test import snippet
 from pypy.rpython.test.test_llinterp import get_interpreter
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
@@ -146,7 +146,29 @@ class GCTest(object):
         res = self.interpret(concat, [100])
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
-        
+
+    def test_double_entry_in_stack_list(self):
+        LOOPS = 500
+        S = lltype.GcStruct("S", ('x', lltype.Signed))
+        def g(s):
+            t = lltype.malloc(S)
+            s = llop.show_from_ptr32(lltype.Ptr(S), s)
+            t.x = s.x + 1
+            return llop.hide_into_ptr32(llmemory.HiddenGcRef32, t)
+        def f(s):
+            return g(s)
+        def malloc_a_lot():
+            s = lltype.malloc(S)
+            s.x = 0
+            s = llop.hide_into_ptr32(llmemory.HiddenGcRef32, s)
+            i = 0
+            while i < LOOPS:
+                s = f(s)
+                i += 1
+            return llop.show_from_ptr32(lltype.Ptr(S), s).x
+        res = self.interpret(malloc_a_lot, [])
+        assert res == LOOPS
+
     def test_finalizer(self):
         class B(object):
             pass

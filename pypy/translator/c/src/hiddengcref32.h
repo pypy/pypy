@@ -17,13 +17,17 @@ void RPyPointerTooBig(void) {
 #endif
 
 
-#define OP_SHOW_FROM_PTR32(x, r)  r = (void*)(((unsigned long)(x)) << 3)
+#define SHOW_FROM_PTR32(x)   ((void*)(((unsigned long)(x)) << 3))
+#define HIDE_INTO_PTR32(x)   ((hiddengcref32_t)(((unsigned long)(x)) >> 3))
+
+
+#define OP_SHOW_FROM_PTR32(x, r)  r = SHOW_FROM_PTR32(x)
 
 #define OP_HIDE_INTO_PTR32_CHECK(x, r)  \
-   r = (hiddengcref32_t)(((unsigned long)(x)) >> 3); \
+   r = HIDE_INTO_PTR32(x); \
    if ((void*)(((unsigned long)(r)) << 3) != (x)) \
      RPyPointerTooBig()
 
 #define OP_HIDE_INTO_PTR32(x, r)  \
    RPyAssert(!(((long)(x)) & ~0x7FFFFFFF8), "Pointer too big or misaligned"); \
-   r = (hiddengcref32_t)(((unsigned long)(x)) >> 3)
+   r = HIDE_INTO_PTR32(x)

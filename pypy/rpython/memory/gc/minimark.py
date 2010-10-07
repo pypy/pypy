@@ -1028,7 +1028,7 @@ class MiniMarkGC(MovingGCBase):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        self.trace(obj, self._trace_drag_out, None)
+        self.do_trace(obj, self._trace_drag_out, None)
 
     def trace_and_drag_out_of_nursery_partial(self, obj, start, stop):
         """Like trace_and_drag_out_of_nursery(), but limited to the array
@@ -1322,7 +1322,7 @@ class MiniMarkGC(MovingGCBase):
         #
         # Trace the content of the object and put all objects it references
         # into the 'objects_to_trace' list.
-        self.trace(obj, self._collect_ref_rec, None)
+        self.do_trace(obj, self._collect_ref_rec, None)
 
 
     # ----------
@@ -1411,7 +1411,7 @@ class MiniMarkGC(MovingGCBase):
                 state = self._finalization_state(y)
                 if state == 0:
                     self._bump_finalization_state_from_0_to_1(y)
-                    self.trace(y, self._append_if_nonnull, pending)
+                    self.do_trace(y, self._append_if_nonnull, pending)
                 elif state == 2:
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             self._recursively_bump_finalization_state_from_1_to_2(x)
@@ -1469,7 +1469,7 @@ class MiniMarkGC(MovingGCBase):
             hdr = self.header(y)
             if hdr.tid & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
                 hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING   # change to state 3
-                self.trace(y, self._append_if_nonnull, pending)
+                self.do_trace(y, self._append_if_nonnull, pending)
 
     def _recursively_bump_finalization_state_from_1_to_2(self, obj):
         # recursively convert objects from state 1 to state 2.

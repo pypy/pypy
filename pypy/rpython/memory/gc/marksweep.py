@@ -495,10 +495,9 @@ class MarkSweepGC(GCBase):
         return hdr.typeid16
 
     def add_reachable_to_stack(self, obj, objects):
-        self.trace(obj, self._add_reachable, objects)
+        self.do_trace(obj, self._add_reachable, objects)
 
-    def _add_reachable(pointer, objects):
-        obj = pointer.address[0]
+    def _add_reachable(obj, objects):
         objects.append(obj)
     _add_reachable = staticmethod(_add_reachable)
 

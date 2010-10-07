@@ -177,7 +177,7 @@ def encode_type_shape(builder, info, TYPE, index):
             if (isinstance(ARRAY.OF, lltype.Ptr)
                 and ARRAY.OF.TO._gckind == 'gc'):
                 if ARRAY.OF == llmemory.HiddenGcRef32:
-                    pass   # infobits |= T_IS_GCARRAY_OF_HIDDENGCREF32
+                    infobits |= T_IS_GCARRAY_OF_HIDDENGCREF32
                 else:
                     infobits |= T_IS_GCARRAY_OF_GCPTR
             varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)

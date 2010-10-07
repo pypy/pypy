@@ -143,6 +143,21 @@ class LLInterpreter(object):
             frame.find_roots(roots)
         return roots
 
+    def debug_check(self):
+        for frame in self.frame_stack:
+            vars = []
+            for v in frame.curr_block.inputargs:
+                if isinstance(v, Variable):
+                    vars.append(v)
+            for op in frame.curr_block.operations[:frame.curr_operation_index]:
+                vars.append(op.result)
+            for v in vars:
+                TYPE = getattr(v, 'concretetype', None)
+                if TYPE == llmemory.HiddenGcRef32:
+                    p = frame.getval(v)
+                    if p:
+                        p._obj.container._check()
+
     def find_exception(self, exc):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
@@ -730,6 +745,7 @@ class LLFrame(object):
             result = self.heap.malloc(obj, zero=zero, flavor='raw')
             self.alloca_objects.append(result)
             return result
+        self.llinterpreter.debug_check()
         ptr = self.heap.malloc(obj, zero=zero, flavor=flavor)
         if flavor == 'raw' and self.llinterpreter.malloc_check:
             self.llinterpreter.remember_malloc(ptr, self)
@@ -882,11 +898,15 @@ class LLFrame(object):
         raise NotImplementedError("gc_pop_alive_pyobj")
 
     def op_gc_reload_possibly_moved(self, v_newaddr, v_ptr):
-        assert v_newaddr.concretetype is llmemory.Address
-        assert isinstance(v_ptr.concretetype, lltype.Ptr)
-        assert v_ptr.concretetype.TO._gckind == 'gc'
         newaddr = self.getval(v_newaddr)
-        p = llmemory.cast_adr_to_ptr(newaddr, v_ptr.concretetype)
+        if v_newaddr.concretetype != llmemory.HiddenGcRef32:
+            assert v_newaddr.concretetype is llmemory.Address
+            assert isinstance(v_ptr.concretetype, lltype.Ptr)
+            assert v_ptr.concretetype.TO._gckind == 'gc'
+            p = llmemory.cast_adr_to_ptr(newaddr, v_ptr.concretetype)
+        else:
+            assert v_ptr.concretetype == llmemory.HiddenGcRef32
+            p = newaddr
         if isinstance(v_ptr, Constant):
             assert v_ptr.value == p
         else:
@@ -1421,6 +1441,12 @@ class _address_of_local_var_accessor(object):
             raise IndexError("address of local vars only support [0] indexing")
         p = self.frame.getval(self.v)
         result = llmemory.cast_ptr_to_adr(p)
+        if result:
+            from pypy.rpython.lltypesystem import llarena
+            try:
+                result = llarena.getfakearenaaddress(result)
+            except RuntimeError:
+                pass
         # the GC should never see instances of _gctransformed_wref
         result = self.unwrap_possible_weakref(result)
         return result

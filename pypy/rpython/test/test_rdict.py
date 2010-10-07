@@ -578,6 +578,20 @@ class BaseTestRdict(BaseRtypingTest):
             res = self.interpret(fn, [3, 3])
             assert res == 123
 
+    def test_recast(self):
+        class A(object):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(a):
+            return 42
+        def fn():
+            d = r_dict(myeq, myhash)
+            d[4] = A()
+            a = d.values()[0]
+            a.x = 5
+        self.interpret(fn, [])
+
 
 class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):

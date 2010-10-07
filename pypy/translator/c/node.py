@@ -789,8 +789,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             db.late_initializations.append((access_expr, db.get(value)))
             expr = '0.0 /* patched later by %sinfinity */' % (
                 '-+'[value > 0])
-        elif (TYPE == llmemory.HiddenGcRef32
-              and value and not hasattr(value._obj, 'dummy_value')):
+        elif TYPE == llmemory.HiddenGcRef32 and value: # non-NULL HiddenGcRef32
             realobj = value._obj.container
             realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
             name = db.get(realvalue)

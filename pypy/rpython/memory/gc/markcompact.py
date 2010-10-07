@@ -372,10 +372,10 @@ class MarkCompactGC(MovingGCBase):
     def _trace_and_mark(self):
         while self.to_see.non_empty():
             obj = self.to_see.popleft()
-            self.trace(obj, self._mark_obj, None)
+            self.do_trace(obj, self._mark_obj, None)
 
-    def _mark_obj(self, pointer, ignored):
-        self.mark(pointer.address[0])
+    def _mark_obj(self, obj, ignored):
+        self.mark(obj)
 
     def _mark_root(self, root):
         self.mark(root.address[0])

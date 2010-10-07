@@ -328,14 +328,13 @@ class GenerationGC(SemiSpaceGC):
             self.header(obj).tid |= GCFLAG_NO_HEAP_PTRS
             # ^^^ the flag we just added will be removed immediately if
             # the object still contains pointers to younger objects
-            self.trace(obj, self._trace_external_obj, obj)
+            self.do_trace(obj, self._trace_external_obj, obj)
         stack.delete()
 
-    def _trace_external_obj(self, pointer, obj):
-        addr = pointer.address[0]
+    def _trace_external_obj(self, addr, obj):
         newaddr = self.copy(addr)
-        pointer.address[0] = newaddr
         self.write_into_last_generation_obj(obj, newaddr)
+        return newaddr
 
     # ____________________________________________________________
     # Implementation of nursery-only collections
@@ -432,11 +431,12 @@ class GenerationGC(SemiSpaceGC):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        self.trace(obj, self._trace_drag_out, None)
+        self.do_trace(obj, self._trace_drag_out, None)
 
-    def _trace_drag_out(self, pointer, ignored):
-        if self.is_in_nursery(pointer.address[0]):
-            pointer.address[0] = self.copy(pointer.address[0])
+    def _trace_drag_out(self, obj, ignored):
+        if self.is_in_nursery(obj):
+            obj = self.copy(obj)
+        return obj
 
     # The code relies on the fact that no weakref can be an old object
     # weakly pointing to a young object.  Indeed, weakrefs are immutable
@@ -581,7 +581,7 @@ class GenerationGC(SemiSpaceGC):
             SemiSpaceGC._track_heap_root)
 
     def _track_heap_ext(self, adr, ignored):
-        self.trace(adr, self.track_heap_parent, adr)
+        self.do_trace(adr, self.track_heap_parent, adr)
 
     def debug_check_object(self, obj):
         """Check the invariants about 'obj' that should be true
@@ -591,23 +591,22 @@ class GenerationGC(SemiSpaceGC):
         if tid & GCFLAG_NO_YOUNG_PTRS:
             ll_assert(not self.is_in_nursery(obj),
                       "nursery object with GCFLAG_NO_YOUNG_PTRS")
-            self.trace(obj, self._debug_no_nursery_pointer, None)
+            self.do_trace(obj, self._debug_no_nursery_pointer, None)
         elif not self.is_in_nursery(obj):
             ll_assert(self._d_oopty.contains(obj),
                       "missing from old_objects_pointing_to_young")
         if tid & GCFLAG_NO_HEAP_PTRS:
             ll_assert(self.is_last_generation(obj),
                       "GCFLAG_NO_HEAP_PTRS on non-3rd-generation object")
-            self.trace(obj, self._debug_no_gen1or2_pointer, None)
+            self.do_trace(obj, self._debug_no_gen1or2_pointer, None)
         elif self.is_last_generation(obj):
             ll_assert(self._d_lgro.contains(obj),
                       "missing from last_generation_root_objects")
 
-    def _debug_no_nursery_pointer(self, root, ignored):
-        ll_assert(not self.is_in_nursery(root.address[0]),
+    def _debug_no_nursery_pointer(self, obj, ignored):
+        ll_assert(not self.is_in_nursery(obj),
                   "GCFLAG_NO_YOUNG_PTRS but found a young pointer")
-    def _debug_no_gen1or2_pointer(self, root, ignored):
-        target = root.address[0]
+    def _debug_no_gen1or2_pointer(self, target, ignored):
         ll_assert(not target or self.is_last_generation(target),
                   "GCFLAG_NO_HEAP_PTRS but found a pointer to gen1or2")
 

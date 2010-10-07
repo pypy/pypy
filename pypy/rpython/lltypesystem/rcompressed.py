@@ -84,26 +84,44 @@ class CompressedGcRefRepr(Repr):
         return self.ll_fasthash_function
 
     def get_ll_dummyval_obj(self, rtyper, s_value):
-        return DummyVal()
+        return DummyValueBuilder(rtyper)
 
 
-class DummyVal(object):
-    TYPE = llmemory.HiddenGcRef32.TO
-    ll_dummy_value = lltype.opaqueptr(TYPE, "dummy_value", dummy_value=True)
+class DummyValueBuilder(object):
+    TYPE = llmemory.HiddenGcRef32
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
     def _freeze_(self):
         return True
+    def __hash__(self):
+        return 42
+    def __eq__(self, other):
+        return (isinstance(other, DummyValueBuilder) and
+                self.rtyper is other.rtyper)
+    def __ne__(self, other):
+        return not (self == other)
+
+    def build_ll_dummy_value(self):
+        TYPE = self.TYPE
+        try:
+            return self.rtyper.cache_dummy_values[TYPE]
+        except KeyError:
+            # generate a dummy ptr to an immortal placeholder struct
+            p = lltype.malloc(lltype.GcStruct('dummy'), immortal=True)
+            p = llop.hide_into_ptr32(TYPE, p)
+            self.rtyper.cache_dummy_values[TYPE] = p
+            return p
+    ll_dummy_value = property(build_ll_dummy_value)
 
 
 class __extend__(pairtype(Repr, CompressedGcRefRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        assert r_from.lowleveltype.TO._gckind == 'gc'
-        assert not isinstance(r_from.lowleveltype.TO, lltype.GcOpaqueType)
-        return llops.genop('hide_into_ptr32', [v],
+        v2 = llops.convertvar(v, r_from, r_to.baserepr)
+        return llops.genop('hide_into_ptr32', [v2],
                            resulttype=llmemory.HiddenGcRef32)
 
 class __extend__(pairtype(CompressedGcRefRepr, Repr)):
     def convert_from_to((r_from, r_to), v, llops):
-        assert r_to.lowleveltype.TO._gckind == 'gc'
-        assert not isinstance(r_to.lowleveltype.TO, lltype.GcOpaqueType)
-        return llops.genop('show_from_ptr32', [v],
-                           resulttype=r_to.lowleveltype)
+        v2 = llops.genop('show_from_ptr32', [v],
+                         resulttype=r_from.BASETYPE)
+        return llops.convertvar(v2, r_from.baserepr, r_to)

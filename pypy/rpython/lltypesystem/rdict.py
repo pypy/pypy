@@ -3,8 +3,9 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rlib import objectmodel
@@ -197,7 +198,6 @@ class DictRepr(AbstractDictRepr):
 
 
     def convert_const(self, dictobj):
-        from pypy.rpython.lltypesystem import llmemory
         # get object from bound dict methods
         #dictobj = getattr(dictobj, '__self__', dictobj) 
         if dictobj is None:
@@ -769,6 +769,10 @@ ll_update.oopspec = 'dict.update(dic1, dic2)'
 
 def recast(P, v):
     if isinstance(P, lltype.Ptr):
+        if P == llmemory.HiddenGcRef32:
+            if lltype.typeOf(v) == llmemory.HiddenGcRef32:
+                return v
+            return llop.hide_into_ptr32(P, v)
         return lltype.cast_pointer(P, v)
     else:
         return v

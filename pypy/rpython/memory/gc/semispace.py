@@ -397,10 +397,10 @@ class SemiSpaceGC(MovingGCBase):
         return self._make_a_copy_with_tid(obj, objsize, tid)
 
     def trace_and_copy(self, obj):
-        self.trace(obj, self._trace_copy, None)
+        self.do_trace(obj, self._trace_copy, None)
 
-    def _trace_copy(self, pointer, ignored):
-        pointer.address[0] = self.copy(pointer.address[0])
+    def _trace_copy(self, obj, ignored):
+        return self.copy(obj)
 
     def surviving(self, obj):
         # To use during a collection.  Check if the object is currently
@@ -495,7 +495,7 @@ class SemiSpaceGC(MovingGCBase):
                 state = self._finalization_state(y)
                 if state == 0:
                     self._bump_finalization_state_from_0_to_1(y)
-                    self.trace(y, self._append_if_nonnull, pending)
+                    self.do_trace(y, self._append_if_nonnull, pending)
                 elif state == 2:
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             scan = self._recursively_bump_finalization_state_from_1_to_2(
@@ -522,8 +522,8 @@ class SemiSpaceGC(MovingGCBase):
         self.objects_with_finalizers = new_with_finalizer
         return scan
 
-    def _append_if_nonnull(pointer, stack):
-        stack.append(pointer.address[0])
+    def _append_if_nonnull(obj, stack):
+        stack.append(obj)
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 
     def _finalization_state(self, obj):
@@ -559,7 +559,7 @@ class SemiSpaceGC(MovingGCBase):
             hdr = self.header(y)
             if hdr.tid & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
                 hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING   # change to state 3
-                self.trace(y, self._append_if_nonnull, pending)
+                self.do_trace(y, self._append_if_nonnull, pending)
 
     def _recursively_bump_finalization_state_from_1_to_2(self, obj, scan):
         # recursively convert objects from state 1 to state 2.
@@ -671,8 +671,7 @@ class SemiSpaceGC(MovingGCBase):
         objsize = self.get_size(obj)
         return self._get_object_hash(obj, objsize, hdr.tid)
 
-    def track_heap_parent(self, obj, parent):
-        addr = obj.address[0]
+    def track_heap_parent(self, addr, parent):
         parent_idx = llop.get_member_index(lltype.Signed,
                                            self.get_type_id(parent))
         idx = llop.get_member_index(lltype.Signed, self.get_type_id(addr))
@@ -687,7 +686,7 @@ class SemiSpaceGC(MovingGCBase):
         self._ll_typeid_map[idx].count += 1
         totsize = self.get_size(adr) + self.size_gc_header()
         self._ll_typeid_map[idx].size += llmemory.raw_malloc_usage(totsize)
-        self.trace(adr, self.track_heap_parent, adr)
+        self.do_trace(adr, self.track_heap_parent, adr)
 
     def _track_heap_root(self, root):
         self.track_heap(root.address[0])

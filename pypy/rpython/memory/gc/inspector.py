@@ -55,15 +55,15 @@ def get_rpy_roots(gc):
 
 # ---------- implementation of pypy.rlib.rgc.get_rpy_referents() ----------
 
-def _count_rpy_referent(pointer, gc):
+def _count_rpy_referent(address, gc):
     gc._count_rpy += 1
 
 def _do_count_rpy_referents(gc, gcref):
     gc._count_rpy = 0
-    gc.trace(llmemory.cast_ptr_to_adr(gcref), _count_rpy_referent, gc)
+    gc.do_trace(llmemory.cast_ptr_to_adr(gcref), _count_rpy_referent, gc)
     return gc._count_rpy
 
-def _append_rpy_referent(pointer, gc):
+def _append_rpy_referent(address, gc):
     # Can use the gc list, but should not allocate!
     # It is essential that the list is not resizable!
     lst = gc._list_rpy
@@ -71,13 +71,12 @@ def _append_rpy_referent(pointer, gc):
     if index >= len(lst):
         raise ValueError
     gc._count_rpy = index + 1
-    lst[index] = llmemory.cast_adr_to_ptr(pointer.address[0],
-                                          llmemory.GCREF)
+    lst[index] = llmemory.cast_adr_to_ptr(address, llmemory.GCREF)
 
 def _do_append_rpy_referents(gc, gcref, lst):
     gc._count_rpy = 0
     gc._list_rpy = lst
-    gc.trace(llmemory.cast_ptr_to_adr(gcref), _append_rpy_referent, gc)
+    gc.do_trace(llmemory.cast_ptr_to_adr(gcref), _append_rpy_referent, gc)
 
 def get_rpy_referents(gc, gcref):
     count = _do_count_rpy_referents(gc, gcref)
@@ -158,11 +157,10 @@ class HeapDumper:
         self.write(llmemory.cast_adr_to_int(obj))
         self.write(gc.get_member_index(typeid))
         self.write(gc.get_size_incl_hash(obj))
-        gc.trace(obj, self._writeref, None)
+        gc.do_trace(obj, self._writeref, None)
         self.write(-1)
 
-    def _writeref(self, pointer, _):
-        obj = pointer.address[0]
+    def _writeref(self, obj, _):
         self.write(llmemory.cast_adr_to_int(obj))
         self.add(obj)
 

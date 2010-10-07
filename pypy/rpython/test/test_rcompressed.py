@@ -25,4 +25,34 @@ class MixinCompressed64(object):
 
 
 class TestLLtype64(MixinCompressed64, test_rclass.TestLLtype):
-    pass
+
+    def test_casts_1(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        def dummyfn(n):
+            if n > 5:
+                # this tuple is allocated as a (*, Void) tuple, and immediately
+                # converted into a generic (*, *) tuple.
+                x = (B(), None)
+            else:
+                x = (A(), A())
+            return x[0]
+        res = self.interpret(dummyfn, [8])
+        assert self.is_of_instance_type(res)
+
+    def test_dict_recast(self):
+        from pypy.rlib.objectmodel import r_dict
+        class A(object):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(a):
+            return 42
+        def fn():
+            d = r_dict(myeq, myhash)
+            d[4] = A()
+            a = d.values()[0]
+            a.x = 5
+        self.interpret(fn, [])

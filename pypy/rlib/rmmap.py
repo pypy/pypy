@@ -117,6 +117,8 @@ if _POSIX:
         c_mremap, _ = external('mremap',
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
 
+    c_mmap_safe._annenforceargs_ = (None, int, int, int, int, int)
+
     # this one is always safe
     _, _get_page_size = external('getpagesize', [], rffi.INT)
 
