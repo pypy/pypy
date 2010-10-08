@@ -82,11 +82,25 @@ class W_IOBase(Wrappable):
     def exit_w(self, space, __args__):
         space.call_method(self, "close")
 
+    @unwrap_spec('self', ObjSpace)
+    def iter_w(self, space):
+        self._check_closed(space)
+        return space.wrap(self)
+
+    @unwrap_spec('self', ObjSpace)
+    def next_w(self, space):
+        w_line = space.call_method(self, "readline")
+        if space.int_w(space.len(w_line)) == 0:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        return w_line
+
 W_IOBase.typedef = TypeDef(
     '_IOBase',
     __new__ = generic_new_descr(W_IOBase),
     __enter__ = interp2app(W_IOBase.enter_w),
     __exit__ = interp2app(W_IOBase.exit_w),
+    __iter__ = interp2app(W_IOBase.iter_w),
+    next = interp2app(W_IOBase.next_w),
     close = interp2app(W_IOBase.close_w),
     flush = interp2app(W_IOBase.flush_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
