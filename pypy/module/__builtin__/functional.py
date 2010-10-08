@@ -631,6 +631,15 @@ class W_XRange(Wrappable):
         return self.space.wrap(W_XRangeIterator(self.space, lastitem,
                                                 self.len, -self.step))
 
+    def descr_reduce(self):
+        space = self.space
+        return space.newtuple(
+            [space.type(self),
+             space.newtuple([space.wrap(self.start),
+                             space.wrap(self.start + self.len * self.step),
+                             space.wrap(self.step)])
+             ])
+
 def _toint(space, w_obj):
     # this also supports float arguments.  CPython still does, too.
     # needs a bit more thinking in general...
@@ -644,6 +653,7 @@ W_XRange.typedef = TypeDef("xrange",
     __iter__         = interp2app(W_XRange.descr_iter),
     __len__          = interp2app(W_XRange.descr_len),
     __reversed__     = interp2app(W_XRange.descr_reversed),
+    __reduce__       = interp2app(W_XRange.descr_reduce),
 )
 
 class W_XRangeIterator(Wrappable):
