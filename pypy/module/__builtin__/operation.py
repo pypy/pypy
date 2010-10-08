@@ -25,7 +25,7 @@ class W_Memoryview(buffer.StringLikeBuffer):
         return space.wrap(self.as_str())
 
 W_Memoryview.typedef = TypeDef(
-    "memoryview",
+    "memoryview", W_Buffer.typedef,
     __new__=interp2app(W_Memoryview.descr_new.im_func),
     to_bytes=interp2app(W_Memoryview.to_bytes_w),
     )
