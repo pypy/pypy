@@ -159,3 +159,8 @@ class AppTestBuffer:
 
         raises(ValueError, buffer, a, -1)
         raises(ValueError, buffer, a, 0, -2)
+
+class AppTestMemoryview:
+    def test_basic(self):
+        v = memoryview("abc")
+        assert v.to_bytes() == "abc"
