@@ -32,6 +32,8 @@ class AppTestFunctionIntrospection:
         assert f.__name__ == f.func_name
         assert f.__doc__ == f.func_doc
         assert f.__dict__ is f.func_dict
+        assert f.__code__ is f.func_code
+        assert f.__defaults__ is f.func_defaults
         assert hasattr(f, '__class__')
 
     def test_write_doc(self):
