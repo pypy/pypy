@@ -5,17 +5,18 @@ from pypy.module.exceptions.interp_exceptions import W_IOError
 
 DEFAULT_BUFFER_SIZE = 8192
 
+def GenericNew(W_Type):
+    def descr_new(space, w_subtype, __args__):
+        self = space.allocate_instance(W_Type, w_subtype)
+        W_Type.__init__(self, space)
+        return space.wrap(self)
+    descr_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
+    return interp2app(descr_new)
 
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):
         W_IOError.__init__(self, space)
         self.written = 0
-
-    def descr_new(space, w_subtype, __args__):
-        self = space.allocate_instance(W_BlockingIOError, w_subtype)
-        W_BlockingIOError.__init__(self, space)
-        return space.wrap(self)
-    descr_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
     def descr_init(self, space, w_errno, w_strerror, written=0):
         W_IOError.descr_init(self, space, [w_errno, w_strerror])
@@ -26,33 +27,40 @@ W_BlockingIOError.typedef = TypeDef(
     'BlockingIOError',
     __doc__ = ("Exception raised when I/O would block "
                "on a non-blocking I/O stream"),
-    __new__  = interp2app(W_BlockingIOError.descr_new.im_func),
+    __new__  = GenericNew(W_BlockingIOError),
     __init__ = interp2app(W_BlockingIOError.descr_init),
     characters_written = interp_attrproperty('written', W_BlockingIOError),
     )
 
 class W_IOBase(Wrappable):
-    pass
+    def __init__(self, space):
+        pass
+
 W_IOBase.typedef = TypeDef(
     '_IOBase',
+    __new__ = GenericNew(W_IOBase),
     )
 
 class W_RawIOBase(W_IOBase):
     pass
 W_RawIOBase.typedef = TypeDef(
     '_RawIOBase', W_IOBase.typedef,
+    __new__ = GenericNew(W_RawIOBase),
     )
 
 class W_BufferedIOBase(W_IOBase):
     pass
+
 W_BufferedIOBase.typedef = TypeDef(
     '_BufferedIOBase', W_IOBase.typedef,
+    __new__ = GenericNew(W_BufferedIOBase),
     )
 
 class W_TextIOBase(W_IOBase):
     pass
 W_TextIOBase.typedef = TypeDef(
     '_TextIOBase', W_IOBase.typedef,
+    __new__ = GenericNew(W_TextIOBase),
     )
 
 class W_FileIO(W_RawIOBase):
