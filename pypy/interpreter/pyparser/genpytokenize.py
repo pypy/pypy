@@ -176,6 +176,7 @@ def makePyPseudoDFA ():
     pseudoToken = chain(states,
                         makeWhitespace(),
                         group(states,
+                              newArcPair(states, EMPTY),
                               pseudoExtras, number, funny, contStr, name))
     dfaStates, dfaAccepts = nfaToDfa(states, *pseudoToken)
     return DFA(dfaStates, dfaAccepts)

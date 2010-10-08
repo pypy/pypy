@@ -23,7 +23,7 @@ __all__ = [ "tokenize" ]
 # ______________________________________________________________________
 # Automatically generated DFA's
 
-accepts = [False, True, True, True, True, True, True, True,
+accepts = [True, True, True, True, True, True, True, True,
            True, True, False, True, True, True, False, False,
            False, False, True, True, True, False, True,
            False, True, False, True, False, False, True,
