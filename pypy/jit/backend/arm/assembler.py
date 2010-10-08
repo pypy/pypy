@@ -273,7 +273,7 @@ class AssemblerARM(ResOpAssembler):
                     mem[j] = chr(loc.value)
                     j += 1
                 elif loc.is_imm():
-                    assert arg.type == INT
+                    assert arg.type == INT or arg.type == REF
                     mem[j] = self.IMM_LOC
                     self.encode32(mem, j+1, loc.getint())
                     j += 5
