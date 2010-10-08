@@ -392,9 +392,9 @@ class BasicTests:
         res = self.meta_interp(f, [6, 16])
         assert res == 828
         self.check_loop_count(3)
-        self.check_loops({'int_lt': 1, 'int_gt': 1,
-                          'guard_false': 1, 'guard_true': 1,
-                          'int_sub': 2, 'int_mul': 2, 'int_add': 2,
+        self.check_loops({'int_lt': 2, 'int_gt': 1,
+                          'guard_false': 2, 'guard_true': 1,
+                          'int_sub': 3, 'int_mul': 1, 'int_add': 3,
                           'jump': 3})
 
     def test_loop_invariant_intbox(self):

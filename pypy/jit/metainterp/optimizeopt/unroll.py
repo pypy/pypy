@@ -70,7 +70,7 @@ class OptUnroll(Optimization):
                             a = argmap[a]
                         except KeyError:
                             pass
-                        args.append(a)
+                        args.append(self.getvalue(a).force_box())
                     op.setfailargs(args)
                     op.getdescr().rd_snapshot = None #FIXME: In the right place?
                     
