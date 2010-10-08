@@ -1,16 +1,18 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.interpreter.gateway import interp2app, Arguments
+from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.module.exceptions.interp_exceptions import W_IOError
+from pypy.tool.sourcetools import func_renamer
 
 DEFAULT_BUFFER_SIZE = 8192
 
 def GenericNew(W_Type):
+    @unwrap_spec(ObjSpace, W_Root, Arguments)
+    @func_renamer('descr_new_%s' % W_Type.__name__)
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_Type, w_subtype)
         W_Type.__init__(self, space)
         return space.wrap(self)
-    descr_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
     return interp2app(descr_new)
 
 class W_BlockingIOError(W_IOError):
@@ -18,10 +20,10 @@ class W_BlockingIOError(W_IOError):
         W_IOError.__init__(self, space)
         self.written = 0
 
+    @unwrap_spec('self', ObjSpace, W_Root, W_Root, int)
     def descr_init(self, space, w_errno, w_strerror, written=0):
         W_IOError.descr_init(self, space, [w_errno, w_strerror])
         self.written = written
-    descr_init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, int]
 
 W_BlockingIOError.typedef = TypeDef(
     'BlockingIOError',
