@@ -16,3 +16,9 @@ class AppTestIoModule:
                 pass
         MyFile("file")
 
+    def test_openclose(self):
+        import io
+        with io.BufferedIOBase() as f:
+            assert not f.closed
+        assert f.closed
+

@@ -9,7 +9,7 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    def _check_closed(self):
+    def _check_closed(self, space):
         pass
     def _check_initialized(self):
         pass
@@ -46,7 +46,7 @@ class W_StringIO(W_TextIOBase):
             raise operationerrfmt(space.w_TypeError,
                                   "string argument expected, got '%s'",
                                   space.type(self).getname(space, '?'))
-        self._check_closed()
+        self._check_closed(space)
         string = space.unicode_w(w_obj)
         size = len(string)
         if size:
@@ -56,7 +56,7 @@ class W_StringIO(W_TextIOBase):
     @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
         self._check_initialized()
-        self._check_closed()
+        self._check_closed(space)
         return space.wrap(u''.join(self.buf))
 
 W_StringIO.typedef = TypeDef(
