@@ -12,6 +12,12 @@ Probably easy tasks
 
 - Missing complex.__trunc__
 
+- New complex syntax::
+
+      assert complex("(1+2j)") == (1+2j)
+      assert complex("(1-2j)") == (1-2j)
+      assert complex("1e500") == complex(INF, 0.0)
+
 - Mark some tests as "implementation specific"::
 
       @test_support.cpython_only
