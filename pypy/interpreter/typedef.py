@@ -554,12 +554,12 @@ Member.typedef.acceptable_as_base_class = False
 # ____________________________________________________________
 
 def generic_new_descr(W_Type):
-    @unwrap_spec(ObjSpace, W_Root, Arguments)
-    @func_renamer('descr_new_%s' % W_Type.__name__)
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_Type, w_subtype)
         W_Type.__init__(self, space)
         return space.wrap(self)
+    descr_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
+    descr_new = func_with_new_name(descr_new, 'descr_new_%s' % W_Type.__name__)
     return interp2app(descr_new)
 
 # ____________________________________________________________
