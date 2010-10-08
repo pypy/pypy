@@ -1,21 +1,12 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty, GetSetProperty)
+    TypeDef, interp_attrproperty, GetSetProperty, generic_new_descr)
 from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.tool.sourcetools import func_renamer
 
 DEFAULT_BUFFER_SIZE = 8192
-
-def GenericNew(W_Type):
-    @unwrap_spec(ObjSpace, W_Root, Arguments)
-    @func_renamer('descr_new_%s' % W_Type.__name__)
-    def descr_new(space, w_subtype, __args__):
-        self = space.allocate_instance(W_Type, w_subtype)
-        W_Type.__init__(self, space)
-        return space.wrap(self)
-    return interp2app(descr_new)
 
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):
@@ -31,7 +22,7 @@ W_BlockingIOError.typedef = TypeDef(
     'BlockingIOError',
     __doc__ = ("Exception raised when I/O would block "
                "on a non-blocking I/O stream"),
-    __new__  = GenericNew(W_BlockingIOError),
+    __new__  = generic_new_descr(W_BlockingIOError),
     __init__ = interp2app(W_BlockingIOError.descr_init),
     characters_written = interp_attrproperty('written', W_BlockingIOError),
     )
@@ -93,7 +84,7 @@ class W_IOBase(Wrappable):
 
 W_IOBase.typedef = TypeDef(
     '_IOBase',
-    __new__ = GenericNew(W_IOBase),
+    __new__ = generic_new_descr(W_IOBase),
     __enter__ = interp2app(W_IOBase.enter_w),
     __exit__ = interp2app(W_IOBase.exit_w),
     close = interp2app(W_IOBase.close_w),
@@ -105,7 +96,7 @@ class W_RawIOBase(W_IOBase):
     pass
 W_RawIOBase.typedef = TypeDef(
     '_RawIOBase', W_IOBase.typedef,
-    __new__ = GenericNew(W_RawIOBase),
+    __new__ = generic_new_descr(W_RawIOBase),
     )
 
 class W_BufferedIOBase(W_IOBase):
@@ -113,14 +104,14 @@ class W_BufferedIOBase(W_IOBase):
 
 W_BufferedIOBase.typedef = TypeDef(
     '_BufferedIOBase', W_IOBase.typedef,
-    __new__ = GenericNew(W_BufferedIOBase),
+    __new__ = generic_new_descr(W_BufferedIOBase),
     )
 
 class W_TextIOBase(W_IOBase):
     pass
 W_TextIOBase.typedef = TypeDef(
     '_TextIOBase', W_IOBase.typedef,
-    __new__ = GenericNew(W_TextIOBase),
+    __new__ = generic_new_descr(W_TextIOBase),
     )
 
 class W_FileIO(W_RawIOBase):
