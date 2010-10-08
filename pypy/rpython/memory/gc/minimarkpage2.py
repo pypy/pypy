@@ -62,6 +62,7 @@ PAGE_HEADER = lltype.Struct('PageHeader',
     #    '(512-2) % N' is zero or very small for various small N's,
     #    i.e. there is not much wasted space.
     )
+PAGE_HEADER_SIZE_MAX = 16      # the PAGE_HEADER is at most 16 bytes
 PAGE_PTR.TO.become(PAGE_HEADER)
 PAGE_NULL = lltype.nullptr(PAGE_HEADER)
 
@@ -73,6 +74,7 @@ FREEBLOCK_PTR = lltype.Ptr(FREEBLOCK)
 
 class ArenaCollection2(object):
     _alloc_flavor_ = "raw"
+    PAGE_HEADER_SIZE_MAX = PAGE_HEADER_SIZE_MAX
 
     def __init__(self, arena_size, page_size, small_request_threshold):
         # 'small_request_threshold' is the largest size that we
@@ -266,7 +268,9 @@ class ArenaCollection2(object):
             # and become available for reuse by any size class.  Pages
             # not completely freed are re-chained either in
             # 'full_page_for_size[]' or 'page_for_size[]'.
-            self.mass_free_in_pages(size_class, ok_to_free_func)
+            if (self.full_page_for_size[size_class] != PAGE_NULL or
+                self.page_for_size[size_class] != PAGE_NULL):
+                self.mass_free_in_pages(size_class, ok_to_free_func)
             #
             size_class -= 1
 

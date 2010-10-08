@@ -86,6 +86,7 @@ PAGE_NULL = lltype.nullptr(PAGE_HEADER)
 
 class ArenaCollection(object):
     _alloc_flavor_ = "raw"
+    PAGE_HEADER_SIZE_MAX = 32
 
     def __init__(self, arena_size, page_size, small_request_threshold):
         # 'small_request_threshold' is the largest size that we

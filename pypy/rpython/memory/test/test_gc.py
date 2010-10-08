@@ -817,6 +817,7 @@ class TestMiniMarkGCCardMarking(TestMiniMarkGC):
     GC_PARAMS = {'card_page_indices': 4}
 
 class TestMiniMarkGCCompressPtr(TestMiniMarkGC):
+    GC_PARAMS = {'page_size': 32*WORD}
     def setup_class(cls):
         TestMiniMarkGC.setup_class.im_func(cls)
         #

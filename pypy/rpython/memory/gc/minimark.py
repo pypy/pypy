@@ -190,6 +190,13 @@ class MiniMarkGC(MovingGCBase):
             else:
                 from pypy.rpython.memory.gc import minimarkpage
                 ArenaCollectionClass = minimarkpage.ArenaCollection
+        #
+        if self.config and self.config.compressptr:
+            # increase the limit to the maximum
+            small_request_threshold = (
+                page_size - ArenaCollectionClass.PAGE_HEADER_SIZE_MAX)
+            self.small_request_threshold = small_request_threshold
+        #
         self.ac = ArenaCollectionClass(arena_size, page_size,
                                        small_request_threshold)
         #
@@ -324,6 +331,15 @@ class MiniMarkGC(MovingGCBase):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         rawtotalsize = raw_malloc_usage(totalsize)
+        #
+        # It is necessary that rawtotalsize fits within
+        # small_request_threshold if self.config.compressptr is set.
+        # Note that in this case we increased small_request_threshold at
+        # start-up to make this more likely to always hold.  The
+        # following check should be constant-folded.
+        if self.config.compressptr:
+            if rawtotalsize > self.small_request_threshold:
+                raise FixedSizeObjectTooLarge
         #
         # If the object needs a finalizer, ask for a rawmalloc.
         # The following check should be constant-folded.
@@ -1534,6 +1550,7 @@ class MiniMarkGC(MovingGCBase):
 # list.
 
 class SimpleArenaCollection(object):
+    PAGE_HEADER_SIZE_MAX = 0
 
     def __init__(self, arena_size, page_size, small_request_threshold):
         self.arena_size = arena_size   # ignored
