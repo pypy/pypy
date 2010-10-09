@@ -121,6 +121,13 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
+    def get_forced_boxes(self):
+        lst = self._get_field_descr_list()
+        fieldboxes = []
+        for ofs in lst:
+            fieldboxes.extend(self._fields[ofs].get_forced_boxes())
+        return fieldboxes
+
 
 class VirtualValue(AbstractVirtualStructValue):
     level = LEVEL_KNOWNCLASS

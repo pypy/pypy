@@ -14,13 +14,13 @@ class OptUnroll(Optimization):
         if not self.enabled:
             self.emit_operation(op)
             return
-            
+
         if op.getopnum() == rop.JUMP:
             loop = self.optimizer.loop
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
-            inputargs = self.inline(loop.preamble.operations + [op],
+            inputargs = self.inline(loop.operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
@@ -38,7 +38,10 @@ class OptUnroll(Optimization):
         for v in self.optimizer.values.values():
            v.fromstart = True
 
-        inputargs = jump_args[:]
+        inputargs = []
+        for arg in jump_args:
+            inputargs.extend(self.getvalue(arg).get_forced_boxes())
+        
         for op in loop_operations:
             newop = op.clone()
             for i in range(op.numargs()):
@@ -55,9 +58,10 @@ class OptUnroll(Optimization):
                 descr.rd_numb = None
 
             if newop.getopnum() == rop.JUMP:
-                args = newop.getarglist()
+                args = []
+                for arg in newop.getarglist():
+                    args.extend(self.getvalue(arg).get_forced_boxes())
                 newop.initarglist(args + inputargs[len(args):])
-                # FIXME: Assumes no virtuals
 
             current = len(self.optimizer.newoperations)
             self.emit_operation(newop)

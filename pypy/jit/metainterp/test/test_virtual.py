@@ -12,7 +12,7 @@ class VirtualTests:
     def _freeze_(self):
         return True
 
-    def test_virtualized(self):
+    def test_virtualized1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def f(n):
             node = self._new()
