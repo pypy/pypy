@@ -48,6 +48,10 @@ class Test_defaultdict:
         py.test.raises(KeyError, d2.__getitem__, 15)
         py.test.raises(TypeError, defaultdict, 1)
 
+    def test_constructor(self):
+        assert defaultdict(None) == {}
+        assert defaultdict(None, {1: 2}) == {1: 2}
+
     def test_missing(self):
         d1 = defaultdict()
         py.test.raises(KeyError, d1.__missing__, 42)

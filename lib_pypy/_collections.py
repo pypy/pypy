@@ -317,7 +317,7 @@ class defaultdict(dict):
         self.default_factory = None
         if 'default_factory' in kwds:
             self.default_factory = kwds.pop('default_factory')
-        elif len(args) > 0 and callable(args[0]):
+        elif len(args) > 0 and (callable(args[0]) or args[0] is None):
             self.default_factory = args[0]
             args = args[1:]
         super(defaultdict, self).__init__(*args, **kwds)
