@@ -80,7 +80,7 @@ def is_digit(code):
 
 def is_uni_digit(code):
     assert unicodedb is not None
-    return unicodedb.isdigit(code)
+    return unicodedb.isdecimal(code)
 
 def is_space(code):
     return code < 128 and (ascii_char_info[code] & 2 != 0)
