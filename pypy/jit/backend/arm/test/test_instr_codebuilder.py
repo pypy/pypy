@@ -1,7 +1,11 @@
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import codebuilder
+from pypy.jit.backend.arm.test.support import requires_arm_as
 from gen import assemble
 import py
+
+requires_arm_as()
+
 class CodeBuilder(codebuilder.ARMv7Builder):
     def __init__(self):
         self.buffer = []

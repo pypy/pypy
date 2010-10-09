@@ -1,11 +1,8 @@
 import os
 import tempfile
+from pypy.jit.backend.arm.test.support import AS
 class ASMInstruction(object):
 
-    if os.uname()[0] == 'Darwin':
-        asm = '~/Code/arm-jit/android/android-ndk-r4b//build/prebuilt/darwin-x86/arm-eabi-4.4.0/arm-eabi/bin/as'
-    else:
-        asm = 'as'
     asm_opts = '-mcpu=cortex-a8 -march=armv7'
     body = """.section .text
 .arm
@@ -41,7 +38,7 @@ main:
         res = self.body % (self.instr)
         self.file.write(res)
         self.file.flush()
-        os.system("%s %s %s -o %s/a.out" % (self.asm, self.asm_opts, self.name, self.tmpdir))
+        os.system("%s %s %s -o %s/a.out" % (AS, self.asm_opts, self.name, self.tmpdir))
 
     def __del__(self):
         self.file.close()
