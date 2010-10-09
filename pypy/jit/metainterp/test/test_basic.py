@@ -315,11 +315,10 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 252
-        self.check_loop_count(2)
-        self.check_loops({'guard_true': 2,
-                          'int_add': 2, 'int_sub': 2, 'int_gt': 2,
-                          'int_mul': 1,
-                          'jump': 2})
+        self.check_loop_count(1)
+        self.check_loops({'guard_true': 1,
+                          'int_add': 1, 'int_sub': 1, 'int_gt': 1,
+                          'jump': 1})
 
     def test_loop_invariant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -334,11 +333,11 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 308
-        self.check_loop_count(2)
-        self.check_loops({'guard_true': 2, 'guard_no_overflow': 1,
-                          'int_add': 4, 'int_sub': 2, 'int_gt': 2,
-                          'int_mul': 2, 'int_mul_ovf': 1,
-                          'jump': 2})
+        self.check_loop_count(1)
+        self.check_loops({'guard_true': 1,
+                          'int_add': 2, 'int_sub': 1, 'int_gt': 1,
+                          'int_mul': 1,
+                          'jump': 1})
 
     def test_loop_invariant_mul_bridge1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -354,7 +353,7 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 32])
         assert res == 3427
-        self.check_loop_count(3)
+        self.check_loop_count(2)
 
     def test_loop_invariant_mul_bridge_maintaining1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -370,11 +369,11 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 32])
         assert res == 1167
-        self.check_loop_count(3)
-        self.check_loops({'int_lt': 2, 'int_gt': 1,
-                          'guard_false': 2, 'guard_true': 1,
-                          'int_sub': 3, 'int_mul': 1, 'int_add': 3,
-                          'jump': 3})
+        self.check_loop_count(2)
+        self.check_loops({'int_add': 1, 'int_lt': 1,
+                          'int_sub': 1, 'guard_false': 1,
+                          'jump': 1})
+
 
     def test_loop_invariant_mul_bridge_maintaining2(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -391,11 +390,12 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 16])
         assert res == 828
-        self.check_loop_count(3)
-        self.check_loops({'int_lt': 2, 'int_gt': 1,
-                          'guard_false': 2, 'guard_true': 1,
-                          'int_sub': 3, 'int_mul': 1, 'int_add': 3,
-                          'jump': 3})
+        self.check_loop_count(2)
+        self.check_loops({'int_add': 1, 'int_lt': 1,
+                          'int_sub': 1, 'guard_false': 1,
+                          'jump': 1})
+
+
 
     def test_loop_invariant_intbox(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -415,11 +415,10 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 252
-        self.check_loop_count(2)
-        self.check_loops({'guard_true': 2,
-                          'int_add': 2, 'int_sub': 2, 'int_gt': 2,
-                          'int_mul': 1, 'getfield_gc_pure': 1,
-                          'jump': 2})
+        self.check_loop_count(1)
+        self.check_loops({'guard_true': 1,
+                          'int_add': 1, 'int_sub': 1, 'int_gt': 1,
+                          'jump': 1})
 
     def test_loops_are_transient(self):
         import gc, weakref
