@@ -20,7 +20,8 @@ class OptUnroll(Optimization):
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
-            inputargs = self.inline(loop.operations,
+            op.initarglist([])
+            inputargs = self.inline(loop.preamble.operations + [op],
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
@@ -59,7 +60,8 @@ class OptUnroll(Optimization):
 
             if newop.getopnum() == rop.JUMP:
                 args = []
-                for arg in newop.getarglist():
+                #for arg in newop.getarglist():
+                for arg in [argmap[a] for a in inputargs]:
                     args.extend(self.getvalue(arg).get_forced_boxes())
                 newop.initarglist(args + inputargs[len(args):])
 

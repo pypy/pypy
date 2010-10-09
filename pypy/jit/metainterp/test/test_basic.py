@@ -595,7 +595,7 @@ class BasicTests:
         res = self.meta_interp(f, [21, 5])
         assert res == -1
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_loops(int_sub=1, call=0, call_pure=0, getfield_gc=1)
+        self.check_loops(int_sub=1, call=0, call_pure=0, getfield_gc=0)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -968,10 +968,9 @@ class BasicTests:
         self.meta_interp(f, [20], repeat=7)
         self.check_tree_loop_count(2)      # the loop and the entry path
         # we get:
-        #    ENTER             - compile the new loop
-        #    ENTER             - compile the entry bridge
+        #    ENTER             - compile the new loop and the entry bridge
         #    ENTER             - compile the leaving path
-        self.check_enter_count(3)
+        self.check_enter_count(2)
 
     def test_bridge_from_interpreter_2(self):
         # one case for backend - computing of framesize on guard failure
