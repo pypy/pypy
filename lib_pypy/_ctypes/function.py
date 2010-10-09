@@ -1,6 +1,8 @@
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.primitive import SimpleType
 from _ctypes.basics import ArgumentError, keepalive_key
+from _ctypes.builtin import set_errno, set_last_error
 import _rawffi
 import sys
 import traceback
@@ -97,7 +99,7 @@ class CFuncPtr(_CData):
     def _ffishapes(self, args, restype):
         argtypes = [arg._ffiargshape for arg in args]
         if restype is not None:
-            if not isinstance(restype, _CDataMeta):
+            if not isinstance(restype, SimpleType):
                 raise TypeError("invalid result type for callback function")
             restype = restype._ffiargshape
         else:
@@ -164,7 +166,27 @@ class CFuncPtr(_CData):
     
     def __call__(self, *args):
         if self.callable is not None:
-            args = args[:len(self._argtypes_)]
+            if len(args) == len(self._argtypes_):
+                pass
+            elif self._flags_ & _rawffi.FUNCFLAG_CDECL:
+                if len(args) < len(self._argtypes_):
+                    plural = len(self._argtypes_) > 1 and "s" or ""
+                    raise TypeError(
+                        "This function takes at least %d argument%s (%s given)"
+                        % (len(self._argtypes_), plural, len(args)))
+                else:
+                    # For cdecl functions, we allow more actual arguments
+                    # than the length of the argtypes tuple.
+                    args = args[:len(self._argtypes_)]
+            else:
+                plural = len(self._argtypes_) > 1 and "s" or ""
+                raise TypeError(
+                    "This function takes %d argument%s (%s given)"
+                    % (len(self._argtypes_), plural, len(args)))
+
+            # check that arguments are convertible
+            self._convert_args(self._argtypes_, args)
+
             try:
                 res = self.callable(*args)
             except:
@@ -193,8 +215,18 @@ class CFuncPtr(_CData):
         
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
-        resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
-                              for arg in args])
+        if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+            set_errno(_rawffi.get_errno())
+        if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+            set_last_error(_rawffi.get_last_error())
+        try:
+            resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
+                                  for arg in args])
+        finally:
+            if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+                set_errno(_rawffi.get_errno())
+            if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+                set_last_error(_rawffi.get_last_error())
         result = self._build_result(restype, resbuffer, argtypes, args)
 
         # The 'errcheck' protocol

@@ -2,7 +2,8 @@
 String formatting routines.
 """
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow, isnan, isinf
+from pypy.rlib.rarithmetic import (
+    ovfcheck, formatd_overflow, DTSF_ALT, isnan, isinf)
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -41,6 +42,10 @@ class BaseStringFormatter(object):
     def std_wp_int(self, r, prefix='', keep_zero=False):
         # use self.prec to add some '0' on the left of the number
         if self.prec >= 0:
+            if self.prec > 1000:
+                raise OperationError(
+                    self.space.w_OverflowError, self.space.wrap(
+                    'formatted integer is too long (precision too large?)'))
             sign = r[0] == '-'
             padding = self.prec - (len(r)-int(sign))
             if padding > 0:
@@ -113,20 +118,32 @@ class BaseStringFormatter(object):
         space = self.space
         x = space.float_w(maybe_float(space, w_value))
         if isnan(x):
-            r = 'nan'
+            if char in 'EFG':
+                r = 'NAN'
+            else:
+                r = 'nan'
         elif isinf(x):
             if x < 0:
-                r = '-inf'
+                if char in 'EFG':
+                    r = '-INF'
+                else:
+                    r = '-inf'
             else:
-                r = 'inf'
+                if char in 'EFG':
+                    r = 'INF'
+                else:
+                    r = 'inf'
         else:
             prec = self.prec
             if prec < 0:
                 prec = 6
             if char in 'fF' and x/1e25 > 1e25:
                 char = chr(ord(char) + 1)     # 'f' => 'g'
+            flags = 0
+            if self.f_alt:
+                flags |= DTSF_ALT
             try:
-                r = formatd_overflow(self.f_alt, prec, char, x)
+                r = formatd_overflow(x, char, prec, self.f_alt)
             except OverflowError:
                 raise OperationError(space.w_OverflowError, space.wrap(
                     "formatted float is too long (precision too large?)"))

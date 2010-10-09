@@ -217,25 +217,21 @@ class BaseTestCompiler:
             assert not space.eq_w(w_const, space.wrap("b"))
             assert not space.eq_w(w_const, space.wrap("c"))
 
-    _unicode_error_kind = "w_UnicodeError"
-
     def test_unicodeliterals(self):
-        w_error = getattr(self.space, self._unicode_error_kind)
-
         e = py.test.raises(OperationError, self.eval_string, "u'\\Ufffffffe'")
         ex = e.value
         ex.normalize_exception(self.space)
-        assert ex.match(self.space, w_error)
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
         e = py.test.raises(OperationError, self.eval_string, "u'\\Uffffffff'")
         ex = e.value
         ex.normalize_exception(self.space)
-        assert ex.match(self.space, w_error)
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
         e = py.test.raises(OperationError, self.eval_string, "u'\\U%08x'" % 0x110000)
         ex = e.value
         ex.normalize_exception(self.space)
-        assert ex.match(self.space, w_error)
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_unicode_docstring(self):
         space = self.space
@@ -714,6 +710,20 @@ with somtehing as stuff:
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler
+
+
+class AppTestCompiler:
+
+    def test_zeros_not_mixed(self):
+        import math
+        code = compile("x = -0.0; y = 0.0", "<test>", "exec")
+        consts = code.co_consts
+        assert len(consts) == 3
+        assert math.copysign(1, consts[0]) != math.copysign(1, consts[1])
+        ns = {}
+        exec "z1, z2 = 0j, -0j" in ns
+        assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
+        assert math.atan2(ns["z2"].imag, -1.) == math.atan2(-0., -1.)
 
 
 ##class TestPythonAstCompiler(BaseTestCompiler):

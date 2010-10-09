@@ -127,7 +127,7 @@ class ARMRegisterManager(RegisterManager):
             self.assembler.load(loc, imm)
         else:
             loc = self.make_sure_var_in_reg(thing,
-                            forbidden_vars=forbidden_vars, imm_fine=False)
+                            forbidden_vars=forbidden_vars)
             box = thing
         return loc, box
 

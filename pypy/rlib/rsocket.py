@@ -27,6 +27,7 @@ constants = _c.constants
 locals().update(constants) # Define constants from _c
 
 if _c.WIN32:
+    from pypy.rlib import rwin32
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
         res = _c.WSAStartup(1, wsadata)
@@ -126,6 +127,13 @@ class Address(object):
         # on the correct subclass.
         raise RSocketError("unknown address family")
     from_object = staticmethod(from_object)
+
+    @staticmethod
+    def _check_port(space, port):
+        from pypy.interpreter.error import OperationError
+        if port < 0 or port > 0xffff:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "port must be 0-65535."))
 
     def fill_from_object(self, space, w_address):
         """ Purely abstract
@@ -299,13 +307,16 @@ class INETAddress(IPAddress):
             raise TypeError("AF_INET address must be a tuple of length 2")
         host = space.str_w(w_host)
         port = space.int_w(w_port)
+        Address._check_port(space, port)
         return INETAddress(host, port)
     from_object = staticmethod(from_object)
 
     def fill_from_object(self, space, w_address):
         # XXX a bit of code duplication
+        from pypy.interpreter.error import OperationError
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
+        self._check_port(space, port)
         a = self.lock(_c.sockaddr_in)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
@@ -383,12 +394,14 @@ class INET6Address(IPAddress):
                                space.wrap(self.get_scope_id())])
 
     def from_object(space, w_address):
+        from pypy.interpreter.error import OperationError
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise TypeError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
+        Address._check_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
@@ -398,11 +411,13 @@ class INET6Address(IPAddress):
 
     def fill_from_object(self, space, w_address):
         # XXX a bit of code duplication
+        from pypy.interpreter.error import OperationError
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
         port = space.int_w(pieces_w[1])
+        self._check_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
@@ -824,10 +839,7 @@ class RSocket(object):
                                SocketClass=SocketClass)
         
     def fileno(self):
-        fd = self.fd
-        if _c.invalid_socket(fd):
-            raise RSocketError("socket already closed")
-        return fd
+        return self.fd
 
     def getpeername(self):
         """Return the address of the remote endpoint."""
@@ -989,7 +1001,7 @@ class RSocket(object):
         finally:
             rffi.free_nonmovingbuffer(data, dataptr)
 
-    def sendall(self, data, flags=0):
+    def sendall(self, data, flags=0, signal_checker=None):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
@@ -999,9 +1011,15 @@ class RSocket(object):
             remaining = len(data)
             p = dataptr
             while remaining > 0:
-                res = self.send_raw(p, remaining, flags)
-                p = rffi.ptradd(p, res)
-                remaining -= res
+                try:
+                    res = self.send_raw(p, remaining, flags)
+                    p = rffi.ptradd(p, res)
+                    remaining -= res
+                except CSocketError, e:
+                    if e.errno != _c.EINTR:
+                        raise
+                if signal_checker:
+                    signal_checker.check()
         finally:
             rffi.free_nonmovingbuffer(data, dataptr)
 
@@ -1097,8 +1115,12 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-def last_error():
-    return CSocketError(_c.geterrno())
+if _c.WIN32:
+    def last_error():
+        return CSocketError(rwin32.GetLastError())
+else:
+    def last_error():
+        return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'

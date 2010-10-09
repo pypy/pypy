@@ -14,6 +14,89 @@ import time as pytime
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
 
+if _WIN:
+    # Interruptible sleeps on Windows:
+    # We install a specific Console Ctrl Handler which sets an 'event'.
+    # time.sleep() will actually call WaitForSingleObject with the desired
+    # timeout.  On Ctrl-C, the signal handler is called, the event is set,
+    # and the wait function exits.
+    from pypy.rlib import rwin32
+    from pypy.interpreter.error import wrap_windowserror, wrap_oserror
+    from pypy.module.thread import ll_thread as thread
+
+    # This is needed because the handler function must have the "WINAPI"
+    # calling convention, which is not supported by lltype.Ptr.
+    CtrlHandler_type = lltype.Ptr(lltype.FuncType([], rwin32.BOOL))
+    eci = ExternalCompilationInfo(
+        separate_module_sources=['''
+            #include <windows.h>
+
+            static BOOL (*CtrlHandlerRoutine)(
+                DWORD dwCtrlType);
+
+            static BOOL WINAPI winapi_CtrlHandlerRoutine(
+              DWORD dwCtrlType)
+            {
+                return CtrlHandlerRoutine(dwCtrlType);
+            }
+
+            BOOL pypy_timemodule_setCtrlHandlerRoutine(BOOL (*f)(DWORD))
+            {
+                CtrlHandlerRoutine = f;
+                SetConsoleCtrlHandler(winapi_CtrlHandlerRoutine, TRUE);
+            }
+
+        '''],
+        export_symbols=['pypy_timemodule_setCtrlHandlerRoutine'],
+        )
+    _setCtrlHandlerRoutine = rffi.llexternal(
+        'pypy_timemodule_setCtrlHandlerRoutine',
+        [CtrlHandler_type], rwin32.BOOL,
+        compilation_info=eci)
+
+    def ProcessingCtrlHandler():
+        rwin32.SetEvent(globalState.interrupt_event)
+        # allow other default handlers to be called.
+        # Default Python handler will setup the
+        # KeyboardInterrupt exception.
+        return 0
+
+    class GlobalState:
+        def __init__(self):
+            self.init()
+
+        def init(self):
+            self.interrupt_event = rwin32.NULL_HANDLE
+
+        def startup(self, space):
+            # Initialize the event handle used to signal Ctrl-C
+            try:
+                globalState.interrupt_event = rwin32.CreateEvent(
+                    rffi.NULL, True, False, rffi.NULL)
+            except WindowsError, e:
+                raise wrap_windowserror(space, e)
+            if not _setCtrlHandlerRoutine(ProcessingCtrlHandler):
+                raise wrap_windowserror(
+                    space, rwin32.lastWindowsError("SetConsoleCtrlHandler"))
+
+    globalState = GlobalState()
+
+    class State:
+        def __init__(self, space):
+            self.main_thread = 0
+
+        def _freeze_(self):
+            self.main_thread = 0
+            globalState.init()
+
+        def startup(self, space):
+            self.main_thread = thread.get_ident()
+            globalState.startup(space)
+
+        def get_interrupt_event(self):
+            return globalState.interrupt_event
+
+
 _includes = ["time.h"]
 if _POSIX:
     _includes.append('sys/time.h')
@@ -166,9 +249,37 @@ def _get_error_msg():
     errno = rposix.get_errno()
     return os.strerror(errno)
 
-def sleep(secs):
-    pytime.sleep(secs)
-sleep.unwrap_spec = [float]
+if sys.platform != 'win32':
+    def sleep(space, secs):
+        pytime.sleep(secs)
+else:
+    from pypy.rlib import rwin32
+    from errno import EINTR
+    def _simple_sleep(space, secs, interruptible):
+        if secs == 0.0 or not interruptible:
+            pytime.sleep(secs)
+        else:
+            millisecs = int(secs * 1000)
+            interrupt_event = space.fromcache(State).get_interrupt_event()
+            rwin32.ResetEvent(interrupt_event)
+            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
+            if rc == rwin32.WAIT_OBJECT_0:
+                # Yield to make sure real Python signal handler
+                # called.
+                pytime.sleep(0.001)
+                raise wrap_oserror(space,
+                                   OSError(EINTR, "sleep() interrupted"))
+    def sleep(space, secs):
+        # as decreed by Guido, only the main thread can be
+        # interrupted.
+        main_thread = space.fromcache(State).main_thread
+        interruptible = (main_thread == thread.get_ident())
+        MAX = sys.maxint / 1000.0 # > 24 days
+        while secs > MAX:
+            _simple_sleep(space, MAX, interruptible)
+            secs -= MAX
+        _simple_sleep(space, secs, interruptible)
+sleep.unwrap_spec = [ObjSpace, float]
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
@@ -449,6 +560,21 @@ def strftime(space, format, w_tup=None):
     if rffi.getintfield(buf_value, 'c_tm_isdst') < -1 or rffi.getintfield(buf_value, 'c_tm_isdst') > 1:
         raise OperationError(space.w_ValueError,
                              space.wrap("daylight savings flag out of range"))
+
+    if _WIN:
+        # check that the format string contains only valid directives
+        length = len(format)
+        i = 0
+        while i < length:
+            if format[i] == '%':
+                i += 1
+                if i < length and format[i] == '#':
+                    # not documented by python
+                    i += 1
+                if i >= length or format[i] not in "aAbBcdfHIjmMpSUwWxXyYzZ%":
+                    raise OperationError(space.w_ValueError,
+                                         space.wrap("invalid format string"))
+            i += 1
 
     i = 1024
     while True:

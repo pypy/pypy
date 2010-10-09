@@ -6,6 +6,9 @@ from _ctypes.basics import sizeof, byref
 from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
      array_slice_setitem
 
+# This cache maps types to pointers to them.
+_pointer_type_cache = {}
+
 DEFAULT_VALUE = object()
 
 class PointerType(_CDataMeta):
@@ -144,3 +147,26 @@ def _cast_addr(obj, _, tp):
             result._objects[id(obj)] =  obj
 
     return result
+
+def POINTER(cls):
+    try:
+        return _pointer_type_cache[cls]
+    except KeyError:
+        pass
+    if type(cls) is str:
+        klass = type(_Pointer)("LP_%s" % cls,
+                               (_Pointer,),
+                               {})
+        _pointer_type_cache[id(klass)] = klass
+        return klass
+    else:
+        name = "LP_%s" % cls.__name__
+        klass = type(_Pointer)(name,
+                               (_Pointer,),
+                               {'_type_': cls})
+        _pointer_type_cache[cls] = klass
+    return klass
+
+def pointer(inst):
+    return POINTER(type(inst))(inst)
+

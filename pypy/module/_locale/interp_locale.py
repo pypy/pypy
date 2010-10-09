@@ -65,9 +65,6 @@ def setlocale(space, category, w_locale=None):
 
 setlocale.unwrap_spec = [ObjSpace, int, W_Root]
 
-_lconv = lltype.Ptr(rlocale.cConfig.lconv)
-_localeconv = rlocale.external('localeconv', [], _lconv)
-
 def _w_copy_grouping(space, text):
     groups = [ space.wrap(ord(group)) for group in text ]
     if groups:
@@ -76,7 +73,7 @@ def _w_copy_grouping(space, text):
 
 def localeconv(space):
     "() -> dict. Returns numeric and monetary locale-specific parameters."
-    lp = _localeconv()
+    lp = rlocale.localeconv()
 
     # Numeric information
     w_result = space.newdict()

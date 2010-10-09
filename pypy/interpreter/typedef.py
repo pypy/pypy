@@ -19,6 +19,7 @@ class TypeDef:
         self.base = __base
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
+        self.doc = rawdict.pop('__doc__', None)
         if __base is not None:
             self.hasdict     |= __base.hasdict
             self.weakrefable |= __base.weakrefable
@@ -49,13 +50,6 @@ class TypeDef:
 
 def default_identity_hash(space, w_obj):
     return space.wrap(compute_identity_hash(w_obj))
-
-def descr__hash__unhashable(space, w_obj):
-    typename = space.type(w_obj).getname(space)
-    raise operationerrfmt(space.w_TypeError,
-                          "'%s' objects are unhashable", typename)
-
-no_hash_descr = interp2app(descr__hash__unhashable)
 
 # ____________________________________________________________
 #
@@ -559,6 +553,17 @@ Member.typedef = TypeDef(
 Member.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
+
+def generic_new_descr(W_Type):
+    def descr_new(space, w_subtype, __args__):
+        self = space.allocate_instance(W_Type, w_subtype)
+        W_Type.__init__(self, space)
+        return space.wrap(self)
+    descr_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
+    descr_new = func_with_new_name(descr_new, 'descr_new_%s' % W_Type.__name__)
+    return interp2app(descr_new)
+
+# ____________________________________________________________
 #
 # Definition of the type's descriptors for all the internal types
 
@@ -621,7 +626,8 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
     return space.newtuple([w_docstring])
 
-weakref_descr = GetSetProperty(descr_get_weakref)
+weakref_descr = GetSetProperty(descr_get_weakref,
+                    doc="list of weak references to the object (if defined)")
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):
@@ -692,6 +698,7 @@ PyCode.typedef = TypeDef('code',
     co_name = interp_attrproperty('co_name', cls=PyCode),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode),
+    __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
 
@@ -766,9 +773,11 @@ Function.typedef = TypeDef("function",
     func_defaults = getset_func_defaults,
     func_globals = interp_attrproperty_w('w_func_globals', cls=Function),
     func_closure = GetSetProperty( Function.fget_func_closure ),
+    __code__ = getset_func_code,
     __doc__ = getset_func_doc,
     __name__ = getset_func_name,
     __dict__ = getset_func_dict,
+    __defaults__ = getset_func_defaults,
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
     )
@@ -810,6 +819,7 @@ It can be called either on the class (e.g. C.f()) or on an instance
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func,
                          unwrap_spec = [ObjSpace, W_Root, W_Root]),
+    __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
     )
 
 ClassMethod.typedef = TypeDef(
@@ -818,6 +828,7 @@ ClassMethod.typedef = TypeDef(
                          unwrap_spec = [ObjSpace, W_Root, W_Root]),
     __get__ = interp2app(ClassMethod.descr_classmethod_get,
                          unwrap_spec = ['self', ObjSpace, W_Root, W_Root]),
+    __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
     __doc__ = """classmethod(function) -> class method
 
 Convert a function to be a class method.
@@ -843,6 +854,7 @@ BuiltinFunction.typedef.rawdict.update({
     '__new__': interp2app(BuiltinFunction.descr_builtinfunction__new__.im_func),
     '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
     '__repr__': interp2app(BuiltinFunction.descr_function_repr),
+    '__doc__': getset_func_doc,
     })
 del BuiltinFunction.typedef.rawdict['__get__']
 BuiltinFunction.typedef.acceptable_as_base_class = False
@@ -860,6 +872,8 @@ PyTraceback.typedef = TypeDef("traceback",
 PyTraceback.typedef.acceptable_as_base_class = False
 
 GeneratorIterator.typedef = TypeDef("generator",
+    __repr__   = interp2app(GeneratorIterator.descr__repr__,
+                            unwrap_spec=['self', ObjSpace]),
     __reduce__   = interp2app(GeneratorIterator.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     next       = interp2app(GeneratorIterator.descr_next,
@@ -876,6 +890,8 @@ GeneratorIterator.typedef = TypeDef("generator",
                             descrmismatch='__del__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
+    gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
+    __name__   = GetSetProperty(GeneratorIterator.descr__name__),
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 GeneratorIterator.typedef.acceptable_as_base_class = False
@@ -884,7 +900,7 @@ Cell.typedef = TypeDef("cell",
     __eq__       = interp2app(Cell.descr__eq__,
                               unwrap_spec=['self', ObjSpace, W_Root]),
     __ne__       = descr_generic_ne,
-    __hash__     = no_hash_descr,
+    __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(Cell.descr__setstate__,

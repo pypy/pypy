@@ -1,7 +1,7 @@
 from py.test import raises, skip
 from pypy.conftest import gettestobjspace
 
-from pypy.module.unicodedata import unicodedb_4_1_0, unicodedb_3_2_0, unicodedb_5_0_0
+from pypy.module.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
 
 class AppTestUnicodeData:
     def setup_class(cls):
@@ -82,11 +82,17 @@ class AppTestUnicodeData:
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
 
+    def test_normalize_wide(self):
+        import sys, unicodedata
+        if sys.maxunicode < 0x10ffff:
+            skip("requires a 'wide' python build.")
+        assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
+
 class TestUnicodeData(object):
     def setup_class(cls):
         import random, unicodedata
-        if unicodedata.unidata_version != '4.1.0':
-            skip('Needs python with unicode 4.1.0 database.')
+        if unicodedata.unidata_version != '5.2.0':
+            skip('Needs python with unicode 5.2.0 database.')
 
         seed = random.getrandbits(32)
         print "random seed: ", seed
@@ -102,12 +108,12 @@ class TestUnicodeData(object):
 
     def test_random_charnames(self):
         for chr, name in self.charlist:
-            assert unicodedb_4_1_0.name(ord(chr)) == name
-            assert unicodedb_4_1_0.lookup(name) == ord(chr)
+            assert unicodedb_5_2_0.name(ord(chr)) == name
+            assert unicodedb_5_2_0.lookup(name) == ord(chr)
 
     def test_random_missing_chars(self):
         for chr in self.nocharlist:
-            raises(KeyError, unicodedb_4_1_0.name, ord(chr))
+            raises(KeyError, unicodedb_5_2_0.name, ord(chr))
 
     diff_numeric = set([0x3405, 0x3483, 0x382a, 0x3b4d, 0x4e00, 0x4e03,
                         0x4e07, 0x4e09, 0x4e5d, 0x4e8c, 0x4e94, 0x4e96,
@@ -131,7 +137,7 @@ class TestUnicodeData(object):
             if fun == 'numeric' and code in self.diff_numeric:
                 return -1
             try:
-                return getattr(unicodedb_4_1_0, fun)(code)
+                return getattr(unicodedb_5_2_0, fun)(code)
             except KeyError:
                 return -1
         
@@ -140,38 +146,37 @@ class TestUnicodeData(object):
             assert unicodedata.digit(char, -1) == getX('digit', code)
             assert unicodedata.numeric(char, -1) == getX('numeric', code)
             assert unicodedata.decimal(char, -1) == getX('decimal', code)
-            assert unicodedata.category(char) == unicodedb_4_1_0.category(code)
-            assert unicodedata.bidirectional(char) == unicodedb_4_1_0.bidirectional(code)
-            assert unicodedata.decomposition(char) == unicodedb_4_1_0.decomposition(code)
-            assert unicodedata.mirrored(char) == unicodedb_4_1_0.mirrored(code)
-            assert unicodedata.combining(char) == unicodedb_4_1_0.combining(code)
+            assert unicodedata.category(char) == unicodedb_5_2_0.category(code)
+            assert unicodedata.bidirectional(char) == unicodedb_5_2_0.bidirectional(code)
+            assert unicodedata.decomposition(char) == unicodedb_5_2_0.decomposition(code)
+            assert unicodedata.mirrored(char) == unicodedb_5_2_0.mirrored(code)
+            assert unicodedata.combining(char) == unicodedb_5_2_0.combining(code)
 
     def test_compare_methods(self):
         for code in range(0x10000):
             char = unichr(code)
-            assert char.isalnum() == unicodedb_4_1_0.isalnum(code)
-            assert char.isalpha() == unicodedb_4_1_0.isalpha(code)
-            assert char.isdecimal() == unicodedb_4_1_0.isdecimal(code)
-            assert char.isdigit() == unicodedb_4_1_0.isdigit(code)
-            assert char.islower() == unicodedb_4_1_0.islower(code)
-            assert (code in self.diff_numeric or char.isnumeric()) == unicodedb_4_1_0.isnumeric(code)
-            assert code in self.diff_isspace or char.isspace() == unicodedb_4_1_0.isspace(code), hex(code)
-            assert char.istitle() == (unicodedb_4_1_0.isupper(code) or unicodedb_4_1_0.istitle(code)), code
-            assert char.isupper() == unicodedb_4_1_0.isupper(code)
+            assert char.isalnum() == unicodedb_5_2_0.isalnum(code)
+            assert char.isalpha() == unicodedb_5_2_0.isalpha(code)
+            assert char.isdecimal() == unicodedb_5_2_0.isdecimal(code)
+            assert char.isdigit() == unicodedb_5_2_0.isdigit(code)
+            assert char.islower() == unicodedb_5_2_0.islower(code)
+            assert (code in self.diff_numeric or char.isnumeric()) == unicodedb_5_2_0.isnumeric(code)
+            assert code in self.diff_isspace or char.isspace() == unicodedb_5_2_0.isspace(code), hex(code)
+            assert char.istitle() == (unicodedb_5_2_0.isupper(code) or unicodedb_5_2_0.istitle(code)), code
+            assert char.isupper() == unicodedb_5_2_0.isupper(code)
 
-            assert char.lower() == unichr(unicodedb_4_1_0.tolower(code))
-            assert char.upper() == unichr(unicodedb_4_1_0.toupper(code))
-            assert code in self.diff_title or char.title() == unichr(unicodedb_4_1_0.totitle(code)), hex(code)
+            assert char.lower() == unichr(unicodedb_5_2_0.tolower(code))
+            assert char.upper() == unichr(unicodedb_5_2_0.toupper(code))
+            assert code in self.diff_title or char.title() == unichr(unicodedb_5_2_0.totitle(code)), hex(code)
 
-    def test_hangul_difference_410(self):
-        assert unicodedb_4_1_0.name(40874) == 'CJK UNIFIED IDEOGRAPH-9FAA'
+    def test_hangul_difference_520(self):
+        assert unicodedb_5_2_0.name(40874) == 'CJK UNIFIED IDEOGRAPH-9FAA'
 
     def test_differences(self):
-        assert unicodedb_5_0_0.name(9187) == 'BENZENE RING WITH CIRCLE'
-        assert unicodedb_5_0_0.lookup('BENZENE RING WITH CIRCLE') == 9187
+        assert unicodedb_5_2_0.name(9187) == 'BENZENE RING WITH CIRCLE'
+        assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
         raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
-        raises(KeyError, unicodedb_4_1_0.lookup, 'BENZENE RING WITH CIRCLE')
         raises(KeyError, unicodedb_3_2_0.name, 9187)
-        raises(KeyError, unicodedb_4_1_0.name, 9187)
+
 
 

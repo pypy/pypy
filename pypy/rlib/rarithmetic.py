@@ -35,8 +35,8 @@ mark where overflow checking is required.
 """
 import sys, math
 from pypy.rpython import extregistry
-
 from pypy.rlib import objectmodel
+
 # set up of machine internals
 _bits = 0
 _itest = 1
@@ -58,11 +58,111 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
 INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
 
-def isinf(x):
-    return x == INFINITY or x == -INFINITY
+try:
+    # Try to get math functions added in 2.6.
+    from math import isinf, isnan, copysign, acosh, asinh, atanh, log1p
+except ImportError:
+    def isinf(x):
+        "NOT_RPYTHON"
+        return x == INFINITY or x == -INFINITY
 
-def isnan(v):
-    return v != v
+    def isnan(v):
+        "NOT_RPYTHON"
+        return v != v
+
+    def copysign(x, y):
+        """NOT_RPYTHON. Return x with the sign of y"""
+        if y > 0. or (y == 0. and math.atan2(y, -1.) > 0.):
+            return math.fabs(x)
+        else:
+            return -math.fabs(x)
+
+    _2_to_m28 = 3.7252902984619141E-09; # 2**-28
+    _2_to_p28 = 268435456.0; # 2**28
+    _ln2 = 6.93147180559945286227E-01
+
+    def acosh(x):
+        "NOT_RPYTHON"
+        if isnan(x):
+            return NAN
+        if x < 1.:
+            raise ValueError("math domain error")
+        if x >= _2_to_p28:
+            if isinf(x):
+                return x
+            else:
+                return math.log(x) + _ln2
+        if x == 1.:
+            return 0.
+        if x >= 2.:
+            t = x * x
+            return math.log(2. * x - 1. / (x + math.sqrt(t - 1.0)))
+        t = x - 1.0
+        return log1p(t + math.sqrt(2. * t + t * t))
+
+    def asinh(x):
+        "NOT_RPYTHON"
+        absx = abs(x)
+        if isnan(x) or isinf(x):
+            return x
+        if absx < _2_to_m28:
+            return x
+        if absx > _2_to_p28:
+            w = math.log(absx) + _ln2
+        elif absx > 2.:
+            w = math.log(2. * absx + 1. / (math.sqrt(x * x + 1.) + absx))
+        else:
+            t = x * x
+            w = log1p(absx + t / (1. + math.sqrt(1. + t)))
+        return copysign(w, x)
+
+    def atanh(x):
+        "NOT_RPYTHON"
+        if isnan(x):
+            return x
+        absx = abs(x)
+        if absx >= 1.:
+            raise ValueError("math domain error")
+        if absx < _2_to_m28:
+            return x
+        if absx < .5:
+            t = absx + absx
+            t = .5 * log1p(t + t * absx / (1. - absx))
+        else:
+            t = .5 * log1p((absx + absx) / (1. - absx))
+        return copysign(t, x)
+
+    def log1p(x):
+        "NOT_RPYTHON"
+        from pypy.rlib import rfloat
+        if abs(x) < rfloat.DBL_EPSILON // 2.:
+            return x
+        elif -.5 <= x <= 1.:
+            y = 1. + x
+            return math.log(y) - ((y - 1.) - x) / y
+        else:
+            return math.log(1. + x)
+
+try:
+    from math import expm1 # Added in Python 2.7.
+except ImportError:
+    def expm1(x):
+        "NOT_RPYTHON"
+        if abs(x) < .7:
+            u = math.exp(x)
+            if u == 1.:
+                return x
+            return (u - 1.) * x / math.log(u)
+        return math.exp(x) - 1.
+
+def round_away(x):
+    # round() from libm, which is not available on all platforms!
+    absx = abs(x)
+    if absx - math.floor(absx) >= .5:
+        r = math.ceil(absx)
+    else:
+        r = math.floor(absx)
+    return copysign(r, x)
 
 def intmask(n):
     if isinstance(n, int):
@@ -125,6 +225,8 @@ def ovfcheck_lshift(a, b):
 # successfully be casted to an int.
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
+        if isnan(x):
+            raise OverflowError
         if -2147483649.0 < x < 2147483648.0:
             return int(x)
         raise OverflowError
@@ -133,6 +235,8 @@ else:
     # Note the "<= x <" here, as opposed to "< x <" above.
     # This is justified by test_typed in translator/c/test.
     def ovfcheck_float_to_int(x):
+        if isnan(x):
+            raise OverflowError
         if -9223372036854776832.0 <= x < 9223372036854775296.0:
             return int(x)
         raise OverflowError
@@ -155,6 +259,7 @@ def signedtype(t):
         return True
     else:
         return t.SIGNED
+signedtype._annspecialcase_ = 'specialize:memo'
 
 def normalizedinttype(t):
     if t is int:
@@ -470,29 +575,71 @@ def parts_to_float(sign, beforept, afterpt, exponent):
 
 # float -> string
 
+DTSF_STR_PRECISION = 12
+
+DTSF_SIGN      = 0x1
+DTSF_ADD_DOT_0 = 0x2
+DTSF_ALT       = 0x4
+
+DIST_FINITE   = 1
+DIST_NAN      = 2
+DIST_INFINITY = 3
+
+# Equivalent to CPython's PyOS_double_to_string
+def _formatd(x, code, precision, flags):
+    "NOT_RPYTHON"
+    if flags & DTSF_ALT:
+        alt = '#'
+    else:
+        alt = ''
+
+    if code == 'r':
+        fmt = "%r"
+    else:
+        fmt = "%%%s.%d%s" % (alt, precision, code)
+    s = fmt % (x,)
+
+    if flags & DTSF_ADD_DOT_0:
+        # We want float numbers to be recognizable as such,
+        # i.e., they should contain a decimal point or an exponent.
+        # However, %g may print the number as an integer;
+        # in such cases, we append ".0" to the string.
+        for c in s:
+            if c in '.eE':
+                break
+        else:
+            s += '.0'
+    elif code == 'r' and s.endswith('.0'):
+        s = s[:-2]
+
+    return s
+def formatd(x, code, precision, flags=0):
+    return _formatd(x, code, precision, flags)
+
 formatd_max_length = 120
 
-def formatd(fmt, x):
-    return fmt % (x,)
-
-def formatd_overflow(alt, prec, kind, x):
+def formatd_overflow(x, kind, precision, flags=0):
     # msvcrt does not support the %F format.
     # OTOH %F and %f only differ for 'inf' or 'nan' numbers
     # which are already handled elsewhere
     if kind == 'F':
         kind = 'f'
 
-    if ((kind in 'gG' and formatd_max_length <= 10+prec) or
-        (kind in 'fF' and formatd_max_length <= 53+prec)):
+    if ((kind in 'gG' and formatd_max_length < 10+precision) or
+        (kind in 'fF' and formatd_max_length < 53+precision)):
         raise OverflowError("formatted float is too long (precision too large?)")
-    if alt:
-        alt = '#'
+
+    return formatd(x, kind, precision, flags)
+
+def double_to_string(value, tp, precision, flags):
+    if isnan(value):
+        special = DIST_NAN
+    elif isinf(value):
+        special = DIST_INFINITY
     else:
-        alt = ''
-
-    fmt = "%%%s.%d%s" % (alt, prec, kind)
-
-    return formatd(fmt, x)
+        special = DIST_FINITE
+    result = formatd_overflow(value, tp, precision)
+    return result, special
 
 # the 'float' C type
 
@@ -524,6 +671,31 @@ class r_singlefloat(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+class r_longfloat(object):
+    """A value of the C type 'long double'.
+
+    Note that we consider this as a black box for now - the only thing
+    you can do with it is cast it back to a regular float."""
+
+    def __init__(self, floatval):
+        self.value = floatval
+
+    def __float__(self):
+        return self.value
+
+    def __nonzero__(self):
+        raise TypeError("not supported on r_longfloat instances")
+
+    def __cmp__(self, other):
+        raise TypeError("not supported on r_longfloat instances")
+
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and self.value == other.value
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
     _type_ = r_singlefloat

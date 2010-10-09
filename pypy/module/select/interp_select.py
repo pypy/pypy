@@ -2,8 +2,10 @@ import math
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import W_Root, ObjSpace, interp2app
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import (
+    OperationError, operationerrfmt, wrap_oserror)
 from pypy.rlib import rpoll
+import errno
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
 
@@ -20,6 +22,14 @@ class Poll(Wrappable):
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
     register.unwrap_spec = ['self', ObjSpace, W_Root, int]
+
+    def modify(self, space, w_fd, events):
+        fd = space.c_filedescriptor_w(w_fd)
+        if fd not in self.fddict:
+            raise wrap_oserror(space, OSError(errno.ENOENT, "poll.modify"),
+                               exception_name='w_IOError')
+        self.fddict[fd] = events
+    modify.unwrap_spec = ['self', ObjSpace, W_Root, int]
 
     def unregister(self, space, w_fd):
         fd = space.c_filedescriptor_w(w_fd)
@@ -61,7 +71,7 @@ class Poll(Wrappable):
     poll.unwrap_spec = ['self', ObjSpace, W_Root]
 
 pollmethods = {}
-for methodname in 'register unregister poll'.split():
+for methodname in 'register modify unregister poll'.split():
     method = getattr(Poll, methodname)
     assert hasattr(method,'unwrap_spec'), methodname
     assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname

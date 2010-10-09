@@ -3,7 +3,7 @@ from pypy.rlib.bitmanipulation import splitter
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
@@ -270,7 +270,6 @@ def str_decode_utf_16_helper(s, size, errors, final=True,
     if errorhandler is None:
         errorhandler = raise_unicode_exception_decode
     bo = 0
-    consumed = 0
 
     if BYTEORDER == 'little':
         ihi = 1
@@ -416,6 +415,165 @@ def unicode_encode_utf_16_be(s, size, errors,
 def unicode_encode_utf_16_le(s, size, errors,
                              errorhandler=None):
     return unicode_encode_utf_16_helper(s, size, errors, errorhandler, "little")
+
+
+# ____________________________________________________________
+# utf-32
+
+def str_decode_utf_32(s, size, errors, final=True,
+                      errorhandler=None):
+    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
+                                                         errorhandler, "native")
+    return result, length
+
+def str_decode_utf_32_be(s, size, errors, final=True,
+                         errorhandler=None):
+    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
+                                                         errorhandler, "big")
+    return result, length
+
+def str_decode_utf_32_le(s, size, errors, final=True,
+                         errorhandler=None):
+    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
+                                                         errorhandler, "little")
+    return result, length
+
+BOM32_DIRECT  = intmask(0x0000FEFF)
+BOM32_REVERSE = intmask(0xFFFE0000)
+
+def str_decode_utf_32_helper(s, size, errors, final=True,
+                             errorhandler=None,
+                             byteorder="native"):
+    if errorhandler is None:
+        errorhandler = raise_unicode_exception_decode
+    bo = 0
+
+    if BYTEORDER == 'little':
+        iorder = [0, 1, 2, 3]
+    else:
+        iorder = [3, 2, 1, 0]
+
+    #  Check for BOM marks (U+FEFF) in the input and adjust current
+    #  byte order setting accordingly. In native mode, the leading BOM
+    #  mark is skipped, in all other modes, it is copied to the output
+    #  stream as-is (giving a ZWNBSP character).
+    pos = 0
+    if byteorder == 'native':
+        if size >= 4:
+            bom = ((ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
+                   (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
+            if BYTEORDER == 'little':
+                if bom == BOM32_DIRECT:
+                    pos += 4
+                    bo = -1
+                elif bom == BOM32_REVERSE:
+                    pos += 4
+                    bo = 1
+            else:
+                if bom == BOM32_DIRECT:
+                    pos += 4
+                    bo = 1
+                elif bom == BOM32_REVERSE:
+                    pos += 4
+                    bo = -1
+    elif byteorder == 'little':
+        bo = -1
+    else:
+        bo = 1
+    if size == 0:
+        return u'', 0, bo
+    if bo == -1:
+        # force little endian
+        iorder = [0, 1, 2, 3]
+
+    elif bo == 1:
+        # force big endian
+        iorder = [3, 2, 1, 0]
+
+    result = UnicodeBuilder(size // 4)
+
+    while pos < size:
+        # remaining bytes at the end? (size should be divisible by 4)
+        if len(s) - pos < 4:
+            if not final:
+                break
+            r, pos = errorhandler(errors, 'utf-32', "truncated data",
+                                  s, pos, len(s))
+            result.append(r)
+            if len(s) - pos < 4:
+                break
+            continue
+        ch = ((ord(s[pos + iorder[3]]) << 24) | (ord(s[pos + iorder[2]]) << 16) |
+              (ord(s[pos + iorder[1]]) << 8)  | ord(s[pos + iorder[0]]))
+        if ch >= 0x110000:
+            r, pos = errorhandler(errors, 'utf-32', "codepoint not in range(0x110000)",
+                                  s, pos, len(s))
+            result.append(r)
+            continue
+
+        if MAXUNICODE < 65536 and ch >= 0x10000:
+            ch -= 0x10000L
+            result.append(unichr(0xD800 + (ch >> 10)))
+            result.append(unichr(0xDC00 + (ch & 0x03FF)))
+        else:
+            result.append(UNICHR(ch))
+        pos += 4
+    return result.build(), pos, bo
+
+def _STORECHAR32(result, CH, byteorder):
+    c0 = chr(((CH) >> 24) & 0xff)
+    c1 = chr(((CH) >> 16) & 0xff)
+    c2 = chr(((CH) >> 8) & 0xff)
+    c3 = chr((CH) & 0xff)
+    if byteorder == 'little':
+        result.append(c3)
+        result.append(c2)
+        result.append(c1)
+        result.append(c0)
+    else:
+        result.append(c0)
+        result.append(c1)
+        result.append(c2)
+        result.append(c3)
+
+def unicode_encode_utf_32_helper(s, size, errors,
+                                 errorhandler=None,
+                                 byteorder='little'):
+    if size == 0:
+        return ""
+
+    result = StringBuilder(size * 4 + 4)
+    if byteorder == 'native':
+        _STORECHAR32(result, 0xFEFF, BYTEORDER)
+        byteorder = BYTEORDER
+
+    i = 0
+    while i < size:
+        ch = ord(s[i])
+        i += 1
+        ch2 = 0
+        if MAXUNICODE < 65536 and 0xD800 <= ch <= 0xDBFF and i < size:
+            ch2 = ord(s[i])
+            if 0xDC00 <= ch2 <= 0xDFFF:
+                ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
+                i += 1
+        _STORECHAR32(result, ch, byteorder)
+
+    return result.build()
+
+def unicode_encode_utf_32(s, size, errors,
+                          errorhandler=None):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler, "native")
+
+
+def unicode_encode_utf_32_be(s, size, errors,
+                             errorhandler=None):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler, "big")
+
+
+def unicode_encode_utf_32_le(s, size, errors,
+                             errorhandler=None):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler, "little")
 
 
 # ____________________________________________________________
@@ -575,7 +733,7 @@ def str_decode_utf_7(s, size, errors, final=False,
             result.append(unichr(oc))
             pos += 1
 
-    if inShift:
+    if inShift and final:
         endinpos = size
         msg = "unterminated shift sequence"
         res, pos = errorhandler(errors, 'utf-7', msg, s, startinpos, pos)

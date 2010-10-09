@@ -7,6 +7,7 @@ test suite on top of PyPy
 import py
 import sys
 import pypy
+import re
 from pypy.interpreter.gateway import ApplevelClass 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module as PyPyModule 
@@ -29,7 +30,7 @@ rsyncdirs = ['.', '../pypy/']
 def pytest_addoption(parser):
     group = parser.getgroup("complicance testing options") 
     group.addoption('-T', '--timeout', action="store", type="string", 
-       default="1000", dest="timeout", 
+       default="100", dest="timeout", 
        help="fail a test module after the given timeout. "
             "specify in seconds or 'NUMmp' aka Mega-Pystones")
     group.addoption('--pypy', action="store", type="string",
@@ -85,27 +86,7 @@ class RegrTest:
         fn = regrtestdir.join(self.basename)
         return fn 
 
-    def getoutputpath(self): 
-        p = modregrtestdir.join('output', self.basename).new(ext='')
-        if p.check(file=1):
-            return p
-        p = regrtestdir.join('output', self.basename).new(ext='')
-        if p.check(file=1): 
-            return p 
-
-    def _prepare(self, space): 
-        # output tests sometimes depend on not running in
-        # verbose mode 
-        if not hasattr(self, '_prepared'): 
-            if self.getoutputpath(): 
-                space.appexec([], """(): 
-                    from test import test_support
-                    test_support.verbose = False
-            """)
-            self._prepared = True
-            
     def run_file(self, space): 
-        self._prepare(space)
         fspath = self.getfspath()
         assert fspath.check()
         modname = fspath.purebasename 
@@ -127,13 +108,19 @@ testmap = [
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
     RegrTest('test__locale.py', skip=skip_win32),
+    RegrTest('test_abc.py'),
+    RegrTest('test_abstract_numbers.py'),
     RegrTest('test_aepack.py', skip=True),
+    RegrTest('test_aifc.py'),
+    RegrTest('test_argparse.py'),
     RegrTest('test_al.py', skip=True),
     RegrTest('test_ast.py', core=True),
     RegrTest('test_anydbm.py'),
     RegrTest('test_applesingle.py', skip=True),
     RegrTest('test_array.py', core=True, usemodules='struct array'),
+    RegrTest('test_ascii_formatd.py'),
     RegrTest('test_asynchat.py', usemodules='thread'),
+    RegrTest('test_asyncore.py'),
     RegrTest('test_atexit.py', core=True),
     RegrTest('test_audioop.py', skip=True),
     RegrTest('test_augassign.py', core=True),
@@ -149,8 +136,10 @@ testmap = [
     RegrTest('test_bsddb.py', skip="unsupported extension module"),
     RegrTest('test_bsddb185.py', skip="unsupported extension module"),
     RegrTest('test_bsddb3.py', skip="unsupported extension module"),
+    RegrTest('test_buffer.py'),
     RegrTest('test_bufio.py', core=True),
     RegrTest('test_builtin.py', core=True),
+    RegrTest('test_bytes.py'),
     RegrTest('test_bz2.py', usemodules='bz2'),
     RegrTest('test_calendar.py'),
     RegrTest('test_call.py', core=True),
@@ -163,6 +152,8 @@ testmap = [
     RegrTest('test_cl.py', skip=True),
     RegrTest('test_class.py', core=True),
     RegrTest('test_cmath.py', core=True),
+    RegrTest('test_cmd.py'),
+    RegrTest('test_cmd_line_script.py'),
     RegrTest('test_codeccallbacks.py', core=True),
     RegrTest('test_codecencodings_cn.py', skip="encodings not available"),
     RegrTest('test_codecencodings_hk.py', skip="encodings not available"),
@@ -178,11 +169,12 @@ testmap = [
     RegrTest('test_codecs.py', core=True),
     RegrTest('test_codeop.py', core=True),
     RegrTest('test_coercion.py', core=True),
-    
+    RegrTest('test_collections.py'),
     RegrTest('test_colorsys.py'),
     RegrTest('test_commands.py'),
     RegrTest('test_compare.py', core=True),
     RegrTest('test_compile.py', core=True),
+    RegrTest('test_compileall.py'),
     RegrTest('test_compiler.py', core=False, skip="slowly deprecating compiler"),
     RegrTest('test_complex.py', core=True),
 
@@ -192,6 +184,7 @@ testmap = [
     RegrTest('test_copy.py', core=True),
     RegrTest('test_copy_reg.py', core=True),
     RegrTest('test_cpickle.py', core=True),
+    RegrTest('test_cprofile.py'), 
     RegrTest('test_crypt.py', usemodules='crypt', skip=skip_win32),
     RegrTest('test_csv.py'),
 
@@ -204,7 +197,8 @@ testmap = [
     RegrTest('test_descr.py', core=True, usemodules='_weakref'),
     RegrTest('test_descrtut.py', core=True),
     RegrTest('test_dict.py', core=True),
-
+    RegrTest('test_dictcomps.py', core=True),
+    RegrTest('test_dictviews.py', core=True),
     RegrTest('test_difflib.py'),
     RegrTest('test_dircache.py', core=True),
     RegrTest('test_dis.py'),
@@ -212,6 +206,7 @@ testmap = [
     RegrTest('test_dl.py', skip=True),
     RegrTest('test_doctest.py', usemodules="thread"),
     RegrTest('test_doctest2.py'),
+    RegrTest('test_docxmlrpc.py'),
     RegrTest('test_dumbdbm.py'),
     RegrTest('test_dummy_thread.py', core=True),
     RegrTest('test_dummy_threading.py', core=True),
@@ -220,27 +215,36 @@ testmap = [
     RegrTest('test_email_codecs.py'),
     RegrTest('test_enumerate.py', core=True),
     RegrTest('test_eof.py', core=True),
-
-    RegrTest('test_errno.py'),
+    RegrTest('test_epoll.py'),
+    RegrTest('test_errno.py', usemodules="errno"),
     RegrTest('test_exceptions.py', core=True),
     RegrTest('test_extcall.py', core=True),
     RegrTest('test_fcntl.py', usemodules='fcntl', skip=skip_win32),
     RegrTest('test_file.py', usemodules="posix", core=True),
+    RegrTest('test_file2k.py', usemodules="posix", core=True),
     RegrTest('test_filecmp.py', core=True),
     RegrTest('test_fileinput.py', core=True),
+    RegrTest('test_fileio.py'),
     RegrTest('test_fnmatch.py', core=True),
     RegrTest('test_fork1.py', usemodules="thread"),
     RegrTest('test_format.py', core=True),
     RegrTest('test_fpformat.py', core=True),
+    RegrTest('test_fractions.py'),
     RegrTest('test_frozen.py', skip="unsupported extension module"),
+    RegrTest('test_ftplib.py'),
     RegrTest('test_funcattrs.py', core=True),
     RegrTest('test_future.py', core=True),
     RegrTest('test_future1.py', core=True),
     RegrTest('test_future2.py', core=True),
     RegrTest('test_future3.py', core=True),
+    RegrTest('test_future4.py', core=True),
+    RegrTest('test_future5.py', core=True),
+    RegrTest('test_future_builtins.py'),
     RegrTest('test_gc.py', usemodules='_weakref', skip="implementation detail"),
+    RegrTest('test_gdb.py', skip="not applicable"),
     RegrTest('test_gdbm.py', skip="unsupported extension module"),
     RegrTest('test_generators.py', core=True, usemodules='thread _weakref'),
+    RegrTest('test_genericpath.py'),
     RegrTest('test_genexps.py', core=True, usemodules='_weakref'),
     RegrTest('test_getargs.py', skip="unsupported extension module"),
     RegrTest('test_getargs2.py', skip="unsupported extension module"),
@@ -259,27 +263,34 @@ testmap = [
     RegrTest('test_hashlib.py', core=True),
     
     RegrTest('test_heapq.py', core=True),
-    RegrTest('test_hexoct.py', core=True),
     RegrTest('test_hmac.py'),
     RegrTest('test_hotshot.py', skip="unsupported extension module"),
 
     RegrTest('test_htmllib.py'),
     RegrTest('test_htmlparser.py'),
     RegrTest('test_httplib.py'),
+    RegrTest('test_httpservers.py'),
     RegrTest('test_imageop.py', skip="unsupported extension module"),
     RegrTest('test_imaplib.py'),
     RegrTest('test_imgfile.py', skip="unsupported extension module"),
     RegrTest('test_imp.py', core=True, usemodules='thread'),
     RegrTest('test_import.py', core=True),
     RegrTest('test_importhooks.py', core=True),
+    RegrTest('test_importlib.py'),
     RegrTest('test_inspect.py'),
+    RegrTest('test_int.py', core=True),
+    RegrTest('test_int_literal.py', core=True),
+    RegrTest('test_io.py'),
     RegrTest('test_ioctl.py'),
     RegrTest('test_isinstance.py', core=True),
     RegrTest('test_iter.py', core=True),
     RegrTest('test_iterlen.py', skip="undocumented internal API behavior __length_hint__"),
     RegrTest('test_itertools.py', core=True),
-
+    RegrTest('test_json.py'),
+    RegrTest('test_kqueue.py'),
     RegrTest('test_largefile.py'),
+    RegrTest('test_lib2to3.py'),
+    RegrTest('test_linecache.py'),
     RegrTest('test_linuxaudiodev.py', skip="unsupported extension module"),
     RegrTest('test_list.py', core=True),
     RegrTest('test_locale.py', usemodules="_locale"),
@@ -287,12 +298,14 @@ testmap = [
     RegrTest('test_long.py', core=True),
     RegrTest('test_long_future.py', core=True),
     RegrTest('test_longexp.py', core=True),
-    RegrTest('test_macfs.py', skip=True),
+    RegrTest('test_macos.py'),
     RegrTest('test_macostools.py', skip=True),
     RegrTest('test_macpath.py'),
     RegrTest('test_mailbox.py'),
     RegrTest('test_marshal.py', core=True),
     RegrTest('test_math.py', core=True, usemodules='math'),
+    RegrTest('test_memoryio.py'),
+    RegrTest('test_memoryview.py'),
     RegrTest('test_md5.py'),
     RegrTest('test_mhlib.py'),
     RegrTest('test_mimetools.py'),
@@ -301,10 +314,13 @@ testmap = [
     RegrTest('test_minidom.py'),
     RegrTest('test_mmap.py'),
     RegrTest('test_module.py', core=True),
+    RegrTest('test_modulefinder.py'),
     RegrTest('test_multibytecodec.py', skip="unsupported codecs"),
     RegrTest('test_multibytecodec_support.py', skip="not a test"),
     RegrTest('test_multifile.py'),
+    RegrTest('test_multiprocessing.py', skip='FIXME leaves subprocesses'),
     RegrTest('test_mutants.py', core="possibly"),
+    RegrTest('test_mutex.py'),
     RegrTest('test_netrc.py'),
     RegrTest('test_new.py', core=True),
     RegrTest('test_nis.py', skip="unsupported extension module"),
@@ -312,14 +328,13 @@ testmap = [
     RegrTest('test_ntpath.py'),
     RegrTest('test_opcodes.py', core=True),
     RegrTest('test_openpty.py'),
-    RegrTest('test_operations.py', core=True),
     RegrTest('test_operator.py', core=True),
     RegrTest('test_optparse.py'),
 
     RegrTest('test_os.py', core=True),
     RegrTest('test_ossaudiodev.py', skip="unsupported extension module"),
     RegrTest('test_parser.py', skip="slowly deprecating compiler"),
-
+    RegrTest('test_pdb.py'),
     RegrTest('test_peepholer.py'),
     RegrTest('test_pep247.py'),
     RegrTest('test_pep263.py'),
@@ -327,33 +342,39 @@ testmap = [
     RegrTest('test_pep292.py'),
     RegrTest('test_pickle.py', core=True),
     RegrTest('test_pickletools.py', core=False),
+    RegrTest('test_pipes.py'),
     RegrTest('test_pkg.py', core=True),
     RegrTest('test_pkgimport.py', core=True),
+    RegrTest('test_pkgutil.py'),
     RegrTest('test_plistlib.py', skip="unsupported module"),
     RegrTest('test_poll.py', skip=skip_win32),
     RegrTest('test_popen.py'),
     RegrTest('test_popen2.py'),
-    RegrTest('test_posix.py'),
+    RegrTest('test_poplib.py'),
+    RegrTest('test_posix.py', usemodules="_rawffi"),
     RegrTest('test_posixpath.py'),
     RegrTest('test_pow.py', core=True),
     RegrTest('test_pprint.py', core=True),
+    RegrTest('test_print.py', core=True),
     RegrTest('test_profile.py'),
-    RegrTest('test_profilehooks.py', core=True),
+    RegrTest('test_property.py', core=True),
+    RegrTest('test_pstats.py'),
     RegrTest('test_pty.py', skip="unsupported extension module"),
     RegrTest('test_pwd.py', skip=skip_win32),
-
+    RegrTest('test_py3kwarn.py'),
     RegrTest('test_pyclbr.py'),
+    RegrTest('test_pydoc.py'),
     RegrTest('test_pyexpat.py'),
     RegrTest('test_queue.py', usemodules='thread'),
     RegrTest('test_quopri.py'),
     RegrTest('test_random.py'),
     RegrTest('test_re.py', core=True),
-
+    RegrTest('test_readline.py'),
     RegrTest('test_repr.py', core=True),
     RegrTest('test_resource.py', skip=skip_win32),
     RegrTest('test_rfc822.py'),
-    RegrTest('test_rgbimg.py', skip="unsupported extension module"),
     RegrTest('test_richcmp.py', core=True),
+    RegrTest('test_rlcompleter.py'),
 
     RegrTest('test_robotparser.py'),
     RegrTest('test_sax.py'),
@@ -362,21 +383,25 @@ testmap = [
     RegrTest('test_select.py'),
     RegrTest('test_set.py', core=True),
     RegrTest('test_sets.py'),
+    RegrTest('test_setcomps.py', core=True),
     RegrTest('test_sgmllib.py'),
     RegrTest('test_sha.py'),
     RegrTest('test_shelve.py'),
     RegrTest('test_shlex.py'),
     RegrTest('test_shutil.py'),
     RegrTest('test_signal.py'),
+    RegrTest('test_SimpleHTTPServer.py'),
     RegrTest('test_site.py', core=False),
     RegrTest('test_slice.py', core=True),
+    RegrTest('test_smtplib.py'),
+    RegrTest('test_smtpnet.py'),
     RegrTest('test_socket.py', usemodules='thread _weakref'),
 
-    RegrTest('test_socket_ssl.py', usemodules='_ssl'),
     RegrTest('test_socketserver.py', usemodules='thread'),
 
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
+    RegrTest('test_ssl.py'),
     RegrTest('test_str.py', core=True),
 
     RegrTest('test_strftime.py'),
@@ -386,7 +411,7 @@ testmap = [
     RegrTest('test_strop.py', skip="deprecated"),
 
     RegrTest('test_strptime.py'),
-
+    RegrTest('test_strtod.py'),
     RegrTest('test_struct.py', usemodules='struct'),
     RegrTest('test_structmembers.py', skip="CPython specific"),
     RegrTest('test_structseq.py'),
@@ -396,9 +421,12 @@ testmap = [
     RegrTest('test_symtable.py', skip="implementation detail"),
     RegrTest('test_syntax.py', core=True),
     RegrTest('test_sys.py', core=True),
+    RegrTest('test_sys_settrace.py', core=True),
+    RegrTest('test_sys_setprofile.py', core=True),
+    RegrTest('test_sysconfig.py'),
     RegrTest('test_tcl.py', skip="unsupported extension module"),
     RegrTest('test_tarfile.py'),
-
+    RegrTest('test_telnetlib.py'),
     RegrTest('test_tempfile.py'),
 
     RegrTest('test_textwrap.py'),
@@ -413,22 +441,25 @@ testmap = [
 
     RegrTest('test_time.py', core=True),
     RegrTest('test_timeout.py'),
-
+    RegrTest('test_tk.py'),
+    RegrTest('test_ttk_guionly.py'),
+    RegrTest('test_ttk_textonly.py'),
     RegrTest('test_tokenize.py'),
-    RegrTest('test_trace.py', core=True),
+    RegrTest('test_trace.py'),
     RegrTest('test_traceback.py', core=True),
     RegrTest('test_transformer.py', core=True),
     RegrTest('test_tuple.py', core=True),
-
+    RegrTest('test_typechecks.py'),
     RegrTest('test_types.py', core=True),
-        
     RegrTest('test_ucn.py'),
     RegrTest('test_unary.py', core=True),
+    RegrTest('test_undocumented_details.py'),
     RegrTest('test_unicode.py', core=True),
     RegrTest('test_unicode_file.py'),
     RegrTest('test_unicodedata.py'),
     RegrTest('test_unittest.py', core=True),
-    RegrTest('test_univnewlines.py', core=True),
+    RegrTest('test_univnewlines.py'),
+    RegrTest('test_univnewlines2k.py', core=True),
     RegrTest('test_unpack.py', core=True),
     RegrTest('test_urllib.py'),
     RegrTest('test_urllib2.py'),
@@ -443,6 +474,7 @@ testmap = [
     RegrTest('test_warnings.py', core=True),
     RegrTest('test_wave.py', skip="unsupported extension module"),
     RegrTest('test_weakref.py', core=True, usemodules='_weakref'),
+    RegrTest('test_weakset.py'),
 
     RegrTest('test_whichdb.py'),
     RegrTest('test_winreg.py', skip=only_win32),
@@ -454,22 +486,17 @@ testmap = [
     RegrTest('test_xrange.py', core=True),
     RegrTest('test_zipfile.py'),
     RegrTest('test_zipimport.py', usemodules='zlib zipimport'),
+    RegrTest('test_zipimport_support.py', usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', usemodules='zlib'),
 
     RegrTest('test_bigaddrspace.py'),
     RegrTest('test_bigmem.py'),
-    RegrTest('test_cProfile.py'),
     RegrTest('test_cmd_line.py'),
     RegrTest('test_code.py'),
     RegrTest('test_coding.py'),
     RegrTest('test_complex_args.py'),
     RegrTest('test_contextlib.py', usemodules="thread"),
-    # we skip test ctypes, since we adapted it massively in order
-    # to test what we want to support. There are real failures,
-    # but it's about missing features that we don't want to support
-    # now
-    RegrTest('test_ctypes.py', usemodules="_rawffi",
-             skip="missing features that we don't want to support now"),
+    RegrTest('test_ctypes.py', usemodules="_rawffi"),
     RegrTest('test_defaultdict.py'),
     RegrTest('test_email_renamed.py'),
     RegrTest('test_exception_variations.py'),
@@ -585,17 +612,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
         regr_script = pypydir.join('tool', 'pytest', 
                                    'run-script', 'regrverbose.py')
         
-        # we use the regrverbose script to run the test, but don't get
-        # confused: it still doesn't set verbose to True by default if
-        # regrtest.outputpath() is true, because output tests get confused
-        # in verbose mode.  You can always force verbose mode by passing
-        # the -v option to py.test.  The regrverbose script contains the
-        # logic that CPython uses in its regrtest.py.
         regrrun = str(regr_script)
-        if not regrtest.getoutputpath() or pypy_option.verbose:
-            regrrun_verbosity = '1'
-        else:
-            regrrun_verbosity = '0'
         
         TIMEOUT = gettimeout()
         if option.pypy:
@@ -613,9 +630,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
                     py.test.skip("%s module not included in %s" % (mod,
                                                                    execpath))
                     
-            cmd = "%s %s %s %s" %(
+            cmd = "%s %s %s" %(
                 execpath, 
-                regrrun, regrrun_verbosity, fspath.purebasename)
+                regrrun, fspath.purebasename)
 
             # add watchdog for timing out
             cmd = "%s %s %s %s" %(
@@ -626,11 +643,10 @@ class ReallyRunFileExternal(py.test.collect.Item):
             pypy_options.extend(
                 ['--withmod-%s' % mod for mod in regrtest.usemodules])
             sopt = " ".join(pypy_options) 
-
-            cmd = "%s %s %d %s %s %s %s %s" %(
+            cmd = "%s %s %d %s -S %s %s %s -v" %(
                 python, alarm_script, TIMEOUT, 
                 pypy_script, sopt, 
-                regrrun, regrrun_verbosity, fspath.purebasename)
+                regrrun, fspath.purebasename)
         return cmd 
 
     def runtest(self): 
@@ -689,20 +705,10 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
         outcome = 'OK'
-        expectedpath = regrtest.getoutputpath()
         if not exit_status: 
-            if expectedpath is not None: 
-                expected = expectedpath.read(mode='rU')
-                test_stdout = "%s\n%s" % (self.fspath.purebasename, test_stdout)     
-                if test_stdout != expected: 
-                    exit_status = 2  
-                    res, out, err = py.io.StdCapture.call(reportdiff, expected, test_stdout)
-                    outcome = 'ERROUT' 
-                    test_stderr += ("-" * 80 + "\n") + out
-            else:
-                if 'FAIL' in test_stdout or 'ERROR' in test_stderr:
-                    outcome = 'FAIL'
-                    exit_status = 2  
+            if 'FAIL' in test_stdout or re.search('[^:]ERROR', test_stderr):
+                outcome = 'FAIL'
+                exit_status = 2  
         elif timedout: 
             outcome = "T/O"    
         else: 
@@ -716,49 +722,6 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if regrtest.core:
             lst.append('core')
         return lst
-
-# test.regrtest.reportdiff was deleted in CPython2.6
-def reportdiff(expected, output):
-    import difflib
-    print "*" * 70
-    a = expected.splitlines(1)
-    b = output.splitlines(1)
-    sm = difflib.SequenceMatcher(a=a, b=b)
-    tuples = sm.get_opcodes()
-
-    def pair(x0, x1):
-        # x0:x1 are 0-based slice indices; convert to 1-based line indices.
-        x0 += 1
-        if x0 >= x1:
-            return "line " + str(x0)
-        else:
-            return "lines %d-%d" % (x0, x1)
-
-    for op, a0, a1, b0, b1 in tuples:
-        if op == 'equal':
-            pass
-
-        elif op == 'delete':
-            print "***", pair(a0, a1), "of expected output missing:"
-            for line in a[a0:a1]:
-                print "-", line,
-
-        elif op == 'replace':
-            print "*** mismatch between", pair(a0, a1), "of expected", \
-                  "output and", pair(b0, b1), "of actual output:"
-            for line in difflib.ndiff(a[a0:a1], b[b0:b1]):
-                print line,
-
-        elif op == 'insert':
-            print "***", pair(b0, b1), "of actual output doesn't appear", \
-                  "in expected output after line", str(a1)+":"
-            for line in b[b0:b1]:
-                print "+", line,
-
-        else:
-            print "get_opcodes() returned bad tuple?!?!", (op, a0, a1, b0, b1)
-
-    print "*" * 70
 
 #
 # Sanity check  (could be done more nicely too)

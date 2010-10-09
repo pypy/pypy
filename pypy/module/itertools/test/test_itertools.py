@@ -4,6 +4,19 @@ class AppTestItertools:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['itertools'])
 
+    def test_compress(self):
+        import itertools
+
+        it = itertools.compress(['a', 'b', 'c'], [0, 1, 0])
+
+        assert list(it) == ['b']
+
+    def test_compress_diff_len(self):
+        import itertools
+
+        it = itertools.compress(['a'], [])
+        raises(StopIteration, it.next)
+
     def test_count(self):
         import itertools
 
@@ -271,21 +284,11 @@ class AppTestItertools:
         assert it.next() == 1
         raises(StopIteration, it.next)
 
-    def test_chain_wrongargs(self):
+    def test_chain_fromiterable(self):
         import itertools
-        
-        raises(TypeError, itertools.chain, None)
-        raises(TypeError, itertools.chain, [], None)
-
-        # The error message should indicate which argument was dodgy
-        for x in range(10):
-            args = [()] * x + [None] + [()] * (9 - x)
-            try:
-                itertools.chain(*args)
-            except TypeError, e:
-                assert str(e).find("#" + str(x + 1) + " ") >= 0
-            else:
-                fail("TypeError expected")
+        l = [[1, 2, 3], [4], [5, 6]]
+        it = itertools.chain.from_iterable(l)
+        assert list(it) == sum(l, [])
 
     def test_imap(self):
         import itertools
@@ -626,3 +629,132 @@ class AppTestItertools:
         a, b = itertools.tee(iter('abc'))
         ref = weakref.ref(b)
         assert ref() is b
+
+    def test_iziplongest(self):
+        from itertools import izip_longest, islice, count
+        for args in [
+                ['abc', range(6)],
+                [range(6), 'abc'],
+                [range(100), range(200,210), range(300,305)],
+                [range(100), range(0), range(300,305), range(120), range(150)],
+                [range(100), range(0), range(300,305), range(120), range(0)],
+            ]:
+            # target = map(None, *args) <- this raises a py3k warning
+            # this is the replacement:
+            target = [tuple([arg[i] if i < len(arg) else None for arg in args])
+                      for i in range(max(map(len, args)))]
+            assert list(izip_longest(*args)) == target
+            assert list(izip_longest(*args, **{})) == target
+
+            # Replace None fills with 'X'
+            target = [tuple((e is None and 'X' or e) for e in t) for t in target]
+            assert list(izip_longest(*args, **dict(fillvalue='X'))) ==  target
+
+        # take 3 from infinite input
+        assert (list(islice(izip_longest('abcdef', count()),3)) ==
+                zip('abcdef', range(3)))
+
+        assert list(izip_longest()) == zip()
+        assert list(izip_longest([])) ==  zip([])
+        assert list(izip_longest('abcdef')) ==  zip('abcdef')
+
+        assert (list(izip_longest('abc', 'defg', **{})) ==
+                zip(list('abc') + [None], 'defg'))  # empty keyword dict
+        raises(TypeError, izip_longest, 3)
+        raises(TypeError, izip_longest, range(3), 3)
+
+        for stmt in [
+            "izip_longest('abc', fv=1)",
+            "izip_longest('abc', fillvalue=1, bogus_keyword=None)",
+        ]:
+            try:
+                eval(stmt, globals(), locals())
+            except TypeError:
+                pass
+            else:
+                self.fail('Did not raise Type in:  ' + stmt)
+
+    def test_izip_longest2(self):
+        import itertools
+        class Repeater(object):
+            # this class is similar to itertools.repeat
+            def __init__(self, o, t, e):
+                self.o = o
+                self.t = int(t)
+                self.e = e
+            def __iter__(self): # its iterator is itself
+                return self
+            def next(self):
+                if self.t > 0:
+                    self.t -= 1
+                    return self.o
+                else:
+                    raise self.e
+
+        # Formerly this code in would fail in debug mode
+        # with Undetected Error and Stop Iteration
+        r1 = Repeater(1, 3, StopIteration)
+        r2 = Repeater(2, 4, StopIteration)
+        def run(r1, r2):
+            result = []
+            for i, j in itertools.izip_longest(r1, r2, fillvalue=0):
+                result.append((i, j))
+            return result
+        assert run(r1, r2) ==  [(1,2), (1,2), (1,2), (0,2)]
+
+        # Formerly, the RuntimeError would be lost
+        # and StopIteration would stop as expected
+        r1 = Repeater(1, 3, RuntimeError)
+        r2 = Repeater(2, 4, StopIteration)
+        it = itertools.izip_longest(r1, r2, fillvalue=0)
+        assert it.next() == (1, 2)
+        assert it.next() == (1, 2)
+        assert it.next()== (1, 2)
+        raises(RuntimeError, it.next)
+
+    def test_product(self):
+        from itertools import product
+        l = [1, 2]
+        m = ['a', 'b']
+
+        prodlist = product(l, m)
+        assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+
+    def test_product_repeat(self):
+        from itertools import product
+        l = [1, 2]
+        m = ['a', 'b']
+
+        prodlist = product(l, m, repeat=2)
+        ans = [(1, 'a', 1, 'a'), (1, 'a', 1, 'b'), (1, 'a', 2, 'a'),
+               (1, 'a', 2, 'b'), (1, 'b', 1, 'a'), (1, 'b', 1, 'b'),
+               (1, 'b', 2, 'a'), (1, 'b', 2, 'b'), (2, 'a', 1, 'a'),
+               (2, 'a', 1, 'b'), (2, 'a', 2, 'a'), (2, 'a', 2, 'b'),
+               (2, 'b', 1, 'a'), (2, 'b', 1, 'b'), (2, 'b', 2, 'a'),
+               (2, 'b', 2, 'b')]
+        assert list(prodlist) == ans
+
+    def test_product_diff_sizes(self):
+        from itertools import product
+        l = [1, 2]
+        m = ['a']
+
+        prodlist = product(l, m)
+        assert list(prodlist) == [(1, 'a'), (2, 'a')]
+
+        l = [1]
+        m = ['a', 'b']
+        prodlist = product(l, m)
+        assert list(prodlist) == [(1, 'a'), (1, 'b')]
+
+    def test_product_toomany_args(self):
+        from itertools import product
+        l = [1, 2]
+        m = ['a']
+        raises(TypeError, product, l, m, repeat=1, foo=2)
+
+    def test_product_empty(self):
+        from itertools import product
+        prod = product('abc', repeat=0)
+        assert prod.next() == ()
+        raises (StopIteration, prod.next)

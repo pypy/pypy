@@ -175,7 +175,12 @@ class AppTestZipimport:
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.pyc')
         assert mod.get_file() == mod.__file__
         assert mod.get_name() == mod.__name__
-                                
+        #
+        import zipimport
+        z = zipimport.zipimporter(self.zipfile)
+        code = z.get_code('uuu')
+        assert isinstance(code, type((lambda:0).func_code))
+
     def test_bad_pyc(self):
         import zipimport
         import sys
@@ -206,6 +211,7 @@ class AppTestZipimport:
         z = zipimport.zipimporter(self.zipfile)
         sys.modules['uuu'] = lambda x : x + 1
         raises(ImportError, z.load_module, 'uuu')
+        raises(zipimport.ZipImportError, z.get_code, 'uuu')
 
     def test_package(self):
         import os, sys
@@ -269,6 +275,8 @@ class AppTestZipimport:
         assert z.get_code('xx')
         assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile
+        mod = z.load_module('xx')
+        assert z.get_filename('xx') == mod.__file__
 
     def test_archive(self):
         """
@@ -289,6 +297,16 @@ class AppTestZipimport:
         prefix = 'directory/'
         assert archive == self.zipfile
         assert realprefix == prefix
+
+    def test_subdirectory_importer(self):
+        import os
+        import zipimport
+        self.writefile(
+            self, os.sep.join(("directory", "package", "__init__.py")), "")
+        z = zipimport.zipimporter(self.zipfile + "/directory")
+        mod = z.load_module("package")
+        assert z.is_package("package")
+        assert z.get_filename("package") == mod.__file__
 
     def test_zip_directory_cache(self):
         """ Check full dictionary interface

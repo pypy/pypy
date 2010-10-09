@@ -3,6 +3,9 @@ import sys
 try:
     import ctypes
     import ctypes.util
+
+    if not hasattr(ctypes, 'c_longdouble'):
+        ctypes.c_longdouble = ctypes.c_double
 except ImportError:
     ctypes = None
 
@@ -18,7 +21,7 @@ from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.tool.tls import tlsobject
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, intmask
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -91,6 +94,7 @@ def _setup_ctypes_cache():
         lltype.Char:     ctypes.c_ubyte,
         rffi.DOUBLE:     ctypes.c_double,
         rffi.FLOAT:      ctypes.c_float,
+        rffi.LONGDOUBLE: ctypes.c_longdouble,
         rffi.SIGNEDCHAR: ctypes.c_byte,
         rffi.UCHAR:      ctypes.c_ubyte,
         rffi.SHORT:      ctypes.c_short,
@@ -842,6 +846,10 @@ def ctypes2lltype(T, cobj):
         if isinstance(cobj, ctypes.c_float):
             cobj = cobj.value
         llobj = r_singlefloat(cobj)
+    elif T is lltype.LongFloat:
+        if isinstance(cobj, ctypes.c_longdouble):
+            cobj = cobj.value
+        llobj = r_longfloat(cobj)
     elif T is lltype.Void:
         llobj = cobj
     else:

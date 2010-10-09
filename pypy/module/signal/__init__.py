@@ -6,6 +6,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'signal':              'interp_signal.signal',
         'getsignal':           'interp_signal.getsignal',
+        'set_wakeup_fd':       'interp_signal.set_wakeup_fd',
         'NSIG':                'space.wrap(interp_signal.NSIG)',
         'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
@@ -14,6 +15,7 @@ class Module(MixedModule):
     if os.name == 'posix':
         interpleveldefs['alarm'] = 'interp_signal.alarm'
         interpleveldefs['pause'] = 'interp_signal.pause'
+        interpleveldefs['siginterrupt'] = 'interp_signal.siginterrupt'
 
     appleveldefs = {
         'default_int_handler': 'app_signal.default_int_handler',

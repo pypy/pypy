@@ -342,6 +342,16 @@ class Test_rbigint(object):
         b = rbigint.fromlong(-1<<3000)
         assert a.mul(b).tolong() == (-1<<10000)*(-1<<3000)
 
+    def test_bit_length(self):
+        assert rbigint.fromlong(0).bit_length() == 0
+        assert rbigint.fromlong(1).bit_length() == 1
+        assert rbigint.fromlong(2).bit_length() == 2
+        assert rbigint.fromlong(3).bit_length() == 2
+        assert rbigint.fromlong(4).bit_length() == 3
+        assert rbigint.fromlong(-3).bit_length() == 2
+        assert rbigint.fromlong(-4).bit_length() == 3
+        assert rbigint.fromlong(1<<40).bit_length() == 41
+
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!

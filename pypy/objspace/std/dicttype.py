@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter import gateway
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 
 dict_copy       = SMM('copy',          1,
@@ -44,6 +44,12 @@ dict_iterkeys   = SMM('iterkeys',      1,
                       doc='D.iterkeys() -> an iterator over the keys of D')
 dict_itervalues = SMM('itervalues',    1,
                       doc='D.itervalues() -> an iterator over the values of D')
+dict_viewkeys   = SMM('viewkeys',      1,
+                      doc="D.viewkeys() -> a set-like object providing a view on D's keys")
+dict_viewitems  = SMM('viewitems',     1,
+                      doc="D.viewitems() -> a set-like object providing a view on D's items")
+dict_viewvalues = SMM('viewvalues',    1,
+                      doc="D.viewvalues() -> an object providing a view on D's values")
 dict_reversed   = SMM('__reversed__',      1)
 
 def dict_reversed__ANY(space, w_dict):
@@ -124,7 +130,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
                                  unwrap_spec=
                                  [gateway.ObjSpace,
                                   gateway.W_Root,gateway.Arguments]),
-    __hash__ = no_hash_descr,
+    __hash__ = None,
     __repr__ = gateway.interp2app(descr_repr),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     )
@@ -190,4 +196,19 @@ def descr_dictiter__reduce__(w_self, space):
 dictiter_typedef = StdTypeDef("dictionaryiterator",
     __reduce__ = gateway.interp2app(descr_dictiter__reduce__,
                            unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
+    )
+
+# ____________________________________________________________
+# Dict views
+
+dict_keys_typedef = StdTypeDef(
+    "dict_keys",
+    )
+
+dict_items_typedef = StdTypeDef(
+    "dict_items",
+    )
+
+dict_values_typedef = StdTypeDef(
+    "dict_values",
     )

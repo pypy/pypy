@@ -144,11 +144,20 @@ class W_Weakref(W_WeakrefBase):
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
                         __args__=None):
+    if __args__.arguments_w:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "__new__ expected at most 2 arguments"))
     lifeline = w_obj.getweakref()
     if lifeline is None:
         lifeline = WeakrefLifeline(space)
         w_obj.setweakref(space, lifeline)
     return lifeline.get_or_make_weakref(space, w_subtype, w_obj, w_callable)
+
+def descr__init__weakref(space, self, w_obj, w_callable=None,
+                         __args__=None):
+    if __args__.arguments_w:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "__init__ expected at most 2 arguments"))
 
 def descr__eq__(space, ref1, w_ref2):
     if not isinstance(w_ref2, W_Weakref):
@@ -184,6 +193,9 @@ W_Weakref.typedef = TypeDef("weakref",
 which is called with 'obj' as an argument when it is about to be finalized.""",
     __new__ = interp2app(descr__new__weakref,
                          unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root,
+                                      Arguments]),
+    __init__ = interp2app(descr__init__weakref,
+                         unwrap_spec=[ObjSpace, W_Weakref, W_Root, W_Root,
                                       Arguments]),
     __eq__ = interp2app(descr__eq__,
                         unwrap_spec=[ObjSpace, W_Weakref, W_Root]),
@@ -284,6 +296,15 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
             func, unwrap_spec=[ObjSpace] + [W_Root] * arity)
         callable_proxy_typedef_dict[special_method] = interp2app(
             func, unwrap_spec=[ObjSpace] + [W_Root] * arity)
+
+# __unicode__ is not yet a space operation
+def proxy_unicode(space, w_obj):
+    w_obj = force(space, w_obj)
+    return space.call_method(w_obj, '__unicode__')
+proxy_typedef_dict['__unicode__'] = interp2app(
+    proxy_unicode, unwrap_spec=[ObjSpace, W_Root])
+callable_proxy_typedef_dict['__unicode__'] = interp2app(
+    proxy_unicode, unwrap_spec=[ObjSpace, W_Root])
 
 
 W_Proxy.typedef = TypeDef("weakproxy",

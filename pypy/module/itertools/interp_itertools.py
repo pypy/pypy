@@ -1,14 +1,16 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root, unwrap_spec
+from pypy.interpreter.argument import Arguments
 from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
 
-    def __init__(self, space, firstval):
+    def __init__(self, space, firstval, step):
         self.space = space
         self.c = firstval
+        self.step = step
 
     def iter_w(self):
         return self.space.wrap(self)
@@ -16,7 +18,7 @@ class W_Count(Wrappable):
     def next_w(self):
         c = self.c
         try:
-            self.c = ovfcheck(self.c + 1)
+            self.c = ovfcheck(self.c + self.step)
         except OverflowError:
             raise OperationError(self.space.w_OverflowError,
                     self.space.wrap("cannot count beyond sys.maxint"))
@@ -24,16 +26,20 @@ class W_Count(Wrappable):
         return self.space.wrap(c)
 
     def repr_w(self):
-        s = 'count(%d)' % (self.c,)
+        if self.step == 1:
+            s = 'count(%d)' % (self.c,)
+        else:
+            s = 'count(%d, %d)' % (self.c, self.step)
         return self.space.wrap(s)
+        
 
 
-def W_Count___new__(space, w_subtype, firstval=0):
-    return space.wrap(W_Count(space, firstval))
+def W_Count___new__(space, w_subtype, firstval=0, step=1):
+    return space.wrap(W_Count(space, firstval, step))
 
 W_Count.typedef = TypeDef(
         'count',
-        __new__ = interp2app(W_Count___new__, unwrap_spec=[ObjSpace, W_Root, int]),
+        __new__ = interp2app(W_Count___new__, unwrap_spec=[ObjSpace, W_Root, int, int]),
         __iter__ = interp2app(W_Count.iter_w, unwrap_spec=['self']),
         next = interp2app(W_Count.next_w, unwrap_spec=['self']),
         __repr__ = interp2app(W_Count.repr_w, unwrap_spec=['self']),
@@ -371,35 +377,23 @@ W_ISlice.typedef = TypeDef(
 
 
 class W_Chain(Wrappable):
-    def __init__(self, space, args_w):
+    def __init__(self, space, w_iterables):
         self.space = space
-        iterators_w = []
-        i = 0
-        for iterable_w in args_w:
-            try:
-                iterator_w = space.iter(iterable_w)
-            except OperationError, e:
-                if e.match(self.space, self.space.w_TypeError):
-                    raise OperationError(space.w_TypeError, space.wrap("chain argument #" + str(i + 1) + " must support iteration"))
-                else:
-                    raise
-            else:
-                iterators_w.append(iterator_w)
-
-            i += 1
-
-        self.iterators_w = iterators_w
-        self.current_iterator = 0
-        self.num_iterators = len(iterators_w)
-        if self.num_iterators > 0:
-            self.w_it = iterators_w[0]
+        self.w_iterables = w_iterables
+        self.w_it = None
 
     def iter_w(self):
         return self.space.wrap(self)
 
+    def _advance(self):
+        self.w_it = self.space.iter(self.space.next(self.w_iterables))
+
     def next_w(self):
-        if self.current_iterator >= self.num_iterators:
+        if not self.w_iterables:
+            # already stopped
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        if not self.w_it:
+            self._advance()
         try:
             return self.space.next(self.w_it)
         except OperationError, e:
@@ -409,23 +403,30 @@ class W_Chain(Wrappable):
         while True:
             if not e.match(self.space, self.space.w_StopIteration):
                 raise e
-            self.current_iterator += 1
-            if self.current_iterator >= self.num_iterators:
-                raise e
-            self.w_it = self.iterators_w[self.current_iterator]
+            self._advance() # may raise StopIteration itself
             try:
                 return self.space.next(self.w_it)
             except OperationError, e:
-                pass   # loop back to the start of _handle_error(e)
+                pass # loop back to the start of _handle_error(e)
 
 def W_Chain___new__(space, w_subtype, args_w):
-    return space.wrap(W_Chain(space, args_w))
+    w_args = space.newtuple(args_w)
+    return space.wrap(W_Chain(space, space.iter(w_args)))
+
+def chain_from_iterable(space, w_cls, w_arg):
+    """chain.from_iterable(iterable) --> chain object
+
+    Alternate chain() contructor taking a single iterable argument
+    that evaluates lazily."""
+    return space.wrap(W_Chain(space, space.iter(w_arg)))
 
 W_Chain.typedef = TypeDef(
         'chain',
         __new__  = interp2app(W_Chain___new__, unwrap_spec=[ObjSpace, W_Root, 'args_w']),
         __iter__ = interp2app(W_Chain.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_Chain.next_w, unwrap_spec=['self']),
+        from_iterable = interp2app(chain_from_iterable, unwrap_spec=[ObjSpace, W_Root, W_Root],
+                                   as_classmethod=True),
         __doc__  = """Make an iterator that returns elements from the first iterable
     until it is exhausted, then proceeds to the next iterable, until
     all of the iterables are exhausted. Used for treating consecutive
@@ -556,6 +557,67 @@ W_IZip.typedef = TypeDef(
         while iterables:
             result = [i.next() for i in iterables]
             yield tuple(result)
+    """)
+
+
+class W_IZipLongest(W_IMap):
+    _error_name = "izip_longest"
+
+    def next_w(self):
+        space = self.space
+        nb = len(self.iterators_w)
+
+        if nb == 0:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        objects_w = [None] * nb
+        for index in range(nb):
+            w_value = self.w_fillvalue
+            w_it = self.iterators_w[index]
+            if w_it is not None:
+                try:
+                    w_value = space.next(w_it)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+
+                    self.active -= 1
+                    if self.active == 0:
+                        # It was the last active iterator
+                        raise
+                    self.iterators_w[index] = None
+
+            objects_w[index] = w_value
+        return space.newtuple(objects_w)
+
+@unwrap_spec(ObjSpace, W_Root, Arguments)
+def W_IZipLongest___new__(space, w_subtype, __args__):
+    kwds = __args__.keywords
+    w_fillvalue = space.w_None
+    if kwds:
+        if kwds[0] == "fillvalue" and len(kwds) == 1:
+            w_fillvalue = __args__.keywords_w[0]
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "izip_longest() got unexpected keyword argument"))
+
+    self = W_IZipLongest(space, space.w_None, __args__.arguments_w)
+    self.w_fillvalue = w_fillvalue
+    self.active = len(self.iterators_w)
+
+    return space.wrap(self)
+
+W_IZipLongest.typedef = TypeDef(
+        'izip_longest',
+        __new__  = interp2app(W_IZipLongest___new__),
+        __iter__ = interp2app(W_IZipLongest.iter_w, unwrap_spec=['self']),
+        next     = interp2app(W_IZipLongest.next_w, unwrap_spec=['self']),
+        __doc__  = """Return an izip_longest object whose .next() method returns a tuple where
+    the i-th element comes from the i-th iterable argument.  The .next()
+    method continues until the longest iterable in the argument sequence
+    is exhausted and then it raises StopIteration.  When the shorter iterables
+    are exhausted, the fillvalue is substituted in their place.  The fillvalue
+    defaults to None or can be specified by a keyword argument.
     """)
 
 
@@ -900,3 +962,141 @@ W_GroupByIterator.typedef = TypeDef(
         __iter__ = interp2app(W_GroupByIterator.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_GroupByIterator.next_w, unwrap_spec=['self']))
 W_GroupByIterator.typedef.acceptable_as_base_class = False
+
+
+class W_Compress(Wrappable):
+    def __init__(self, space, w_data, w_selectors):
+        self.space = space
+        self.w_data = space.iter(w_data)
+        self.w_selectors = space.iter(w_selectors)
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        # No need to check for StopIteration since either w_data
+        # or w_selectors will raise this. The shortest one stops first.
+        while True:
+            w_next_item = self.space.next(self.w_data)
+            w_next_selector = self.space.next(self.w_selectors)
+            if self.space.is_true(w_next_selector):
+                return w_next_item
+
+
+def W_Compress__new__(space, w_subtype, w_data, w_selectors):
+    return space.wrap(W_Compress(space, w_data, w_selectors))
+
+W_Compress.typedef = TypeDef(
+    'compress',
+    __new__ = interp2app(W_Compress__new__,
+                         unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
+    __iter__ = interp2app(W_Compress.iter_w, unwrap_spec=['self']),
+    next     = interp2app(W_Compress.next_w, unwrap_spec=['self']),
+    __doc__ = """Make an iterator that filters elements from *data* returning
+   only those that have a corresponding element in *selectors* that evaluates to
+   ``True``.  Stops when either the *data* or *selectors* iterables has been
+   exhausted.
+   Equivalent to::
+
+       def compress(data, selectors):
+           # compress('ABCDEF', [1,0,1,0,1,1]) --> A C E F
+           return (d for d, s in izip(data, selectors) if s)
+""")
+
+
+class W_Product(Wrappable):
+
+    def __init__(self, space, args_w, w_repeat):
+        self.space = space
+        self.gears_w = [x for x in args_w] * space.int_w(w_repeat)
+        self.num_gears = len(self.gears_w)
+        # initialization of indicies to loop over
+        self.indicies = [(0, space.int_w(space.len(w_gear)))
+                         for w_gear in self.gears_w]
+        self.cont = True
+
+    def roll_gears(self):
+        if self.num_gears == 0:
+            self.cont = False
+            return
+
+        # Starting from the end of the gear indicies work to the front
+        # incrementing the gear until the limit is reached. When the limit
+        # is reached carry operation to the next gear
+        should_carry = True
+
+        for n in range(0, self.num_gears):
+            nth_gear = self.num_gears - n - 1
+            if should_carry:
+                count, lim = self.indicies[nth_gear]
+                count += 1
+                if count == lim and nth_gear == 0:
+                    self.cont = False
+                if count == lim:
+                    should_carry = True
+                    count = 0
+                else:
+                    should_carry = False
+                self.indicies[nth_gear] = (count, lim)
+            else:
+                break
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        if not self.cont:
+            raise OperationError(self.space.w_StopIteration,
+                                     self.space.w_None)
+        l = [None] * self.num_gears
+        for x in range(0, self.num_gears):
+            index, limit = self.indicies[x]
+            l[x] = self.space.getitem(self.gears_w[x],
+                                      self.space.wrap(index))
+        self.roll_gears()
+        return self.space.newtuple(l)
+
+
+def W_Product__new__(space, args_w):
+    star_args_w, kw_args_w = args_w.unpack()
+    if len(kw_args_w) > 1:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("product() takes at most 1 argument (%d given)" %
+                             len(kw_args_w)))
+    w_repeat = kw_args_w.get('repeat', space.wrap(1))
+    return space.wrap(W_Product(space, star_args_w[1:], w_repeat))
+
+W_Product.typedef = TypeDef(
+    'product',
+    __new__ = interp2app(W_Product__new__,
+                         unwrap_spec=[ObjSpace, Arguments]),
+    __iter__ = interp2app(W_Product.iter_w, unwrap_spec=['self']),
+    next = interp2app(W_Product.next_w, unwrap_spec=['self']),
+    __doc__ = """
+   Cartesian product of input iterables.
+
+   Equivalent to nested for-loops in a generator expression. For example,
+   ``product(A, B)`` returns the same as ``((x,y) for x in A for y in B)``.
+
+   The nested loops cycle like an odometer with the rightmost element advancing
+   on every iteration.  This pattern creates a lexicographic ordering so that if
+   the input's iterables are sorted, the product tuples are emitted in sorted
+   order.
+
+   To compute the product of an iterable with itself, specify the number of
+   repetitions with the optional *repeat* keyword argument.  For example,
+   ``product(A, repeat=4)`` means the same as ``product(A, A, A, A)``.
+
+   This function is equivalent to the following code, except that the
+   actual implementation does not build up intermediate results in memory::
+
+       def product(*args, **kwds):
+           # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
+           # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
+           pools = map(tuple, args) * kwds.get('repeat', 1)
+           result = [[]]
+           for pool in pools:
+               result = [x+[y] for x in result for y in pool]
+           for prod in result:
+               yield tuple(prod)
+""")

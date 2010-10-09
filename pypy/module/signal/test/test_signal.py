@@ -162,6 +162,48 @@ class AppTestSignal:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+    def test_set_wakeup_fd(self):
+        import signal, posix, fcntl
+        def myhandler(signum, frame):
+            pass
+        signal.signal(signal.SIGUSR1, myhandler)
+        #
+        def cannot_read():
+            try:
+                posix.read(fd_read, 1)
+            except OSError:
+                pass
+            else:
+                raise AssertionError, "os.read(fd_read, 1) succeeded?"
+        #
+        fd_read, fd_write = posix.pipe()
+        flags = fcntl.fcntl(fd_write, fcntl.F_GETFL, 0)
+        flags = flags | posix.O_NONBLOCK
+        fcntl.fcntl(fd_write, fcntl.F_SETFL, flags)
+        flags = fcntl.fcntl(fd_read, fcntl.F_GETFL, 0)
+        flags = flags | posix.O_NONBLOCK
+        fcntl.fcntl(fd_read, fcntl.F_SETFL, flags)
+        #
+        old_wakeup = signal.set_wakeup_fd(fd_write)
+        try:
+            cannot_read()
+            posix.kill(posix.getpid(), signal.SIGUSR1)
+            res = posix.read(fd_read, 1)
+            assert res == '\x00'
+            cannot_read()
+        finally:
+            old_wakeup = signal.set_wakeup_fd(old_wakeup)
+        #
+        signal.signal(signal.SIGUSR1, signal.SIG_DFL)
+
+    def test_siginterrupt(self):
+        import signal
+        signum = signal.SIGUSR1
+        oldhandler = signal.signal(signum, lambda x,y: None)
+        try:
+            signal.siginterrupt(signum, 0)
+        finally:
+            signal.signal(signum, oldhandler)
 
 class AppTestSignalSocket:
 
@@ -194,4 +236,3 @@ class AppTestSignalSocket:
             alarm(0)
         finally:
             signal(SIGALRM, SIG_DFL)
-

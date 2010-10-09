@@ -34,11 +34,9 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
-        if self.literal:
-            raise ParseStringError, 'invalid literal for %s(): %s' % (self.fname, self.literal)
-        else:
-            raise ParseStringError, 'empty string for %s()' % (self.fname,)        
-        
+        raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
+                               (self.fname, self.base, self.literal))
+
     def __init__(self, s, literal, base, fname):
         self.literal = literal
         self.fname = fname
@@ -53,7 +51,9 @@ class NumberStringParser:
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
                 base = 16
-            elif s.startswith('0'):
+            elif s.startswith('0b') or s.startswith('0B'):
+                base = 2
+            elif s.startswith('0'): # also covers the '0o' case
                 base = 8
             else:
                 base = 10
@@ -61,10 +61,14 @@ class NumberStringParser:
             raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
         self.base = base
 
-        if not s:
-            self.error()
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
             s = s[2:]
+        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
+            s = s[2:]
+        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
+            s = s[2:]
+        if not s:
+            self.error()
         self.s = s
         self.n = len(s)
         self.i = 0
@@ -166,11 +170,13 @@ def string_to_float(s):
 
 
     low = s.lower()
-    if low == "-inf":
+    if low == "-inf" or low == "-infinity":
         return -INFINITY
-    elif low == "inf":
+    elif low == "inf" or low == "+inf":
         return INFINITY
-    elif low == "nan" or low == "-nan":
+    elif low == "infinity" or low == "+infinity":
+        return INFINITY
+    elif low == "nan" or low == "-nan" or low == "+nan":
         return NAN
 
     # 1) parse the string into pieces.

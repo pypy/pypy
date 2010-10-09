@@ -226,7 +226,9 @@ class AppTestBuiltinApp:
         assert super(D,D).goo() == (D,)
         assert super(D,d).goo() == (D,)
 
-        raises(TypeError, "classmethod(1).__get__(1)")
+        meth = classmethod(1).__get__(1)
+        raises(TypeError, meth)
+
 
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
@@ -325,3 +327,24 @@ class AppTestBuiltinApp:
 
         X().x
         assert l
+
+    def test_property_decorator(self):
+        class X(object):
+            @property
+            def x(self):
+                return 4
+            @x.getter
+            def x(self):
+                return 2
+            @x.setter
+            def x(self, new):
+                self.y = 42
+            @x.deleter
+            def x(self):
+                self.z = 42
+        x = X()
+        assert x.x == 2
+        x.x = 32
+        assert x.y == 42
+        del x.x
+        assert x.z == 42

@@ -113,7 +113,17 @@ class __extend__(ast.ListComp):
     _description = "list comprehension"
 
 
-class __extend__(ast.Dict, ast.Str, ast.Num, ast.Const):
+class __extend__(ast.SetComp):
+
+    _description = "set comprehension"
+
+
+class __extend__(ast.DictComp):
+
+    _description = "dict comprehension"
+
+
+class __extend__(ast.Dict, ast.Set, ast.Str, ast.Num, ast.Const):
 
     _description = "literal"
 

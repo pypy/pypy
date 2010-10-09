@@ -6,8 +6,9 @@ from pypy.interpreter.gateway import  interp2app
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.rlib.rarithmetic import r_longlong
 
-from pypy.module.unicodedata import unicodedb_5_0_0, unicodedb_4_1_0, unicodedb_3_2_0
+from pypy.module.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
 
 # Contants for Hangul characters
 SBase = 0xAC00
@@ -42,8 +43,6 @@ class UCD(Wrappable):
         self._decomposition = unicodedb.decomposition
         self._canon_decomposition = unicodedb.canon_decomposition
         self._compat_decomposition = unicodedb.compat_decomposition
-        self._composition_max = unicodedb._composition_max
-        self._composition_shift = unicodedb._composition_shift
         self._composition = unicodedb._composition
         
         self.version = unicodedb.version
@@ -252,14 +251,12 @@ class UCD(Wrappable):
                     # If LV, T -> LVT
                     current = current + (next - TBase)
                     continue
-                if (current <= self._composition_max and
-                       next <= self._composition_max):
-                    key = current << self._composition_shift | next
-                    try:
-                        current = self._composition[key]
-                        continue
-                    except KeyError:
-                        pass
+                key = r_longlong(current) << 32 | next
+                try:
+                    current = self._composition[key]
+                    continue
+                except KeyError:
+                    pass
 
             if next_combining == 0:
                 # New starter symbol
@@ -297,7 +294,6 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_4_1_0 = UCD(unicodedb_4_1_0)
-ucd_5_0_0 = UCD(unicodedb_5_0_0)
-ucd = ucd_4_1_0
+ucd_5_2_0 = UCD(unicodedb_5_2_0)
+ucd = ucd_5_2_0
 

@@ -186,6 +186,9 @@ class AppTestImport:
         assert pkg == sys.modules.get('pkg')
         assert pkg.a == sys.modules.get('pkg.a')
 
+    def test_import_keywords(self):
+        __import__(name='sys', level=0)
+
     def test_import_badcase(self):
         def missing(name):
             try:
@@ -285,6 +288,8 @@ class AppTestImport:
         assert sys == m
         n = __import__('sys', None, None, [''])
         assert sys == n
+        o = __import__('sys', [], [], ['']) # CPython accepts this
+        assert sys == o
 
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
@@ -878,7 +883,7 @@ class AppTestImportHooks(object):
             if path == "xxx":
                 return Importer()
             raise ImportError()
-        import sys
+        import sys, imp
         try:
             sys.path_hooks.append(importer_for_path)
             sys.path.insert(0, "yyy")
@@ -888,7 +893,8 @@ class AppTestImportHooks(object):
                 import b
             except ImportError:
                 pass
-            assert sys.path_importer_cache['yyy'] is None
+            assert isinstance(sys.path_importer_cache['yyy'],
+                              imp.NullImporter)
         finally:
             sys.path.pop(0)
             sys.path.pop(0)

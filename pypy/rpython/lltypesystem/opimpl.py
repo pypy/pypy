@@ -294,6 +294,13 @@ def op_cast_longlong_to_float(i):
     ui = float(int(i >> 31)) * float(0x80000000)
     return ui + li
 
+def op_cast_ulonglong_to_float(i):
+    assert isinstance(i, r_ulonglong)
+    # take first 32 bits
+    li = float(int(i & r_ulonglong(0xffffffff)))
+    ui = float(int(i >> 32)) * float(0x100000000)
+    return ui + li
+
 def op_cast_int_to_char(b):
     assert type(b) is int
     return chr(b)
@@ -321,6 +328,10 @@ def op_cast_float_to_longlong(f):
     high = int(small)
     truncated = int((small - high) * r)
     return r_longlong_result(high) * 0x100000000 + truncated
+
+def op_cast_float_to_ulonglong(f):
+    assert type(f) is float
+    return r_ulonglong(r_longlong(f))
 
 def op_cast_char_to_int(b):
     assert type(b) is str and len(b) == 1

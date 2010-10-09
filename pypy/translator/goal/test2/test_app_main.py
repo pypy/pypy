@@ -129,6 +129,36 @@ class TestParseCommandLine:
         self.check(['-W', 'ab', '-SWc'], sys_argv=[''], warnoptions=['ab', 'c'],
                    run_stdin=True, no_site=1)
 
+    def test_sysflags(self):
+        flags = (
+            ("debug", "-d", "1"),
+            ("py3k_warning", "-3", "1"),
+            ("division_warning", "-Qwarn", "1"),
+            ("division_warning", "-Qwarnall", "2"),
+            ("division_new", "-Qnew", "1"),
+            (["inspect", "interactive"], "-i", "1"),
+            ("optimize", "-O", "1"),
+            ("optimize", "-OO", "2"),
+            ("dont_write_bytecode", "-B", "1"),
+            ("no_user_site", "-s", "1"),
+            ("no_site", "-S", "1"),
+            ("ignore_environment", "-E", "1"),
+            ("tabcheck", "-t", "1"),
+            ("tabcheck", "-tt", "2"),
+            ("verbose", "-v", "1"),
+            ("unicode", "-U", "1"),
+            ("bytes_warning", "-b", "1"),
+        )
+        for flag, opt, value in flags:
+            if isinstance(flag, list):   # this is for inspect&interactive
+                expected = {}
+                for flag1 in flag:
+                    expected[flag1] = int(value)
+            else:
+                expected = {flag: int(value)}
+            self.check([opt, '-c', 'pass'], sys_argv=['-c'],
+                       run_command='pass', **expected)
+
 
 class TestInteraction:
     """
@@ -371,6 +401,11 @@ class TestInteraction:
         child.sendline('"pypy.translator.goal.test2.mymodule" in sys.modules')
         child.expect('False')
 
+    def test_option_i_noexit(self):
+        child = self.spawn(['-i', '-c', 'import sys; sys.exit(1)'])
+        child.expect('Traceback')
+        child.expect('SystemExit: 1')
+
     def test_options_u_i(self):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
@@ -419,17 +454,16 @@ class TestInteraction:
         child.expect('>>> ')
 
     def test_clear_pythoninspect(self):
-        py.test.skip("obscure difference with CPython -- do we care?")
-        old = os.environ.get('PYTHONINSPECT', '')
+        os.environ['PYTHONINSPECT_'] = '1'
         try:
             path = getscript("""
                 import os
                 del os.environ['PYTHONINSPECT']
                 """)
             child = self.spawn([path])
-            xxx  # do we expect a prompt or not?  CPython gives one
+            child.expect('>>> ')
         finally:
-            os.environ['PYTHONINSPECT'] = old
+            del os.environ['PYTHONINSPECT_']
 
     def test_stdout_flushes_before_stdin_blocks(self):
         # This doesn't really test app_main.py, but a behavior that
@@ -533,6 +567,16 @@ class TestNonInteractive:
             assert 'Hello2' not in data
         finally:
             os.environ['PYTHONSTARTUP'] = old
+
+    def test_pythonwarnings(self):
+        old = os.environ.get('PYTHONWARNINGS', '')
+        try:
+            os.environ['PYTHONWARNINGS'] = "once,error"
+            data = self.run('-W ignore -W default '
+                            '-c "import sys; print sys.warnoptions"')
+            assert "['ignore', 'default', 'once', 'error']" in data
+        finally:
+            os.environ['PYTHONWARNINGS'] = old
 
     def test_option_m(self):
         p = os.path.join(autopath.this_dir, 'mymodule.py')

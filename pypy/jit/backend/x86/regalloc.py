@@ -4,7 +4,7 @@
 
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                         ResOperation, BoxPtr,
+                                         ResOperation, BoxPtr, ConstFloat,
                                          LoopToken, INT, REF, FLOAT)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
@@ -210,17 +210,15 @@ class RegAlloc(object):
                 self.possibly_free_var(var)
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
-                             selected_reg=None, imm_fine=True,
-                             need_lower_byte=False):
+                             selected_reg=None, need_lower_byte=False):
         if var.type == FLOAT:
-            # always pass imm_fine=False for now in this case
+            if isinstance(var, ConstFloat):
+                return FloatImmedLoc(var.getfloat())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
-                                                 selected_reg, False,
-                                                 need_lower_byte)
+                                                 selected_reg, need_lower_byte)
         else:
             return self.rm.make_sure_var_in_reg(var, forbidden_vars,
-                                                selected_reg, imm_fine,
-                                                need_lower_byte)
+                                                selected_reg, need_lower_byte)
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
@@ -540,11 +538,15 @@ class RegAlloc(object):
     consider_float_truediv = _consider_float_op
 
     def _consider_float_cmp(self, op, guard_op):
-        args = op.getarglist()
-        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args,
-                                             imm_fine=False)
-        loc1 = self.xrm.loc(op.getarg(1))
-        arglocs = [loc0, loc1]
+        vx = op.getarg(0)
+        vy = op.getarg(1)
+        arglocs = [self.loc(vx), self.loc(vy)]
+        if not (isinstance(arglocs[0], RegLoc) or
+                isinstance(arglocs[1], RegLoc)):
+            if isinstance(vx, Const):
+                arglocs[1] = self.xrm.make_sure_var_in_reg(vy)
+            else:
+                arglocs[0] = self.xrm.make_sure_var_in_reg(vx)
         self.xrm.possibly_free_vars_for_op(op)
         if guard_op is None:
             res = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
@@ -570,7 +572,7 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(0))
 
     def consider_cast_float_to_int(self, op):
-        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
         loc1 = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [loc0], loc1)
         self.xrm.possibly_free_var(op.getarg(0))
@@ -641,8 +643,7 @@ class RegAlloc(object):
         # ^^^ we force loc_newvalue in a reg (unless it's a Const),
         # because it will be needed anyway by the following setfield_gc.
         # It avoids loading it twice from the memory.
-        loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args,
-                                                imm_fine=False)
+        loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         arglocs = [loc_base, loc_newvalue]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these

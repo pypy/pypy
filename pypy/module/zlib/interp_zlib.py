@@ -315,12 +315,15 @@ class Decompress(ZLibObject):
     decompress.unwrap_spec = ['self', 'bufferstr', int]
 
 
-    def flush(self, length=0):
+    def flush(self, length=sys.maxint):
         """
         flush( [length] ) -- This is kept for backward compatibility,
         because each call to decompress() immediately returns as much
         data as possible.
         """
+        if length <= 0:
+            raise OperationError(self.space.w_ValueError, self.space.wrap(
+                "length must be greater than zero"))
         # We could call rzlib.decompress(self.stream, '', rzlib.Z_FINISH)
         # which would complain if the input stream so far is not complete;
         # however CPython's zlib module does not behave like that.

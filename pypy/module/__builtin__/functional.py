@@ -164,9 +164,11 @@ def min_max_loop(space, args, implementation_of):
     return w_max_item
 
 def max(space, __args__):
-    """Return the largest item in a sequence.
-
-    If more than one argument is passed, return the maximum of them.
+    """max(iterable[, key=func]) -> value
+    max(a, b, c, ...[, key=func]) -> value
+    
+    With a single iterable argument, return its largest item.
+    With two or more arguments, return the largest argument.
     """
     return min_max(space, __args__, "max")
 max.unwrap_spec = [ObjSpace, Arguments]
@@ -458,9 +460,13 @@ class W_Enumerate(Wrappable):
         self.w_iter = w_iter
         self.w_index = w_start
 
-    def descr___new__(space, w_subtype, w_iterable):
+    def descr___new__(space, w_subtype, w_iterable, w_start=NoneNotWrapped):
         self = space.allocate_instance(W_Enumerate, w_subtype)
-        self.__init__(space.iter(w_iterable), space.wrap(0))
+        if w_start is None:
+            w_start = space.wrap(0)
+        else:
+            w_start = space.index(w_start)
+        self.__init__(space.iter(w_iterable), w_start)
         return space.wrap(self)
 
     def descr___iter__(self, space):
@@ -497,16 +503,25 @@ W_Enumerate.typedef = TypeDef("enumerate",
 
 def reversed(space, w_sequence):
     """Return a iterator that yields items of sequence in reverse."""
-    w_reversed_descr = space.lookup(w_sequence, "__reversed__")
-    if w_reversed_descr is None:
-        return space.wrap(W_ReversedIterator(space, w_sequence))
-    return space.get_and_call_function(w_reversed_descr, w_sequence)
+    w_reversed = None
+    if space.is_oldstyle_instance(w_sequence):
+        w_reversed = space.findattr(w_sequence, space.wrap("__reversed__"))
+    else:
+        w_reversed_descr = space.lookup(w_sequence, "__reversed__")
+        if w_reversed_descr is not None:
+            w_reversed = space.get(w_reversed_descr, w_sequence)
+    if w_reversed is not None:
+        return space.call_function(w_reversed)
+    return space.wrap(W_ReversedIterator(space, w_sequence))
 reversed.unwrap_spec = [ObjSpace, W_Root]
 
 class W_ReversedIterator(Wrappable):
 
     def __init__(self, space, w_sequence):
         self.remaining = space.int_w(space.len(w_sequence)) - 1
+        if space.lookup(w_sequence, "__getitem__") is None:
+            msg = "reversed() argument must be a sequence"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         self.w_sequence = w_sequence
 
     def descr___iter__(self, space):
@@ -616,6 +631,15 @@ class W_XRange(Wrappable):
         return self.space.wrap(W_XRangeIterator(self.space, lastitem,
                                                 self.len, -self.step))
 
+    def descr_reduce(self):
+        space = self.space
+        return space.newtuple(
+            [space.type(self),
+             space.newtuple([space.wrap(self.start),
+                             space.wrap(self.start + self.len * self.step),
+                             space.wrap(self.step)])
+             ])
+
 def _toint(space, w_obj):
     # this also supports float arguments.  CPython still does, too.
     # needs a bit more thinking in general...
@@ -629,6 +653,7 @@ W_XRange.typedef = TypeDef("xrange",
     __iter__         = interp2app(W_XRange.descr_iter),
     __len__          = interp2app(W_XRange.descr_len),
     __reversed__     = interp2app(W_XRange.descr_reversed),
+    __reduce__       = interp2app(W_XRange.descr_reduce),
 )
 
 class W_XRangeIterator(Wrappable):

@@ -11,7 +11,14 @@ class GeneratorIterator(Wrappable):
     def __init__(self, frame):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
+        self.pycode = frame.pycode
         self.running = False
+
+    def descr__repr__(self, space):
+        code_name = self.frame.pycode.co_name
+        addrstring = self.getaddrstring(space)
+        return space.wrap("<generator object %s at 0x%s>" %
+                          (code_name, addrstring))
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -125,6 +132,13 @@ return next yielded value or raise StopIteration."""
             return self.frame
         else:
             return space.w_None
+
+    def descr_gi_code(space, self):
+        return self.pycode
+
+    def descr__name__(space, self):
+        code_name = self.frame.pycode.co_name
+        return space.wrap(code_name)
 
     def descr__del__(self):        
         """

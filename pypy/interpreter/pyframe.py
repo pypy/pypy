@@ -66,8 +66,6 @@ class PyFrame(eval.Frame):
         self.fastlocals_w = [None]*self.numlocals
         make_sure_not_resized(self.fastlocals_w)
         self.f_lineno = code.co_firstlineno
-        # Keep from having to call space.wrap in a RuntimeError
-        self._recursion_error = space.wrap("maximum recursion depth exceeded")
 
     def append_block(self, block):
         block.previous = self.lastblock
