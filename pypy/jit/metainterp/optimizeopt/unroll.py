@@ -41,7 +41,9 @@ class OptUnroll(Optimization):
 
         inputargs = []
         for arg in jump_args:
-            inputargs.extend(self.getvalue(arg).get_forced_boxes())
+            for a in self.getvalue(arg).get_forced_boxes():
+                if not isinstance(a, Const):
+                    inputargs.append(a)
         
         for op in loop_operations:
             newop = op.clone()
