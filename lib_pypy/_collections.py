@@ -127,8 +127,8 @@ class deque(object):
 
     def count(self, value):
         c = 0
-        for i in range(len(self)):
-            if self[i] == value:
+        for item in self:
+            if item == value:
                 c += 1
         return c
 
