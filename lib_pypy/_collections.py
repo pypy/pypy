@@ -18,6 +18,12 @@ LFTLNK = n
 RGTLNK = n+1
 BLOCKSIZ = n+2
 
+# The deque's size limit is d.maxlen.  The limit can be zero or positive, or
+# None.  After an item is added to a deque, we check to see if the size has
+# grown past the limit. If it has, we get the size back down to the limit by
+# popping an item off of the opposite end.  The methods that can trigger this
+# are append(), appendleft(), extend(), and extendleft().
+
 class deque(object):
 
     def __new__(cls, iterable=(), *args, **kw):
@@ -25,7 +31,11 @@ class deque(object):
         self.clear()
         return self
 
-    def __init__(self, iterable=()):
+    def __init__(self, iterable=(), maxlen=None):
+        if maxlen is not None:
+            if maxlen < 0:
+                raise ValueError("maxlen must be non-negative")
+        self.maxlen = maxlen
         add = self.append
         for elem in iterable:
             add(elem)
@@ -48,6 +58,8 @@ class deque(object):
             self.rightndx = 0
         self.length += 1
         self.right[self.rightndx] = x
+        if self.maxlen is not None and self.length > self.maxlen:
+            self.popleft()
 
     def appendleft(self, x):
         self.state += 1
@@ -60,6 +72,8 @@ class deque(object):
             self.leftndx = n-1
         self.length += 1
         self.left[self.leftndx] = x
+        if self.maxlen is not None and self.length > self.maxlen:
+            self.pop()
 
     def extend(self, iterable):
         for elem in iterable:
@@ -144,7 +158,10 @@ class deque(object):
         else:
             self.__dict__[threadlocalattr] = True
             try:
-                return 'deque(%r)' % (list(self),)
+                if self.maxlen is not None:
+                    return 'deque(%r, maxlen=%s)' % (list(self), self.maxlen)
+                else:
+                    return 'deque(%r)' % (list(self),)
             finally:
                 del self.__dict__[threadlocalattr]
 
@@ -249,13 +266,13 @@ class deque(object):
             self.rotate(-index)
 
     def __reduce_ex__(self, proto):
-        return type(self), (), self.__dict__, iter(self), None
+        return type(self), (list(self), self.maxlen)
 
     def __hash__(self):
         raise TypeError, "deque objects are unhashable"
 
     def __copy__(self):
-        return self.__class__(self)
+        return self.__class__(self, self.maxlen)
 
     # XXX make comparison more efficient
     def __eq__(self, other):
