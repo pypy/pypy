@@ -35,6 +35,11 @@ class TestDeque:
         assert d.count(2) == 3
         assert d.count(4) == 0
 
+    def test_reverse(self):
+        d = collections.deque([1, 2, 2, 3, 2])
+        d.reverse()
+        assert list(d) == [2, 3, 2, 2, 1]
+
     def test_subclass_with_kwargs(self):
         class SubclassWithKwargs(collections.deque):
             def __init__(self, newarg=1):

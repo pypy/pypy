@@ -158,6 +158,34 @@ class deque(object):
             self.append(self.popleft())
             n += 1
 
+    def reverse(self):
+        "reverse *IN PLACE*"
+        leftblock = self.left
+        rightblock = self.right
+        leftindex = self.leftndx
+        rightindex = self.rightndx
+        for i in range(self.length // 2):
+            # Validate that pointers haven't met in the middle
+            assert leftblock != rightblock or leftindex < rightindex
+
+            # Swap
+            (self.right[rightindex], self.left[leftindex]) = (
+                self.left[leftindex], self.right[rightindex])
+
+            # Advance left block/index pair
+            leftindex += 1
+            if leftindex == n:
+                leftblock = leftblock[RGTLNK]
+                assert leftblock is not None
+                leftindex = 0
+
+            # Step backwards with the right block/index pair
+            rightindex -= 1
+            if rightindex == -1:
+                rightblock = leftblock[LFTLNK]
+                assert rightblock is not None
+                leftindex = n - 1
+
     def __repr__(self):
         threadlocalattr = '__repr' + str(_thread_ident())
         if threadlocalattr in self.__dict__:
