@@ -237,6 +237,7 @@ class FunctionScope(Scope):
     def note_import_star(self, imp):
         self.optimized = False
         self.import_star = imp
+        return True
 
     def note_variable_arg(self, vararg):
         self.has_variable_arg = True
@@ -382,7 +383,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_ImportFrom(self, imp):
         for alias in imp.names:
             if self._visit_alias(alias):
-                self.scope.note_import_star(imp)
+                if self.scope.note_import_star(imp):
+                    msg = "import * only allowed at module level"
+                    misc.syntax_warning(
+                        self.space, msg, self.compile_info.filename,
+                        imp.lineno, imp.col_offset)
 
     def _visit_alias(self, alias):
         assert isinstance(alias, ast.alias)

@@ -309,6 +309,17 @@ class TestSymbolTable:
             exc = py.test.raises(SyntaxError, self.mod_scope, input).value
             assert exc.msg == error + " contains a nested function with free variables"
 
+    def test_importstar_warning(self, capfd):
+        self.mod_scope("def f():\n    from re import *")
+        _, err1 = capfd.readouterr()
+
+        self.mod_scope("if 1:\n    from re import *")
+        _, err2 = capfd.readouterr()
+
+        capfd.close()
+        assert     "import * only allowed at module level" in err1
+        assert not "import * only allowed at module level" in err2
+
     def test_exec(self):
         self.mod_scope("exec 'hi'")
         scp = self.func_scope("def f(): exec 'hi'")
