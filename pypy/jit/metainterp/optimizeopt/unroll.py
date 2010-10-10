@@ -1,6 +1,7 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
+from pypy.jit.metainterp.resume import Snapshot
 
 class OptUnroll(Optimization):
     """Unroll the loop into two itterations. The first one will
@@ -14,14 +15,15 @@ class OptUnroll(Optimization):
         if not self.enabled:
             self.emit_operation(op)
             return
-
+        
         if op.getopnum() == rop.JUMP:
             loop = self.optimizer.loop
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
             op.initarglist([])
-            inputargs = self.inline(loop.preamble.operations + [op],
+            inputargs = self.inline(loop.operations,
+                                    #loop.preamble.operations + [op],
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
@@ -31,7 +33,7 @@ class OptUnroll(Optimization):
             self.emit_operation(op)
 
     def inline(self, loop_operations, loop_args, jump_args):
-        argmap = {}
+        self.argmap = argmap = {}
         assert len(loop_args) == len(jump_args)
         for i in range(len(loop_args)):
            argmap[loop_args[i]] = jump_args[i]
@@ -39,19 +41,17 @@ class OptUnroll(Optimization):
         for v in self.optimizer.values.values():
            v.fromstart = True
 
+        self.snapshot_map ={None: None}
+        
         inputargs = []
         for arg in jump_args:
             for a in self.getvalue(arg).get_forced_boxes():
                 if not isinstance(a, Const):
-                    inputargs.append(a)
+                    inputargs.append(a)        
         
         for op in loop_operations:
             newop = op.clone()
-            for i in range(op.numargs()):
-                a = op.getarg(i)
-                if not isinstance(a, Const):
-                    newa = argmap[a]
-                    newop.setarg(i, newa)
+            newop.initarglist([self.inline_arg(a) for a in newop.getarglist()])
             if op.result:
                 newop.result = op.result.clonebox()
                 argmap[op.result] = newop.result
@@ -59,7 +59,8 @@ class OptUnroll(Optimization):
             if isinstance(descr, ResumeGuardDescr):
                 op.getdescr().rd_snapshot = None #FIXME: In the right place?
                 descr.rd_numb = None
-
+                descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
+                
             if newop.getopnum() == rop.JUMP:
                 args = []
                 #for arg in newop.getarglist():
@@ -67,19 +68,12 @@ class OptUnroll(Optimization):
                     args.extend(self.getvalue(arg).get_forced_boxes())
                 newop.initarglist(args + inputargs[len(args):])
 
+            print "P: ", newop
             current = len(self.optimizer.newoperations)
             self.emit_operation(newop)
 
             for op in self.optimizer.newoperations[current:]:
                 if op.is_guard():
-                    args = []
-                    for a in op._fail_args:
-                        try:
-                            a = argmap[a]
-                        except KeyError:
-                            pass
-                        args.append(self.getvalue(a).force_box())
-                    op.setfailargs(args)
                     op.getdescr().rd_snapshot = None #FIXME: In the right place?
                     
                 for a in op.getarglist():
@@ -90,7 +84,22 @@ class OptUnroll(Optimization):
 
         return inputargs
 
-        
+    def inline_arg(self, arg):
+        if isinstance(arg, Const):
+            return arg
+        return self.argmap[arg]
+
+    def inline_snapshot(self, snapshot):
+        if snapshot in self.snapshot_map:
+            return self.snapshot_map[snapshot]
+        boxes = []
+        for a in snapshot.boxes:
+            if isinstance(a, Const):
+                boxes.append(a)
+            else:
+                boxes.append(self.inline_arg(a))
+        return Snapshot(self.inline_snapshot(snapshot.prev), boxes)
+    
 
         
         

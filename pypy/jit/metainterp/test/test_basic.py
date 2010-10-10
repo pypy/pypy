@@ -1348,7 +1348,7 @@ class BasicTests:
 
         res = self.meta_interp(f, [10, 3])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
-        self.check_tree_loop_count(1)
+        self.check_tree_loop_count(2)
 
         res = self.meta_interp(f, [10, 13])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
