@@ -209,6 +209,7 @@ class OptRewrite(Optimization):
             # the following assert should always be true for now,
             # because invalid loops that would fail it are detected
             # earlier, in optimizefindnode.py.
+            raise InvalidLoop
             assert realclassbox.same_constant(expectedclassbox)
             return
         emit_operation = True

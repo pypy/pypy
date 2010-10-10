@@ -122,11 +122,14 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue.get_args_for_fail(modifier)
 
     def get_forced_boxes(self):
-        lst = self._get_field_descr_list()
-        fieldboxes = []
-        for ofs in lst:
-            fieldboxes.extend(self._fields[ofs].get_forced_boxes())
-        return fieldboxes
+        if self.box is None:
+            lst = self._get_field_descr_list()
+            fieldboxes = []
+            for ofs in lst:
+                fieldboxes.extend(self._fields[ofs].get_forced_boxes())
+            return fieldboxes
+        else:
+            return [self.box]
 
 
 class VirtualValue(AbstractVirtualStructValue):

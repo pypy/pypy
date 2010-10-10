@@ -49,6 +49,24 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == f(10)
         self.check_loop_count(1)
+        self.check_loops(new=0, float_add=0)
+
+    def test_virtualized_float2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
+        def f(n):
+            node = self._new()
+            node.floatval = 0.0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                next = self._new()
+                next.floatval = node.floatval + .5
+                node = next
+                n -= 1
+            return node.floatval
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_loop_count(1)
         self.check_loops(new=0, float_add=1)
 
     def test_virtualized_2(self):
@@ -143,10 +161,10 @@ class VirtualTests:
                 node = next
                 n -= 1
             return node.value
-        res = self.meta_interp(f, [11], policy=StopAtXPolicy(externfn))
-        assert res == f(11)
+        res = self.meta_interp(f, [15], policy=StopAtXPolicy(externfn))
+        assert res == f(15)
         self.check_loop_count(2)
-        self.check_loops(**{self._new_op: 2})     # XXX was 1
+        self.check_loops(**{self._new_op: 1})
         self.check_loops(int_mul=0, call=1)
 
     def test_two_virtuals(self):

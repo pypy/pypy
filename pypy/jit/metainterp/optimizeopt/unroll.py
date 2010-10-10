@@ -19,6 +19,7 @@ class OptUnroll(Optimization):
         if op.getopnum() == rop.JUMP:
             loop = self.optimizer.loop
             loop.preamble.operations = self.optimizer.newoperations
+            print '\n'.join([str(o) for o in loop.preamble.operations])
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
             op.initarglist([])
@@ -39,7 +40,8 @@ class OptUnroll(Optimization):
            argmap[loop_args[i]] = jump_args[i]
 
         for v in self.optimizer.values.values():
-           v.fromstart = True
+            if not v.is_constant() and v.box:
+                v.fromstart = True
 
         self.snapshot_map ={None: None}
         
@@ -47,9 +49,11 @@ class OptUnroll(Optimization):
         for arg in jump_args:
             for a in self.getvalue(arg).get_forced_boxes():
                 if not isinstance(a, Const):
-                    inputargs.append(a)        
-        
+                    inputargs.append(a)
+        print "Inputargs: ", inputargs
+
         for op in loop_operations:
+            #import pdb; pdb.set_trace()
             newop = op.clone()
             newop.initarglist([self.inline_arg(a) for a in newop.getarglist()])
             if op.result:
@@ -73,14 +77,20 @@ class OptUnroll(Optimization):
             self.emit_operation(newop)
 
             for op in self.optimizer.newoperations[current:]:
+                print "E: ", op
                 if op.is_guard():
                     op.getdescr().rd_snapshot = None #FIXME: In the right place?
-                    
-                for a in op.getarglist():
+                args = op.getarglist()
+                if op.is_guard():
+                    args = args + op.getfailargs()
+                for a in args:
                     if not isinstance(a, Const) and a in self.optimizer.values:
                         v = self.getvalue(a)
                         if v.fromstart and a not in inputargs:
+                            print "Arg: ", a
                             inputargs.append(a)
+                            if op.getopnum() == rop.JUMP:
+                                op.initarglist(op.getarglist() + [argmap[a]])
 
         return inputargs
 
