@@ -73,6 +73,8 @@ descr__new__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root,
                             'args_w']
 
 def descr__reduce__(space, w_self):
+    from pypy.objspace.std.sliceobject import W_SliceObject
+    assert isinstance(w_self, W_SliceObject)
     return space.newtuple([
         space.type(w_self),
         space.newtuple([w_self.w_start,
