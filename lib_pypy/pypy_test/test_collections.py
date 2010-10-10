@@ -29,6 +29,11 @@ def test_deque_maxlen():
     d3 = copy.copy(d)
     assert repr(d3) == "deque([2, 3, 4], maxlen=3)"
 
+def test_deque_count():
+    d = collections.deque([1, 2, 2, 3, 2])
+    assert d.count(2) == 3
+    assert d.count(4) == 0
+
 class SubclassWithKwargs(collections.deque):
     def __init__(self, newarg=1):
         collections.deque.__init__(self)

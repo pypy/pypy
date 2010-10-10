@@ -125,6 +125,13 @@ class deque(object):
                 self.leftndx = 0
         return x
 
+    def count(self, value):
+        c = 0
+        for i in range(len(self)):
+            if self[i] == value:
+                c += 1
+        return c
+
     def remove(self, value):
         # Need to be defensive for mutating comparisons
         for i in range(len(self)):
