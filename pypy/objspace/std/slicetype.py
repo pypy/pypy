@@ -72,6 +72,15 @@ def descr__new__(space, w_slicetype, args_w):
 descr__new__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root,
                             'args_w']
 
+def descr__reduce__(space, w_self):
+    return space.newtuple([
+        space.type(w_self),
+        space.newtuple([w_self.w_start,
+                        w_self.w_stop,
+                        w_self.w_step]),
+        ])
+descr__reduce__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root]
+
 # ____________________________________________________________
 
 def slicewprop(name):
@@ -90,6 +99,7 @@ slice_typedef = StdTypeDef("slice",
 Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
     __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
+    __reduce__ = gateway.interp2app(descr__reduce__),
     start = slicewprop('w_start'),
     stop  = slicewprop('w_stop'),
     step  = slicewprop('w_step'),

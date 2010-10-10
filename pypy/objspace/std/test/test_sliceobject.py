@@ -93,3 +93,6 @@ class AppTest_SliceObject:
         assert stop == 1000
         assert step >= 1000
         raises(OverflowError, "slice(0, 1000, 1).indices(2 ** 100)")
+
+    def test_reduce(self):
+        assert slice(1, 2, 3).__reduce__() == (slice, (1, 2, 3))
