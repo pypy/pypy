@@ -169,8 +169,8 @@ class deque(object):
             assert leftblock != rightblock or leftindex < rightindex
 
             # Swap
-            (self.right[rightindex], self.left[leftindex]) = (
-                self.left[leftindex], self.right[rightindex])
+            (rightblock[rightindex], leftblock[leftindex]) = (
+                leftblock[leftindex], rightblock[rightindex])
 
             # Advance left block/index pair
             leftindex += 1
@@ -182,9 +182,9 @@ class deque(object):
             # Step backwards with the right block/index pair
             rightindex -= 1
             if rightindex == -1:
-                rightblock = leftblock[LFTLNK]
+                rightblock = rightblock[LFTLNK]
                 assert rightblock is not None
-                leftindex = n - 1
+                rightindex = n - 1
 
     def __repr__(self):
         threadlocalattr = '__repr' + str(_thread_ident())

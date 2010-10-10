@@ -40,6 +40,10 @@ class TestDeque:
         d.reverse()
         assert list(d) == [2, 3, 2, 2, 1]
 
+        d = collections.deque(range(100))
+        d.reverse()
+        assert list(d) == range(99, -1, -1)
+
     def test_subclass_with_kwargs(self):
         class SubclassWithKwargs(collections.deque):
             def __init__(self, newarg=1):
