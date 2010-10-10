@@ -25,7 +25,7 @@ class ArmCPU(AbstractLLCPU):
         return self.assembler.fail_boxes_int.getitem(index)
 
     def execute_token(self, executable_token):
-        addr = self.assembler.mc.baseaddr()#executable_token._arm_bootstrap_code
+        addr = executable_token._arm_bootstrap_code
         assert addr % 8 == 0
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
         fail_index = self._execute_call(func)

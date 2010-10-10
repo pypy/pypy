@@ -47,6 +47,8 @@ class AssemblerARM(object):
             else:
                 raise ValueError("Unknown op %r" % op)
         self.gen_func_epilog()
+        looptoken._arm_bootstrap_code = self.mc.baseaddr()
+        looptoken._arm_loop_code = loop_head
 
     def gen_func_epilog(self,cond=c.AL):
         self.mc.LDM(r.sp, r.callee_restored_registers, cond=cond)
