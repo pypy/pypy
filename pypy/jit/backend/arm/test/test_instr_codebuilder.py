@@ -106,6 +106,10 @@ class TestInstrCodeBuilder(object):
         self.cb.SUB_ri(r.r3, r.r7, 0xFFF)
         self.assert_equal('SUB r3, r7, #4095')
 
+    def test_cmp_ri(self):
+        self.cb.CMP(r.r3, 123)
+        self.assert_equal('CMP r3, #123')
+
     def assert_equal(self, asm):
         assert self.cb.hexdump() == assemble(asm)
 

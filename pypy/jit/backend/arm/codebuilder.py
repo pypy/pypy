@@ -8,13 +8,6 @@ class ARMv7Builder(object):
         self._data = alloc(1024)
         self._pos = 0
 
-    def _encode_imm(self, imm):
-        u = 1
-        if imm < 0:
-            u = 0
-            imm = -imm
-        return u, imm
-
     def LDR_ri(self, rt, rn, imm=0, cond=cond.AL):
         #  XXX W and P bits are not encoded yet
         p = 1
@@ -109,10 +102,26 @@ class ARMv7Builder(object):
         instr = self._encode_reg_list(instr, regs)
         self.write32(instr)
 
+    def CMP(self, rn, imm, cond=cond.AL):
+        if 0 <= imm <= 255:
+            self.write32(cond << 28
+                        | 0x35 << 20
+                        | (rn & 0xFF) <<  16
+                        | (imm & 0xFFF))
+        else:
+            raise NotImplentedError
+
     def _encode_reg_list(self, instr, regs):
         for reg in regs:
             instr |= 0x1 << reg
         return instr
+
+    def _encode_imm(self, imm):
+        u = 1
+        if imm < 0:
+            u = 0
+            imm = -imm
+        return u, imm
 
     def write32(self, word):
         self.writechar(chr(word & 0xFF))
@@ -126,5 +135,8 @@ class ARMv7Builder(object):
 
     def baseaddr(self):
         return rffi.cast(lltype.Signed, self._data)
+
+    def curraddr(self):
+        return self.baseaddr() + self._pos
 
 

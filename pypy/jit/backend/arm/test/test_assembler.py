@@ -1,4 +1,5 @@
 from pypy.jit.backend.arm import registers as r
+from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm.assembler import AssemblerARM
 from pypy.jit.backend.arm.test.support import skip_unless_arm, run_asm
 
@@ -41,3 +42,47 @@ class TestRunningAssembler():
         self.a.mc.SUB_ri(r.r0, r.r1, 123)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 123333
+
+    def test_int_le(self):
+        self.a.gen_func_prolog()
+        self.a.gen_load_int(r.r1, 22)
+        self.a.mc.CMP(r.r1, 123)
+        self.a.mc.MOV_ri(r.r0, 1, c.LE)
+        self.a.mc.MOV_ri(r.r0, 0, c.GT)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 1
+
+    def test_int_le_false(self):
+        self.a.gen_func_prolog()
+        self.a.gen_load_int(r.r1, 2222)
+        self.a.mc.CMP(r.r1, 123)
+        self.a.mc.MOV_ri(r.r0, 1, c.LE)
+        self.a.mc.MOV_ri(r.r0, 0, c.GT)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 0
+
+    def test_simple_jump(self):
+        self.a.gen_func_prolog()
+        self.a.mc.MOV_ri(r.r1, 1)
+        loop_head = self.a.mc.curraddr()
+        self.a.mc.CMP(r.r1, 0) # z=0, z=1
+        self.a.mc.MOV_ri(r.r1, 0, cond=c.NE)
+        self.a.mc.MOV_ri(r.r1, 7, cond=c.EQ)
+        self.a.gen_load_int(r.r4, loop_head, cond=c.NE)
+        self.a.mc.MOV_rr(r.pc, r.r4, cond=c.NE)
+        self.a.mc.MOV_rr(r.r0, r.r1)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 7
+
+    def test_jump(self):
+        self.a.gen_func_prolog()
+        self.a.mc.MOV_ri(r.r1, 1)
+        loop_head = self.a.mc.curraddr()
+        self.a.mc.ADD_ri(r.r1, r.r1, 1)
+        self.a.mc.CMP(r.r1, 9)
+        self.a.gen_load_int(r.r4, loop_head, cond=c.NE)
+        self.a.mc.MOV_rr(r.pc, r.r4, cond=c.NE)
+        self.a.mc.MOV_rr(r.r0, r.r1)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 9
+

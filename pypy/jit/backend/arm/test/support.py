@@ -1,4 +1,5 @@
 import os
+import py
 
 from pypy.rpython.lltypesystem import lltype, rffi
 
@@ -15,7 +16,6 @@ def run_asm(asm):
     return func()
 
 def skip_unless_arm():
-    import py
     check_skip(os.uname()[4])
 
 def requires_arm_as():
