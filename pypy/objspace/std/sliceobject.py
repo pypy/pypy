@@ -59,9 +59,15 @@ class W_SliceObject(W_Object):
             if stop < 0:
                 stop += length
                 if stop < 0:
-                    stop =-1
-            elif stop > length:
-                stop = length
+                    if step < 0:
+                        stop = -1
+                    else:
+                        stop = 0
+            elif stop >= length:
+                if step < 0:
+                    stop = length - 1
+                else:
+                    stop = length
         return start, stop, step
 
     def indices4(w_slice, space, length):
