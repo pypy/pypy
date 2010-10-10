@@ -790,6 +790,9 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     w_type.mutated()
     w_type.dict_w[name] = w_value
 
+def eq__Type_Type(space, w_self, w_other):
+    return space.is_(w_self, w_other)
+
 def delattr__Type_ANY(space, w_type, w_name):
     if w_type.lazyloaders:
         w_type._freeze_()    # force un-lazification

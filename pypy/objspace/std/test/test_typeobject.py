@@ -856,6 +856,22 @@ class AppTestTypeObject:
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
 
+    def test_compare(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        A.__eq__
+        A.__ne__
+        assert A.__eq__(A)
+        assert not A.__eq__(B)
+        assert A.__ne__(B)
+        assert not A.__ne__(A)
+        assert A == A
+        assert A != B
+        assert not A == B
+        assert not A != A
+
     def test_class_variations(self):
         class A(object):
             pass
