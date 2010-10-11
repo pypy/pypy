@@ -6,6 +6,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform
+from pypy.module._multiprocessing import w_handle
 
 CONSTANTS = """
     PIPE_ACCESS_INBOUND PIPE_ACCESS_DUPLEX
@@ -31,8 +32,6 @@ globals().update(config)
 
 def handle_w(space, w_handle):
     return rffi.cast(rwin32.HANDLE, space.int_w(w_handle))
-def w_handle(space, handle):
-    return space.wrap(rffi.cast(rffi.INTPTR_T, handle))
 
 _CreateNamedPipe = rwin32.winexternal(
     'CreateNamedPipeA', [

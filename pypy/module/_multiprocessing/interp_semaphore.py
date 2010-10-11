@@ -7,6 +7,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.module.thread import ll_thread
+from pypy.module._multiprocessing.interp_connection import w_handle
 import sys, os, time, errno
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
@@ -14,6 +15,8 @@ RECURSIVE_MUTEX, SEMAPHORE = range(2)
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
     from pypy.interpreter.error import wrap_windowserror
+
+    SEM_VALUE_MAX = sys.maxint
 
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
@@ -34,7 +37,7 @@ if sys.platform == 'win32':
         'ResetEvent', [rwin32.HANDLE], rwin32.BOOL)
 
     # This is needed because the handler function must have the "WINAPI"
-    # callinf convention, which is not supported by lltype.Ptr.
+    # calling convention, which is not supported by lltype.Ptr.
     eci = ExternalCompilationInfo(
         separate_module_sources=['''
             #include <windows.h>
@@ -166,7 +169,7 @@ else:
             res = _sem_getvalue(sem, sval_ptr)
             if res < 0:
                 raise OSError(rposix.get_errno(), "sem_getvalue failed")
-            return sval_ptr[0]
+            return rffi.cast(lltype.Signed, sval_ptr[0])
         finally:
             lltype.free(sval_ptr, flavor='raw')
 
@@ -175,7 +178,7 @@ else:
         try:
             res = _gettimeofday(now, None)
             if res < 0:
-                raise OSError(rposix.get_errno(), "sem_getvalue failed")
+                raise OSError(rposix.get_errno(), "gettimeofday failed")
             return now[0].c_tv_sec, now[0].c_tv_usec
         finally:
             lltype.free(now, flavor='raw')
@@ -206,9 +209,6 @@ class CounterState:
         return value
 
 if sys.platform == 'win32':
-    SEM_VALUE_MAX = sys.maxint
-    from pypy.module._multiprocessing.interp_win32 import w_handle
-
     def create_semaphore(space, name, val, max):
         rwin32.SetLastError(0)
         handle = _CreateSemaphore(rffi.NULL, val, max, rffi.NULL)
@@ -290,16 +290,13 @@ if sys.platform == 'win32':
                     space, WindowsError(err, "ReleaseSemaphore"))
 
 else:
-    def w_handle(space, value):
-        return space.newint(value)
-
     def create_semaphore(space, name, val, max):
-        res = sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
+        sem = sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
         try:
             sem_unlink(name)
         except OSError:
             pass
-        return res
+        return sem
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:

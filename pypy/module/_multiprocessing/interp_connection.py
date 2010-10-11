@@ -25,6 +25,9 @@ def BufferTooShort(space):
     return OperationError(space.w_ValueError,
                           space.wrap("BUFFERTOOSHORT"))
 
+def w_handle(space, handle):
+    return space.wrap(rffi.cast(rffi.INTPTR_T, handle))
+
 class W_BaseConnection(Wrappable):
     BUFFER_SIZE = 1024
 
@@ -323,7 +326,6 @@ class W_PipeConnection(W_BaseConnection):
 
     @unwrap_spec('self', ObjSpace)
     def fileno(self, space):
-        from pypy.module._multiprocessing.interp_win32 import w_handle
         return w_handle(space, self.handle)
 
     def do_close(self):
