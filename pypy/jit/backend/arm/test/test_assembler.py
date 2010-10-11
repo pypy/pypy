@@ -2,12 +2,17 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm.assembler import AssemblerARM
 from pypy.jit.backend.arm.test.support import skip_unless_arm, run_asm
+from pypy.jit.metainterp.resoperation import rop
 
 skip_unless_arm()
 
 class TestRunningAssembler():
     def setup_method(self, method):
         self.a = AssemblerARM(None)
+
+    def test_make_operation_list(self):
+        i = rop.INT_ADD
+        assert self.a.operations[i] is AssemblerARM.emit_op_int_add.im_func
 
     def test_load_small_int_to_reg(self):
         self.a.gen_func_prolog()
@@ -43,7 +48,7 @@ class TestRunningAssembler():
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 123333
 
-    def test_int_le(self):
+    def test_cmp(self):
         self.a.gen_func_prolog()
         self.a.gen_load_int(r.r1, 22)
         self.a.mc.CMP(r.r1, 123)
@@ -85,4 +90,5 @@ class TestRunningAssembler():
         self.a.mc.MOV_rr(r.r0, r.r1)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 9
+
 
