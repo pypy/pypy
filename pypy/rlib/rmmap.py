@@ -50,7 +50,7 @@ if _POSIX:
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE',
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
-    opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS',
+    opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
                           'PROT_EXEC',
                           'MAP_DENYWRITE', 'MAP_EXECUTABLE']
     for name in constant_names:

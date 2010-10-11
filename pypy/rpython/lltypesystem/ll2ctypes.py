@@ -69,7 +69,7 @@ def do_allocation_in_far_regions():
                 PIECESIZE = 0x08000000
         PIECES = 10
         m = rmmap.mmap(-1, PIECES * PIECESIZE,
-                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS,
+                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
                        rmmap.PROT_READ|rmmap.PROT_WRITE)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
