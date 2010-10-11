@@ -506,8 +506,8 @@ class TestDebuggingAssembler(object):
         self.cpu.execute_token(ops.token)
         # check debugging info
         name, struct = self.cpu.assembler.loop_run_counters[0]
-        assert name == 'xyz'
+        assert name == 0       # 'xyz'
         assert struct.i == 10
         self.cpu.finish_once()
         lines = py.path.local(self.logfile + ".count").readlines()
-        assert lines[0] == '10      xyz\n'
+        assert lines[0] == '0:10\n'  # '10      xyz\n'
