@@ -46,7 +46,7 @@ def gen_eq_function(items_r):
 
         _gen_eq_function_cache[key] = ll_eq
         return ll_eq
-import os
+
 def gen_cmp_function(items_r, op_funcs, eq_funcs, strict):
     """generates <= and >= comparison ll_op for tuples
     cmp_funcs is a tuple of (strict_comp, equality) functions

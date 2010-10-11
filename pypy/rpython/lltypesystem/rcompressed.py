@@ -38,6 +38,7 @@ class ComprGcRefManager(object):
 
 class CompressedGcRefRepr(Repr):
     lowleveltype = llmemory.HiddenGcRef32
+    ll_eq_function = None
     ll_hash_function = None
     ll_fasthash_function = None
 
@@ -53,9 +54,19 @@ class CompressedGcRefRepr(Repr):
         return llop.hide_into_ptr32(self.lowleveltype, ptr)
 
     def get_ll_eq_function(self):
-        if self.baserepr.get_ll_eq_function() is not None:
-            raise TyperError("%r has an eq function" % (self.baserepr,))
-        return None
+        if self.ll_eq_function is None:
+            basefunc = self.baserepr.get_ll_eq_function()
+            if basefunc is None:
+                return None
+            BASETYPE = self.BASETYPE
+            #
+            def ll_eq_function(x, y):
+                x = llop.show_from_ptr32(BASETYPE, x)
+                y = llop.show_from_ptr32(BASETYPE, y)
+                return basefunc(x, y)
+            #
+            self.ll_eq_function = ll_eq_function
+        return self.ll_eq_function
 
     def get_ll_hash_function(self):
         if self.ll_hash_function is None:

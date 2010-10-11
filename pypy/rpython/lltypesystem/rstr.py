@@ -28,8 +28,8 @@ from pypy.tool.sourcetools import func_with_new_name
 #        chars: array of Char
 #    }
 
-STR = GcForwardReference()
-UNICODE = GcForwardReference()
+STR = GcForwardReference(will_be_varsize=True)
+UNICODE = GcForwardReference(will_be_varsize=True)
 
 def new_malloc(TP, name):
     def mallocstr(length):

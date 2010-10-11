@@ -275,10 +275,14 @@ class DictRepr(AbstractDictRepr):
 
     def _rtype_method_kvi(self, hop, ll_func):
         v_dic, = hop.inputargs(self)
+        s_list = hop.s_result
+        s_value = s_list.listdef.listitem.s_value
+        r_value = hop.rtyper.getrepr(s_value)
+        cLISTITEM = hop.inputconst(lltype.Void, r_value.lowleveltype)
         r_list = hop.r_result
         cLIST = hop.inputconst(lltype.Void, r_list.lowleveltype.TO)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_func, cLIST, v_dic)
+        return hop.gendirectcall(ll_func, cLIST, cLISTITEM, v_dic)
 
     def rtype_method_keys(self, hop):
         return self._rtype_method_kvi(hop, ll_dict_keys)
@@ -778,7 +782,7 @@ def recast(P, v):
         return v
 
 def _make_ll_keys_values_items(kind):
-    def ll_kvi(LIST, dic):
+    def ll_kvi(LIST, LISTITEM, dic):
         res = LIST.ll_newlist(dic.num_items)
         entries = dic.entries
         dlen = len(entries)
@@ -787,18 +791,18 @@ def _make_ll_keys_values_items(kind):
         p = 0
         while i < dlen:
             if entries.valid(i):
-                ELEM = lltype.typeOf(items).TO.OF
-                if ELEM is not lltype.Void:
+                if LISTITEM is not lltype.Void:
                     entry = entries[i]
                     if kind == 'items':
-                        r = lltype.malloc(ELEM.TO)
-                        r.item0 = recast(ELEM.TO.item0, entry.key)
-                        r.item1 = recast(ELEM.TO.item1, entry.value)
-                        items[p] = r
+                        r = lltype.malloc(LISTITEM.TO)
+                        r.item0 = recast(LISTITEM.TO.item0, entry.key)
+                        r.item1 = recast(LISTITEM.TO.item1, entry.value)
                     elif kind == 'keys':
-                        items[p] = recast(ELEM, entry.key)
+                        r = entry.key
                     elif kind == 'values':
-                        items[p] = recast(ELEM, entry.value)
+                        r = entry.value
+                    ELEM = lltype.typeOf(items).TO.OF
+                    items[p] = recast(ELEM, r)
                 p += 1
             i += 1
         assert p == res.ll_length()

@@ -44,7 +44,8 @@ class BaseListRepr(AbstractBaseListRepr):
     # known_maxlength is ignored by lltype but used by ootype
     def __init__(self, rtyper, item_repr, listitem=None, known_maxlength=False):
         self.rtyper = rtyper
-        self.LIST = GcForwardReference()
+        will_be_varsize = isinstance(self, FixedSizeListRepr)
+        self.LIST = GcForwardReference(will_be_varsize=will_be_varsize)
         self.lowleveltype = Ptr(self.LIST)
         if not isinstance(item_repr, Repr):  # not computed yet, done by setup()
             assert callable(item_repr)

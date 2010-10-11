@@ -936,6 +936,7 @@ class TestStress:
 
         class PseudoRTyper:
             cache_dummy_values = {}
+            annotator = None
         dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
                        DictKey(None, annmodel.SomeString(key_can_be_none)),
                        DictValue(None, annmodel.SomeString(value_can_be_none)))

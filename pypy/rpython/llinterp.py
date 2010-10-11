@@ -1445,7 +1445,7 @@ class _address_of_local_var_accessor(object):
             from pypy.rpython.lltypesystem import llarena
             try:
                 result = llarena.getfakearenaaddress(result)
-            except RuntimeError:
+            except (RuntimeError, AttributeError):     # xxx bad style
                 pass
         # the GC should never see instances of _gctransformed_wref
         result = self.unwrap_possible_weakref(result)

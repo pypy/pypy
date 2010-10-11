@@ -542,6 +542,9 @@ PyObject = PyObjectType()
 
 class ForwardReference(ContainerType):
     _gckind = 'raw'
+    def __init__(self, will_be_varsize=False):
+        self._will_be_varsize = will_be_varsize
+
     def become(self, realcontainertype):
         if not isinstance(realcontainertype, ContainerType):
             raise TypeError("ForwardReference can only be to a container, "
@@ -549,11 +552,21 @@ class ForwardReference(ContainerType):
         if realcontainertype._gckind != self._gckind:
             raise TypeError("become() gives conflicting gckind, use the "
                             "correct XxForwardReference")
+        if realcontainertype._is_varsize() != self._will_be_varsize:
+            raise TypeError("become() between non-varsize and varsize "
+                            "containers -- initialize the ForwardReference "
+                            "correctly")
         self.__class__ = realcontainertype.__class__
         self.__dict__ = realcontainertype.__dict__
 
     def __hash__(self):
         raise TypeError("%r object is not hashable" % self.__class__.__name__)
+
+    def _inline_is_varsize(self, last):
+        raise TypeError("%s._inline_is_varsize()" % self.__class__.__name__)
+
+    def _is_varsize(self):
+        return self._will_be_varsize
 
 class GcForwardReference(ForwardReference):
     _gckind = 'gc'

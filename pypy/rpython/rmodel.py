@@ -435,14 +435,16 @@ def getgcflavor(classdef):
     return alloc_flavor
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
+    if (rtyper is not None and rtyper.annotator is not None and  # in tests
+            rtyper.annotator.translator.config.translation.compressptr):
+        item_repr, internal_item_repr = externalvsinternalfield(rtyper,
+                                                                item_repr)
+        if internal_item_repr is not item_repr:
+            return item_repr, internal_item_repr
+    #
     from pypy.rpython import rclass
     if (isinstance(item_repr, rclass.AbstractInstanceRepr) and
         getattr(item_repr, 'gcflavor', 'gc') == 'gc'):
-        if rtyper.annotator.translator.config.translation.compressptr:
-            item_repr, internal_item_repr = externalvsinternalfield(rtyper,
-                                                                    item_repr)
-            if internal_item_repr is not item_repr:
-                return item_repr, internal_item_repr
         return item_repr, rclass.getinstancerepr(rtyper, None)
     return item_repr, item_repr
 
