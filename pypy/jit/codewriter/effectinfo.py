@@ -18,19 +18,30 @@ class EffectInfo(object):
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
     OS_ARRAYCOPY                = 1    # "list.ll_arraycopy"
-    OS_STR_CONCAT               = 2    # "stroruni.concat"
-    OS_UNI_CONCAT               = 3    # "stroruni.concat"
-    OS_STR_SLICE                = 4    # "stroruni.slice"
-    OS_UNI_SLICE                = 5    # "stroruni.slice"
-    OS_STR_EQUAL                = 6    # "stroruni.equal"
-    OS_UNI_EQUAL                = 7    # "stroruni.equal"
-    OS_STREQ_SLICE_CHECKNULL    = 8    # s2!=NULL and s1[x:x+length]==s2
-    OS_STREQ_SLICE_NONNULL      = 9    # s1[x:x+length]==s2   (assert s2!=NULL)
-    OS_STREQ_SLICE_CHAR         = 10   # s1[x:x+length]==char
-    OS_STREQ_NONNULL            = 11   # s1 == s2    (assert s1!=NULL,s2!=NULL)
-    OS_STREQ_NONNULL_CHAR       = 12   # s1 == char  (assert s1!=NULL)
-    OS_STREQ_CHECKNULL_CHAR     = 13   # s1!=NULL and s1==char
-    OS_STREQ_LENGTHOK           = 14   # s1 == s2    (assert len(s1)==len(s2))
+    OS_STR2UNICODE              = 2    # "str.str2unicode"
+
+    OS_STR_CONCAT               = 22   # "stroruni.concat"
+    OS_STR_SLICE                = 23   # "stroruni.slice"
+    OS_STR_EQUAL                = 24   # "stroruni.equal"
+    OS_STREQ_SLICE_CHECKNULL    = 25   # s2!=NULL and s1[x:x+length]==s2
+    OS_STREQ_SLICE_NONNULL      = 26   # s1[x:x+length]==s2   (assert s2!=NULL)
+    OS_STREQ_SLICE_CHAR         = 27   # s1[x:x+length]==char
+    OS_STREQ_NONNULL            = 28   # s1 == s2    (assert s1!=NULL,s2!=NULL)
+    OS_STREQ_NONNULL_CHAR       = 29   # s1 == char  (assert s1!=NULL)
+    OS_STREQ_CHECKNULL_CHAR     = 30   # s1!=NULL and s1==char
+    OS_STREQ_LENGTHOK           = 31   # s1 == s2    (assert len(s1)==len(s2))
+
+    OS_UNI_CONCAT               = 42   #
+    OS_UNI_SLICE                = 43   #
+    OS_UNI_EQUAL                = 44   #
+    OS_UNIEQ_SLICE_CHECKNULL    = 45   #
+    OS_UNIEQ_SLICE_NONNULL      = 46   #
+    OS_UNIEQ_SLICE_CHAR         = 47   #
+    OS_UNIEQ_NONNULL            = 48   #   the same for unicode
+    OS_UNIEQ_NONNULL_CHAR       = 49   #   (must be the same amount as for
+    OS_UNIEQ_CHECKNULL_CHAR     = 50   #   STR, in the same order)
+    OS_UNIEQ_LENGTHOK           = 51   #
+    _OS_offset_uni              = OS_UNI_CONCAT - OS_STR_CONCAT
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,

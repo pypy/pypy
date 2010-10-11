@@ -316,6 +316,8 @@ class Transformer(object):
             prepare = self._handle_list_call
         elif oopspec_name.startswith('stroruni.'):
             prepare = self._handle_stroruni_call
+        elif oopspec_name == 'str.str2unicode':
+            prepare = self._handle_str2unicode_call
         elif oopspec_name.startswith('virtual_ref'):
             prepare = self._handle_virtual_ref_call
         else:
@@ -1106,10 +1108,15 @@ class Transformer(object):
                      [SoU, SoU],
                      lltype.Signed),
                 ]:
+                if args[0].concretetype.TO == rstr.UNICODE:
+                    otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
                                             argtypes, resulttype)
         #
         return self._handle_oopspec_call(op, args, dict[oopspec_name])
+
+    def _handle_str2unicode_call(self, op, oopspec_name, args):
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
 
     # ----------
     # VirtualRefs.

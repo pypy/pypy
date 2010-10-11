@@ -77,7 +77,8 @@ class FakeRegularIndirectCallControl:
 class FakeBuiltinCallControl:
     def guess_call_kind(self, op):
         return 'builtin'
-    def getcalldescr(self, op, oopspecindex):
+    def getcalldescr(self, op, oopspecindex=None):
+        assert oopspecindex is not None    # in this test
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
@@ -765,6 +766,24 @@ def test_unicode_slice():
     assert op1.args[2] == ListOfKind('int', [v2, v3])
     assert op1.args[3] == ListOfKind('ref', [v1])
     assert op1.result == v4
+
+def test_str2unicode():
+    # test that the oopspec is present and correctly transformed
+    PSTR = lltype.Ptr(rstr.STR)
+    PUNICODE = lltype.Ptr(rstr.UNICODE)
+    FUNC = lltype.FuncType([PSTR], PUNICODE)
+    func = lltype.functionptr(FUNC, 'll_str2unicode',
+                            _callable=rstr.LLHelpers.ll_str2unicode)
+    v1 = varoftype(PSTR)
+    v2 = varoftype(PUNICODE)
+    op = SpaceOperation('direct_call', [const(func), v1], v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_r_r'
+    assert op1.args[0].value == func
+    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR2UNICODE
+    assert op1.args[2] == ListOfKind('ref', [v1])
+    assert op1.result == v2
 
 def test_list_ll_arraycopy():
     from pypy.rlib.rgc import ll_arraycopy

@@ -778,15 +778,11 @@ class RegAlloc(object):
             loc = self.loc(op.getarg(0))
             return self._call(op, [loc])
         # boehm GC (XXX kill the following code at some point)
-        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.UNICODE, self.translate_support_code)
-        if itemsize == 4:
-            return self._malloc_varsize(ofs_items, ofs, 2, op.getarg(0),
-                                        op.result)
-        elif itemsize == 2:
-            return self._malloc_varsize(ofs_items, ofs, 1, op.getarg(0),
-                                        op.result)
-        else:
-            assert False, itemsize
+        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
+                                                   self.translate_support_code)
+        scale = self._get_unicode_item_scale()
+        return self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
+                                    op.result)
 
     def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v):
         # XXX kill this function at some point
@@ -959,6 +955,12 @@ class RegAlloc(object):
     consider_unicodegetitem = consider_strgetitem
 
     def consider_copystrcontent(self, op):
+        self._consider_copystrcontent(op, is_unicode=False)
+
+    def consider_copyunicodecontent(self, op):
+        self._consider_copystrcontent(op, is_unicode=True)
+
+    def _consider_copystrcontent(self, op, is_unicode):
         # compute the source address
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(args[0], args)
@@ -970,7 +972,8 @@ class RegAlloc(object):
         srcaddr_box = TempBox()
         forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
         srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc)
+        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
+                                        is_unicode=is_unicode)
         # compute the destination address
         base_loc = self.rm.make_sure_var_in_reg(args[1], forbidden_vars)
         ofs_loc = self.rm.make_sure_var_in_reg(args[3], forbidden_vars)
@@ -980,24 +983,56 @@ class RegAlloc(object):
         forbidden_vars = [args[4], srcaddr_box]
         dstaddr_box = TempBox()
         dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc)
+        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
+                                        is_unicode=is_unicode)
+        # compute the length in bytes
+        length_box = args[4]
+        length_loc = self.loc(length_box)
+        if is_unicode:
+            self.rm.possibly_free_var(length_box)
+            forbidden_vars = [srcaddr_box, dstaddr_box]
+            bytes_box = TempBox()
+            bytes_loc = self.rm.force_allocate_reg(bytes_box, forbidden_vars)
+            scale = self._get_unicode_item_scale()
+            if not (isinstance(length_loc, ImmedLoc) or
+                    isinstance(length_loc, RegLoc)):
+                self.assembler.mov(length_loc, bytes_loc)
+                length_loc = bytes_loc
+            self.assembler.load_effective_addr(length_loc, 0, scale, bytes_loc)
+            length_box = bytes_box
+            length_loc = bytes_loc
         # call memcpy()
-        length_loc = self.loc(args[4])
         self.rm.before_call()
         self.xrm.before_call()
         self.assembler._emit_call(imm(self.assembler.memcpy_addr),
                                   [dstaddr_loc, srcaddr_loc, length_loc])
-        self.rm.possibly_free_var(args[4])
+        self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
         self.rm.possibly_free_var(srcaddr_box)
 
-    def _gen_address_inside_string(self, baseloc, ofsloc, resloc):
+    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
         cpu = self.assembler.cpu
-        ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
+        if is_unicode:
+            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
                                                   self.translate_support_code)
-        assert itemsize == 1
-        self.assembler.load_effective_addr(ofsloc, ofs_items, 0,
+            scale = self._get_unicode_item_scale()
+        else:
+            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                                  self.translate_support_code)
+            assert itemsize == 1
+            scale = 0
+        self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
                                            resloc, baseloc)
+
+    def _get_unicode_item_scale(self):
+        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                                  self.translate_support_code)
+        if itemsize == 4:
+            return 2
+        elif itemsize == 2:
+            return 1
+        else:
+            raise AssertionError("bad unicode item size")
 
     def consider_jump(self, op):
         assembler = self.assembler
