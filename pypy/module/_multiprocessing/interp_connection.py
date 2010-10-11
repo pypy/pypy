@@ -187,6 +187,16 @@ class W_BaseConnection(Wrappable):
 
         return w_unpickled
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def poll(self, space, w_timeout=0.0):
+        if space.is_w(w_timeout, space.w_None):
+            timeout = -1.0 # block forever
+        else:
+            timeout = space.float_w(w_timeout)
+            if timeout < 0.0:
+                timeout = 0.0
+        return space.newbool(self.do_poll(space, timeout))
+
 W_BaseConnection.typedef = TypeDef(
     'BaseConnection',
     closed = GetSetProperty(W_BaseConnection.closed_get),
@@ -198,7 +208,7 @@ W_BaseConnection.typedef = TypeDef(
     recv_bytes_into = interp2app(W_BaseConnection.recv_bytes_into),
     send = interp2app(W_BaseConnection.send),
     recv = interp2app(W_BaseConnection.recv),
-    ## poll = interp2app(W_BaseConnection.poll),
+    poll = interp2app(W_BaseConnection.poll),
     close = interp2app(W_BaseConnection.close),
     )
 
@@ -289,6 +299,21 @@ class W_FileConnection(W_BaseConnection):
                 buffer[i] = data[i]
             remaining -= count
             buffer = rffi.ptradd(buffer, count)
+
+    def do_poll(self, space):
+        # XXX Won't work on Windows
+
+        from pypy.rlib import rpoll
+        # just verify the fd
+        if self.fd < 0 or self.fd > FD_SETSIZE:
+            raise OperationError(space.w_IOError, space.wrap(
+                "handle out of range in select()"))
+
+        r, w, e = rpoll.select([self.fd], [], [], timeout)
+        if r:
+            return True
+        else:
+            return False
 
 W_FileConnection.typedef = TypeDef(
     'Connection', W_BaseConnection.typedef,
@@ -405,6 +430,63 @@ class W_PipeConnection(W_BaseConnection):
             return length, newbuf
         finally:
             lltype.free(read_ptr, flavor='raw')
+
+    def do_poll(self, space, timeout):
+        from pypy.module._multiprocessing.interp_win32 import (
+            _PeekNamedPipe)
+        from pypy.rlib import rwin32
+        bytes_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
+                                 flavor='raw')
+        try:
+            if not _PeekNamedPipe(self.handle, rffi.NULL, 0,
+                                  lltype.nullptr(rwin32.LPDWORD.TO),
+                                  bytes_ptr,
+                                  lltype.nullptr(rwin32.LPDWORD.TO)):
+                raise wrap_windowserror(space, rwin32.lastWindowsError())
+            bytes = bytes_ptr[0]
+        finally:
+            lltype.free(bytes_ptr, flavor='raw')
+
+        if timeout == 0.0:
+            return bytes > 0
+
+        block = timeout < 0
+        if not block:
+            # XXX does not check for overflow
+            deadline = _GetTickCount() + int(1000 * timeout + 0.5)
+
+        _Sleep(0)
+
+        delay = 1
+        while True:
+            try:
+                if not _PeekNamedPipe(self.handle, rffi.NULL, 0,
+                                      lltype.nullptr(rwin32.LPDWORD.TO),
+                                      bytes_ptr,
+                                      lltype.nullptr(rwin32.LPDWORD.TO)):
+                    raise wrap_windowserror(space, rwin32.lastWindowsError())
+                bytes = bytes_ptr[0]
+            finally:
+                lltype.free(bytes_ptr, flavor='raw')
+
+            if bytes > 0:
+                return True
+
+            if not block:
+                diff = deadline - _GetTickCount()
+                if diff < 0:
+                    return False
+                if delay > difference:
+                    delay = difference
+            else:
+                delay += 1
+
+            if delay >= 20:
+                delay = 20
+            Sleep(delay)
+
+            # check for signals
+            # PyErr_CheckSignals()
 
 if sys.platform == 'win32':
     W_PipeConnection.typedef = TypeDef(

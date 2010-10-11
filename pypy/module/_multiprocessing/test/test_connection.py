@@ -16,6 +16,15 @@ class BaseConnectionTest(object):
         obj2 = rhandle.recv()
         assert obj == obj2
 
+    def test_poll(self):
+        rhandle, whandle = self.make_pair()
+
+        assert rhandle.poll(0) == False
+        whandle.send(1)
+        assert rhandle.poll(0) == True
+        assert rhandle.recv() == 1
+        assert rhandle.poll(0) == False
+
 class AppTestWinpipeConnection(BaseConnectionTest):
     def setup_class(cls):
         if sys.platform != "win32":
@@ -52,3 +61,7 @@ class AppTestSocketConnection(BaseConnectionTest):
                 return rhandle, whandle
             return make_pair
         """)
+
+    if sys.platform == "win32":
+        def test_poll(self):
+            skip("poll does not accept file handles on Windows")
