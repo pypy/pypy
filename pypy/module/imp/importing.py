@@ -107,7 +107,7 @@ def importhook(space, modulename, w_globals=None,
     rel_modulename = None
     if (level != 0 and
         w_globals is not None and
-        not space.is_w(w_globals, space.w_None)):
+        space.isinstance_w(w_globals, space.w_dict)):
         ctxt_w_name = space.finditem(w_globals, w('__name__'))
         ctxt_w_path = space.finditem(w_globals, w('__path__'))
         if ctxt_w_name is not None:
