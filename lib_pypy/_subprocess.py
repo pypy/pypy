@@ -133,14 +133,15 @@ DUPLICATE_SAME_ACCESS = 2
 def CreateProcess(name, command_line, process_attr, thread_attr,
                   inherit, flags, env, start_dir, startup_info):
     si = _STARTUPINFO()
-    si.dwFlags = startup_info.dwFlags
-    si.wShowWindow = getattr(startup_info, 'wShowWindow', 0)
-    if startup_info.hStdInput:
-        si.hStdInput = startup_info.hStdInput.handle
-    if startup_info.hStdOutput:
-        si.hStdOutput = startup_info.hStdOutput.handle
-    if startup_info.hStdError:
-        si.hStdError = startup_info.hStdError.handle
+    if startup_info is not None:
+        si.dwFlags = startup_info.dwFlags
+        si.wShowWindow = startup_info.wShowWindow
+        if startup_info.hStdInput:
+            si.hStdInput = startup_info.hStdInput.handle
+        if startup_info.hStdOutput:
+            si.hStdOutput = startup_info.hStdOutput.handle
+        if startup_info.hStdError:
+            si.hStdError = startup_info.hStdError.handle
 
     pi = _PROCESS_INFORMATION()
 
