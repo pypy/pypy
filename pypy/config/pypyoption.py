@@ -198,6 +198,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withstrslice", "use strings optimized for slicing",
                    default=False),
 
+        BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
+                   default=False),
+
         BoolOption("withprebuiltchar",
                    "use prebuilt single-character string objects",
                    default=False),
@@ -210,7 +213,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withrope", "use ropes as the string implementation",
                    default=False,
                    requires=[("objspace.std.withstrslice", False),
-                             ("objspace.std.withstrjoin", False)],
+                             ("objspace.std.withstrjoin", False),
+                             ("objspace.std.withstrbuf", False)],
                    suggests=[("objspace.std.withprebuiltchar", True),
                              ("objspace.std.sharesmallstr", True)]),
 
