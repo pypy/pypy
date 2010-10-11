@@ -36,3 +36,12 @@ class AppTestSemaphore:
 
         assert sem.acquire()
         assert not sem.acquire(timeout=0.1)
+
+    def test_semaphore_rebuild(self):
+        from _multiprocessing import SemLock
+        kind = self.SEMAPHORE
+        value = 1
+        maxvalue = 1
+        sem = SemLock(kind, value, maxvalue)
+
+        sem._rebuild(sem.handle, kind, value)

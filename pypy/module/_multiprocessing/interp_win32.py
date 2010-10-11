@@ -6,7 +6,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform
-from pypy.module._multiprocessing import w_handle
+from pypy.module._multiprocessing.interp_connection import w_handle
 
 CONSTANTS = """
     PIPE_ACCESS_INBOUND PIPE_ACCESS_DUPLEX

@@ -15,6 +15,7 @@ RECURSIVE_MUTEX, SEMAPHORE = range(2)
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
     from pypy.interpreter.error import wrap_windowserror
+    from pypy.module._multiprocessing.interp_win32 import handle_w
 
     SEM_VALUE_MAX = sys.maxint
 
@@ -182,6 +183,9 @@ else:
             return now[0].c_tv_sec, now[0].c_tv_usec
         finally:
             lltype.free(now, flavor='raw')
+
+    def handle_w(space, w_handle):
+        return rffi.cast(SEM_T, space.uint_w(w_handle))
 
     class GlobalState:
         def init(self):
@@ -424,6 +428,12 @@ class W_SemLock(Wrappable):
 
         self.count -= 1
 
+    @unwrap_spec('self', ObjSpace, W_Root, int, int)
+    def rebuild(self, space, w_handle, kind, maxvalue):
+        self.handle = handle_w(space, w_handle)
+        self.kind = kind
+        self.maxvalue = maxvalue
+
 @unwrap_spec(ObjSpace, W_Root, int, int, int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
@@ -450,5 +460,6 @@ W_SemLock.typedef = TypeDef(
     _is_mine = interp2app(W_SemLock.is_mine),
     acquire = interp2app(W_SemLock.acquire),
     release = interp2app(W_SemLock.release),
+    _rebuild = interp2app(W_SemLock.rebuild),
     SEM_VALUE_MAX=SEM_VALUE_MAX,
     )
