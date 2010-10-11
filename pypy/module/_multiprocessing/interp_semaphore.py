@@ -13,7 +13,7 @@ RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
-    from pypy.interpreter_error import wrap_windowserror
+    from pypy.interpreter.error import wrap_windowserror
 
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
