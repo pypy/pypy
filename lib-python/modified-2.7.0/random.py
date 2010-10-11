@@ -254,8 +254,8 @@ class Random(_random.Random):
             # Only call self.getrandbits if the original random() builtin method
             # has not been overridden or if a new getrandbits() was supplied.
             # This assures that the two methods correspond.
-            if (self.random == super(Random, self).random or
-                getrandbits != super(Random, self).getrandbits):
+            if (self.random is super(Random, self).random or
+                getrandbits is not super(Random, self).getrandbits):
                 k = int(1.00001 + _log(n-1, 2.0))   # 2**k > n-1 > 2**(k-2)
                 r = getrandbits(k)
                 while r >= n:
