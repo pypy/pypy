@@ -94,6 +94,7 @@ else:
 
     eci = ExternalCompilationInfo(
         includes = ['sys/time.h',
+                    'limits.h',
                     'semaphore.h'],
         libraries = ['rt'],
         )
