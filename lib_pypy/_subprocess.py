@@ -137,11 +137,11 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
         si.dwFlags = startup_info.dwFlags
         si.wShowWindow = startup_info.wShowWindow
         if startup_info.hStdInput:
-            si.hStdInput = startup_info.hStdInput.handle
+            si.hStdInput = int(startup_info.hStdInput)
         if startup_info.hStdOutput:
-            si.hStdOutput = startup_info.hStdOutput.handle
+            si.hStdOutput = int(startup_info.hStdOutput)
         if startup_info.hStdError:
-            si.hStdError = startup_info.hStdError.handle
+            si.hStdError = int(startup_info.hStdError)
 
     pi = _PROCESS_INFORMATION()
 
@@ -167,7 +167,7 @@ CREATE_NEW_CONSOLE       = 0x010
 CREATE_NEW_PROCESS_GROUP = 0x200
 
 def WaitForSingleObject(handle, milliseconds):
-    res = _WaitForSingleObject(handle.handle, milliseconds)
+    res = _WaitForSingleObject(int(handle), milliseconds)
 
     if res < 0:
         raise WindowsError("Error")
@@ -179,7 +179,7 @@ WAIT_OBJECT_0 = 0
 def GetExitCodeProcess(handle):
     code = _c_int()
     
-    res = _GetExitCodeProcess(handle.handle, _byref(code))
+    res = _GetExitCodeProcess(int(handle), _byref(code))
 
     if not res:
         raise WindowsError("Error")
