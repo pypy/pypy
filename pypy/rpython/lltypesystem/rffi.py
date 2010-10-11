@@ -796,6 +796,8 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr):
+        if tp == llmemory.HiddenGcRef32:
+            return 4
         tp = ULONG     # XXX!
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
@@ -804,8 +806,6 @@ def sizeof(tp):
     if tp is lltype.Float:
         return 8
     if tp is lltype.SingleFloat:
-        return 4
-    if tp is llmemory.HiddenGcRef32:
         return 4
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:

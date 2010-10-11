@@ -750,6 +750,9 @@ class TestRffiInternals:
         assert offsetof(S, "c_b") == struct.calcsize("hi") - struct.calcsize("i")
         assert offsetof(S, "c_c") == struct.calcsize("hii") - struct.calcsize("i")
 
+    def test_rffi_sizeof_hiddengcref(self):
+        assert sizeof(llmemory.HiddenGcRef32) == 4   # even on 64-bit platforms
+
 ARRAY_OF_CHAR = lltype.Array(CHAR, hints={'nolength': True})
 
 def test_ptradd():
