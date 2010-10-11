@@ -90,7 +90,7 @@ class Scope(object):
 
     def note_import_star(self, imp):
         """Called when a star import is found."""
-        pass
+        return False
 
     def mangle(self, name):
         if self.parent:
