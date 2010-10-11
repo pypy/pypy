@@ -71,6 +71,7 @@ class CConfig:
 
         for name in """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH
+                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
                     """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
@@ -241,3 +242,36 @@ if WIN32:
                                              info.c_szCSDVersion)))
         finally:
             lltype.free(info, flavor='raw')
+
+    _WaitForSingleObject = winexternal(
+        'WaitForSingleObject', [HANDLE, DWORD], DWORD)
+
+    def WaitForSingleObject(handle, timeout):
+        """Return values:
+        - WAIT_OBJECT_0 when the object is signaled
+        - WAIT_TIMEOUT when the timeout elapsed"""
+        res = _WaitForSingleObject(handle, timeout)
+        if res == rffi.cast(DWORD, -1):
+            raise lastWindowsError("WaitForSingleObject")
+        return res
+
+    _WaitForMultipleObjects = winexternal(
+        'WaitForMultipleObjects', [
+            DWORD, rffi.CArrayPtr(HANDLE), BOOL, DWORD], DWORD)
+
+    def WaitForMultipleObjects(handles, waitall=False, timeout=INFINITE):
+        """Return values:
+        - WAIT_OBJECT_0 + index when an object is signaled
+        - WAIT_TIMEOUT when the timeout elapsed"""
+        nb = len(handles)
+        handle_array = lltype.malloc(rffi.CArrayPtr(HANDLE).TO, nb,
+                                     flavor='raw')
+        try:
+            for i in range(nb):
+                handle_array[i] = handles[i]
+            res = _WaitForMultipleObjects(nb, handle_array, waitall, timeout)
+            if res == rffi.cast(DWORD, -1):
+                raise lastWindowsError("WaitForMultipleObjects")
+            return res
+        finally:
+            lltype.free(handle_array, flavor='raw')
