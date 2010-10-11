@@ -44,4 +44,5 @@ class AppTestSemaphore:
         maxvalue = 1
         sem = SemLock(kind, value, maxvalue)
 
-        sem._rebuild(sem.handle, kind, value)
+        sem2 = SemLock._rebuild(sem.handle, kind, value)
+        assert sem.handle == sem2.handle

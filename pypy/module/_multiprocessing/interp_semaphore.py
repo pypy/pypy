@@ -428,11 +428,11 @@ class W_SemLock(Wrappable):
 
         self.count -= 1
 
-    @unwrap_spec('self', ObjSpace, W_Root, int, int)
-    def rebuild(self, space, w_handle, kind, maxvalue):
-        self.handle = handle_w(space, w_handle)
-        self.kind = kind
-        self.maxvalue = maxvalue
+    @unwrap_spec(ObjSpace, W_Root, W_Root, int, int)
+    def rebuild(space, w_cls, w_handle, kind, maxvalue):
+        self = space.allocate_instance(W_SemLock, w_cls)
+        self.__init__(handle_w(space, w_handle), kind, maxvalue)
+        return space.wrap(self)
 
 @unwrap_spec(ObjSpace, W_Root, int, int, int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
@@ -460,6 +460,6 @@ W_SemLock.typedef = TypeDef(
     _is_mine = interp2app(W_SemLock.is_mine),
     acquire = interp2app(W_SemLock.acquire),
     release = interp2app(W_SemLock.release),
-    _rebuild = interp2app(W_SemLock.rebuild),
+    _rebuild = interp2app(W_SemLock.rebuild.im_func, as_classmethod=True),
     SEM_VALUE_MAX=SEM_VALUE_MAX,
     )
