@@ -290,6 +290,7 @@ class W_FileConnection(W_BaseConnection):
 W_FileConnection.typedef = TypeDef(
     'Connection', W_BaseConnection.typedef,
     __new__ = interp2app(W_FileConnection.descr_new_file.im_func),
+    __module__ = '_multiprocessing',
     fileno = interp2app(W_FileConnection.fileno),
 )
 
@@ -407,5 +408,6 @@ if sys.platform == 'win32':
     W_PipeConnection.typedef = TypeDef(
         'PipeConnection', W_BaseConnection.typedef,
         __new__ = interp2app(W_PipeConnection.descr_new_pipe.im_func),
+        __module__ = '_multiprocessing',
         fileno = interp2app(W_PipeConnection.fileno),
     )
