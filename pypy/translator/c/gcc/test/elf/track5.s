@@ -44,7 +44,7 @@ pypy_g_SemiSpaceGC_scan_copied:
 	addl	%eax, %ebx
 	jmp	.L1221
 .L1227:
-	call	RPyAbort
+	;;call	RPyAbort
 	cmpl	12(%esi), %ebx
 	jb	.L1229
 	addl	$20, %esp
