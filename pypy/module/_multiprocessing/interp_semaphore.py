@@ -1,18 +1,19 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import (
-    wrap_windowserror, wrap_oserror, OperationError)
+from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rpython.tool import rffi_platform as platform
 from pypy.module.thread import ll_thread
-import sys, os, time
+import sys, os, time, errno
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
+    from pypy.interpreter_error import wrap_windowserror
 
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
@@ -85,6 +86,100 @@ if sys.platform == 'win32':
 
 
 else:
+    from pypy.rlib import rposix
+
+    eci = ExternalCompilationInfo(
+        includes = ['sys/time.h',
+                    'semaphore.h'],
+        libraries = ['rt'],
+        )
+
+    class CConfig:
+        _compilation_info_ = eci
+        TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
+                                                     ('tv_usec', rffi.LONG)])
+        TIMESPEC = platform.Struct('struct timespec', [('tv_sec', rffi.TIME_T),
+                                                       ('tv_nsec', rffi.LONG)])
+        SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
+        SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
+
+    config = platform.configure(CConfig)
+    TIMEVAL       = config['TIMEVAL']
+    TIMESPEC      = config['TIMESPEC']
+    TIMEVALP      = rffi.CArrayPtr(TIMEVAL)
+    TIMESPECP     = rffi.CArrayPtr(TIMESPEC)
+    SEM_T         = rffi.COpaquePtr('sem_t', compilation_info=eci)
+    SEM_FAILED    = rffi.cast(SEM_T, config['SEM_FAILED'])
+    SEM_VALUE_MAX = config['SEM_VALUE_MAX']
+    HAVE_BROKEN_SEM_GETVALUE = False
+
+    def external(name, args, result):
+        return rffi.llexternal(name, args, result,
+                               compilation_info=eci)
+
+    _sem_open = external('sem_open',
+                         [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
+                         SEM_T)
+    _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
+    _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
+    _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
+    _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP], rffi.INT)
+    _sem_post = external('sem_post', [SEM_T], rffi.INT)
+    _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT)
+
+    _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT)
+
+    def sem_open(name, oflag, mode, value):
+        res = _sem_open(name, oflag, mode, value)
+        if res == SEM_FAILED:
+            raise OSError(rposix.get_errno(), "sem_open failed")
+        return res
+
+    def sem_unlink(name):
+        res = _sem_unlink(name)
+        if res < 0:
+            raise OSError(rposix.get_errno(), "sem_unlink failed")
+
+    def sem_wait(sem):
+        res = _sem_wait(sem)
+        if res < 0:
+            raise OSError(rposix.get_errno(), "sem_wait failed")
+
+    def sem_trywait(sem):
+        res = _sem_trywait(sem)
+        if res < 0:
+            raise OSError(rposix.get_errno(), "sem_trywait failed")
+
+    def sem_timedwait(sem, deadline):
+        res = _sem_timedwait(sem, deadline)
+        if res < 0:
+            raise OSError(rposix.get_errno(), "sem_timedwait failed")
+
+    def sem_post(sem):
+        res = _sem_post(sem)
+        if res < 0:
+            raise OSError(rposix.get_errno(), "sem_post failed")
+
+    def sem_getvalue(sem):
+        sval_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        try:
+            res = _sem_getvalue(sem, sval_ptr)
+            if res < 0:
+                raise OSError(rposix.get_errno(), "sem_getvalue failed")
+            return sval_ptr[0]
+        finally:
+            lltype.free(sval_ptr, flavor='raw')
+
+    def gettimeofday():
+        now = lltype.malloc(TIMEVALP.TO, 1, flavor='raw')
+        try:
+            res = _gettimeofday(now, None)
+            if res < 0:
+                raise OSError(rposix.get_errno(), "sem_getvalue failed")
+            return now[0].c_tv_sec, now[0].c_tv_usec
+        finally:
+            lltype.free(now, flavor='raw')
+
     class GlobalState:
         def init(self):
             pass
@@ -146,8 +241,6 @@ if sys.platform == 'win32':
             raise wrap_windowserror(space, e)
 
         if res != rwin32.WAIT_TIMEOUT:
-            self.last_tid = ll_thread.get_ident()
-            self.count += 1
             return True
 
         msecs = r_uint(full_msecs)
@@ -181,8 +274,6 @@ if sys.platform == 'win32':
 
         # handle result
         if res != rwin32.WAIT_TIMEOUT:
-            self.last_tid = ll_thread.get_ident()
-            self.count += 1
             return True
         return False
 
@@ -199,50 +290,57 @@ if sys.platform == 'win32':
                     space, WindowsError(err, "ReleaseSemaphore"))
 
 else:
-    HAVE_BROKEN_SEM_GETVALUE = False
+    def w_handle(space, value):
+        return space.newint(value)
 
     def create_semaphore(space, name, val, max):
-        sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
-        sem_unlink(name)
+        res = sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
+        try:
+            sem_unlink(name)
+        except OSError:
+            pass
+        return res
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
-            deadline = lltype.nullptr(TIMESPEC.TO)
+            deadline = lltype.nullptr(TIMESPECP.TO)
         elif space.is_w(w_timeout, space.w_None):
-            deadline = lltype.nullptr(TIMESPEC.TO)
+            deadline = lltype.nullptr(TIMESPECP.TO)
         else:
             timeout = space.float_w(w_timeout)
             sec = int(timeout)
             nsec = int(1e9 * (timeout - sec) + 0.5)
 
-            deadline = lltype.malloc(TIMESPEC.TO, 1, flavor='raw')
-            deadline.c_tv_sec = now.c_tv_sec + sec
-            deadline.c_tv_nsec = now.c_tv_usec * 1000 + nsec
-            deadline.c_tv_sec += (deadline.c_tv_nsec / 1000000000)
-            deadline.c_tv_nsec %= 1000000000
+            now_sec, now_usec = gettimeofday()
+
+            deadline = lltype.malloc(TIMESPECP.TO, 1, flavor='raw')
+            deadline[0].c_tv_sec = now_sec + sec
+            deadline[0].c_tv_nsec = now_usec * 1000 + nsec
+            deadline[0].c_tv_sec += (deadline[0].c_tv_nsec / 1000000000)
+            deadline[0].c_tv_nsec %= 1000000000
         try:
             while True:
-                if not block:
-                    res = sem_trywait(self.handle)
-                elif not deadline:
-                    res = sem_wait(self.handle)
-                else:
-                    res = sem_timedwait(self.handle, deadline)
-                if res >= 0:
-                    break
-                elif errno != EINTR:
-                    break
-                # elif PyErr_CheckSignals():
-                #     raise...
+                try:
+                    if not block:
+                        sem_trywait(self.handle)
+                    elif not deadline:
+                        sem_wait(self.handle)
+                    else:
+                        sem_timedwait(self.handle, deadline)
+                except OSError, e:
+                    if e.errno == errno.EINTR:
+                        # again
+                        continue
+                    elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
+                        return False
+                    raise wrap_oserror(space, e)
+                # XXX PyErr_CheckSignals()
+
+                return True
         finally:
             if deadline:
                 lltype.free(deadline, flavor='raw')
 
-        if res < 0:
-            if errno == EAGAIN or errno == ETIMEDOUT:
-                return False
-            raise wrap_oserror(space, errno)
-        return True
 
     def semlock_release(self, space):
         if self.kind == RECURSIVE_MUTEX:
@@ -251,29 +349,27 @@ else:
             # We will only check properly the maxvalue == 1 case
             if self.maxvalue == 1:
                 # make sure that already locked
-                if sem_trywait(self.handle) < 0:
-                    if errno != EAGAIN:
+                try:
+                    sem_trywait(self.handle)
+                except OSError, e:
+                    if e.errno != errno.EAGAIN:
                         raise
                     # it is already locked as expected
                 else:
                     # it was not locked so undo wait and raise
-                    if sem_post(self.handle) < 0:
-                        raise
+                    sem_post(self.handle)
                     raise OperationError(
                         space.w_ValueError, space.wrap(
                             "semaphore or lock released too many times"))
         else:
             # This check is not an absolute guarantee that the semaphore does
             # not rise above maxvalue.
-            if sem_getvalue(self.handle, sval_ptr) < 0:
-                raise
-            if sval_ptr[0] >= self.maxvalue:
-                    raise OperationError(
-                        space.w_ValueError, space.wrap(
-                            "semaphore or lock released too many times"))
+            if sem_getvalue(self.handle) >= self.maxvalue:
+                raise OperationError(
+                    space.w_ValueError, space.wrap(
+                    "semaphore or lock released too many times"))
 
-        if sem_post(self.handle) < 0:
-            raise
+        sem_post(self.handle)
 
 
 class W_SemLock(Wrappable):
@@ -308,8 +404,12 @@ class W_SemLock(Wrappable):
             self.count += 1
             return space.w_True
 
-        res = semlock_acquire(self, space, block, w_timeout)
-        return space.wrap(res)
+        if semlock_acquire(self, space, block, w_timeout):
+            self.last_tid = ll_thread.get_ident()
+            self.count += 1
+            return space.w_True
+        else:
+            return space.w_False
 
     @unwrap_spec('self', ObjSpace)
     def release(self, space):

@@ -20,7 +20,7 @@ class Module(MixedModule):
 
         'platform'              : 'space.wrap(sys.platform)', 
         'maxint'                : 'space.wrap(sys.maxint)',
-        'maxsize'               : 'space.wrap(sys.maxsize)',
+        'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)', 
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
         'maxint'                : 'space.wrap(sys.maxint)',

@@ -2,9 +2,10 @@ import py
 import sys
 from pypy.conftest import gettestobjspace
 
-class TestConnection:
+class TestImport:
     def test_simple(self):
         from pypy.module._multiprocessing import interp_connection
+        from pypy.module._multiprocessing import interp_semaphore
 
 class AppTestConnection:
     def setup_class(cls):
