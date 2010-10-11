@@ -15,6 +15,10 @@ W_GcRef.typedef = TypeDef("GcRef")
 
 def try_cast_gcref_to_w_root(gcref):
     w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
+    # Ignore instances of exactly the class W_Root.  Seems that
+    # we get one on 64-bit translations, for some reason.
+    if w_obj is not None and type(w_obj) is W_Root:
+        w_obj = None
     if not we_are_translated() and not hasattr(w_obj, 'typedef'):
         w_obj = None
     return w_obj
