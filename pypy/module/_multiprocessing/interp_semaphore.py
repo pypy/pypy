@@ -15,7 +15,8 @@ RECURSIVE_MUTEX, SEMAPHORE = range(2)
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
     from pypy.interpreter.error import wrap_windowserror
-    from pypy.module._multiprocessing.interp_win32 import handle_w
+    from pypy.module._multiprocessing.interp_win32 import (
+        handle_w, _GetTickCount)
 
     SEM_VALUE_MAX = sys.maxint
 
@@ -25,8 +26,6 @@ if sys.platform == 'win32':
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL)
-    _GetTickCount = rwin32.winexternal(
-        'GetTickCount', [], rwin32.DWORD)
 
     CtrlHandler_type = lltype.Ptr(lltype.FuncType([], rwin32.BOOL))
     _CreateEvent = rwin32.winexternal(
@@ -68,7 +67,7 @@ if sys.platform == 'win32':
 
     def ProcessingCtrlHandler():
         _SetEvent(globalState.sigint_event)
-        return False
+        return 0
 
     class GlobalState:
         def __init__(self):

@@ -19,11 +19,13 @@ class BaseConnectionTest(object):
     def test_poll(self):
         rhandle, whandle = self.make_pair()
 
-        assert rhandle.poll(0) == False
+        assert rhandle.poll() == False
+        assert rhandle.poll(1) == False
         whandle.send(1)
-        assert rhandle.poll(0) == True
+        assert rhandle.poll() == True
+        assert rhandle.poll(None) == True
         assert rhandle.recv() == 1
-        assert rhandle.poll(0) == False
+        assert rhandle.poll() == False
 
 class AppTestWinpipeConnection(BaseConnectionTest):
     def setup_class(cls):
@@ -64,4 +66,4 @@ class AppTestSocketConnection(BaseConnectionTest):
 
     if sys.platform == "win32":
         def test_poll(self):
-            skip("poll does not accept file handles on Windows")
+            skip("poll() does not accept file handles on Windows")

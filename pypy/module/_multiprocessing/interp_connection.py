@@ -300,12 +300,12 @@ class W_FileConnection(W_BaseConnection):
             remaining -= count
             buffer = rffi.ptradd(buffer, count)
 
-    def do_poll(self, space):
+    def do_poll(self, space, timeout):
         # XXX Won't work on Windows
 
         from pypy.rlib import rpoll
         # just verify the fd
-        if self.fd < 0 or self.fd > FD_SETSIZE:
+        if self.fd < 0 or self.fd > rpoll.FD_SETSIZE:
             raise OperationError(space.w_IOError, space.wrap(
                 "handle out of range in select()"))
 
@@ -433,7 +433,7 @@ class W_PipeConnection(W_BaseConnection):
 
     def do_poll(self, space, timeout):
         from pypy.module._multiprocessing.interp_win32 import (
-            _PeekNamedPipe)
+            _PeekNamedPipe, _GetTickCount, _Sleep)
         from pypy.rlib import rwin32
         from pypy.interpreter.error import wrap_windowserror
         bytes_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
@@ -455,11 +455,15 @@ class W_PipeConnection(W_BaseConnection):
         if not block:
             # XXX does not check for overflow
             deadline = _GetTickCount() + int(1000 * timeout + 0.5)
+        else:
+            deadline = 0
 
         _Sleep(0)
 
         delay = 1
         while True:
+            bytes_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
+                                     flavor='raw')
             try:
                 if not _PeekNamedPipe(self.handle, rffi.NULL, 0,
                                       lltype.nullptr(rwin32.LPDWORD.TO),
@@ -474,17 +478,18 @@ class W_PipeConnection(W_BaseConnection):
                 return True
 
             if not block:
-                diff = deadline - _GetTickCount()
-                if diff < 0:
+                now = _GetTickCount()
+                if now > deadline:
                     return False
-                if delay > difference:
-                    delay = difference
+                diff = deadline - now
+                if delay > diff:
+                    delay = diff
             else:
                 delay += 1
 
             if delay >= 20:
                 delay = 20
-            Sleep(delay)
+            _Sleep(delay)
 
             # check for signals
             # PyErr_CheckSignals()

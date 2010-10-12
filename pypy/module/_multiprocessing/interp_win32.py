@@ -82,6 +82,12 @@ _ReadFile = rwin32.winexternal(
 _ExitProcess = rwin32.winexternal(
     'ExitProcess', [rffi.UINT], lltype.Void)
 
+_GetTickCount = rwin32.winexternal(
+    'GetTickCount', [], rwin32.DWORD)
+
+_Sleep = rwin32.winexternal(
+    'Sleep', [rwin32.DWORD], lltype.Void)
+
 def CloseHandle(space, w_handle):
     handle = handle_w(space, w_handle)
     if not rwin32.CloseHandle(handle):
@@ -89,6 +95,9 @@ def CloseHandle(space, w_handle):
 
 def GetLastError(space):
     return space.wrap(rwin32.GetLastError())
+
+# __________________________________________________________
+# functions for the "win32" namespace
 
 @unwrap_spec(ObjSpace, str, r_uint, r_uint, r_uint, r_uint, r_uint, r_uint, W_Root)
 def CreateNamedPipe(space, name, openmode, pipemode, maxinstances,
