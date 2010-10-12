@@ -42,6 +42,10 @@ _GetExitCodeProcess = _kernel32.GetExitCodeProcess
 _GetExitCodeProcess.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
 _GetExitCodeProcess.restype = ctypes.c_int
 
+_TerminateProcess = _kernel32.TerminateProcess
+_TerminateProcess.argtypes = [ctypes.c_int, ctypes.c_int]
+_TerminateProcess.restype = ctypes.c_int
+
 _GetStdHandle = _kernel32.GetStdHandle
 _GetStdHandle.argtypes = [ctypes.c_int]
 _GetStdHandle.restype = ctypes.c_int
@@ -185,6 +189,12 @@ def GetExitCodeProcess(handle):
         raise WindowsError("Error")
 
     return code.value
+
+def TerminateProcess(handle, exitcode):
+    res = _TerminateProcess(int(handle), exitcode)
+
+    if not res:
+        raise WindowsError("Error")
 
 def GetStdHandle(stdhandle):
     res = _GetStdHandle(stdhandle)
