@@ -345,11 +345,11 @@ OPT_TABLE = {
     #level:  gc          backend optimizations...
     '0':    'boehm       nobackendopt',
     '1':    'boehm       lowinline',
-    'size': 'boehm       lowinline     remove_asserts',
-    'mem':  DEFL_GC + '  lowinline     remove_asserts    removetypeptr',
+    'size': 'boehm       lowinline  remove_asserts',
+    'mem':  DEFL_GC + '  lowinline  remove_asserts  removetypeptr  compressptr',
     '2':    DEFL_GC + '  extraopts',
-    '3':    DEFL_GC + '  extraopts     remove_asserts',
-    'jit':  DEFL_GC + '  extraopts     jit',
+    '3':    DEFL_GC + '  extraopts  remove_asserts',
+    'jit':  DEFL_GC + '  extraopts  jit',
     }
 
 def final_check_config(config):
@@ -393,6 +393,9 @@ def set_opt_level(config, level):
                 raise NotImplementedError("JIT conflicts with stackless for now")
         elif word == 'removetypeptr':
             config.translation.suggest(gcremovetypeptr=True)
+        elif word == 'compressptr':
+            if IS_64_BITS:
+                config.translation.suggest(compressptr=True)
         else:
             raise ValueError(word)
 
