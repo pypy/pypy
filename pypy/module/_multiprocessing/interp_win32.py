@@ -50,6 +50,10 @@ _SetNamedPipeHandleState = rwin32.winexternal(
         rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD],
     rwin32.BOOL)
 
+_WaitNamedPipe = rwin32.winexternal(
+    'WaitNamedPipeA', [rwin32.LPCSTR, rwin32.DWORD],
+    rwin32.BOOL)
+
 _PeekNamedPipe = rwin32.winexternal(
     'PeekNamedPipe', [
         rwin32.HANDLE,
@@ -145,6 +149,12 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances, w_timeo
         lltype.free(state, flavor='raw')
         lltype.free(statep, flavor='raw')
 
+@unwrap_spec(ObjSpace, str, r_uint)
+def WaitNamedPipe(space, name, timeout):
+    # Careful: zero means "default value specified by CreateNamedPipe()"
+    if not _WaitNamedPipe(name, timeout):
+        raise wrap_windowserror(space, rwin32.lastWindowsError())
+
 @unwrap_spec(ObjSpace, str, r_uint, r_uint, W_Root, r_uint, r_uint, W_Root)
 def CreateFile(space, filename, access, share, w_security,
                disposition, flags, w_templatefile):
@@ -184,7 +194,7 @@ def win32_namespace(space):
     # functions
     for name in ['CloseHandle', 'GetLastError', 'CreateFile',
                  'CreateNamedPipe', 'ConnectNamedPipe',
-                 'SetNamedPipeHandleState',
+                 'SetNamedPipeHandleState', 'WaitNamedPipe',
                  'ExitProcess',
                  ]:
         function = globals()[name]
