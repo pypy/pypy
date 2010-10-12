@@ -602,6 +602,15 @@ class FakeSpace:
                 classofinstance=classofinstance,
                 from_strdict_shared=from_strdict_shared)
 
+    def finditem_str(self, w_dict, s):
+        return w_dict.getitem_str(s) # assume it's a multidict
+
+    def setitem_str(self, w_dict, s, w_value):
+        return w_dict.setitem_str(s, w_value) # assume it's a multidict
+
+    def delitem(self, w_dict, w_s):
+        return w_dict.delitem(w_s) # assume it's a multidict
+
     def allocate_instance(self, cls, type):
         return object.__new__(cls)
 
@@ -611,7 +620,7 @@ class FakeSpace:
     w_StopIteration = StopIteration
     w_None = None
     StringObjectCls = FakeString
-    w_dict = None
+    w_dict = W_DictMultiObject
     iter = iter
     fixedview = list
     listview  = list
@@ -686,6 +695,14 @@ class BaseTestRDictImplementation:
         self.impl.delitem(self.string)
         assert self.impl.length() == 0
         self.check_not_devolved()
+
+    def test_clear(self):
+        self.fill_impl()
+        assert self.impl.length() == 2
+        self.impl.clear()
+        assert self.impl.length() == 0
+        self.check_not_devolved()
+
 
     def test_keys(self):
         self.fill_impl()

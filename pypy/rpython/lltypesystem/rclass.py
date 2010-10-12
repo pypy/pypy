@@ -331,10 +331,9 @@ class InstanceRepr(AbstractInstanceRepr):
             fields['__class__'] = 'typeptr', r, r
         else:
             # instance attributes
-            if llfields is None:
-                llfields = []
             attrs = self.classdef.attrs.items()
             attrs.sort()
+            myllfields = []
             for name, attrdef in attrs:
                 if not attrdef.readonly:
                     r = self.rtyper.getrepr(attrdef.s_value)
@@ -344,7 +343,25 @@ class InstanceRepr(AbstractInstanceRepr):
                     else:
                         internal_r = r
                     fields[name] = mangled_name, r, internal_r
-                    llfields.append((mangled_name, internal_r.lowleveltype))
+                    myllfields.append((mangled_name, internal_r.lowleveltype))
+
+            # Sort the instance attributes by decreasing "likely size",
+            # as reported by rffi.sizeof(), to minimize padding holes in C.
+            # Fields of the same size are sorted by name (by attrs.sort()
+            # above) just to minimize randomness.
+            def keysize((_, T)):
+                if T is lltype.Void:
+                    return None
+                from pypy.rpython.lltypesystem.rffi import sizeof
+                try:
+                    return -sizeof(T)
+                except StandardError:
+                    return None
+            myllfields.sort(key = keysize)
+            if llfields is None:
+                llfields = myllfields
+            else:
+                llfields = llfields + myllfields
 
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
                                          self.gcflavor)

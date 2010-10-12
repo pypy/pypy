@@ -1,7 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
-from pypy.rlib.rarithmetic import LONG_BIT, intmask
 import signal as cpy_signal
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -64,8 +63,8 @@ class SignalActionFlag(AbstractActionFlag):
 class CheckSignalAction(AsyncAction):
     """An action that is automatically invoked when a signal is received."""
 
-    # The C-level signal handler sets the highest bit of pypysig_occurred:
-    bitmask = intmask(1 << (LONG_BIT-1))
+    # The C-level signal handler sets the bit 30 of pypysig_occurred:
+    bitmask = 1 << 30
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)

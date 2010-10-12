@@ -46,6 +46,7 @@ class FunctionGcRootTracker(object):
         self.findlabels()
         self.parse_instructions()
         try:
+            self.trim_unreachable_instructions()
             self.find_noncollecting_calls()
             if not self.list_collecting_call_insns():
                 return []
@@ -121,6 +122,26 @@ class FunctionGcRootTracker(object):
             if label:
                 assert label not in self.labels, "duplicate label: %s" % label
                 self.labels[label] = Label(label, lineno)
+
+    def trim_unreachable_instructions(self):
+        reached = set([self.insns[0]])
+        prevlen = 0
+        while len(reached) > prevlen:
+            prevlen = len(reached)
+            for insn in self.insns:
+                if insn not in reached:
+                    for previnsn in insn.previous_insns:
+                        if previnsn in reached:
+                            # this instruction is reachable too
+                            reached.add(insn)
+                            break
+        # now kill all unreachable instructions
+        i = 0
+        while i < len(self.insns):
+            if self.insns[i] in reached:
+                i += 1
+            else:
+                del self.insns[i]
 
     def find_noncollecting_calls(self):
         cannot_collect = {}
@@ -752,7 +773,7 @@ class FunctionGcRootTracker(object):
                     target, = sources
 
         if target in self.FUNCTIONS_NOT_RETURNING:
-            return [InsnStop(target), InsnCannotFollowEsp()]
+            return [InsnStop(target)]
         if self.format == 'mingw32' and target == '__alloca':
             # in functions with large stack requirements, windows
             # needs a call to _alloca(), to turn reserved pages

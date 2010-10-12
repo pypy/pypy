@@ -54,6 +54,7 @@ class AbstractStringBuilder(object):
         self.l = []
 
     def append(self, s):
+        assert isinstance(s, self._type)
         self.l.append(s)
 
     def append_slice(self, s, start, end):
@@ -63,11 +64,16 @@ class AbstractStringBuilder(object):
     def append_multiple_char(self, c, times):
         self.l.append(c * times)
 
+    def getlength(self):
+        return len(self.build())
+
 class StringBuilder(AbstractStringBuilder):
+    _type = str
     def build(self):
         return "".join(self.l)
 
 class UnicodeBuilder(AbstractStringBuilder):
+    _type = unicode
     def build(self):
         return u''.join(self.l)
 
@@ -121,9 +127,12 @@ class SomeStringBuilder(SomeObject):
         assert s_times.nonneg
         return s_None
 
+    def method_getlength(self):
+        return SomeInteger(nonneg=True)
+
     def method_build(self):
         return SomeString()
-    
+
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rbuilder.stringbuilder_repr
 
@@ -145,6 +154,9 @@ class SomeUnicodeBuilder(SomeObject):
         assert isinstance(s_times, SomeInteger)
         assert s_times.nonneg
         return s_None
+
+    def method_getlength(self):
+        return SomeInteger(nonneg=True)
 
     def method_build(self):
         return SomeUnicodeString()

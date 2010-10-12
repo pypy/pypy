@@ -698,6 +698,21 @@ def get_const_ptr_for_string(s):
     return result
 _const_ptr_for_string = {}
 
+def get_const_ptr_for_unicode(s):
+    from pypy.rpython.annlowlevel import llunicode
+    if not we_are_translated():
+        try:
+            return _const_ptr_for_unicode[s]
+        except KeyError:
+            pass
+    if isinstance(s, str):
+        s = unicode(s)
+    result = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, llunicode(s)))
+    if not we_are_translated():
+        _const_ptr_for_unicode[s] = result
+    return result
+_const_ptr_for_unicode = {}
+
 # ____________________________________________________________
 
 # The TreeLoop class contains a loop or a generalized loop, i.e. a tree

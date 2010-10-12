@@ -5,7 +5,7 @@ in a nicer fashion
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
      ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
-     LoopToken, get_const_ptr_for_string
+     LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
 from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.codewriter.heaptracker import adr2int
@@ -158,10 +158,15 @@ class OpParser(object):
         except ValueError:
             if self.is_float(arg):
                 return ConstFloat(float(arg))
-            if arg.startswith('"') or arg.startswith("'"):
+            if (arg.startswith('"') or arg.startswith("'") or
+                arg.startswith('s"')):
                 # XXX ootype
-                info = arg.strip("'\"")
+                info = arg[1:].strip("'\"")
                 return get_const_ptr_for_string(info)
+            if arg.startswith('u"'):
+                # XXX ootype
+                info = arg[1:].strip("'\"")
+                return get_const_ptr_for_unicode(info)
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')

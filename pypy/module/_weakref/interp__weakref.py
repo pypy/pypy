@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app, ObjSpace
 import weakref
 
 
-class WeakrefLifeline(object):
+class WeakrefLifeline(W_Root):
     def __init__(self, space):
         self.space = space       # this is here for W_Root.clear_all_weakrefs()
         self.refs_weak = []

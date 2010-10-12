@@ -244,7 +244,7 @@ class Assembler386(object):
             f = open_file_as_stream(output_log, "w")
             for i in range(len(self.loop_run_counters)):
                 name, struct = self.loop_run_counters[i]
-                f.write(str(struct.i) + " " * (8 - len(str(struct.i))) + name + "\n")
+                f.write(str(name) + ":" +  str(struct.i) + "\n")
             f.close()
 
     def _build_float_constants(self):
@@ -401,7 +401,7 @@ class Assembler386(object):
         if self._debug:
             struct = lltype.malloc(DEBUG_COUNTER, flavor='raw')
             struct.i = 0
-            self.loop_run_counters.append((funcname, struct))
+            self.loop_run_counters.append((len(self.loop_run_counters), struct))
         return funcname
         
     def patch_jump_for_descr(self, faildescr, adr_new_target):

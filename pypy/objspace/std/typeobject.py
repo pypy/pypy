@@ -75,7 +75,9 @@ class W_TypeObject(W_Object):
                           'weakrefable',
                           'hasdict',
                           'nslots',
-                          'instancetypedef']
+                          'instancetypedef',
+                          'terminator',
+                          ]
 
     # for config.objspace.std.getattributeshortcut
     # (False is a conservative default, fixed during real usage)
@@ -116,6 +118,12 @@ class W_TypeObject(W_Object):
                 # dict_w of any of the types in the mro changes, or if the mro
                 # itself changes
                 w_self._version_tag = VersionTag()
+        if space.config.objspace.std.withmapdict:
+            from pypy.objspace.std.mapdict import DictTerminator, NoDictTerminator
+            if w_self.hasdict:
+                w_self.terminator = DictTerminator(space, w_self)
+            else:
+                w_self.terminator = NoDictTerminator(space, w_self)
 
     def mutated(w_self):
         space = w_self.space

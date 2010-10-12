@@ -198,6 +198,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withstrslice", "use strings optimized for slicing",
                    default=False),
 
+        BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
+                   default=False),
+
         BoolOption("withprebuiltchar",
                    "use prebuilt single-character string objects",
                    default=False),
@@ -210,7 +213,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withrope", "use ropes as the string implementation",
                    default=False,
                    requires=[("objspace.std.withstrslice", False),
-                             ("objspace.std.withstrjoin", False)],
+                             ("objspace.std.withstrjoin", False),
+                             ("objspace.std.withstrbuf", False)],
                    suggests=[("objspace.std.withprebuiltchar", True),
                              ("objspace.std.sharesmallstr", True)]),
 
@@ -237,6 +241,16 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "make instances more compact by revoming a level of indirection",
                    default=False,
                    requires=[("objspace.std.withshadowtracking", False)]),
+
+        BoolOption("withmapdict",
+                   "make instances really small but slow without the JIT",
+                   default=False,
+                   requires=[("objspace.std.withshadowtracking", False),
+                             ("objspace.std.withinlineddict", False),
+                             ("objspace.std.withsharingdict", False),
+                             ("objspace.std.getattributeshortcut", True),
+                             ("objspace.std.withtypeversion", True),
+                       ]),
 
         BoolOption("withrangelist",
                    "enable special range list implementation that does not "
@@ -343,7 +357,7 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withprebuiltint=True)
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withprebuiltchar=True)
-        config.objspace.std.suggest(withinlineddict=True)
+        config.objspace.std.suggest(withmapdict=True)
         config.objspace.std.suggest(withstrslice=True)
         config.objspace.std.suggest(withstrjoin=True)
         # xxx other options? ropes maybe?
@@ -359,6 +373,7 @@ def set_pypy_opt_level(config, level):
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
+        #config.objspace.std.suggest(withmapdict=True)
 
 
 def enable_allworkingmodules(config):

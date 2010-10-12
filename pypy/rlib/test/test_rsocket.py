@@ -437,3 +437,31 @@ class TestTCP:
             foo = self.serv.accept()
         py.test.raises(SocketError, raise_error)
 
+def _test_cond_include(cond):
+    # Test that _rsocket_rffi is importable even on platforms where
+    # AF_PACKET or AF_NETLINK is not defined.
+    import re
+    from pypy.rlib import _rsocket_rffi
+    srcfile = _rsocket_rffi.__file__
+    if srcfile.lower().endswith('c') or srcfile.lower().endswith('o'):
+        srcfile = srcfile[:-1]      # .pyc => .py
+    assert srcfile.lower().endswith('.py')
+    sourcelines = open(srcfile, 'rb').read().splitlines()
+    found = False
+    for i, line in enumerate(sourcelines):
+        line2 = re.sub(r"(\s*COND_HEADER\s*=)",
+                      r"\1'#undef %s\\n'+" % cond,
+                      line)
+        if line2 != line:
+            found = True
+            sourcelines[i] = line2
+    assert found
+    d = {}
+    sourcelines.append('')
+    exec '\n'.join(sourcelines) in d
+
+def test_no_AF_PACKET():
+    _test_cond_include('AF_PACKET')
+
+def test_no_AF_NETLINK():
+    _test_cond_include('AF_NETLINK')

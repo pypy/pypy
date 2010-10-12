@@ -55,19 +55,14 @@ def sliced(space, s, start, stop, orig_obj):
             return W_StringSliceObject(s, start, stop)
     return wrapstr(space, s[start:stop])
 
-def joined(space, strlist):
-    assert not space.config.objspace.std.withrope
-    if space.config.objspace.std.withstrjoin:
-        from pypy.objspace.std.strjoinobject import W_StringJoinObject
-        return W_StringJoinObject(strlist)
-    else:
-        return wrapstr(space, "".join(strlist))
-
 def joined2(space, str1, str2):
     assert not space.config.objspace.std.withrope
     if space.config.objspace.std.withstrjoin:
         from pypy.objspace.std.strjoinobject import W_StringJoinObject
         return W_StringJoinObject([str1, str2])
+    elif space.config.objspace.std.withstrbuf:
+        from pypy.objspace.std.strbufobject import joined2
+        return joined2(str1, str2)
     else:
         return wrapstr(space, str1 + str2)
 

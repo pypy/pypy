@@ -3,6 +3,7 @@ from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
 from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -245,6 +246,9 @@ class OptRewrite(Optimization):
     def optimize_CALL_LOOPINVARIANT(self, op):
         funcvalue = self.getvalue(op.getarg(0))
         if not funcvalue.is_constant():
+            # XXX this code path is never executed in tests nor in production.
+            # in fact, it can't even happen since residual_call in codewriter
+            # expects a compile-time constant
             self.emit_operation(op)
             return
         key = make_hashable_int(op.getarg(0).getint())
@@ -323,8 +327,37 @@ class OptRewrite(Optimization):
 ##            return
 ##        self.emit_operation(op)
 
+    def optimize_CALL(self, op):
+        # dispatch based on 'oopspecindex' to a method that handles
+        # specifically the given oopspec call.  For non-oopspec calls,
+        # oopspecindex is just zero.
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+                if self._optimize_CALL_ARRAYCOPY(op):
+                    return
+        self.emit_operation(op)
+
+    def _optimize_CALL_ARRAYCOPY(self, op):
+        source_value = self.getvalue(op.getarg(1))
+        dest_value = self.getvalue(op.getarg(2))
+        source_start_box = self.get_constant_box(op.getarg(3))
+        dest_start_box = self.get_constant_box(op.getarg(4))
+        length = self.get_constant_box(op.getarg(5))
+        if (source_value.is_virtual() and source_start_box and dest_start_box
+            and length and dest_value.is_virtual()):
+            # XXX optimize the case where dest value is not virtual,
+            #     but we still can avoid a mess
+            source_start = source_start_box.getint()
+            dest_start = dest_start_box.getint()
+            for index in range(length.getint()):
+                val = source_value.getitem(index + source_start)
+                dest_value.setitem(index + dest_start, val)
+            return True
+        if length and length.getint() == 0:
+            return True # 0-length arraycopy
+        return False
+
 optimize_ops = _findall(OptRewrite, 'optimize_')
-        
 
-
-        

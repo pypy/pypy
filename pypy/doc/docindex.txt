@@ -84,7 +84,7 @@ time before we notice and fix bugs).
 
 PyPy's own tests `summary`_, daily updated, run through BuildBot infrastructure.
 You can also find CPython's compliance tests run with compiled ``pypy-c``
-exeuctables there.
+executables there.
 
 information dating from early 2007: 
 
