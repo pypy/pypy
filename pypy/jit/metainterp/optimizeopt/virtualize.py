@@ -203,6 +203,15 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
+    def get_forced_boxes(self):
+        if self.box is None:
+            boxes = []
+            for itemvalue in self._items:
+                boxes.extend(itemvalue.get_forced_boxes())
+            return boxes
+        else:
+            return [self.box]
+
 
 class __extend__(SpecNode):
     def setup_virtual_node(self, optimizer, box, newinputargs):
