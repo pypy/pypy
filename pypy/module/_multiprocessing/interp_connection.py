@@ -435,6 +435,7 @@ class W_PipeConnection(W_BaseConnection):
         from pypy.module._multiprocessing.interp_win32 import (
             _PeekNamedPipe)
         from pypy.rlib import rwin32
+        from pypy.interpreter.error import wrap_windowserror
         bytes_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
                                  flavor='raw')
         try:
