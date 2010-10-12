@@ -7,6 +7,8 @@ class Module(MixedModule):
         'Connection'      : 'interp_connection.W_FileConnection',
         'PipeConnection'  : 'interp_connection.W_PipeConnection',
         'SemLock'         : 'interp_semaphore.W_SemLock',
+
+        'address_of_buffer' : 'interp_memory.address_of_buffer',
     }
 
     appleveldefs = {
