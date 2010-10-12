@@ -19,7 +19,6 @@ class OptUnroll(Optimization):
         if op.getopnum() == rop.JUMP:
             loop = self.optimizer.loop
             loop.preamble.operations = self.optimizer.newoperations
-            print '\n'.join([str(o) for o in loop.preamble.operations])
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
             op.initarglist([])
@@ -50,7 +49,6 @@ class OptUnroll(Optimization):
             for a in self.getvalue(arg).get_forced_boxes():
                 if not isinstance(a, Const):
                     inputargs.append(a)
-        print "Inputargs: ", inputargs
 
         for op in loop_operations:
             #import pdb; pdb.set_trace()
@@ -72,12 +70,10 @@ class OptUnroll(Optimization):
                     args.extend(self.getvalue(arg).get_forced_boxes())
                 newop.initarglist(args + inputargs[len(args):])
 
-            print "P: ", newop
             current = len(self.optimizer.newoperations)
             self.emit_operation(newop)
 
             for op in self.optimizer.newoperations[current:]:
-                print "E: ", op
                 if op.is_guard():
                     op.getdescr().rd_snapshot = None #FIXME: In the right place?
                 args = op.getarglist()
@@ -87,7 +83,6 @@ class OptUnroll(Optimization):
                     if not isinstance(a, Const) and a in self.optimizer.values:
                         v = self.getvalue(a)
                         if v.fromstart and a not in inputargs:
-                            print "Arg: ", a
                             inputargs.append(a)
                             if op.getopnum() == rop.JUMP:
                                 op.initarglist(op.getarglist() + [argmap[a]])
