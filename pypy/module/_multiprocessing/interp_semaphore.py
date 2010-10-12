@@ -212,6 +212,9 @@ class CounterState:
         self.counter += 1
         return value
 
+# These functions may raise bare OSError or WindowsError,
+# don't forget to wrap them into OperationError
+
 if sys.platform == 'win32':
     def create_semaphore(space, name, val, max):
         rwin32.SetLastError(0)
@@ -219,8 +222,7 @@ if sys.platform == 'win32':
         # On Windows we should fail on ERROR_ALREADY_EXISTS
         err = rwin32.GetLastError()
         if err != 0:
-            raise wrap_windowserror(
-                space, WindowsError(err, "CreateSemaphore"))
+            raise WindowsError(err, "CreateSemaphore")
         return handle
 
     def semlock_acquire(self, space, block, w_timeout):
@@ -239,10 +241,7 @@ if sys.platform == 'win32':
             full_msecs = int(timeout + 0.5)
 
         # check whether we can acquire without blocking
-        try:
-            res = rwin32.WaitForSingleObject(self.handle, 0)
-        except WindowsError, e:
-            raise wrap_windowserror(space, e)
+        res = rwin32.WaitForSingleObject(self.handle, 0)
 
         if res != rwin32.WAIT_TIMEOUT:
             return True
@@ -255,10 +254,7 @@ if sys.platform == 'win32':
 
             # do the wait
             _ResetEvent(globalState.sigint_event)
-            try:
-                res = rwin32.WaitForMultipleObjects(handles, timeout=msecs)
-            except WindowsError, e:
-                raise wrap_windowserror(space, e)
+            res = rwin32.WaitForMultipleObjects(handles, timeout=msecs)
 
             if res != rwin32.WAIT_OBJECT_0 + 1:
                 break
@@ -290,8 +286,21 @@ if sys.platform == 'win32':
                     space.w_ValueError,
                     space.wrap("semaphore or lock released too many times"))
             else:
-                raise wrap_windowserror(
-                    space, WindowsError(err, "ReleaseSemaphore"))
+                raise WindowsError(err, "ReleaseSemaphore")
+
+    def semlock_getvalue(self, space):
+        if rwin32.WaitForSingleObject(self.handle, 0) == rwin32.WAIT_TIMEOUT:
+            return 0
+        previous_ptr = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
+        try:
+            if not _ReleaseSemaphore(self.handle, 1, previous_ptr):
+                raise rwin32.lastWindowsError("ReleaseSemaphore")
+            return previous_ptr[0] + 1
+        finally:
+            lltype.free(previous_ptr, flavor='raw')
+
+    def semlock_iszero(self, space):
+        return semlock_getvalue(self, space) == 0
 
 else:
     def create_semaphore(space, name, val, max):
@@ -334,7 +343,7 @@ else:
                         continue
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
-                    raise wrap_oserror(space, e)
+                    raise
                 # XXX PyErr_CheckSignals()
 
                 return True
@@ -372,6 +381,31 @@ else:
 
         sem_post(self.handle)
 
+    def semlock_getvalue(self, space):
+        if HAVE_BROKEN_SEM_GETVALUE:
+            raise OperationError(space.w_NotImplementedError)
+        else:
+            val = sem_getvalue(self.handle)
+            # some posix implementations use negative numbers to indicate
+            # the number of waiting threads
+            if val < 0:
+                val = 0
+            return val
+
+    def semlock_iszero(self, space):
+        if HAVE_BROKEN_SEM_GETVALUE:
+            try:
+                sem_trywait(self.handle)
+            except OSError, e:
+                if e.errno != errno.EAGAIN:
+                    raise
+                return True
+            else:
+                sem_post(self.handle)
+                return False
+        else:
+            return semlock_getvalue(self, space) == 0
+
 
 class W_SemLock(Wrappable):
     def __init__(self, handle, kind, maxvalue):
@@ -398,6 +432,22 @@ class W_SemLock(Wrappable):
     def is_mine(self, space):
         return space.wrap(self._ismine())
 
+    @unwrap_spec('self', ObjSpace)
+    def is_zero(self, space):
+        try:
+            res = semlock_iszero(self, space)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+        return space.wrap(res)
+
+    @unwrap_spec('self', ObjSpace)
+    def get_value(self, space):
+        try:
+            val = semlock_getvalue(self, space)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+        return space.wrap(val)
+
     @unwrap_spec('self', ObjSpace, bool, W_Root)
     def acquire(self, space, block=True, w_timeout=None):
         # check whether we already own the lock
@@ -405,7 +455,12 @@ class W_SemLock(Wrappable):
             self.count += 1
             return space.w_True
 
-        if semlock_acquire(self, space, block, w_timeout):
+        try:
+            got = semlock_acquire(self, space, block, w_timeout)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+
+        if got:
             self.last_tid = ll_thread.get_ident()
             self.count += 1
             return space.w_True
@@ -424,7 +479,10 @@ class W_SemLock(Wrappable):
                 self.count -= 1
                 return
 
-        semlock_release(self, space)
+        try:
+            semlock_release(self, space)
+        except OSError, e:
+            raise wrap_oserror(space, e)
 
         self.count -= 1
 
@@ -443,7 +501,10 @@ def descr_new(space, w_subtype, kind, value, maxvalue):
     counter = space.fromcache(CounterState).getCount()
     name = "/mp%d-%d" % (os.getpid(), counter)
 
-    handle = create_semaphore(space, name, value, maxvalue)
+    try:
+        handle = create_semaphore(space, name, value, maxvalue)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
     self = space.allocate_instance(W_SemLock, w_subtype)
     self.__init__(handle, kind, maxvalue)
@@ -458,6 +519,8 @@ W_SemLock.typedef = TypeDef(
     handle = GetSetProperty(W_SemLock.handle_get),
     _count = interp2app(W_SemLock.get_count),
     _is_mine = interp2app(W_SemLock.is_mine),
+    _is_zero = interp2app(W_SemLock.is_zero),
+    _get_value = interp2app(W_SemLock.get_value),
     acquire = interp2app(W_SemLock.acquire),
     release = interp2app(W_SemLock.release),
     _rebuild = interp2app(W_SemLock.rebuild.im_func, as_classmethod=True),

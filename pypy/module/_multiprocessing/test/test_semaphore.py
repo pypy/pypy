@@ -21,9 +21,13 @@ class AppTestSemaphore:
         assert isinstance(sem.handle, int)
 
         assert sem._count() == 0
+        assert sem._get_value() == 1
+        assert sem._is_zero() == False
         sem.acquire()
         assert sem._is_mine()
         assert sem._count() == 1
+        assert sem._get_value() == 0
+        assert sem._is_zero() == True
         sem.release()
         assert sem._count() == 0
 
