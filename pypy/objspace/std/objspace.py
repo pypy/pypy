@@ -23,6 +23,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
@@ -317,9 +318,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_subtype = w_type.check_user_subclass(w_subtype)
             if cls.typedef.applevel_subclasses_base is not None:
                 cls = cls.typedef.applevel_subclasses_base
-            subcls = get_unique_interplevel_subclass(
-                    self.config, cls, w_subtype.hasdict, w_subtype.nslots != 0,
-                    w_subtype.needsdel, w_subtype.weakrefable)
+            if (self.config.objspace.std.withmapdict and cls is W_ObjectObject
+                    and not w_subtype.needsdel):
+                from pypy.objspace.std.mapdict import get_subclass_of_correct_size
+                subcls = get_subclass_of_correct_size(self, cls, w_subtype)
+            else:
+                subcls = get_unique_interplevel_subclass(
+                        self.config, cls, w_subtype.hasdict, w_subtype.nslots != 0,
+                        w_subtype.needsdel, w_subtype.weakrefable)
             instance = instantiate(subcls)
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)

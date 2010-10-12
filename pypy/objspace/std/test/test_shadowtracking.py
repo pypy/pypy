@@ -3,7 +3,8 @@ from pypy.objspace.std.test.test_typeobject import AppTestTypeObject
 
 class TestShadowTracking(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withshadowtracking": True})
+        cls.space = gettestobjspace(**{"objspace.std.withshadowtracking": True,
+                                       "objspace.std.withmapdict": False})
 
     def test_simple_shadowing(self):
         space = self.space

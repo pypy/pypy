@@ -272,7 +272,7 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 7
+        assert len(ops[0].get_opnames("guard")) <= 2
         assert not ops[1] # second LOOKUP_METHOD folded away
 
         ops = self.get_by_bytecode("CALL_METHOD")
@@ -283,7 +283,7 @@ class PyPyCJITTests(object):
             else:
                 assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
-            assert len(bytecode.get_opnames("guard")) <= 9
+            assert len(bytecode.get_opnames("guard")) <= 6
         assert len(ops[1]) < len(ops[0])
 
         ops = self.get_by_bytecode("LOAD_ATTR")
@@ -317,8 +317,8 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 7
-        assert len(ops[0].get_opnames("getfield")) < 6
+        assert len(ops[0].get_opnames("guard")) <= 2
+        assert len(ops[0].get_opnames("getfield")) < 5
         assert not ops[1] # second LOOKUP_METHOD folded away
 
     def test_default_and_kw(self):
@@ -382,7 +382,7 @@ class PyPyCJITTests(object):
                     a.x = 2
                     i = i + a.x
                 return i
-        ''', 67,
+        ''', 69,
                    ([20], 20),
                    ([31], 32))
 
@@ -390,7 +390,7 @@ class PyPyCJITTests(object):
                 self.get_by_bytecode("CALL_FUNCTION"))
         assert not callA.get_opnames("call")
         assert not callA.get_opnames("new")
-        assert len(callA.get_opnames("guard")) <= 8
+        assert len(callA.get_opnames("guard")) <= 2
         assert not callisinstance1.get_opnames("call")
         assert not callisinstance1.get_opnames("new")
         assert len(callisinstance1.get_opnames("guard")) <= 2
@@ -742,6 +742,8 @@ class PyPyCJITTests(object):
                     '''%(op1, float(a)/4.0, float(b)/4.0, op2), 109, ([], res))
 
     def test_boolrewrite_ptr(self):
+        # XXX this test is way too imprecise in what it is actually testing
+        # it should count the number of guards instead
         compares = ('a == b', 'b == a', 'a != b', 'b != a', 'a == c', 'c != b')
         for e1 in compares:
             for e2 in compares:
@@ -765,7 +767,7 @@ class PyPyCJITTests(object):
                 print
                 print 'Test:', e1, e2, n, res
                 self.run_source('''
-                class tst:
+                class tst(object):
                     pass
                 def main():
                     a = tst()
@@ -847,6 +849,8 @@ class PyPyCJITTests(object):
             ''', 65, ([], 122880))
 
     def test_array_intimg(self):
+        # XXX this test is way too imprecise in what it is actually testing
+        # it should count the number of guards instead
         for tc, maxops in zip('ilILd', (67, 67, 69, 69, 61)):
             res = 73574560
             if tc in 'IL':

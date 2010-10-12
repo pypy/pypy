@@ -928,6 +928,31 @@ class AppTestOldstyle(object):
         assert x is b
         assert y == 5
 
+    def test_cant_subclass_instance(self):
+        class A:
+            pass
+        try:
+            class B(type(A())):
+                pass
+        except TypeError:
+            pass
+        else:
+            assert 0, "should have raised"
+
+    def test_dict_descriptor(self):
+        import sys
+        if not hasattr(sys, 'pypy_objspaceclass'):
+            skip("on CPython old-style instances don't have a __dict__ descriptor")
+        class A:
+            pass
+        a = A()
+        a.x = 1
+        descr = type(a).__dict__['__dict__']
+        assert descr.__get__(a) == {'x': 1}
+        descr.__set__(a, {'x': 2})
+        assert a.x == 2
+        raises(TypeError, descr.__delete__, a)
+
 
 class AppTestOldStyleSharing(AppTestOldstyle):
     def setup_class(cls):
@@ -966,3 +991,22 @@ class AppTestOldStyleModDict(object):
             a = 1
             b = 2
         assert self.is_strdict(A)
+
+class AppTestOldStyleMapDict(AppTestOldstyle):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
+        if option.runappdirect:
+            py.test.skip("can only be run on py.py")
+        def has_mapdict(space, w_inst):
+            return space.wrap(w_inst._get_mapdict_map() is not None)
+        cls.w_has_mapdict = cls.space.wrap(gateway.interp2app(has_mapdict))
+
+
+    def test_has_mapdict(self):
+        class A:
+            def __init__(self):
+                self.x = 42
+        a = A()
+        assert a.x == 42
+        assert self.has_mapdict(a)
+
