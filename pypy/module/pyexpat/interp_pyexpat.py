@@ -32,7 +32,7 @@ eci = rffi_platform.configure_external_library(
           include_dir='lib', library_dir='win32/bin/release'),
      ])
 
-XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
+XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference(will_be_varsize=True))
 XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
 
 class CConfigure:
