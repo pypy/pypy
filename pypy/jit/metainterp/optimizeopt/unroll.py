@@ -59,7 +59,9 @@ class OptUnroll(Optimization):
                 argmap[op.result] = newop.result
             descr = newop.getdescr()
             if isinstance(descr, ResumeGuardDescr):
-                op.getdescr().rd_snapshot = None #FIXME: In the right place?
+                orgdescr = op.getdescr()
+                assert isinstance(orgdescr, ResumeGuardDescr)
+                orgdescr.rd_snapshot = None #FIXME: In the right place?
                 descr.rd_numb = None
                 descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
                 
@@ -75,7 +77,9 @@ class OptUnroll(Optimization):
 
             for op in self.optimizer.newoperations[current:]:
                 if op.is_guard():
-                    op.getdescr().rd_snapshot = None #FIXME: In the right place?
+                    descr = op.getdescr()
+                    assert isinstance(descr, ResumeGuardDescr)
+                    descr.rd_snapshot = None #FIXME: In the right place?
                 args = op.getarglist()
                 if op.is_guard():
                     args = args + op.getfailargs()
@@ -103,7 +107,9 @@ class OptUnroll(Optimization):
                 boxes.append(a)
             else:
                 boxes.append(self.inline_arg(a))
-        return Snapshot(self.inline_snapshot(snapshot.prev), boxes)
+        new_snapshot = Snapshot(self.inline_snapshot(snapshot.prev), boxes[:])
+        self.snapshot_map[snapshot] = new_snapshot
+        return new_snapshot
     
 
         
