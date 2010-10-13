@@ -38,9 +38,10 @@ def test_struct():
         assert len(offsets_to_gc_pointers(T)) == c
 
 def test_hiddenptr32():
-    from pypy.rpython.lltypesystem.llmemory import HIDDENPTR32
+    from pypy.rpython.lltypesystem.llmemory import HiddenGcRef32
     from pypy.rpython.lltypesystem.llmemory import has_odd_value_marker
-    T = lltype.GcStruct('T', ('foo', lltype.Ptr(GC_S3)), ('bar', HIDDENPTR32))
+    T = lltype.GcStruct('T', ('foo', lltype.Ptr(GC_S3)),
+                             ('bar', HiddenGcRef32))
     ofs = offsets_to_gc_pointers(T)
     assert len(ofs) == 2
     assert not has_odd_value_marker(ofs[0])
