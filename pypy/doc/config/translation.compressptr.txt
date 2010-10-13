@@ -1,0 +1,7 @@
+On 64-bit platforms, "compress" some pointers to 32 bits.
+
+Pointers to GC-managed, fixed-size objects are compressed.
+This saves potentially a lot of memory.  The drawback is that
+it will refuse to allocate more than 32GB of RAM for fixed-size
+objects.  (The program can use more RAM in total, e.g. with big
+strings, which are not fixed-size objects.)
