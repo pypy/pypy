@@ -28,8 +28,8 @@ working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl",
       "rctime" , "select", "zipimport", "_lsprof",
-     "crypt", "signal", "_rawffi", "termios", "zlib",
-     "struct", "_md5", "_sha", "bz2", "_minimal_curses", "cStringIO",
+     "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
+     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array"]
 ))
 

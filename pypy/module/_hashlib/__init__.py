@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._hashlib import interp_hashlib
+from pypy.module._hashlib.interp_hashlib import algorithms
 
 
 class Module(MixedModule):
@@ -11,5 +11,5 @@ class Module(MixedModule):
     appleveldefs = {
         }
 
-    for name in interp_hashlib.algorithms:
-        interpleveldefs[name] = getattr(interp_hashlib, 'new_' + name)
+    for name in algorithms:
+        interpleveldefs[name] = 'interp_hashlib.new_%s' % (name,)

@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -9,7 +10,7 @@ from pypy.rlib.rstring import StringBuilder
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
 class W_Hash(Wrappable):
-    def __init__(self, name):
+    def __init__(self, space, name):
         self.name = name
         self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
 
@@ -21,7 +22,9 @@ class W_Hash(Wrappable):
 
     @unwrap_spec('self', ObjSpace)
     def descr_repr(self, space):
-        return space.wrap("<%s HASH object @ 0x%x>" % (self.name, id(self)))
+        addrstring = self.getaddrstring(space)
+        return space.wrap("<%s HASH object at 0x%s>" % (
+            self.name, addrstring))
 
     @unwrap_spec('self', ObjSpace, str)
     def update(self, space, buffer):
@@ -34,7 +37,7 @@ class W_Hash(Wrappable):
     @unwrap_spec('self', ObjSpace)
     def copy(self, space):
         "Return a copy of the hash object."
-        w_hash = W_Hash(self.name)
+        w_hash = W_Hash(space, self.name)
         ropenssl.EVP_MD_CTX_copy(w_hash.ctx, self.ctx)
         return w_hash
 
@@ -115,8 +118,8 @@ W_Hash.typedef = TypeDef(
     )
 
 @unwrap_spec(ObjSpace, str, str)
-def new(space, method, string=''):
-    w_hash = W_Hash(method)
+def new(space, name, string=''):
+    w_hash = W_Hash(space, name)
     w_hash.update(space, string)
     return space.wrap(w_hash)
 
@@ -124,6 +127,7 @@ def new(space, method, string=''):
 for name in algorithms:
     newname = 'new_%s' % (name,)
     @func_renamer(newname)
-    def new_hash(w_string=''):
-        return _new(name, w_string)
+    @unwrap_spec(ObjSpace, str)
+    def new_hash(space, string=''):
+        return new(space, name, string)
     globals()[newname] = new_hash
