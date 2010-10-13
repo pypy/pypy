@@ -275,14 +275,10 @@ class DictRepr(AbstractDictRepr):
 
     def _rtype_method_kvi(self, hop, ll_func):
         v_dic, = hop.inputargs(self)
-        s_list = hop.s_result
-        s_value = s_list.listdef.listitem.s_value
-        r_value = hop.rtyper.getrepr(s_value)
-        cLISTITEM = hop.inputconst(lltype.Void, r_value.lowleveltype)
         r_list = hop.r_result
         cLIST = hop.inputconst(lltype.Void, r_list.lowleveltype.TO)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_func, cLIST, cLISTITEM, v_dic)
+        return hop.gendirectcall(ll_func, cLIST, v_dic)
 
     def rtype_method_keys(self, hop):
         return self._rtype_method_kvi(hop, ll_dict_keys)
@@ -782,7 +778,17 @@ def recast(P, v):
         return v
 
 def _make_ll_keys_values_items(kind):
-    def ll_kvi(LIST, LISTITEM, dic):
+    from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE_2
+    #
+    def ll_kvi(LIST, dic):
+        DICT = lltype.typeOf(dic).TO
+        if kind == 'items':
+            LISTITEM = TUPLE_TYPE_2(DICT.KEY, DICT.VALUE)
+        elif kind == 'keys':
+            LISTITEM = DICT.KEY
+        elif kind == 'values':
+            LISTITEM = DICT.VALUE
+        #
         res = LIST.ll_newlist(dic.num_items)
         entries = dic.entries
         dlen = len(entries)
@@ -807,6 +813,7 @@ def _make_ll_keys_values_items(kind):
             i += 1
         assert p == res.ll_length()
         return res
+    #
     ll_kvi.oopspec = 'dict.%s(dic)' % kind
     return ll_kvi
 

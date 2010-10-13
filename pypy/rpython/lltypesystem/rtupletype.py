@@ -13,3 +13,7 @@ def TUPLE_TYPE(field_lltypes):
         kwds = {'hints': {'immutable': True,
                           'noidentity': True}}
         return Ptr(GcStruct('tuple%d' % len(field_lltypes), *fields, **kwds))
+
+def TUPLE_TYPE_2(type1, type2):    # hack for annotation
+    return TUPLE_TYPE([type1, type2])
+TUPLE_TYPE_2._annspecialcase_ = 'specialize:memo'
