@@ -79,6 +79,30 @@ class FakeBuiltinCallControl:
         return 'builtin'
     def getcalldescr(self, op, oopspecindex=None):
         assert oopspecindex is not None    # in this test
+        EI = effectinfo.EffectInfo
+        if oopspecindex != EI.OS_ARRAYCOPY:
+            PSTR = lltype.Ptr(rstr.STR)
+            PUNICODE = lltype.Ptr(rstr.UNICODE)
+            INT = lltype.Signed
+            UNICHAR = lltype.UniChar
+            argtypes = {
+             EI.OS_STR2UNICODE:([PSTR], PUNICODE),
+             EI.OS_STR_CONCAT: ([PSTR, PSTR], PSTR),
+             EI.OS_STR_SLICE:  ([PSTR, INT, INT], PSTR),
+             EI.OS_UNI_CONCAT: ([PUNICODE, PUNICODE], PUNICODE),
+             EI.OS_UNI_SLICE:  ([PUNICODE, INT, INT], PUNICODE),
+             EI.OS_UNI_EQUAL:  ([PUNICODE, PUNICODE], lltype.Bool),
+             EI.OS_UNIEQ_SLICE_CHECKNULL:([PUNICODE, INT, INT, PUNICODE], INT),
+             EI.OS_UNIEQ_SLICE_NONNULL:  ([PUNICODE, INT, INT, PUNICODE], INT),
+             EI.OS_UNIEQ_SLICE_CHAR:     ([PUNICODE, INT, INT, UNICHAR], INT),
+             EI.OS_UNIEQ_NONNULL:        ([PUNICODE, PUNICODE], INT),
+             EI.OS_UNIEQ_NONNULL_CHAR:   ([PUNICODE, UNICHAR], INT),
+             EI.OS_UNIEQ_CHECKNULL_CHAR: ([PUNICODE, UNICHAR], INT),
+             EI.OS_UNIEQ_LENGTHOK:       ([PUNICODE, PUNICODE], INT),
+            }
+            argtypes = argtypes[oopspecindex]
+            assert argtypes[0] == [v.concretetype for v in op.args[1:]]
+            assert argtypes[1] == op.result.concretetype
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
@@ -784,6 +808,28 @@ def test_str2unicode():
     assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR2UNICODE
     assert op1.args[2] == ListOfKind('ref', [v1])
     assert op1.result == v2
+
+def test_unicode_eq_checknull_char():
+    # test that the oopspec is present and correctly transformed
+    PUNICODE = lltype.Ptr(rstr.UNICODE)
+    FUNC = lltype.FuncType([PUNICODE, PUNICODE], lltype.Bool)
+    func = lltype.functionptr(FUNC, 'll_streq',
+                              _callable=rstr.LLHelpers.ll_streq)
+    v1 = varoftype(PUNICODE)
+    v2 = varoftype(PUNICODE)
+    v3 = varoftype(lltype.Bool)
+    op = SpaceOperation('direct_call', [const(func), v1, v2], v3)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_r_i'
+    assert op1.args[0].value == func
+    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_UNI_EQUAL
+    assert op1.args[2] == ListOfKind('ref', [v1, v2])
+    assert op1.result == v3
+    # test that the OS_UNIEQ_* functions are registered
+    cifo = effectinfo._callinfo_for_oopspec
+    assert effectinfo.EffectInfo.OS_UNIEQ_SLICE_NONNULL in cifo
+    assert effectinfo.EffectInfo.OS_UNIEQ_CHECKNULL_CHAR in cifo
 
 def test_list_ll_arraycopy():
     from pypy.rlib.rgc import ll_arraycopy

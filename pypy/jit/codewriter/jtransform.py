@@ -1057,28 +1057,32 @@ class Transformer(object):
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
-        func = heaptracker.adr2int(
-            llmemory.cast_ptr_to_adr(c_func.value))
+        if isinstance(c_func.value, str):    # in tests only
+            func = c_func.value
+        else:
+            func = heaptracker.adr2int(
+                llmemory.cast_ptr_to_adr(c_func.value))
         _callinfo_for_oopspec[oopspecindex] = calldescr, func
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
-        if args[0].concretetype.TO == rstr.STR:
+        SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
+        if SoU.TO == rstr.STR:
             dict = {"stroruni.concat": EffectInfo.OS_STR_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_STR_SLICE,
                     "stroruni.equal":  EffectInfo.OS_STR_EQUAL,
                     }
-        elif args[0].concretetype.TO == rstr.UNICODE:
+            CHR = lltype.Char
+        elif SoU.TO == rstr.UNICODE:
             dict = {"stroruni.concat": EffectInfo.OS_UNI_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_UNI_SLICE,
                     "stroruni.equal":  EffectInfo.OS_UNI_EQUAL,
                     }
+            CHR = lltype.UniChar
         else:
             assert 0, "args[0].concretetype must be STR or UNICODE"
         #
         if oopspec_name == "stroruni.equal":
-            SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
             for otherindex, othername, argtypes, resulttype in [
-
                 (EffectInfo.OS_STREQ_SLICE_CHECKNULL,
                      "str.eq_slice_checknull",
                      [SoU, lltype.Signed, lltype.Signed, SoU],
@@ -1089,7 +1093,7 @@ class Transformer(object):
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_SLICE_CHAR,
                      "str.eq_slice_char",
-                     [SoU, lltype.Signed, lltype.Signed, lltype.Char],
+                     [SoU, lltype.Signed, lltype.Signed, CHR],
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_NONNULL,
                      "str.eq_nonnull",
@@ -1097,11 +1101,11 @@ class Transformer(object):
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_NONNULL_CHAR,
                      "str.eq_nonnull_char",
-                     [SoU, lltype.Char],
+                     [SoU, CHR],
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_CHECKNULL_CHAR,
                      "str.eq_checknull_char",
-                     [SoU, lltype.Char],
+                     [SoU, CHR],
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_LENGTHOK,
                      "str.eq_lengthok",
