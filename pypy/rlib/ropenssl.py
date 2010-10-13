@@ -35,35 +35,12 @@ eci = rffi_platform.configure_external_library(
           include_dir='inc32', library_dir='out32'),
      ])
 
-## user defined constants
-X509_NAME_MAXLEN = 256
-## # these mirror ssl.h
-PY_SSL_ERROR_NONE, PY_SSL_ERROR_SSL = 0, 1
-PY_SSL_ERROR_WANT_READ, PY_SSL_ERROR_WANT_WRITE = 2, 3
-PY_SSL_ERROR_WANT_X509_LOOKUP = 4
-PY_SSL_ERROR_SYSCALL = 5 # look at error stack/return value/errno
-PY_SSL_ERROR_ZERO_RETURN, PY_SSL_ERROR_WANT_CONNECT = 6, 7
-# start of non ssl.h errorcodes
-PY_SSL_ERROR_EOF = 8 # special case of SSL_ERROR_SYSCALL
-PY_SSL_ERROR_INVALID_ERROR_CODE = 9
-
-PY_SSL_CERT_NONE, PY_SSL_CERT_OPTIONAL, PY_SSL_CERT_REQUIRED = 0, 1, 2
-
-(PY_SSL_VERSION_SSL2, PY_SSL_VERSION_SSL3,
- PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1) = range(4)
-
-SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
-SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
-SOCKET_TOO_LARGE_FOR_SELECT, SOCKET_OPERATION_OK = 4, 5
-
 # WinSock does not use a bitmask in select, and uses
 # socket handles greater than FD_SETSIZE
 if sys.platform == 'win32':
     MAX_FD_SIZE = None
 else:
     from pypy.rlib._rsocket_rffi import FD_SETSIZE as MAX_FD_SIZE
-
-HAVE_RPOLL = True  # Even win32 has rpoll.poll
 
 class CConfig:
     _compilation_info_ = eci
@@ -102,36 +79,6 @@ X509 = rffi.COpaquePtr('X509')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
-
-constants = {}
-constants["SSL_ERROR_ZERO_RETURN"] = PY_SSL_ERROR_ZERO_RETURN
-constants["SSL_ERROR_WANT_READ"] = PY_SSL_ERROR_WANT_READ
-constants["SSL_ERROR_WANT_WRITE"] = PY_SSL_ERROR_WANT_WRITE
-constants["SSL_ERROR_WANT_X509_LOOKUP"] = PY_SSL_ERROR_WANT_X509_LOOKUP
-constants["SSL_ERROR_SYSCALL"] = PY_SSL_ERROR_SYSCALL
-constants["SSL_ERROR_SSL"] = PY_SSL_ERROR_SSL
-constants["SSL_ERROR_WANT_CONNECT"] = PY_SSL_ERROR_WANT_CONNECT
-constants["SSL_ERROR_EOF"] = PY_SSL_ERROR_EOF
-constants["SSL_ERROR_INVALID_ERROR_CODE"] = PY_SSL_ERROR_INVALID_ERROR_CODE
-
-constants["CERT_NONE"]     = PY_SSL_CERT_NONE
-constants["CERT_OPTIONAL"] = PY_SSL_CERT_OPTIONAL
-constants["CERT_REQUIRED"] = PY_SSL_CERT_REQUIRED
-
-constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
-constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
-constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
-constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
-
-constants["OPENSSL_VERSION_NUMBER"] = OPENSSL_VERSION_NUMBER
-ver = OPENSSL_VERSION_NUMBER
-ver, status = divmod(ver, 16)
-ver, patch  = divmod(ver, 256)
-ver, fix    = divmod(ver, 256)
-ver, minor  = divmod(ver, 256)
-ver, major  = divmod(ver, 256)
-constants["OPENSSL_VERSION_INFO"] = (major, minor, fix, patch, status)
-constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
@@ -198,7 +145,7 @@ EVP_MD_CTX_copy = external(
 EVP_MD_CTX_cleanup = external(
     'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT)
 
-def _init_ssl():
+def init_ssl():
     libssl_SSL_load_error_strings()
     libssl_SSL_library_init()
 

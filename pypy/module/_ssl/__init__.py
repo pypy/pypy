@@ -26,5 +26,5 @@ class Module(MixedModule):
         super(Module, cls).buildloaders()
 
     def startup(self, space):
-        from pypy.module._ssl.interp_ssl import _init_ssl
-        _init_ssl()
+        from pypy.rlib.ropenssl import init_ssl
+        init_ssl()
