@@ -1158,6 +1158,8 @@ class _lladdress(object):
     _TYPE = llmemory.Address
 
     def __init__(self, void_p):
+        if isinstance(void_p, _lladdress):
+            void_p = void_p.void_p
         if isinstance(void_p, (int, long)):
             void_p = ctypes.c_void_p(void_p)
         self.void_p = void_p
@@ -1170,6 +1172,8 @@ class _lladdress(object):
         return '<_lladdress %s>' % (self.void_p,)
 
     def __eq__(self, other):
+        if isinstance(other, _lladdress):
+            other = other.intval
         if not isinstance(other, (int, long)):
             other = cast_adr_to_int(other)
         return intmask(other) == self.intval
