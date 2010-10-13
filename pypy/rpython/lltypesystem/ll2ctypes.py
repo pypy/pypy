@@ -587,6 +587,8 @@ def lltype2ctypes(llobj, normalize=True):
         res = intmask(cobj.value)
         _int2obj[res] = llobj.adr.ptr._obj
         return res
+    if isinstance(llobj, _lladdress):
+        llobj = llobj.intval
     if isinstance(llobj, llmemory.fakeaddress):
         llobj = llobj.ptr or 0
 
@@ -1192,6 +1194,8 @@ class _llgcopaque(lltype._container):
     _name = "_llgcopaque"
 
     def __init__(self, void_p):
+        if isinstance(void_p, _lladdress):
+            void_p = void_p.intval
         if isinstance(void_p, (int, long)):
             self.intval = intmask(void_p)
         else:
