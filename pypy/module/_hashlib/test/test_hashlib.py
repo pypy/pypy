@@ -10,7 +10,7 @@ class AppTestHashlib:
         assert isinstance(_hashlib.new('md5'), _hashlib.HASH)
 
     def test_attributes(self):
-        import _hashlib
+        import hashlib
         for name, expected_size in {'md5': 16,
                                     'sha1': 20,
                                     'sha224': 28,
@@ -29,8 +29,12 @@ class AppTestHashlib:
             hexdigest = h.hexdigest()
             h2.update('d')
             h2.update('ef')
-            assert digest == h.digest()
-            assert hexdigest == h.hexdigest()
+            assert digest    == h2.digest()
+            assert hexdigest == h2.hexdigest()
+            assert len(digest)    == h.digest_size
+            assert len(hexdigest) == h.digest_size * 2
+            c_digest    = digest
+            c_hexdigest = hexdigest
 
             # also test the pure Python implementation
             h = hashlib.__get_builtin_constructor(name)('')
@@ -44,10 +48,14 @@ class AppTestHashlib:
             hexdigest = h.hexdigest()
             h2.update('d')
             h2.update('ef')
-            assert digest == h.digest()
-            assert hexdigest == h.hexdigest()
+            assert digest    == h2.digest()
+            assert hexdigest == h2.hexdigest()
+
+            # compare both implementations
+            assert c_digest    == digest
+            assert c_hexdigest == hexdigest
 
     def test_unicode(self):
         import _hashlib
-        assert isinstance(hashlib.new('sha1', u'xxx'), _hashlib.HASH)
+        assert isinstance(_hashlib.new('sha1', u'xxx'), _hashlib.HASH)
 

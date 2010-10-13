@@ -16,10 +16,12 @@ if sys.platform == 'win32' and platform.name != 'mingw32':
         # so that openssl/ssl.h can repair this nonsense.
         'wincrypt.h',
         'openssl/ssl.h',
-        'openssl/err.h']
+        'openssl/err.h',
+        'openssl/evp.h']
 else:
     libraries = ['ssl', 'crypto']
-    includes = ['openssl/ssl.h', 'openssl/err.h']
+    includes = ['openssl/ssl.h', 'openssl/err.h',
+                'openssl/evp.h']
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
@@ -176,7 +178,7 @@ ssl_external('SSL_read', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
 
 ssl_external('SSL_read', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
 
-EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX')
+EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
 EVP_MD     = rffi.COpaquePtr('EVP_MD')
 
 EVP_get_digestbyname = external(
@@ -188,6 +190,13 @@ EVP_DigestInit = external(
 EVP_DigestUpdate = external(
     'EVP_DigestUpdate',
     [EVP_MD_CTX, rffi.CCHARP, rffi.SIZE_T], rffi.INT)
+EVP_DigestFinal = external(
+    'EVP_DigestFinal',
+    [EVP_MD_CTX, rffi.CCHARP, rffi.VOIDP], rffi.INT)
+EVP_MD_CTX_copy = external(
+    'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
+EVP_MD_CTX_cleanup = external(
+    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT)
 
 def _init_ssl():
     libssl_SSL_load_error_strings()
