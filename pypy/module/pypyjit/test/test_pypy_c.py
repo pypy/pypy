@@ -272,7 +272,7 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 2
+        assert len(ops[0].get_opnames("guard")) <= 3     # we get 2 withmapdict
         assert not ops[1] # second LOOKUP_METHOD folded away
 
         ops = self.get_by_bytecode("CALL_METHOD")
@@ -317,8 +317,8 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 2
-        assert len(ops[0].get_opnames("getfield")) < 5
+        assert len(ops[0].get_opnames("guard")) <= 3    # we get 2 withmapdict
+        assert len(ops[0].get_opnames("getfield")) <= 5 # we get <5 withmapdict
         assert not ops[1] # second LOOKUP_METHOD folded away
 
     def test_default_and_kw(self):
