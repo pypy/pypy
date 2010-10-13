@@ -76,7 +76,7 @@ class UnicodeTests(object):
                 assert start == startingpos
                 assert stop == endingpos
                 return u"42424242", stop
-            return "", endingpos
+            return u"", endingpos
         decoder = self.getdecoder(encoding)
         if addstuff:
             s += "some rest in ascii"
