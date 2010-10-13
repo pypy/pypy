@@ -13,7 +13,7 @@ class AppTestSHA(object):
         Create a space with the sha module and import it for use by the
         tests.
         """
-        cls.space = gettestobjspace(usemodules=['sha'])
+        cls.space = gettestobjspace(usemodules=['_sha'])
         cls.w_sha = cls.space.appexec([], """():
             import sha
             return sha

@@ -29,13 +29,13 @@ working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl",
       "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib",
-     "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
+     "struct", "_md5", "_sha", "bz2", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array"]
 ))
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
-    ["md5", "sha", "cStringIO", "itertools"]
+    ["_md5", "_sha", "cStringIO", "itertools"]
 ))
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"

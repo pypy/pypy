@@ -13,7 +13,7 @@ class AppTestMD5(object):
         Create a space with the md5 module and import it for use by the
         tests.
         """
-        cls.space = gettestobjspace(usemodules=['md5'])
+        cls.space = gettestobjspace(usemodules=['_md5'])
         cls.w_md5 = cls.space.appexec([], """():
             import md5
             return md5
