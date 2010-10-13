@@ -354,6 +354,7 @@ else:
 
     def semlock_release(self, space):
         if self.kind == RECURSIVE_MUTEX:
+            sem_post(self.handle)
             return
         if HAVE_BROKEN_SEM_GETVALUE:
             # We will only check properly the maxvalue == 1 case

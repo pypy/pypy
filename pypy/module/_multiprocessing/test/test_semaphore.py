@@ -7,6 +7,7 @@ class AppTestSemaphore:
         space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
         cls.space = space
         cls.w_SEMAPHORE = space.wrap(SEMAPHORE)
+        cls.w_RECURSIVE = space.wrap(RECURSIVE_MUTEX)
 
     def test_semaphore(self):
         from _multiprocessing import SemLock
@@ -30,6 +31,26 @@ class AppTestSemaphore:
         assert sem._is_zero() == True
         sem.release()
         assert sem._count() == 0
+
+    def test_recursive(self):
+        from _multiprocessing import SemLock
+        kind = self.RECURSIVE
+        value = 1
+        maxvalue = 1
+        sem = SemLock(kind, value, maxvalue)
+
+        sem.acquire()
+        sem.release()
+        assert sem._count() == 0
+        sem.acquire()
+        sem.release()
+
+        # now recursively
+        sem.acquire()
+        sem.acquire()
+        assert sem._count() == 2
+        sem.release()
+        sem.release()
 
     def test_semaphore_wait(self):
         from _multiprocessing import SemLock
