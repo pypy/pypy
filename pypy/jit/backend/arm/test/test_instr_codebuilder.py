@@ -1,5 +1,6 @@
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import codebuilder
+from pypy.jit.backend.arm import instructions
 from pypy.jit.backend.arm.test.support import requires_arm_as
 from gen import assemble
 import py
@@ -15,8 +16,11 @@ class CodeBuilder(codebuilder.ARMv7Builder):
 
     def hexdump(self):
         return ''.join(self.buffer)
+class ASMTest(object):
+    def assert_equal(self, asm):
+        assert self.cb.hexdump() == assemble(asm)
 
-class TestInstrCodeBuilder(object):
+class TestInstrCodeBuilder(ASMTest):
     def setup_method(self, ffuu_method):
         self.cb = CodeBuilder()
 
@@ -110,6 +114,31 @@ class TestInstrCodeBuilder(object):
         self.cb.CMP(r.r3, 123)
         self.assert_equal('CMP r3, #123')
 
-    def assert_equal(self, asm):
-        assert self.cb.hexdump() == assemble(asm)
 
+class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
+    def setup_method(self, ffuu_method):
+        self.cb = CodeBuilder()
+
+def build_tests():
+    for key, value in instructions.load_store.iteritems():
+        if value['imm']:
+            f = gen_test_imm_func
+        else:
+            f = gen_test_reg_func
+        test = f(key, value)
+    setattr(TestInstrCodeBuilderForGeneratedInstr, 'test_%s' % key, test)
+
+def gen_test_imm_func(name, table):
+    def f(self):
+        func = getattr(self.cb, name)
+        func(r.r3, r.r7, 23)
+        self.assert_equal('%s r3, [r7, #23]' % name[:name.index('_')])
+    return f
+
+def gen_test_reg_func(name, table):
+    def f(self):
+        func = getattr(self.cb, name)
+        func(r.r3, r.r7, r.r12)
+        self.assert_equal('%s r3, [r7, r12]' % name[:name.index('_')])
+    return f
+build_tests()

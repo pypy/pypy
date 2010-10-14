@@ -1,27 +1,13 @@
 import conditions as cond
 from pypy.rlib.rmmap import alloc
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.jit.backend.arm.instruction_builder import define_instructions
 
 class ARMv7Builder(object):
 
     def __init__(self):
         self._data = alloc(1024)
         self._pos = 0
-
-    def LDR_ri(self, rt, rn, imm=0, cond=cond.AL):
-        #  XXX W and P bits are not encoded yet
-        p = 1
-        w = 0
-        u, imm = self._encode_imm(imm)
-        self.write32(cond << 28
-                        | 0x1 << 26
-                        | (p & 0x1) << 24
-                        | (u & 0x1) << 23
-                        | (w & 0x1) << 21
-                        | 0x1 << 20
-                        | (rn & 0xF) << 16
-                        | (rt & 0xF) << 12
-                        | (imm & 0xFFF))
 
     def ADD_ri(self, rt, rn, imm, cond=cond.AL):
         # XXX S bit
@@ -55,20 +41,6 @@ class ARMv7Builder(object):
                     | 0x3 << 24
                     | 0xA << 20
                     #| 0x0 << 16
-                    | (rt & 0xF) << 12
-                    | (imm & 0xFFF))
-
-    def STR_ri(self, rt, rn, imm=0, cond=cond.AL):
-        #  XXX W and P bits are not encoded yet
-        p = 1
-        w = 0
-        u, imm = self._encode_imm(imm)
-        self.write32(cond << 28
-                    | 0x1 << 26
-                    | (p & 0x1) << 24
-                    | (u & 0x1) << 23
-                    | (w & 0x1) << 21
-                    | (rn & 0xF) << 16
                     | (rt & 0xF) << 12
                     | (imm & 0xFFF))
 
@@ -139,4 +111,4 @@ class ARMv7Builder(object):
     def curraddr(self):
         return self.baseaddr() + self._pos
 
-
+define_instructions(ARMv7Builder)
