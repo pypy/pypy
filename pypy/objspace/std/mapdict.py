@@ -359,8 +359,8 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         assert isinstance(weakreflifeline, WeakrefLifeline)
         self._get_mapdict_map().write(self, ("weakref", SPECIAL), weakreflifeline)
 
-class ObjectMixin(object):
-    _mixin_ = True
+class Object(BaseMapdictObject, W_Root):
+    # mainly for tests
     def _init_empty(self, map):
         from pypy.rlib.debug import make_sure_not_resized
         self.map = map
@@ -376,18 +376,13 @@ class ObjectMixin(object):
         self.storage = storage
         self.map = map
 
-class Object(ObjectMixin, BaseMapdictObject, W_Root):
-    pass # mainly for tests
-
 def get_subclass_of_correct_size(space, cls, w_type):
     assert space.config.objspace.std.withmapdict
     map = w_type.terminator
     classes = memo_get_subclass_of_correct_size(space, cls)
     size = map.size_estimate()
-    if not size:
-        size = 1
     try:
-        return classes[size - 1]
+        return classes[size]
     except IndexError:
         return classes[-1]
 get_subclass_of_correct_size._annspecialcase_ = "specialize:arg(1)"
@@ -401,24 +396,48 @@ def memo_get_subclass_of_correct_size(space, supercls):
     except KeyError:
         assert not hasattr(supercls, "__del__")
         result = []
-        for i in range(1, NUM_SUBCLASSES+1):
-            result.append(_make_subclass_size_n(supercls, i))
+        if space.config.translation.compressptr:
+            # with 'compressptr', there are two issues: first we only need
+            # half as many classes, because there is no point in having a
+            # class that contains an odd number of hiddengcrefs (there is
+            # one too for the map, so there is no point in having an even
+            # number of attributes); and we avoid using rlib.rerased because
+            # such an erased pointer cannot be compressed, as it might point
+            # to a list.
+            for i in range(0, NUM_SUBCLASSES // 2 + 1):
+                subcls = _make_subclass_size_n(supercls, i * 2 + 1,
+                                               use_erased=False)
+                result.append(subcls)
+                result.append(subcls)
+        else:
+            # common case
+            for i in range(1, NUM_SUBCLASSES+1):
+                result.append(_make_subclass_size_n(supercls, i,
+                                                    use_erased=True))
+            result.insert(0, result[0])
         _subclass_cache[key] = result
         return result
 memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-def _make_subclass_size_n(supercls, n):
-    from pypy.rlib import unroll, rerased
+def _make_subclass_size_n(supercls, n, use_erased):
+    from pypy.rlib import unroll
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
+    if use_erased:
+        from pypy.rlib import rerased
+        erase = rerased.erase
+        unerase = rerased.unerase
+    else:
+        erase = lambda x: x
+        unerase = lambda x, t: x
     #
-    class subcls(ObjectMixin, BaseMapdictObject, supercls):
+    class subcls(BaseMapdictObject, supercls):
         _nmin1 = nmin1
         for _i in rangenmin1:
             locals()["_value%s" % _i] = None
-        locals()["_value%s" % nmin1] = rerased.erase(None)
+        locals()["_value%s" % nmin1] = erase(None)
 
         def _init_empty(self, map):
             self.map = map
@@ -428,7 +447,11 @@ def _make_subclass_size_n(supercls, n):
 
         def _mapdict_get_storage_list(self):
             erased = getattr(self, "_value%s" % nmin1)
-            return rerased.unerase_fixedsizelist(erased, W_Root)
+            if use_erased:
+                return rerased.unerase_fixedsizelist(erased, W_Root)
+            else:
+                assert isinstance(erased, ExtraAttributes)
+                return erased.storage
 
         def _mapdict_read_storage(self, index):
             for i in rangenmin1:
@@ -437,7 +460,7 @@ def _make_subclass_size_n(supercls, n):
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[index - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
-            return rerased.unerase(erased, W_Root)
+            return unerase(erased, W_Root)
 
         def _mapdict_write_storage(self, index, value):
             for i in rangenmin1:
@@ -447,7 +470,7 @@ def _make_subclass_size_n(supercls, n):
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[index - nmin1] = value
                 return
-            erased = rerased.erase(value)
+            erased = erase(value)
             setattr(self, "_value%s" % nmin1, erased)
 
         def _mapdict_storage_length(self):
@@ -467,24 +490,32 @@ def _make_subclass_size_n(supercls, n):
             has_storage_list = self._has_storage_list()
             if len_storage < n:
                 assert not has_storage_list
-                erased = rerased.erase(None)
+                erased = erase(None)
             elif len_storage == n:
                 assert not has_storage_list
-                erased = rerased.erase(storage[nmin1])
+                erased = erase(storage[nmin1])
             elif not has_storage_list:
                 # storage is longer than self.map.length() only due to
                 # overallocation
-                erased = rerased.erase(storage[nmin1])
+                erased = erase(storage[nmin1])
                 # in theory, we should be ultra-paranoid and check all entries,
                 # but checking just one should catch most problems anyway:
                 assert storage[n] is None
             else:
                 storage_list = storage[nmin1:]
-                erased = rerased.erase_fixedsizelist(storage_list, W_Root)
+                if use_erased:
+                    erased = rerased.erase_fixedsizelist(storage_list, W_Root)
+                else:
+                    erased = ExtraAttributes(storage_list)
             setattr(self, "_value%s" % nmin1, erased)
 
     subcls.__name__ = supercls.__name__ + "Size%s" % n
     return subcls
+
+class ExtraAttributes(W_Root):
+    def __init__(self, storage):
+        from pypy.rlib.debug import make_sure_not_resized
+        self.storage = make_sure_not_resized(storage)
 
 # ____________________________________________________________
 # dict implementation

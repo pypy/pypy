@@ -1,6 +1,7 @@
 from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.mapdict import *
+from pypy.objspace.std.mapdict import _subclass_cache
 
 space = FakeSpace()
 
@@ -357,9 +358,15 @@ def test_setdict():
 # check specialized classes
 
 
-def test_specialized_class():
+def test_specialized_class(compressptr=False):
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.rlib import rerased
+    space = FakeSpace()
+    class translation:
+        pass
+    translation.compressptr = compressptr
+    space.config.translation = translation
+    _subclass_cache.clear()
     classes = memo_get_subclass_of_correct_size(space, W_ObjectObject)
     w1 = W_Root()
     w2 = W_Root()
@@ -372,7 +379,7 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        if objectcls._nmin1 == 0:
+        if objectcls._nmin1 == 0 and not compressptr:
             assert rerased.unerase(obj._value0, W_Root) is w1
         else:
             assert obj._value0 is w1
@@ -380,7 +387,7 @@ def test_specialized_class():
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        if objectcls._nmin1 == 0:
+        if objectcls._nmin1 == 0 and not compressptr:
             assert rerased.unerase(obj._value0, W_Root) is w2
         else:
             assert obj._value0 is w2
@@ -401,7 +408,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        if objectcls._nmin1 == 0:
+        if objectcls._nmin1 == 0 and not compressptr:
             assert rerased.unerase(obj._value0, W_Root) is w4
         else:
             assert obj._value0 is w4
@@ -416,6 +423,9 @@ def test_specialized_class():
         assert obj2.getdictvalue(space, "a") is w5
         assert obj2.getdictvalue(space, "b") is w6
         assert obj2.map is abmap
+
+def test_specialized_class_compressptr():
+    test_specialized_class(compressptr=True)
 
 # ___________________________________________________________
 # integration tests
