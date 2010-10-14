@@ -433,6 +433,7 @@ def _make_subclass_size_n(supercls, n, use_erased):
         erase = rerased.erase
         unerase = rerased.unerase
     else:
+        rerased = None    # don't use in that case
         erase = lambda x: x
         unerase = lambda x, t: x
     #
