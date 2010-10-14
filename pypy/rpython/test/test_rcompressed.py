@@ -167,6 +167,12 @@ class TestExternalVsInternal(MixinCompressed64):
         assert er is r_L
         assert ir.lowleveltype == llmemory.HiddenGcRef32
 
+    def test_rerased(self):
+        from pypy.rlib.rerased import ErasedRepr
+        r_E = ErasedRepr(self.rtyper)
+        er, ir = rmodel.externalvsinternal(self. rtyper, r_E)
+        assert er is ir is r_E
+
 
 class TestLLtype64(MixinCompressed64, test_rclass.TestLLtype):
 

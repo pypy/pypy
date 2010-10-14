@@ -14,6 +14,8 @@ def get_compressed_gcref_repr(rtyper, baserepr):
     # mmap()-within-32GB-of-RAM.
     if baserepr.lowleveltype.TO._is_varsize():
         return baserepr
+    if baserepr.lowleveltype == llmemory.GCREF:
+        return baserepr    # a GCREF may contain a non-fixed-size object
     try:
         comprmgr = rtyper.compressed_gcref_manager
     except AttributeError:
