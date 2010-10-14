@@ -71,7 +71,7 @@ class W_Hash(Wrappable):
 
         try:
             ropenssl.EVP_DigestFinal(ctx, digest, None)
-            return rffi.charp2strn(digest, digest_size)
+            return rffi.charpsize2str(digest, digest_size)
         finally:
             lltype.free(digest, flavor='raw')
 

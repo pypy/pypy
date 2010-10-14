@@ -8,6 +8,7 @@ class AppTestHashlib:
     def test_simple(self):
         import _hashlib
         assert isinstance(_hashlib.new('md5'), _hashlib.HASH)
+        assert len(_hashlib.new('md5').hexdigest()) == 32
 
     def test_attributes(self):
         import hashlib
