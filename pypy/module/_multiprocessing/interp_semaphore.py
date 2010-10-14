@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_uint
@@ -493,6 +493,14 @@ class W_SemLock(Wrappable):
         self.__init__(handle_w(space, w_handle), kind, maxvalue)
         return space.wrap(self)
 
+    @unwrap_spec('self', ObjSpace)
+    def enter(self, space):
+        return self.acquire(space, w_timeout=space.w_None)
+
+    @unwrap_spec('self', ObjSpace, Arguments)
+    def exit(self, space, __args__):
+        self.release(space)
+
 @unwrap_spec(ObjSpace, W_Root, int, int, int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
@@ -525,5 +533,7 @@ W_SemLock.typedef = TypeDef(
     acquire = interp2app(W_SemLock.acquire),
     release = interp2app(W_SemLock.release),
     _rebuild = interp2app(W_SemLock.rebuild.im_func, as_classmethod=True),
+    __enter__=interp2app(W_SemLock.enter),
+    __exit__=interp2app(W_SemLock.exit),
     SEM_VALUE_MAX=SEM_VALUE_MAX,
     )

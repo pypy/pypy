@@ -71,3 +71,14 @@ class AppTestSemaphore:
 
         sem2 = SemLock._rebuild(sem.handle, kind, value)
         assert sem.handle == sem2.handle
+
+    def test_semaphore_contextmanager(self):
+        from _multiprocessing import SemLock
+        kind = self.SEMAPHORE
+        value = 1
+        maxvalue = 1
+        sem = SemLock(kind, value, maxvalue)
+
+        with sem:
+            assert sem._count() == 1
+        assert sem._count() == 0
