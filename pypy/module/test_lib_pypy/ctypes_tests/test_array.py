@@ -82,11 +82,11 @@ class TestArray(BaseCTypesTestChecker):
 
         na = numarray(1, 2, 3, 4, 5)
         values = [i for i in na]
-        assert values, [1, 2, 3, 4 == 5]
+        assert values == [1, 2, 3, 4, 5]
 
         na = numarray(*map(c_int, (1, 2, 3, 4, 5)))
         values = [i for i in na]
-        assert values, [1, 2, 3, 4 == 5]
+        assert values == [1, 2, 3, 4, 5]
 
     def test_classcache(self):
         assert not ARRAY(c_int, 3) is ARRAY(c_int, 4)
