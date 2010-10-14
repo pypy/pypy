@@ -135,8 +135,8 @@ class Dialect(object):
                 converter = attributes[name][1]
                 if converter:
                     value = converter(value)
-                
-            setattr(self, name, value)
+
+            setattr(self, '_' + name, value)
 
         if not self.delimiter:
             raise TypeError("delimiter must be set")
@@ -148,7 +148,16 @@ class Dialect(object):
             raise TypeError("lineterminator must be set")
 
         return self
-        
+
+    delimiter        = property(lambda self: self._delimiter)
+    doublequote      = property(lambda self: self._doublequote)
+    escapechar       = property(lambda self: self._escapechar)
+    lineterminator   = property(lambda self: self._lineterminator)
+    quotechar        = property(lambda self: self._quotechar)
+    quoting          = property(lambda self: self._quoting)
+    skipinitialspace = property(lambda self: self._skipinitialspace)
+    strict           = property(lambda self: self._strict)
+
 
 def _call_dialect(dialect_inst, kwargs):
     return Dialect(dialect_inst, **kwargs)
