@@ -5,6 +5,16 @@ class AppTestBytesArray:
         assert type(b) is bytearray
         assert b.__class__ is bytearray
 
+    def test_constructor(self):
+        assert bytearray() == ""
+        assert bytearray('abc') == "abc"
+        assert bytearray(['a', 'b', 'c']) == "abc"
+        assert bytearray([65, 66, 67]) == "ABC"
+        assert bytearray(5) == '\0' * 5
+        raises(ValueError, bytearray, ['a', 'bc'])
+        raises(ValueError, bytearray, [65, -3])
+        raises(TypeError, bytearray, [65.0])
+
     def test_len(self):
         b = bytearray('test')
         assert len(b) == 4
