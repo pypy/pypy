@@ -1,4 +1,5 @@
 import conditions as cond
+import registers as reg
 from pypy.rlib.rmmap import alloc
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.backend.arm.instruction_builder import define_instructions
@@ -26,14 +27,6 @@ class ARMv7Builder(object):
                         | (rd & 0xF) << 12
                         | (imm & 0xFFF))
 
-
-    def MOV_rr(self, rd, rm, cond=cond.AL, s=0):
-        self.write32(cond << 28
-                    | 0xD << 21
-                    | (s & 0x1) << 20
-                    | (rd & 0xFF) << 12
-                    | (rm & 0xFF))
-
     def MOV_ri(self, rt, imm=0, cond=cond.AL):
         # XXX Check the actual allowed size for imm
         # XXX S bit
@@ -44,27 +37,8 @@ class ARMv7Builder(object):
                     | (rt & 0xF) << 12
                     | (imm & 0xFFF))
 
-    def ASR_ri(self, rd, rm, imm=0, cond=cond.AL, s=0):
-        self.write32(cond << 28
-                    | 0xD << 21
-                    | (s & 0x1) << 20
-                    | (rd & 0xF) << 12
-                    | (imm & 0x1F) << 7
-                    | 0x4 << 4
-                    | (rm & 0xF))
-
-    #XXX encode shifttype correctly
-    def ORR_rr(self, rd, rn, rm, imm=0, cond=cond.AL, s=0, shifttype=0):
-        self.write32(cond << 28
-                    | 0x3 << 23
-                    | (s & 0x1) << 20
-                    | (rn & 0xFF) << 16
-                    | (rd & 0xFF) << 12
-                    | (imm & 0x1F) << 7
-                    | (shifttype & 0x3) << 5
-                    | (rm & 0xFF))
-
     def PUSH(self, regs, cond=cond.AL):
+        assert reg.sp not in regs
         instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
         self.write32(instr)
 

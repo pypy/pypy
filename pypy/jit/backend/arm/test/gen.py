@@ -38,7 +38,7 @@ main:
         res = self.body % (self.instr)
         self.file.write(res)
         self.file.flush()
-        os.system("%s %s %s -o %s/a.out" % (AS, self.asm_opts, self.name, self.tmpdir))
+        os.system("%s --fatal-warnings %s %s -o %s/a.out" % (AS, self.asm_opts, self.name, self.tmpdir))
 
     def __del__(self):
         self.file.close()

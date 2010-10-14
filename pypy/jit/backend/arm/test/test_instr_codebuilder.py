@@ -82,8 +82,8 @@ class TestInstrCodeBuilder(ASMTest):
         self.assert_equal('PUSH {r1}')
 
     def test_push_multiple(self):
-        self.cb.PUSH([r.r3, r.r1, r.r6, r.r8, r.sp, r.pc])
-        self.assert_equal('PUSH {r3, r1, r6, r8, sp, pc}')
+        self.cb.PUSH([r.r1, r.r3, r.r6, r.r8, r.pc])
+        self.assert_equal('PUSH {r1, r3, r6, r8, pc}')
 
     def test_push_multiple2(self):
         self.cb.PUSH([r.fp, r.ip, r.lr, r.pc])
@@ -126,7 +126,11 @@ def build_tests():
         else:
             f = gen_test_reg_func
         test = f(key, value)
-    setattr(TestInstrCodeBuilderForGeneratedInstr, 'test_%s' % key, test)
+        setattr(TestInstrCodeBuilderForGeneratedInstr, 'test_%s' % key, test)
+
+    for key, value, in instructions.data_proc.iteritems():
+        test = gen_test_data_reg_func(key, value)
+        setattr(TestInstrCodeBuilderForGeneratedInstr, 'test_%s' % key, test)
 
 def gen_test_imm_func(name, table):
     def f(self):
@@ -141,4 +145,25 @@ def gen_test_reg_func(name, table):
         func(r.r3, r.r7, r.r12)
         self.assert_equal('%s r3, [r7, r12]' % name[:name.index('_')])
     return f
+
+def gen_test_data_reg_func(name, table):
+    if name[-2:] == 'ri':
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3, r.r7, 12)
+            self.assert_equal('%s r3, r7, #12' % name[:name.index('_')])
+
+    elif table['base'] and table['result']:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3, r.r7, r.r12)
+            self.assert_equal('%s r3, r7, r12' % name[:name.index('_')])
+    else:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3, r.r7)
+            self.assert_equal('%s r3, r7' % name[:name.index('_')])
+
+    return f
+
 build_tests()
