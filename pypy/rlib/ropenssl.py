@@ -128,6 +128,8 @@ ssl_external('SSL_read', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
 EVP_MD     = rffi.COpaquePtr('EVP_MD')
 
+OpenSSL_add_all_digests = external(
+    'OpenSSL_add_all_digests', [], lltype.Void)
 EVP_get_digestbyname = external(
     'EVP_get_digestbyname',
     [rffi.CCHARP], EVP_MD)
@@ -149,3 +151,5 @@ def init_ssl():
     libssl_SSL_load_error_strings()
     libssl_SSL_library_init()
 
+def init_digests():
+    OpenSSL_add_all_digests()

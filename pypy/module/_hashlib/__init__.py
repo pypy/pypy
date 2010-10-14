@@ -13,3 +13,7 @@ class Module(MixedModule):
 
     for name in algorithms:
         interpleveldefs[name] = 'interp_hashlib.new_%s' % (name,)
+
+    def startup(self, space):
+        from pypy.rlib.ropenssl import init_digests
+        init_digests()
