@@ -101,7 +101,7 @@ class W_FileIO(W_RawIOBase):
             self.fd = dispatch_filename(rposix.open)(
                 space, w_name, flags, 0666)
         except OSError, e:
-            raise wrap_oserror2(space, e, w_fname)
+            raise wrap_oserror2(space, e, w_name)
         self.closefd = bool(closefd)
 
     def _check_closed(self, space):
