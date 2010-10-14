@@ -70,13 +70,14 @@ class Dialect(object):
 
     The Dialect type records CSV parsing and generation options."""
 
-    __slots__ = ["delimiter", "doublequote", "escapechar", "lineterminator",
-                 "quotechar", "quoting", "skipinitialspace", "strict"]
+    __slots__ = ["_delimiter", "_doublequote", "_escapechar",
+                 "_lineterminator", "_quotechar", "_quoting",
+                 "_skipinitialspace", "_strict"]
 
     def __new__(cls, dialect, **kwargs):
 
         for name in kwargs:
-            if name not in Dialect.__slots__:
+            if '_' + name not in Dialect.__slots__:
                 raise TypeError("unexpected keyword argument '%s'" %
                                 (name,))
 
@@ -120,6 +121,7 @@ class Dialect(object):
         # Copy attributes
         notset = object()
         for name in Dialect.__slots__:
+            name = name[1:]
             value = notset
             if name in kwargs:
                 value = kwargs[name]
