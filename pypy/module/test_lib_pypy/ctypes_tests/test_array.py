@@ -88,6 +88,16 @@ class TestArray(BaseCTypesTestChecker):
         values = [i for i in na]
         assert values == [1, 2, 3, 4, 5]
 
+    def test_slice(self):
+        values = range(5)
+        numarray = c_int * 5
+
+        na = numarray(*(c_int(x) for x in values))
+
+        assert list(na[0:0]) == []
+        assert list(na[:])   == values
+        assert list(na[:10]) == values
+
     def test_classcache(self):
         assert not ARRAY(c_int, 3) is ARRAY(c_int, 4)
         assert ARRAY(c_int, 3) is ARRAY(c_int, 3)
