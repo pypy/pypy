@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #define PAGESIZE 4096
 #ifndef MALLOC_BIGBUFFER
-# define MALLOC_BIGBUFFER   (PAGESIZE*32768)   /* 128MB */
+# define MALLOC_BIGBUFFER   (PAGESIZE*32768*14)   /* 1.75GB */
 #endif
 
 
