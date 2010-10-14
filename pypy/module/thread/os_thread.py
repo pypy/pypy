@@ -67,13 +67,17 @@ class Bootstrapper(object):
     args = None
     w_callable = None
 
+    @staticmethod
     def setup(space):
         if bootstrapper.lock is None:
             try:
                 bootstrapper.lock = thread.allocate_lock()
             except thread.error:
                 raise wrap_thread_error(space, "can't allocate bootstrap lock")
-    setup = staticmethod(setup)
+
+    @staticmethod
+    def reinit(space):
+        bootstrapper.lock = None
 
     def bootstrap():
         # Note that when this runs, we already hold the GIL.  This is ensured
@@ -134,6 +138,17 @@ bootstrapper = Bootstrapper()
 def setup_threads(space):
     space.threadlocals.setup_threads(space)
     bootstrapper.setup(space)
+
+def reinit_threads(space):
+    "Called in the child process after a fork()"
+    space.threadlocals.reinit_threads(space)
+    bootstrapper.reinit(space)
+
+    # Clean the threading module after a fork()
+    w_modules = space.sys.get('modules')
+    w_threading = space.finditem_str(w_modules, 'threading')
+    if w_threading is not None:
+        space.call_method(w_threading, "_after_fork")
 
 
 def start_new_thread(space, w_callable, w_args, w_kwargs=NoneNotWrapped):

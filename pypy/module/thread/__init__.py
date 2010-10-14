@@ -29,3 +29,8 @@ class Module(MixedModule):
         space.threadlocals = gil.GILThreadLocals()
         space.threadlocals.initialize(space)
         space.threadlocals.setvalue(prev)
+
+        from pypy.module.posix.interp_posix import add_fork_hook
+        from pypy.module.thread.os_thread import reinit_threads
+        add_fork_hook('child', reinit_threads)
+

@@ -473,7 +473,7 @@ class State:
         return True
 
 def get(space): 
-    return space.fromcache(State) 
+    return space.fromcache(State)
 
 def _convertenviron(space, w_env):
     space.call_method(w_env, 'clear')
@@ -600,11 +600,48 @@ def readlink(space, path):
     return space.wrap(result)
 readlink.unwrap_spec = [ObjSpace, str]
 
+before_fork_hooks = []
+after_fork_child_hooks = []
+after_fork_parent_hooks = []
+
+@specialize.memo()
+def get_fork_hooks(where):
+    if where == 'before':
+        return before_fork_hooks
+    elif where == 'child':
+        return after_fork_child_hooks
+    elif where == 'parent':
+        return after_fork_parent_hooks
+    else:
+        assert False, "Unknown fork hook"
+
+def add_fork_hook(where, hook):
+    "NOT_RPYTHON"
+    get_fork_hooks(where).append(hook)
+
+@specialize.arg(0)
+def run_fork_hooks(where, space):
+    for hook in get_fork_hooks(where):
+        hook(space)
+
 def fork(space):
+    run_fork_hooks('before', space)
+
     try:
         pid = os.fork()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        try:
+            run_fork_hooks('parent', space)
+        except:
+            # Don't clobber the OSError if the fork failed
+            pass
+        raise wrap_oserror(space, e)
+
+    if pid == 0:
+        run_fork_hooks('child', space)
+    else:
+        run_fork_hooks('parent', space)
+
     return space.wrap(pid)
 
 def openpty(space):
