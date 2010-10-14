@@ -38,25 +38,45 @@
 ## print t2 - t1
 
 try:
+##     from array import array
+
+##     def coords(w,h):
+##         y = 0
+##         while y < h:
+##             x = 0
+##             while x < w:
+##                 yield x,y
+##                 x += 1
+##             y += 1
+
+##     def f(img):
+##         sa=0
+##         for x, y in coords(4,4):
+##             sa += x * y
+##         return sa
+
+##     #img=array('h',(1,2,3,4))
+##     print f(3)
     from array import array
+    class Circular(array):
+        def __new__(cls):
+            self = array.__new__(cls, 'i', range(16))
+            return self
+        def __getitem__(self, i):
+            assert self.__len__() == 16 
+            return array.__getitem__(self, i & 15)
 
-    def coords(w,h):
-        y = 0
-        while y < h:
-            x = 0
-            while x < w:
-                yield x,y
-                x += 1
-            y += 1
-
-    def f(img):
-        sa=0
-        for x, y in coords(4,4):
-            sa += x * y
+    def main():
+        buf = Circular()
+        i = 10
+        sa = 0
+        while i < 20:
+            sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+            i += 1
         return sa
 
-    #img=array('h',(1,2,3,4))
-    print f(3)
+    print main()
+    
 except Exception, e:
     print "Exception: ", type(e)
     print e

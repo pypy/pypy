@@ -8,7 +8,7 @@ import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
-from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
+from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, TreeLoop
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
@@ -214,6 +214,8 @@ class Storage(compile.ResumeGuardDescr):
         op.setfailargs(boxes)
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure
+    def clone_if_mutable(self):
+        return self
 
 def _sortboxes(boxes):
     _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
@@ -254,12 +256,15 @@ class BaseTestOptimizeOpt(BaseTest):
             loop.token.specnodes = self.unpack_specnodes(spectext)
         #
         self.loop = loop
+        loop.preamble = TreeLoop('preamble')
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
         optimize_loop_1(metainterp_sd, loop)
         #
         expected = self.parse(optops)
+        print
+        print "Ops: "
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
 
@@ -3559,14 +3564,10 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(p0, i22)
         """
         expected = """
-        [p0, i22]
-        i1 = getfield_gc(p0, descr=valuedescr)
-        i2 = int_gt(i1, i22)
-        guard_false(i2) []
-        i3 = int_add(i1, 1)
+        [p0, i22, i1]
         i331 = force_token()
         setfield_gc(p0, i1, descr=valuedescr)
-        jump(p0, i22)
+        jump(p0, i22, i1)
         """
         self.optimize_loop(ops, 'Not, Not', expected)
 

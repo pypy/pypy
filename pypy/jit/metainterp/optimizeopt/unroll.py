@@ -39,6 +39,7 @@ class OptUnroll(Optimization):
            argmap[loop_args[i]] = jump_args[i]
 
         for v in self.optimizer.values.values():
+            v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
             if not v.is_constant() and v.box:
                 v.fromstart = True
 
@@ -72,10 +73,16 @@ class OptUnroll(Optimization):
                     args.extend(self.getvalue(arg).get_forced_boxes())
                 newop.initarglist(args + inputargs[len(args):])
 
+            #print 'P: ', newop
             current = len(self.optimizer.newoperations)
             self.emit_operation(newop)
 
+            # FIXME: force_lazy_setfield in heap.py may reorder last ops
+            if current > 0:
+                current -= 1
+                
             for op in self.optimizer.newoperations[current:]:
+                #print 'E: ', op,  self.optimizer.newoperations.index(op)
                 if op.is_guard():
                     descr = op.getdescr()
                     assert isinstance(descr, ResumeGuardDescr)
@@ -83,13 +90,18 @@ class OptUnroll(Optimization):
                 args = op.getarglist()
                 if op.is_guard():
                     args = args + op.getfailargs()
+                #if op.getopnum() == rop.SETFIELD_GC:
+                #    import pdb; pdb.set_trace()
                 for a in args:
                     if not isinstance(a, Const) and a in self.optimizer.values:
                         v = self.getvalue(a)
                         if v.fromstart and a not in inputargs:
                             inputargs.append(a)
-                            if op.getopnum() == rop.JUMP:
-                                op.initarglist(op.getarglist() + [argmap[a]])
+                            jmp = self.optimizer.newoperations[-1]
+                            if jmp.getopnum() == rop.JUMP:
+                                newval = self.getvalue(argmap[a])
+                                newarg = newval.get_forced_boxes()
+                                jmp.initarglist(jmp.getarglist() + newarg)
 
         return inputargs
 
