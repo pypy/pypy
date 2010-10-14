@@ -34,3 +34,13 @@ class Module(MixedModule):
 
     appleveldefs = {
         }
+
+    def __init__(self, space, *args):
+        "NOT_RPYTHON"
+        MixedModule.__init__(self, space, *args)
+        # from pypy.module.posix.interp_posix import add_fork_hook
+        # from pypy.module.imp import interp_imp
+        # add_fork_hook('before', interp_imp.acquire_lock)
+        # add_fork_hook('parent', interp_imp.release_lock)
+        # add_fork_hook('child', interp_imp.reinit_lock)
+
