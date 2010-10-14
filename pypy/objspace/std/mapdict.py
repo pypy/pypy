@@ -359,8 +359,8 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         assert isinstance(weakreflifeline, WeakrefLifeline)
         self._get_mapdict_map().write(self, ("weakref", SPECIAL), weakreflifeline)
 
-class Object(BaseMapdictObject, W_Root):
-    # mainly for tests
+class ObjectMixin(object):
+    _mixin_ = True
     def _init_empty(self, map):
         from pypy.rlib.debug import make_sure_not_resized
         self.map = map
@@ -375,6 +375,9 @@ class Object(BaseMapdictObject, W_Root):
     def _set_mapdict_storage_and_map(self, storage, map):
         self.storage = storage
         self.map = map
+
+class Object(ObjectMixin, BaseMapdictObject, W_Root):
+    pass # mainly for tests
 
 def get_subclass_of_correct_size(space, cls, w_type):
     assert space.config.objspace.std.withmapdict
