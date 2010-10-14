@@ -14,7 +14,7 @@ class Module(MixedModule):
         '_BufferedIOBase': 'interp_io.W_BufferedIOBase',
         '_TextIOBase': 'interp_io.W_TextIOBase',
 
-        'FileIO': 'interp_io.W_FileIO',
+        'FileIO': 'interp_fileio.W_FileIO',
         'BytesIO': 'interp_io.W_BytesIO',
         'StringIO': 'interp_stringio.W_StringIO',
         'BufferedReader': 'interp_io.W_BufferedReader',
@@ -23,7 +23,7 @@ class Module(MixedModule):
         'BufferedRandom': 'interp_io.W_BufferedRandom',
         'TextIOWrapper': 'interp_io.W_TextIOWrapper',
 
-        'open': 'space.w_None',
+        'open': 'interp_io.open',
         'UnsupportedOperation': 'space.w_None',
         'IncrementalNewlineDecoder': 'space.w_None',
         }

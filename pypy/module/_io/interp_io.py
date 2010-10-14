@@ -94,6 +94,22 @@ class W_IOBase(Wrappable):
             raise OperationError(space.w_StopIteration, space.w_None)
         return w_line
 
+    @unwrap_spec('self', ObjSpace)
+    def isatty_w(self, space):
+        return space.w_False
+
+    @unwrap_spec('self', ObjSpace)
+    def readable_w(self, space):
+        return space.w_False
+
+    @unwrap_spec('self', ObjSpace)
+    def writable_w(self, space):
+        return space.w_False
+
+    @unwrap_spec('self', ObjSpace)
+    def seekable_w(self, space):
+        return space.w_False
+
 W_IOBase.typedef = TypeDef(
     '_IOBase',
     __new__ = generic_new_descr(W_IOBase),
@@ -103,6 +119,10 @@ W_IOBase.typedef = TypeDef(
     next = interp2app(W_IOBase.next_w),
     close = interp2app(W_IOBase.close_w),
     flush = interp2app(W_IOBase.flush_w),
+    isatty = interp2app(W_IOBase.isatty_w),
+    readable = interp2app(W_IOBase.readable_w),
+    writable = interp2app(W_IOBase.writable_w),
+    seekable = interp2app(W_IOBase.seekable_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
     )
 
@@ -126,12 +146,6 @@ class W_TextIOBase(W_IOBase):
 W_TextIOBase.typedef = TypeDef(
     '_TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
-    )
-
-class W_FileIO(W_RawIOBase):
-    pass
-W_FileIO.typedef = TypeDef(
-    'FileIO', W_RawIOBase.typedef,
     )
 
 class W_BytesIO(W_BufferedIOBase):
@@ -169,3 +183,12 @@ class W_TextIOWrapper(W_TextIOBase):
 W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
     )
+
+@unwrap_spec(ObjSpace, Arguments)
+def open(space, __args__):
+    # XXX cheat!
+    w_pyio = space.call_method(space.builtin, '__import__',
+                             space.wrap("_pyio"))
+    w_func = space.getattr(w_pyio, space.wrap("open"))
+    return space.call_args(w_func, __args__)
+

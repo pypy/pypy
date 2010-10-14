@@ -36,3 +36,14 @@ class AppTestIoModule:
                 return ""
 
         assert list(MyFile()) == ["line1", "line2"]
+
+class AppTestOpen:
+    def setup_class(cls):
+        from pypy.tool.udir import udir
+        tmpfile = udir.join('tmpfile').ensure()
+        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
+
+    def test_open(self):
+        import io
+        f = io.open(self.tmpfile, "rb")
+        f.close()
