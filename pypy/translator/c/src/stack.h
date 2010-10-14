@@ -3,7 +3,11 @@
  /***  C header subsection: stack operations               ***/
 
 #ifndef MAX_STACK_SIZE
+#  if defined(__GNUC__) && !defined(__OPTIMIZE__)
+#    define MAX_STACK_SIZE (7 << 20)    /* 7 MB */
+#  else
 #    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
+#  endif
 #endif
 
 /* This include must be done in any case to initialise
