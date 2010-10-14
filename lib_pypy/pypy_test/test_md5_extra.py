@@ -6,7 +6,7 @@ A note about performance: the pure Python MD5 takes roughly
 
 from __future__ import absolute_import
 import md5                              # CPython's implementation in C.
-from .. import md5 as pymd5  
+from .. import _md5 as pymd5  
 
 
 # Helpers...

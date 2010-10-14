@@ -49,6 +49,7 @@ W_SHA.typedef = TypeDef(
     copy      = interp2app(W_SHA.copy_w, unwrap_spec=['self']),
     digest_size = 20,
     digestsize = 20,
+    block_size = 64,
     __doc__   = """sha(arg) -> return new sha object.
 
 If arg is present, the method call update(arg) is made.""")

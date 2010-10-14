@@ -116,6 +116,7 @@ class MD5Type:
     "An implementation of the MD5 hash function in pure Python."
 
     digest_size = digestsize = 16
+    block_size = 64
 
     def __init__(self):
         "Initialisation."
@@ -369,24 +370,10 @@ class MD5Type:
 
 # ======================================================================
 # Mimic Python top-level functions from standard library API
-# for consistency with the md5 module of the standard library.
+# for consistency with the _md5 module of the standard library.
 # ======================================================================
 
-digest_size = digestsize = 16
-blocksize = 1
-
-def new(arg=None):
-    """Return a new md5 crypto object.
-
-    If arg is present, the method call update(arg) is made.
-    """
-
-    crypto = MD5Type()
-    if arg:
-        crypto.update(arg)
-
-    return crypto
-
+digest_size = 16
 
 def md5(arg=None):
     """Same as new().

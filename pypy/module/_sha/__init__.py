@@ -19,7 +19,6 @@ the concatenation of the strings fed to it so far. SHA-1 digests are 160
 bits instead of MD5's 128 bits."""
 
     interpleveldefs = {
-        'sha': 'interp_sha.W_SHA',
         'new': 'interp_sha.W_SHA',
         'SHAType': 'interp_sha.W_SHA',
         'blocksize': 'space.wrap(1)',

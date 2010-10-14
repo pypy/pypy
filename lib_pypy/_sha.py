@@ -118,6 +118,7 @@ class sha:
     "An implementation of the MD5 hash function in pure Python."
 
     digest_size = digestsize = 20
+    block_size = 1
 
     def __init__(self):
         "Initialisation."
@@ -328,13 +329,14 @@ class sha:
 
 # ======================================================================
 # Mimic Python top-level functions from standard library API
-# for consistency with the md5 module of the standard library.
+# for consistency with the _sha module of the standard library.
 # ======================================================================
 
 # These are mandatory variables in the module. They have constant values
 # in the SHA standard.
 
-digest_size = digestsize = 20
+digest_size = 20
+digestsize = 20
 blocksize = 1
 
 def new(arg=None):

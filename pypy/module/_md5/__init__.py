@@ -19,12 +19,9 @@ a.k.a. ``fingerprint'') of the concatenation of the strings fed to it so
 far using the digest() method."""
 
     interpleveldefs = {
-        'md5': 'interp_md5.W_MD5',
         'new': 'interp_md5.W_MD5',
         'MD5Type': 'interp_md5.W_MD5',
         'digest_size': 'space.wrap(16)',
-        'digestsize': 'space.wrap(16)',
-        'blocksize': 'space.wrap(1)',
         }
 
     appleveldefs = {
