@@ -78,8 +78,7 @@ class OptUnroll(Optimization):
             self.emit_operation(newop)
 
             # FIXME: force_lazy_setfield in heap.py may reorder last ops
-            if current > 0:
-                current -= 1
+            current = max(current-1, 0)
                 
             for op in self.optimizer.newoperations[current:]:
                 #print 'E: ', op,  self.optimizer.newoperations.index(op)
