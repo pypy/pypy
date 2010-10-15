@@ -88,6 +88,8 @@ class W_FileIO(W_RawIOBase):
         if space.isinstance_w(w_name, space.w_float):
             raise OperationError(space.w_TypeError, space.wrap(
                 "integer argument expected, got float"))
+
+        fd = -1
         try:
             fd = space.int_w(w_name)
         except OperationError, e:
@@ -99,12 +101,16 @@ class W_FileIO(W_RawIOBase):
 
         self.readable, self.writable, flags = decode_mode(space, mode)
 
-        from pypy.module.posix.interp_posix import dispatch_filename, rposix
-        try:
-            self.fd = dispatch_filename(rposix.open)(
-                space, w_name, flags, 0666)
-        except OSError, e:
-            raise wrap_oserror2(space, e, w_name)
+        if fd >= 0:
+            self.fd = fd
+        else:
+            from pypy.module.posix.interp_posix import (
+                dispatch_filename, rposix)
+            try:
+                self.fd = dispatch_filename(rposix.open)(
+                    space, w_name, flags, 0666)
+            except OSError, e:
+                raise wrap_oserror2(space, e, w_name)
         self.closefd = bool(closefd)
 
     def _check_closed(self, space):
