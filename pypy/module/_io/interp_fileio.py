@@ -9,7 +9,7 @@ def _bad_mode(space):
     raise OperationError(space.w_ValueError, space.wrap(
         "Must have exactly one of read/write/append mode"))
 
-def decode_mode(spac, mode):
+def decode_mode(space, mode):
     flags = 0
     rwa = False
     readable = False
@@ -32,7 +32,7 @@ def decode_mode(spac, mode):
         elif s == 'a':
             if rwa:
                 _bad_mode(space)
-            rwa = 1
+            rwa = True
             writable = True
             flags |= os.O_CREAT
             append = True
