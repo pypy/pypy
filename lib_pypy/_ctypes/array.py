@@ -109,15 +109,16 @@ class ArrayMeta(_CDataMeta):
 def array_get_slice_params(self, index):
     if index.step is not None:
         raise TypeError("3 arg slices not supported (for no reason)")
+    check_bounds = hasattr(self, '_length_')
     if index.start is not None:
         start = index.start
-        if start < 0:
+        if check_bounds and start < 0:
             start = 0
     else:
         start = 0
     if index.stop is not None:
         stop = index.stop
-        if stop > self._length_:
+        if check_bounds and stop > self._length_:
             stop = self._length_
     else:
         stop = self._length_
