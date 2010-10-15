@@ -375,11 +375,14 @@ class MD5Type:
 
 digest_size = 16
 
-def md5(arg=None):
-    """Same as new().
-
-    For backward compatibility reasons, this is an alternative
-    name for the new() function.
+def new(arg=None):
+    """Return a new md5 crypto object.
+    If arg is present, the method call update(arg) is made.
     """
 
-    return new(arg)
+    crypto = MD5Type()
+    if arg:
+        crypto.update(arg)
+
+    return crypto
+
