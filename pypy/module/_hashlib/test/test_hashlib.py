@@ -38,7 +38,8 @@ class AppTestHashlib:
             c_hexdigest = hexdigest
 
             # also test the pure Python implementation
-            h = hashlib.__get_builtin_constructor(name)('')
+            py_new = getattr(hashlib, '__get_builtin_constructor')
+            h = py_new(name)('')
             assert h.digest_size == expected_size
             assert h.digestsize == expected_size
             #
