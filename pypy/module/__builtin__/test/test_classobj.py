@@ -898,9 +898,17 @@ class AppTestOldstyle(object):
                       "long": long}
         for opname, opfunc in op_by_name.items():
             assert opfunc(b) == 42
-            assert b.called == ("__" + opname + "__", ())
+            called = b.called
+            assert called == ("__" + opname + "__", ())
         assert oct(a) == '__oct__()'
         assert hex(a) == '__hex__()'
+        #
+        class JustTrunc:
+            def __trunc__(self):
+                return 42
+        assert int(JustTrunc()) == 42
+        assert long(JustTrunc()) == 42
+        #
         #
         class C:
             def __getattr__(self, name):

@@ -418,6 +418,12 @@ class AppTestInt:
             pass 
         raises((AttributeError,TypeError), long, b())
 
+    def test_just_trunc(self):
+        class myint(object):
+            def __trunc__(self):
+                return 42
+        assert int(myint()) == 42
+
     def test_override___int__(self):
         class myint(int):
             def __int__(self):

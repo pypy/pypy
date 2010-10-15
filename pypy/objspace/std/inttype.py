@@ -101,8 +101,13 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
             except ParseStringOverflowError, e:
                  w_longval = retry_to_w_long(space, e.parser)
         else:
-            # otherwise, use the __int__() method
-            w_obj = space.int(w_value)
+            # otherwise, use the __int__() then __trunc__() methods
+            try:
+                w_obj = space.int(w_value)
+            except OperationError, e:
+                if not e.match(space,space.w_TypeError):
+                    raise
+                w_obj = space.trunc(w_value)
             # 'int(x)' should return whatever x.__int__() returned
             if space.is_w(w_inttype, space.w_int):
                 return w_obj

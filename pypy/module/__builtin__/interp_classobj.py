@@ -595,6 +595,27 @@ class W_InstanceObject(Wrappable):
                 space.wrap("__hash__ must return int or long"))
         return w_ret
 
+    def descr_int(self, space):
+        w_func = self.getattr(space, space.wrap('__int__'), False)
+        if w_func is not None:
+            return space.call_function(w_func)
+
+        w_truncated = space.trunc(self)
+        # int() needs to return an int
+        try:
+            return space.int(w_truncated)
+        except OperationError:
+            # Raise a different error
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("__trunc__ returned non-Integral"))
+
+    def descr_long(self, space):
+        w_func = self.getattr(space, space.wrap('__long__'), False)
+        if w_func is not None:
+            return space.call_function(w_func)
+        return self.descr_int(space)
+
     def descr_index(self, space):
         w_func = self.getattr(space, space.wrap('__index__'), False)
         if w_func is not None:
@@ -685,7 +706,7 @@ class W_InstanceObject(Wrappable):
 rawdict = {}
 
 # unary operations
-for op in "neg pos abs invert int long float oct hex enter reversed".split():
+for op in "neg pos abs invert trunc float oct hex enter reversed".split():
     specialname = "__%s__" % (op, )
     # fool the gateway logic by giving it a real unbound method
     meth = new.instancemethod(
@@ -762,6 +783,10 @@ W_InstanceObject.typedef = TypeDef("instance",
                          unwrap_spec=['self', ObjSpace, W_Root]),
     __hash__ = interp2app(W_InstanceObject.descr_hash,
                           unwrap_spec=['self', ObjSpace]),
+    __int__ = interp2app(W_InstanceObject.descr_int,
+                           unwrap_spec=['self', ObjSpace]),
+    __long__ = interp2app(W_InstanceObject.descr_long,
+                           unwrap_spec=['self', ObjSpace]),
     __index__ = interp2app(W_InstanceObject.descr_index,
                            unwrap_spec=['self', ObjSpace]),
     __contains__ = interp2app(W_InstanceObject.descr_contains,

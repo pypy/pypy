@@ -246,6 +246,12 @@ class AppTestLong:
         raises(OverflowError, operator.truediv, huge, 3)
         raises(OverflowError, operator.truediv, huge, 3L)
 
+    def test_just_trunc(self):
+        class myint(object):
+            def __trunc__(self):
+                return 42
+        assert long(myint()) == 42
+
     def test_override___long__(self):
         class mylong(long):
             def __long__(self):
