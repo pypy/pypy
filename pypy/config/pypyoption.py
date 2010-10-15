@@ -30,7 +30,8 @@ working_modules.update(dict.fromkeys(
       "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
-     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array"]
+     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+     "_multiprocessing"]
 ))
 
 working_oo_modules = default_modules.copy()
