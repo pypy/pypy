@@ -1,4 +1,4 @@
-from pypy.module._io.interp_io import W_RawIOBase
+from pypy.module._io.interp_iobase import W_RawIOBase
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
@@ -84,7 +84,7 @@ class W_FileIO(W_RawIOBase):
         return space.wrap(self)
 
     @unwrap_spec('self', ObjSpace, W_Root, str, int)
-    def descr_init(self, space, w_name, mode, closefd):
+    def descr_init(self, space, w_name, mode='r', closefd=True):
         if space.isinstance_w(w_name, space.w_float):
             raise OperationError(space.w_TypeError, space.wrap(
                 "integer argument expected, got float"))

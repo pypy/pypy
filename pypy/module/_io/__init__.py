@@ -9,8 +9,8 @@ class Module(MixedModule):
     interpleveldefs = {
         'DEFAULT_BUFFER_SIZE': 'space.wrap(interp_io.DEFAULT_BUFFER_SIZE)',
         'BlockingIOError': 'interp_io.W_BlockingIOError',
-        '_IOBase': 'interp_io.W_IOBase',
-        '_RawIOBase': 'interp_io.W_RawIOBase',
+        '_IOBase': 'interp_iobase.W_IOBase',
+        '_RawIOBase': 'interp_iobase.W_RawIOBase',
         '_BufferedIOBase': 'interp_io.W_BufferedIOBase',
         '_TextIOBase': 'interp_io.W_TextIOBase',
 
