@@ -145,7 +145,7 @@ class W_FileIO(W_RawIOBase):
                 self.seekable = 0
             else:
                 self.seekable = 1
-        return space.newbool(self.seekable)
+        return space.newbool(self.seekable == 1)
 
 W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
