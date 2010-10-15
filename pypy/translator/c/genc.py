@@ -628,7 +628,7 @@ class CStandaloneBuilder(CBuilder):
                         python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@')
 
         else:
-            mk.definition('DEBUGFLAGS', '-O1 -g')
+            mk.definition('DEBUGFLAGS', '-g')
         mk.write()
         #self.translator.platform,
         #                           ,
