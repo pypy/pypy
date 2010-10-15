@@ -35,7 +35,9 @@ Medium tasks
   test_pickle()
 
 - "exceptions must be old-style classes or derived from BaseException, not str"
-  in the 'raise' statement and generator.throw()
+  in the 'raise' statement and generator.throw(), catching a string
+  should emit a DeprecationWarning ("catching of string exceptions is
+  deprecated")
 
 - missing builtin: memoryview
 
