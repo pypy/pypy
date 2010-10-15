@@ -3,7 +3,11 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror2
+from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import os
+
+O_BINARY = getattr(os, "O_BINARY", 0)
+O_APPEND = getattr(os, "O_APPEND", 0)
 
 def _bad_mode(space):
     raise OperationError(space.w_ValueError, space.wrap(
@@ -28,13 +32,13 @@ def decode_mode(space, mode):
                 _bad_mode(space)
             rwa = True
             writable = True
-            flags |= os.O_CREAT | os.O_TRUNC
+            flags |= O_CREAT | O_TRUNC
         elif s == 'a':
             if rwa:
                 _bad_mode(space)
             rwa = True
             writable = True
-            flags |= os.O_CREAT
+            flags |= O_CREAT
             append = True
         elif s == 'b':
             pass
@@ -51,17 +55,16 @@ def decode_mode(space, mode):
         _bad_mode(space)
 
     if readable and writable:
-        flags |= os.O_RDWR
+        flags |= O_RDWR
     elif readable:
-        flags |= os.O_RDONLY
+        flags |= O_RDONLY
     else:
-        flags |= os.O_WRONLY
+        flags |= O_WRONLY
 
-    if hasattr(os, 'O_BINARY'):
-        flags |= os.O_BINARY
+    flags |= O_BINARY
 
-    if hasattr(os, 'O_APPEND') and append:
-        flags |= os.O_APPEND
+    if append:
+        flags |= O_APPEND
 
     return readable, writable, flags
 
