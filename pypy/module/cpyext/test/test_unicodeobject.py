@@ -177,13 +177,14 @@ class TestUnicode(BaseApiTest):
             encoded_charp = rffi.str2charp(encoded)
             strict_charp = rffi.str2charp("strict")
             if endian is not None:
-                pendian = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
                 if endian < 0:
-                    pendian[0] = -1
+                    value = -1
                 elif endian > 0:
-                    pendian[0] = 1
+                    value = 1
                 else:
-                    pendian[0] = 0
+                    value = 0
+                pendian = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+                pendian[0] = rffi.cast(rffi.INT, value)
             else:
                 pendian = None
 
