@@ -120,17 +120,43 @@ class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
         self.cb = CodeBuilder()
 
 def build_tests():
+    test_name = 'test_generated_%s'
     for key, value in instructions.load_store.iteritems():
         if value['imm']:
             f = gen_test_imm_func
         else:
             f = gen_test_reg_func
-        test = f(key, value)
-        setattr(TestInstrCodeBuilderForGeneratedInstr, 'test_%s' % key, test)
+        build_test(f, key, value, test_name)
 
     for key, value, in instructions.data_proc.iteritems():
-        test = gen_test_data_reg_func(key, value)
-        setattr(TestInstrCodeBuilderForGeneratedInstr, 'test_%s' % key, test)
+        build_test(gen_test_data_reg_func, key, value, test_name)
+
+    for key, value, in instructions.data_proc_imm.iteritems():
+        build_test(gen_test_data_proc_imm_func, key, value, test_name)
+
+# XXX refactor this functions
+
+def build_test(builder, key, value, test_name):
+    test = builder(key, value)
+    setattr(TestInstrCodeBuilderForGeneratedInstr, test_name % key, test)
+
+def gen_test_data_proc_imm_func(name, table):
+    if table['result'] and table['base']:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3, r.r7, 23)
+            self.assert_equal('%s r3, r7, #23' % name[:name.index('_')])
+    elif not table['base']:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3, 23)
+            self.assert_equal('%s r3, #23' % name[:name.index('_')])
+    else:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3, 23)
+            self.assert_equal('%s r3, #23' % name[:name.index('_')])
+    return f
 
 def gen_test_imm_func(name, table):
     def f(self):

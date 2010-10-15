@@ -10,33 +10,6 @@ class ARMv7Builder(object):
         self._data = alloc(1024)
         self._pos = 0
 
-    def ADD_ri(self, rt, rn, imm, cond=cond.AL):
-        # XXX S bit
-        self.write32(cond << 28
-                        | 2 << 24
-                        | 8 << 20
-                        | (rn & 0xF) << 16
-                        | (rt & 0xF) << 12
-                        | (imm & 0xFFF))
-
-    def SUB_ri(self, rd, rn, imm=0, cond=cond.AL, s=0):
-        self.write32(cond << 28
-                        | 9 << 22
-                        | (s & 0x1) << 20
-                        | (rn & 0xF) << 16
-                        | (rd & 0xF) << 12
-                        | (imm & 0xFFF))
-
-    def MOV_ri(self, rt, imm=0, cond=cond.AL):
-        # XXX Check the actual allowed size for imm
-        # XXX S bit
-        self.write32(cond << 28
-                    | 0x3 << 24
-                    | 0xA << 20
-                    #| 0x0 << 16
-                    | (rt & 0xF) << 12
-                    | (imm & 0xFFF))
-
     def PUSH(self, regs, cond=cond.AL):
         assert reg.sp not in regs
         instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)

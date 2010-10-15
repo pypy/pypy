@@ -32,3 +32,23 @@ data_proc = {
     #'RRX_ri': {'op1':0x1A, 'op2':0, 'op3':0x3, 'op2cond':'0', 'result':False, 'base':True},
     'ROR_ri': {'op1':0x1A, 'op2':0x0, 'op3':0x3, 'op2cond':'!0', 'result':True, 'base':False},
 }
+
+data_proc_imm = {
+    'ADD_ri': {'op': 0, 'rncond':'', 'result':True, 'base':True},
+    'EOR_ri': {'op': 0x2, 'rncond':'', 'result':True, 'base':True},
+    'SUB_ri': {'op': 0x4, 'rncond':'!0xF', 'result':True, 'base':True},
+    #'ADR_ri': {'op': 0x4, 'rncond':'0xF', 'result':True, 'base':True},
+    'RSB_ri': {'op': 0x6, 'rncond':'', 'result':True, 'base':True},
+    'ADD_ri': {'op': 0x8, 'rncond':'!0xF', 'result':True, 'base':True},
+    'ADC_ri': {'op': 0xA, 'rncond':'', 'result':True, 'base':True},
+    'SBC_ri': {'op': 0xC, 'rncond':'', 'result':True, 'base':True},
+    'RSC_ri': {'op': 0xE, 'rncond':'', 'result':True, 'base':True},
+    'TST_ri': {'op': 0x11, 'rncond':'', 'result':False, 'base':True},
+    'TEQ_ri': {'op': 0x13, 'rncond':'', 'result':False, 'base':True},
+    'CMP_ri': {'op': 0x15, 'rncond':'', 'result':False, 'base':True},
+    'CMN_ri': {'op': 0x17, 'rncond':'', 'result':False, 'base':True},
+    'ORR_ri': {'op': 0x18, 'rncond':'', 'result':True, 'base':True},
+    'MOV_ri': {'op': 0x1A, 'rncond':'', 'result':True, 'base':False},
+    'BIC_ri': {'op': 0x1C, 'rncond':'', 'result':True, 'base':True},
+    'MVN_ri': {'op': 0x1E, 'rncond':'', 'result':True, 'base':False},
+}
