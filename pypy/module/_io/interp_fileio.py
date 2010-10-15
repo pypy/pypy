@@ -3,6 +3,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror2
+from pypy.rlib.rarithmetic import r_longlong
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import os
 
@@ -118,6 +119,12 @@ class W_FileIO(W_RawIOBase):
             raise OperationError(space.w_ValueError, space.wrap(
                 "I/O operation on closed file"))
 
+    @unwrap_spec('self', ObjSpace, r_longlong, int)
+    def seek_w(self, space, pos, whence):
+        self._check_closed(space)
+        pos = os.lseek(self.fd, pos, whence)
+        return space.wrap(pos)
+
     @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         self._check_closed(space)
@@ -128,11 +135,27 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         return space.wrap(self.writable)
 
+    @unwrap_spec('self', ObjSpace)
+    def seekable_w(self, space):
+        self._check_closed(space)
+        if self.seekable < 0:
+            try:
+                pos = os.lseek(self.fd, 0, os.SEEK_CUR)
+            except OSError:
+                self.seekable = 0
+            else:
+                self.seekable = 1
+        return space.newbool(self.seekable)
+
 W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
     __new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_FileIO.descr_init),
+
+    seek = interp2app(W_FileIO.seek_w),
+
     readable = interp2app(W_FileIO.readable_w),
     writable = interp2app(W_FileIO.writable_w),
+    seekable = interp2app(W_FileIO.seekable_w),
     )
 

@@ -87,6 +87,13 @@ class W_IOBase(Wrappable):
     def seekable_w(self, space):
         return space.w_False
 
+    @unwrap_spec('self', ObjSpace)
+    def check_seekable_w(self, space):
+        if not space.is_true(space.call_method(self, 'seekable')):
+            raise OperationError(
+                space.w_IOError,
+                space.wrap("file or stream is not seekable"))
+
 W_IOBase.typedef = TypeDef(
     '_IOBase',
     __new__ = generic_new_descr(W_IOBase),
@@ -100,6 +107,7 @@ W_IOBase.typedef = TypeDef(
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
     seekable = interp2app(W_IOBase.seekable_w),
+    _checkSeekable = interp2app(W_IOBase.check_seekable_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
     )
 

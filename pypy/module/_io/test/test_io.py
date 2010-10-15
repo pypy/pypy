@@ -52,6 +52,12 @@ class AppTestOpen:
         f = io.open(self.tmpfile, "rb")
         f.close()
 
+    def test_open_writable(self):
+        import io
+        f = io.open(self.tmpfile, "w+b")
+        f.seek(0)
+        f.close()
+
     def test_open_fd(self):
         import io
         os = self.posix
