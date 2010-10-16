@@ -89,9 +89,10 @@ class AppTestGenerator:
                 pass
         g = f()
         g.next()
-        # String exceptions are allowed (with DeprecationWarning)
-        assert g.throw("Error") == 3
-        raises(StopIteration, g.throw, "Error")
+        # String exceptions are not allowed anymore
+        raises(TypeError, g.throw, "Error")
+        assert g.throw(Exception) == 3
+        raises(StopIteration, g.throw, Exception)
 
     def test_throw6(self):
         def f():

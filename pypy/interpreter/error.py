@@ -202,19 +202,14 @@ class OperationError(Exception):
                         w_value = space.call_function(w_type, w_value)
                     w_type = space.exception_getclass(w_value)
 
-        elif space.full_exceptions and space.is_w(space.type(w_type),
-                                                  space.w_str):
-            space.warn("raising a string exception is deprecated", 
-                       space.w_DeprecationWarning)
-
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
             w_instclass = space.exception_getclass(w_inst)
             if not space.exception_is_valid_class_w(w_instclass):
                 instclassname = w_instclass.getname(space, '?')
-                msg = ("exceptions must be classes, or instances, "
-                       "or strings (deprecated), not %s")
+                msg = ("exceptions must be old-style classes or derived "
+                       "from BaseException, not %s")
                 raise operationerrfmt(space.w_TypeError, msg, instclassname)
 
             if not space.is_w(w_value, space.w_None):
