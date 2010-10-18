@@ -68,6 +68,7 @@ class AppTestExc(object):
         assert isinstance(Exception(), BaseException)
         assert repr(Exception(3, "x")) == "Exception(3, 'x')"
         assert str(IOError("foo", "bar")) == "[Errno foo] bar"
+        assert isinstance(IOError("foo", "bar"), IOError)
 
     def test_custom_class(self):
         from exceptions import Exception, BaseException, LookupError
@@ -185,7 +186,7 @@ class AppTestExc(object):
         raises(TypeError, UnicodeEncodeError, u"x", u"y", 1, 5, "bah")
 
     def test_multiple_inheritance(self):
-        from exceptions import LookupError, ValueError, Exception
+        from exceptions import LookupError, ValueError, Exception, IOError
         class A(LookupError, ValueError):
             pass
         assert issubclass(A, A)
@@ -208,6 +209,17 @@ class AppTestExc(object):
             pass
         else:
             fail("bah")
+
+        class C(ValueError, IOError):
+            pass
+        c = C()
+        assert isinstance(ValueError(), ValueError)
+        assert isinstance(c, C)
+        assert isinstance(c, Exception)
+        assert isinstance(c, ValueError)
+        assert isinstance(c, IOError)
+        assert isinstance(c, EnvironmentError)
+        assert not isinstance(c, KeyError)
 
     def test_doc_and_module(self):
         import exceptions

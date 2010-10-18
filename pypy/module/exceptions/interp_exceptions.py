@@ -254,7 +254,6 @@ def _new_exception(name, base, docstring, **kwargs):
         base.typedef,
         __doc__ = W_Exc.__doc__,
         __module__ = 'exceptions',
-        __new__ = _new(W_Exc, realbase),
         **kwargs
     )
     W_Exc.typedef.applevel_subclasses_base = realbase
