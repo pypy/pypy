@@ -277,3 +277,11 @@ class CallControl(object):
             return seen.pop()
         else:
             return None
+
+    def could_be_green_field(self, GTYPE, fieldname):
+        GTYPE_fieldname = (GTYPE, fieldname)
+        for jd in self.jitdrivers_sd:
+            if jd.greenfield_info is not None:
+                if GTYPE_fieldname in jd.greenfield_info.green_fields:
+                    return True
+        return False

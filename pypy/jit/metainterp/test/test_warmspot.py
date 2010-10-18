@@ -296,6 +296,69 @@ class WarmspotTests(object):
         assert res == 1
         self.check_loops(int_add=1)   # I get 13 without the loop_header()
 
+    def test_omit_can_enter_jit(self):
+        # Simple test comparing the effects of always giving a can_enter_jit(),
+        # or not giving any.  Mostly equivalent, except that if given, it is
+        # ignored the first time, and so it ends up taking one extra loop to
+        # start JITting.
+        mydriver = JitDriver(greens=[], reds=['m'])
+        #
+        for i2 in range(10):
+            def f2(m):
+                while m > 0:
+                    mydriver.jit_merge_point(m=m)
+                    m -= 1
+            self.meta_interp(f2, [i2])
+            try:
+                self.check_tree_loop_count(1)
+                break
+            except AssertionError:
+                print "f2: no loop generated for i2==%d" % i2
+        else:
+            raise     # re-raise the AssertionError: check_loop_count never 1
+        #
+        for i1 in range(10):
+            def f1(m):
+                while m > 0:
+                    mydriver.can_enter_jit(m=m)
+                    mydriver.jit_merge_point(m=m)
+                    m -= 1
+            self.meta_interp(f1, [i1])
+            try:
+                self.check_tree_loop_count(1)
+                break
+            except AssertionError:
+                print "f1: no loop generated for i1==%d" % i1
+        else:
+            raise     # re-raise the AssertionError: check_loop_count never 1
+        #
+        assert i1 - 1 == i2
+
+    def test_no_loop_at_all(self):
+        mydriver = JitDriver(greens=[], reds=['m'])
+        def f2(m):
+            mydriver.jit_merge_point(m=m)
+            return m - 1
+        def f1(m):
+            while m > 0:
+                m = f2(m)
+        self.meta_interp(f1, [8])
+        # it should generate one "loop" only, which ends in a FINISH
+        # corresponding to the return from f2.
+        self.check_tree_loop_count(1)
+        self.check_loop_count(0)
+
+    def test_simple_loop(self):
+        mydriver = JitDriver(greens=[], reds=['m'])
+        def f1(m):
+            while m > 0:
+                mydriver.jit_merge_point(m=m)
+                m = m - 1
+        self.meta_interp(f1, [8])
+        self.check_loop_count(1)
+        self.check_loops({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
+                          'jump': 1})
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU

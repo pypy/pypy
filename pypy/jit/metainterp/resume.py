@@ -689,9 +689,11 @@ class AbstractResumeDataReader(object):
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
 
-def rebuild_from_resumedata(metainterp, storage, virtualizable_info):
+def rebuild_from_resumedata(metainterp, storage, virtualizable_info,
+                            greenfield_info):
     resumereader = ResumeDataBoxReader(storage, metainterp)
-    boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info)
+    boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
+                                                      greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
     frameinfo = storage.rd_frame_info_list
     while True:
@@ -736,15 +738,18 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         assert (end & 1) == 0
         return [self.decode_ref(nums[i]) for i in range(end)]
 
-    def consume_vref_and_vable_boxes(self, vinfo):
+    def consume_vref_and_vable_boxes(self, vinfo, ginfo):
         nums = self.cur_numb.nums
         self.cur_numb = self.cur_numb.prev
-        if vinfo is None:
-            virtualizable_boxes = None
-            end = len(nums)
-        else:
+        if vinfo is not None:
             virtualizable_boxes = self.consume_virtualizable_boxes(vinfo, nums)
             end = len(nums) - len(virtualizable_boxes)
+        elif ginfo is not None:
+            virtualizable_boxes = [self.decode_ref(nums[-1])]
+            end = len(nums) - 1
+        else:
+            virtualizable_boxes = None
+            end = len(nums)
         virtualref_boxes = self.consume_virtualref_boxes(nums, end)
         return virtualizable_boxes, virtualref_boxes
 
@@ -901,8 +906,9 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
     resumereader = ResumeDataDirectReader(blackholeinterpbuilder.cpu, storage,
                                           all_virtuals)
     vinfo = jitdriver_sd.virtualizable_info
+    ginfo = jitdriver_sd.greenfield_info
     vrefinfo = blackholeinterpbuilder.metainterp_sd.virtualref_info
-    resumereader.consume_vref_and_vable(vrefinfo, vinfo)
+    resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
     #
     # First get a chain of blackhole interpreters whose length is given
     # by the depth of rd_frame_info_list.  The first one we get must be
@@ -932,11 +938,11 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
     resumereader.done()
     return firstbh
 
-def force_from_resumedata(metainterp_sd, storage, vinfo=None):
+def force_from_resumedata(metainterp_sd, storage, vinfo, ginfo):
     resumereader = ResumeDataDirectReader(metainterp_sd.cpu, storage)
     resumereader.handling_async_forcing()
     vrefinfo = metainterp_sd.virtualref_info
-    resumereader.consume_vref_and_vable(vrefinfo, vinfo)
+    resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
     return resumereader.force_all_virtuals()
 
 class ResumeDataDirectReader(AbstractResumeDataReader):
@@ -1011,11 +1017,12 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         return specialize_value(TYPE, x)
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
-    def consume_vref_and_vable(self, vrefinfo, vinfo):
+    def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
         nums = self.cur_numb.nums
         self.cur_numb = self.cur_numb.prev
         if self.resume_after_guard_not_forced != 2:
             end_vref = self.consume_vable_info(vinfo, nums)
+            if ginfo is not None: end_vref -= 1
             self.consume_virtualref_info(vrefinfo, nums, end_vref)
 
     def allocate_with_vtable(self, known_class):

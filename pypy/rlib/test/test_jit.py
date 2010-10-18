@@ -1,4 +1,5 @@
 import py
+from pypy.conftest import option
 from pypy.rlib.jit import hint, we_are_jitted, JitDriver, purefunction_promote
 from pypy.rlib.jit import JitHintError, oopspec
 from pypy.translator.translator import TranslationContext, graphof
@@ -109,6 +110,26 @@ class BaseTestJIT(BaseRtypingTest):
                 n -= 1
             return n
         py.test.raises(JitHintError, self.gengraph, fn, [int])
+
+    def test_green_field(self):
+        def get_printable_location(xfoo):
+            return str(ord(xfoo))   # xfoo must be annotated as a character
+        myjitdriver = JitDriver(greens=['x.foo'], reds=['n', 'x'],
+                                get_printable_location=get_printable_location)
+        class A(object):
+            _immutable_fields_ = ['foo']
+        def fn(n):
+            x = A()
+            x.foo = chr(n)
+            while n > 0:
+                myjitdriver.can_enter_jit(x=x, n=n)
+                myjitdriver.jit_merge_point(x=x, n=n)
+                n -= 1
+            return n
+        t = self.gengraph(fn, [int])[0]
+        if option.view:
+            t.view()
+        # assert did not raise
 
 
 class TestJITLLtype(BaseTestJIT, LLRtypeMixin):

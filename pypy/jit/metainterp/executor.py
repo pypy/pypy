@@ -307,6 +307,7 @@ def _make_execute_list():
                          rop.CALL_ASSEMBLER,
                          rop.COND_CALL_GC_WB,
                          rop.DEBUG_MERGE_POINT,
+                         rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
                          ):      # list of opcodes never executed by pyjitpl
                 continue

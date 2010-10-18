@@ -95,18 +95,18 @@ class CodeWriter(object):
             print '%s:' % (ssarepr.name,)
             print format_assembler(ssarepr)
         else:
-            dir = udir.ensure("jitcodes", dir=1)
-            if portal_jitdriver:
-                name = "%02d_portal_runner" % (portal_jitdriver.index,)
-            elif ssarepr.name and ssarepr.name != '?':
-                name = ssarepr.name
-            else:
-                name = 'unnamed' % id(ssarepr)
-            i = 1
-            extra = ''
-            while name+extra in self._seen_files:
-                i += 1
-                extra = '.%d' % i
-            self._seen_files.add(name+extra)
-            dir.join(name+extra).write(format_assembler(ssarepr))
             log.dot()
+        dir = udir.ensure("jitcodes", dir=1)
+        if portal_jitdriver:
+            name = "%02d_portal_runner" % (portal_jitdriver.index,)
+        elif ssarepr.name and ssarepr.name != '?':
+            name = ssarepr.name
+        else:
+            name = 'unnamed' % id(ssarepr)
+        i = 1
+        extra = ''
+        while name+extra in self._seen_files:
+            i += 1
+            extra = '.%d' % i
+        self._seen_files.add(name+extra)
+        dir.join(name+extra).write(format_assembler(ssarepr))

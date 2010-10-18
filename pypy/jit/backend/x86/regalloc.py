@@ -1068,6 +1068,9 @@ class RegAlloc(object):
     def consider_debug_merge_point(self, op):
         pass
 
+    def consider_jit_debug(self, op):
+        pass
+
     def get_mark_gc_roots(self, gcrootmap):
         shape = gcrootmap.get_basic_shape(IS_X86_64)
         for v, val in self.fm.frame_bindings.items():

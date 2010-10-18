@@ -2,6 +2,7 @@ import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
 from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE, loop_invariant
+from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import pyjitpl, history
@@ -44,6 +45,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
         num_green_args = 0
         portal_graph = graphs[0]
         virtualizable_info = None
+        greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
 
@@ -1643,6 +1645,33 @@ class BasicTests:
 
         res = self.interp_operations(f, [10, 3.5])
         assert res == 3.5
+
+    def test_jit_debug(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x'])
+        class A:
+            pass
+        def f(x):
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x)
+                myjitdriver.jit_merge_point(x=x)
+                jit_debug("hi there:", x)
+                jit_debug("foobar")
+                x -= 1
+            return x
+        res = self.meta_interp(f, [8])
+        assert res == 0
+        self.check_loops(jit_debug=2)
+
+    def test_assert_green(self):
+        def f(x, promote):
+            if promote:
+                x = hint(x, promote=True)
+            assert_green(x)
+            return x
+        res = self.interp_operations(f, [8, 1])
+        assert res == 8
+        py.test.raises(AssertGreenFailed, self.interp_operations, f, [8, 0])
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 

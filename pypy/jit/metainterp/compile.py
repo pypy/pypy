@@ -370,7 +370,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         from pypy.jit.metainterp.resume import force_from_resumedata
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
-        all_virtuals = force_from_resumedata(metainterp_sd, self, vinfo)
+        ginfo = self.jitdriver_sd.greenfield_info
+        all_virtuals = force_from_resumedata(metainterp_sd, self, vinfo, ginfo)
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED

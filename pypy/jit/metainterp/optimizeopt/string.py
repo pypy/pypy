@@ -12,7 +12,7 @@ from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.codewriter.effectinfo import EffectInfo, callinfo_for_oopspec
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, we_are_translated
 
 
 class StrOrUnicode(object):
@@ -107,7 +107,10 @@ class VAbstractStringValue(virtualize.AbstractVirtualValue):
         self.box = box = self.source_op.result
         newoperations = self.optimizer.newoperations
         lengthbox = self.getstrlen(newoperations, self.mode)
-        newoperations.append(ResOperation(self.mode.NEWSTR, [lengthbox], box))
+        op = ResOperation(self.mode.NEWSTR, [lengthbox], box)
+        if not we_are_translated():
+            op.name = 'FORCE'
+        newoperations.append(op)
         self.string_copy_parts(newoperations, box, CONST_0, self.mode)
 
 

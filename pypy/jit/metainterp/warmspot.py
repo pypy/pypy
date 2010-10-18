@@ -115,10 +115,10 @@ def _find_jit_marker(graphs, marker_name):
     return results
 
 def find_can_enter_jit(graphs):
-    results = _find_jit_marker(graphs, 'can_enter_jit')
-    if not results:
-        raise Exception("no can_enter_jit found!")
-    return results
+    return _find_jit_marker(graphs, 'can_enter_jit')
+
+def find_loop_headers(graphs):
+    return _find_jit_marker(graphs, 'loop_header')
 
 def find_jit_merge_points(graphs):
     results = _find_jit_marker(graphs, 'jit_merge_point')
@@ -211,9 +211,9 @@ class WarmRunnerDesc(object):
                 "there are multiple jit_merge_points with the same jitdriver"
 
     def split_graph_and_record_jitdriver(self, graph, block, pos):
-        jd = JitDriverStaticData()
-        jd._jit_merge_point_pos = (graph, block, pos)
         op = block.operations[pos]
+        jd = JitDriverStaticData()
+        jd._jit_merge_point_pos = (graph, op)
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
         jd._portal_args_s = [s_binding(v) for v in args]
@@ -286,10 +286,20 @@ class WarmRunnerDesc(object):
     def make_virtualizable_infos(self):
         vinfos = {}
         for jd in self.jitdrivers_sd:
+            #
+            jd.greenfield_info = None
+            for name in jd.jitdriver.greens:
+                if '.' in name:
+                    from pypy.jit.metainterp.greenfield import GreenFieldInfo
+                    jd.greenfield_info = GreenFieldInfo(self.cpu, jd)
+                    break
+            #
             if not jd.jitdriver.virtualizables:
                 jd.virtualizable_info = None
                 jd.index_of_virtualizable = -1
                 continue
+            else:
+                assert jd.greenfield_info is None, "XXX not supported yet"
             #
             jitdriver = jd.jitdriver
             assert len(jitdriver.virtualizables) == 1    # for now
@@ -457,8 +467,7 @@ class WarmRunnerDesc(object):
             self.make_args_specification(jd)
 
     def make_args_specification(self, jd):
-        graph, block, index = jd._jit_merge_point_pos
-        op = block.operations[index]
+        graph, op = jd._jit_merge_point_pos
         greens_v, reds_v = support.decode_hp_hint_args(op)
         ALLARGS = [v.concretetype for v in (greens_v + reds_v)]
         jd._green_args_spec = [v.concretetype for v in greens_v]
@@ -474,32 +483,56 @@ class WarmRunnerDesc(object):
             [lltype.Signed, llmemory.GCREF], RESTYPE)
 
     def rewrite_can_enter_jits(self):
-        can_enter_jits = find_can_enter_jit(self.translator.graphs)
         sublists = {}
         for jd in self.jitdrivers_sd:
-            sublists[jd.jitdriver] = []
+            sublists[jd.jitdriver] = jd, []
+            jd.no_loop_header = True
+        #
+        loop_headers = find_loop_headers(self.translator.graphs)
+        for graph, block, index in loop_headers:
+            op = block.operations[index]
+            jitdriver = op.args[1].value
+            assert jitdriver in sublists, \
+                   "loop_header with no matching jit_merge_point"
+            jd, sublist = sublists[jitdriver]
+            jd.no_loop_header = False
+        #
+        can_enter_jits = find_can_enter_jit(self.translator.graphs)
         for graph, block, index in can_enter_jits:
             op = block.operations[index]
             jitdriver = op.args[1].value
             assert jitdriver in sublists, \
                    "can_enter_jit with no matching jit_merge_point"
+            jd, sublist = sublists[jitdriver]
             origportalgraph = jd._jit_merge_point_pos[0]
             if graph is not origportalgraph:
-                sublists[jitdriver].append((graph, block, index))
+                sublist.append((graph, block, index))
+                jd.no_loop_header = False
             else:
                 pass   # a 'can_enter_jit' before the 'jit-merge_point', but
                        # originally in the same function: we ignore it here
                        # see e.g. test_jitdriver.test_simple
         for jd in self.jitdrivers_sd:
-            sublist = sublists[jd.jitdriver]
-            assert len(sublist) > 0, \
-                   "found no can_enter_jit for %r" % (jd.jitdriver,)
+            _, sublist = sublists[jd.jitdriver]
             self.rewrite_can_enter_jit(jd, sublist)
 
     def rewrite_can_enter_jit(self, jd, can_enter_jits):
         FUNC = jd._JIT_ENTER_FUNCTYPE
         FUNCPTR = jd._PTR_JIT_ENTER_FUNCTYPE
         jit_enter_fnptr = self.helper_func(FUNCPTR, jd._maybe_enter_jit_fn)
+
+        if len(can_enter_jits) == 0:
+            # see test_warmspot.test_no_loop_at_all
+            operations = jd.portal_graph.startblock.operations
+            op1 = operations[0]
+            assert (op1.opname == 'jit_marker' and
+                    op1.args[0].value == 'jit_merge_point')
+            op0 = SpaceOperation(
+                'jit_marker',
+                [Constant('can_enter_jit', lltype.Void)] + op1.args[1:],
+                None)
+            operations.insert(0, op0)
+            can_enter_jits = [(jd.portal_graph, jd.portal_graph.startblock, 0)]
 
         for graph, block, index in can_enter_jits:
             if graph is jd._jit_merge_point_pos[0]:
@@ -709,8 +742,14 @@ class WarmRunnerDesc(object):
         # ____________________________________________________________
         # Now mutate origportalgraph to end with a call to portal_runner_ptr
         #
-        _, origblock, origindex = jd._jit_merge_point_pos
-        op = origblock.operations[origindex]
+        _, op = jd._jit_merge_point_pos
+        for origblock in origportalgraph.iterblocks():
+            if op in origblock.operations:
+                break
+        else:
+            assert False, "lost the operation %r in the graph %r" % (
+                op, origportalgraph)
+        origindex = origblock.operations.index(op)
         assert op.opname == 'jit_marker'
         assert op.args[0].value == 'jit_merge_point'
         greens_v, reds_v = support.decode_hp_hint_args(op)

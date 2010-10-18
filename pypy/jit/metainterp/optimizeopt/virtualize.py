@@ -74,6 +74,8 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         assert self.source_op is not None
         # ^^^ This case should not occur any more (see test_bug_3).
         #
+        if not we_are_translated():
+            self.source_op.name = 'FORCE ' + self.source_op.name
         newoperations = self.optimizer.newoperations
         newoperations.append(self.source_op)
         self.box = box = self.source_op.result
@@ -170,6 +172,8 @@ class VArrayValue(AbstractVirtualValue):
 
     def _really_force(self):
         assert self.source_op is not None
+        if not we_are_translated():
+            self.source_op.name = 'FORCE ' + self.source_op.name
         newoperations = self.optimizer.newoperations
         newoperations.append(self.source_op)
         self.box = box = self.source_op.result

@@ -320,6 +320,8 @@ class Transformer(object):
             prepare = self._handle_str2unicode_call
         elif oopspec_name.startswith('virtual_ref'):
             prepare = self._handle_virtual_ref_call
+        elif oopspec_name.startswith('jit.'):
+            prepare = self._handle_jit_call
         elif oopspec_name.startswith('libffi_'):
             prepare = self._handle_libffi_call
         else:
@@ -523,7 +525,12 @@ class Transformer(object):
         # check for deepfrozen structures that force constant-folding
         immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
         if immut:
-            pure = '_pure'
+            if (self.callcontrol is not None and
+                self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
+                                                      c_fieldname.value)):
+                pure = '_greenfield'
+            else:
+                pure = '_pure'
             if immut == "[*]":
                 self.immutable_arrays[op.result] = True
         else:
@@ -855,6 +862,15 @@ class Transformer(object):
         log.WARNING("found debug_assert in %r; should have be removed" %
                     (self.graph,))
         return []
+
+    def _handle_jit_call(self, op, oopspec_name, args):
+        if oopspec_name == 'jit.debug':
+            return SpaceOperation('jit_debug', args, None)
+        elif oopspec_name == 'jit.assert_green':
+            kind = getkind(args[0].concretetype)
+            return SpaceOperation('%s_assert_green' % kind, args, None)
+        else:
+            raise AssertionError("missing support for %r" % oopspec_name)
 
     # ----------
     # Lists.

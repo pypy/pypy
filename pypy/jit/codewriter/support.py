@@ -61,7 +61,7 @@ def getgraph(func, values):
     return rtyper.annotator.translator.graphs[0]
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
-    """Find the block with 'jit_merge_point' and split just before,
+    """Split the block just before the 'jit_merge_point',
     making sure the input args are in the canonical order.
     """
     # split the block just before the jit_merge_point()

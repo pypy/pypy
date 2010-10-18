@@ -153,7 +153,7 @@ class ResOpGen(object):
         opindex = opstartindex
         while True:
             op = operations[opindex]
-            lines.append(repr(op))
+            lines.append(op.repr(graytext=True))
             if is_interesting_guard(op):
                 tgt = op.getdescr()._debug_suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]

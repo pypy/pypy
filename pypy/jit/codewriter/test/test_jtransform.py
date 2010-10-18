@@ -687,6 +687,79 @@ def test_promote_2():
     assert block.operations[1].result is None
     assert block.exits[0].args == [v1]
 
+def test_jit_merge_point_1():
+    class FakeJitDriverSD:
+        index = 42
+        class jitdriver:
+            greens = ['green1', 'green2', 'voidgreen3']
+            reds = ['red1', 'red2', 'voidred3']
+    jd = FakeJitDriverSD()
+    v1 = varoftype(lltype.Signed)
+    v2 = varoftype(lltype.Signed)
+    vvoid1 = varoftype(lltype.Void)
+    v3 = varoftype(lltype.Signed)
+    v4 = varoftype(lltype.Signed)
+    vvoid2 = varoftype(lltype.Void)
+    v5 = varoftype(lltype.Void)
+    op = SpaceOperation('jit_marker',
+                        [Constant('jit_merge_point', lltype.Void),
+                         Constant(jd.jitdriver, lltype.Void),
+                         v1, v2, vvoid1, v3, v4, vvoid2], v5)
+    tr = Transformer()
+    tr.portal_jd = jd
+    oplist = tr.rewrite_operation(op)
+    assert len(oplist) == 6
+    assert oplist[0].opname == '-live-'
+    assert oplist[1].opname == 'int_guard_value'
+    assert oplist[1].args   == [v1]
+    assert oplist[2].opname == '-live-'
+    assert oplist[3].opname == 'int_guard_value'
+    assert oplist[3].args   == [v2]
+    assert oplist[4].opname == 'jit_merge_point'
+    assert oplist[4].args[0].value == 42
+    assert list(oplist[4].args[1]) == [v1, v2]
+    assert list(oplist[4].args[4]) == [v3, v4]
+    assert oplist[5].opname == '-live-'
+
+def test_getfield_gc():
+    S = lltype.GcStruct('S', ('x', lltype.Char))
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Char)
+    op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'getfield_gc_i'
+    assert op1.args == [v1, ('fielddescr', S, 'x')]
+    assert op1.result == v2
+
+def test_getfield_gc_pure():
+    S = lltype.GcStruct('S', ('x', lltype.Char),
+                        hints={'immutable': True})
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Char)
+    op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'getfield_gc_i_pure'
+    assert op1.args == [v1, ('fielddescr', S, 'x')]
+    assert op1.result == v2
+
+def test_getfield_gc_greenfield():
+    class FakeCC:
+        def get_vinfo(self, v):
+            return None
+        def could_be_green_field(self, S1, name1):
+            assert S1 is S
+            assert name1 == 'x'
+            return True
+    S = lltype.GcStruct('S', ('x', lltype.Char),
+                        hints={'immutable': True})
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Char)
+    op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
+    op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    assert op1.opname == 'getfield_gc_i_greenfield'
+    assert op1.args == [v1, ('fielddescr', S, 'x')]
+    assert op1.result == v2
+
 def test_int_abs():
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
