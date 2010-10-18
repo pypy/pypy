@@ -12,7 +12,6 @@ from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.tool.udir import udir
-from pypy.rlib.rarithmetic import intmask
 import ctypes
 import sys
 import os
@@ -396,38 +395,6 @@ class TestX86(LLtypeBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         res = self.execute_operation(rop.CALL, [funcbox, ConstFloat(1.5), ConstFloat(2.5)], 'float', descr=calldescr)
         assert res.value == 4.0
-
-    def test_result_of_call(self):
-        # Test that calling a function that returns a CHAR, SHORT or INT,
-        # signed or unsigned, properly gets zero-extended or sign-extended.
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
-                        rffi.SHORT, rffi.USHORT,
-                        rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
-            # Tested with a function that intentionally does not cast the
-            # result to RESTYPE, but makes sure that we return the whole
-            # value in eax or rax.
-            eci = ExternalCompilationInfo(separate_module_sources=["""
-                long fn_test_result_of_call(long x)
-                {
-                    return x + 1;
-                }
-            """])
-            f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
-                                RESTYPE, compilation_info=eci, _nowrapper=True)
-            value = intmask(0xFFEEDDCCBBAA9988)
-            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value + 1))
-            assert f(value) == expected
-            #
-            FUNC = self.FuncType([lltype.Signed], RESTYPE)
-            FPTR = self.Ptr(FUNC)
-            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-            funcbox = self.get_funcbox(self.cpu, f)
-            res = self.execute_operation(rop.CALL, [funcbox, BoxInt(value)],
-                                         'int', descr=calldescr)
-            assert res.value == expected, (
-                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
 
 
 class TestX86OverflowMC(TestX86):
