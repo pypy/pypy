@@ -326,7 +326,8 @@ class W_TypeObject(W_Object):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s): %s is not a subtype of %s",
                 w_self.name, w_subtype.name, w_subtype.name, w_self.name)
-        if w_self.instancetypedef is not w_subtype.instancetypedef:
+        if (w_self.instancetypedef is not w_subtype.instancetypedef and
+            w_self.lookup('__new__') is not w_subtype.lookup('__new__')):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s) is not safe, use %s.__new__()",
                 w_self.name, w_subtype.name, w_subtype.name)

@@ -28,6 +28,39 @@ class TestTypeObject:
             raises(TypeError, type, 'sub', (stufftype,), {})
         """)
 
+    def test_safe_subclass(self):
+        space = self.space
+        class W_Base(W_Object):
+            pass
+        def descr__new__(space, w_subtype):
+            return space.allocate_instance(W_Base, w_subtype)
+        W_Base.typedef = StdTypeDef("base",
+                                     __new__ = interp2app(descr__new__))
+        w_base = space.gettypeobject(W_Base.typedef)
+
+        # Cannot be created with base.__new__(derived)
+        class W_Derived(W_Base):
+            pass
+        def descr__new__(space, w_subtype):
+            return space.allocate_instance(W_Derived, w_subtype)
+        W_Derived.typedef = StdTypeDef("derived", W_Base.typedef,
+                                     __new__ = interp2app(descr__new__))
+        w_derived = space.gettypeobject(W_Derived.typedef)
+
+        # Can be created with base.__new__(derived2)
+        class W_Derived2(W_Base):
+            pass
+        W_Derived2.typedef = StdTypeDef("derived2", W_Base.typedef,
+                                        )
+        w_derived2 = space.gettypeobject(W_Derived2.typedef)
+
+        space.appexec([w_base, w_derived, w_derived2],
+                      """(base, derived, derived2):
+            raises(TypeError, base.__new__, derived)
+            x = base.__new__(derived2)
+            assert isinstance(x, derived2)
+            """)
+
     def test_del_warning(self):
         warnings = []
         def my_warn(msg, warningscls):
