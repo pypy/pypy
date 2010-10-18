@@ -73,9 +73,9 @@ module_suggests = {
     }
 
 module_import_dependencies = {
-    # no _rawffi if importing pypy.rlib.libffi raises ImportError
+    # no _rawffi if importing pypy.rlib.clibffi raises ImportError
     # or CompilationError
-    "_rawffi"   : ["pypy.rlib.libffi"],
+    "_rawffi"   : ["pypy.rlib.clibffi"],
 
     "zlib"      : ["pypy.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],

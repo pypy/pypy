@@ -80,6 +80,9 @@ def do_call(cpu, metainterp, argboxes, descr):
 do_call_loopinvariant = do_call
 do_call_may_force = do_call
 
+def do_call_c(cpu, metainterp, argboxes, descr):
+    raise NotImplementedError("Should never be called directly")
+
 def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
     index = indexbox.getint()

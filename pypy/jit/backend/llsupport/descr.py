@@ -307,6 +307,21 @@ class BaseIntCallDescr(BaseCallDescr):
     _return_type = history.INT
     call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0)
 
+class DynamicIntCallDescr(BaseIntCallDescr):
+    """
+    calldescr that works for every integer type, by explicitly passing it the
+    size of the result. Used only by get_call_descr_dynamic
+    """
+    _clsname = 'DynamicIntCallDescr'
+
+    def __init__(self, arg_classes, result_size, extrainfo=None):
+        BaseIntCallDescr.__init__(self, arg_classes, extrainfo)
+        self._result_size = result_size
+
+    def get_result_size(self, translate_support_code):
+        return self._result_size
+
+
 class NonGcPtrCallDescr(BaseIntCallDescr):
     _clsname = 'NonGcPtrCallDescr'
     def get_result_size(self, translate_support_code):

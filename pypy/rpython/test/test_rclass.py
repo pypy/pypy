@@ -319,6 +319,17 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 42
 
+    def test_staticmethod2(self):
+        class A(object):
+            f = staticmethod(lambda x, y: x*y)
+        class B(A):
+            f = staticmethod(lambda x, y: x+y)
+        def f():
+            b = B()
+            return b.f(6, 7)
+        res = self.interpret(f, [])
+        assert res == 13
+
     def test_is(self):
         class A: pass
         class B(A): pass

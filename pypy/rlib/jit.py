@@ -77,6 +77,12 @@ def purefunction_promote(promote_args='all'):
         return result
     return decorator
 
+def oopspec(spec):
+    def decorator(func):
+        func.oopspec = spec
+        return func
+    return decorator
+
 class Entry(ExtRegistryEntry):
     _about_ = hint
 

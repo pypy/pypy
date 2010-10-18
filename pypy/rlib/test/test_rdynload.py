@@ -1,5 +1,5 @@
 from pypy.rlib.rdynload import *
-from pypy.rlib.libffi import get_libc_name
+from pypy.rlib.clibffi import get_libc_name
 from pypy.rpython.lltypesystem import rffi, lltype
 import py
 

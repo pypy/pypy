@@ -16,7 +16,7 @@ def run_child(glob, loc):
     interp.heap.malloc_nonmovable = returns_null     # XXX
 
     from pypy.jit.backend.llgraph.runner import LLtypeCPU
-    LLtypeCPU.supports_floats = False    # for now
+    #LLtypeCPU.supports_floats = False    # for now
     apply_jit(interp, graph, LLtypeCPU)
 
 

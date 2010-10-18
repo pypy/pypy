@@ -1,10 +1,16 @@
 import py
 from pypy.rlib.jit import hint, we_are_jitted, JitDriver, purefunction_promote
-from pypy.rlib.jit import JitHintError
+from pypy.rlib.jit import JitHintError, oopspec
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem import lltype
 
+def test_oopspec():
+    @oopspec('foobar')
+    def fn():
+        pass
+    assert fn.oopspec == 'foobar'
+    
 class BaseTestJIT(BaseRtypingTest):
     def test_hint(self):
         def f():

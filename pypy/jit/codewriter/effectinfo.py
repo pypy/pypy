@@ -19,7 +19,7 @@ class EffectInfo(object):
     OS_NONE                     = 0    # normal case, no oopspec
     OS_ARRAYCOPY                = 1    # "list.ll_arraycopy"
     OS_STR2UNICODE              = 2    # "str.str2unicode"
-
+    #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
     OS_STR_EQUAL                = 24   # "stroruni.equal"
@@ -30,7 +30,7 @@ class EffectInfo(object):
     OS_STREQ_NONNULL_CHAR       = 29   # s1 == char  (assert s1!=NULL)
     OS_STREQ_CHECKNULL_CHAR     = 30   # s1!=NULL and s1==char
     OS_STREQ_LENGTHOK           = 31   # s1 == s2    (assert len(s1)==len(s2))
-
+    #
     OS_UNI_CONCAT               = 42   #
     OS_UNI_SLICE                = 43   #
     OS_UNI_EQUAL                = 44   #
@@ -42,6 +42,10 @@ class EffectInfo(object):
     OS_UNIEQ_CHECKNULL_CHAR     = 50   #   STR, in the same order)
     OS_UNIEQ_LENGTHOK           = 51   #
     _OS_offset_uni              = OS_UNI_CONCAT - OS_STR_CONCAT
+    #
+    OS_LIBFFI_PREPARE           = 60
+    OS_LIBFFI_PUSH_ARG          = 61
+    OS_LIBFFI_CALL              = 62
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,

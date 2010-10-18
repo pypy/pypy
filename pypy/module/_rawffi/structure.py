@@ -15,7 +15,7 @@ from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import size_alignment
-from pypy.rlib import libffi
+from pypy.rlib import clibffi
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 def unpack_fields(space, w_fields):
@@ -104,14 +104,14 @@ class W_Structure(W_DataShape):
     descr_fieldoffset.unwrap_spec = ['self', ObjSpace, str]
 
     # get the corresponding ffi_type
-    ffi_struct = lltype.nullptr(libffi.FFI_STRUCT_P.TO)
+    ffi_struct = lltype.nullptr(clibffi.FFI_STRUCT_P.TO)
 
     def get_basic_ffi_type(self):
         if not self.ffi_struct:
             # Repeated fields are delicate.  Consider for example
             #     struct { int a[5]; }
             # or  struct { struct {int x;} a[5]; }
-            # Seeing no corresponding doc in libffi, let's just repeat
+            # Seeing no corresponding doc in clibffi, let's just repeat
             # the field 5 times...
             fieldtypes = []
             for name, tp in self.fields:
@@ -122,7 +122,7 @@ class W_Structure(W_DataShape):
                 while count + basic_size <= total_size:
                     fieldtypes.append(basic_ffi_type)
                     count += basic_size
-            self.ffi_struct = libffi.make_struct_ffitype_e(self.size,
+            self.ffi_struct = clibffi.make_struct_ffitype_e(self.size,
                                                            self.alignment,
                                                            fieldtypes)
         return self.ffi_struct.ffistruct

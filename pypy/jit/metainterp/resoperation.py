@@ -463,7 +463,7 @@ _oplist = [
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL/*d',
-    'CALL_ASSEMBLER/*d',
+    'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
     #'OOSEND',                     # ootype operation

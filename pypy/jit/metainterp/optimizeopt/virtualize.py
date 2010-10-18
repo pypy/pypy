@@ -134,6 +134,11 @@ class VirtualValue(AbstractVirtualStructValue):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_virtual(self.known_class, fielddescrs)
 
+    def __repr__(self):
+        cls_name = self.known_class.value.adr.ptr._obj._TYPE._name
+        field_names = [field.name for field in self._fields]
+        return "<VirtualValue cls=%s fields=%s>" % (cls_name, field_names)
+
 class VStructValue(AbstractVirtualStructValue):
 
     def __init__(self, optimizer, structdescr, keybox, source_op=None):

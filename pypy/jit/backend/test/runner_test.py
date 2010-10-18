@@ -421,6 +421,7 @@ class BaseBackendTest(Runner):
             assert x == 3.5 - 42
 
     def test_call(self):
+        from pypy.rlib.libffi import types
 
         def func_int(a, b):
             return a + b
@@ -428,23 +429,31 @@ class BaseBackendTest(Runner):
             return chr(ord(c) + ord(c1))
 
         functions = [
-            (func_int, lltype.Signed, 655360),
-            (func_int, rffi.SHORT, 1213),
-            (func_char, lltype.Char, 12)
+            (func_int, lltype.Signed, types.sint, 655360),
+            (func_int, rffi.SHORT, types.sint16, 1213),
+            (func_char, lltype.Char, types.uchar, 12)
             ]
 
-        for func, TP, num in functions:
+        for func, TP, ffi_type, num in functions:
             cpu = self.cpu
             #
             FPTR = self.Ptr(self.FuncType([TP, TP], TP))
             func_ptr = llhelper(FPTR, func)
             FUNC = deref(FPTR)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
+            # first, try it with the "normal" calldescr
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=calldescr)
             assert res.value == 2 * num
+            # then, try it with the dynamic calldescr
+            dyn_calldescr = cpu.calldescrof_dynamic([ffi_type, ffi_type], ffi_type)
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox, BoxInt(num), BoxInt(num)],
+                                         'int', descr=dyn_calldescr)
+            assert res.value == 2 * num
+            
 
         if cpu.supports_floats:
             def func(f0, f1, f2, f3, f4, f5, f6, i0, i1, f7, f8, f9):
@@ -506,6 +515,23 @@ class BaseBackendTest(Runner):
                                          [funcbox] + map(BoxInt, args),
                                          'int', descr=calldescr)
             assert res.value == func_ints(*args)
+
+    def test_call_to_c_function(self):
+        from pypy.rlib.libffi import CDLL, types, ArgChain
+        libc = CDLL('libc.so.6')
+        c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
+        argchain = ArgChain().arg(ord('A'))
+        assert c_tolower.call(argchain, rffi.INT) == ord('a')
+
+        func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
+        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        calldescr = self.cpu.calldescrof_dynamic([types.uchar], types.sint)
+        res = self.execute_operation(rop.CALL,
+                                     [funcbox, BoxInt(ord('A'))],
+                                     'int',
+                                     descr=calldescr)
+        assert res.value == ord('a')
+
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)

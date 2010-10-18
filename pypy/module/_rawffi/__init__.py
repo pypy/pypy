@@ -1,5 +1,5 @@
 
-""" Low-level interface to libffi
+""" Low-level interface to clibffi
 """
 
 from pypy.interpreter.mixedmodule import MixedModule
@@ -39,11 +39,11 @@ class Module(MixedModule):
         if hasattr(interp_rawffi, 'check_HRESULT'):
             Module.interpleveldefs['check_HRESULT'] = 'interp_rawffi.check_HRESULT'
 
-        from pypy.rlib import libffi
+        from pypy.rlib import clibffi
         for name in ['FUNCFLAG_STDCALL', 'FUNCFLAG_CDECL', 'FUNCFLAG_PYTHONAPI',
                      ]:
-            if hasattr(libffi, name):
-                Module.interpleveldefs[name] = "space.wrap(%r)" % getattr(libffi, name)
+            if hasattr(clibffi, name):
+                Module.interpleveldefs[name] = "space.wrap(%r)" % getattr(clibffi, name)
                 
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)

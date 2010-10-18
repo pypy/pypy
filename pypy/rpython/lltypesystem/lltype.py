@@ -794,6 +794,8 @@ def _cast_whatever(TGT, value):
             return llmemory.cast_adr_to_ptr(value, TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
         return llmemory.cast_ptr_to_adr(value)
+    elif TGT == Signed and isinstance(ORIG, Ptr) and ORIG.TO._gckind == 'raw':
+        return llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(value), 'symbolic')
     raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))
 
 

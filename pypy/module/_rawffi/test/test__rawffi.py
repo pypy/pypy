@@ -191,7 +191,7 @@ class AppTestFfi:
     prepare_c_example = staticmethod(prepare_c_example)
     
     def setup_class(cls):
-        from pypy.rlib.libffi import get_libc_name
+        from pypy.rlib.clibffi import get_libc_name
         space = gettestobjspace(usemodules=('_rawffi', 'struct'))
         cls.space = space
         cls.w_lib_name = space.wrap(cls.prepare_c_example())

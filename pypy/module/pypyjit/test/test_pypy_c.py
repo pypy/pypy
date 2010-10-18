@@ -79,8 +79,11 @@ def test_from_entry_bridge():
 
 
 class PyPyCJITTests(object):
-    def run_source(self, source, expected_max_ops, *testcases):
+    def run_source(self, source, expected_max_ops, *testcases, **kwds):
         assert isinstance(expected_max_ops, int)
+        threshold = kwds.pop('threshold', 3)
+        if kwds:
+            raise TypeError, 'Unsupported keyword arguments: %s' % kwds.keys()
         source = py.code.Source(source)
         filepath = self.tmpdir.join('case%d.py' % self.counter)
         logfilepath = filepath.new(ext='.log')
@@ -92,7 +95,7 @@ class PyPyCJITTests(object):
             import sys
             try: # make the file runnable by CPython
                 import pypyjit
-                pypyjit.set_param(threshold=3)
+                pypyjit.set_param(threshold=%d)
             except ImportError:
                 pass
 
@@ -102,7 +105,7 @@ class PyPyCJITTests(object):
                 print >> sys.stderr, 'got:', repr(result)
                 assert result == expected
                 assert type(result) is type(expected)
-        """)
+        """ % threshold)
         for testcase in testcases * 2:
             print >> f, "check(%r, %r)" % testcase
         print >> f, "print 'OK :-)'"
@@ -123,6 +126,7 @@ class PyPyCJITTests(object):
         if self.total_ops > expected_max_ops:
             assert 0, "too many operations: got %d, expected maximum %d" % (
                 self.total_ops, expected_max_ops)
+        return result
 
     def parse_loops(self, opslogfile):
         from pypy.jit.metainterp.test.oparser import parse
@@ -1133,6 +1137,39 @@ class PyPyCJITTests(object):
                 i+=1
             return sa
         ''', 88, ([], 1997001))
+
+    def test__ffi_call(self):
+        from pypy.rlib.test.test_libffi import get_libm_name
+        libm_name = get_libm_name(sys.platform)
+        out = self.run_source('''
+        def main():
+            from _ffi import CDLL, types
+            libm = CDLL('%(libm_name)s')
+            pow = libm.getfunc('pow', [types.double, types.double],
+                               types.double)
+            print pow.getaddr()
+            i = 0
+            res = 0
+            while i < 2000:
+                res += pow(2, 3)
+                i += 1
+            return res
+        ''' % locals(),
+                              76, ([], 8.0*2000), threshold=1000)
+        pow_addr = int(out.splitlines()[0])
+        ops = self.get_by_bytecode('CALL_FUNCTION')
+        assert len(ops) == 2 # we get two loops, because of specialization
+        call_function = ops[0]
+        last_ops = [op.getopname() for op in call_function[-5:]]
+        assert last_ops == ['force_token',
+                            'setfield_gc',
+                            'call_may_force',
+                            'guard_not_forced',
+                            'guard_no_exception']
+        call = call_function[-3]
+        assert call.getarg(0).value == pow_addr
+        assert call.getarg(1).value == 2.0
+        assert call.getarg(2).value == 3.0
 
     # test_circular
 
