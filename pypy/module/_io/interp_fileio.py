@@ -162,6 +162,11 @@ class W_FileIO(W_RawIOBase):
                 self.seekable = 1
         return space.newbool(self.seekable == 1)
 
+    @unwrap_spec('self', ObjSpace)
+    def fileno_w(self, space):
+        self._check_closed(space)
+        return space.wrap(self.fd)
+
 W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
     __new__  = interp2app(W_FileIO.descr_new.im_func),
@@ -172,6 +177,7 @@ W_FileIO.typedef = TypeDef(
     readable = interp2app(W_FileIO.readable_w),
     writable = interp2app(W_FileIO.writable_w),
     seekable = interp2app(W_FileIO.seekable_w),
+    fileno = interp2app(W_FileIO.fileno_w),
     name = interp_attrproperty_w('w_name', cls=W_FileIO),
     mode = GetSetProperty(W_FileIO.descr_get_mode),
     )

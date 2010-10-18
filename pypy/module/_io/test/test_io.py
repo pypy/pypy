@@ -65,4 +65,5 @@ class AppTestOpen:
         os = self.posix
         fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
         f = io.open(fd, "rb")
+        assert f.fileno() == fd
         f.close()
