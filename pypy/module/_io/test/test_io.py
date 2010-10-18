@@ -50,6 +50,8 @@ class AppTestOpen:
     def test_open(self):
         import io
         f = io.open(self.tmpfile, "rb")
+        assert f.name.endswith('tmpfile')
+        assert f.mode == 'rb'
         f.close()
 
     def test_open_writable(self):

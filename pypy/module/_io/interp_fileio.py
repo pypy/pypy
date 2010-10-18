@@ -1,5 +1,6 @@
 from pypy.module._io.interp_iobase import W_RawIOBase
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import (
+    TypeDef, interp_attrproperty_w, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror2
@@ -77,6 +78,7 @@ class W_FileIO(W_RawIOBase):
         self.writable = False
         self.seekable = -1
         self.closefd = True
+        self.w_name = None
 
     @unwrap_spec(ObjSpace, W_Root, Arguments)
     def descr_new(space, w_subtype, __args__):
@@ -113,6 +115,19 @@ class W_FileIO(W_RawIOBase):
             except OSError, e:
                 raise wrap_oserror2(space, e, w_name)
         self.closefd = bool(closefd)
+        self.w_name = w_name
+
+    def _mode(self):
+        if self.readable:
+            if self.writable:
+                return 'rb+'
+            else:
+                return 'rb'
+        else:
+            return 'wb'
+
+    def descr_get_mode(space, self):
+        return space.wrap(self._mode())
 
     def _check_closed(self, space):
         if self.fd < 0:
@@ -157,5 +172,7 @@ W_FileIO.typedef = TypeDef(
     readable = interp2app(W_FileIO.readable_w),
     writable = interp2app(W_FileIO.writable_w),
     seekable = interp2app(W_FileIO.seekable_w),
+    name = interp_attrproperty_w('w_name', cls=W_FileIO),
+    mode = GetSetProperty(W_FileIO.descr_get_mode),
     )
 
