@@ -26,8 +26,6 @@ Probably easy tasks
 
 - Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
 
-- Missing module future_builtins
-
 Medium tasks
 ------------
 
@@ -47,7 +45,9 @@ Longer tasks
 
 - Finish _multiprocessing
 
-- Update the _ssl module (entry point is now _ssl.sslwrap)
+- many features are missing from the _ssl module
+
+- Enable -3 option to run test_py3kwarn.
 
 More difficult issues
 ---------------------
