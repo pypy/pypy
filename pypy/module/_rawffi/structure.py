@@ -34,7 +34,7 @@ def unpack_fields(space, w_fields):
 def round_up(size, alignment):
     return (size + alignment - 1) & -alignment
 
-def size_alignment_pos(fields):
+def size_alignment_pos(fields, is_union=False):
     size = 0
     alignment = 1
     pos = []
@@ -42,16 +42,20 @@ def size_alignment_pos(fields):
         # fieldtype is a W_Array
         fieldsize = fieldtype.size
         fieldalignment = fieldtype.alignment
-        size = round_up(size, fieldalignment)
         alignment = max(alignment, fieldalignment)
-        pos.append(size)
-        size += intmask(fieldsize)
+        if is_union:
+            pos.append(0)
+            size = max(size, fieldsize)
+        else:
+            size = round_up(size, fieldalignment)
+            pos.append(size)
+            size += intmask(fieldsize)
     size = round_up(size, alignment)
     return size, alignment, pos
 
 
 class W_Structure(W_DataShape):
-    def __init__(self, space, fields, size, alignment):
+    def __init__(self, space, fields, size, alignment, is_union=False):
         name_to_index = {}
         if fields is not None:
             for i in range(len(fields)):
@@ -60,7 +64,7 @@ class W_Structure(W_DataShape):
                     raise operationerrfmt(space.w_ValueError,
                         "duplicate field name %s", name)
                 name_to_index[name] = i
-            size, alignment, pos = size_alignment_pos(fields)
+            size, alignment, pos = size_alignment_pos(fields, is_union)
         else: # opaque case
             fields = []
             pos = []
@@ -69,6 +73,7 @@ class W_Structure(W_DataShape):
         self.alignment = alignment                
         self.ll_positions = pos
         self.name_to_index = name_to_index
+        self.is_union = is_union
 
     def allocate(self, space, length, autofree=False):
         # length is ignored!
@@ -133,15 +138,17 @@ class W_Structure(W_DataShape):
     
 
 
-def descr_new_structure(space, w_type, w_shapeinfo):
+def descr_new_structure(space, w_type, w_shapeinfo, union=0):
+    is_union = bool(union)
     if space.is_true(space.isinstance(w_shapeinfo, space.w_tuple)):
         w_size, w_alignment = space.fixedview(w_shapeinfo, expected_length=2)
         S = W_Structure(space, None, space.int_w(w_size),
-                                     space.int_w(w_alignment))
+                                     space.int_w(w_alignment), is_union)
     else:
         fields = unpack_fields(space, w_shapeinfo)
-        S = W_Structure(space, fields, 0, 0)
+        S = W_Structure(space, fields, 0, 0, is_union)
     return space.wrap(S)
+descr_new_structure.unwrap_spec = [ObjSpace, W_Root, W_Root, int]
 
 W_Structure.typedef = TypeDef(
     'Structure',

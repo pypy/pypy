@@ -945,14 +945,15 @@ class AppTestFfi:
         assert a[4] == 't'
 
     def test_union(self):
-        skip("segfaulting")
         import _rawffi
         longsize = _rawffi.sizeof('l')
-        S = _rawffi.Structure((longsize, longsize))
+        S = _rawffi.Structure([('x', 'h'), ('y', 'l')], union=True)
         s = S(autofree=False)
+        s.x = 12345
         lib = _rawffi.CDLL(self.lib_name)
         f = lib.ptr('ret_un_func', [(S, 1)], (S, 1))
         ret = f(s)
+        assert ret.y == 1234500, "ret.y == %d" % (ret.y,)
         s.free()
 
 class AppTestAutoFree:
