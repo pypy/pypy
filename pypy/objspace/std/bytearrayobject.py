@@ -104,7 +104,7 @@ def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
 
 # bytearray-to-string delegation
 def delegate_Bytearray2String(space, w_bytearray):
-    return W_StringObject(''.join(w_bytearray.data))
+    return str__Bytearray(space, w_bytearray)
 
 def String2Bytearray(space, w_str):
     data = [c for c in space.str_w(w_str)]
@@ -187,6 +187,9 @@ def repr__Bytearray(space, w_bytearray):
     buf.append("')")
 
     return space.wrap(buf.build())
+
+def str__Bytearray(space, w_bytearray):
+    return W_StringObject(''.join(w_bytearray.data))
 
 def _convert_idx_params(space, w_self, w_start, w_stop):
     start = slicetype._Eval_SliceIndex(space, w_start)

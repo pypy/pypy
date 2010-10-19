@@ -27,6 +27,11 @@ class AppTestBytesArray:
         assert repr(bytearray('test')) == "bytearray(b'test')"
         assert repr(bytearray("d'oh")) == r"bytearray(b'd\'oh')"
 
+    def test_str(self):
+        assert str(bytearray()) == ""
+        assert str(bytearray('test')) == "test"
+        assert str(bytearray("d'oh")) == "d'oh"
+
     def test_getitem(self):
         b = bytearray('test')
         assert b[0] == ord('t')
