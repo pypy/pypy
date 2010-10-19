@@ -46,3 +46,15 @@ class AppTestFileIO:
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
         assert f.readall() == "a\nb\nc"
+        f.close()
+
+    def test_write(self):
+        import _io
+        filename = self.tmpfile + '_w'
+        f = _io.FileIO(filename, 'wb')
+        f.write("test")
+        # try without flushing
+        f2 = _io.FileIO(filename, 'rb')
+        assert f2.read() == "test"
+        f.close()
+        f2.close()

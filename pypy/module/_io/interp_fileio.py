@@ -277,6 +277,20 @@ class W_FileIO(W_RawIOBase):
     # ______________________________________________
 
     @unwrap_spec('self', ObjSpace, W_Root)
+    def write_w(self, space, w_data):
+        self._check_closed(space)
+        # XXX self._check_writable(space)
+        data = space.str_w(w_data)
+
+        try:
+            n = os.write(self.fd, data)
+        except OSError, e:
+            raise wrap_oserror(space, e,
+                               exception_name='w_IOError')
+
+        return space.wrap(n)
+
+    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         # XXX self._check_readable(space)
@@ -326,6 +340,7 @@ W_FileIO.typedef = TypeDef(
     __init__  = interp2app(W_FileIO.descr_init),
 
     seek = interp2app(W_FileIO.seek_w),
+    write = interp2app(W_FileIO.write_w),
     read = interp2app(W_FileIO.read_w),
     readall = interp2app(W_FileIO.readall_w),
     close = interp2app(W_FileIO.close_w),
