@@ -14,6 +14,8 @@ from pypy.objspace.std.stringtype import (
     str_ljust, str_rjust, str_center, str_zfill,
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
     str_splitlines)
+from pypy.objspace.std.listtype import (
+    list_extend)
 
 def _getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):

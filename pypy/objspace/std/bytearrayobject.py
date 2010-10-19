@@ -350,5 +350,17 @@ def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
         String2Bytearray(space, w_b),
         String2Bytearray(space, w_c)])
 
+# __________________________________________________________
+# Mutability methods
+
+def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
+    w_bytearray.data += w_other.data
+    return space.w_None
+
+def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
+    w_bytearray.data += [c for c in space.str_w(w_other)]
+    return space.w_None
+
+
 from pypy.objspace.std import bytearraytype
 register_all(vars(), bytearraytype)

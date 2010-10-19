@@ -131,3 +131,9 @@ class AppTestBytesArray:
 
         check(b.partition(b'ss'), (b'mi', b'ss', b'issippi'))
         check(b.rpartition(b'ss'), (b'missi', b'ss', b'ippi'))
+
+    def test_extend(self):
+        b = bytearray('abc')
+        b.extend(bytearray('def'))
+        b.extend('ghi')
+        assert b == 'abcdefghi'
