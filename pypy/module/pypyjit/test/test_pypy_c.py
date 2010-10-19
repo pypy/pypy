@@ -789,24 +789,6 @@ class PyPyCJITTests(object):
                     return sa
                 '''%(e1, e2), n, ([], res))
 
-    def test_boolrewrite_ptr_single(self):
-        self.run_source('''
-            class tst:
-                pass
-            def main():
-                a = tst()
-                b = tst()
-                c = tst()
-                sa = 0
-                for i in range(1000):
-                    if a == b: sa += 1
-                    else: sa += 2
-                    if a != b: sa += 10000
-                    else: sa += 20000
-                    if i > 750: a = b
-                return sa
-            ''', 215, ([], 12481752))
-
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
             res = 19352859
