@@ -1,5 +1,5 @@
 from pypy.conftest import gettestobjspace
-import os
+from pypy.tool.udir import udir
 
 class AppTestIoModule:
     def setup_class(cls):
@@ -40,12 +40,8 @@ class AppTestIoModule:
 
 class AppTestOpen:
     def setup_class(cls):
-        from pypy.tool.udir import udir
         tmpfile = udir.join('tmpfile').ensure()
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        cls.w_posix = cls.space.appexec([], """():
-            import %s as m;
-            return m""" % os.name)
 
     def test_open(self):
         import io
@@ -57,13 +53,5 @@ class AppTestOpen:
     def test_open_writable(self):
         import io
         f = io.open(self.tmpfile, "w+b")
-        f.seek(0)
         f.close()
 
-    def test_open_fd(self):
-        import io
-        os = self.posix
-        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
-        f = io.open(fd, "rb")
-        assert f.fileno() == fd
-        f.close()

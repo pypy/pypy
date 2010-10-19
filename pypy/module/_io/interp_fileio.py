@@ -3,10 +3,10 @@ from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty_w, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.error import OperationError, wrap_oserror2
+from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rlib.rarithmetic import r_longlong
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
-import os
+import os, stat, errno
 
 O_BINARY = getattr(os, "O_BINARY", 0)
 O_APPEND = getattr(os, "O_APPEND", 0)
@@ -68,7 +68,16 @@ def decode_mode(space, mode):
     if append:
         flags |= O_APPEND
 
-    return readable, writable, flags
+    return readable, writable, append, flags
+
+def convert_size(space, w_size):
+    if space.is_w(w_size, space.w_None):
+        return -1
+    else:
+        return space.int_w(w_size)
+
+def verify_fd(fd):
+    return
 
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
@@ -102,20 +111,43 @@ class W_FileIO(W_RawIOBase):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "negative file descriptor"))
 
-        self.readable, self.writable, flags = decode_mode(space, mode)
+        self.readable, self.writable, append, flags = decode_mode(space, mode)
 
         if fd >= 0:
+            verify_fd(fd)
+            try:
+                os.fstat(fd)
+            except OSError, e:
+                if e.errno == errno.EBADF:
+                    raise wrap_oserror(space, e)
+                # else: pass
             self.fd = fd
+            self.closefd = bool(closefd)
         else:
+            if not closefd:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "Cannot use closefd=False with file name"))
+            self.closefd = True
+
             from pypy.module.posix.interp_posix import (
                 dispatch_filename, rposix)
             try:
                 self.fd = dispatch_filename(rposix.open)(
                     space, w_name, flags, 0666)
             except OSError, e:
-                raise wrap_oserror2(space, e, w_name)
-        self.closefd = bool(closefd)
+                raise wrap_oserror2(space, e, w_name,
+                                    exception_name='w_OSError')
+
+            self._dircheck(space, w_name)
         self.w_name = w_name
+
+        if append:
+            # For consistent behaviour, we explicitly seek to the end of file
+            # (otherwise, it might be done only on the first write()).
+            try:
+                os.lseek(self.fd, 0, os.SEEK_END)
+            except OSError, e:
+                raise wrap_oserror(space, e)
 
     def _mode(self):
         if self.readable:
@@ -134,8 +166,44 @@ class W_FileIO(W_RawIOBase):
             raise OperationError(space.w_ValueError, space.wrap(
                 "I/O operation on closed file"))
 
+    def _close(self, space):
+        if self.fd < 0:
+            return
+        fd = self.fd
+        self.fd = -1
+
+        try:
+            verify_fd(fd)
+            os.close(fd)
+        except OSError, e:
+            raise wrap_oserror(space, e,
+                               exception_name='w_IOError')
+
+    @unwrap_spec('self', ObjSpace)
+    def close_w(self, space):
+        if not self.closefd:
+            self.fd = -1
+            return
+        self._close(space)
+        W_RawIOBase.close_w(self, space)
+
+    def _dircheck(self, space, w_filename):
+        # On Unix, fopen will succeed for directories.
+        # In Python, there should be no file objects referring to
+        # directories, so we need a check.
+        if self.fd < 0:
+            return
+        try:
+            st = os.fstat(self.fd)
+        except OSError:
+            return
+        if stat.S_ISDIR(st.st_mode):
+            self._close()
+            raise wrap_oserror2(space, OSError(EISDIR), w_filename,
+                                exception_name='w_IOError')
+
     @unwrap_spec('self', ObjSpace, r_longlong, int)
-    def seek_w(self, space, pos, whence):
+    def seek_w(self, space, pos, whence=0):
         self._check_closed(space)
         pos = os.lseek(self.fd, pos, whence)
         return space.wrap(pos)
@@ -162,10 +230,40 @@ class W_FileIO(W_RawIOBase):
                 self.seekable = 1
         return space.newbool(self.seekable == 1)
 
+    # ______________________________________________
+
     @unwrap_spec('self', ObjSpace)
     def fileno_w(self, space):
         self._check_closed(space)
         return space.wrap(self.fd)
+
+    @unwrap_spec('self', ObjSpace)
+    def isatty_w(self, space):
+        self._check_closed(space)
+        try:
+            res = os.isatty(self.fd)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+        return space.wrap(res)
+
+    # ______________________________________________
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def read_w(self, space, w_size=None):
+        self._check_closed(space)
+        # XXX self._check_readable(space)
+        size = convert_size(space, w_size)
+
+        if size < 0:
+            return self.readall_w(self, space)
+
+        try:
+            s = os.read(self.fd, size)
+        except OSError, e:
+            raise wrap_oserror(space, e,
+                               exception_name='w_OSError')
+
+        return space.wrap(s)
 
 W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
@@ -173,11 +271,14 @@ W_FileIO.typedef = TypeDef(
     __init__  = interp2app(W_FileIO.descr_init),
 
     seek = interp2app(W_FileIO.seek_w),
+    read = interp2app(W_FileIO.read_w),
+    close = interp2app(W_FileIO.close_w),
 
     readable = interp2app(W_FileIO.readable_w),
     writable = interp2app(W_FileIO.writable_w),
     seekable = interp2app(W_FileIO.seekable_w),
     fileno = interp2app(W_FileIO.fileno_w),
+    isatty = interp2app(W_FileIO.isatty_w),
     name = interp_attrproperty_w('w_name', cls=W_FileIO),
     mode = GetSetProperty(W_FileIO.descr_get_mode),
     )

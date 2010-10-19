@@ -3,6 +3,13 @@ from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr)
 from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.interpreter.error import OperationError
+from pypy.rlib.rstring import StringBuilder
+
+def convert_size(space, w_size):
+    if space.is_w(w_size, space.w_None):
+        return -1
+    else:
+        return space.int_w(w_size)
 
 class W_IOBase(Wrappable):
     def __init__(self, space):
@@ -94,6 +101,69 @@ class W_IOBase(Wrappable):
                 space.w_IOError,
                 space.wrap("file or stream is not seekable"))
 
+    # ______________________________________________________________
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def readline_w(self, space, w_limit=None):
+        # For backwards compatibility, a (slowish) readline().
+        limit = convert_size(space, w_limit)
+
+        old_size = -1
+
+        has_peek = space.findattr(self, space.wrap("peek"))
+
+        builder = StringBuilder()
+
+        while limit < 0 or len(buffer) < limit:
+            nreadahead = 1
+
+            if has_peek:
+                w_readahead = space.call_method(self, "peek", space.wrap(1))
+                if not space.isinstance_w(w_readahead, space.w_str):
+                    raise operationerrorfmt(
+                        space.w_IOError,
+                        "peek() should have returned a bytes object, "
+                        "not '%s'", space.type(w_readahead).getname(space, '?'))
+                length = space.int_w(space.len(w_readahead))
+                if length > 0:
+                    n = 0
+                    buf = space.str_w(w_readahead)
+                    if limit >= 0:
+                        while True:
+                            if n >= length or n >= limit:
+                                break
+                            n += 1
+                            if buf[n-1] == '\n':
+                                break
+                    else:
+                        while True:
+                            if n >= length:
+                                break
+                            n += 1
+                            if buf[n-1] == '\n':
+                                break
+                    nreadahead = n
+
+            w_read = space.call_method(self, "read", space.wrap(nreadahead))
+            print "AFA", nreadahead, w_read
+            if not space.isinstance_w(w_read, space.w_str):
+                raise operationerrorfmt(
+                    space.w_IOError,
+                    "peek() should have returned a bytes object, "
+                    "not '%s'", space.type(w_read).getname(space, '?'))
+            read = space.str_w(w_read)
+            if not read:
+                break
+
+            print "AFA APPEND", repr(read)
+            builder.append(read)
+
+            if read[-1] == '\n':
+                break
+
+        print "AFA RETURN", repr(builder.build())
+        return space.wrap(builder.build())
+
 W_IOBase.typedef = TypeDef(
     '_IOBase',
     __new__ = generic_new_descr(W_IOBase),
@@ -109,6 +179,8 @@ W_IOBase.typedef = TypeDef(
     seekable = interp2app(W_IOBase.seekable_w),
     _checkSeekable = interp2app(W_IOBase.check_seekable_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
+
+    readline = interp2app(W_IOBase.readline_w),
     )
 
 class W_RawIOBase(W_IOBase):
