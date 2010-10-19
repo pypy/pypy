@@ -119,6 +119,8 @@ class PyPyCJITTests(object):
         result = child_stdout.read()
         child_stdout.close()
         assert result
+        if result.strip().startswith('SKIP:'):
+            py.test.skip(result.strip())
         assert result.splitlines()[-1].strip() == 'OK :-)'
         self.parse_loops(logfilepath)
         self.print_loops()
@@ -1143,7 +1145,12 @@ class PyPyCJITTests(object):
         libm_name = get_libm_name(sys.platform)
         out = self.run_source('''
         def main():
-            from _ffi import CDLL, types
+            try:
+                from _ffi import CDLL, types
+            except ImportError:
+                sys.stdout.write('SKIP: cannot import _ffi')
+                return 0
+
             libm = CDLL('%(libm_name)s')
             pow = libm.getfunc('pow', [types.double, types.double],
                                types.double)
