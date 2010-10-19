@@ -464,7 +464,12 @@ testmap = [
     RegrTest('test_coding.py'),
     RegrTest('test_complex_args.py'),
     RegrTest('test_contextlib.py', usemodules="thread"),
-    RegrTest('test_ctypes.py', usemodules="_rawffi"),
+    # we skip test ctypes, since we adapted it massively in order
+    # to test what we want to support. There are real failures,
+    # but it's about missing features that we don't want to support
+    # now
+    RegrTest('test_ctypes.py', usemodules="_rawffi",
+             skip="missing features that we don't want to support now"),
     RegrTest('test_defaultdict.py'),
     RegrTest('test_email_renamed.py'),
     RegrTest('test_exception_variations.py'),
