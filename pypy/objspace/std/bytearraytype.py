@@ -15,9 +15,9 @@ from pypy.objspace.std.stringtype import (
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
     str_splitlines)
 from pypy.objspace.std.listtype import (
-    list_extend)
+    list_append, list_extend)
 
-def _getbytevalue(space, w_value):
+def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)
         if len(string) != 1:
@@ -72,7 +72,7 @@ def descr__new__(space, w_bytearraytype,
             if not e.match(space, space.w_StopIteration):
                 raise
             break
-        value = _getbytevalue(space, w_item)
+        value = getbytevalue(space, w_item)
         data.append(value)
 
     return new_bytearray(space, w_bytearraytype, data)

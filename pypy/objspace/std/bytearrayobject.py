@@ -356,6 +356,11 @@ def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
 # __________________________________________________________
 # Mutability methods
 
+def list_append__Bytearray_ANY(space, w_bytearray, w_item):
+    from pypy.objspace.std.bytearraytype import getbytevalue
+    w_bytearray.data.append(getbytevalue(space, w_item))
+    return space.w_None
+
 def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
     return space.w_None
@@ -364,6 +369,12 @@ def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
     w_bytearray.data += [c for c in space.str_w(w_other)]
     return space.w_None
 
+def delslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
+    length = len(w_bytearray.data)
+    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+    if start == stop:
+        return
+    del w_bytearray.data[start:stop]
 
 from pypy.objspace.std import bytearraytype
 register_all(vars(), bytearraytype)
