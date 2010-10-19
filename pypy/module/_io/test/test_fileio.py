@@ -35,7 +35,6 @@ class AppTestFileIO:
     def test_readline(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
-        f.seek(0)
         assert f.readline() == 'a\n'
         assert f.readline() == 'b\n'
         assert f.readline() == 'c'
@@ -58,3 +57,10 @@ class AppTestFileIO:
         assert f2.read() == "test"
         f.close()
         f2.close()
+
+    def test_seek(self):
+        import _io
+        f = _io.FileIO(self.tmpfile, 'rb')
+        f.seek(0)
+        self.posix.close(f.fileno())
+        raises(IOError, f.seek, 0)

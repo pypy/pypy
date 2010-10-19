@@ -233,7 +233,11 @@ class W_FileIO(W_RawIOBase):
     @unwrap_spec('self', ObjSpace, r_longlong, int)
     def seek_w(self, space, pos, whence=0):
         self._check_closed(space)
-        pos = os.lseek(self.fd, pos, whence)
+        try:
+            pos = os.lseek(self.fd, pos, whence)
+        except OSError, e:
+            raise wrap_oserror(space, e,
+                               exception_name='w_IOError')
         return space.wrap(pos)
 
     @unwrap_spec('self', ObjSpace)
