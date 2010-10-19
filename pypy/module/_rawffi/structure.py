@@ -73,7 +73,6 @@ class W_Structure(W_DataShape):
         self.alignment = alignment                
         self.ll_positions = pos
         self.name_to_index = name_to_index
-        self.is_union = is_union
 
     def allocate(self, space, length, autofree=False):
         # length is ignored!
