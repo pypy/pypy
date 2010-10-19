@@ -1,8 +1,6 @@
 # nightly test configuration for the paraller runner
 import os
 
-os.system('killall pypy-c')
-
 def collect_one_testdir(testdirs, reldir, tests):
     if (reldir.startswith('translator/c/') or 
         reldir.startswith('translator/jvm/') or
