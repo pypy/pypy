@@ -9,7 +9,6 @@ from pypy.rpython.annlowlevel import llstr, hlstr
 def entrypoint1(r, string, repeat):
     r = array2list(r)
     string = hlstr(string)
-    make_sure_not_modified(r)
     match = None
     for i in range(repeat):
         match = rsre_core.match(r, string)
@@ -21,7 +20,6 @@ def entrypoint1(r, string, repeat):
 def entrypoint2(r, string, repeat):
     r = array2list(r)
     string = hlstr(string)
-    make_sure_not_modified(r)
     match = None
     for i in range(repeat):
         match = rsre_core.search(r, string)
@@ -118,3 +116,8 @@ class TestJitRSre(test_basic.LLJitMixin):
             r"Active\s+20\d\d-\d\d-\d\d\s+[[]\d+[]]([^[]+)",
             "Active"*20 + "Active 2010-04-07 [42] Foobar baz boz blah[43]")
         assert res == 6*20
+
+    def test_aorbstar(self):
+        res = self.meta_interp_match("(a|b)*a", "a" * 100)
+        assert res == 100
+        self.check_loops(guard_value=0)
