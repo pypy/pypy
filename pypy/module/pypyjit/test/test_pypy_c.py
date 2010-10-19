@@ -560,17 +560,13 @@ class PyPyCJITTests(object):
 
     def test_blockstack_virtualizable(self):
         self.run_source('''
-        def g(k):
-            s = 0
-            for i in range(k, k+2):
-                s += 1
-            return s
+        import pypyjit
 
         def main():
             i = 0
             while i < 100:
                 try:
-                    g(i)
+                    pypyjit.residual_call(len, [])
                 except:
                     pass
                 i += 1
@@ -1183,6 +1179,17 @@ class TestJIT(PyPyCJITTests):
         cls.tmpdir.ensure(dir=1)
         cls.counter = 0
         cls.pypy_c = option.pypy_c
+
+
+def test_interface_residual_call():
+    space = gettestobjspace(usemodules=['pypyjit'])
+    space.appexec([], """():
+        import pypyjit
+        def f(*args, **kwds):
+            return (args, kwds)
+        res = pypyjit.residual_call(f, 4, x=6)
+        assert res == ((4,), {'x': 6})
+    """)
 
 
 def has_info(pypy_c, option):
