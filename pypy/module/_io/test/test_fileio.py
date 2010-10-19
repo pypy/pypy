@@ -30,7 +30,7 @@ class AppTestFileIO:
 
     def test_open_directory(self):
         import _io
-        raises(OSError, _io.FileIO, self.tmpdir, "rb")
+        raises(IOError, _io.FileIO, self.tmpdir, "rb")
 
     def test_readline(self):
         import _io
@@ -41,3 +41,8 @@ class AppTestFileIO:
         assert f.readline() == 'c'
         assert f.readline() == ''
         f.close()
+
+    def test_readall(self):
+        import _io
+        f = _io.FileIO(self.tmpfile, 'rb')
+        assert f.readall() == "a\nb\nc"

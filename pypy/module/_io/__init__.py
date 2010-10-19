@@ -24,6 +24,14 @@ class Module(MixedModule):
         'TextIOWrapper': 'interp_io.W_TextIOWrapper',
 
         'open': 'interp_io.open',
-        'UnsupportedOperation': 'space.w_None',
         'IncrementalNewlineDecoder': 'space.w_None',
         }
+
+    def init(self, space):
+        w_UnsupportedOperation = space.call_function(
+            space.w_type,
+            space.wrap('UnsupportedOperation'),
+            space.newtuple([space.w_ValueError, space.w_IOError]),
+            space.newdict())
+        space.setattr(self, space.wrap('UnsupportedOperation'),
+                      w_UnsupportedOperation)

@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr)
 from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
 
 def convert_size(space, w_size):
@@ -113,14 +113,15 @@ class W_IOBase(Wrappable):
         has_peek = space.findattr(self, space.wrap("peek"))
 
         builder = StringBuilder()
+        size = 0
 
-        while limit < 0 or len(buffer) < limit:
+        while limit < 0 or size < limit:
             nreadahead = 1
 
             if has_peek:
                 w_readahead = space.call_method(self, "peek", space.wrap(1))
                 if not space.isinstance_w(w_readahead, space.w_str):
-                    raise operationerrorfmt(
+                    raise operationerrfmt(
                         space.w_IOError,
                         "peek() should have returned a bytes object, "
                         "not '%s'", space.type(w_readahead).getname(space, '?'))
@@ -145,9 +146,8 @@ class W_IOBase(Wrappable):
                     nreadahead = n
 
             w_read = space.call_method(self, "read", space.wrap(nreadahead))
-            print "AFA", nreadahead, w_read
             if not space.isinstance_w(w_read, space.w_str):
-                raise operationerrorfmt(
+                raise operationerrfmt(
                     space.w_IOError,
                     "peek() should have returned a bytes object, "
                     "not '%s'", space.type(w_read).getname(space, '?'))
@@ -155,13 +155,12 @@ class W_IOBase(Wrappable):
             if not read:
                 break
 
-            print "AFA APPEND", repr(read)
+            size += len(read)
             builder.append(read)
 
             if read[-1] == '\n':
                 break
 
-        print "AFA RETURN", repr(builder.build())
         return space.wrap(builder.build())
 
 W_IOBase.typedef = TypeDef(

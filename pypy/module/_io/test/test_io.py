@@ -38,6 +38,10 @@ class AppTestIoModule:
 
         assert list(MyFile()) == ["line1", "line2"]
 
+    def test_exception(self):
+        import _io
+        e = _io.UnsupportedOperation("seek")
+
 class AppTestOpen:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile').ensure()

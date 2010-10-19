@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import os, stat, errno
 
@@ -76,6 +77,33 @@ def convert_size(space, w_size):
     else:
         return space.int_w(w_size)
 
+SMALLCHUNK = 8 * 1024
+BIGCHUNK = 512 * 1024
+
+def new_buffersize(fd, currentsize):
+    try:
+        st = os.fstat(fd)
+        end = st.st_size
+        pos = os.lseek(fd, 0, 1)
+    except OSError:
+        pass
+    else:
+        # Files claiming a size smaller than SMALLCHUNK may
+        # actually be streaming pseudo-files. In this case, we
+        # apply the more aggressive algorithm below.
+        if end >= SMALLCHUNK and end >= pos:
+            # Add 1 so if the file were to grow we'd notice.
+            return currentsize + end - pos + 1
+
+    if currentsize > SMALLCHUNK:
+        # Keep doubling until we reach BIGCHUNK;
+        # then keep adding BIGCHUNK.
+        if currentsize <= BIGCHUNK:
+            return currentsize + currentsize
+        else:
+            return currentsize + BIGCHUNK
+    return currentsize + SMALLCHUNK
+
 def verify_fd(fd):
     return
 
@@ -136,7 +164,7 @@ class W_FileIO(W_RawIOBase):
                     space, w_name, flags, 0666)
             except OSError, e:
                 raise wrap_oserror2(space, e, w_name,
-                                    exception_name='w_OSError')
+                                    exception_name='w_IOError')
 
             self._dircheck(space, w_name)
         self.w_name = w_name
@@ -198,9 +226,9 @@ class W_FileIO(W_RawIOBase):
         except OSError:
             return
         if stat.S_ISDIR(st.st_mode):
-            self._close()
-            raise wrap_oserror2(space, OSError(EISDIR), w_filename,
-                                exception_name='w_IOError')
+            self._close(space)
+            raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
+                                w_filename, exception_name='w_IOError')
 
     @unwrap_spec('self', ObjSpace, r_longlong, int)
     def seek_w(self, space, pos, whence=0):
@@ -255,15 +283,42 @@ class W_FileIO(W_RawIOBase):
         size = convert_size(space, w_size)
 
         if size < 0:
-            return self.readall_w(self, space)
+            return self.readall_w(space)
 
         try:
             s = os.read(self.fd, size)
         except OSError, e:
             raise wrap_oserror(space, e,
-                               exception_name='w_OSError')
+                               exception_name='w_IOError')
 
         return space.wrap(s)
+
+    @unwrap_spec('self', ObjSpace)
+    def readall_w(self, space):
+        self._check_closed(space)
+        total = 0
+
+        builder = StringBuilder()
+        while True:
+            newsize = int(new_buffersize(self.fd, total))
+
+            try:
+                chunk = os.read(self.fd, newsize - total)
+            except OSError, e:
+                if e.errno == errno.EAGAIN:
+                    if total > 0:
+                        # return what we've got so far
+                        break
+                    return space.w_None
+                raise wrap_oserror(space, e,
+                                   exception_name='w_IOError')
+
+            if not chunk:
+                break
+            builder.append(chunk)
+            total += len(chunk)
+        return space.wrap(builder.build())
+
 
 W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
@@ -272,6 +327,7 @@ W_FileIO.typedef = TypeDef(
 
     seek = interp2app(W_FileIO.seek_w),
     read = interp2app(W_FileIO.read_w),
+    readall = interp2app(W_FileIO.readall_w),
     close = interp2app(W_FileIO.close_w),
 
     readable = interp2app(W_FileIO.readable_w),
