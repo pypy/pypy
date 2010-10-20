@@ -163,6 +163,29 @@ class W_IOBase(Wrappable):
 
         return space.wrap(builder.build())
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def readlines_w(self, space, w_hint=None):
+        hint = convert_size(space, w_hint)
+
+        if hint <= 0:
+            return space.newlist(space.unpackiterable(self))
+
+        lines_w = []
+        length = 0
+        while True:
+            w_line = space.call_method(self, "readline")
+            line_length = space.int_w(space.len(w_line))
+            if line_length == 0: # done
+                break
+
+            lines_w.append(w_line)
+
+            length += line_length
+            if length > hint:
+                break
+
+        return space.newlist(lines_w)
+
 W_IOBase.typedef = TypeDef(
     '_IOBase',
     __new__ = generic_new_descr(W_IOBase),
@@ -180,6 +203,7 @@ W_IOBase.typedef = TypeDef(
     closed = GetSetProperty(W_IOBase.closed_get_w),
 
     readline = interp2app(W_IOBase.readline_w),
+    readlines = interp2app(W_IOBase.readlines_w),
     )
 
 class W_RawIOBase(W_IOBase):

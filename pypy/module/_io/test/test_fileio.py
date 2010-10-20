@@ -44,6 +44,14 @@ class AppTestFileIO:
         assert f.readline() == ''
         f.close()
 
+    def test_readlines(self):
+        import _io
+        f = _io.FileIO(self.tmpfile, 'rb')
+        assert f.readlines() == ["a\n", "b\n", "c"]
+        f.seek(0)
+        assert f.readlines(3) == ["a\n", "b\n"]
+        f.close()
+
     def test_readall(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
