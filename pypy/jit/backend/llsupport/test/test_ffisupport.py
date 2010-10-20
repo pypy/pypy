@@ -12,6 +12,12 @@ def test_call_descr_dynamic():
     descr = get_call_descr_dynamic([], types.sint8)
     assert isinstance(descr, DynamicIntCallDescr)
     assert descr.get_result_size(False) == 1
+    assert descr.is_result_signed() == True
+
+    descr = get_call_descr_dynamic([], types.uint8)
+    assert isinstance(descr, DynamicIntCallDescr)
+    assert descr.get_result_size(False) == 1
+    assert descr.is_result_signed() == False
 
     descr = get_call_descr_dynamic([], types.float)
     assert descr is None # single floats are not supported so far

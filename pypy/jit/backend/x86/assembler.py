@@ -8,7 +8,8 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
 from pypy.jit.backend.x86.regalloc import (RegAlloc, X86RegisterManager,
-                                           X86XMMRegisterManager, get_ebp_ofs)
+                                           X86XMMRegisterManager, get_ebp_ofs,
+                                           _get_scale)
 
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
                                        IS_X86_32, IS_X86_64)
@@ -22,7 +23,8 @@ from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
                                          X86_64_SCRATCH_REG,
                                          X86_64_XMM_SCRATCH_REG,
                                          RegLoc, StackLoc, ConstFloatLoc,
-                                         ImmedLoc, AddressLoc, imm)
+                                         ImmedLoc, AddressLoc, imm,
+                                         imm0, imm1)
 
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
@@ -442,7 +444,7 @@ class Assembler386(object):
             # self.mc.PUSH(eax)
             # adr = rffi.cast(lltype.Signed, self.loop_run_counters[-1][1])
             # self.mc.MOV(eax, heap(adr))
-            # self.mc.ADD(eax, imm(1))
+            # self.mc.ADD(eax, imm1)
             # self.mc.MOV(heap(adr), eax)
             # self.mc.POP(eax)
         return operations
@@ -713,7 +715,7 @@ class Assembler386(object):
         self.regalloc_perform_with_guard(None, guard_op, faillocs, arglocs,
                                          resloc, current_depths)
 
-    def load_effective_addr(self, sizereg, baseofs, scale, result, frm=imm(0)):
+    def load_effective_addr(self, sizereg, baseofs, scale, result, frm=imm0):
         self.mc.LEA(result, addr_add(frm, sizereg, baseofs, scale))
 
     def _unaryop(asmop):
@@ -975,28 +977,28 @@ class Assembler386(object):
 
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
-        self.mc.CMP(arglocs[0], imm(0))
+        self.mc.CMP(arglocs[0], imm0)
         if guard_opnum == rop.GUARD_TRUE:
             return self.implement_guard(guard_token, 'Z')
         else:
             return self.implement_guard(guard_token, 'NZ')
 
     def genop_int_is_true(self, op, arglocs, resloc):
-        self.mc.CMP(arglocs[0], imm(0))
+        self.mc.CMP(arglocs[0], imm0)
         rl = resloc.lowest8bits()
         self.mc.SET_ir(rx86.Conditions['NE'], rl.value)
         self.mc.MOVZX8(resloc, rl)
 
     def genop_guard_int_is_zero(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
-        self.mc.CMP(arglocs[0], imm(0))
+        self.mc.CMP(arglocs[0], imm0)
         if guard_opnum == rop.GUARD_TRUE:
             return self.implement_guard(guard_token, 'NZ')
         else:
             return self.implement_guard(guard_token, 'Z')
 
     def genop_int_is_zero(self, op, arglocs, resloc):
-        self.mc.CMP(arglocs[0], imm(0))
+        self.mc.CMP(arglocs[0], imm0)
         rl = resloc.lowest8bits()
         self.mc.SET_ir(rx86.Conditions['E'], rl.value)
         self.mc.MOVZX8(resloc, rl)
@@ -1052,50 +1054,66 @@ class Assembler386(object):
         assert result_loc is eax
         self.call(self.malloc_unicode_func_addr, arglocs, eax)
 
-    def genop_getfield_gc(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc = arglocs
-        assert isinstance(size_loc, ImmedLoc)
+    # ----------
+
+    def load_from_mem(self, resloc, source_addr, size_loc, sign_loc):
         assert isinstance(resloc, RegLoc)
         size = size_loc.value
-
-        source_addr = AddressLoc(base_loc, ofs_loc)
+        sign = sign_loc.value
         if resloc.is_xmm:
             self.mc.MOVSD(resloc, source_addr)
-        elif size == 1:
-            self.mc.MOVZX8(resloc, source_addr)
-        elif size == 2:
-            self.mc.MOVZX16(resloc, source_addr)
-        elif size == 4:
-            # MOV32 is zero-extending on 64-bit, so this is okay
-            self.mc.MOV32(resloc, source_addr)
-        elif IS_X86_64 and size == 8:
+        elif size == WORD:
             self.mc.MOV(resloc, source_addr)
+        elif size == 1:
+            if sign:
+                self.mc.MOVSX8(resloc, source_addr)
+            else:
+                self.mc.MOVZX8(resloc, source_addr)
+        elif size == 2:
+            if sign:
+                self.mc.MOVSX16(resloc, source_addr)
+            else:
+                self.mc.MOVZX16(resloc, source_addr)
+        elif IS_X86_64 and size == 4:
+            if sign:
+                self.mc.MOVSX32(resloc, source_addr)
+            else:
+                self.mc.MOV32(resloc, source_addr)    # zero-extending
         else:
-            raise NotImplementedError("getfield size = %d" % size)
+            not_implemented("load_from_mem size = %d" % size)
+
+    def save_into_mem(self, dest_addr, value_loc, size_loc):
+        size = size_loc.value
+        if isinstance(value_loc, RegLoc) and value_loc.is_xmm:
+            self.mc.MOVSD(dest_addr, value_loc)
+        elif size == 1:
+            self.mc.MOV8(dest_addr, value_loc.lowest8bits())
+        elif size == 2:
+            self.mc.MOV16(dest_addr, value_loc)
+        elif size == 4:
+            self.mc.MOV32(dest_addr, value_loc)
+        elif IS_X86_64 and size == 8:
+            self.mc.MOV(dest_addr, value_loc)
+        else:
+            not_implemented("save_into_mem size = %d" % size)
+
+    def genop_getfield_gc(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, sign_loc = arglocs
+        assert isinstance(size_loc, ImmedLoc)
+        source_addr = AddressLoc(base_loc, ofs_loc)
+        self.load_from_mem(resloc, source_addr, size_loc, sign_loc)
 
     genop_getfield_raw = genop_getfield_gc
     genop_getfield_raw_pure = genop_getfield_gc
     genop_getfield_gc_pure = genop_getfield_gc
 
     def genop_getarrayitem_gc(self, op, arglocs, resloc):
-        base_loc, ofs_loc, scale, ofs = arglocs
+        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
-        assert isinstance(scale, ImmedLoc)
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale.value)
-        if op.result.type == FLOAT:
-            self.mc.MOVSD(resloc, src_addr)
-        else:
-            if scale.value == 0:
-                self.mc.MOVZX8(resloc, src_addr)
-            elif scale.value == 1:
-                self.mc.MOVZX16(resloc, src_addr)
-            elif scale.value == 2:
-                self.mc.MOV32(resloc, src_addr)
-            elif IS_X86_64 and scale.value == 3:
-                self.mc.MOV(resloc, src_addr)
-            else:
-                print "[asmgen]getarrayitem unsupported size: %d" % scale.value
-                raise NotImplementedError()
+        assert isinstance(size_loc, ImmedLoc)
+        scale = _get_scale(size_loc.value)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
+        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
@@ -1103,40 +1121,16 @@ class Assembler386(object):
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
-        size = size_loc.value
         dest_addr = AddressLoc(base_loc, ofs_loc)
-        if isinstance(value_loc, RegLoc) and value_loc.is_xmm:
-            self.mc.MOVSD(dest_addr, value_loc)
-        elif IS_X86_64 and size == 8:
-            self.mc.MOV(dest_addr, value_loc)
-        elif size == 4:
-            self.mc.MOV32(dest_addr, value_loc)
-        elif size == 2:
-            self.mc.MOV16(dest_addr, value_loc)
-        elif size == 1:
-            self.mc.MOV8(dest_addr, value_loc.lowest8bits())
-        else:
-            print "[asmgen]setfield addr size %d" % size
-            raise NotImplementedError("Addr size %d" % size)
+        self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, scale_loc, baseofs = arglocs
+        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
         assert isinstance(baseofs, ImmedLoc)
-        assert isinstance(scale_loc, ImmedLoc)
-        dest_addr = AddressLoc(base_loc, ofs_loc, scale_loc.value, baseofs.value)
-        if op.getarg(2).type == FLOAT:
-            self.mc.MOVSD(dest_addr, value_loc)
-        else:
-            if IS_X86_64 and scale_loc.value == 3:
-                self.mc.MOV(dest_addr, value_loc)
-            elif scale_loc.value == 2:
-                self.mc.MOV32(dest_addr, value_loc)
-            elif scale_loc.value == 1:
-                self.mc.MOV16(dest_addr, value_loc)
-            elif scale_loc.value == 0:
-                self.mc.MOV8(dest_addr, value_loc.lowest8bits())
-            else:
-                raise NotImplementedError("scale = %d" % scale_loc.value)
+        assert isinstance(size_loc, ImmedLoc)
+        scale = _get_scale(size_loc.value)
+        dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
+        self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
         base_loc, ofs_loc, val_loc = arglocs
@@ -1203,7 +1197,7 @@ class Assembler386(object):
 
     def genop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
                                        locs, ign_2):
-        self.mc.CMP(heap(self.cpu.pos_exception()), imm(0))
+        self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
         return self.implement_guard(guard_token, 'NZ')
 
     def genop_guard_guard_exception(self, ign_1, guard_op, guard_token,
@@ -1215,8 +1209,8 @@ class Assembler386(object):
         addr = self.implement_guard(guard_token, 'NE')
         if resloc is not None:
             self.mc.MOV(resloc, heap(self.cpu.pos_exc_value()))
-        self.mc.MOV(heap(self.cpu.pos_exception()), imm(0))
-        self.mc.MOV(heap(self.cpu.pos_exc_value()), imm(0))
+        self.mc.MOV(heap(self.cpu.pos_exception()), imm0)
+        self.mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
         return addr
 
     def _gen_guard_overflow(self, guard_op, guard_token):
@@ -1226,8 +1220,8 @@ class Assembler386(object):
         elif guard_opnum == rop.GUARD_OVERFLOW:
             return self.implement_guard(guard_token, 'NO')
         else:
-            print "int_xxx_ovf followed by", guard_op.getopname()
-            raise AssertionError
+            not_implemented("int_xxx_ovf followed by %s" %
+                            guard_op.getopname())
 
     def genop_guard_int_add_ovf(self, op, guard_op, guard_token, arglocs, result_loc):
         self.genop_int_add(op, arglocs, result_loc)
@@ -1290,7 +1284,7 @@ class Assembler386(object):
     def genop_guard_guard_nonnull_class(self, ign_1, guard_op,
                                         guard_token, locs, ign_2):
         self.mc.ensure_bytes_available(256)
-        self.mc.CMP(locs[0], imm(1))
+        self.mc.CMP(locs[0], imm1)
         # Patched below
         self.mc.J_il8(rx86.Conditions['B'], 0)
         jb_location = self.mc.get_relative_pos()
@@ -1639,25 +1633,34 @@ class Assembler386(object):
         sizeloc = arglocs[0]
         assert isinstance(sizeloc, ImmedLoc)
         size = sizeloc.value
+        signloc = arglocs[1]
 
         if isinstance(op.getarg(0), Const):
             x = imm(op.getarg(0).getint())
         else:
-            x = arglocs[1]
+            x = arglocs[2]
         if x is eax:
             tmp = ecx
         else:
             tmp = eax
         
-        self._emit_call(x, arglocs, 2, tmp=tmp)
+        self._emit_call(x, arglocs, 3, tmp=tmp)
 
-        if isinstance(resloc, StackLoc) and resloc.width == 8 and IS_X86_32:
-            self.mc.FSTP_b(resloc.value)
-        elif size == 1:
-            self.mc.AND_ri(eax.value, 0xff)
-        elif size == 2:
-            self.mc.AND_ri(eax.value, 0xffff)
-    
+        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
+            self.mc.FSTP_b(resloc.value)   # float return
+        elif size == WORD:
+            assert resloc is eax or resloc is xmm0    # a full word
+        elif size == 0:
+            pass    # void return
+        else:
+            # use the code in load_from_mem to do the zero- or sign-extension
+            assert resloc is eax
+            if size == 1:
+                srcloc = eax.lowest8bits()
+            else:
+                srcloc = eax
+            self.load_from_mem(eax, srcloc, sizeloc, signloc)
+
     def genop_guard_call_may_force(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         faildescr = guard_op.getdescr()
@@ -1810,20 +1813,16 @@ class Assembler386(object):
         self.mc.LEA_rb(resloc.value, FORCE_INDEX_OFS)
 
     def not_implemented_op_discard(self, op, arglocs):
-        msg = "not implemented operation: %s" % op.getopname()
-        print msg
-        raise NotImplementedError(msg)
+        not_implemented("not implemented operation: %s" % op.getopname())
 
     def not_implemented_op(self, op, arglocs, resloc):
-        msg = "not implemented operation with res: %s" % op.getopname()
-        print msg
-        raise NotImplementedError(msg)
+        not_implemented("not implemented operation with res: %s" %
+                        op.getopname())
 
     def not_implemented_op_guard(self, op, guard_op,
                                  failaddr, arglocs, resloc):
-        msg = "not implemented operation (guard): %s" % op.getopname()
-        print msg
-        raise NotImplementedError(msg)
+        not_implemented("not implemented operation (guard): %s" %
+                        op.getopname())
 
     def mark_gc_roots(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -1907,3 +1906,7 @@ def mem(loc, offset):
 
 def heap(addr):
     return AddressLoc(ImmedLoc(addr), ImmedLoc(0), 0, 0)
+
+def not_implemented(msg):
+    os.write(2, '[x86/asm] %s\n' % msg)
+    raise NotImplementedError(msg)

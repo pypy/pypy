@@ -15,6 +15,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker
+from pypy.rlib.rarithmetic import intmask
 
 
 class Runner(object):
@@ -2027,6 +2028,196 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.execute_token(othertoken)
         assert self.cpu.get_latest_value_float(0) == 13.5
         assert called
+
+    def test_short_result_of_getfield_direct(self):
+        # Test that a getfield that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Direct bh_xxx test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            S = lltype.GcStruct('S', ('x', RESTYPE))
+            descrfld_x = cpu.fielddescrof(S, 'x')
+            s = lltype.malloc(S)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            s.x = rffi.cast(RESTYPE, value)
+            x = cpu.bh_getfield_gc_i(lltype.cast_opaque_ptr(llmemory.GCREF, s),
+                                     descrfld_x)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+
+    def test_short_result_of_getfield_compiled(self):
+        # Test that a getfield that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Machine code compilation test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            S = lltype.GcStruct('S', ('x', RESTYPE))
+            descrfld_x = cpu.fielddescrof(S, 'x')
+            s = lltype.malloc(S)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            s.x = rffi.cast(RESTYPE, value)
+            s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            res = self.execute_operation(rop.GETFIELD_GC, [BoxPtr(s_gcref)],
+                                         'int', descr=descrfld_x)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+
+    def test_short_result_of_getarrayitem_direct(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Direct bh_xxx test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = lltype.GcArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            x = cpu.bh_getarrayitem_gc_i(
+                descrarray, lltype.cast_opaque_ptr(llmemory.GCREF, a), 3)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+
+    def test_short_result_of_getarrayitem_compiled(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Machine code compilation test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = lltype.GcArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            a_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            res = self.execute_operation(rop.GETARRAYITEM_GC,
+                                         [BoxPtr(a_gcref), BoxInt(3)],
+                                         'int', descr=descrarray)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+
+    def test_short_result_of_getarrayitem_raw_direct(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Direct bh_xxx test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = rffi.CArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5, flavor='raw')
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
+            x = cpu.bh_getarrayitem_raw_i(descrarray, a_rawint, 3)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+            lltype.free(a, flavor='raw')
+
+    def test_short_result_of_getarrayitem_raw_compiled(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Machine code compilation test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = rffi.CArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5, flavor='raw')
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
+            res = self.execute_operation(rop.GETARRAYITEM_RAW,
+                                         [BoxInt(a_rawint), BoxInt(3)],
+                                         'int', descr=descrarray)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+            lltype.free(a, flavor='raw')
+
+    def test_short_result_of_call_direct(self):
+        # Test that calling a function that returns a CHAR, SHORT or INT,
+        # signed or unsigned, properly gets zero-extended or sign-extended.
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            # Tested with a function that intentionally does not cast the
+            # result to RESTYPE, but makes sure that we return the whole
+            # value in eax or rax.
+            eci = ExternalCompilationInfo(separate_module_sources=["""
+                long fn_test_result_of_call(long x)
+                {
+                    return x + 1;
+                }
+            """])
+            f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
+                                RESTYPE, compilation_info=eci, _nowrapper=True)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value + 1))
+            assert intmask(f(value)) == expected
+            #
+            FUNC = self.FuncType([lltype.Signed], RESTYPE)
+            FPTR = self.Ptr(FUNC)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
+                                   calldescr, [value], None, None)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+
+    def test_short_result_of_call_compiled(self):
+        # Test that calling a function that returns a CHAR, SHORT or INT,
+        # signed or unsigned, properly gets zero-extended or sign-extended.
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            # Tested with a function that intentionally does not cast the
+            # result to RESTYPE, but makes sure that we return the whole
+            # value in eax or rax.
+            eci = ExternalCompilationInfo(separate_module_sources=["""
+                long fn_test_result_of_call(long x)
+                {
+                    return x + 1;
+                }
+            """])
+            f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
+                                RESTYPE, compilation_info=eci, _nowrapper=True)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value + 1))
+            assert intmask(f(value)) == expected
+            #
+            FUNC = self.FuncType([lltype.Signed], RESTYPE)
+            FPTR = self.Ptr(FUNC)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(self.cpu, f)
+            res = self.execute_operation(rop.CALL, [funcbox, BoxInt(value)],
+                                         'int', descr=calldescr)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
 
 
 class OOtypeBackendTest(BaseBackendTest):

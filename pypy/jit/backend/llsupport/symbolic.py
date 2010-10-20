@@ -69,8 +69,9 @@ SIZEOF_SHORT = get_size(rffi.SHORT, False)
 SIZEOF_INT   = get_size(rffi.INT, False)
 SIZEOF_FLOAT = get_size(lltype.Float, False)
 
-unroll_basic_sizes = unrolling_iterable([(lltype.Signed, WORD),
-                                         (lltype.Char,   SIZEOF_CHAR),
-                                         (rffi.SHORT,    SIZEOF_SHORT),
-                                         (rffi.INT,      SIZEOF_INT)])
+unroll_basic_sizes = unrolling_iterable([
+    (lltype.Signed,   lltype.Unsigned, WORD),
+    (rffi.SIGNEDCHAR, lltype.Char,     SIZEOF_CHAR),
+    (rffi.SHORT,      rffi.USHORT,     SIZEOF_SHORT),
+    (rffi.INT,        rffi.UINT,       SIZEOF_INT)])
 # does not contain Float ^^^ which must be special-cased

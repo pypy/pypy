@@ -14,7 +14,8 @@ def get_call_descr_dynamic(ffi_args, ffi_result, extrainfo=None):
     arg_classes = ''.join(argkinds)
     if reskind == history.INT:
         size = intmask(ffi_result.c_size)
-        return DynamicIntCallDescr(arg_classes, size, extrainfo)
+        signed = is_ffi_type_signed(ffi_result)
+        return DynamicIntCallDescr(arg_classes, size, signed, extrainfo)
     elif reskind == history.REF:
         return  NonGcPtrCallDescr(arg_classes, extrainfo)
     elif reskind == history.FLOAT:
@@ -26,10 +27,15 @@ def get_call_descr_dynamic(ffi_args, ffi_result, extrainfo=None):
 def get_ffi_type_kind(ffi_type):
     from pypy.rlib.libffi import types
     kind = types.getkind(ffi_type)
-    if kind == 'i':
+    if kind == 'i' or kind == 'u':
         return history.INT
     elif kind == 'f':
         return history.FLOAT
     elif kind == 'v':
         return history.VOID
-    assert False, "Unsuported kind '%s'" % kind
+    assert False, "Unsupported kind '%s'" % kind
+
+def is_ffi_type_signed(ffi_type):
+    from pypy.rlib.libffi import types
+    kind = types.getkind(ffi_type)
+    return kind != 'u'

@@ -642,7 +642,10 @@ define_modrm_modes('MOV8_*r', [rex_w, '\x88', byte_register(2, 8)], regtype='BYT
 define_modrm_modes('MOV8_*i', [rex_w, '\xC6', orbyte(0<<3)], [immediate(2, 'b')], regtype='BYTE')
 
 define_modrm_modes('MOVZX8_r*', [rex_w, '\x0F\xB6', register(1, 8)], regtype='BYTE')
+define_modrm_modes('MOVSX8_r*', [rex_w, '\x0F\xBE', register(1, 8)], regtype='BYTE')
 define_modrm_modes('MOVZX16_r*', [rex_w, '\x0F\xB7', register(1, 8)])
+define_modrm_modes('MOVSX16_r*', [rex_w, '\x0F\xBF', register(1, 8)])
+define_modrm_modes('MOVSX32_r*', [rex_w, '\x63', register(1, 8)])
 
 define_modrm_modes('MOVSD_x*', ['\xF2', rex_nw, '\x0F\x10', register(1,8)], regtype='XMM')
 define_modrm_modes('MOVSD_*x', ['\xF2', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')

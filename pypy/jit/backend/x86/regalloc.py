@@ -2,6 +2,7 @@
 """ Register allocation scheme.
 """
 
+import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr,
                                          LoopToken, INT, REF, FLOAT)
@@ -40,12 +41,10 @@ class X86RegisterManager(RegisterManager):
             return imm(c.value)
         elif isinstance(c, ConstPtr):
             if we_are_translated() and c.value and rgc.can_move(c.value):
-                print "convert_to_imm: ConstPtr needs special care"
-                raise AssertionError
+                not_implemented("convert_to_imm: ConstPtr needs special care")
             return imm(rffi.cast(lltype.Signed, c.value))
         else:
-            print "convert_to_imm: got a %s" % c
-            raise AssertionError
+            not_implemented("convert_to_imm: got a %s" % c)
 
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
@@ -360,8 +359,8 @@ class RegAlloc(object):
             if op.is_ovf():
                 if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
                     operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    print "int_xxx_ovf not followed by guard_(no)_overflow"
-                    raise AssertionError
+                    not_implemented("int_xxx_ovf not followed by "
+                                    "guard_(no)_overflow")
                 return True
             return False
         if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
@@ -413,8 +412,8 @@ class RegAlloc(object):
                 arg = op.getarg(j)
                 if isinstance(arg, Box):
                     if arg not in start_live:
-                        print "Bogus arg in operation %d at %d" % (op.getopnum(), i)
-                        raise AssertionError
+                        not_implemented("Bogus arg in operation %d at %d" %
+                                        (op.getopnum(), i))
                     longevity[arg] = (start_live[arg], i)
             if op.is_guard():
                 for arg in op.getfailargs():
@@ -422,8 +421,8 @@ class RegAlloc(object):
                         continue
                     assert isinstance(arg, Box)
                     if arg not in start_live:
-                        print "Bogus arg in guard %d at %d" % (op.getopnum(), i)
-                        raise AssertionError
+                        not_implemented("Bogus arg in guard %d at %d" %
+                                        (op.getopnum(), i))
                     longevity[arg] = (start_live[arg], i)
         for arg in inputargs:
             if arg not in longevity:
@@ -668,7 +667,13 @@ class RegAlloc(object):
         assert isinstance(calldescr, BaseCallDescr)
         assert len(calldescr.arg_classes) == op.numargs() - 1
         size = calldescr.get_result_size(self.translate_support_code)
-        self._call(op, [imm(size)] + [self.loc(op.getarg(i)) for i in range(op.numargs())],
+        sign = calldescr.is_result_signed()
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self._call(op, [imm(size), sign_loc] +
+                       [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
@@ -689,7 +694,7 @@ class RegAlloc(object):
             self.rm._sync_var(op.getarg(vable_index))
             vable = self.fm.loc(op.getarg(vable_index))
         else:
-            vable = imm(0)
+            vable = imm0
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
@@ -815,8 +820,9 @@ class RegAlloc(object):
             arglocs.append(self.loc(op.getarg(0)))
             return self._call(op, arglocs)
         # boehm GC (XXX kill the following code at some point)
-        scale_of_field, basesize, ofs_length, _ = (
+        itemsize, basesize, ofs_length, _, _ = (
             self._unpack_arraydescr(op.getdescr()))
+        scale_of_field = _get_scale(itemsize)
         return self._malloc_varsize(basesize, ofs_length, scale_of_field,
                                     op.getarg(0), op.result)
 
@@ -826,21 +832,19 @@ class RegAlloc(object):
         ofs = arraydescr.get_base_size(self.translate_support_code)
         size = arraydescr.get_item_size(self.translate_support_code)
         ptr = arraydescr.is_array_of_pointers()
-        scale = 0
-        while (1 << scale) < size:
-            scale += 1
-        assert (1 << scale) == size
-        return scale, ofs, ofs_length, ptr
+        sign = arraydescr.is_item_signed()
+        return size, ofs, ofs_length, ptr, sign
 
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
         ofs = fielddescr.offset
         size = fielddescr.get_field_size(self.translate_support_code)
         ptr = fielddescr.is_pointer_field()
-        return imm(ofs), imm(size), ptr
+        sign = fielddescr.is_field_signed()
+        return imm(ofs), imm(size), ptr, sign
 
     def consider_setfield_gc(self, op):
-        ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.getdescr())
+        ofs_loc, size_loc, _, _ = self._unpack_fielddescr(op.getdescr())
         assert isinstance(size_loc, ImmedLoc)
         if size_loc.value == 1:
             need_lower_byte = True
@@ -867,10 +871,10 @@ class RegAlloc(object):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op):
-        scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, _, _, _ = self._unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        if scale == 0:
+        if itemsize == 1:
             need_lower_byte = True
         else:
             need_lower_byte = False
@@ -879,30 +883,39 @@ class RegAlloc(object):
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.possibly_free_vars(args)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(scale), imm(ofs)])
+                                 imm(itemsize), imm(ofs)])
 
     consider_setarrayitem_raw = consider_setarrayitem_gc
 
     def consider_getfield_gc(self, op):
-        ofs_loc, size_loc, _ = self._unpack_fielddescr(op.getdescr())
+        ofs_loc, size_loc, _, sign = self._unpack_fielddescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.rm.possibly_free_vars(args)
         result_loc = self.force_allocate_reg(op.result)
-        self.Perform(op, [base_loc, ofs_loc, size_loc], result_loc)
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self.Perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
     consider_getfield_raw = consider_getfield_gc
     consider_getfield_raw_pure = consider_getfield_gc
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op):
-        scale, ofs, _, _ = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, _, _, sign = self._unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.rm.possibly_free_vars_for_op(op)
         result_loc = self.force_allocate_reg(op.result)
-        self.Perform(op, [base_loc, ofs_loc, imm(scale), imm(ofs)], result_loc)
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self.Perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
+                          sign_loc], result_loc)
 
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
@@ -1091,15 +1104,11 @@ class RegAlloc(object):
         self.Perform(op, [], loc)
 
     def not_implemented_op(self, op):
-        msg = "[regalloc] Not implemented operation: %s" % op.getopname()
-        print msg
-        raise NotImplementedError(msg)
+        not_implemented("not implemented operation: %s" % op.getopname())
 
     def not_implemented_op_with_guard(self, op, guard_op):
-        msg = "[regalloc] Not implemented operation with guard: %s" % (
-            op.getopname(),)
-        print msg
-        raise NotImplementedError(msg)
+        not_implemented("not implemented operation with guard: %s" % (
+            op.getopname(),))
 
 oplist = [RegAlloc.not_implemented_op] * rop._LAST
 oplist_with_guard = [RegAlloc.not_implemented_op_with_guard] * rop._LAST
@@ -1133,3 +1142,14 @@ def get_ebp_ofs(position):
     # Returns (ebp-20), (ebp-24), (ebp-28)...
     # i.e. the n'th word beyond the fixed frame size.
     return -WORD * (FRAME_FIXED_SIZE + position)
+
+def _get_scale(size):
+    assert size == 1 or size == 2 or size == 4 or size == 8
+    if size < 4:
+        return size - 1         # 1, 2 => 0, 1
+    else:
+        return (size >> 2) + 1  # 4, 8 => 2, 3
+
+def not_implemented(msg):
+    os.write(2, '[x86/regalloc] %s\n' % msg)
+    raise NotImplementedError(msg)
