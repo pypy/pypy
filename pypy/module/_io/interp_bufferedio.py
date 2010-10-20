@@ -11,7 +11,7 @@ from pypy.module.thread.os_lock import Lock
 class W_BufferedIOBase(W_IOBase):
     def __init__(self, space):
         W_IOBase.__init__(self, space)
-        self.buffer = None
+        self.buffer = lltype.nullptr(rffi.CCHARP.TO)
         self.lock = None
 
     def _init(self, space):
