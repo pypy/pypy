@@ -11,7 +11,7 @@ def main():
     buf = Circular()
     i = 10
     sa = 0
-    while i < 200000000:
+    while i < 20000000:
         sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
         i += 1
     return sa

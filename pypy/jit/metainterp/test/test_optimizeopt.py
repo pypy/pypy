@@ -3571,6 +3571,25 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         """
         self.optimize_loop(ops, 'Not, Not', expected)
 
+    def test_setgetfield_raw(self):
+        ops = """
+        [p4, p7, i30]
+        p16 = getfield_gc(p4, descr=valuedescr)
+        guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
+        i1 = getfield_raw(p7, descr=nextdescr)
+        i2 = int_add(i1, i30)
+        setfield_raw(p7, 7, descr=nextdescr)
+        setfield_raw(p7, i2, descr=nextdescr)
+        jump(p4, p7, i30)
+        """
+        expected = """
+        [p4, p7, i30, i2]
+        i33 = int_add(i2, i30)
+        setfield_raw(p7, i33, descr=nextdescr)        
+        jump(p4, p7, i30, i33)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not', expected)
+
     def test_addsub_ovf(self):
         ops = """
         [i0]

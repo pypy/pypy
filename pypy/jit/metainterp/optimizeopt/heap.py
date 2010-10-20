@@ -107,6 +107,7 @@ class OptHeap(Optimization):
             return
         opnum = op.getopnum()
         if (opnum == rop.SETFIELD_GC or
+            opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_GC or
             opnum == rop.DEBUG_MERGE_POINT):
             return
@@ -235,6 +236,10 @@ class OptHeap(Optimization):
         self.lazy_setfields[op.getdescr()] = op
         # remember the result of future reads of the field
         self.cache_field_value(op.getdescr(), value, fieldvalue, write=True)
+
+    optimize_GETFIELD_RAW = optimize_GETFIELD_GC
+    optimize_SETFIELD_RAW = optimize_SETFIELD_GC
+    # FIXME: Do we need separate caches for raw and gc?
 
     def optimize_GETARRAYITEM_GC(self, op):
         value = self.getvalue(op.getarg(0))

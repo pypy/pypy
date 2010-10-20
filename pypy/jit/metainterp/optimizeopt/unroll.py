@@ -73,7 +73,7 @@ class OptUnroll(Optimization):
                     args.extend(self.getvalue(arg).get_forced_boxes())
                 newop.initarglist(args + inputargs[len(args):])
 
-            #print 'P: ', newop
+            #print 'P: ', str(newop)
             current = len(self.optimizer.newoperations)
             self.emit_operation(newop)
 
@@ -81,7 +81,7 @@ class OptUnroll(Optimization):
             current = max(current-1, 0)
                 
             for op in self.optimizer.newoperations[current:]:
-                #print 'E: ', op,  self.optimizer.newoperations.index(op)
+                #print 'E: ', str(op)
                 if op.is_guard():
                     descr = op.getdescr()
                     assert isinstance(descr, ResumeGuardDescr)
