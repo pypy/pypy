@@ -85,17 +85,32 @@ class AppTestFileIO:
 
     def test_truncate(self):
         import _io
-        f = _io.FileIO(self.tmpfile, 'wb')
+        f = _io.FileIO(self.tmpfile, 'r+b')
         assert f.truncate(100) == 100 # grow the file
         f.close()
         f = _io.FileIO(self.tmpfile)
         assert len(f.read()) == 100
         f.close()
         #
-        f = _io.FileIO(self.tmpfile, 'wb')
+        f = _io.FileIO(self.tmpfile, 'r+b')
         f.seek(50)
         assert f.truncate() == 50
         f.close()
         f = _io.FileIO(self.tmpfile)
         assert len(f.read()) == 50
         f.close()
+
+    def test_readinto(self):
+        import _io
+        a = bytearray('x' * 10)
+        f = _io.FileIO(self.tmpfile, 'r+')
+        assert f.readinto(a) == 10
+        f.close()
+        assert a == 'a\nb\nc\0\0\0\0\0'
+        #
+        a = bytearray('x' * 10)
+        f = _io.FileIO(self.tmpfile, 'r+')
+        f.truncate(3)
+        assert f.readinto(a) == 3
+        f.close()
+        assert a == 'a\nbxxxxxxx'
