@@ -97,6 +97,36 @@ class AppTestFfi:
         assert set_dummy(42) is None
         assert get_dummy() == 42
 
+    def test_unsigned_long_args(self):
+        """
+            unsigned long sum_xy_ul(unsigned long x, unsigned long y)
+            {
+                return x+y;
+            }
+        """
+        import sys
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_ul', [types.ulong, types.ulong],
+                                types.ulong)
+        assert sum_xy(sys.maxint, 12) == sys.maxint+12
+        assert sum_xy(sys.maxint+1, 12) == sys.maxint+13
+
+    def test_unsigned_short_args(self):
+        """
+            unsigned short sum_xy_us(unsigned short x, unsigned short y)
+            {
+                return x+y;
+            }
+        """
+        import sys
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_us', [types.ushort, types.ushort],
+                                types.ushort)
+        assert sum_xy(32000, 8000) == 40000
+        assert sum_xy(60000, 30000) == 90000 % 65536
+
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)

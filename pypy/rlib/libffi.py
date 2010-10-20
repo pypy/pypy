@@ -35,27 +35,33 @@ class types(object):
     @staticmethod
     @jit.purefunction
     def getkind(ffi_type):
+        """Returns 'v' for void, 'f' for float, 'i' for signed integer,
+        and 'u' for unsigned integer.
+        """
         if   ffi_type is types.void:    return 'v'
         elif ffi_type is types.double:  return 'f'
         elif ffi_type is types.pointer: return 'i'
         #
         elif ffi_type is types.schar:   return 'i'
-        elif ffi_type is types.uchar:   return 'i'
+        elif ffi_type is types.uchar:   return 'u'
         elif ffi_type is types.sshort:  return 'i'
-        elif ffi_type is types.ushort:  return 'i'
+        elif ffi_type is types.ushort:  return 'u'
         elif ffi_type is types.sint:    return 'i'
-        elif ffi_type is types.uint:    return 'i'
+        elif ffi_type is types.uint:    return 'u'
         elif ffi_type is types.slong:   return 'i'
-        elif ffi_type is types.ulong:   return 'i'
+        elif ffi_type is types.ulong:   return 'u'
         #
         elif ffi_type is types.sint8:   return 'i'
-        elif ffi_type is types.uint8:   return 'i'
+        elif ffi_type is types.uint8:   return 'u'
         elif ffi_type is types.sint16:  return 'i'
-        elif ffi_type is types.uint16:  return 'i'
+        elif ffi_type is types.uint16:  return 'u'
         elif ffi_type is types.sint32:  return 'i'
-        elif ffi_type is types.uint32:  return 'i'
+        elif ffi_type is types.uint32:  return 'u'
+        ## we only support integers that fit in a lltype.Signed (==rffi.LONG)
+        ## (on 64-bit platforms, types.sint64 is types.slong and the case is
+        ## caught above)
         ## elif ffi_type is types.sint64:  return 'i'
-        ## elif ffi_type is types.uint64:  return 'i'
+        ## elif ffi_type is types.uint64:  return 'u'
         raise KeyError
 
 types._import()

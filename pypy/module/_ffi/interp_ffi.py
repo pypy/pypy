@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import jit
 from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
+from pypy.rlib.rarithmetic import intmask
 
 class W_FFIType(Wrappable):
     def __init__(self, name, ffitype):
@@ -74,6 +75,8 @@ class W_FuncPtr(Wrappable):
             kind = libffi.types.getkind(argtype)
             if kind == 'i':
                 argchain.arg(space.int_w(w_arg))
+            elif kind == 'u':
+                argchain.arg(intmask(space.uint_w(w_arg)))
             elif kind == 'f':
                 argchain.arg(space.float_w(w_arg))
             else:
@@ -87,6 +90,9 @@ class W_FuncPtr(Wrappable):
         reskind = libffi.types.getkind(self.func.restype)
         if reskind == 'i':
             intres = self.func.call(argchain, rffi.LONG)
+            return space.wrap(intres)
+        elif reskind == 'u':
+            intres = self.func.call(argchain, rffi.ULONG)
             return space.wrap(intres)
         elif reskind == 'f':
             floatres = self.func.call(argchain, rffi.DOUBLE)
