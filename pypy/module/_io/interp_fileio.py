@@ -1,6 +1,7 @@
 from pypy.module._io.interp_iobase import W_RawIOBase
 from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty)
+    TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty,
+    make_weakref_descr)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
@@ -8,6 +9,27 @@ from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import sys, os, stat, errno
+
+def interp_member_w(name, cls, doc=None):
+    "NOT_RPYTHON: initialization-time only"
+    def fget(space, obj):
+        w_value = getattr(obj, name)
+        if w_value is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap(name))
+        else:
+            return w_value
+    def fset(space, obj, w_value):
+        setattr(obj, name, w_value)
+    def fdel(space, obj):
+        w_value = getattr(obj, name)
+        if w_value is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap(name))
+        setattr(obj, name, None)
+
+    return GetSetProperty(fget, fset, fdel, cls=cls, doc=doc)
+
 
 O_BINARY = getattr(os, "O_BINARY", 0)
 O_APPEND = getattr(os, "O_APPEND", 0)
@@ -288,6 +310,21 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e)
         return space.wrap(res)
 
+    @unwrap_spec('self', ObjSpace)
+    def repr_w(self, space):
+        if self.fd < 0:
+            return space.wrap("<_io.FileIO [closed]>")
+
+        if self.w_name is None:
+            return space.wrap(
+                "<_io.FileIO fd=%d mode='%s'>" % (
+                    self.fd, self._mode()))
+        else:
+            w_repr = space.repr(self.w_name)
+            return space.wrap(
+                "<_io.FileIO name=%s mode='%s'>" % (
+                    space.str_w(w_repr), self._mode()))
+
     # ______________________________________________
 
     @unwrap_spec('self', ObjSpace, W_Root)
@@ -386,6 +423,8 @@ W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
     __new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_FileIO.descr_init),
+    __repr__ = interp2app(W_FileIO.repr_w),
+    __weakref__ = make_weakref_descr(W_FileIO),
 
     seek = interp2app(W_FileIO.seek_w),
     tell = interp2app(W_FileIO.tell_w),
@@ -401,7 +440,7 @@ W_FileIO.typedef = TypeDef(
     seekable = interp2app(W_FileIO.seekable_w),
     fileno = interp2app(W_FileIO.fileno_w),
     isatty = interp2app(W_FileIO.isatty_w),
-    name = interp_attrproperty_w('w_name', cls=W_FileIO),
+    name = interp_member_w('w_name', cls=W_FileIO),
     closefd = interp_attrproperty('closefd', cls=W_FileIO),
     mode = GetSetProperty(W_FileIO.descr_get_mode),
     )

@@ -21,6 +21,14 @@ class AppTestFileIO:
         assert f.closefd is True
         f.close()
 
+    def test_weakrefable(self):
+        import _io
+        from weakref import proxy
+        f = _io.FileIO(self.tmpfile)
+        p = proxy(f)
+        assert p.mode == 'rb'
+        f.close()
+
     def test_open_fd(self):
         import _io
         os = self.posix
@@ -114,3 +122,15 @@ class AppTestFileIO:
         assert f.readinto(a) == 3
         f.close()
         assert a == 'a\nbxxxxxxx'
+
+    def test_repr(self):
+        import _io
+        f = _io.FileIO(self.tmpfile, 'r')
+        assert repr(f) == ("<_io.FileIO name=%r mode='%s'>"
+                           % (f.name, f.mode))
+        del f.name
+        assert repr(f) == ("<_io.FileIO fd=%r mode='%s'>"
+                           % (f.fileno(), f.mode))
+        f.close()
+        assert repr(f) == "<_io.FileIO [closed]>"
+
