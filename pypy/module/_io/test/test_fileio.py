@@ -18,15 +18,18 @@ class AppTestFileIO:
         f = _io.FileIO(self.tmpfile, 'a')
         assert f.name.endswith('tmpfile')
         assert f.mode == 'wb'
+        assert f.closefd is True
         f.close()
 
     def test_open_fd(self):
         import _io
         os = self.posix
         fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
-        f = _io.FileIO(fd, "rb")
+        f = _io.FileIO(fd, "rb", closefd=False)
         assert f.fileno() == fd
+        assert f.closefd is False
         f.close()
+        os.close(fd)
 
     def test_open_directory(self):
         import _io

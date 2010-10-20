@@ -1,6 +1,6 @@
 from pypy.module._io.interp_iobase import W_RawIOBase
 from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty_w, GetSetProperty)
+    TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
@@ -366,6 +366,7 @@ W_FileIO.typedef = TypeDef(
     fileno = interp2app(W_FileIO.fileno_w),
     isatty = interp2app(W_FileIO.isatty_w),
     name = interp_attrproperty_w('w_name', cls=W_FileIO),
+    closefd = interp_attrproperty('closefd', cls=W_FileIO),
     mode = GetSetProperty(W_FileIO.descr_get_mode),
     )
 
