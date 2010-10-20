@@ -359,15 +359,20 @@ def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
 def list_append__Bytearray_ANY(space, w_bytearray, w_item):
     from pypy.objspace.std.bytearraytype import getbytevalue
     w_bytearray.data.append(getbytevalue(space, w_item))
-    return space.w_None
 
 def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
-    return space.w_None
 
 def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
     w_bytearray.data += [c for c in space.str_w(w_other)]
-    return space.w_None
+
+def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
+    list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
+    return w_bytearray1
+
+def inplace_add__Bytearray_ANY(space, w_bytearray1, w_iterable2):
+    list_extend__Bytearray_ANY(space, w_bytearray1, w_iterable2)
+    return w_bytearray1
 
 def delslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
     length = len(w_bytearray.data)
@@ -375,6 +380,25 @@ def delslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
     if start == stop:
         return
     del w_bytearray.data[start:stop]
+
+def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
+    from pypy.objspace.std.bytearraytype import getbytevalue
+    idx = space.getindex_w(w_index, space.w_IndexError, "bytearray index")
+    try:
+        w_bytearray.data[idx] = getbytevalue(space, w_item)
+    except IndexError:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("bytearray index out of range"))
+
+def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
+    oldsize = len(w_bytearray.data)
+    start, stop, step, slicelength = w_slice.indices4(space, oldsize)
+    if step != 1:
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("fixme: only step=1 for the moment"))
+    assert start >= 0
+    assert stop >= 0
+    w_bytearray.data[start:stop] = [c for c in space.str_w(w_other)]
 
 from pypy.objspace.std import bytearraytype
 register_all(vars(), bytearraytype)

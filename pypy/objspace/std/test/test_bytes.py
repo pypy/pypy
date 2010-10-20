@@ -143,6 +143,12 @@ class AppTestBytesArray:
         b.append(ord('e'))
         assert b == 'abcde'
 
+    def test_iadd(self):
+        b = bytearray('abc')
+        b += 'def'
+        assert b == 'abcdef'
+        assert isinstance(b, bytearray)
+
     def test_extend(self):
         b = bytearray('abc')
         b.extend(bytearray('def'))
@@ -155,3 +161,17 @@ class AppTestBytesArray:
         assert b == 'abcdei'
         del b[:3]
         assert b == 'dei'
+
+    def test_setitem(self):
+        b = bytearray('abcdefghi')
+        b[1] = 'B'
+        assert b == 'aBcdefghi'
+
+    def test_setitem_slice(self):
+        b = bytearray('abcdefghi')
+        b[0:3] = 'ABC'
+        assert b == 'ABCdefghi'
+        b[3:3] = '...'
+        assert b == 'ABC...defghi'
+        b[3:6] = '()'
+        assert b == 'ABC()defghi'
