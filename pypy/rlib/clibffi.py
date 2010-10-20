@@ -414,10 +414,10 @@ class AbstractFuncPtr(object):
 
     def __del__(self):
         if self.ll_cif:
-            lltype.free(self.ll_cif, flavor='raw')
+            lltype.free(self.ll_cif, flavor='raw', track_allocation=False)
             self.ll_cif = lltype.nullptr(FFI_CIFP.TO)
         if self.ll_argtypes:
-            lltype.free(self.ll_argtypes, flavor='raw')
+            lltype.free(self.ll_argtypes, flavor='raw', track_allocation=False)
             self.ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
 
 # as long as CallbackFuncPtr is kept alive, the underlaying userdata
