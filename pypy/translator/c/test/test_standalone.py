@@ -16,10 +16,15 @@ from pypy.conftest import option
 class StandaloneTests(object):
     config = None
 
-    def compile(self, entry_point, debug=True, shared=False):
+    def compile(self, entry_point, debug=True, shared=False,
+                stackcheck=False):
         t = TranslationContext(self.config)
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
+
+        if stackcheck:
+            from pypy.translator.transform import insert_ll_stackcheck
+            insert_ll_stackcheck(t)
 
         t.config.translation.shared = shared
 
@@ -630,6 +635,22 @@ class TestStandalone(StandaloneTests):
             else:
                 os.environ['CC'] = old_cc
 
+    def test_inhibit_tail_call(self):
+        # the point is to check that the f()->f() recursion stops
+        from pypy.rlib.rstackovf import StackOverflow
+        def f(n):
+            if n <= 0:
+                return 42
+            return f(n+1)
+        def entry_point(argv):
+            try:
+                return f(1)
+            except StackOverflow:
+                print 'hi!'
+                return 0
+        t, cbuilder = self.compile(entry_point, stackcheck=True)
+        out = cbuilder.cmdexec("")
+        assert out.strip() == "hi!"
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

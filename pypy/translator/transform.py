@@ -221,15 +221,19 @@ def insert_ll_stackcheck(translator):
     stack_check_ptr_const = Constant(stack_check_ptr, lltype.typeOf(stack_check_ptr))
     edges = set()
     insert_in = set()
+    block2graph = {}
     for caller in translator.graphs:
         for block, callee in find_calls_from(translator, caller):
             if getattr(getattr(callee, 'func', None),
                        'insert_stack_check_here', False):
                 insert_in.add(callee.startblock)
+                block2graph[callee.startblock] = callee
                 continue
             if block is not caller.startblock:
                 edges.add((caller.startblock, block))
+                block2graph[caller.startblock] = caller
             edges.add((block, callee.startblock))
+            block2graph[block] = caller
 
     edgelist = [Edge(block1, block2) for (block1, block2) in edges]
     edgedict = make_edge_dict(edgelist)
@@ -241,6 +245,10 @@ def insert_ll_stackcheck(translator):
         v.concretetype = lltype.Void
         unwind_op = SpaceOperation('direct_call', [stack_check_ptr_const], v)
         block.operations.insert(0, unwind_op)
+        # prevents cycles of tail calls from occurring -- such cycles would
+        # not consume any stack, so would turn into potentially infinite loops
+        graph = block2graph[block]
+        graph.inhibit_tail_call = True
     return len(insert_in)
 
 

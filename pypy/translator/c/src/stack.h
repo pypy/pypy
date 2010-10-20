@@ -33,6 +33,12 @@ static int LL_stack_too_big(void)
 		&& LL_stack_too_big_slowpath());
 }
 
+#ifdef __GNUC__
+#  define PYPY_INHIBIT_TAIL_CALL()   asm("/* inhibit_tail_call */")
+#else
+#  define PYPY_INHIBIT_TAIL_CALL()   /* add hints for other compilers here */
+#endif
+
 
 #ifndef PYPY_NOT_MAIN_FILE
 #include <stdio.h>

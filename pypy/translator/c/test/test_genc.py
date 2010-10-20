@@ -478,3 +478,23 @@ def test_recursive_llhelper():
     t.bar = llhelper(FTPTR, a_f.make_func())
     fn = compile(chooser, [bool])
     assert fn(True)
+
+def test_inhibit_tail_call():
+    from pypy.rpython.lltypesystem import lltype
+    def foobar_fn(n):
+        return 42
+    foobar_fn._dont_inline_ = True
+    def main(n):
+        return foobar_fn(n)
+    #
+    t = Translation(main, [int], backend="c")
+    t.rtype()
+    t.context._graphof(foobar_fn).inhibit_tail_call = True
+    t.source_c()
+    lines = t.driver.cbuilder.c_source_filename.readlines()
+    for i, line in enumerate(lines):
+        if '= pypy_g_foobar_fn' in line:
+            break
+    else:
+        assert 0, "the call was not found in the C source"
+    assert 'PYPY_INHIBIT_TAIL_CALL();' in lines[i+1]
