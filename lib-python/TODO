@@ -32,9 +32,6 @@ Medium tasks
 - Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
   test_pickle()
 
-- catching a string should emit a DeprecationWarning ("catching of
-  string exceptions is deprecated")
-
 - missing builtin: memoryview
 
 Longer tasks
