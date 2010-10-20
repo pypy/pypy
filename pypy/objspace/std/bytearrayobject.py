@@ -11,6 +11,7 @@ from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
+from pypy.interpreter.buffer import RWBuffer
 
 class W_BytearrayObject(W_Object):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
@@ -399,6 +400,26 @@ def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     assert start >= 0
     assert stop >= 0
     w_bytearray.data[start:stop] = [c for c in space.str_w(w_other)]
+
+# __________________________________________________________
+# Buffer interface
+
+class BytearrayBuffer(RWBuffer):
+    def __init__(self, data):
+        self.data = data
+
+    def getlength(self):
+        return len(self.data)
+
+    def getitem(self, index):
+        return self.data[index]
+
+    def setitem(self, index, char):
+        self.data[index] = char
+
+def buffer__Bytearray(space, self):
+    b = BytearrayBuffer(self.data)
+    return space.wrap(b)
 
 from pypy.objspace.std import bytearraytype
 register_all(vars(), bytearraytype)

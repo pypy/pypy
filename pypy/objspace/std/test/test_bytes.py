@@ -175,3 +175,12 @@ class AppTestBytesArray:
         assert b == 'ABC...defghi'
         b[3:6] = '()'
         assert b == 'ABC()defghi'
+
+    def test_buffer(self):
+        b = bytearray('abcdefghi')
+        buf = buffer(b)
+        assert buf[2] == 'c'
+        buf[3] = 'D'
+        assert b == 'abcDefghi'
+        buf[4:6] = 'EF'
+        assert b == 'abcDEFghi'
