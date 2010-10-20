@@ -26,20 +26,6 @@ W_BlockingIOError.typedef = TypeDef(
     characters_written = interp_attrproperty('written', W_BlockingIOError),
     )
 
-class W_TextIOBase(W_IOBase):
-    pass
-W_TextIOBase.typedef = TypeDef(
-    '_TextIOBase', W_IOBase.typedef,
-    __new__ = generic_new_descr(W_TextIOBase),
-    )
-
-class W_TextIOWrapper(W_TextIOBase):
-    pass
-W_TextIOWrapper.typedef = TypeDef(
-    'TextIOWrapper', W_TextIOBase.typedef,
-    __new__ = generic_new_descr(W_TextIOWrapper),
-    )
-
 @unwrap_spec(ObjSpace, Arguments)
 def open(space, __args__):
     # XXX cheat!

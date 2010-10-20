@@ -1,4 +1,4 @@
-from pypy.module._io.interp_io import W_TextIOBase
+from pypy.module._io.interp_textio import W_TextIOBase
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import operationerrfmt
