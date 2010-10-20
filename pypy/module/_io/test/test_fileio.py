@@ -64,3 +64,10 @@ class AppTestFileIO:
         f.seek(0)
         self.posix.close(f.fileno())
         raises(IOError, f.seek, 0)
+
+    def test_tell(self):
+        import _io
+        f = _io.FileIO(self.tmpfile, 'rb')
+        f.seek(3)
+        assert f.tell() == 3
+        f.close()
