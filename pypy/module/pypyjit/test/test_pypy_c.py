@@ -560,13 +560,13 @@ class PyPyCJITTests(object):
 
     def test_blockstack_virtualizable(self):
         self.run_source('''
-        import pypyjit
+        from pypyjit import residual_call
 
         def main():
             i = 0
             while i < 100:
                 try:
-                    pypyjit.residual_call(len, [])
+                    residual_call(len, [])
                 except:
                     pass
                 i += 1
