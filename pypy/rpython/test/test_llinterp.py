@@ -12,12 +12,10 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rlib.rarithmetic import r_uint, ovfcheck
 from pypy.rpython.ootypesystem import ootype
+from pypy.tool import leakfinder
 from pypy import conftest
 
 # switch on logging of interp to show more info on failing tests
-
-class MallocMismatch(Exception):
-    pass
 
 def setup_module(mod):
     mod.logstate = py.log._getstate()
@@ -72,7 +70,7 @@ def clear_tcache():
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                     someobjects=False, type_system="lltype", backendopt=False,
-                    config=None, malloc_check=True, **extraconfigopts):
+                    config=None, **extraconfigopts):
     extra_key = [(key, value) for key, value in extraconfigopts.iteritems()]
     extra_key.sort()
     extra_key = tuple(extra_key)
@@ -97,7 +95,7 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                                    viewbefore, policy, type_system=type_system,
                                    backendopt=backendopt, config=config,
                                    **extraconfigopts)
-        interp = LLInterpreter(typer, malloc_check=malloc_check)
+        interp = LLInterpreter(typer)
         _tcache[key] = (t, interp, graph)
         # keep the cache small 
         _lastinterpreted.append(key) 
@@ -115,10 +113,17 @@ def interpret(func, values, view='auto', viewbefore='auto', policy=None,
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                                     someobjects, type_system=type_system,
                                     backendopt=backendopt, config=config,
-                                    malloc_check=malloc_check, **kwargs)
-    result = interp.eval_graph(graph, values)
-    if malloc_check and interp.mallocs:
-        raise MallocMismatch(interp.mallocs)
+                                    **kwargs)
+    if not malloc_check:
+        result = interp.eval_graph(graph, values)
+    else:
+        prev = leakfinder.start_tracking_allocations()
+        try:
+            result = interp.eval_graph(graph, values)
+        finally:
+            leaks = leakfinder.stop_tracking_allocations(False, prev)
+        if leaks:
+            raise leakfinder.MallocMismatch(leaks)
     return result
 
 def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
@@ -418,6 +423,7 @@ def test_id():
             assert result
 
 def test_stack_malloc():
+    py.test.skip("stack-flavored mallocs no longer supported")
     class A(object):
         pass
     def f():
@@ -430,6 +436,7 @@ def test_stack_malloc():
     assert result == 1
 
 def test_invalid_stack_access():
+    py.test.skip("stack-flavored mallocs no longer supported")
     class A(object):
         pass
     globala = A()
@@ -605,7 +612,7 @@ def test_malloc_checker():
         if x:
             free(t, flavor='raw')
     interpret(f, [1])
-    py.test.raises(MallocMismatch, "interpret(f, [0])")
+    py.test.raises(leakfinder.MallocMismatch, "interpret(f, [0])")
     
     def f():
         t1 = malloc(T, flavor='raw')

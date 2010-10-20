@@ -158,7 +158,7 @@ class GcRefList:
         # used to avoid too many duplications in the GCREF_LISTs.
         self.hashtable = lltype.malloc(self.HASHTABLE,
                                        self.HASHTABLE_SIZE+1,
-                                       flavor='raw')
+                                       flavor='raw', track_allocation=False)
         dummy = lltype.direct_ptradd(lltype.direct_arrayitems(self.hashtable),
                                      self.HASHTABLE_SIZE)
         dummy = llmemory.cast_ptr_to_adr(dummy)
@@ -252,14 +252,15 @@ class GcRootMap_asmgcc:
 
     def _enlarge_gcmap(self):
         newlength = 250 + self._gcmap_maxlength * 2
-        newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw')
+        newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw',
+                                 track_allocation=False)
         oldgcmap = self._gcmap
         for i in range(self._gcmap_curlength):
             newgcmap[i] = oldgcmap[i]
         self._gcmap = newgcmap
         self._gcmap_maxlength = newlength
         if oldgcmap:
-            lltype.free(oldgcmap, flavor='raw')
+            lltype.free(oldgcmap, flavor='raw', track_allocation=False)
 
     def get_basic_shape(self, is_64_bit=False):
         # XXX: Should this code even really know about stack frame layout of
@@ -308,7 +309,8 @@ class GcRootMap_asmgcc:
         # them inside bigger arrays) and we never try to share them.
         length = len(shape)
         compressed = lltype.malloc(self.CALLSHAPE_ARRAY, length,
-                                   flavor='raw')
+                                   flavor='raw',
+                                   track_allocation=False)   # memory leak
         for i in range(length):
             compressed[length-1-i] = rffi.cast(rffi.UCHAR, shape[i])
         return llmemory.cast_ptr_to_adr(compressed)

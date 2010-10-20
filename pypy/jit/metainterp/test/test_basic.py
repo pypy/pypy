@@ -1780,7 +1780,7 @@ class BaseLLtypeTests(BasicTests):
             c = bool(p1)
             d = not bool(p2)
             return 1000*a + 100*b + 10*c + d
-        prebuilt = [lltype.malloc(TP, flavor='raw')] * 2
+        prebuilt = [lltype.malloc(TP, flavor='raw', immortal=True)] * 2
         expected = f(0, 1)
         assert self.interp_operations(f, [0, 1]) == expected
 

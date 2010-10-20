@@ -83,7 +83,8 @@ class AbstractLLCPU(AbstractCPU):
         # read back by the machine code reading at the address given by
         # pos_exception() and pos_exc_value().
         _exception_emulator = lltype.malloc(rffi.CArray(lltype.Signed), 2,
-                                            zero=True, flavor='raw')
+                                            zero=True, flavor='raw',
+                                            immortal=True)
         self._exception_emulator = _exception_emulator
 
         def _store_exception(lle):

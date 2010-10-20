@@ -75,7 +75,8 @@ class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
             key = (TYPE, num)
             if key not in sradict:
                 CONTAINER = lltype.FixedSizeArray(TYPE, 1)
-                p = lltype.malloc(CONTAINER, flavor='raw', zero=True)
+                p = lltype.malloc(CONTAINER, flavor='raw', zero=True,
+                                  immortal=True)
                 sradict[key] = Constant(p, lltype.Ptr(CONTAINER))
             sra.append(sradict[key])
         #

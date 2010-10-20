@@ -426,6 +426,7 @@ def test_exportstruct():
     if py.test.config.option.view:
         t.view()
     assert ' BarStruct ' in t.driver.cbuilder.c_source_filename.read()
+    free(foo, flavor="raw")
 
 def test_recursive_llhelper():
     from pypy.rpython.annlowlevel import llhelper
@@ -473,7 +474,7 @@ def test_recursive_llhelper():
         return f(s)
     a_f = A(f, "f")
     a_g = A(g, "g")
-    t = lltype.malloc(STRUCT, flavor="raw")
+    t = lltype.malloc(STRUCT, flavor="raw", immortal=True)
     t.bar = llhelper(FTPTR, a_f.make_func())
     fn = compile(chooser, [bool])
     assert fn(True)

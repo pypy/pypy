@@ -42,7 +42,8 @@ class GCManagedHeap(object):
     #
     # Interface for the llinterp
     #
-    def malloc(self, TYPE, n=None, flavor='gc', zero=False):
+    def malloc(self, TYPE, n=None, flavor='gc', zero=False,
+               track_allocation=True):
         if flavor == 'gc':
             typeid = self.get_type_id(TYPE)
             addr = self.gc.malloc(typeid, n, zero=zero)
@@ -51,7 +52,8 @@ class GCManagedHeap(object):
                 gctypelayout.zero_gc_pointers(result)
             return result
         else:
-            return lltype.malloc(TYPE, n, flavor=flavor, zero=zero)
+            return lltype.malloc(TYPE, n, flavor=flavor, zero=zero,
+                                 track_allocation=track_allocation)
 
     def malloc_nonmovable(self, TYPE, n=None, zero=False):
         typeid = self.get_type_id(TYPE)
@@ -69,9 +71,10 @@ class GCManagedHeap(object):
             return self.gc.shrink_array(addr, smallersize)
         return False
 
-    def free(self, TYPE, flavor='gc'):
+    def free(self, TYPE, flavor='gc', track_allocation=True):
         assert flavor != 'gc'
-        return lltype.free(TYPE, flavor=flavor)
+        return lltype.free(TYPE, flavor=flavor,
+                           track_allocation=track_allocation)
 
     def setfield(self, obj, fieldname, fieldvalue):
         STRUCT = lltype.typeOf(obj).TO

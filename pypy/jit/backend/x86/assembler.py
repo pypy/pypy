@@ -249,7 +249,8 @@ class Assembler386(object):
 
     def _build_float_constants(self):
         # 44 bytes: 32 bytes for the data, and up to 12 bytes for alignment
-        addr = lltype.malloc(rffi.CArray(lltype.Char), 44, flavor='raw')
+        addr = lltype.malloc(rffi.CArray(lltype.Char), 44, flavor='raw',
+                             track_allocation=False)
         if not we_are_translated():
             self._keepalive_malloced_float_consts = addr
         float_constants = rffi.cast(lltype.Signed, addr)
@@ -399,7 +400,8 @@ class Assembler386(object):
             funcname = "<loop %d>" % len(self.loop_run_counters)
         # invent the counter, so we don't get too confused
         if self._debug:
-            struct = lltype.malloc(DEBUG_COUNTER, flavor='raw')
+            struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
+                                   track_allocation=False)   # known to leak
             struct.i = 0
             self.loop_run_counters.append((len(self.loop_run_counters), struct))
         return funcname

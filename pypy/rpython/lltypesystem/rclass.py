@@ -420,7 +420,7 @@ class InstanceRepr(AbstractInstanceRepr):
         return cast_pointer(self.lowleveltype, result)
 
     def create_instance(self):
-        return malloc(self.object_type, flavor=self.gcflavor)
+        return malloc(self.object_type, flavor=self.gcflavor, immortal=True)
 
     def initialize_prebuilt_data(self, value, classdef, result):
         if self.classdef is not None:

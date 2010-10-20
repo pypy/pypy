@@ -48,8 +48,7 @@ class LLInterpreter(object):
 
     current_interpreter = None
 
-    def __init__(self, typer, tracing=True, exc_data_ptr=None,
-                 malloc_check=True):
+    def __init__(self, typer, tracing=True, exc_data_ptr=None):
         self.bindings = {}
         self.typer = typer
         # 'heap' is module or object that provides malloc, etc for lltype ops
@@ -57,9 +56,7 @@ class LLInterpreter(object):
         self.exc_data_ptr = exc_data_ptr
         self.frame_stack = []
         self.tracer = None
-        self.malloc_check = malloc_check
         self.frame_class = LLFrame
-        self.mallocs = {}
         if tracing:
             self.tracer = Tracer()
 
@@ -162,24 +159,6 @@ class LLInterpreter(object):
         if getattr(graph, 'rgenop', False):
             return self.exc_data_ptr
         return None
-
-    def remember_malloc(self, ptr, llframe):
-        # err....
-        self.mallocs[ptr._obj] = llframe
-
-    def remember_free(self, ptr):
-        try:
-            del self.mallocs[ptr._obj]
-        except KeyError:
-            self._rehash_mallocs()
-            del self.mallocs[ptr._obj]
-
-    def _rehash_mallocs(self):
-        # rehashing is needed because some objects' hash may change
-        # when being turned to <C object>
-        items = self.mallocs.items()
-        self.mallocs = {}
-        self.mallocs.update(items)
 
     def _store_exception(self, exc):
         raise PleaseOverwriteStoreException("You just invoked ll2ctypes callback without overwriting _store_exception on llinterpreter")
@@ -726,13 +705,13 @@ class LLFrame(object):
     def op_malloc(self, obj, flags):
         flavor = flags['flavor']
         zero = flags.get('zero', False)
+        track_allocation = flags.get('track_allocation', True)
         if flavor == "stack":
             result = self.heap.malloc(obj, zero=zero, flavor='raw')
             self.alloca_objects.append(result)
             return result
-        ptr = self.heap.malloc(obj, zero=zero, flavor=flavor)
-        if flavor == 'raw' and self.llinterpreter.malloc_check:
-            self.llinterpreter.remember_malloc(ptr, self)
+        ptr = self.heap.malloc(obj, zero=zero, flavor=flavor,
+                               track_allocation=track_allocation)
         return ptr
 
     def op_malloc_varsize(self, obj, flags, size):
@@ -741,8 +720,6 @@ class LLFrame(object):
         assert flavor in ('gc', 'raw')
         try:
             ptr = self.heap.malloc(obj, size, zero=zero, flavor=flavor)
-            if flavor == 'raw' and self.llinterpreter.malloc_check:
-                self.llinterpreter.remember_malloc(ptr, self)
             return ptr
         except MemoryError:
             self.make_llexception()
@@ -759,11 +736,10 @@ class LLFrame(object):
         zero = flags.get('zero', False)
         return self.heap.malloc_nonmovable(TYPE, size, zero=zero)
 
-    def op_free(self, obj, flavor):
-        assert isinstance(flavor, str)
-        if flavor == 'raw' and self.llinterpreter.malloc_check:
-            self.llinterpreter.remember_free(obj)
-        self.heap.free(obj, flavor=flavor)
+    def op_free(self, obj, flags):
+        assert flags['flavor'] == 'raw'
+        track_allocation = flags.get('track_allocation', True)
+        self.heap.free(obj, flavor='raw', track_allocation=track_allocation)
 
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)
@@ -1036,6 +1012,13 @@ class LLFrame(object):
 
     def op_stack_malloc(self, size): # mmh
         raise NotImplementedError("backend only")
+
+    def op_track_alloc_start(self, addr):
+        # we don't do tracking at this level
+        checkadr(addr)
+
+    def op_track_alloc_stop(self, addr):
+        checkadr(addr)
 
     # ____________________________________________________________
     # Overflow-detecting variants

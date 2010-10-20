@@ -70,8 +70,9 @@ class FloatConstants(object):
 
     def _get_new_array(self):
         n = self.BASE_CONSTANT_SIZE
+        # known to leak
         self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n,
-                                       flavor='raw')
+                                       flavor='raw', track_allocation=False)
         self.cur_array_free = n
     _get_new_array._dont_inline_ = True
 

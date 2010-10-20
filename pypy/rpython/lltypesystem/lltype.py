@@ -1,7 +1,3 @@
-import StringIO
-import traceback
-import sys
-
 import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    r_ulonglong, r_longlong, base_int,
@@ -10,25 +6,13 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
 from pypy.tool.identity_dict import identity_dict
+from pypy.tool import leakfinder
 from types import NoneType
 from sys import maxint
 import weakref
 
 TLS = tlsobject()
 
-# Track allocations to detect memory leaks
-# Don't track 'gc' and immortal mallocs
-TRACK_ALLOCATIONS = False
-ALLOCATED = identity_dict()
-
-def start_tracking_allocations():
-    global TRACK_ALLOCATIONS
-    TRACK_ALLOCATIONS = True
-    ALLOCATED.clear()
-
-def stop_tracking_allocations():
-    global TRACK_ALLOCATIONS
-    TRACK_ALLOCATIONS = False
 
 class _uninitialized(object):
     def __init__(self, TYPE):
@@ -1382,40 +1366,20 @@ class _parentable(_container):
     __slots__ = ('_TYPE',
                  '_parent_type', '_parent_index', '_keepparent',
                  '_wrparent',
-                 '__weakref__', '_traceback',
-                 '__storage')
+                 '__weakref__',
+                 '_storage')
 
-    def __init__(self, TYPE, track_allocation=None):
+    def __init__(self, TYPE):
         self._wrparent = None
         self._TYPE = TYPE
         self._storage = True    # means "use default storage", as opposed to:
                                 #    None            - container was freed
                                 #    <ctypes object> - using ctypes
                                 #                      (see ll2ctypes.py)
-        if track_allocation is not False and TRACK_ALLOCATIONS:
-            self._traceback = self._get_traceback()
-            ALLOCATED[self] = None
-        else:
-            self._traceback = None
-
-    def _get_traceback(self):
-        frame = sys._getframe().f_back.f_back.f_back.f_back
-        sio = StringIO.StringIO()
-        traceback.print_stack(frame, file=sio)
-        return sio.getvalue()
 
     def _free(self):
         self._check()   # no double-frees
         self._storage = None
-
-    def _storage_get(self):
-        return self.__storage
-
-    def _storage_set(self, value):
-        self.__storage = value
-        if value is not True and self in ALLOCATED:
-            del ALLOCATED[self]
-    _storage = property(_storage_get, _storage_set)
 
     def _was_freed(self):
         if self._storage is None:
@@ -1495,12 +1459,12 @@ class _struct(_parentable):
 
     __slots__ = ('_hash_cache_', '_compilation_info')
 
-    def __new__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None, track_allocation=None):
+    def __new__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None):
         my_variety = _struct_variety(TYPE._names)
         return object.__new__(my_variety)
 
-    def __init__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None, track_allocation=None):
-        _parentable.__init__(self, TYPE, track_allocation)
+    def __init__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None):
+        _parentable.__init__(self, TYPE)
         if n is not None and TYPE._arrayfld is None:
             raise TypeError("%r is not variable-sized" % (TYPE,))
         if n is None and TYPE._arrayfld is not None:
@@ -1508,8 +1472,7 @@ class _struct(_parentable):
         first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
-                value = _array(typ, n, initialization=initialization, parent=self, parentindex=fld,
-                               track_allocation=track_allocation)
+                value = _array(typ, n, initialization=initialization, parent=self, parentindex=fld)
             else:
                 value = typ._allocate(initialization=initialization, parent=self, parentindex=fld)
             setattr(self, fld, value)
@@ -1570,12 +1533,12 @@ class _array(_parentable):
 
     __slots__ = ('items',)
 
-    def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None, track_allocation=None):
+    def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
         if not isinstance(n, int):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"
-        _parentable.__init__(self, TYPE, track_allocation)
+        _parentable.__init__(self, TYPE)
         try:
             myrange = range(n)
         except OverflowError:
@@ -1642,13 +1605,20 @@ class _subarray(_parentable):     # only for direct_fieldptr()
     _cache = weakref.WeakKeyDictionary()  # parentarray -> {subarrays}
 
     def __init__(self, TYPE, parent, baseoffset_or_fieldname):
-        _parentable.__init__(self, TYPE, track_allocation=False)
+        _parentable.__init__(self, TYPE)
         self._setparentstructure(parent, baseoffset_or_fieldname)
         # Keep the parent array alive, we share the same allocation.
         # Don't do it if we are inside a GC object, though -- it's someone
         # else's job to keep the GC object alive
         if typeOf(top_container(parent))._gckind == 'raw':
             self._keepparent = parent
+
+    def __str__(self):
+        parent = self._wrparent()
+        if parent is None:
+            return '_subarray at %s in already freed' % (self._parent_index,)
+        return '_subarray at %r in %s' % (self._parent_index,
+                                          parent._TYPE)
 
     def __repr__(self):
         parent = self._wrparent()
@@ -1863,8 +1833,9 @@ class _pyobject(Hashable, _container):
         return id(self.value)
 
 
-def malloc(T, n=None, flavor='gc', immortal=False, zero=False):
-    assert flavor != 'cpy'
+def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
+           track_allocation=True):
+    assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'
     elif flavor == 'raw':
@@ -1872,9 +1843,9 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False):
     else:
         initialization = 'malloc'
     if isinstance(T, Struct):
-        o = _struct(T, n, initialization=initialization, track_allocation=flavor == "raw" and not immortal)
+        o = _struct(T, n, initialization=initialization)
     elif isinstance(T, Array):
-        o = _array(T, n, initialization=initialization, track_allocation=flavor == "raw" and not immortal)
+        o = _array(T, n, initialization=initialization)
     elif isinstance(T, OpaqueType):
         assert n is None
         o = _opaque(T, initialization=initialization)
@@ -1882,15 +1853,19 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False):
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):
         raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
+    if flavor == "raw" and not immortal and track_allocation:
+        leakfinder.remember_malloc(o, framedepth=2)
     solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
     return _ptr(Ptr(T), o, solid)
 
-def free(p, flavor):
+def free(p, flavor, track_allocation=True):
     if flavor.startswith('gc'):
         raise TypeError, "gc flavor free"
     T = typeOf(p)
     if not isinstance(T, Ptr) or p._togckind() != 'raw':
         raise TypeError, "free(): only for pointers to non-gc containers"
+    if track_allocation:
+        leakfinder.remember_free(p._obj0)
     p._obj0._free()
 
 def functionptr(TYPE, name, **attrs):

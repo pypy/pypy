@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
-from pypy.rpython.test.test_llinterp import interpret, MallocMismatch
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper

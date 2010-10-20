@@ -189,6 +189,8 @@ def test_decompression_too_much_input():
     assert unused3 == len('more_garbage')
     assert data3 == ''
 
+    rzlib.deflateEnd(stream)
+
 
 def test_decompress_max_length():
     """
@@ -205,6 +207,8 @@ def test_decompress_max_length():
     assert finished2 is True
     assert unused2 == 0
 
+    rzlib.deflateEnd(stream)
+
 
 def test_cornercases():
     """
@@ -215,6 +219,7 @@ def test_cornercases():
     bytes += rzlib.compress(stream, "")
     bytes += rzlib.compress(stream, "", rzlib.Z_FINISH)
     assert zlib.decompress(bytes) == ""
+    rzlib.deflateEnd(stream)
 
     stream = rzlib.inflateInit()
     data, finished, unused = rzlib.decompress(stream, "")
@@ -228,3 +233,4 @@ def test_cornercases():
         assert finished is False
         assert unused > 0
         buf = buf[-unused:]
+    rzlib.deflateEnd(stream)
