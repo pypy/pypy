@@ -790,6 +790,7 @@ def test_PYTHONPATH_takes_precedence(space):
     extrapath = udir.ensure("pythonpath", dir=1) 
     extrapath.join("urllib.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
+    oldlang = os.environ.pop('LANG', None)
     try: 
         os.environ['PYTHONPATH'] = str(extrapath)
         output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' % 
@@ -798,6 +799,8 @@ def test_PYTHONPATH_takes_precedence(space):
     finally: 
         if old: 
             os.environ['PYTHONPATH'] = old 
+        if oldlang:
+            os.environ['LANG'] = oldlang
 
 class AppTestImportHooks(object):
     def test_meta_path(self):
