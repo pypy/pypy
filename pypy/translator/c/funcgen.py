@@ -445,8 +445,7 @@ class FunctionCodeGenerator(object):
             r = self.expr(v_result)
             line = '%s = %s' % (r, line)
         if targets:
-            for func in targets:
-                graph = getattr(func._obj, 'graph', None)
+            for graph in targets:
                 if getattr(graph, 'inhibit_tail_call', False):
                     line += '\nPYPY_INHIBIT_TAIL_CALL();'
                     break
@@ -454,8 +453,12 @@ class FunctionCodeGenerator(object):
 
     def OP_DIRECT_CALL(self, op):
         fn = op.args[0]
+        try:
+            targets = [fn.value._obj.graph]
+        except AttributeError:
+            targets = None
         return self.generic_call(fn.concretetype, self.expr(fn),
-                                 op.args[1:], op.result, [fn.value])
+                                 op.args[1:], op.result, targets)
 
     def OP_INDIRECT_CALL(self, op):
         fn = op.args[0]
