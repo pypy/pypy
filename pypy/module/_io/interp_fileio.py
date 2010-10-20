@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
-import os, stat, errno
+import sys, os, stat, errno
 
 O_BINARY = getattr(os, "O_BINARY", 0)
 O_APPEND = getattr(os, "O_APPEND", 0)
@@ -347,6 +347,25 @@ class W_FileIO(W_RawIOBase):
             total += len(chunk)
         return space.wrap(builder.build())
 
+    if sys.platform == "win32":
+        def _truncate(self, size):
+            from pypy.rlib.streamio import ftruncate_win32
+            ftruncate_win32(self.fd, size)
+    else:
+        def _truncate(self, size):
+            os.ftruncate(self.fd, size)
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def truncate_w(self, space, w_size=None):
+        if space.is_w(w_size, space.w_None):
+            w_size = self.tell_w(space)
+
+        try:
+            self._truncate(space.r_longlong_w(w_size))
+        except OSError, e:
+            raise wrap_oserror(space, e)
+
+        return w_size
 
 W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
@@ -358,6 +377,7 @@ W_FileIO.typedef = TypeDef(
     write = interp2app(W_FileIO.write_w),
     read = interp2app(W_FileIO.read_w),
     readall = interp2app(W_FileIO.readall_w),
+    truncate = interp2app(W_FileIO.truncate_w),
     close = interp2app(W_FileIO.close_w),
 
     readable = interp2app(W_FileIO.readable_w),

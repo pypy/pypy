@@ -74,3 +74,20 @@ class AppTestFileIO:
         f.seek(3)
         assert f.tell() == 3
         f.close()
+
+    def test_truncate(self):
+        import _io
+        f = _io.FileIO(self.tmpfile, 'wb')
+        assert f.truncate(100) == 100 # grow the file
+        f.close()
+        f = _io.FileIO(self.tmpfile)
+        assert len(f.read()) == 100
+        f.close()
+        #
+        f = _io.FileIO(self.tmpfile, 'wb')
+        f.seek(50)
+        assert f.truncate() == 50
+        f.close()
+        f = _io.FileIO(self.tmpfile)
+        assert len(f.read()) == 50
+        f.close()
