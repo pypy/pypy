@@ -45,36 +45,42 @@ class W_BytesIO(W_BufferedIOBase):
     pass
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
+    __new__ = generic_new_descr(W_BytesIO),
     )
 
 class W_BufferedReader(W_BufferedIOBase):
     pass
 W_BufferedReader.typedef = TypeDef(
     'BufferedReader', W_BufferedIOBase.typedef,
+    __new__ = generic_new_descr(W_BufferedReader),
     )
 
 class W_BufferedWriter(W_BufferedIOBase):
     pass
 W_BufferedWriter.typedef = TypeDef(
     'BufferedWriter', W_BufferedIOBase.typedef,
+    __new__ = generic_new_descr(W_BufferedWriter),
     )
 
 class W_BufferedRWPair(W_BufferedIOBase):
     pass
 W_BufferedRWPair.typedef = TypeDef(
     'BufferedRWPair', W_BufferedIOBase.typedef,
+    __new__ = generic_new_descr(W_BufferedRWPair),
     )
 
 class W_BufferedRandom(W_BufferedIOBase):
     pass
 W_BufferedRandom.typedef = TypeDef(
     'BufferedRandom', W_BufferedIOBase.typedef,
+    __new__ = generic_new_descr(W_BufferedRandom),
     )
 
 class W_TextIOWrapper(W_TextIOBase):
     pass
 W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
+    __new__ = generic_new_descr(W_TextIOWrapper),
     )
 
 @unwrap_spec(ObjSpace, Arguments)
