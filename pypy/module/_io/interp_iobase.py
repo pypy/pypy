@@ -16,6 +16,7 @@ class W_IOBase(Wrappable):
         # XXX: IOBase thinks it has to maintain its own internal state in
         # `__IOBase_closed` and call flush() by itself, but it is redundant
         # with whatever behaviour a non-trivial derived class will implement.
+        self.space = space
         self.__IOBase_closed = False
 
     def _closed(self, space):
@@ -25,6 +26,20 @@ class W_IOBase(Wrappable):
         if w_closed is not None and space.is_true(w_closed):
             return True
         return False
+
+    def __del__(self):
+        space = self.space
+        w_closed = space.findattr(self, space.wrap('closed'))
+        try:
+            # If `closed` doesn't exist or can't be evaluated as bool, then
+            # the object is probably in an unusable state, so ignore.
+            if w_closed is not None and not space.is_true(w_closed):
+                space.call_method(self, "close")
+        except OperationError:
+            # Silencing I/O errors is bad, but printing spurious tracebacks is
+            # equally as bad, and potentially more frequent (because of
+            # shutdown issues).
+            pass
 
     def _CLOSED(self):
         # Use this macro whenever you want to check the internal `closed`
