@@ -35,42 +35,28 @@ class types(object):
     @staticmethod
     @jit.purefunction
     def getkind(ffi_type):
-        if ffi_type is types.void:
-            return 'v'
-        elif ffi_type is types.double:
-            return 'f'
-        elif ffi_type is types.pointer:
-            return 'i'
-        elif ffi_type is types.uchar:
-            return 'i'
-        elif ffi_type is types.uint8:
-            return 'i'
-        elif ffi_type is types.schar:
-            return 'i'
-        elif ffi_type is types.sint8:
-            return 'i'
-        elif ffi_type is types.uint16:
-            return 'i'
-        elif ffi_type is types.ushort:
-            return 'i'
-        elif ffi_type is types.sint16:
-            return 'i'
-        elif ffi_type is types.sshort:
-            return 'i'
-        elif ffi_type is types.uint:
-            return 'i'
-        elif ffi_type is types.uint32:
-            return 'i'
-        elif ffi_type is types.sint:
-            return 'i'
-        elif ffi_type is types.sint32:
-            return 'i'
-        ## elif ffi_type is types.uint64:
-        ##     return 'i'
-        ## elif ffi_type is types.sint64:
-        ##     return 'i'
+        if   ffi_type is types.void:    return 'v'
+        elif ffi_type is types.double:  return 'f'
+        elif ffi_type is types.pointer: return 'i'
+        #
+        elif ffi_type is types.schar:   return 'i'
+        elif ffi_type is types.uchar:   return 'i'
+        elif ffi_type is types.sshort:  return 'i'
+        elif ffi_type is types.ushort:  return 'i'
+        elif ffi_type is types.sint:    return 'i'
+        elif ffi_type is types.uint:    return 'i'
+        elif ffi_type is types.slong:   return 'i'
+        elif ffi_type is types.ulong:   return 'i'
+        #
+        elif ffi_type is types.sint8:   return 'i'
+        elif ffi_type is types.uint8:   return 'i'
+        elif ffi_type is types.sint16:  return 'i'
+        elif ffi_type is types.uint16:  return 'i'
+        elif ffi_type is types.sint32:  return 'i'
+        elif ffi_type is types.uint32:  return 'i'
+        ## elif ffi_type is types.sint64:  return 'i'
+        ## elif ffi_type is types.uint64:  return 'i'
         raise KeyError
-
 
 types._import()
 
