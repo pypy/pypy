@@ -7,7 +7,7 @@ import inspect
 def round_up(size, alignment):
     return (size + alignment - 1) & -alignment
 
-def size_alignment_pos(fields):
+def size_alignment_pos(fields, is_union=False):
     import ctypes
     size = 0
     alignment = 1
@@ -15,14 +15,19 @@ def size_alignment_pos(fields):
     for fieldname, ctype in fields:
         fieldsize = ctypes.sizeof(ctype)
         fieldalignment = ctypes.alignment(ctype)
-        size = round_up(size, fieldalignment)
         alignment = max(alignment, fieldalignment)
-        pos.append(size)
-        size += fieldsize
+        if is_union:
+            pos.append(0)
+            size = max(size, fieldsize)
+        else:
+            size = round_up(size, fieldalignment)
+            pos.append(size)
+            size += fieldsize
     size = round_up(size, alignment)
     return size, alignment, pos
 
-def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
+def names_and_fields(_fields_, superclass, zero_offset=False, anon=None,
+                     is_union=False):
     if isinstance(_fields_, tuple):
         _fields_ = list(_fields_)
     for _, tp in _fields_:
@@ -36,7 +41,7 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
     rawfields = [(name, ctype._ffishape)
                  for name, ctype in all_fields]
     if not zero_offset:
-        _, _, pos = size_alignment_pos(all_fields)
+        _, _, pos = size_alignment_pos(all_fields, is_union)
     else:
         pos = [0] * len(all_fields)
     fields = {}
@@ -73,8 +78,8 @@ class Field(object):
 
 # ________________________________________________________________
 
-def _set_shape(tp, rawfields):
-    tp._ffistruct = _rawffi.Structure(rawfields)
+def _set_shape(tp, rawfields, is_union=False):
+    tp._ffistruct = _rawffi.Structure(rawfields, is_union)
     tp._ffiargshape = tp._ffishape = (tp._ffistruct, 1)
     tp._fficompositesize = tp._ffistruct.size
 
@@ -92,13 +97,14 @@ def struct_setattr(self, name, value):
             raise AttributeError("Structure or union cannot contain itself")
         self._names, rawfields, self._fieldtypes = names_and_fields(
             value, self.__bases__[0], False,
-            self.__dict__.get('_anonymous_', None))
+            self.__dict__.get('_anonymous_', None), self._is_union)
         _CDataMeta.__setattr__(self, '_fields_', value)
-        _set_shape(self, rawfields)
+        _set_shape(self, rawfields, self._is_union)
         return
     _CDataMeta.__setattr__(self, name, value)
 
-class StructureMeta(_CDataMeta):
+class StructOrUnionMeta(_CDataMeta):
+
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
@@ -109,8 +115,8 @@ class StructureMeta(_CDataMeta):
                     raise AttributeError("Anonymous field not found")
             res._names, rawfields, res._fieldtypes = names_and_fields(
                 typedict['_fields_'], cls[0], False,
-                typedict.get('_anonymous_', None))
-            _set_shape(res, rawfields)
+                typedict.get('_anonymous_', None), self._is_union)
+            _set_shape(res, rawfields, self._is_union)
 
         return res
 
@@ -150,8 +156,8 @@ class StructureMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-class Structure(_CData):
-    __metaclass__ = StructureMeta
+class StructOrUnion(_CData):
+    __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
         if not hasattr(cls, '_ffistruct'):
@@ -213,3 +219,10 @@ class Structure(_CData):
 
     def _get_buffer_value(self):
         return self._buffer.buffer
+
+
+class StructureMeta(StructOrUnionMeta):
+    _is_union = False
+
+class Structure(StructOrUnion):
+    __metaclass__ = StructureMeta
