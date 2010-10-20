@@ -385,10 +385,12 @@ class AbstractFuncPtr(object):
         self.restype = restype
         self.flags = flags
         argnum = len(argtypes)
-        self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
+        self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw',
+                                         track_allocation=False) # freed by the __del__
         for i in range(argnum):
             self.ll_argtypes[i] = argtypes[i]
-        self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
+        self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw',
+                                    track_allocation=False) # freed by the __del__
 
         if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
             cc = FFI_STDCALL

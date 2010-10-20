@@ -717,9 +717,11 @@ class LLFrame(object):
     def op_malloc_varsize(self, obj, flags, size):
         flavor = flags['flavor']
         zero = flags.get('zero', False)
+        track_allocation = flags.get('track_allocation', True)
         assert flavor in ('gc', 'raw')
         try:
-            ptr = self.heap.malloc(obj, size, zero=zero, flavor=flavor)
+            ptr = self.heap.malloc(obj, size, zero=zero, flavor=flavor,
+                                   track_allocation=track_allocation)
             return ptr
         except MemoryError:
             self.make_llexception()
