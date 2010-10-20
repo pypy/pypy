@@ -10,7 +10,7 @@ class TestKeepalive:
     """
     def test_array_of_pointers(self):
         # tests array item assignements & pointer.contents = ...
-        A = POINTER(c_int) * 24
+        A = POINTER(c_long) * 24
         a = A()
         l = c_long(2)
         p = pointer(l)
