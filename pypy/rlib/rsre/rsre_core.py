@@ -170,6 +170,8 @@ class StrMatchContext(AbstractMatchContext):
     def __init__(self, pattern, string, match_start, end, flags):
         AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
         self._string = string
+        if not we_are_translated() and isinstance(string, unicode):
+            self.flags |= rsre_char.SRE_FLAG_UNICODE   # for rsre_re.py
 
     def str(self, index):
         check_nonneg(index)
