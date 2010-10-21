@@ -70,7 +70,7 @@ class AppTestFfi:
            return s[num];
         }
 
-        char *char_check(char x, char y)
+        const char *char_check(char x, char y)
         {
            if (y == static_str[0])
               return static_str;
@@ -185,6 +185,7 @@ class AppTestFfi:
                      sum_x_y
                      give perturb get_s2a check_s2a
                      AAA_first_ordinal_function
+                     ret_un_func
                   """.split()
         eci = ExternalCompilationInfo(export_symbols=symbols)
         return str(platform.compile([c_file], eci, 'x', standalone=False))
