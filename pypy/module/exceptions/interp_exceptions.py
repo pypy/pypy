@@ -23,10 +23,11 @@ recommended that user defined class based exceptions be derived from the
 BaseException
  +-- SystemExit
  +-- KeyboardInterrupt
+ +-- GeneratorExit
  +-- Exception
-      +-- GeneratorExit
       +-- StopIteration
       +-- StandardError
+      |    +-- BufferError
       |    +-- ArithmeticError
       |    |    +-- FloatingPointError
       |    |    +-- OverflowError
@@ -55,20 +56,20 @@ BaseException
       |    +-- SystemError
       |    +-- TypeError
       |    +-- ValueError
-      |    |    +-- UnicodeError
-      |    |         +-- UnicodeDecodeError
-      |    |         +-- UnicodeEncodeError
-      |    |         +-- UnicodeTranslateError
+      |         +-- UnicodeError
+      |              +-- UnicodeDecodeError
+      |              +-- UnicodeEncodeError
+      |              +-- UnicodeTranslateError
       +-- Warning
-           +-- BytesWarning
            +-- DeprecationWarning
            +-- PendingDeprecationWarning
            +-- RuntimeWarning
            +-- SyntaxWarning
            +-- UserWarning
            +-- FutureWarning
-           +-- ImportWarning
-           +-- UnicodeWarning
+	   +-- ImportWarning
+	   +-- UnicodeWarning
+	   +-- BytesWarning
 """
 
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
@@ -262,11 +263,14 @@ def _new_exception(name, base, docstring, **kwargs):
 W_Exception = _new_exception('Exception', W_BaseException,
                          """Common base class for all non-exit exceptions.""")
 
-W_GeneratorExit = _new_exception('GeneratorExit', W_Exception,
+W_GeneratorExit = _new_exception('GeneratorExit', W_BaseException,
                           """Request that a generator exit.""")
 
 W_StandardError = _new_exception('StandardError', W_Exception,
                          """Base class for all standard Python exceptions.""")
+
+W_BufferError = _new_exception('BufferError', W_StandardError,
+                         """Buffer error.""")
 
 W_ValueError = _new_exception('ValueError', W_StandardError,
                          """Inappropriate argument value (of correct type).""")
