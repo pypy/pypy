@@ -6,6 +6,7 @@ from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root, \
 from pypy.rlib.jit import dont_look_inside
 from pypy.rlib import rgc
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.interpreter.argument import Arguments, Signature
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
@@ -488,7 +489,11 @@ def make_array(mytype):
             raise
         a = mytype.w_class(space)
         repeat = max(repeat, 0)
-        a.setlen(self.len * repeat)
+        try:
+            newlen = ovfcheck(self.len * repeat)
+        except OverflowError:
+            raise MemoryError
+        a.setlen(newlen)
         for r in range(repeat):
             for i in range(self.len):
                 a.buffer[r * self.len + i] = self.buffer[i]
@@ -506,7 +511,11 @@ def make_array(mytype):
             raise
         oldlen = self.len
         repeat = max(repeat, 0)
-        self.setlen(self.len * repeat)
+        try:
+            newlen = ovfcheck(self.len * repeat)
+        except OverflowError:
+            raise MemoryError
+        self.setlen(newlen)
         for r in range(1, repeat):
             for i in range(oldlen):
                 self.buffer[r * oldlen + i] = self.buffer[i]
@@ -544,7 +553,10 @@ def make_array(mytype):
             raise OperationError(space.w_TypeError, space.wrap(msg))
         n = space.int_w(w_n)
 
-        size = self.itemsize * n
+        try:
+            size = ovfcheck(self.itemsize * n)
+        except OverflowError:
+            raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
         item = space.str_w(w_item)
         if len(item) < size:

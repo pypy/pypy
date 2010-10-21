@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace
+import sys
 import py
 import py.test
 
@@ -590,6 +591,9 @@ class BaseArrayTests:
         a += self.array('i', (7,))
         assert repr(a) == "array('i', [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 7])"
 
+        raises(MemoryError, "a * self.maxint")
+        raises(MemoryError, "a *= self.maxint")
+
         raises(TypeError, "a = self.array('i') + 2")
         raises(TypeError, "self.array('i') + self.array('b')")
         a = self.array('i')
@@ -812,7 +816,8 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.array = array.array
         import struct
         cls.struct = struct
-        cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))        
+        cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
+        cls.maxint = sys.maxint
 
 class AppTestArray(BaseArrayTests):
     def setup_class(cls):
@@ -831,6 +836,7 @@ class AppTestArray(BaseArrayTests):
         """)
         cls.w_tempfile = cls.space.wrap(
             str(py.test.ensuretemp('array').join('tmpfile')))
+        cls.w_maxint = cls.space.wrap(sys.maxint)
 
 
 
