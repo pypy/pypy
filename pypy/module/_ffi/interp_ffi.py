@@ -89,11 +89,9 @@ class W_FuncPtr(Wrappable):
         argchain = self.build_argchain(space, self.func.argtypes, args_w)
         reskind = libffi.types.getkind(self.func.restype)
         if reskind == 'i':
-            intres = self.func.call(argchain, rffi.LONG)
-            return space.wrap(intres)
+            return self._call_int(space, argchain)
         elif reskind == 'u':
-            intres = self.func.call(argchain, rffi.ULONG)
-            return space.wrap(intres)
+            return self._call_uint(space, argchain)
         elif reskind == 'f':
             floatres = self.func.call(argchain, rffi.DOUBLE)
             return space.wrap(floatres)
@@ -101,6 +99,58 @@ class W_FuncPtr(Wrappable):
             voidres = self.func.call(argchain, lltype.Void)
             assert voidres is None
             return space.w_None
+
+    def _call_int(self, space, argchain):
+        # if the declared return type of the function is smaller than LONG,
+        # the result buffer may contains garbage in its higher bits.  To get
+        # the correct value, and to be sure to handle the signed/unsigned case
+        # correctly, we need to cast the result to the correct type.  After
+        # that, we cast it back to LONG, because this is what we want to pass
+        # to space.wrap in order to get a nice applevel <int>.
+        #
+        restype = self.func.restype
+        call = self.func.call
+        if restype is libffi.types.slong:
+            intres = call(argchain, rffi.LONG)
+        elif restype is libffi.types.sint:
+            intres = rffi.cast(rffi.LONG, call(argchain, rffi.INT))
+        elif restype is libffi.types.sshort:
+            intres = rffi.cast(rffi.LONG, call(argchain, rffi.SHORT))
+        elif restype is libffi.types.schar:
+            intres = rffi.cast(rffi.LONG, call(argchain, rffi.SIGNEDCHAR))
+        else:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Unsupported restype'))
+        return space.wrap(intres)
+
+    def _call_uint(self, space, argchain):
+        # the same comment as above apply. Moreover, we need to be careful
+        # when the return type is ULONG, because the value might not fit into
+        # a signed LONG: this is the only case in which we cast the result to
+        # something different than LONG; as a result, the applevel value will
+        # be a <long>.
+        #
+        # Note that we check for ULONG before UINT: this is needed on 32bit
+        # machines, where they are they same: if we checked for UINT before
+        # ULONG, we would cast to the wrong type.  Note that this also means
+        # that on 32bit the UINT case will never be entered (because it is
+        # handled by the ULONG case).
+        restype = self.func.restype
+        call = self.func.call
+        if restype is libffi.types.ulong:
+            # special case
+            uintres = call(argchain, rffi.ULONG)
+            return space.wrap(uintres)
+        elif restype is libffi.types.uint:
+            intres = rffi.cast(rffi.LONG, call(argchain, rffi.UINT))
+        elif restype is libffi.types.ushort:
+            intres = rffi.cast(rffi.LONG, call(argchain, rffi.USHORT))
+        elif restype is libffi.types.uchar:
+            intres = rffi.cast(rffi.LONG, call(argchain, rffi.UCHAR))
+        else:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Unsupported restype'))
+        return space.wrap(intres)
 
     @unwrap_spec('self', ObjSpace)
     def getaddr(self, space):

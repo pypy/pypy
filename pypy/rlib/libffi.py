@@ -188,9 +188,6 @@ class Func(AbstractFuncPtr):
         #
         if _fits_into_long(RESULT):
             res = self._do_call_int(self.funcsym, ll_args)
-            if self.restype.c_size < types.slong.c_size:
-                # mask res to keep only the bits we are interested in
-                res &= ~(-1 << self.restype.c_size*8)
         elif RESULT is rffi.DOUBLE:
             return self._do_call_float(self.funcsym, ll_args)
         elif RESULT is lltype.Void:
