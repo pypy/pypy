@@ -182,7 +182,9 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy_us', [types.ushort, types.ushort], types.ushort)
-        res = self.call(func, [32000, 8000], rffi.USHORT)
+        # the ULONG in the next line is not a typo: we really want to test
+        # that we get the correct value even if we cast it to a larger type
+        res = self.call(func, [32000, 8000], rffi.ULONG)
         assert res == 40000
 
 
