@@ -173,6 +173,19 @@ class TestLibffiCall(BaseFfiTest):
         res = self.call(func, [chr(20), 22], rffi.LONG)
         assert res == 42
 
+    def test_unsigned_short_args(self):
+        """
+            unsigned short sum_xy_us(unsigned short x, unsigned short y)
+            {
+                return x+y;
+            }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_us', [types.ushort, types.ushort], types.ushort)
+        res = self.call(func, [32000, 8000], rffi.USHORT)
+        assert res == 40000
+
+
     def test_pointer_as_argument(self):
         """#include <stdlib.h>
             long inc(long* x)
