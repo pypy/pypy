@@ -1131,8 +1131,8 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(i1)
         """
         expected = """
-        [i]
-        jump(5)
+        []
+        jump()
         """
         self.node.value = 5
         self.optimize_loop(ops, 'Not', expected)
@@ -3589,6 +3589,23 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(p4, p7, i30, i33)
         """
         self.optimize_loop(ops, 'Not, Not, Not', expected)
+
+    def test_pure(self):
+        ops = """
+        [p42]
+        p53 = getfield_gc(ConstPtr(myptr), descr=nextdescr)
+        p59 = getfield_gc_pure(p53, descr=valuedescr)
+        i61 = call(1, p59, descr=nonwritedescr)
+        jump(p42)
+        """
+        expected = """
+        [p42, p59]
+        i61 = call(1, p59, descr=nonwritedescr)
+        jump(p42, p59)
+
+        """
+        self.node.value = 5
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_addsub_ovf(self):
         ops = """

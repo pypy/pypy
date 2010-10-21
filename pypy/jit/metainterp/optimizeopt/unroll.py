@@ -43,6 +43,11 @@ class OptUnroll(Optimization):
             if not v.is_constant() and v.box:
                 v.fromstart = True
 
+        for op in self.optimizer.pure_operations.values():
+            v = self.getvalue(op.result)
+            v.fromstart = True
+            
+
         self.snapshot_map ={None: None}
         
         inputargs = []

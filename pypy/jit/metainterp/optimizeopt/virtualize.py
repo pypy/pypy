@@ -121,6 +121,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
+    # FIXME: circular references
     def get_forced_boxes(self):
         if self.box is None:
             lst = self._get_field_descr_list()
