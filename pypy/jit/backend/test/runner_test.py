@@ -519,7 +519,8 @@ class BaseBackendTest(Runner):
 
     def test_call_to_c_function(self):
         from pypy.rlib.libffi import CDLL, types, ArgChain
-        libc = CDLL('libc.so.6')
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        libc = CDLL(libc_name)
         c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
         argchain = ArgChain().arg(ord('A'))
         assert c_tolower.call(argchain, rffi.INT) == ord('a')
