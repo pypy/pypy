@@ -608,16 +608,17 @@ class PyPyCJITTests(object):
         #     call that can raise is not exchanged into getarrayitem_gc
 
     def test_overflow_checking(self):
+        startvalue = sys.maxint - 2147483647
         self.run_source('''
         def main():
             def f(a,b):
                 if a < 0: return -1
                 return a-b
-            total = 0
+            total = %d
             for i in range(100000):
                 total += f(i, 5)
             return total
-        ''', 170, ([], 4999450000L))
+        ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
     def test_boolrewrite_invers(self):
         for a, b, res, ops in (('2000', '2000', 20001000, 51),
