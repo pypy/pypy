@@ -1453,7 +1453,8 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_value=3)
+        self.check_loops(guard_class=0, guard_value=1)        
+        self.check_loops(guard_class=0, guard_value=4, everywhere=True)
 
     def test_merge_guardnonnull_guardclass(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1482,7 +1483,10 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
         self.check_loops(guard_class=0, guard_nonnull=0,
-                         guard_nonnull_class=2, guard_isnull=1)
+                         guard_nonnull_class=1, guard_isnull=0)
+        self.check_loops(guard_class=0, guard_nonnull=0,
+                         guard_nonnull_class=3, guard_isnull=1,
+                         everywhere=True)
 
     def test_merge_guardnonnull_guardvalue(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1509,8 +1513,11 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
-                         guard_nonnull_class=0, guard_isnull=1)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=1,
+                         guard_nonnull_class=0, guard_isnull=0)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=3,
+                         guard_nonnull_class=0, guard_isnull=1,
+                         everywhere=True)
 
     def test_merge_guardnonnull_guardvalue_2(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1537,8 +1544,11 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
-                         guard_nonnull_class=0, guard_isnull=1)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=1,
+                         guard_nonnull_class=0, guard_isnull=0)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=3,
+                         guard_nonnull_class=0, guard_isnull=1,
+                         everywhere=True)
 
     def test_merge_guardnonnull_guardclass_guardvalue(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1568,8 +1578,11 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [399], listops=True)
         assert res == f(399)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=3,
-                         guard_nonnull_class=0, guard_isnull=1)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=1,
+                         guard_nonnull_class=0, guard_isnull=0)
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=4,
+                         guard_nonnull_class=0, guard_isnull=1,
+                         everywhere=True)
 
     def test_residual_call_doesnt_lose_info(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'l'])
@@ -1595,7 +1608,8 @@ class BasicTests:
                 y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
             return y.v
         res = self.meta_interp(f, [20], listops=True)
-        self.check_loops(getfield_gc=1, getarrayitem_gc=0)
+        self.check_loops(getfield_gc=0, getarrayitem_gc=0)
+        self.check_loops(getfield_gc=1, getarrayitem_gc=0, everywhere=True)
 
     def test_guard_isnull_nonnull(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
@@ -1625,7 +1639,7 @@ class BasicTests:
         assert res == 42
         self.check_loops(guard_nonnull=1, guard_isnull=1)
 
-    def test_loop_invariant(self):
+    def test_loop_invariant1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
         class A(object):
             pass
@@ -1650,7 +1664,8 @@ class BasicTests:
             return res
         res = self.meta_interp(g, [21])
         assert res == 3 * 21
-        self.check_loops(call=1)
+        self.check_loops(call=0)
+        self.check_loops(call=1, everywhere=True)
 
     def test_bug_optimizeopt_mutates_ops(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res', 'const', 'a'])

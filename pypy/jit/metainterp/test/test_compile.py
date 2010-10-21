@@ -5,7 +5,7 @@ from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
-from pypy.jit.metainterp import optimize, jitprof, typesystem, compile
+from pypy.jit.metainterp import optimize_nopspec, jitprof, typesystem, compile
 from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
 
@@ -41,8 +41,11 @@ class FakeLogger:
         pass
 
 class FakeState:
-    optimize_loop = staticmethod(optimize.optimize_loop)
+    optimize_loop = staticmethod(optimize_nopspec.optimize_loop)
     debug_level = 0
+
+    def attach_unoptimized_bridge_from_interp(*args):
+        pass
 
 class FakeGlobalData:
     loopnumbering = 0
@@ -87,11 +90,11 @@ def test_compile_new_loop():
     loop_tokens = []
     loop_token = compile_new_loop(metainterp, loop_tokens, [], 0)
     assert loop_tokens == [loop_token]
-    assert loop_token.number == 1
-    assert staticdata.globaldata.loopnumbering == 2
+    assert loop_token.number == 2
+    assert staticdata.globaldata.loopnumbering == 3
     #
-    assert len(cpu.seen) == 1
-    assert cpu.seen[0][2] == loop_token
+    assert len(cpu.seen) == 2
+    assert cpu.seen[1][2] == loop_token
     #
     del cpu.seen[:]
     metainterp = FakeMetaInterp()
@@ -105,7 +108,7 @@ def test_compile_new_loop():
     assert loop_token_2 is loop_token
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0
-    assert staticdata.globaldata.loopnumbering == 2    
+    assert staticdata.globaldata.loopnumbering == 3
 
 
 def test_resume_guard_counters():
