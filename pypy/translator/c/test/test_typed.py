@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import autopath
 import sys
 import math
@@ -823,3 +824,29 @@ class TestTypedTestCase(CompilationTestCase):
             while int(x + frac) >= -sys.maxint-1:
                 x -= 1
             assert f(x + frac) == -666
+
+    def test_context_manager(self):
+        state = []
+        class C:
+            def __init__(self, name):
+                self.name = name
+            def __enter__(self):
+                state.append('acquire')
+                return self
+            def __exit__(self, *args):
+                if args[1] is not None:
+                    state.append('raised')
+                state.append('release')
+
+        def func():
+            try:
+                with C('hello') as c:
+                    state.append(c.name)
+                    raise ValueError
+            except ValueError:
+                pass
+            return ', '.join(state)
+        f = self.getcompiled(func, [])
+        res = f()
+        assert res == 'acquire, hello, raised, release'
+

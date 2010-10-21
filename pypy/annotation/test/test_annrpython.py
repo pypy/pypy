@@ -3337,6 +3337,26 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeChar)
 
+    def test_context_manager(self):
+        class C:
+            def __init__(self):
+                pass
+            def __enter__(self):
+                self.x = 1
+            def __exit__(self, *args):
+                self.x = 3
+        def f():
+            c = C()
+            with c:
+                pass
+            return c.x
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
+        # not a constant: both __enter__ and __exit__ have been annotated
+        assert not s.is_constant()
+
 
 def g(n):
     return [0,1,2,n]

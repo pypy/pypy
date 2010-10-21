@@ -873,15 +873,34 @@ class __extend__(pyframe.PyFrame):
 
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
-        w_exitfunc = self.popvalue()
-        w_unroller = self.peekvalue(2)
+        # This opcode changed a lot between CPython versions
+        if self.pycode.magic >= 0xa0df2ef:
+            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
+            raise NotImplementedError("WITH_CLEANUP for CPython 2.7")
+        elif self.pycode.magic >= 0xa0df2d1:
+            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
+            self.popvalue()
+            self.popvalue()
+            w_unroller = self.popvalue()
+            w_exitfunc = self.popvalue()
+            self.pushvalue(w_unroller)
+            self.pushvalue(self.space.w_None)
+            self.pushvalue(self.space.w_None)
+        elif self.pycode.magic >= 0xa0df28c:
+            # Implemementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
+            w_exitfunc = self.popvalue()
+            w_unroller = self.peekvalue(2)
+        else:
+            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
+
         unroller = self.space.interpclass_w(w_unroller)
         if isinstance(unroller, SApplicationException):
             operr = unroller.operr
+            w_traceback = self.space.wrap(operr.application_traceback)
             w_result = self.space.call_function(w_exitfunc,
                                                 operr.w_type,
                                                 operr.get_w_value(self.space),
-                                                operr.application_traceback)
+                                                w_traceback)
             if self.space.is_true(w_result):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None, 2)

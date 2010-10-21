@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 import sys
 from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr,\
@@ -5,6 +6,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr,\
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter, LLException, log
 from pypy.rpython.rmodel import inputconst
+from pypy.rpython.annlowlevel import hlstr
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.lltypesystem import rstr, lltype
@@ -621,4 +623,25 @@ def test_malloc_checker():
         free(t2, flavor='raw')
 
     interpret(f, [])
+
+def test_context_manager():
+    state = []
+    class C:
+        def __enter__(self):
+            state.append('acquire')
+            return self
+        def __exit__(self, *args):
+            if args[1] is not None:
+                state.append('raised')
+            state.append('release')
+    def f():
+        try:
+            with C() as c:
+                state.append('use')
+                raise ValueError
+        except ValueError:
+            pass
+        return ', '.join(state)
+    res = interpret(f, [])
+    assert hlstr(res) == 'acquire, use, raised, release'
 
