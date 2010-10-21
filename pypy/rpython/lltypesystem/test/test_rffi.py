@@ -787,3 +787,10 @@ def test_enforced_args():
     mixann.getgraph(f2, [], s_None)
     mixann.finish()
 
+def test_force_cast_unichar():
+    x = cast(lltype.UniChar, -1)
+    assert isinstance(x, unicode)
+    if sys.maxunicode == 65535:
+        assert cast(LONG, x) == 65535
+    else:
+        assert cast(LONG, cast(INT, x)) == -1

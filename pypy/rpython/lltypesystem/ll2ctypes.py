@@ -823,6 +823,8 @@ def ctypes2lltype(T, cobj):
         except (ValueError, OverflowError):
             for tc in 'HIL':
                 if array(tc).itemsize == array('u').itemsize:
+                    import struct
+                    cobj &= 256 ** struct.calcsize(tc) - 1
                     llobj = array('u', array(tc, (cobj,)).tostring())[0]
                     break
             else:
