@@ -380,6 +380,11 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
 
     def compute_result_annotation(self, **kwds_s):
         from pypy.annotation import model as annmodel
+
+        if self.instance.__name__ == 'jit_merge_point':
+            if not self.annotate_hooks(**kwds_s):
+                return None      # wrong order, try again later
+
         driver = self.instance.im_self
         keys = kwds_s.keys()
         keys.sort()
@@ -408,22 +413,19 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                    key[2:])
             cache[key] = s_value
 
-        if self.instance.__name__ == 'jit_merge_point':
-            self.annotate_hooks(**kwds_s)
-            
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
         driver = self.instance.im_self
         s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
-        self.annotate_hook(driver.get_jitcell_at, driver.greens, **kwds_s)
-        self.annotate_hook(driver.set_jitcell_at, driver.greens, [s_jitcell],
-                           **kwds_s)
-        self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
+        h = self.annotate_hook
+        return (h(driver.get_jitcell_at, driver.greens, **kwds_s)
+            and h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
+            and h(driver.get_printable_location, driver.greens, **kwds_s))
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
-            return
+            return True
         bk = self.bookkeeper
         s_func = bk.immutablevalue(func)
         uniquekey = 'jitdriver.%s' % func.func_name
@@ -435,9 +437,11 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 objname, fieldname = name.split('.')
                 s_instance = kwds_s['s_' + objname]
                 s_arg = s_instance.classdef.about_attribute(fieldname)
-                assert s_arg is not None
+                if s_arg is None:
+                    return False     # wrong order, try again later
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
+        return True
 
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
