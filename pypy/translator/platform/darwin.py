@@ -14,7 +14,10 @@ class Darwin(posix.BasePosix):
     
     def __init__(self, cc=None):
         if cc is None:
-            cc = 'gcc'
+            try:
+                cc = os.environ['CC']
+            except KeyError:
+                cc = 'gcc'
         self.cc = cc
 
     def _args_for_shared(self, args):
