@@ -466,7 +466,7 @@ class FlowSpaceFrame(pyframe.PyFrame):
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
         # directly call manager.__enter__(), don't use special lookup functions
-        # which are too complex for the flow object space.
+        # which don't make sense on the RPython type system.
         from pypy.interpreter.pyopcode import WithBlock
         w_manager = self.peekvalue()
         w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
