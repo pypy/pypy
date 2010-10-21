@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -846,3 +847,9 @@ class TestTrackAllocation:
         p2 = malloc(Array(Signed), 1, flavor='raw', track_allocation=False)
         free(p2, flavor='raw', track_allocation=False)
         # p1 is not freed
+
+    def test_scoped_allocator(self):
+        with scoped_alloc(Array(Signed), 1) as array:
+            array[0] = -42
+            x = array[0]
+        assert x == -42

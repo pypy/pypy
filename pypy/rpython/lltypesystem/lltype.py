@@ -1868,6 +1868,32 @@ def free(p, flavor, track_allocation=True):
         leakfinder.remember_free(p._obj0)
     p._obj0._free()
 
+def _make_scoped_allocator(T):
+    class ScopedAlloc:
+        def __init__(self, n=None, zero=False):
+            self.buf = malloc(T, n=n, flavor='raw', zero=zero)
+
+        def __enter__(self):
+            return self.buf
+
+        def __exit__(self, *args):
+            free(self.buf, flavor='raw')
+
+    ScopedAlloc.__name__ = 'ScopedAlloc_%s' % (T,)
+    return ScopedAlloc
+_make_scoped_allocator._annspecialcase_ = 'specialize:memo'
+
+def scoped_alloc(T, n=None, zero=False):
+    """Returns a context manager which handles allocation and
+    deallocation of temporary memory. Use it in a with statement::
+
+        with scoped_alloc(Array(Signed), 1) as array:
+            ...use array...
+        ...it's freed now.
+    """
+    return _make_scoped_allocator(T)(n=n, zero=zero)
+scoped_alloc._annspecialcase_ = 'specialize:arg(0)'
+
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
         raise TypeError, "functionptr() for FuncTypes only"
