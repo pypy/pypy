@@ -460,21 +460,6 @@ class FlowSpaceFrame(pyframe.PyFrame):
         else:
             v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
-    
-    # XXX Unimplemented 2.7 opcodes ----------------
-
-    # Set literals, set comprehensions
-
-    def BUILD_SET(self, oparg, next_instr):
-        raise NotImplementedError("BUILD_SET")
-
-    def SET_ADD(self, oparg, next_instr):
-        raise NotImplementedError("SET_ADD")
-
-    # Dict comprehensions
-
-    def MAP_ADD(self, oparg, next_instr):
-        raise NotImplementedError("MAP_ADD")
 
     # `with` statement
 
@@ -490,6 +475,21 @@ class FlowSpaceFrame(pyframe.PyFrame):
         block = WithBlock(self, next_instr + offsettoend)
         self.append_block(block)
         self.pushvalue(w_result)
+
+    # XXX Unimplemented 2.7 opcodes ----------------
+
+    # Set literals, set comprehensions
+
+    def BUILD_SET(self, oparg, next_instr):
+        raise NotImplementedError("BUILD_SET")
+
+    def SET_ADD(self, oparg, next_instr):
+        raise NotImplementedError("SET_ADD")
+
+    # Dict comprehensions
+
+    def MAP_ADD(self, oparg, next_instr):
+        raise NotImplementedError("MAP_ADD")
 
     def make_arguments(self, nargs):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
