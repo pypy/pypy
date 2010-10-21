@@ -478,10 +478,19 @@ class FlowSpaceFrame(pyframe.PyFrame):
 
     # `with` statement
 
-    def SETUP_WITH(self, oparg, next_instr):
-        raise NotImplementedError("SETUP_WITH")
+    def SETUP_WITH(self, offsettoend, next_instr):
+        # A simpler version than the 'real' 2.7 one:
+        # directly call manager.__enter__(), don't use special lookup functions
+        # which are too complex for the flow object space.
+        from pypy.interpreter.pyopcode import WithBlock
+        w_manager = self.peekvalue()
+        w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
+        self.settopvalue(w_exit)
+        w_result = self.space.call_method(w_manager, "__enter__")
+        block = WithBlock(self, next_instr + offsettoend)
+        self.append_block(block)
+        self.pushvalue(w_result)
 
-    
     def make_arguments(self, nargs):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
     def argument_factory(self, *args):

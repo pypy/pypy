@@ -874,10 +874,9 @@ class __extend__(pyframe.PyFrame):
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
         # This opcode changed a lot between CPython versions
-        if self.pycode.magic >= 0xa0df2ef:
+        if (self.pycode.magic >= 0xa0df2ef
             # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
-            raise NotImplementedError("WITH_CLEANUP for CPython 2.7")
-        elif self.pycode.magic >= 0xa0df2d1:
+            or self.pycode.magic >= 0xa0df2d1):
             # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
             self.popvalue()
             self.popvalue()
@@ -1249,10 +1248,18 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.w_None)
         return self.handlerposition   # jump to the handler
 
+class WithBlock(FinallyBlock):
+
+    def really_handle(self, frame, unroller):
+        if (frame.space.full_exceptions and
+            isinstance(unroller, SApplicationException)):
+            unroller.operr.normalize_exception(frame.space)
+        return FinallyBlock.really_handle(self, frame, unroller)
 
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
-                 'SETUP_FINALLY': FinallyBlock}
+                 'SETUP_FINALLY': FinallyBlock,
+                 'SETUP_WITH': WithBlock}
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
