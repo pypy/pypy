@@ -164,6 +164,9 @@ class __extend__(pyframe.PyFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
+    def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
+        return self.space.call_function(w_func, w_typ, w_val, w_tb)
+
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         space = self.space
@@ -886,7 +889,7 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(self.space.w_None)
             self.pushvalue(self.space.w_None)
         elif self.pycode.magic >= 0xa0df28c:
-            # Implemementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
+            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
             w_exitfunc = self.popvalue()
             w_unroller = self.peekvalue(2)
         else:
@@ -896,18 +899,20 @@ class __extend__(pyframe.PyFrame):
         if isinstance(unroller, SApplicationException):
             operr = unroller.operr
             w_traceback = self.space.wrap(operr.application_traceback)
-            w_result = self.space.call_function(w_exitfunc,
-                                                operr.w_type,
-                                                operr.get_w_value(self.space),
-                                                w_traceback)
+            w_result = self.call_contextmanager_exit_function(
+                w_exitfunc,
+                operr.w_type,
+                operr.get_w_value(self.space),
+                w_traceback)
             if self.space.is_true(w_result):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None, 2)
         else:
-            self.space.call_function(w_exitfunc,
-                                     self.space.w_None,
-                                     self.space.w_None,
-                                     self.space.w_None)
+            self.call_contextmanager_exit_function(
+                w_exitfunc,
+                self.space.w_None,
+                self.space.w_None,
+                self.space.w_None)
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):

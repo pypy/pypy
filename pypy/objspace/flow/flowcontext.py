@@ -502,3 +502,10 @@ class FlowSpaceFrame(pyframe.PyFrame):
             raise operr
         return pyframe.PyFrame.handle_operation_error(self, ec, operr,
                                                       *args, **kwds)
+
+    def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
+        # The annotator won't allow to merge exception types with None.
+        # XXX return an object which will break translation when it is used
+        w_typ = self.space.w_None
+        return self.space.call_function(w_func, w_typ, w_val, w_tb)
+
