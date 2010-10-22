@@ -52,3 +52,7 @@ data_proc_imm = {
     'BIC_ri': {'op': 0x1C, 'rncond':'', 'result':True, 'base':True},
     'MVN_ri': {'op': 0x1E, 'rncond':'', 'result':True, 'base':False},
 }
+
+supervisor_and_coproc = {
+    'MCR': {'op1': 0x20, 'op': 1, 'rn':0, 'coproc':0},
+}

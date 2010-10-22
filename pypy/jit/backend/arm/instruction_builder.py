@@ -1,6 +1,6 @@
 from pypy.jit.backend.arm import conditions as cond
 from pypy.jit.backend.arm import instructions
-
+# move table lookup out of generated functions
 def define_load_store_func(name, table):
     #  XXX W and P bits are not encoded yet
     n = (0x1 << 26
@@ -92,6 +92,19 @@ def define_data_proc(name, table):
                         | reg_operation(rd, rn, rm, imm, s, shifttype))
     return f
 
+def define_supervisor_and_coproc(name, table):
+    n = (0x3 << 26 | (table['op1'] & 0x3F) << 20 | (table['op'] & 0x1) << 4)
+    def f(self, coproc, opc1, rt, crn, crm, opc2=0, cond=cond.AL):
+        self.write32(n
+                    | cond << 28
+                    | (opc1 & 0x7) << 21
+                    | (crn & 0xF) << 16
+                    | (rt & 0xF) << 12
+                    | (coproc & 0xF) << 8
+                    | (opc2 & 0x7) << 5
+                    | (crm & 0xF))
+    return f
+
 def imm_operation(rt, rn, imm):
     return ((rn & 0xFF) << 16
     | (rt & 0xFF) << 12
@@ -119,3 +132,6 @@ def define_instructions(target):
 
     for key, val in instructions.data_proc_imm.iteritems():
         define_instruction(define_data_proc_imm, key, val, target)
+
+    for key, val in instructions.supervisor_and_coproc.iteritems():
+        define_instruction(define_supervisor_and_coproc, key, val, target)

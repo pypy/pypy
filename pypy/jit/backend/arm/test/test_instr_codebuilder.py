@@ -114,6 +114,11 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.CMP(r.r3, 123)
         self.assert_equal('CMP r3, #123')
 
+    def test_mcr(self):
+        self.cb.MCR(15, 0, r.r1, 7, 10,0)
+
+        self.assert_equal('MCR P15, 0, r1, c7, c10, 0')
+
 
 class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
