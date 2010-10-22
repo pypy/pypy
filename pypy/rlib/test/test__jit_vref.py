@@ -85,7 +85,7 @@ class BaseTestVRef(BaseRtypingTest):
         def f():
             return virtual_ref(X())
         x = self.interpret(f, [])
-        self.is_of_instance_type(x)
+        assert self.is_of_instance_type(x)
 
     def test_rtype_2(self):
         def f():
@@ -104,7 +104,7 @@ class BaseTestVRef(BaseRtypingTest):
             else:
                 return non_virtual_ref(Z())
         x = self.interpret(f, [-5])
-        assert lltype.typeOf(x) == OBJECTPTR
+        assert self.is_of_instance_type(x)
 
     def test_rtype_4(self):
         def f(n):
@@ -113,7 +113,7 @@ class BaseTestVRef(BaseRtypingTest):
             else:
                 return vref_None
         x = self.interpret(f, [-5])
-        assert lltype.typeOf(x) == OBJECTPTR
+        assert self.is_of_instance_type(x)
         assert not x
 
 class TestLLtype(BaseTestVRef, LLRtypeMixin):
