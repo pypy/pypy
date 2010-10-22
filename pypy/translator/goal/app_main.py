@@ -385,7 +385,9 @@ def run_command_line(go_interactive,
                 python_startup = os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
-                        startup = open(python_startup).read()
+                        f = open(python_startup)
+                        startup = f.read()
+                        f.close()
                     except IOError, e:
                         print >> sys.stderr, "Could not open PYTHONSTARTUP"
                         print >> sys.stderr, "IOError:", e
