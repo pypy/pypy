@@ -255,7 +255,7 @@ def parse_command_line(argv):
             break
         elif arg == '-u':
             unbuffered = True
-        elif arg == '-O':
+        elif arg == '-O' or arg == '-OO':
             pass
         elif arg == '--version' or arg == '-V':
             print "Python", sys.version
