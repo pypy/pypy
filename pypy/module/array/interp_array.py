@@ -323,7 +323,7 @@ def make_array(mytype):
         idx, stop, step = space.decode_index(w_idx, self.len)
         assert step == 0
         item = self.buffer[idx]
-        if mytype.canoverflow:    # if it fits in a Signed
+        if mytype.typecode in 'bBhHil':
             item = rffi.cast(lltype.Signed, item)
         elif mytype.typecode == 'f':
             item = float(item)
