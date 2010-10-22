@@ -184,24 +184,9 @@ class OpParser(object):
                 self.newvar(arg)
             return self.vars[arg]
 
-    def parse_op(self, line):
-        num = line.find('(')
-        if num == -1:
-            raise ParseError("invalid line: %s" % line)
-        opname = line[:num]
-        try:
-            opnum = getattr(rop, opname.upper())
-        except AttributeError:
-            if opname == 'escape':
-                opnum = ESCAPE_OP.OPNUM
-            else:
-                raise ParseError("unknown op: %s" % opname)
-        endnum = line.rfind(')')
-        if endnum == -1:
-            raise ParseError("invalid line: %s" % line)
+    def parse_args(self, opname, argspec):
         args = []
         descr = None
-        argspec = line[num + 1:endnum]
         if argspec.strip():
             if opname == 'debug_merge_point':
                 allargs = [argspec]
@@ -219,6 +204,24 @@ class OpParser(object):
                     args.append(self.getvar(arg))
                 except KeyError:
                     raise ParseError("Unknown var: %s" % arg)
+        return args, descr
+
+    def parse_op(self, line):
+        num = line.find('(')
+        if num == -1:
+            raise ParseError("invalid line: %s" % line)
+        opname = line[:num]
+        try:
+            opnum = getattr(rop, opname.upper())
+        except AttributeError:
+            if opname == 'escape':
+                opnum = ESCAPE_OP.OPNUM
+            else:
+                raise ParseError("unknown op: %s" % opname)
+        endnum = line.rfind(')')
+        if endnum == -1:
+            raise ParseError("invalid line: %s" % line)
+        args, descr = self.parse_args(opname, line[num + 1:endnum])
         if rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST:
             i = line.find('[', endnum) + 1
             j = line.find(']', i)

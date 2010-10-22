@@ -18,7 +18,7 @@ from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):

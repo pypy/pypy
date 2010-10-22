@@ -1,7 +1,7 @@
 
 from pypy.rpython.lltypesystem import lltype, llmemory
 
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken,\
      BoxFloat

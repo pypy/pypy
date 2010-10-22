@@ -131,7 +131,7 @@ class PyPyCJITTests(object):
         return result
 
     def parse_loops(self, opslogfile):
-        from pypy.jit.metainterp.test.oparser import parse
+        from pypy.jit.tool.oparser import parse
         from pypy.tool import logparser
         assert opslogfile.check()
         log = logparser.parse_log_file(str(opslogfile))

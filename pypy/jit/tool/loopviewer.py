@@ -9,7 +9,7 @@ import sys
 import optparse
 from pprint import pprint
 from pypy.tool import logparser
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.history import ConstInt
 from pypy.rpython.lltypesystem import llmemory, lltype
 
