@@ -386,8 +386,9 @@ def run_command_line(go_interactive,
                 if python_startup:
                     try:
                         startup = open(python_startup).read()
-                    except IOError:
-                        pass
+                    except IOError, e:
+                        print >> sys.stderr, "Could not open PYTHONSTARTUP"
+                        print >> sys.stderr, "IOError:", e
                     else:
                         def run_it():
                             co_python_startup = compile(startup,
