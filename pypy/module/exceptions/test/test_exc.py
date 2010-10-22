@@ -227,6 +227,7 @@ class AppTestExc(object):
             if isinstance(e, type) and issubclass(e, exceptions.BaseException):
                 assert e.__doc__, e
                 assert e.__module__ == 'exceptions', e
+        assert 'run-time' in RuntimeError.__doc__
 
     def test_reduce(self):
         from exceptions import LookupError, EnvironmentError
