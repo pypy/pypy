@@ -67,9 +67,9 @@ BaseException
            +-- SyntaxWarning
            +-- UserWarning
            +-- FutureWarning
-	   +-- ImportWarning
-	   +-- UnicodeWarning
-	   +-- BytesWarning
+           +-- ImportWarning
+           +-- UnicodeWarning
+           +-- BytesWarning
 """
 
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
