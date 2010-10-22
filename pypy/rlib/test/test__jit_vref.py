@@ -6,6 +6,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR
+from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
@@ -85,7 +86,7 @@ class BaseTestVRef(BaseRtypingTest):
         def f():
             return virtual_ref(X())
         x = self.interpret(f, [])
-        assert self.is_of_instance_type(x)
+        assert lltype.typeOf(x) == self.OBJECTTYPE
 
     def test_rtype_2(self):
         def f():
@@ -95,7 +96,7 @@ class BaseTestVRef(BaseRtypingTest):
             virtual_ref_finish(x2)
             return x2
         x = self.interpret(f, [])
-        assert lltype.castable(OBJECTPTR, lltype.typeOf(x)) > 0
+        assert self.castable(self.OBJECTTYPE, x)
 
     def test_rtype_3(self):
         def f(n):
@@ -104,7 +105,7 @@ class BaseTestVRef(BaseRtypingTest):
             else:
                 return non_virtual_ref(Z())
         x = self.interpret(f, [-5])
-        assert self.is_of_instance_type(x)
+        assert lltype.typeOf(x) == self.OBJECTTYPE
 
     def test_rtype_4(self):
         def f(n):
@@ -113,11 +114,15 @@ class BaseTestVRef(BaseRtypingTest):
             else:
                 return vref_None
         x = self.interpret(f, [-5])
-        assert self.is_of_instance_type(x)
+        assert lltype.typeOf(x) == self.OBJECTTYPE
         assert not x
 
 class TestLLtype(BaseTestVRef, LLRtypeMixin):
-    pass
+    OBJECTTYPE = OBJECTPTR
+    def castable(self, TO, var):
+        return lltype.castable(TO, lltype.typeOf(var)) > 0
 
 class TestOOtype(BaseTestVRef, OORtypeMixin):
-    pass
+    OBJECTTYPE = OBJECT 
+    def castable(self, TO, var):
+        return ootype.isSubclass(TO, lltype.typeOf(var))
