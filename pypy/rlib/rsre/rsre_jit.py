@@ -2,6 +2,7 @@ from pypy.rlib.jit import JitDriver
 
 
 class RSreJitDriver(JitDriver):
+    active = False        # XXX temporary?
 
     def __init__(self, name, debugprint, **kwds):
         JitDriver.__init__(self, **kwds)
