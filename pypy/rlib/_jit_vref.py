@@ -24,7 +24,10 @@ class SomeVRef(annmodel.SomeObject):
         return self.s_instance
 
     def rtyper_makerepr(self, rtyper):
-        return vrefrepr
+        if rtyper.type_system.name == 'lltypesystem':
+            return vrefrepr
+        elif rtyper.type_system.name == 'ootypesystem':
+            return oovrefrepr
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -54,4 +57,10 @@ class VRefRepr(Repr):
                              " prebuilt virtual_ref")
         return lltype.nullptr(OBJECTPTR.TO)
 
+from pypy.rpython.ootypesystem.rclass import OBJECT
+
+class OOVRefRepr(VRefRepr):
+    lowleveltype = OBJECT
+
 vrefrepr = VRefRepr()
+oovrefrepr = OOVRefRepr()

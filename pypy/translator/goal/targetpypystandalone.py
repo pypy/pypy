@@ -105,7 +105,6 @@ class PyPyTarget(object):
             print 'Translation to cli and jvm is known to be broken at the moment'
             print 'Please try the "cli-jit" branch at:'
             print 'http://codespeak.net/svn/pypy/branch/cli-jit/'
-            sys.exit(1)
 
         self.translateconfig = translateconfig
         # set up the objspace optimizations based on the --opt argument
