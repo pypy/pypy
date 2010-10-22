@@ -440,7 +440,7 @@ elif os.name == 'posix':
                                    [rffi.INT],
                                    rffi.INT,
                                    sandboxsafe=True, _nowrapper=True)
-    _dev_zero = rffi.str2charp('/dev/zero')   # prebuilt
+    _dev_zero = rffi.str2charp_immortal('/dev/zero')   # prebuilt
 
     def clear_large_memory_chunk(baseaddr, size):
         # on some Unixy platforms, reading from /dev/zero is the fastest way

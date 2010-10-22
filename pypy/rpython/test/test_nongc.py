@@ -79,7 +79,7 @@ def test_unsupported():
     py.test.raises(TypeError,rtyper.specialize) # results in an invalid cast
 
 def test_isinstance():
-    class A:
+    class A(object):
         _alloc_flavor_ = "raw"
     class B(A):
         pass
@@ -95,7 +95,24 @@ def test_isinstance():
             o = B()
         else:
             o = C()
-        return 100*isinstance(o, A)+10*isinstance(o, B)+1*isinstance(o ,C)
+        res = 100*isinstance(o, A) + 10*isinstance(o, B) + 1*isinstance(o, C)
+        if i == 0:
+            pass
+        elif i == 1:
+            assert isinstance(o, A)
+            free_non_gc_object(o)
+        elif i == 2:
+            assert isinstance(o, B)
+            free_non_gc_object(o)
+        else:
+            assert isinstance(o, C)
+            free_non_gc_object(o)
+        return res
+
+    assert f(1) == 100
+    assert f(2) == 110
+    assert f(3) == 111
+    assert f(0) == 0
 
     a = RPythonAnnotator()
     #does not raise:
@@ -131,10 +148,14 @@ def test_is():
             d = b
         elif i == 2:
             e = c
-        return (0x0001*(a is b) | 0x0002*(a is c) | 0x0004*(a is d) |
+        res =  (0x0001*(a is b) | 0x0002*(a is c) | 0x0004*(a is d) |
                 0x0008*(a is e) | 0x0010*(b is c) | 0x0020*(b is d) |
                 0x0040*(b is e) | 0x0080*(c is d) | 0x0100*(c is e) |
                 0x0200*(d is e))
+        free_non_gc_object(a)
+        free_non_gc_object(b)
+        free_non_gc_object(c)
+        return res
     a = RPythonAnnotator()
     #does not raise:
     s = a.build_types(f, [int])
@@ -169,10 +190,13 @@ def test_is_mixing():
             d = b
         elif i == 2:
             e = c
-        return (0x0001*(a is b) | 0x0002*(a is c) | 0x0004*(a is d) |
+        res =  (0x0001*(a is b) | 0x0002*(a is c) | 0x0004*(a is d) |
                 0x0008*(a is e) | 0x0010*(b is c) | 0x0020*(b is d) |
                 0x0040*(b is e) | 0x0080*(c is d) | 0x0100*(c is e) |
                 0x0200*(d is e))
+        free_non_gc_object(a)
+        free_non_gc_object(b)
+        return res
     a = RPythonAnnotator()
     #does not raise:
     s = a.build_types(f, [int])

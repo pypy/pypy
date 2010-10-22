@@ -11,7 +11,7 @@ from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.regalloc import RegAlloc, X86RegisterManager,\
      FloatConstants, is_comparison_or_ovf_op
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr

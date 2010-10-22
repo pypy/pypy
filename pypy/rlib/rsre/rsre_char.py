@@ -4,6 +4,7 @@ Character categories and charsets.
 import sys
 from pypy.rlib.rlocale import tolower, isalnum
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib import jit
 
 # Note: the unicode parts of this module require you to call
 # rsre_char.set_unicode_db() first, to select one of the modules
@@ -43,6 +44,7 @@ BIG_ENDIAN = sys.byteorder == "big"
 # XXX can we import those safely from sre_constants?
 SRE_INFO_PREFIX = 1
 SRE_INFO_LITERAL = 2
+SRE_INFO_CHARSET = 4
 SRE_FLAG_LOCALE = 4 # honour system locale
 SRE_FLAG_UNICODE = 32 # use unicode locale
 OPCODE_INFO = 17
@@ -64,33 +66,27 @@ def getlower(char_ord, flags):
 
 #### Category helpers
 
-ascii_char_info = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 2,
-2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 25, 25, 25, 25, 25, 25, 25,
-25, 25, 0, 0, 0, 0, 0, 0, 0, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 0, 0,
-0, 0, 16, 0, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 0, 0, 0, 0, 0 ]
-
+is_a_word = [(chr(i).isalnum() or chr(i) == '_') for i in range(256)]
 linebreak = ord("\n")
 underline = ord("_")
 
 def is_digit(code):
-    return code < 128 and (ascii_char_info[code] & 1 != 0)
+    return code <= 57 and code >= 48
 
 def is_uni_digit(code):
     assert unicodedb is not None
     return unicodedb.isdecimal(code)
 
 def is_space(code):
-    return code < 128 and (ascii_char_info[code] & 2 != 0)
+    return code == 32 or (code <= 13 and code >= 9)
 
 def is_uni_space(code):
     assert unicodedb is not None
     return unicodedb.isspace(code)
 
 def is_word(code):
-    return code < 128 and (ascii_char_info[code] & 16 != 0)
+    assert code >= 0
+    return code < 256 and is_a_word[code]
 
 def is_uni_word(code):
     assert unicodedb is not None
@@ -142,6 +138,7 @@ category_dispatch_unroll = unrolling_iterable(category_dispatch_table)
 SET_OK = -1
 SET_NOT_OK = -2
 
+@jit.unroll_safe
 def check_charset(pattern, ppos, char_code):
     """Checks whether a character matches set of arbitrary length.
     The set starts at pattern[ppos]."""

@@ -254,6 +254,7 @@ def test_addr_raw_packet():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     fd = s.fileno()
     w_obj = rsocket.make_address(c_addr, addrlen).as_object(fd, space)
+    lltype.free(c_addr_ll, flavor='raw')
     assert space.is_true(space.eq(w_obj, space.newtuple([
         space.wrap('lo'),
         space.wrap(socket.ntohs(8)),

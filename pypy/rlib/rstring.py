@@ -69,6 +69,9 @@ class AbstractStringBuilder(object):
     def build(self):
         return self.tp("").join(self.l)
 
+    def getlength(self):
+        return len(self.build())
+
 class StringBuilder(AbstractStringBuilder):
     tp = str
 
@@ -122,9 +125,12 @@ class SomeStringBuilder(SomeObject):
         assert isinstance(s_times, SomeInteger)
         return s_None
 
+    def method_getlength(self):
+        return SomeInteger(nonneg=True)
+
     def method_build(self):
         return SomeString()
-    
+
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rbuilder.stringbuilder_repr
 
@@ -143,6 +149,9 @@ class SomeUnicodeBuilder(SomeObject):
         assert isinstance(s_char, SomeUnicodeCodePoint)
         assert isinstance(s_times, SomeInteger)
         return s_None
+
+    def method_getlength(self):
+        return SomeInteger(nonneg=True)
 
     def method_build(self):
         return SomeUnicodeString()

@@ -9,12 +9,13 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          ConstObj, BoxFloat, ConstFloat)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker
+from pypy.rlib.rarithmetic import intmask
 
 
 class Runner(object):
@@ -421,6 +422,7 @@ class BaseBackendTest(Runner):
             assert x == 3.5 - 42
 
     def test_call(self):
+        from pypy.rlib.libffi import types
 
         def func_int(a, b):
             return a + b
@@ -428,23 +430,31 @@ class BaseBackendTest(Runner):
             return chr(ord(c) + ord(c1))
 
         functions = [
-            (func_int, lltype.Signed, 655360),
-            (func_int, rffi.SHORT, 1213),
-            (func_char, lltype.Char, 12)
+            (func_int, lltype.Signed, types.sint, 655360),
+            (func_int, rffi.SHORT, types.sint16, 1213),
+            (func_char, lltype.Char, types.uchar, 12)
             ]
 
-        for func, TP, num in functions:
+        for func, TP, ffi_type, num in functions:
             cpu = self.cpu
             #
             FPTR = self.Ptr(self.FuncType([TP, TP], TP))
             func_ptr = llhelper(FPTR, func)
             FUNC = deref(FPTR)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
+            # first, try it with the "normal" calldescr
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=calldescr)
             assert res.value == 2 * num
+            # then, try it with the dynamic calldescr
+            dyn_calldescr = cpu.calldescrof_dynamic([ffi_type, ffi_type], ffi_type)
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox, BoxInt(num), BoxInt(num)],
+                                         'int', descr=dyn_calldescr)
+            assert res.value == 2 * num
+            
 
         if cpu.supports_floats:
             def func(f0, f1, f2, f3, f4, f5, f6, i0, i1, f7, f8, f9):
@@ -506,6 +516,24 @@ class BaseBackendTest(Runner):
                                          [funcbox] + map(BoxInt, args),
                                          'int', descr=calldescr)
             assert res.value == func_ints(*args)
+
+    def test_call_to_c_function(self):
+        from pypy.rlib.libffi import CDLL, types, ArgChain
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        libc = CDLL(libc_name)
+        c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
+        argchain = ArgChain().arg(ord('A'))
+        assert c_tolower.call(argchain, rffi.INT) == ord('a')
+
+        func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
+        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        calldescr = self.cpu.calldescrof_dynamic([types.uchar], types.sint)
+        res = self.execute_operation(rop.CALL,
+                                     [funcbox, BoxInt(ord('A'))],
+                                     'int',
+                                     descr=calldescr)
+        assert res.value == ord('a')
+
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
@@ -832,6 +860,23 @@ class BaseBackendTest(Runner):
                                                         dststart_box,
                                                         length_box], 'void')
                                 assert self.look_string(r_box) == "!??cdef?!"
+
+    def test_copyunicodecontent(self):
+        s_box = self.alloc_unicode(u"abcdef")
+        for s_box in [s_box, s_box.constbox()]:
+            for srcstart_box in [BoxInt(2), ConstInt(2)]:
+                for dststart_box in [BoxInt(3), ConstInt(3)]:
+                    for length_box in [BoxInt(4), ConstInt(4)]:
+                        for r_box_is_const in [False, True]:
+                            r_box = self.alloc_unicode(u"!???????!")
+                            if r_box_is_const:
+                                r_box = r_box.constbox()
+                                self.execute_operation(rop.COPYUNICODECONTENT,
+                                                       [s_box, r_box,
+                                                        srcstart_box,
+                                                        dststart_box,
+                                                        length_box], 'void')
+                                assert self.look_unicode(r_box) == u"!??cdef?!"
 
     def test_do_unicode_basic(self):
         u = self.cpu.bh_newunicode(5)
@@ -1227,6 +1272,10 @@ class LLtypeBackendTest(BaseBackendTest):
         u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
         return u_box
 
+    def look_unicode(self, unicode_box):
+        u = unicode_box.getref(lltype.Ptr(rstr.UNICODE))
+        return u''.join(u.chars)
+
 
     def test_casts(self):
         py.test.skip("xxx fix or kill")
@@ -1283,6 +1332,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                    descr=fd)
             res = self.execute_operation(get_op, [s_box], 'int', descr=fd)
             assert res.getint()  == 32
+        lltype.free(s, flavor='raw')
 
     def test_new_with_vtable(self):
         cpu = self.cpu
@@ -1979,6 +2029,196 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.execute_token(othertoken)
         assert self.cpu.get_latest_value_float(0) == 13.5
         assert called
+
+    def test_short_result_of_getfield_direct(self):
+        # Test that a getfield that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Direct bh_xxx test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            S = lltype.GcStruct('S', ('x', RESTYPE))
+            descrfld_x = cpu.fielddescrof(S, 'x')
+            s = lltype.malloc(S)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            s.x = rffi.cast(RESTYPE, value)
+            x = cpu.bh_getfield_gc_i(lltype.cast_opaque_ptr(llmemory.GCREF, s),
+                                     descrfld_x)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+
+    def test_short_result_of_getfield_compiled(self):
+        # Test that a getfield that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Machine code compilation test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            S = lltype.GcStruct('S', ('x', RESTYPE))
+            descrfld_x = cpu.fielddescrof(S, 'x')
+            s = lltype.malloc(S)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            s.x = rffi.cast(RESTYPE, value)
+            s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            res = self.execute_operation(rop.GETFIELD_GC, [BoxPtr(s_gcref)],
+                                         'int', descr=descrfld_x)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+
+    def test_short_result_of_getarrayitem_direct(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Direct bh_xxx test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = lltype.GcArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            x = cpu.bh_getarrayitem_gc_i(
+                descrarray, lltype.cast_opaque_ptr(llmemory.GCREF, a), 3)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+
+    def test_short_result_of_getarrayitem_compiled(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Machine code compilation test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = lltype.GcArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            a_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            res = self.execute_operation(rop.GETARRAYITEM_GC,
+                                         [BoxPtr(a_gcref), BoxInt(3)],
+                                         'int', descr=descrarray)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+
+    def test_short_result_of_getarrayitem_raw_direct(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Direct bh_xxx test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = rffi.CArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5, flavor='raw')
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
+            x = cpu.bh_getarrayitem_raw_i(descrarray, a_rawint, 3)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+            lltype.free(a, flavor='raw')
+
+    def test_short_result_of_getarrayitem_raw_compiled(self):
+        # Test that a getarrayitem that returns a CHAR, SHORT or INT, signed
+        # or unsigned, properly gets zero-extended or sign-extended.
+        # Machine code compilation test.
+        cpu = self.cpu
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            A = rffi.CArray(RESTYPE)
+            descrarray = cpu.arraydescrof(A)
+            a = lltype.malloc(A, 5, flavor='raw')
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
+            a[3] = rffi.cast(RESTYPE, value)
+            a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
+            res = self.execute_operation(rop.GETARRAYITEM_RAW,
+                                         [BoxInt(a_rawint), BoxInt(3)],
+                                         'int', descr=descrarray)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+            lltype.free(a, flavor='raw')
+
+    def test_short_result_of_call_direct(self):
+        # Test that calling a function that returns a CHAR, SHORT or INT,
+        # signed or unsigned, properly gets zero-extended or sign-extended.
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            # Tested with a function that intentionally does not cast the
+            # result to RESTYPE, but makes sure that we return the whole
+            # value in eax or rax.
+            eci = ExternalCompilationInfo(separate_module_sources=["""
+                long fn_test_result_of_call(long x)
+                {
+                    return x + 1;
+                }
+            """])
+            f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
+                                RESTYPE, compilation_info=eci, _nowrapper=True)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value + 1))
+            assert intmask(f(value)) == expected
+            #
+            FUNC = self.FuncType([lltype.Signed], RESTYPE)
+            FPTR = self.Ptr(FUNC)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
+                                   calldescr, [value], None, None)
+            assert x == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, x, expected))
+
+    def test_short_result_of_call_compiled(self):
+        # Test that calling a function that returns a CHAR, SHORT or INT,
+        # signed or unsigned, properly gets zero-extended or sign-extended.
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
+                        rffi.SHORT, rffi.USHORT,
+                        rffi.INT, rffi.UINT,
+                        rffi.LONG, rffi.ULONG]:
+            # Tested with a function that intentionally does not cast the
+            # result to RESTYPE, but makes sure that we return the whole
+            # value in eax or rax.
+            eci = ExternalCompilationInfo(separate_module_sources=["""
+                long fn_test_result_of_call(long x)
+                {
+                    return x + 1;
+                }
+            """])
+            f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
+                                RESTYPE, compilation_info=eci, _nowrapper=True)
+            value = intmask(0xFFEEDDCCBBAA9988)
+            expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value + 1))
+            assert intmask(f(value)) == expected
+            #
+            FUNC = self.FuncType([lltype.Signed], RESTYPE)
+            FPTR = self.Ptr(FUNC)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(self.cpu, f)
+            res = self.execute_operation(rop.CALL, [funcbox, BoxInt(value)],
+                                         'int', descr=calldescr)
+            assert res.value == expected, (
+                "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
 
 
 class OOtypeBackendTest(BaseBackendTest):

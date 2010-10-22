@@ -113,7 +113,8 @@ class AbstractX86CPU(AbstractLLCPU):
         return CPU386.cast_adr_to_int(adr)
 
     all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
-                                       flavor='raw', zero=True)
+                                       flavor='raw', zero=True,
+                                       immortal=True)
 
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)

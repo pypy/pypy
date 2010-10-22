@@ -332,10 +332,11 @@ if _POSIX:
                                ('sll_hatype', rffi.INT),
                                ('sll_addr', rffi.CFixedArray(rffi.CHAR, 8)),
                                ('sll_halen', rffi.INT)],
-                              )
+                              ifdef='AF_PACKET')
 
     CConfig.ifreq = platform.Struct('struct ifreq', [('ifr_ifindex', rffi.INT),
-                                 ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
+                                 ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))],
+                                    ifdef='AF_PACKET')
 
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
@@ -546,8 +547,9 @@ if _POSIX:
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT)
-    ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
-                     rffi.INT)
+    if ifreq is not None:
+        ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
+                         rffi.INT)
 
 if _WIN32:
     ioctlsocket = external('ioctlsocket',

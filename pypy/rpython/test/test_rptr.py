@@ -212,10 +212,31 @@ def test_flavored_malloc():
 
     S = Struct('S', ('x', Signed))
     def fn(n):
-        p = malloc(S, flavor='whatever')
+        p = malloc(S, flavor='raw')
         p.x = n
         result = p.x
-        free(p, flavor='whatever')
+        free(p, flavor='raw')
+        return n
+
+    res = interpret(fn, [23])
+    assert res == 23
+
+    S = Struct('S', ('x', Signed))
+    def fn(n):
+        p = malloc(S, flavor='raw', track_allocation=False)
+        p.x = n
+        result = p.x
+        return n
+
+    res = interpret(fn, [23])
+    assert res == 23
+
+    S = Struct('S', ('x', Signed))
+    def fn(n):
+        p = malloc(S, flavor='raw', track_allocation=False)
+        p.x = n
+        result = p.x
+        free(p, flavor='raw', track_allocation=False)
         return n
 
     res = interpret(fn, [23])

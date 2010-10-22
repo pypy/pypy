@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
-from pypy.rpython.test.test_llinterp import interpret, MallocMismatch
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
@@ -787,3 +787,10 @@ def test_enforced_args():
     mixann.getgraph(f2, [], s_None)
     mixann.finish()
 
+def test_force_cast_unichar():
+    x = cast(lltype.UniChar, -1)
+    assert isinstance(x, unicode)
+    if sys.maxunicode == 65535:
+        assert cast(LONG, x) == 65535
+    else:
+        assert cast(LONG, cast(INT, x)) == -1

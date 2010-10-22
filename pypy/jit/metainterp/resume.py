@@ -255,13 +255,19 @@ class ResumeDataVirtualAdder(object):
     def make_varray(self, arraydescr):
         return VArrayInfo(arraydescr)
 
-    def make_vstrplain(self):
+    def make_vstrplain(self, is_unicode=False):
+        if is_unicode:
+            return VUniPlainInfo()
         return VStrPlainInfo()
 
-    def make_vstrconcat(self):
+    def make_vstrconcat(self, is_unicode=False):
+        if is_unicode:
+            return VUniConcatInfo()
         return VStrConcatInfo()
 
-    def make_vstrslice(self):
+    def make_vstrslice(self, is_unicode=False):
+        if is_unicode:
+            return VUniSliceInfo()
         return VStrSliceInfo()
 
     def register_virtual_fields(self, virtualbox, fieldboxes):
@@ -550,6 +556,60 @@ class VStrSliceInfo(AbstractVirtualInfo):
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
+
+class VUniPlainInfo(AbstractVirtualInfo):
+    """Stands for the unicode string made out of the characters of all
+    fieldnums."""
+
+    @specialize.argtype(1)
+    def allocate(self, decoder, index):
+        length = len(self.fieldnums)
+        string = decoder.allocate_unicode(length)
+        decoder.virtuals_cache[index] = string
+        for i in range(length):
+            decoder.unicode_setitem(string, i, self.fieldnums[i])
+        return string
+
+    def debug_prints(self):
+        debug_print("\tvuniplaininfo length", len(self.fieldnums))
+
+
+class VUniConcatInfo(AbstractVirtualInfo):
+    """Stands for the unicode string made out of the concatenation of two
+    other unicode strings."""
+
+    @specialize.argtype(1)
+    def allocate(self, decoder, index):
+        # xxx for blackhole resuming, this will build all intermediate
+        # strings and throw them away immediately, which is a bit sub-
+        # efficient.  Not sure we care.
+        left, right = self.fieldnums
+        string = decoder.concat_unicodes(left, right)
+        decoder.virtuals_cache[index] = string
+        return string
+
+    def debug_prints(self):
+        debug_print("\tvuniconcatinfo")
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
+
+class VUniSliceInfo(AbstractVirtualInfo):
+    """Stands for the unicode string made out of slicing another
+    unicode string."""
+
+    @specialize.argtype(1)
+    def allocate(self, decoder, index):
+        largerstr, start, length = self.fieldnums
+        string = decoder.slice_unicode(largerstr, start, length)
+        decoder.virtuals_cache[index] = string
+        return string
+
+    def debug_prints(self):
+        debug_print("\tvunisliceinfo")
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
 # ____________________________________________________________
 
 class AbstractResumeDataReader(object):
@@ -629,9 +689,11 @@ class AbstractResumeDataReader(object):
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
 
-def rebuild_from_resumedata(metainterp, storage, virtualizable_info):
+def rebuild_from_resumedata(metainterp, storage, virtualizable_info,
+                            greenfield_info):
     resumereader = ResumeDataBoxReader(storage, metainterp)
-    boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info)
+    boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
+                                                      greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
     frameinfo = storage.rd_frame_info_list
     while True:
@@ -676,15 +738,18 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         assert (end & 1) == 0
         return [self.decode_ref(nums[i]) for i in range(end)]
 
-    def consume_vref_and_vable_boxes(self, vinfo):
+    def consume_vref_and_vable_boxes(self, vinfo, ginfo):
         nums = self.cur_numb.nums
         self.cur_numb = self.cur_numb.prev
-        if vinfo is None:
-            virtualizable_boxes = None
-            end = len(nums)
-        else:
+        if vinfo is not None:
             virtualizable_boxes = self.consume_virtualizable_boxes(vinfo, nums)
             end = len(nums) - len(virtualizable_boxes)
+        elif ginfo is not None:
+            virtualizable_boxes = [self.decode_ref(nums[-1])]
+            end = len(nums) - 1
+        else:
+            virtualizable_boxes = None
+            end = len(nums)
         virtualref_boxes = self.consume_virtualref_boxes(nums, end)
         return virtualizable_boxes, virtualref_boxes
 
@@ -717,6 +782,32 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
     def slice_string(self, strnum, startnum, lengthnum):
         calldescr, func = callinfo_for_oopspec(EffectInfo.OS_STR_SLICE)
+        strbox = self.decode_box(strnum, REF)
+        startbox = self.decode_box(startnum, INT)
+        lengthbox = self.decode_box(lengthnum, INT)
+        stopbox = self.metainterp.execute_and_record(rop.INT_ADD, None,
+                                                     startbox, lengthbox)
+        return self.metainterp.execute_and_record_varargs(
+            rop.CALL, [ConstInt(func), strbox, startbox, stopbox], calldescr)
+
+    def allocate_unicode(self, length):
+        return self.metainterp.execute_and_record(rop.NEWUNICODE,
+                                                  None, ConstInt(length))
+
+    def unicode_setitem(self, strbox, index, charnum):
+        charbox = self.decode_box(charnum, INT)
+        self.metainterp.execute_and_record(rop.UNICODESETITEM, None,
+                                           strbox, ConstInt(index), charbox)
+
+    def concat_unicodes(self, str1num, str2num):
+        calldescr, func = callinfo_for_oopspec(EffectInfo.OS_UNI_CONCAT)
+        str1box = self.decode_box(str1num, REF)
+        str2box = self.decode_box(str2num, REF)
+        return self.metainterp.execute_and_record_varargs(
+            rop.CALL, [ConstInt(func), str1box, str2box], calldescr)
+
+    def slice_unicode(self, strnum, startnum, lengthnum):
+        calldescr, func = callinfo_for_oopspec(EffectInfo.OS_UNI_SLICE)
         strbox = self.decode_box(strnum, REF)
         startbox = self.decode_box(startnum, INT)
         lengthbox = self.decode_box(lengthnum, INT)
@@ -815,8 +906,9 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
     resumereader = ResumeDataDirectReader(blackholeinterpbuilder.cpu, storage,
                                           all_virtuals)
     vinfo = jitdriver_sd.virtualizable_info
+    ginfo = jitdriver_sd.greenfield_info
     vrefinfo = blackholeinterpbuilder.metainterp_sd.virtualref_info
-    resumereader.consume_vref_and_vable(vrefinfo, vinfo)
+    resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
     #
     # First get a chain of blackhole interpreters whose length is given
     # by the depth of rd_frame_info_list.  The first one we get must be
@@ -846,11 +938,11 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
     resumereader.done()
     return firstbh
 
-def force_from_resumedata(metainterp_sd, storage, vinfo=None):
+def force_from_resumedata(metainterp_sd, storage, vinfo, ginfo):
     resumereader = ResumeDataDirectReader(metainterp_sd.cpu, storage)
     resumereader.handling_async_forcing()
     vrefinfo = metainterp_sd.virtualref_info
-    resumereader.consume_vref_and_vable(vrefinfo, vinfo)
+    resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
     return resumereader.force_all_virtuals()
 
 class ResumeDataDirectReader(AbstractResumeDataReader):
@@ -925,11 +1017,12 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         return specialize_value(TYPE, x)
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
-    def consume_vref_and_vable(self, vrefinfo, vinfo):
+    def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
         nums = self.cur_numb.nums
         self.cur_numb = self.cur_numb.prev
         if self.resume_after_guard_not_forced != 2:
             end_vref = self.consume_vable_info(vinfo, nums)
+            if ginfo is not None: end_vref -= 1
             self.consume_virtualref_info(vrefinfo, nums, end_vref)
 
     def allocate_with_vtable(self, known_class):
@@ -964,6 +1057,31 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         length = self.decode_int(lengthnum)
         str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), str)
         funcptr = funcptr_for_oopspec(EffectInfo.OS_STR_SLICE)
+        result = funcptr(str, start, start + length)
+        return lltype.cast_opaque_ptr(llmemory.GCREF, result)
+
+    def allocate_unicode(self, length):
+        return self.cpu.bh_newunicode(length)
+
+    def unicode_setitem(self, str, index, charnum):
+        char = self.decode_int(charnum)
+        self.cpu.bh_unicodesetitem(str, index, char)
+
+    def concat_unicodes(self, str1num, str2num):
+        str1 = self.decode_ref(str1num)
+        str2 = self.decode_ref(str2num)
+        str1 = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), str1)
+        str2 = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), str2)
+        funcptr = funcptr_for_oopspec(EffectInfo.OS_UNI_CONCAT)
+        result = funcptr(str1, str2)
+        return lltype.cast_opaque_ptr(llmemory.GCREF, result)
+
+    def slice_unicode(self, strnum, startnum, lengthnum):
+        str = self.decode_ref(strnum)
+        start = self.decode_int(startnum)
+        length = self.decode_int(lengthnum)
+        str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), str)
+        funcptr = funcptr_for_oopspec(EffectInfo.OS_UNI_SLICE)
         result = funcptr(str, start, start + length)
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 

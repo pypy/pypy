@@ -29,6 +29,7 @@ def test_string_builder():
     s = StringBuilder()
     s.append("a")
     s.append("abc")
+    assert s.getlength() == len('aabc')
     s.append("a")
     s.append_slice("abc", 1, 2)
     s.append_multiple_char('d', 4)
@@ -39,6 +40,7 @@ def test_unicode_builder():
     s.append(u'a')
     s.append(u'abc')
     s.append_slice(u'abcdef', 1, 2)
+    assert s.getlength() == len('aabcb')
     s.append_multiple_char(u'd', 4)
     assert s.build() == 'aabcbdddd'
     assert isinstance(s.build(), unicode)

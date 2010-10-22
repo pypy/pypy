@@ -18,6 +18,7 @@ option_to_typename = {
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
     "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
+    "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
     "withrope"       : ["ropeobject.W_RopeObject",
                         "ropeobject.W_RopeIterObject"],
     "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
@@ -77,6 +78,7 @@ class StdTypeModel:
         from pypy.objspace.std import ropeunicodeobject
         from pypy.objspace.std import strsliceobject
         from pypy.objspace.std import strjoinobject
+        from pypy.objspace.std import strbufobject
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
         from pypy.objspace.std import longobject
@@ -227,6 +229,13 @@ class StdTypeModel:
                                        strjoinobject.delegate_join2str),
                 (unicodeobject.W_UnicodeObject,
                                        strjoinobject.delegate_join2unicode)
+                ]
+        elif config.objspace.std.withstrbuf:
+            self.typeorder[strbufobject.W_StringBufferObject] += [
+                (stringobject.W_StringObject,
+                                       strbufobject.delegate_buf2str),
+                (unicodeobject.W_UnicodeObject,
+                                       strbufobject.delegate_buf2unicode)
                 ]
         if config.objspace.std.withrangelist:
             self.typeorder[rangeobject.W_RangeListObject] += [

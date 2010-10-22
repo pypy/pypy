@@ -154,7 +154,7 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
             if isinstance(descr, Descr):
-                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo)
+                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo, descr.arg_types)
             if isinstance(descr, history.LoopToken) and op.getopnum() != rop.JUMP:
                 llimpl.compile_add_loop_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
@@ -296,6 +296,18 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(RESULT)
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
+
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
+        from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
+        arg_types = []
+        for arg in ffi_args:
+            kind = get_ffi_type_kind(arg)
+            if kind != history.VOID:
+                arg_types.append(kind)
+        reskind = get_ffi_type_kind(ffi_result)
+        return self.getdescr(0, reskind, extrainfo=extrainfo,
+                             arg_types=''.join(arg_types))
+
 
     def grab_exc_value(self):
         return llimpl.grab_exc_value()

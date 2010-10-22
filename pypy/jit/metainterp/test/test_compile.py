@@ -6,8 +6,8 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
 from pypy.jit.metainterp import optimize, jitprof, typesystem, compile
-from pypy.jit.metainterp.test.oparser import parse
 from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
+from pypy.jit.tool.oparser import parse
 
 
 def test_insert_loop_token():

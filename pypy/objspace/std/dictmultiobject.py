@@ -102,17 +102,17 @@ class W_DictMultiObject(W_Object):
         else:
             return None
 
-    # _________________________________________________________________ 
+    # _________________________________________________________________
     # implementation methods
     def impl_getitem(self, w_key):
         #return w_value or None
         raise NotImplementedError("abstract base class")
 
-    def impl_getitem_str(self, w_key):
+    def impl_getitem_str(self, key):
         #return w_value or None
         raise NotImplementedError("abstract base class")
 
-    def impl_setitem_str(self,  key, w_value, shadows_type=True):
+    def impl_setitem_str(self, key, w_value, shadows_type=True):
         raise NotImplementedError("abstract base class")
 
     def impl_setitem(self,  w_key, w_value):
@@ -120,7 +120,7 @@ class W_DictMultiObject(W_Object):
 
     def impl_delitem(self, w_key):
         raise NotImplementedError("abstract base class")
- 
+
     def impl_length(self):
         raise NotImplementedError("abstract base class")
 
@@ -310,7 +310,7 @@ class StrDictImplementation(W_DictMultiObject):
         if space.is_w(space.type(w_key), space.w_str):
             self.impl_setitem_str(self.space.str_w(w_key), w_value)
         else:
-            self._as_rdict().setitem(w_key, w_value)
+            self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
     def impl_setitem_str(self, key, w_value, shadows_type=True):
         self.content[key] = w_value
@@ -324,7 +324,7 @@ class StrDictImplementation(W_DictMultiObject):
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().delitem(w_key)
+            self._as_rdict().impl_fallback_delitem(w_key)
         
     def impl_length(self):
         return len(self.content)
@@ -344,7 +344,7 @@ class StrDictImplementation(W_DictMultiObject):
         elif _is_sane_hash(space, w_lookup_type):
             return None
         else:
-            return self._as_rdict().getitem(w_key)
+            return self._as_rdict().impl_fallback_getitem(w_key)
 
     def impl_iter(self):
         return StrIteratorImplementation(self.space, self)
@@ -414,7 +414,7 @@ class ShadowDetectingDictImplementation(StrDictImplementation):
             StrDictImplementation.impl_setitem_str(
                 self, self.space.str_w(w_key), w_value, False)
         else:
-            self._as_rdict().setitem(w_key, w_value)
+            self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
     def impl_shadows_anything(self):
         return (self._shadows_anything or 
@@ -446,7 +446,7 @@ class WaryDictImplementation(StrDictImplementation):
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().delitem(w_key)
+            self._as_rdict().impl_fallback_delitem(w_key)
 
     def impl_get_builtin_indexed(self, i):
         return self.shadowed[i]

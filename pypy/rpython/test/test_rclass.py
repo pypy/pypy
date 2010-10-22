@@ -3,7 +3,7 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_longlong
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.objspace.flow.model import summary
 
@@ -318,6 +318,17 @@ class BaseTestRclass(BaseRtypingTest):
             return a.f(6, 7)
         res = self.interpret(f, [])
         assert res == 42
+
+    def test_staticmethod2(self):
+        class A(object):
+            f = staticmethod(lambda x, y: x*y)
+        class B(A):
+            f = staticmethod(lambda x, y: x+y)
+        def f():
+            b = B()
+            return b.f(6, 7)
+        res = self.interpret(f, [])
+        assert res == 13
 
     def test_is(self):
         class A: pass
@@ -1000,6 +1011,40 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
         res = self.interpret(f, [5])
         assert res == 0
+
+    def test_order_of_fields(self):
+        class A(object):
+            pass
+        def f(n):
+            a = A()
+            a.as_int = n
+            a.as_char = chr(n)
+            a.as_unichar = unichr(n)
+            a.as_double = n + 0.5
+            a.as_bool = bool(n)
+            a.as_void = None
+            a.as_longlong = r_longlong(n)
+            a.as_reference = A()
+            return a
+
+        res = self.interpret(f, [5])
+        names = list(typeOf(res).TO._names)
+        i = names.index('inst_as_int')
+        c = names.index('inst_as_char')
+        u = names.index('inst_as_unichar')
+        d = names.index('inst_as_double')
+        b = names.index('inst_as_bool')
+        v = names.index('inst_as_void')
+        l = names.index('inst_as_longlong')
+        r = names.index('inst_as_reference')
+        assert v == 1      # void fields are first
+        assert sorted([c, b]) == [7, 8]
+        if sys.maxint == 2147483647:
+            assert sorted([u, i, r]) == [4, 5, 6]        # 32-bit types
+            assert sorted([d, l]) == [2, 3]              # 64-bit types
+        else:
+            assert sorted([u]) == [6]                    # 32-bit types
+            assert sorted([i, r, d, l]) == [2, 3, 4, 5]  # 64-bit types
 
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):

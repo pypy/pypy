@@ -79,8 +79,11 @@ def test_from_entry_bridge():
 
 
 class PyPyCJITTests(object):
-    def run_source(self, source, expected_max_ops, *testcases):
+    def run_source(self, source, expected_max_ops, *testcases, **kwds):
         assert isinstance(expected_max_ops, int)
+        threshold = kwds.pop('threshold', 3)
+        if kwds:
+            raise TypeError, 'Unsupported keyword arguments: %s' % kwds.keys()
         source = py.code.Source(source)
         filepath = self.tmpdir.join('case%d.py' % self.counter)
         logfilepath = filepath.new(ext='.log')
@@ -92,7 +95,7 @@ class PyPyCJITTests(object):
             import sys
             try: # make the file runnable by CPython
                 import pypyjit
-                pypyjit.set_param(threshold=3)
+                pypyjit.set_param(threshold=%d)
             except ImportError:
                 pass
 
@@ -102,7 +105,7 @@ class PyPyCJITTests(object):
                 print >> sys.stderr, 'got:', repr(result)
                 assert result == expected
                 assert type(result) is type(expected)
-        """)
+        """ % threshold)
         for testcase in testcases * 2:
             print >> f, "check(%r, %r)" % testcase
         print >> f, "print 'OK :-)'"
@@ -116,6 +119,8 @@ class PyPyCJITTests(object):
         result = child_stdout.read()
         child_stdout.close()
         assert result
+        if result.strip().startswith('SKIP:'):
+            py.test.skip(result.strip())
         assert result.splitlines()[-1].strip() == 'OK :-)'
         self.parse_loops(logfilepath)
         self.print_loops()
@@ -123,9 +128,10 @@ class PyPyCJITTests(object):
         if self.total_ops > expected_max_ops:
             assert 0, "too many operations: got %d, expected maximum %d" % (
                 self.total_ops, expected_max_ops)
+        return result
 
     def parse_loops(self, opslogfile):
-        from pypy.jit.metainterp.test.oparser import parse
+        from pypy.jit.tool.oparser import parse
         from pypy.tool import logparser
         assert opslogfile.check()
         log = logparser.parse_log_file(str(opslogfile))
@@ -272,7 +278,7 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 7
+        assert len(ops[0].get_opnames("guard")) <= 3     # we get 2 withmapdict
         assert not ops[1] # second LOOKUP_METHOD folded away
 
         ops = self.get_by_bytecode("CALL_METHOD")
@@ -283,7 +289,7 @@ class PyPyCJITTests(object):
             else:
                 assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
-            assert len(bytecode.get_opnames("guard")) <= 9
+            assert len(bytecode.get_opnames("guard")) <= 6
         assert len(ops[1]) < len(ops[0])
 
         ops = self.get_by_bytecode("LOAD_ATTR")
@@ -317,8 +323,8 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 7
-        assert len(ops[0].get_opnames("getfield")) < 6
+        assert len(ops[0].get_opnames("guard")) <= 3    # we get 2 withmapdict
+        assert len(ops[0].get_opnames("getfield")) <= 5 # we get <5 withmapdict
         assert not ops[1] # second LOOKUP_METHOD folded away
 
     def test_default_and_kw(self):
@@ -382,7 +388,7 @@ class PyPyCJITTests(object):
                     a.x = 2
                     i = i + a.x
                 return i
-        ''', 67,
+        ''', 69,
                    ([20], 20),
                    ([31], 32))
 
@@ -390,7 +396,7 @@ class PyPyCJITTests(object):
                 self.get_by_bytecode("CALL_FUNCTION"))
         assert not callA.get_opnames("call")
         assert not callA.get_opnames("new")
-        assert len(callA.get_opnames("guard")) <= 8
+        assert len(callA.get_opnames("guard")) <= 2
         assert not callisinstance1.get_opnames("call")
         assert not callisinstance1.get_opnames("new")
         assert len(callisinstance1.get_opnames("guard")) <= 2
@@ -554,17 +560,13 @@ class PyPyCJITTests(object):
 
     def test_blockstack_virtualizable(self):
         self.run_source('''
-        def g(k):
-            s = 0
-            for i in range(k, k+2):
-                s += 1
-            return s
+        from pypyjit import residual_call
 
         def main():
             i = 0
             while i < 100:
                 try:
-                    g(i)
+                    residual_call(len, [])
                 except:
                     pass
                 i += 1
@@ -606,16 +608,17 @@ class PyPyCJITTests(object):
         #     call that can raise is not exchanged into getarrayitem_gc
 
     def test_overflow_checking(self):
+        startvalue = sys.maxint - 2147483647
         self.run_source('''
         def main():
             def f(a,b):
                 if a < 0: return -1
                 return a-b
-            total = 0
+            total = %d
             for i in range(100000):
                 total += f(i, 5)
             return total
-        ''', 170, ([], 4999450000L))
+        ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
     def test_boolrewrite_invers(self):
         for a, b, res, ops in (('2000', '2000', 20001000, 51),
@@ -742,6 +745,8 @@ class PyPyCJITTests(object):
                     '''%(op1, float(a)/4.0, float(b)/4.0, op2), 109, ([], res))
 
     def test_boolrewrite_ptr(self):
+        # XXX this test is way too imprecise in what it is actually testing
+        # it should count the number of guards instead
         compares = ('a == b', 'b == a', 'a != b', 'b != a', 'a == c', 'c != b')
         for e1 in compares:
             for e2 in compares:
@@ -765,7 +770,7 @@ class PyPyCJITTests(object):
                 print
                 print 'Test:', e1, e2, n, res
                 self.run_source('''
-                class tst:
+                class tst(object):
                     pass
                 def main():
                     a = tst()
@@ -780,24 +785,6 @@ class PyPyCJITTests(object):
                         if i > 750: a = b
                     return sa
                 '''%(e1, e2), n, ([], res))
-
-    def test_boolrewrite_ptr_single(self):
-        self.run_source('''
-            class tst:
-                pass
-            def main():
-                a = tst()
-                b = tst()
-                c = tst()
-                sa = 0
-                for i in range(1000):
-                    if a == b: sa += 1
-                    else: sa += 2
-                    if a != b: sa += 10000
-                    else: sa += 20000
-                    if i > 750: a = b
-                return sa
-            ''', 215, ([], 12481752))
 
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
@@ -847,7 +834,12 @@ class PyPyCJITTests(object):
             ''', 65, ([], 122880))
 
     def test_array_intimg(self):
-        for tc, maxops in zip('ilILd', (67, 67, 69, 69, 61)):
+        # XXX this test is way too imprecise in what it is actually testing
+        # it should count the number of guards instead
+        for tc, maxops in zip('ilILd', (67, 67, 70, 70, 61)):
+            print
+            print '='*65
+            print '='*20, 'running test for tc=%r' % (tc,), '='*20
             res = 73574560
             if tc in 'IL':
                 res = long(res)
@@ -1130,6 +1122,44 @@ class PyPyCJITTests(object):
             return sa
         ''', 88, ([], 1997001))
 
+    def test__ffi_call(self):
+        from pypy.rlib.test.test_libffi import get_libm_name
+        libm_name = get_libm_name(sys.platform)
+        out = self.run_source('''
+        def main():
+            try:
+                from _ffi import CDLL, types
+            except ImportError:
+                sys.stdout.write('SKIP: cannot import _ffi')
+                return 0
+
+            libm = CDLL('%(libm_name)s')
+            pow = libm.getfunc('pow', [types.double, types.double],
+                               types.double)
+            print pow.getaddr()
+            i = 0
+            res = 0
+            while i < 2000:
+                res += pow(2, 3)
+                i += 1
+            return res
+        ''' % locals(),
+                              76, ([], 8.0*2000), threshold=1000)
+        pow_addr = int(out.splitlines()[0])
+        ops = self.get_by_bytecode('CALL_FUNCTION')
+        assert len(ops) == 2 # we get two loops, because of specialization
+        call_function = ops[0]
+        last_ops = [op.getopname() for op in call_function[-5:]]
+        assert last_ops == ['force_token',
+                            'setfield_gc',
+                            'call_may_force',
+                            'guard_not_forced',
+                            'guard_no_exception']
+        call = call_function[-3]
+        assert call.getarg(0).value == pow_addr
+        assert call.getarg(1).value == 2.0
+        assert call.getarg(2).value == 3.0
+
     # test_circular
 
 class AppTestJIT(PyPyCJITTests):
@@ -1153,6 +1183,17 @@ class TestJIT(PyPyCJITTests):
         cls.tmpdir.ensure(dir=1)
         cls.counter = 0
         cls.pypy_c = option.pypy_c
+
+
+def test_interface_residual_call():
+    space = gettestobjspace(usemodules=['pypyjit'])
+    space.appexec([], """():
+        import pypyjit
+        def f(*args, **kwds):
+            return (args, kwds)
+        res = pypyjit.residual_call(f, 4, x=6)
+        assert res == ((4,), {'x': 6})
+    """)
 
 
 def has_info(pypy_c, option):

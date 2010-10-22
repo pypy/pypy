@@ -1,6 +1,6 @@
 import sys
 from pypy.rlib import debug
-from pypy.jit.metainterp.test.oparser import pure_parse
+from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO

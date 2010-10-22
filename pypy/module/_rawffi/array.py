@@ -97,7 +97,15 @@ W_Array.typedef.acceptable_as_base_class = False
 
 class W_ArrayInstance(W_DataInstance):
     def __init__(self, space, shape, length, address=r_uint(0)):
-        W_DataInstance.__init__(self, space, shape.size * length, address)
+        # Workaround for a strange behavior of libffi: make sure that
+        # we always have at least 8 bytes.  For W_ArrayInstances that are
+        # used as the result value of a function call, ffi_call() writes
+        # 8 bytes into it even if the function's result type asks for less.
+        # This strange behavior is documented.
+        memsize = shape.size * length
+        if memsize < 8:
+            memsize = 8
+        W_DataInstance.__init__(self, space, memsize, address)
         self.length = length
         self.shape = shape
 

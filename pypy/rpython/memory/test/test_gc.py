@@ -368,6 +368,14 @@ class GCTest(object):
         res = self.interpret(f, [4, 42])
         assert res == 12
 
+    def test_print_leak(self):
+        def f(n):
+            for i in range(n):
+                print i
+            return 42
+        res = self.interpret(f, [10])
+        assert res == 42
+
     def test_weakref_across_minor_collection(self):
         import weakref
         class A:

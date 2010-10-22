@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import new
 import py
 from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
@@ -827,6 +828,25 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
         simplify_graph(graph)
         assert self.all_operations(graph) == {'getitem': 1}
+
+    def test_context_manager(self):
+        def f(c, x):
+            with x:
+                pass
+        graph = self.codetest(f)
+        # 2 method calls: x.__enter__() and x.__exit__(None, None, None)
+        assert self.all_operations(graph) == {'getattr': 2,
+                                              'simple_call': 2}
+        #
+        def g(): pass
+        def f(c, x):
+            with x:
+                g()
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {
+            'getattr': 2,     # __enter__ and __exit__
+            'simple_call': 4, # __enter__, g and 2 possible calls to __exit__
+            'is_true': 1}     # check the result of __exit__()
 
     def monkey_patch_code(self, code, stacksize, flags, codestring, names, varnames):
         c = code

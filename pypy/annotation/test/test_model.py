@@ -128,7 +128,7 @@ def test_ll_to_annotation():
     assert isinstance(s_p, SomeOOInstance) and s_p.ootype == C
 
 def test_annotation_to_lltype():
-    from pypy.rlib.rarithmetic import r_uint
+    from pypy.rlib.rarithmetic import r_uint, r_singlefloat
     s_i = SomeInteger()
     s_pos = SomeInteger(nonneg=True)
     s_1 = SomeInteger(nonneg=True); s_1.const = 1
@@ -151,6 +151,9 @@ def test_annotation_to_lltype():
     C = ootype.Instance('C', ROOT, {})
     ref = SomeOOInstance(C)
     assert annotation_to_lltype(ref) == C
+    s_singlefloat = SomeSingleFloat()
+    s_singlefloat.const = r_singlefloat(0.0)
+    assert annotation_to_lltype(s_singlefloat) == lltype.SingleFloat
     
 def test_ll_union():
     PS1 = lltype.Ptr(lltype.GcStruct('s'))

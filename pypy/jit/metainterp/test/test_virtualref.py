@@ -93,7 +93,7 @@ class VRefTests:
         lst = []
         vrefinfo.continue_tracing = lambda vref, virtual: \
                                         lst.append((vref, virtual))
-        resumereader.consume_vref_and_vable(vrefinfo, None)
+        resumereader.consume_vref_and_vable(vrefinfo, None, None)
         del vrefinfo.continue_tracing
         assert len(lst) == 1
         lltype.cast_opaque_ptr(lltype.Ptr(JIT_VIRTUAL_REF),

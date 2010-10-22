@@ -14,7 +14,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rstring import StringBuilder, string_repeat
 from pypy.interpreter.buffer import StringBuffer
 
-from pypy.objspace.std.stringtype import sliced, joined, wrapstr, wrapchar, \
+from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
 
 from pypy.objspace.std.formatting import mod_format

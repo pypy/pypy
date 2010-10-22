@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython.lltypesystem import lltype, rclass, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Constant
@@ -60,7 +61,7 @@ def getgraph(func, values):
     return rtyper.annotator.translator.graphs[0]
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
-    """Find the block with 'jit_merge_point' and split just before,
+    """Split the block just before the 'jit_merge_point',
     making sure the input args are in the canonical order.
     """
     # split the block just before the jit_merge_point()
@@ -216,6 +217,33 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
+
+
+# libffi support
+# --------------
+
+def func(llfunc):
+    from pypy.rlib.libffi import Func
+    return cast_base_ptr_to_instance(Func, llfunc)
+
+def _ll_1_libffi_prepare_call(llfunc):
+    return func(llfunc)._prepare()
+
+def _ll_4_libffi_push_int(llfunc, value, ll_args, i):
+    return func(llfunc)._push_int(value, ll_args, i)
+
+def _ll_4_libffi_push_float(llfunc, value, ll_args, i):
+    return func(llfunc)._push_float(value, ll_args, i)
+
+def _ll_3_libffi_call_int(llfunc, funcsym, ll_args):
+    return func(llfunc)._do_call(funcsym, ll_args, rffi.LONG)
+
+def _ll_3_libffi_call_float(llfunc, funcsym, ll_args):
+    return func(llfunc)._do_call(funcsym, ll_args, rffi.DOUBLE)
+
+def _ll_3_libffi_call_void(llfunc, funcsym, ll_args):
+    return func(llfunc)._do_call(funcsym, ll_args, lltype.Void)
+
 
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [

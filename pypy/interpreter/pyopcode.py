@@ -164,6 +164,9 @@ class __extend__(pyframe.PyFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
+    def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
+        return self.space.call_function(w_func, w_typ, w_val, w_tb)
+
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         space = self.space
@@ -710,9 +713,14 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
-        w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
-        w_value = self.space.getattr(w_obj, w_attributename)
+        if (self.space.config.objspace.std.withmapdict
+            and not jit.we_are_jitted()):
+            from pypy.objspace.std.mapdict import LOAD_ATTR_caching
+            w_value = LOAD_ATTR_caching(self.getcode(), w_obj, nameindex)
+        else:
+            w_attributename = self.getname_w(nameindex)
+            w_value = self.space.getattr(w_obj, w_attributename)
         self.pushvalue(w_value)
     LOAD_ATTR._always_inline_ = True
 
@@ -904,28 +912,47 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def WITH_CLEANUP(self, oparg, next_instr):
-        self.dropvalues(2)
-        w_unroller = self.popvalue()
+        # see comment in END_FINALLY for stack state
+        # This opcode changed a lot between CPython versions
+        if (self.pycode.magic >= 0xa0df2ef
+            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
+            or self.pycode.magic >= 0xa0df2d1):
+            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
+            self.popvalue()
+            self.popvalue()
+            w_unroller = self.popvalue()
+            w_exitfunc = self.popvalue()
+            self.pushvalue(w_unroller)
+            self.pushvalue(self.space.w_None)
+            self.pushvalue(self.space.w_None)
+        elif self.pycode.magic >= 0xa0df28c:
+            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
+            w_exitfunc = self.popvalue()
+            w_unroller = self.peekvalue(2)
+        else:
+            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
+
         unroller = self.space.interpclass_w(w_unroller)
         w_exit = self.popvalue()
         is_app_exc = (unroller is not None and
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
-            w_type = operr.w_type
-            w_value = operr.get_w_value(self.space)
-            w_tb = self.space.wrap(operr.application_traceback)
+            w_traceback = self.space.wrap(operr.application_traceback)
+            w_suppress = self.call_contextmanager_exit_function(
+                w_exitfunc,
+                operr.w_type,
+                operr.get_w_value(self.space),
+                w_traceback)
+            if self.space.is_true(w_suppress):
+                # __exit__() returned True -> Swallow the exception.
+                self.settopvalue(self.space.w_None, 2)
         else:
-            w_type = w_value = w_tb = self.space.w_None
-        w_suppress = self.space.call_function(w_exit, w_type, w_value, w_tb)
-        if is_app_exc and self.space.is_true(w_suppress):
-            self.pushvalue(self.space.w_None)
-            self.pushvalue(self.space.w_None)
-            self.pushvalue(self.space.w_None)
-        else:
-            self.pushvalue(w_unroller)
-            self.pushvalue(w_value)
-            self.pushvalue(w_type)
+            self.call_contextmanager_exit_function(
+                w_exitfunc,
+                self.space.w_None,
+                self.space.w_None,
+                self.space.w_None)
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):
@@ -1345,10 +1372,10 @@ class WithBlock(FinallyBlock):
             unroller.operr.normalize_exception(frame.space)
         return FinallyBlock.really_handle(self, frame, unroller)
 
-
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
-                 'SETUP_FINALLY': FinallyBlock}
+                 'SETUP_FINALLY': FinallyBlock,
+                 'SETUP_WITH': WithBlock}
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other

@@ -268,7 +268,8 @@ def output(name, dfa_class, dfa):
         i += 1
     import StringIO
     print "states = ["
-    for state in dfa.states:
+    for numstate, state in enumerate(dfa.states):
+        print "    #", numstate
         s = StringIO.StringIO()
         i = 0
         for k, v in sorted(state.items()):
@@ -284,14 +285,17 @@ def output(name, dfa_class, dfa):
                 s.write(', ')
         s.write('},')
         i = 0
-        for line in textwrap.wrap(s.getvalue(), width=35):
+        if len(state) <= 4:
+            text = [s.getvalue()]
+        else:
+            text = textwrap.wrap(s.getvalue(), width=36)
+        for line in text:
             line = line.replace('::', ': ')
             if i == 0:
                 print '    {' + line
             else:
                 print '     ' + line
             i += 1
-        print
     print "    ]"
     print "%s = automata.%s(states, accepts)" % (name, dfa_class)
     print
@@ -302,16 +306,8 @@ def main ():
     endDFAMap = makePyEndDFAMap()
     output("double3DFA", "NonGreedyDFA", endDFAMap['"""'])
     output("single3DFA", "NonGreedyDFA", endDFAMap["'''"])
-    output("doubleDFA", "DFA", endDFAMap['"'])
     output("singleDFA", "DFA", endDFAMap["'"])
-    print "endDFAs = {\"'\" : singleDFA,"
-    print "           '\"' : doubleDFA,"
-    print "           'r' : None,"
-    print "           'R' : None,"
-    print "           'u' : None,"
-    print "           'U' : None,"
-    print "           'b' : None,"
-    print "           'B' : None}"
+    output("doubleDFA", "DFA", endDFAMap['"'])
 
 # ______________________________________________________________________
 

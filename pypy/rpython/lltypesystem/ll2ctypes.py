@@ -72,7 +72,7 @@ def do_allocation_in_far_regions():
                 PIECESIZE = 0x08000000
         PIECES = 10
         m = rmmap.mmap(-1, PIECES * PIECESIZE,
-                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS,
+                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
                        rmmap.PROT_READ|rmmap.PROT_WRITE)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
@@ -827,6 +827,8 @@ def ctypes2lltype(T, cobj):
         except (ValueError, OverflowError):
             for tc in 'HIL':
                 if array(tc).itemsize == array('u').itemsize:
+                    import struct
+                    cobj &= 256 ** struct.calcsize(tc) - 1
                     llobj = array('u', array(tc, (cobj,)).tostring())[0]
                     break
             else:

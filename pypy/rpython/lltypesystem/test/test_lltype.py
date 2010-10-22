@@ -1,7 +1,9 @@
+from __future__ import with_statement
 import py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.identity_dict import identity_dict
+from pypy.tool import leakfinder
 
 def isweak(p, T):
     try:
@@ -804,22 +806,20 @@ def test_immutable_hint():
 
 
 class TestTrackAllocation:
-    def setup_method(self, func):
-        start_tracking_allocations()
-
-    def teardown_method(self, func):
-        assert not lltype.ALLOCATED, "Memory was not correctly freed"
-        stop_tracking_allocations()
+    def test_automatic_tracking(self):
+        # calls to start_tracking_allocations/stop_tracking_allocations
+        # should occur automatically from pypy/conftest.py.  Check that.
+        assert leakfinder.TRACK_ALLOCATIONS
 
     def test_track_allocation(self):
         """A malloc'd buffer fills the ALLOCATED dictionary"""
-        assert lltype.TRACK_ALLOCATIONS
-        assert not lltype.ALLOCATED
+        assert leakfinder.TRACK_ALLOCATIONS
+        assert not leakfinder.ALLOCATED
         buf = malloc(Array(Signed), 1, flavor="raw")
-        assert len(lltype.ALLOCATED) == 1
-        assert lltype.ALLOCATED.keys() == [buf._obj]
+        assert len(leakfinder.ALLOCATED) == 1
+        assert leakfinder.ALLOCATED.keys() == [buf._obj]
         free(buf, flavor="raw")
-        assert not lltype.ALLOCATED
+        assert not leakfinder.ALLOCATED
 
     def test_str_from_buffer(self):
         """gc-managed memory does not need to be freed"""
@@ -828,16 +828,28 @@ class TestTrackAllocation:
         for i in range(size): raw_buf[i] = 'a'
         rstr = rffi.str_from_buffer(raw_buf, gc_buf, size, size)
         rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
-        assert not lltype.ALLOCATED
+        assert not leakfinder.ALLOCATED
 
     def test_leak_traceback(self):
         """Test info stored for allocated items"""
         buf = malloc(Array(Signed), 1, flavor="raw")
-        traceback = lltype.ALLOCATED.keys()[0]._traceback
+        traceback = leakfinder.ALLOCATED.values()[0]
         lines = traceback.splitlines()
         assert 'malloc(' in lines[-1] and 'flavor="raw")' in lines[-1]
 
-        # XXX The traceback should not be too long
+        # The traceback should not be too long
         print traceback
 
         free(buf, flavor="raw")
+
+    def test_no_tracking(self):
+        p1 = malloc(Array(Signed), 1, flavor='raw', track_allocation=False)
+        p2 = malloc(Array(Signed), 1, flavor='raw', track_allocation=False)
+        free(p2, flavor='raw', track_allocation=False)
+        # p1 is not freed
+
+    def test_scoped_allocator(self):
+        with scoped_alloc(Array(Signed), 1) as array:
+            array[0] = -42
+            x = array[0]
+        assert x == -42

@@ -599,7 +599,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(StrLenOperation(rop.STRLEN))
     OPERATIONS.append(UnicodeLenOperation(rop.UNICODELEN))
     OPERATIONS.append(CopyStrContentOperation(rop.COPYSTRCONTENT))
-    #OPERATIONS.append(CopyUnicodeContentOperation(rop.COPYUNICODECONTENT))
+    OPERATIONS.append(CopyUnicodeContentOperation(rop.COPYUNICODECONTENT))
 
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))

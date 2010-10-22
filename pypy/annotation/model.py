@@ -584,11 +584,11 @@ class SomeOOStaticMeth(SomeObject):
         
 NUMBER = object()
 annotation_to_ll_map = [
+    (SomeSingleFloat(), lltype.SingleFloat),
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()
     (s_Bool, lltype.Bool),
     (SomeInteger(knowntype=r_ulonglong), NUMBER),    
     (SomeFloat(), lltype.Float),
-    (SomeSingleFloat(), lltype.SingleFloat),
     (SomeLongFloat(), lltype.LongFloat),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),

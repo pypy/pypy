@@ -4,7 +4,7 @@ from __future__ import division
 import autopath
 import sys, py
 from pypy.tool import logparser
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 
