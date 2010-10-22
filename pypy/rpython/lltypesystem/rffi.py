@@ -933,3 +933,11 @@ def getintfield(pdst, fieldname):
     """
     return cast(lltype.Signed, getattr(pdst, fieldname))
 getintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
+
+class scoped_str2charp:
+    def __init__(self, value):
+        self.buf = str2charp(value)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        free_charp(self.buf)

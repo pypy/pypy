@@ -212,13 +212,10 @@ KEY_SET_VALUE access."""
         subkey = None
     else:
         subkey = space.str_w(w_subkey)
-    dataptr = rffi.str2charp(value)
-    try:
+    with rffi.scoped_str2charp(value) as dataptr:
         ret = rwinreg.RegSetValue(hkey, subkey, rwinreg.REG_SZ, dataptr, len(value))
-    finally:
-        rffi.free_charp(dataptr)
-    if ret != 0:
-        raiseWindowsError(space, ret, 'RegSetValue')
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegSetValue')
 SetValue.unwrap_spec = [ObjSpace, W_Root, W_Root, int, str]
 
 def QueryValue(space, w_hkey, w_subkey):
@@ -237,23 +234,15 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
         subkey = None
     else:
         subkey = space.str_w(w_subkey)
-    bufsize_p = lltype.malloc(rwin32.PLONG.TO, 1, flavor='raw')
-    try:
+    with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
         ret = rwinreg.RegQueryValue(hkey, subkey, None, bufsize_p)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegQueryValue')
-        buf = lltype.malloc(rffi.CCHARP.TO, bufsize_p[0], flavor='raw')
-        try:
+        with lltype.scoped_alloc(rffi.CCHARP.TO, bufsize_p[0]) as buf:
             ret = rwinreg.RegQueryValue(hkey, subkey, buf, bufsize_p)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryValue')
             return space.wrap(rffi.charp2strn(buf, bufsize_p[0] - 1))
-        finally:
-            lltype.free(buf, flavor='raw')
-    finally:
-        lltype.free(bufsize_p, flavor='raw')
-    if ret != 0:
-        raiseWindowsError(space, ret, 'RegQueryValue')
 QueryValue.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def convert_to_regdata(space, w_value, typ):
@@ -412,16 +401,14 @@ key is an already open key, or any one of the predefined HKEY_* constants.
 value_name is a string indicating the value to query"""
     hkey = hkey_w(w_hkey, space)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
-    retDataSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-    try:
+    with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
         ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword, null_dword,
                                       None, retDataSize)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegQueryValueEx')
-        databuf = lltype.malloc(rffi.CCHARP.TO, retDataSize[0], flavor='raw')
-        try:
-            retType = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-            try:
+
+        with lltype.scoped_alloc(rffi.CCHARP.TO, retDataSize[0]) as databuf:
+            with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
 
                 ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword,
                                               retType, databuf, retDataSize)
@@ -432,12 +419,6 @@ value_name is a string indicating the value to query"""
                                          retDataSize[0], retType[0]),
                     space.wrap(retType[0]),
                     ])
-            finally:
-                lltype.free(retType, flavor='raw')
-        finally:
-            lltype.free(databuf, flavor='raw')
-    finally:
-        lltype.free(retDataSize, flavor='raw')
 
 QueryValueEx.unwrap_spec = [ObjSpace, W_Root, str]
 
@@ -454,14 +435,11 @@ If the key already exists, this function opens the existing key
 The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_hkey, space)
-    rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
-    try:
+    with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
         ret = rwinreg.RegCreateKey(hkey, subkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKey')
         return space.wrap(W_HKEY(rethkey[0]))
-    finally:
-        lltype.free(rethkey, flavor='raw')
 CreateKey.unwrap_spec = [ObjSpace, W_Root, str]
 
 def DeleteKey(space, w_hkey, subkey):
@@ -504,14 +482,11 @@ sam is an integer that specifies an access mask that describes the desired
 The result is a new handle to the specified key
 If the function fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
-    rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
-    try:
+    with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
         ret = rwinreg.RegOpenKeyEx(hkey, subkey, res, sam, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegOpenKeyEx')
         return space.wrap(W_HKEY(rethkey[0]))
-    finally:
-        lltype.free(rethkey, flavor='raw')
 OpenKey.unwrap_spec = [ObjSpace, W_Root, str, int, rffi.r_uint]
 
 def EnumValue(space, w_hkey, index):
@@ -531,10 +506,8 @@ data_type is an integer that identifies the type of the value data."""
     hkey = hkey_w(w_hkey, space)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
 
-    retValueSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-    try:
-        retDataSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-        try:
+    with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
+        with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
             ret = rwinreg.RegQueryInfoKey(
                 hkey, None, null_dword, null_dword,
                 null_dword, null_dword, null_dword,
@@ -546,14 +519,9 @@ data_type is an integer that identifies the type of the value data."""
             retValueSize[0] += 1
             retDataSize[0] += 1
 
-            valuebuf = lltype.malloc(rffi.CCHARP.TO, retValueSize[0],
-                                     flavor='raw')
-            try:
-                databuf = lltype.malloc(rffi.CCHARP.TO, retDataSize[0],
-                                        flavor='raw')
-                try:
-                    retType = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-                    try:
+            with lltype.scoped_alloc(rffi.CCHARP.TO, retValueSize[0]) as valuebuf:
+                with lltype.scoped_alloc(rffi.CCHARP.TO, retDataSize[0]) as databuf:
+                    with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
                         ret = rwinreg.RegEnumValue(
                             hkey, index, valuebuf, retValueSize,
                             null_dword, retType, databuf, retDataSize)
@@ -566,16 +534,6 @@ data_type is an integer that identifies the type of the value data."""
                                                  retDataSize[0], retType[0]),
                             space.wrap(retType[0]),
                             ])
-                    finally:
-                        lltype.free(retType, flavor='raw')
-                finally:
-                    lltype.free(databuf, flavor='raw')
-            finally:
-                lltype.free(valuebuf, flavor='raw')
-        finally:
-            lltype.free(retDataSize, flavor='raw')
-    finally:
-        lltype.free(retValueSize, flavor='raw')
 
 EnumValue.unwrap_spec = [ObjSpace, W_Root, int]
 
@@ -592,10 +550,8 @@ raised, indicating no more values are available."""
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
 
     # max key name length is 255
-    buf = lltype.malloc(rffi.CCHARP.TO, 256, flavor='raw')
-    try:
-        retValueSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-        try:
+    with lltype.scoped_alloc(rffi.CCHARP.TO, 256) as buf:
+        with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
             retValueSize[0] = 256 # includes NULL terminator
             ret = rwinreg.RegEnumKeyEx(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
@@ -603,10 +559,6 @@ raised, indicating no more values are available."""
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegEnumKeyEx')
             return space.wrap(rffi.charp2str(buf))
-        finally:
-            lltype.free(retValueSize, flavor='raw')
-    finally:
-        lltype.free(buf, flavor='raw')
 
 EnumKey.unwrap_spec = [ObjSpace, W_Root, int]
 
@@ -621,12 +573,9 @@ An integer that identifies the number of values this key has.
 A long integer that identifies when the key was last modified (if available)
  as 100's of nanoseconds since Jan 1, 1600."""
     hkey = hkey_w(w_hkey, space)
-    nSubKeys = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-    try:
-        nValues = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
-        try:
-            ft = lltype.malloc(rwin32.PFILETIME.TO, 1, flavor='raw')
-            try:
+    with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as nSubKeys:
+        with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as nValues:
+            with lltype.scoped_alloc(rwin32.PFILETIME.TO, 1) as ft:
                 null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
                 ret = rwinreg.RegQueryInfoKey(
                     hkey, None, null_dword, null_dword,
@@ -640,12 +589,6 @@ A long integer that identifies when the key was last modified (if available)
                 return space.newtuple([space.wrap(nSubKeys[0]),
                                        space.wrap(nValues[0]),
                                        space.wrap(l)])
-            finally:
-                lltype.free(ft, flavor='raw')
-        finally:
-            lltype.free(nValues, flavor='raw')
-    finally:
-        lltype.free(nSubKeys, flavor='raw')
 QueryInfoKey.unwrap_spec = [ObjSpace, W_Root]
 
 def str_or_None_w(space, w_obj):
@@ -666,12 +609,9 @@ The return value is the handle of the opened key.
 If the function fails, an EnvironmentError exception is raised."""
     machine = str_or_None_w(space, w_machine)
     hkey = hkey_w(w_hkey, space)
-    rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
-    try:
+    with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
         ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegConnectRegistry')
         return space.wrap(W_HKEY(rethkey[0]))
-    finally:
-        lltype.free(rethkey, flavor='raw')
 ConnectRegistry.unwrap_spec = [ObjSpace, W_Root, W_Root]
