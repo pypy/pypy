@@ -1871,7 +1871,10 @@ def free(p, flavor, track_allocation=True):
 def _make_scoped_allocator(T):
     class ScopedAlloc:
         def __init__(self, n=None, zero=False):
-            self.buf = malloc(T, n=n, flavor='raw', zero=zero)
+            if n is None:
+                self.buf = malloc(T, flavor='raw', zero=zero)
+            else:
+                self.buf = malloc(T, n, flavor='raw', zero=zero)
 
         def __enter__(self):
             return self.buf
