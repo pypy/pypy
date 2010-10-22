@@ -604,7 +604,7 @@ class W_InstanceObject(Wrappable):
         return w_ret
 
     def descr_int(self, space):
-        w_func = self.getattr(space, space.wrap('__int__'), False)
+        w_func = self.getattr(space, '__int__', False)
         if w_func is not None:
             return space.call_function(w_func)
 
@@ -619,7 +619,7 @@ class W_InstanceObject(Wrappable):
                 space.wrap("__trunc__ returned non-Integral"))
 
     def descr_long(self, space):
-        w_func = self.getattr(space, space.wrap('__long__'), False)
+        w_func = self.getattr(space, '__long__', False)
         if w_func is not None:
             return space.call_function(w_func)
         return self.descr_int(space)
