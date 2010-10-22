@@ -274,8 +274,9 @@ class JitDriver:
     several independent JITting interpreters in it.
     """
 
+    active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
-    
+
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,

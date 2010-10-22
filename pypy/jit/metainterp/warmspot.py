@@ -110,7 +110,8 @@ def _find_jit_marker(graphs, marker_name):
             for i in range(len(block.operations)):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
-                    op.args[0].value == marker_name):
+                    op.args[0].value == marker_name and
+                    op.args[1].value.active):   # the jitdriver
                     results.append((graph, block, i))
     return results
 

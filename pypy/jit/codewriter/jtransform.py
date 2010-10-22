@@ -831,6 +831,8 @@ class Transformer(object):
     def rewrite_op_jit_marker(self, op):
         key = op.args[0].value
         jitdriver = op.args[1].value
+        if not jitdriver.active:
+            return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
