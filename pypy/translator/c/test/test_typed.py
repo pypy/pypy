@@ -838,15 +838,16 @@ class TestTypedTestCase(CompilationTestCase):
                     state.append('raised')
                 state.append('release')
 
-        def func():
+        def func(n):
             try:
                 with C('hello') as c:
                     state.append(c.name)
-                    raise ValueError
+                    if 1:
+                        raise ValueError
             except ValueError:
                 pass
             return ', '.join(state)
-        f = self.getcompiled(func, [])
-        res = f()
+        f = self.getcompiled(func, [int])
+        res = f(1)
         assert res == 'acquire, hello, raised, release'
 
