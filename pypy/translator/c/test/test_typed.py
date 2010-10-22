@@ -842,7 +842,7 @@ class TestTypedTestCase(CompilationTestCase):
             try:
                 with C('hello') as c:
                     state.append(c.name)
-                    if 1:
+                    if n:
                         raise ValueError
             except ValueError:
                 pass
