@@ -8,6 +8,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR
 from pypy.rpython.lltypesystem import lltype
 
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class X(object):
     pass
@@ -79,37 +80,44 @@ def test_annotate_4():
     assert s.s_instance.can_be_None
     assert s.s_instance.classdef == a.bookkeeper.getuniqueclassdef(X)
 
-def test_rtype_1():
-    def f():
-        return virtual_ref(X())
-    x = interpret(f, [])
-    assert lltype.typeOf(x) == OBJECTPTR
-
-def test_rtype_2():
-    def f():
-        x1 = X()
-        vref = virtual_ref(x1)
-        x2 = vref()
-        virtual_ref_finish(x2)
-        return x2
-    x = interpret(f, [])
-    assert lltype.castable(OBJECTPTR, lltype.typeOf(x)) > 0
-
-def test_rtype_3():
-    def f(n):
-        if n > 0:
-            return virtual_ref(Y())
-        else:
-            return non_virtual_ref(Z())
-    x = interpret(f, [-5])
-    assert lltype.typeOf(x) == OBJECTPTR
-
-def test_rtype_4():
-    def f(n):
-        if n > 0:
+class BaseTestVRef(BaseRtypingTest):
+    def test_rtype_1(self):
+        def f():
             return virtual_ref(X())
-        else:
-            return vref_None
-    x = interpret(f, [-5])
-    assert lltype.typeOf(x) == OBJECTPTR
-    assert not x
+        x = self.interpret(f, [])
+        self.is_of_instance_type(x)
+
+    def test_rtype_2(self):
+        def f():
+            x1 = X()
+            vref = virtual_ref(x1)
+            x2 = vref()
+            virtual_ref_finish(x2)
+            return x2
+        x = self.interpret(f, [])
+        assert lltype.castable(OBJECTPTR, lltype.typeOf(x)) > 0
+
+    def test_rtype_3(self):
+        def f(n):
+            if n > 0:
+                return virtual_ref(Y())
+            else:
+                return non_virtual_ref(Z())
+        x = self.interpret(f, [-5])
+        assert lltype.typeOf(x) == OBJECTPTR
+
+    def test_rtype_4(self):
+        def f(n):
+            if n > 0:
+                return virtual_ref(X())
+            else:
+                return vref_None
+        x = self.interpret(f, [-5])
+        assert lltype.typeOf(x) == OBJECTPTR
+        assert not x
+
+class TestLLtype(BaseTestVRef, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestVRef, OORtypeMixin):
+    pass
