@@ -2,7 +2,7 @@ import new
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
@@ -706,7 +706,7 @@ class W_InstanceObject(Wrappable):
             space.call_function(w_func)
 
     def descr_exit(self, space, w_type, w_value, w_tb):
-        w_func = self.getattr(space, space.wrap('__exit__'), False)
+        w_func = self.getattr(space, '__exit__', False)
         if w_func is not None:
             return space.call_function(w_func, w_type, w_value, w_tb)
 

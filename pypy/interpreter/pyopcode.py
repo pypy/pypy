@@ -933,7 +933,6 @@ class __extend__(pyframe.PyFrame):
             raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
 
         unroller = self.space.interpclass_w(w_unroller)
-        w_exit = self.popvalue()
         is_app_exc = (unroller is not None and
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
@@ -1375,7 +1374,8 @@ class WithBlock(FinallyBlock):
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
                  'SETUP_FINALLY': FinallyBlock,
-                 'SETUP_WITH': WithBlock}
+                 'SETUP_WITH': WithBlock,
+                 }
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
