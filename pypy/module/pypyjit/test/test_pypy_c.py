@@ -836,7 +836,7 @@ class PyPyCJITTests(object):
     def test_array_intimg(self):
         # XXX this test is way too imprecise in what it is actually testing
         # it should count the number of guards instead
-        for tc, maxops in zip('ilILd', (67, 67, 69, 69, 61)):
+        for tc, maxops in zip('ilILd', (67, 67, 70, 70, 61)):
             print
             print '='*65
             print '='*20, 'running test for tc=%r' % (tc,), '='*20
