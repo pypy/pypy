@@ -28,6 +28,10 @@ Probably easy tasks
 
 - missing functions in itertools: combinations, product, compress...
 
+- in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
+  proably requires to use the git_t typedef instead of rffi.INT.
+
+
 Medium tasks
 ------------
 
@@ -35,6 +39,8 @@ Medium tasks
   test_pickle()
 
 - missing builtin: memoryview
+
+- signal.set_wakeup_fd()
 
 Longer tasks
 ------------
