@@ -376,6 +376,8 @@ closureHeap = ClosureHeap()
 FUNCFLAG_STDCALL   = 0
 FUNCFLAG_CDECL     = 1  # for WINAPI calls
 FUNCFLAG_PYTHONAPI = 4
+FUNCFLAG_USE_ERRNO = 8
+FUNCFLAG_USE_LASTERROR = 16
 
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
