@@ -125,6 +125,11 @@ class PythonParser(parser.Parser):
                     if space.is_w(e.w_type, space.w_LookupError):
                         raise error.SyntaxError("Unknown encoding: %s" % enc,
                                                 filename=compile_info.filename)
+                    # Transform unicode errors into SyntaxError
+                    if space.is_w(e.w_type, space.w_UnicodeDecodeError):
+                        e.normalize_exception(space)
+                        w_message = space.str(e.get_w_value(space))
+                        raise error.SyntaxError(space.str_w(w_message))
                     raise
 
         flags = compile_info.flags

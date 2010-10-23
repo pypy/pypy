@@ -56,6 +56,10 @@ stuff = "nothing"
         input = "# coding: not-here"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "Unknown encoding: not-here"
+        input = u"# coding: ascii\n\xe2".encode('utf-8')
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
+                           "in position 16: ordinal not in range(128)")
 
     def test_syntax_error(self):
         parse = self.parse
