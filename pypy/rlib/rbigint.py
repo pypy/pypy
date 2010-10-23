@@ -558,6 +558,23 @@ class rbigint(object):
         if self._numdigits() == 1 and self.digits[0] == 0:
             self.sign = 0
 
+    def bit_length(self):
+        i = self._numdigits()
+        if i == 1 and self.digits[0] == 0:
+            return 0
+        msd = self.digits[i - 1]
+        msd_bits = 0
+        if msd >= 32:
+            msd_bits += 6
+            msd >>= 6
+        msd_bits += [
+            0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
+            ][msd]
+        # yes, this can overflow: a huge number which fits 3 gigabytes of
+        # memory has around 24 gigabits!
+        bits = ovfcheck((i-1) * SHIFT + msd_bits)
+        return bits
 
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, %s>" % (self.digits, self.sign, self.str())

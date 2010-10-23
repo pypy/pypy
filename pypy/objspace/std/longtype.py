@@ -91,6 +91,13 @@ def descr_get_real(space, w_obj):
 def descr_get_imag(space, w_obj):
     return space.newlong(0)
 
+def bit_length(space, w_obj):
+    try:
+        return space.wrap(w_obj.num.bit_length())
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("too many digits in integer"))
+
 # ____________________________________________________________
 
 long_typedef = StdTypeDef("long",
@@ -106,5 +113,6 @@ converting a non-string.''',
     denominator = typedef.GetSetProperty(descr_get_denominator),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
+    bit_length = gateway.interp2app(bit_length),
 )
 long_typedef.registermethods(globals())

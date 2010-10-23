@@ -269,3 +269,7 @@ class AppTestLong:
             pass
         
         assert type(L(7).conjugate()) is long
+
+    def test_bit_length(self):
+        assert 8L.bit_length() == 4
+        assert (-1<<40).bit_length() == 41
