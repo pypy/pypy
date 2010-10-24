@@ -1,0 +1,2 @@
+FUNC_ALIGN=8
+WORD=4
