@@ -1,22 +1,29 @@
-import conditions as cond
-import registers as reg
-from pypy.rlib.rmmap import alloc
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.jit.backend.arm import conditions as cond
+from pypy.jit.backend.arm import registers as reg
+from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.backend.arm.instruction_builder import define_instructions
 
-class ARMv7Builder(object):
+from pypy.rlib.rmmap import alloc, PTR
+from pypy.rpython.lltypesystem import lltype, rffi
 
-    def __init__(self):
-        self._data = alloc(1024)
+class AbstractARMv7Builder(object):
+    def _init(self, data, map_size):
+        self._data = data
+        self._size = map_size
         self._pos = 0
+
+    def _dump_trace(self, name):
+        f = open('output/%s' % name, 'wb')
+        for i in range(self._pos):
+            f.write(self._data[i])
+        f.close()
 
     def PUSH(self, regs, cond=cond.AL):
         assert reg.sp not in regs
         instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
         self.write32(instr)
 
-    def LDM(self, rn, regs, cond=cond.AL):
-        w = 0
+    def LDM(self, rn, regs, w=0, cond=cond.AL):
         instr = cond << 28 | 0x89 << 20 | w << 21 | (rn & 0xFF) << 16
         instr = self._encode_reg_list(instr, regs)
         self.write32(instr)
@@ -58,4 +65,30 @@ class ARMv7Builder(object):
     def curraddr(self):
         return self.baseaddr() + self._pos
 
-define_instructions(ARMv7Builder)
+    size_of_gen_load_int = 7 * WORD
+    def gen_load_int(self, r, value, cond=cond.AL):
+        assert r != reg.ip, 'ip is used to load int'
+        self.MOV_ri(r, (value & 0xFF), cond=cond)
+
+        for offset in range(8, 25, 8):
+            t = (value >> offset) & 0xFF
+            #if t == 0:
+            #    continue
+            self.MOV_ri(reg.ip, t, cond=cond)
+            self.ORR_rr(r, r, reg.ip, offset, cond=cond)
+
+class ARMv7InMemoryBuilder(AbstractARMv7Builder):
+    def __init__(self, start, end):
+        map_size = end - start
+        data = rffi.cast(PTR, start)
+        self._init(data, map_size)
+
+class ARMv7Builder(AbstractARMv7Builder):
+
+    def __init__(self):
+        map_size = 1024
+        data = alloc(1024)
+        self._pos = 0
+        self._init(data, map_size)
+
+define_instructions(AbstractARMv7Builder)

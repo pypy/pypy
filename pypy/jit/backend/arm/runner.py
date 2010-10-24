@@ -18,6 +18,9 @@ class ArmCPU(AbstractLLCPU):
     def compile_loop(self, inputargs, operations, looptoken):
         self.assembler.assemble_loop(inputargs, operations, looptoken)
 
+    def compile_bridge(self, faildescr, inputargs, operations):
+        self.assembler.assemble_bridge(faildescr, inputargs, operations)
+
     def set_future_value_int(self, index, intvalue):
         self.assembler.input_arg_boxes_int.setitem(index, intvalue)
 

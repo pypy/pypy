@@ -10,7 +10,7 @@ else:
 
 def run_asm(asm):
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
-    addr = asm.mc.baseaddr()
+    addr = asm.mc._start_addr
     assert addr % 8 == 0
     func = rffi.cast(lltype.Ptr(BOOTSTRAP_TP), addr)
     return func()

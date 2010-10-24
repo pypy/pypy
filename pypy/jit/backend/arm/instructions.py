@@ -56,3 +56,18 @@ data_proc_imm = {
 supervisor_and_coproc = {
     'MCR': {'op1': 0x20, 'op': 1, 'rn':0, 'coproc':0},
 }
+
+block_data = {
+    'STMDA': {'op': 0x0},
+    'LDMDA': {'op': 0x1},
+    'STMIA': {'op': 0x8},
+    'LDMDB': {'op': 0x11},
+    'STMIB': {'op': 0x18},
+    'LDMIB': {'op': 0x19},
+    'STM':   {'op': 0x4},
+    'LDM':   {'op': 0x5},
+}
+branch = {
+    'B':     {'op': 0x20},
+    'BL':    {'op': 0x30},
+}
