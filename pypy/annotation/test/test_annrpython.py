@@ -1,4 +1,4 @@
-
+from __future__ import with_statement
 import autopath
 import py.test
 import sys

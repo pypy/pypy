@@ -691,6 +691,7 @@ def test_jit_merge_point_1():
     class FakeJitDriverSD:
         index = 42
         class jitdriver:
+            active = True
             greens = ['green1', 'green2', 'voidgreen3']
             reds = ['red1', 'red2', 'voidred3']
     jd = FakeJitDriverSD()

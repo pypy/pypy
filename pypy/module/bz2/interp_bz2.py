@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
