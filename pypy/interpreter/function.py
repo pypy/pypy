@@ -589,12 +589,14 @@ class ClassMethod(Wrappable):
             w_klass = space.type(w_obj)
         return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
 
-    def descr_classmethod__new__(space, w_type, w_function):
+    def descr_classmethod__new__(space, w_subtype, w_function):
         if not space.is_true(space.callable(w_function)):
             typename = space.type(w_function).getname(space, '?')
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not callable", typename)
-        return space.wrap(ClassMethod(w_function))
+        instance = space.allocate_instance(ClassMethod, w_subtype)
+        instance.__init__(w_function)
+        return space.wrap(instance)
 
 class FunctionWithFixedCode(Function):
     can_change_code = False
