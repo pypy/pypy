@@ -200,6 +200,7 @@ if sys.platform == "win32":
                 raise WindowsError(rwin32.GetLastError(),
                                    "Could not truncate file")
         finally:
+            # we restore the file pointer position in any case
             os.lseek(fd, curpos, 0)
 
 
