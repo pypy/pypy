@@ -528,7 +528,7 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
                 return _items
             _items.append(nextitem)
             i += 1
-        
+
     items = property(getitems)
 
 class _array_of_known_length(_array_of_unknown_length):
@@ -892,7 +892,7 @@ if ctypes:
             return clibname+'.dll'
         else:
             return ctypes.util.find_library('c')
-        
+
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(get_libc_name(), **load_library_kwargs)
@@ -938,9 +938,12 @@ def get_ctypes_callable(funcptr, calling_conv):
             return lib[elem]
         except AttributeError:
             pass
-    
+
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
+    #XXX Fix this, hack for ARM
+    if funcname == 'mmap':
+        funcname = 'mmap64'
     if hasattr(old_eci, '_with_ctypes'):
         eci = old_eci._with_ctypes
     else:
