@@ -22,7 +22,7 @@ class ArmCPU(AbstractLLCPU):
         self.assembler.assemble_bridge(faildescr, inputargs, operations)
 
     def set_future_value_int(self, index, intvalue):
-        self.assembler.input_arg_boxes_int.setitem(index, intvalue)
+        self.assembler.fail_boxes_int.setitem(index, intvalue)
 
     def get_latest_value_int(self, index):
         return self.assembler.fail_boxes_int.getitem(index)

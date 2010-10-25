@@ -18,7 +18,6 @@ class AssemblerARM(object):
     def __init__(self, cpu, failargs_limit=1000):
         self.mc = ARMv7Builder()
         self.cpu = cpu
-        self.input_arg_boxes_int = values_array(lltype.Signed, failargs_limit) # merge with fail_boxes_int later
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self._debug_asm = True
 
