@@ -92,8 +92,9 @@ def descr_get_imag(space, w_obj):
     return space.newlong(0)
 
 def bit_length(space, w_obj):
+    bigint = space.bigint_w(w_obj)
     try:
-        return space.wrap(w_obj.num.bit_length())
+        return space.wrap(bigint.bit_length())
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("too many digits in integer"))
