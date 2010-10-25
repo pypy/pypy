@@ -841,12 +841,13 @@ class TestFlowObjSpace(Base):
         def g(): pass
         def f(c, x):
             with x:
-                g()
+                res = g()
+            return res
         graph = self.codetest(f)
         assert self.all_operations(graph) == {
             'getattr': 2,     # __enter__ and __exit__
             'simple_call': 4, # __enter__, g and 2 possible calls to __exit__
-            'is_true': 1}     # check the result of __exit__()
+            }
 
     def monkey_patch_code(self, code, stacksize, flags, codestring, names, varnames):
         c = code

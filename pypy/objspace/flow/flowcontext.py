@@ -445,5 +445,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             # Replace it with an object which will break translation when used
             # (except maybe with 'exc_typ is None')
             w_typ = self.space.wrap(self.space)
-        return self.space.call_function(w_func, w_typ, w_val, w_tb)
+        self.space.call_function(w_func, w_typ, w_val, w_tb)
+        # Return None so that the flow space statically knows that we didn't
+        # swallow the exception
+        return self.space.w_None
 
