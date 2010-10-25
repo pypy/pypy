@@ -49,6 +49,8 @@ class AssemblerARM(object):
         while(True):
             i += 1
             r = enc[i]
+            if r == '\xFE':
+                continue
             if r == '\xFF':
                 break
             reg = ord(enc[i])
@@ -96,8 +98,12 @@ class AssemblerARM(object):
         # XXX free this memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)+5, flavor='raw')
         for i in range(len(args)):
-            curreg = regalloc.try_allocate_reg(args[i])
-            mem[i] = chr(curreg)
+            if args[i]:
+                curreg = regalloc.try_allocate_reg(args[i])
+                mem[i] = chr(curreg)
+            else:
+                mem[i] = '\xFE'
+
         i = len(args)
         mem[i] = chr(0xFF)
         memaddr = rffi.cast(lltype.Signed, mem)

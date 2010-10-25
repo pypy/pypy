@@ -12,8 +12,12 @@ class ARMRegisterManager(RegisterManager):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
     def update_bindings(self, enc, inputargs):
+        j = 0
         for i in range(len(inputargs)):
-           self.try_allocate_reg(inputargs[i], ord(enc[i]))
+            while enc[j] == '\xFE':
+                j += 1
+            self.try_allocate_reg(inputargs[i], ord(enc[j]))
+            j += 1
 
 class ARMFrameManager(FrameManager):
     @staticmethod
