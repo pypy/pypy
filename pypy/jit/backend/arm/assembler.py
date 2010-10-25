@@ -57,6 +57,7 @@ class AssemblerARM(object):
             self.fail_boxes_int.setitem(i, self.decode32(stack, reg*WORD))
         assert enc[i] == '\xFF'
         descr = self.decode32(enc, i+1)
+        self.fail_boxes_count = i
         return descr
 
     def decode32(self, mem, index):

@@ -27,6 +27,13 @@ class ArmCPU(AbstractLLCPU):
     def get_latest_value_int(self, index):
         return self.assembler.fail_boxes_int.getitem(index)
 
+    def get_latest_value_count(self):
+        return self.assembler.fail_boxes_count
+
+    def clear_latest_values(self, count):
+        # XXX TODO
+        pass
+
     def execute_token(self, executable_token):
         addr = executable_token._arm_bootstrap_code
         assert addr % 8 == 0
