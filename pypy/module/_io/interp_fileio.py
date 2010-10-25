@@ -1,4 +1,3 @@
-from pypy.module._io.interp_iobase import W_RawIOBase
 from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty,
     make_weakref_descr)
@@ -9,6 +8,7 @@ from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import sys, os, stat, errno
+from pypy.module._io.interp_iobase import W_RawIOBase, convert_size
 
 def interp_member_w(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
@@ -92,12 +92,6 @@ def decode_mode(space, mode):
         flags |= O_APPEND
 
     return readable, writable, append, flags
-
-def convert_size(space, w_size):
-    if space.is_w(w_size, space.w_None):
-        return -1
-    else:
-        return space.int_w(w_size)
 
 SMALLCHUNK = 8 * 1024
 BIGCHUNK = 512 * 1024
@@ -211,10 +205,14 @@ class W_FileIO(W_RawIOBase):
     def descr_get_mode(space, self):
         return space.wrap(self._mode())
 
-    def _check_closed(self, space):
+    def _closed(self, space):
+        return self.fd < 0
+
+    def _check_closed(self, space, message=None):
+        if message is None:
+            message = "I/O operation on closed file"
         if self.fd < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "I/O operation on closed file"))
+            raise OperationError(space.w_ValueError, space.wrap(message))
 
     def _close(self, space):
         if self.fd < 0:

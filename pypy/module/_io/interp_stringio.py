@@ -9,7 +9,7 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    def _check_closed(self, space):
+    def _check_closed(self, space, message=None):
         pass
     def _check_initialized(self):
         pass

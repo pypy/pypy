@@ -47,11 +47,12 @@ class W_IOBase(Wrappable):
         # attribute as returned by whatever subclass.
         return self.__IOBase_closed
 
-    def _check_closed(self, space):
+    def _check_closed(self, space, message=None):
+        if message is None:
+            message = "I/O operation on closed file"
         if self._closed(space):
             raise OperationError(
-                space.w_ValueError,
-                space.wrap("I/O operation on closed file"))
+                space.w_ValueError, space.wrap(message))
 
     def closed_get_w(space, self):
         return space.newbool(self.__IOBase_closed)
