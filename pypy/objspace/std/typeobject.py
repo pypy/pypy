@@ -561,9 +561,11 @@ def create_slot(w_self, slot_name):
     slot_name = _mangle(slot_name, w_self.name)
     # Force interning of slot names.
     slot_name = space.str_w(space.new_interned_str(slot_name))
-    member = Member(w_self.nslots, slot_name, w_self)
-    w_self.dict_w[slot_name] = space.wrap(member)
-    w_self.nslots += 1
+    if slot_name not in w_self.dict_w:
+        # in cpython it is ignored less, but we probably don't care
+        member = Member(w_self.nslots, slot_name, w_self)
+        w_self.dict_w[slot_name] = space.wrap(member)
+        w_self.nslots += 1
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
