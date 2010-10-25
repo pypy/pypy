@@ -37,6 +37,9 @@ class AbstractARMv7Builder(object):
         else:
             raise NotImplentedError
 
+    def BKPT(self, cond=cond.AL):
+        self.write32(cond << 28 | 0x1200070)
+
     def _encode_reg_list(self, instr, regs):
         for reg in regs:
             instr |= 0x1 << reg
@@ -87,7 +90,7 @@ class ARMv7Builder(AbstractARMv7Builder):
 
     def __init__(self):
         map_size = 1024
-        data = alloc(1024)
+        data = alloc(map_size)
         self._pos = 0
         self._init(data, map_size)
 
