@@ -98,7 +98,7 @@ class SendTests:
             return res
         res = self.meta_interp(f, [4, -1])
         assert res == 145
-        self.check_loops(int_add = 1)
+        self.check_loops(int_add = 1, everywhere=True)
 
     def test_oosend_base(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])

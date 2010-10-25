@@ -197,7 +197,7 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_loops(getfield_gc=1, setfield_gc=1)
+        self.check_loops(getfield_gc=1, setfield_gc=1, everywhere=True)
 
     # ------------------------------
 
@@ -1124,7 +1124,7 @@ class ImplicitVirtualizableTests:
  
          res = self.meta_interp(f, [10])
          assert res == 55
-         self.check_loops(new_with_vtable=0, ptr_eq=1)
+         self.check_loops(new_with_vtable=0, ptr_eq=1, everywhere=True)
 
     def test_virtual_child_frame_with_arrays(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
