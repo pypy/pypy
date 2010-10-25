@@ -123,19 +123,15 @@ class AssemblerARM(object):
     def gen_func_prolog(self):
         self.mc.PUSH(r.callee_saved_registers)
 
-    def gen_bootstrap_code(self, inputargs, regalloc):
+    def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
+        regs = []
         for i in range(len(inputargs)):
             reg = regalloc.try_allocate_reg(inputargs[i])
             addr = self.fail_boxes_int.get_addr_for_num(i)
             self.mc.gen_load_int(reg, addr)
             self.mc.LDR_ri(reg, reg)
-
-    def gen_bridge_bootstrap_code(self, inputargs, regalloc):
-        for i in range(len(inputargs)):
-            reg = regalloc.try_allocate_reg(inputargs[i])
-            addr = self.fail_boxes_int.get_addr_for_num(i)
-            self.mc.gen_load_int(reg, addr)
-            self.mc.LDR_ri(reg, reg)
+            regs.append(reg)
+        looptoken._arm_arglocs = regs
 
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken):
@@ -143,7 +139,7 @@ class AssemblerARM(object):
         regalloc = ARMRegisterManager(longevity, assembler=self.mc)
         loop_start=self.mc.curraddr()
         self.gen_func_prolog()
-        self.gen_bootstrap_code(inputargs, regalloc)
+        self.gen_bootstrap_code(inputargs, regalloc, looptoken)
         loop_head=self.mc.curraddr()
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_loop_code = loop_head
@@ -158,11 +154,13 @@ class AssemblerARM(object):
         print 'Done assembling'
 
     def assemble_bridge(self, faildescr, inputargs, operations):
-        # XXX need to restore args here
+        enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self.mc)
+
+        regalloc.update_bindings(enc, inputargs)
         bridge_head = self.mc.curraddr()
-        self.gen_bridge_bootstrap_code(inputargs, regalloc)
+
         fcond = c.AL
         for op in operations:
             opnum = op.getopnum()
@@ -188,14 +186,13 @@ class AssemblerARM(object):
 
 
     # Resoperations
-
     def emit_op_jump(self, op, regalloc, fcond):
         tmp = Box()
         tmpreg = regalloc.try_allocate_reg(tmp)
-        inputargs = op.getdescr()._temp_inputargs
+        registers = op.getdescr()._arm_arglocs
         for i in range(op.numargs()):
             reg = regalloc.try_allocate_reg(op.getarg(i))
-            inpreg = regalloc.try_allocate_reg(inputargs[i])
+            inpreg = registers[i]
             # XXX only if every value is in a register
             self.mc.MOV_rr(inpreg, reg)
         loop_code = op.getdescr()._arm_loop_code
@@ -226,9 +223,9 @@ class AssemblerARM(object):
         assert fcond == c.GT
         descr = op.getdescr()
         assert isinstance(descr, BasicFailDescr)
+        descr._arm_guard_code = self.mc.curraddr()
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc, fcond)
         descr._failure_recovery_code = memaddr
-        descr._arm_guard_code = self.mc.curraddr()
         descr._arm_guard_cond = fcond
         return c.AL
 

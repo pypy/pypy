@@ -11,6 +11,10 @@ class ARMRegisterManager(RegisterManager):
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
+    def update_bindings(self, enc, inputargs):
+        for i in range(len(inputargs)):
+           self.try_allocate_reg(inputargs[i], ord(enc[i]))
+
 class ARMFrameManager(FrameManager):
     @staticmethod
     def frame_pos(loc, type):
