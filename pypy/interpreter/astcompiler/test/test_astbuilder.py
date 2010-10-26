@@ -795,6 +795,10 @@ class TestAstBuilder:
                 input = template % (name,)
                 exc = py.test.raises(SyntaxError, self.get_ast, input).value
                 assert exc.msg == "cannot assign to %s" % (name,)
+        # This is ok.
+        self.get_ast("from None import x")
+        self.get_ast("from x import None as y")
+        self.get_ast("import None as x")
 
     def test_lambda(self):
         lam = self.get_first_expr("lambda x: expr")

@@ -196,7 +196,8 @@ class ASTBuilder(object):
                 if len(import_name.children) == 1:
                     import_name = import_name.children[0]
                     continue
-                alias = self.alias_for_import_name(import_name.children[0])
+                alias = self.alias_for_import_name(import_name.children[0],
+                                                   store=False)
                 asname_node = import_name.children[2]
                 alias.asname = asname_node.value
                 self.check_forbidden_name(alias.asname, asname_node)
