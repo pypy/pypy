@@ -121,13 +121,17 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
-    # FIXME: circular references
-    def get_forced_boxes(self):
+    def get_forced_boxes(self, already_seen):
+        key = self.get_key_box()
+        if key in already_seen:
+            return []
+        already_seen.append(key)
         if self.box is None:
             lst = self._get_field_descr_list()
             fieldboxes = []
             for ofs in lst:
-                fieldboxes.extend(self._fields[ofs].get_forced_boxes())
+                boxes = self._fields[ofs].get_forced_boxes(already_seen)
+                fieldboxes.extend(boxes)
             return fieldboxes
         else:
             return [self.box]
@@ -204,11 +208,15 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
-    def get_forced_boxes(self):
+    def get_forced_boxes(self, already_seen):
+        key = self.get_key_box()
+        if key in already_seen:
+            return []
+        already_seen.append(key)
         if self.box is None:
             boxes = []
             for itemvalue in self._items:
-                boxes.extend(itemvalue.get_forced_boxes())
+                boxes.extend(itemvalue.get_forced_boxes(already_seen))
             return boxes
         else:
             return [self.box]
