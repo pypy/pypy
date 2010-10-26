@@ -24,7 +24,7 @@ __all__ = [ "tokenize" ]
 # Automatically generated DFA's
 
 accepts = [True, True, True, True, True, True, True, True,
-           True, True, False, True, True, True, False, False,
+           True, True, False, True, True, True, True, False,
            False, False, True, True, True, True, True, False,
            True, False, True, False, True, False, False,
            True, False, False, False, False, True, False,
@@ -143,9 +143,11 @@ states = [
     # 14
     {'\n': 13},
     # 15
-    {automata.DEFAULT: 30, '\n': 27, "'": 28, '\\': 29},
+    {automata.DEFAULT: 30, '\n': 27,
+     '\r': 27, "'": 28, '\\': 29},
     # 16
-    {automata.DEFAULT: 33, '\n': 27, '"': 31, '\\': 32},
+    {automata.DEFAULT: 33, '\n': 27,
+     '\r': 27, '"': 31, '\\': 32},
     # 17
     {'\n': 13, '\r': 14},
     # 18
@@ -195,13 +197,15 @@ states = [
     # 29
     {automata.DEFAULT: 37, '\n': 13, '\r': 14},
     # 30
-    {automata.DEFAULT: 30, '\n': 27, "'": 13, '\\': 29},
+    {automata.DEFAULT: 30, '\n': 27,
+     '\r': 27, "'": 13, '\\': 29},
     # 31
     {'"': 13},
     # 32
     {automata.DEFAULT: 38, '\n': 13, '\r': 14},
     # 33
-    {automata.DEFAULT: 33, '\n': 27, '"': 13, '\\': 32},
+    {automata.DEFAULT: 33, '\n': 27,
+     '\r': 27, '"': 13, '\\': 32},
     # 34
     {'+': 39, '-': 39, '0': 40, '1': 40,
      '2': 40, '3': 40, '4': 40, '5': 40,
@@ -215,9 +219,11 @@ states = [
      '4': 36, '5': 36, '6': 36, '7': 36,
      '8': 36, '9': 36, 'J': 13, 'j': 13},
     # 37
-    {automata.DEFAULT: 37, '\n': 27, "'": 13, '\\': 29},
+    {automata.DEFAULT: 37, '\n': 27,
+     '\r': 27, "'": 13, '\\': 29},
     # 38
-    {automata.DEFAULT: 38, '\n': 27, '"': 13, '\\': 32},
+    {automata.DEFAULT: 38, '\n': 27,
+     '\r': 27, '"': 13, '\\': 32},
     # 39
     {'0': 40, '1': 40, '2': 40, '3': 40,
      '4': 40, '5': 40, '6': 40, '7': 40,
