@@ -269,6 +269,8 @@ class AppTestZipimport:
         assert z.get_code('xx')
         assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile
+        mod = z.load_module('xx')
+        assert z._get_filename('xx') == mod.__file__
 
     def test_archive(self):
         """

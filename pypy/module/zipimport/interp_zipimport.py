@@ -303,6 +303,16 @@ class W_ZipImporter(Wrappable):
             "Cannot find source for %s in %s", filename, self.name)
     get_source.unwrap_spec = ['self', ObjSpace, str]
 
+    def get_filename(self, space, fullname):
+        filename = self.mangle(fullname)
+        for _, is_package, ext in ENUMERATE_EXTS:
+            if self.have_modulefile(space, filename + ext):
+                return space.wrap(self.filename + os.path.sep +
+                                  self.corr_zname(filename + ext))
+        raise operationerrfmt(self.w_ZipImportError,
+            "Cannot find module %s in %s", filename, self.name)
+    get_filename.unwrap_spec = ['self', ObjSpace, str]
+
     def is_package(self, space, fullname):
         filename = self.mangle(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
@@ -373,6 +383,7 @@ W_ZipImporter.typedef = TypeDef(
     get_data    = interp2app(W_ZipImporter.get_data),
     get_code    = interp2app(W_ZipImporter.get_code),
     get_source  = interp2app(W_ZipImporter.get_source),
+    _get_filename = interp2app(W_ZipImporter.get_filename),
     is_package  = interp2app(W_ZipImporter.is_package),
     load_module = interp2app(W_ZipImporter.load_module),
     archive     = GetSetProperty(W_ZipImporter.getarchive),
