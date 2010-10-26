@@ -486,7 +486,7 @@ class W_BufferedWriter(W_BufferedIOBase, BufferedMixin):
             written = 0
             while remaining > self.buffer_size:
                 try:
-                    n = self._write(space, data[written:size - written])
+                    n = self._write(space, data[written:])
                 except OperationError, e:
                     if not e.match(space, space.gettypeobject(
                         W_BlockingIOError.typedef)):
