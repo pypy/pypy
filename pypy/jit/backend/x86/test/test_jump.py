@@ -142,3 +142,22 @@ def test_constants_and_cycle():
                              ('push', s12),
                              ('mov', ebx, s12),
                              ('pop', ebx)]
+def test_crash():
+    assembler = MockAssembler()
+    dstvalues = [-56, -64, -72, -80, -88, 15, 14, 15, 13, 12, 15, -96, 
+                 -104, -112, 10, 9, 8, 7, 6, 3, -120, 2, 1]
+    srcvalues = [-56, -64, -72, -80, -88, -224, -216, -224, -248, -232,
+                 -224, -96, -104, -112, -184, -192, -264, 2, -312, -344,
+                 10, 8, 14]
+    print len(dstvalues), len(srcvalues)
+    class MyLocation(AssemblerLocation):
+        def __init__(self, value):
+            self.value = value
+        def location_code(self):
+            return 'b'
+        
+    src = [MyLocation(i) for i in srcvalues]
+    dst = [MyLocation(i) for i in dstvalues]
+        
+    remap_frame_layout(assembler, src, dst, '?')
+    assert assembler.ops == []
