@@ -53,106 +53,21 @@ def dict_reversed__ANY(space, w_dict):
 # This can return when multimethods have been fixed
 #dict_str        = StdObjSpace.str
 
-# default application-level implementations for some operations
-# most of these (notably not popitem and update*) are overwritten
-# in dictmultiobject
-# gateway is imported in the stdtypedef module
-app = gateway.applevel('''
-
-    # in the following functions we use dict.__setitem__ instead of
-    # d[k]=...  because when a subclass of dict override __setitem__,
-    # CPython does not call it when doing builtin operations.  The
-    # same for other operations.
-
-    def update1(d, o):
-        if hasattr(o, 'keys'):
-            for k in o.keys():
-                dict.__setitem__(d, k, o[k])
-        else:
-            for k,v in o:
-                dict.__setitem__(d, k, v)
-
-    def update(d, *args, **kwargs):
-        len_args = len(args)
-        if len_args == 1:
-            update1(d, args[0])
-        elif len_args > 1:
-            raise TypeError("update takes at most 1 (non-keyword) argument")
-        if kwargs:
-            update1(d, kwargs)
-
-    def popitem(d):
-        for k in dict.iterkeys(d):
-            break
-        else:
-            raise KeyError("popitem(): dictionary is empty")
-        v = dict.__getitem__(d, k)
-        dict.__delitem__(d, k)
-        return k, v
-
-    def get(d, k, v=None):
-        if k in d:
-            return dict.__getitem__(d, k)
-        else:
-            return v
-
-    def setdefault(d, k, v=None):
-        if k in d:
-            return dict.__getitem__(d, k)
-        else:
-            dict.__setitem__(d, k, v)
-            return v
-
-    def pop(d, k, defaults):     # XXX defaults is actually *defaults
-        if len(defaults) > 1:
-            raise TypeError, "pop expected at most 2 arguments, got %d" % (
-                1 + len(defaults))
-        try:
-            v = dict.__getitem__(d, k)
-            dict.__delitem__(d, k)
-        except KeyError, e:
-            if defaults:
-                return defaults[0]
-            else:
-                raise e
-        return v
-
-    def iteritems(d):
-        return iter(dict.items(d))
-
-    def iterkeys(d):
-        return iter(dict.keys(d))
-
-    def itervalues(d):
-        return iter(dict.values(d))
-''', filename=__file__)
-
-dict_update__ANY             = app.interphook("update")
-dict_popitem__ANY            = app.interphook("popitem")
-dict_get__ANY_ANY_ANY        = app.interphook("get")
-dict_setdefault__ANY_ANY_ANY = app.interphook("setdefault")
-dict_pop__ANY_ANY            = app.interphook("pop")
-dict_iteritems__ANY          = app.interphook("iteritems")
-dict_iterkeys__ANY           = app.interphook("iterkeys")
-dict_itervalues__ANY         = app.interphook("itervalues")
-update1                      = app.interphook("update1")
-
 register_all(vars(), globals())
 
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def descr_fromkeys(space, w_type, w_keys, w_fill=None):
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
         w_fill = space.w_None
-    w_dict = space.call_function(w_type)
-    w_iter = space.iter(w_keys)
-    while True:
-        try:
-            w_key = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        space.setitem(w_dict, w_key, w_fill)
+    if w_type is space.w_dict:
+        w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
+        for w_key in space.listview(w_keys):
+            w_dict.setitem(w_key, w_fill)
+    else:
+        w_dict = space.call_function(w_type)
+        for w_key in space.listview(w_keys):
+            space.setitem(w_dict, w_key, w_fill)
     return w_dict
 
 

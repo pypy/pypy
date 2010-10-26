@@ -739,7 +739,7 @@ class ObjSpace(object):
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
-        Raise a real (subclass of) ValueError if the length is wrong."""
+        Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         items = []
         while True:

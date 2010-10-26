@@ -106,14 +106,12 @@ class W_TypeObject(W_Object):
 
         if overridetypedef is not None:
             setup_builtin_type(w_self)
-            custom_metaclass = False
         else:
             setup_user_defined_type(w_self)
-            custom_metaclass = not space.is_w(space.type(w_self), space.w_type)
         w_self.w_same_layout_as = get_parent_layout(w_self)
 
         if space.config.objspace.std.withtypeversion:
-            if custom_metaclass or not is_mro_purely_of_types(w_self.mro_w):
+            if not is_mro_purely_of_types(w_self.mro_w):
                 pass
             else:
                 # the _version_tag should change, whenever the content of
@@ -581,11 +579,13 @@ def create_slot(w_self, slot_name):
                              space.wrap('__slots__ must be identifiers'))
     # create member
     slot_name = _mangle(slot_name, w_self.name)
-    # Force interning of slot names.
-    slot_name = space.str_w(space.new_interned_str(slot_name))
-    member = Member(w_self.nslots, slot_name, w_self)
-    w_self.dict_w[slot_name] = space.wrap(member)
-    w_self.nslots += 1
+    if slot_name not in w_self.dict_w:
+        # Force interning of slot names.
+        slot_name = space.str_w(space.new_interned_str(slot_name))
+        # in cpython it is ignored less, but we probably don't care
+        member = Member(w_self.nslots, slot_name, w_self)
+        w_self.dict_w[slot_name] = space.wrap(member)
+        w_self.nslots += 1
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:

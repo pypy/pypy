@@ -140,10 +140,11 @@ class AppTestMethodCaching(AppTestShadowTracking):
 
     def test_class_that_cannot_be_cached(self):
         import __pypy__
-        class metatype(type):
+        class X:
             pass
-        class A(object):
-            __metaclass__ = metatype
+        class Y(object):
+            pass
+        class A(Y, X):
             def f(self):
                 return 42
 
@@ -241,3 +242,21 @@ class AppTestMethodCaching(AppTestShadowTracking):
             foo = 3
         D.__bases__ = (C, F)
         assert e.foo == 3
+
+    def test_custom_metaclass(self):
+        import __pypy__
+        class MetaA(type):
+            def __getattribute__(self, x):
+                return 1
+        def f(self):
+            return 42
+        A = type.__new__(MetaA, "A", (), {"f": f})
+        l = [type.__getattribute__(A, "__new__")(A)] * 10
+        __pypy__.reset_method_cache_counter()
+        for i, a in enumerate(l):
+            assert a.f() == 42
+        cache_counter = __pypy__.method_cache_counter("f")
+        assert cache_counter[0] >= 5
+        assert cache_counter[1] >= 1 # should be (27, 3)
+        assert sum(cache_counter) == 10
+
