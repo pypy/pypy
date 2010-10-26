@@ -1,10 +1,11 @@
 from pypy.jit.backend.arm import conditions as c
+from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
-from pypy.jit.metainterp.history import ConstInt, Box, BasicFailDescr
+from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
@@ -46,6 +47,7 @@ class AssemblerARM(object):
         Registers are saved on the stack
         XXX Rest to follow"""
         i = -1
+        fail_index = 0
         while(True):
             i += 1
             r = enc[i]
@@ -53,11 +55,20 @@ class AssemblerARM(object):
                 continue
             if r == '\xFF':
                 break
-            reg = ord(enc[i])
-            self.fail_boxes_int.setitem(i, self.decode32(stack, reg*WORD))
+            if r == '\xFD':
+                # imm value
+                value = self.decode32(enc, i+1)
+                i += 4
+            else:
+                reg = ord(enc[i])
+                value = self.decode32(stack, reg*WORD)
+
+            self.fail_boxes_int.setitem(fail_index, value)
+            fail_index += 1
+
         assert enc[i] == '\xFF'
         descr = self.decode32(enc, i+1)
-        self.fail_boxes_count = i
+        self.fail_boxes_count = fail_index
         return descr
 
     def decode32(self, mem, index):
@@ -97,21 +108,31 @@ class AssemblerARM(object):
         box = Box()
         reg = regalloc.try_allocate_reg(box)
         # XXX free this memory
-        mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)+5, flavor='raw')
-        for i in range(len(args)):
+        mem = lltype.malloc(rffi.CArray(lltype.Char), (len(args)+5)*4, flavor='raw')
+        i = 0
+        j = 0
+        while(i < len(args)):
             if args[i]:
-                curreg = regalloc.try_allocate_reg(args[i])
-                mem[i] = chr(curreg.value)
+                if not isinstance(args[i], ConstInt):
+                    curreg = regalloc.try_allocate_reg(args[i])
+                    mem[j] = chr(curreg.value)
+                    j+=1
+                else:
+                    mem[j] = '\xFD'
+                    j+=1
+                    self.encode32(mem, j, args[i].getint())
+                    j+=4
             else:
-                mem[i] = '\xFE'
+                mem[j] = '\xFE'
+                j+=1
+            i+=1
 
-        i = len(args)
-        mem[i] = chr(0xFF)
+        mem[j] = chr(0xFF)
         memaddr = rffi.cast(lltype.Signed, mem)
 
 
         n = self.cpu.get_fail_descr_number(op.getdescr())
-        self.encode32(mem, i+1, n)
+        self.encode32(mem, j+1, n)
         self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond)
         self.mc.gen_load_int(reg.value, self.mc.baseaddr(), cond=fcond)
         self.mc.MOV_rr(r.pc.value, reg.value, cond=fcond)
@@ -146,13 +167,13 @@ class AssemblerARM(object):
     def assemble_loop(self, inputargs, operations, looptoken):
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self.mc)
+        self.align()
         loop_start=self.mc.curraddr()
         self.gen_func_prolog()
         self.gen_bootstrap_code(inputargs, regalloc, looptoken)
         loop_head=self.mc.curraddr()
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_loop_code = loop_head
-        looptoken._temp_inputargs = inputargs#XXX remove
         fcond=c.AL
         for op in operations:
             opnum = op.getopnum()
@@ -221,10 +242,17 @@ class AssemblerARM(object):
         return c.GT
 
     def emit_op_int_add(self, op, regalloc, fcond):
-        reg = regalloc.try_allocate_reg(op.getarg(0))
+        if isinstance(op.getarg(0), BoxInt) and isinstance(op.getarg(1), BoxInt):
+            explode
         res = regalloc.try_allocate_reg(op.result)
-        assert isinstance(op.getarg(1), ConstInt)
-        self.mc.ADD_ri(res.value, reg.value, op.getarg(1).getint())
+        if isinstance(op.getarg(1), ConstInt):
+            reg = regalloc.try_allocate_reg(op.getarg(0))
+            arg1 = op.getarg(1)
+        else:
+            reg = regalloc.try_allocate_reg(op.getarg(1))
+            arg1 = op.getarg(0)
+
+        self.mc.ADD_ri(res.value, reg.value, arg1.getint())
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
