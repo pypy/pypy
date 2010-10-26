@@ -451,8 +451,8 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
 
         with self.lock:
 
-            if (not (self.readable and self.read_end == -1) and
-                not (self.writable and self.write_end == -1)):
+            if (not (self.readable and self.read_end != -1) and
+                not (self.writable and self.write_end != -1)):
                 self.pos = 0
                 self.raw_pos = 0
             available = self.buffer_size - self.pos

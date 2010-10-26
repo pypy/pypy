@@ -69,3 +69,33 @@ class AppTestBufferedWriter:
         raises(ValueError, getattr, b, 'closed')
         raises(ValueError, b.flush)
         raises(ValueError, b.close)
+
+    def test_check_several_writes(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'w')
+        b = _io.BufferedWriter(raw, 13)
+
+        for i in range(4):
+            assert b.write('x' * 10) == 10
+        b.flush()
+        assert self.readfile() == 'x' * 40
+
+    def test_destructor(self):
+        import _io
+
+        record = []
+        class MyIO(_io.BufferedWriter):
+            def __del__(self):
+                record.append(1)
+                super(MyIO, self).__del__()
+            def close(self):
+                record.append(2)
+                super(MyIO, self).close()
+            def flush(self):
+                record.append(3)
+                super(MyIO, self).flush()
+        raw = _io.FileIO(self.tmpfile, 'w')
+        MyIO(raw)
+        import gc; gc.collect()
+        assert record == [1, 2, 3]
+
