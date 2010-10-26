@@ -753,6 +753,25 @@ class AppTestWithMapDictAndCounters(object):
             return a.x
         #
         res = self.check(f, 'x')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+
+    def test_old_style_base(self):
+        class B:
+            pass
+        class C(object):
+            pass
+        class A(C, B):
+            pass
+        a = A()
+        a.x = 42
+        def f():
+            return a.x
+        #
+        res = self.check(f, 'x')
         assert res == (0, 0, 1)
         res = self.check(f, 'x')
         assert res == (0, 0, 1)

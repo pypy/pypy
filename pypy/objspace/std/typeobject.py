@@ -104,14 +104,12 @@ class W_TypeObject(W_Object):
 
         if overridetypedef is not None:
             setup_builtin_type(w_self)
-            custom_metaclass = False
         else:
             setup_user_defined_type(w_self)
-            custom_metaclass = not space.is_w(space.type(w_self), space.w_type)
         w_self.w_same_layout_as = get_parent_layout(w_self)
 
         if space.config.objspace.std.withtypeversion:
-            if custom_metaclass or not is_mro_purely_of_types(w_self.mro_w):
+            if not is_mro_purely_of_types(w_self.mro_w):
                 pass
             else:
                 # the _version_tag should change, whenever the content of
