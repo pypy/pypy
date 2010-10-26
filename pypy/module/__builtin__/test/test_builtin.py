@@ -453,7 +453,15 @@ class AppTestBuiltinApp:
     def test_unicode_encoding_compile(self):
         code = u"# -*- coding: utf-8 -*-\npass\n"
         raises(SyntaxError, compile, code, "tmp", "exec")
-            
+
+    def test_recompile_ast(self):
+        import _ast
+        # raise exception when node type doesn't match with compile mode
+        co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
+        raises(TypeError, compile, co1, '<ast>', 'eval')
+        co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
+        compile(co2, '<ast>', 'eval')
+
     def test_isinstance(self):
         assert isinstance(5, int)
         assert isinstance(5, object)

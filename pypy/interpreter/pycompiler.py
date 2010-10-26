@@ -6,7 +6,7 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 from pypy.interpreter import pycode
 from pypy.interpreter.pyparser import future, pyparse, error as parseerror
 from pypy.interpreter.astcompiler import (astbuilder, codegen, consts, misc,
-                                          optimize)
+                                          optimize, ast)
 from pypy.interpreter.error import OperationError
 
 
@@ -107,6 +107,18 @@ class PythonAstCompiler(PyCodeCompiler):
         self.compiler_flags = self.future_flags.allowed_flags
 
     def compile_ast(self, node, filename, mode, flags):
+        if mode == 'eval':
+            check = isinstance(node, ast.Expression)
+        elif mode == 'exec':
+            check = isinstance(node, ast.Module)
+        elif mode == 'input':
+            check = isinstance(node, ast.Interactive)
+        else:
+            check = True
+        if not check:
+            raise OperationError(self.space.w_TypeError, self.space.wrap(
+                "invalid node type"))
+
         future_pos = misc.parse_future(node)
         info = pyparse.CompileInfo(filename, mode, flags, future_pos)
         return self._compile_ast(node, info)
