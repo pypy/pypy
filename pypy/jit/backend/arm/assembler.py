@@ -47,9 +47,10 @@ class AssemblerARM(object):
         Registers are saved on the stack
         XXX Rest to follow"""
         i = -1
-        fail_index = 0
+        fail_index = -1
         while(True):
             i += 1
+            fail_index += 1
             r = enc[i]
             if r == '\xFE':
                 continue
@@ -64,7 +65,6 @@ class AssemblerARM(object):
                 value = self.decode32(stack, reg*WORD)
 
             self.fail_boxes_int.setitem(fail_index, value)
-            fail_index += 1
 
         assert enc[i] == '\xFF'
         descr = self.decode32(enc, i+1)
@@ -116,16 +116,15 @@ class AssemblerARM(object):
                 if not isinstance(args[i], ConstInt):
                     curreg = regalloc.try_allocate_reg(args[i])
                     mem[j] = chr(curreg.value)
-                    j+=1
+                    j += 1
                 else:
                     mem[j] = '\xFD'
-                    j+=1
-                    self.encode32(mem, j, args[i].getint())
-                    j+=4
+                    self.encode32(mem, j+1, args[i].getint())
+                    j += 5
             else:
                 mem[j] = '\xFE'
-                j+=1
-            i+=1
+                j += 1
+            i += 1
 
         mem[j] = chr(0xFF)
         memaddr = rffi.cast(lltype.Signed, mem)
@@ -241,30 +240,69 @@ class AssemblerARM(object):
         self.mc.CMP(reg.value, op.getarg(1).getint())
         return c.GT
 
+    def emit_op_int_eq(self, op, regalloc, fcond):
+        reg = regalloc.try_allocate_reg(op.getarg(0))
+        assert isinstance(op.getarg(1), ConstInt)
+        self.mc.CMP(reg.value, op.getarg(1).getint())
+        return c.EQ
+
     def emit_op_int_add(self, op, regalloc, fcond):
-        if isinstance(op.getarg(0), BoxInt) and isinstance(op.getarg(1), BoxInt):
-            explode
+        # assuming only one argument is constant
         res = regalloc.try_allocate_reg(op.result)
         if isinstance(op.getarg(1), ConstInt):
             reg = regalloc.try_allocate_reg(op.getarg(0))
             arg1 = op.getarg(1)
-        else:
+            self.mc.ADD_ri(res.value, reg.value, arg1.getint())
+        elif isinstance(op.getarg(0), ConstInt):
             reg = regalloc.try_allocate_reg(op.getarg(1))
             arg1 = op.getarg(0)
+            self.mc.ADD_ri(res.value, reg.value, arg1.getint())
+        else:
+            r1 = regalloc.try_allocate_reg(op.getarg(0))
+            r2 = regalloc.try_allocate_reg(op.getarg(1))
+            self.mc.ADD_rr(res.value, r1.value, r2.value)
 
-        self.mc.ADD_ri(res.value, reg.value, arg1.getint())
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
-    def emit_op_guard_true(self, op, regalloc, fcond):
-        assert fcond == c.GT
+    def emit_op_int_sub(self, op, regalloc, fcond):
+        # assuming only one argument is constant
+        res = regalloc.try_allocate_reg(op.result)
+        if isinstance(op.getarg(1), ConstInt):
+            reg = regalloc.try_allocate_reg(op.getarg(0))
+            arg1 = op.getarg(1)
+            self.mc.SUB_ri(res.value, reg.value, arg1.getint())
+        elif isinstance(op.getarg(0), ConstInt):
+            reg = regalloc.try_allocate_reg(op.getarg(1))
+            arg1 = op.getarg(0)
+            self.mc.SUB_ri(res.value, reg.value, arg1.getint())
+        else:
+            r1 = regalloc.try_allocate_reg(op.getarg(0))
+            r2 = regalloc.try_allocate_reg(op.getarg(1))
+            self.mc.SUB_rr(res.value, r1.value, r2.value)
+
+        regalloc.possibly_free_vars_for_op(op)
+        return fcond
+
+    # Guards
+    def _emit_guard(self, op, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, BasicFailDescr)
         descr._arm_guard_code = self.mc.curraddr()
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc, fcond)
         descr._failure_recovery_code = memaddr
         descr._arm_guard_cond = fcond
+
+    def emit_op_guard_true(self, op, regalloc, fcond):
+        assert fcond == c.GT
+        self._emit_guard(op, regalloc, fcond)
         return c.AL
+
+    def emit_op_guard_false(self, op, regalloc, fcond):
+        assert fcond == c.EQ
+        self._emit_guard(op, regalloc, fcond)
+        return c.AL
+
 
 def make_operation_list():
     def notimplemented(self, op, regalloc, fcond):
