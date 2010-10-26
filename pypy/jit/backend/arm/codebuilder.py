@@ -70,15 +70,18 @@ class AbstractARMv7Builder(object):
 
     size_of_gen_load_int = 7 * WORD
     def gen_load_int(self, r, value, cond=cond.AL):
-        assert r != reg.ip, 'ip is used to load int'
+        """r is the register number, value is the value to be loaded to the
+        register"""
+        assert r != reg.ip.value, 'ip is used to load int'
         self.MOV_ri(r, (value & 0xFF), cond=cond)
+        ip = reg.ip.value
 
         for offset in range(8, 25, 8):
             t = (value >> offset) & 0xFF
             #if t == 0:
             #    continue
-            self.MOV_ri(reg.ip, t, cond=cond)
-            self.ORR_rr(r, r, reg.ip, offset, cond=cond)
+            self.MOV_ri(ip, t, cond=cond)
+            self.ORR_rr(r, r, ip, offset, cond=cond)
 
 class ARMv7InMemoryBuilder(AbstractARMv7Builder):
     def __init__(self, start, end):

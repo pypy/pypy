@@ -5,7 +5,7 @@ from pypy.jit.backend.arm import registers as r
 class ARMRegisterManager(RegisterManager):
     all_regs              = r.all_regs
     box_types             = None       # or a list of acceptable types
-    no_lower_byte_regs    = r.all_regs
+    no_lower_byte_regs    = all_regs
     save_around_call_regs = all_regs
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
@@ -16,7 +16,7 @@ class ARMRegisterManager(RegisterManager):
         for i in range(len(inputargs)):
             while enc[j] == '\xFE':
                 j += 1
-            self.try_allocate_reg(inputargs[i], ord(enc[j]))
+            self.try_allocate_reg(inputargs[i], r.all_regs[ord(enc[j])])
             j += 1
 
 class ARMFrameManager(FrameManager):

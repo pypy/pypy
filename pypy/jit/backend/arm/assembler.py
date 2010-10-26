@@ -80,16 +80,16 @@ class AssemblerARM(object):
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
         decode_registers_addr = llhelper(functype, self.failure_recovery_func)
         self.mc.PUSH(range(12))     # registers r0 .. r11
-        self.mc.MOV_rr(r.r0, r.lr)  # move mem block address, to r0 to pass as
+        self.mc.MOV_rr(r.r0.value, r.lr.value)  # move mem block address, to r0 to pass as
                                     # parameter to next procedure call
-        self.mc.MOV_rr(r.r1, r.sp)  # pass the current stack pointer as second param
-        self.mc.gen_load_int(r.r2, rffi.cast(lltype.Signed, decode_registers_addr))
-        self.mc.gen_load_int(r.lr, self.mc.curraddr()+self.mc.size_of_gen_load_int+WORD)
-        self.mc.MOV_rr(r.pc, r.r2)
-        self.mc.MOV_rr(r.ip, r.r0)
-        self.mc.LDM(r.sp, range(12), w=1) # XXX Replace with POP instr. someday
+        self.mc.MOV_rr(r.r1.value, r.sp.value)  # pass the current stack pointer as second param
+        self.mc.gen_load_int(r.r2.value, rffi.cast(lltype.Signed, decode_registers_addr))
+        self.mc.gen_load_int(r.lr.value, self.mc.curraddr()+self.mc.size_of_gen_load_int+WORD)
+        self.mc.MOV_rr(r.pc.value, r.r2.value)
+        self.mc.MOV_rr(r.ip.value, r.r0.value)
+        self.mc.LDM(r.sp.value, range(12), w=1) # XXX Replace with POP instr. someday
 
-        self.mc.MOV_rr(r.r0, r.ip)
+        self.mc.MOV_rr(r.r0.value, r.ip.value)
 
         self.gen_func_epilog()
 
@@ -101,7 +101,7 @@ class AssemblerARM(object):
         for i in range(len(args)):
             if args[i]:
                 curreg = regalloc.try_allocate_reg(args[i])
-                mem[i] = chr(curreg)
+                mem[i] = chr(curreg.value)
             else:
                 mem[i] = '\xFE'
 
@@ -112,11 +112,14 @@ class AssemblerARM(object):
 
         n = self.cpu.get_fail_descr_number(op.getdescr())
         self.encode32(mem, i+1, n)
-        self.mc.gen_load_int(r.lr, memaddr, cond=fcond)
-        self.mc.gen_load_int(reg, self.mc.baseaddr(), cond=fcond)
-        self.mc.MOV_rr(r.pc, reg, cond=fcond)
+        self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond)
+        self.mc.gen_load_int(reg.value, self.mc.baseaddr(), cond=fcond)
+        self.mc.MOV_rr(r.pc.value, reg.value, cond=fcond)
 
-        op.getdescr()._arm_guard_reg = reg
+        # This register is used for patching when assembling a bridge
+        # guards going to be patched are allways conditional
+        if fcond != c.AL:
+            op.getdescr()._arm_guard_reg = reg
         return memaddr
 
     def align(self):
@@ -124,18 +127,18 @@ class AssemblerARM(object):
             self.mc.writechar(chr(0))
 
     def gen_func_epilog(self,cond=c.AL):
-        self.mc.LDM(r.sp, r.callee_restored_registers, cond=cond, w=1)
+        self.mc.LDM(r.sp.value, [reg.value for reg in r.callee_restored_registers], cond=cond, w=1)
 
     def gen_func_prolog(self):
-        self.mc.PUSH(r.callee_saved_registers)
+        self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
 
     def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
         regs = []
         for i in range(len(inputargs)):
             reg = regalloc.try_allocate_reg(inputargs[i])
             addr = self.fail_boxes_int.get_addr_for_num(i)
-            self.mc.gen_load_int(reg, addr)
-            self.mc.LDR_ri(reg, reg)
+            self.mc.gen_load_int(reg.value, addr)
+            self.mc.LDR_ri(reg.value, reg.value)
             regs.append(reg)
         looptoken._arm_arglocs = regs
 
@@ -187,8 +190,8 @@ class AssemblerARM(object):
         fcond = faildescr._arm_guard_cond
         b = ARMv7InMemoryBuilder(faildescr._arm_guard_code, faildescr._arm_guard_code+100)
         reg = faildescr._arm_guard_reg
-        b.gen_load_int(reg, bridge_addr, fcond)
-        b.MOV_rr(r.pc, reg, cond=fcond)
+        b.gen_load_int(reg.value, bridge_addr, fcond)
+        b.MOV_rr(r.pc.value, reg.value, cond=fcond)
 
 
     # Resoperations
@@ -200,10 +203,10 @@ class AssemblerARM(object):
             reg = regalloc.try_allocate_reg(op.getarg(i))
             inpreg = registers[i]
             # XXX only if every value is in a register
-            self.mc.MOV_rr(inpreg, reg)
+            self.mc.MOV_rr(inpreg.value, reg.value)
         loop_code = op.getdescr()._arm_loop_code
-        self.mc.gen_load_int(tmpreg, loop_code)
-        self.mc.MOV_rr(r.pc, tmpreg)
+        self.mc.gen_load_int(tmpreg.value, loop_code)
+        self.mc.MOV_rr(r.pc.value, tmpreg.value)
         regalloc.possibly_free_var(tmpreg)
         return fcond
 
@@ -214,14 +217,14 @@ class AssemblerARM(object):
     def emit_op_int_le(self, op, regalloc, fcond):
         reg = regalloc.try_allocate_reg(op.getarg(0))
         assert isinstance(op.getarg(1), ConstInt)
-        self.mc.CMP(reg, op.getarg(1).getint())
+        self.mc.CMP(reg.value, op.getarg(1).getint())
         return c.GT
 
     def emit_op_int_add(self, op, regalloc, fcond):
         reg = regalloc.try_allocate_reg(op.getarg(0))
         res = regalloc.try_allocate_reg(op.result)
         assert isinstance(op.getarg(1), ConstInt)
-        self.mc.ADD_ri(res, reg, op.getarg(1).getint())
+        self.mc.ADD_ri(res.value, reg.value, op.getarg(1).getint())
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
