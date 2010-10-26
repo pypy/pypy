@@ -1,4 +1,4 @@
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
 
@@ -38,9 +38,12 @@ class AppTestBufferedWriter:
         cls.space = gettestobjspace(usemodules=['_io'])
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        def readfile(space):
-            return space.wrap(tmpfile.read())
-        cls.w_readfile = cls.space.wrap(interp2app(readfile))
+        if option.runappdirect:
+            cls.w_readfile = tmpfile.read
+        else:
+            def readfile(space):
+                return space.wrap(tmpfile.read())
+            cls.w_readfile = cls.space.wrap(interp2app(readfile))
 
     def test_write(self):
         import _io
@@ -57,3 +60,12 @@ class AppTestBufferedWriter:
         f.write("abcd" * 5000)
         f.close()
         assert self.readfile() == "abcd" * 5000
+
+    def test_incomplete(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile)
+        b = _io.BufferedWriter.__new__(_io.BufferedWriter)
+        raises(IOError, b.__init__, raw) # because file is not writable
+        raises(ValueError, getattr, b, 'closed')
+        raises(ValueError, b.flush)
+        raises(ValueError, b.close)

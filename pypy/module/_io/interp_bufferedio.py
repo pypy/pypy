@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from pypy.interpreter.typedef import (
-    TypeDef, generic_new_descr)
+    TypeDef, GetSetProperty, generic_new_descr)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -11,12 +11,15 @@ from pypy.module._io.interp_iobase import W_IOBase, convert_size
 from pypy.module._io.interp_io import DEFAULT_BUFFER_SIZE, W_BlockingIOError
 from pypy.module.thread.os_lock import Lock
 
+STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
+
 class BlockingIOError(Exception):
     pass
 
 class W_BufferedIOBase(W_IOBase):
     def __init__(self, space):
         W_IOBase.__init__(self, space)
+        self.state = STATE_ZERO
 
         self.buffer = lltype.nullptr(rffi.CCHARP.TO)
         self.pos = 0        # Current logical position in the buffer
@@ -84,6 +87,18 @@ class BufferedMixin:
         except OperationError:
             pass
 
+    def _check_init(self, space):
+        if self.state == STATE_ZERO:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "I/O operation on uninitialized object"))
+        elif self.state == STATE_DETACHED:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "raw stream has been detached"))
+
+    def _check_closed(self, space, message=None):
+        self._check_init(space)
+        W_IOBase._check_closed(self, space, message)
+
     def _raw_tell(self, space):
         w_pos = space.call_method(self.raw, "tell")
         pos = space.r_longlong_w(w_pos)
@@ -93,6 +108,10 @@ class BufferedMixin:
 
         self.abs_pos = pos
         return pos
+
+    def closed_get_w(space, self):
+        self._check_init(space)
+        return space.getattr(self.raw, space.wrap("closed"))
 
     def _readahead(self):
         if self.readable and self.read_end != -1:
@@ -155,6 +174,7 @@ class BufferedMixin:
 
     @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
+        self._check_init(space)
         with self.lock:
             if self._closed(space):
                 return
@@ -164,6 +184,7 @@ class BufferedMixin:
 
     @unwrap_spec('self', ObjSpace)
     def flush_w(self, space):
+        self._check_init(space)
         return space.call_method(self.raw, "flush")
 
     def _writer_flush_unlocked(self, space, restore_pos=False):
@@ -223,7 +244,7 @@ class BufferedMixin:
             l.append(self.buffer[i])
         return self._write(space, ''.join(l))
 
-class W_BufferedReader(W_BufferedIOBase, BufferedMixin):
+class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
     def __init__(self, space):
         W_BufferedIOBase.__init__(self, space)
         self.ok = False
@@ -231,6 +252,7 @@ class W_BufferedReader(W_BufferedIOBase, BufferedMixin):
 
     @unwrap_spec('self', ObjSpace, W_Root, int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+        self.state = STATE_ZERO
         raw = space.interp_w(W_IOBase, w_raw)
         raw.check_readable_w(space)
 
@@ -240,6 +262,7 @@ class W_BufferedReader(W_BufferedIOBase, BufferedMixin):
 
         self._init(space)
         self._reader_reset_buf()
+        self.state = STATE_OK
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
@@ -397,11 +420,13 @@ W_BufferedReader.typedef = TypeDef(
     seek = interp2app(W_BufferedReader.seek_w),
     close = interp2app(W_BufferedReader.close_w),
     flush = interp2app(W_BufferedReader.flush_w),
+    closed = GetSetProperty(W_BufferedReader.closed_get_w),
     )
 
-class W_BufferedWriter(W_BufferedIOBase, BufferedMixin):
+class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
     @unwrap_spec('self', ObjSpace, W_Root, int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+        self.state = STATE_ZERO
         raw = space.interp_w(W_IOBase, w_raw)
         raw.check_writable_w(space)
 
@@ -411,6 +436,7 @@ class W_BufferedWriter(W_BufferedIOBase, BufferedMixin):
 
         self._init(space)
         self._writer_reset_buf()
+        self.state = STATE_OK
 
     def _adjust_position(self, new_pos):
         self.pos = new_pos
@@ -545,6 +571,7 @@ W_BufferedWriter.typedef = TypeDef(
     # from the mixin class
     seek = interp2app(W_BufferedWriter.seek_w),
     close = interp2app(W_BufferedWriter.close_w),
+    closed = GetSetProperty(W_BufferedWriter.closed_get_w),
     )
 
 class W_BufferedRWPair(W_BufferedIOBase):
