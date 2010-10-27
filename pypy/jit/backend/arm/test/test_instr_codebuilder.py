@@ -141,6 +141,8 @@ def build_tests():
     for key, value, in instructions.data_proc_imm.iteritems():
         build_test(gen_test_data_proc_imm_func, key, value, test_name)
 
+    for key, value, in instructions.multiply.iteritems():
+        build_test(gen_test_mul_func, key, value, test_name)
 # XXX refactor this functions
 
 def build_test(builder, key, value, test_name):
@@ -178,6 +180,24 @@ def gen_test_reg_func(name, table):
         func = getattr(self.cb, name)
         func(r.r3.value, r.r7.value, r.r12.value)
         self.assert_equal('%s r3, [r7, r12]' % name[:name.index('_')])
+    return f
+
+def gen_test_mul_func(name, table):
+    if 'acc' in table and table['acc']:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3.value, r.r7.value, r.r12.value, r.r13.value)
+            self.assert_equal('%s r3, r7, r12, r13' % name)
+    elif 'long' in table and table['long']:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3.value, r.r13.value, r.r7.value, r.r12.value)
+            self.assert_equal('%s r13, r3, r7, r12' % name)
+    else:
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3.value, r.r7.value, r.r12.value)
+            self.assert_equal('%s r3, r7, r12' % name)
     return f
 
 def gen_test_data_reg_func(name, table):

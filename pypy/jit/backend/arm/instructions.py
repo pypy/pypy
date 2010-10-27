@@ -71,3 +71,14 @@ branch = {
     'B':     {'op': 0x20},
     'BL':    {'op': 0x30},
 }
+
+multiply = {
+    'MUL':   {'op':0x0},
+    'MLA':   {'op':0x2, 'acc': True},
+    'UMAAL': {'op':0x4, 'long': True},
+    'MLS':   {'op':0x6, 'acc': True},
+    'UMULL': {'op':0x8, 'long': True},
+    'UMLAL': {'op':0xA, 'long': True},
+    'SMULL': {'op':0xC, 'long': True},
+    'SMLAL': {'op':0xE, 'long': True},
+}

@@ -107,6 +107,38 @@ def define_supervisor_and_coproc(name, table):
                     | (crm & 0xF))
     return f
 
+def define_multiply_instructions(name, table):
+    n = (table['op'] & 0xF) << 20 | 0x9 << 4
+    if 'acc' in table and table['acc']:
+        def f(self, rd, rn, rm, ra, cond=cond.AL, s=0):
+            self.write32(n
+                        | cond << 28
+                        | (s & 0x1)
+                        | (rd & 0xF) << 16
+                        | (ra & 0xF) << 12
+                        | (rm & 0xF) << 8
+                        | (rn & 0xF))
+    elif 'long' in table and table['long']:
+       def f(self, rdhi, rdlo, rn, rm, cond=cond.AL, s=0):
+            assert rdhi != rdlo
+            self.write32(n
+                        | cond << 28
+                        | (s & 0x1)
+                        | (rdhi & 0xF) << 16
+                        | (rdlo & 0xF) << 12
+                        | (rm & 0xF) << 8
+                        | (rn & 0xF))
+    else:
+        def f(self, rd, rn, rm, cond=cond.AL, s=0):
+            self.write32(n
+                        | cond << 28
+                        | (s & 0x1)
+                        | (rd & 0xF) << 16
+                        | (rm & 0xF) << 8
+                        | (rn & 0xF))
+
+    return f
+
 def imm_operation(rt, rn, imm):
     return ((rn & 0xFF) << 16
     | (rt & 0xFF) << 12
@@ -126,14 +158,12 @@ def define_instruction(builder, key, val, target):
         setattr(target, key, f)
 
 def define_instructions(target):
-    for key, val in instructions.load_store.iteritems():
-        define_instruction(define_load_store_func, key, val, target)
+    i_g_map = [(instructions.load_store, define_load_store_func),
+                (instructions.data_proc, define_data_proc),
+                (instructions.data_proc_imm, define_data_proc_imm),
+                (instructions.supervisor_and_coproc, define_supervisor_and_coproc),
+                (instructions.multiply, define_multiply_instructions)]
 
-    for key, val in instructions.data_proc.iteritems():
-        define_instruction(define_data_proc, key, val, target)
-
-    for key, val in instructions.data_proc_imm.iteritems():
-        define_instruction(define_data_proc_imm, key, val, target)
-
-    for key, val in instructions.supervisor_and_coproc.iteritems():
-        define_instruction(define_supervisor_and_coproc, key, val, target)
+    for inss, gen in i_g_map:
+        for key, val in inss.iteritems():
+            define_instruction(gen, key, val, target)
