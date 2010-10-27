@@ -62,8 +62,8 @@ void pypy_debug_alloc_results(void)
     count++;
   if (count > 0)
     {
-      fprintf(stderr, "debug_alloc.h: %ld mallocs left", count);
       char *env = getenv("PYPY_ALLOC");
+      fprintf(stderr, "debug_alloc.h: %ld mallocs left", count);
       if (env && *env)
         {
           fprintf(stderr, " (most recent first):\n");
