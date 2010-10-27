@@ -270,9 +270,11 @@ class AppTestRCTime:
 
     def test_strptime(self):
         import time as rctime
-        
+
         t = rctime.time()
         tt = rctime.gmtime(t)
+        assert isinstance(rctime.strptime("", ""), type(tt))
+
         for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
                           'j', 'm', 'M', 'p', 'S',
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
