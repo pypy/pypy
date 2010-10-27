@@ -43,7 +43,7 @@ class AppTestAST:
         for op in mod.body.ops:
             assert isinstance(op, ast.Lt)
         mod.body.ops[0] = ast.Gt()
-        co = compile(mod, "<string>", "exec")
+        co = compile(mod, "<string>", "eval")
         assert not eval(co)
 
     def test_string(self):
