@@ -489,7 +489,8 @@ class TestNonInteractive:
                 yield
             finally:
                 old_cwd.chdir()
-                os.putenv('PYTHONPATH', old_pythonpath)
+                if old_pythonpath is not None:
+                    os.putenv('PYTHONPATH', old_pythonpath)
         
         tmpdir.join('site.py').write('print "SHOULD NOT RUN"')
         runme_py = tmpdir.join('runme.py')
