@@ -51,8 +51,9 @@ class OptUnroll(Optimization):
         self.snapshot_map ={None: None}
         
         inputargs = []
+        seen = []
         for arg in jump_args:
-            for a in self.getvalue(arg).get_forced_boxes([]):
+            for a in self.getvalue(arg).get_forced_boxes(seen):
                 if not isinstance(a, Const):
                     inputargs.append(a)
 

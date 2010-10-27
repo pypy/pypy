@@ -34,6 +34,28 @@ class VirtualTests:
         self.check_loops(new=0, new_with_vtable=0,
                                 getfield_gc=0, setfield_gc=0)
 
+    def test_virtualized2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node1', 'node2'])
+        def f(n):
+            node1 = self._new()
+            node1.value = 0
+            node2 = self._new()
+            node2.value = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node1=node1, node2=node2)
+                myjitdriver.jit_merge_point(n=n, node1=node1, node2=node2)
+                next1 = self._new()
+                next1.value = node1.value + n + node2.value
+                next2 = self._new()
+                next2.value = next1.value
+                node1 = next1
+                node2 = next2
+                n -= 1
+            return node1.value * node2.value
+        assert f(10) == self.meta_interp(f, [10])
+        self.check_loops(new=0, new_with_vtable=0,
+                         getfield_gc=0, setfield_gc=0)
+
     def test_virtualized_circular1(self):
         class MyNode():
             pass
