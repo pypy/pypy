@@ -21,6 +21,25 @@ DEBUG = False       # dump exceptions before calling the except hook
 
 originalexcepthook = sys.__excepthook__
 
+def handle_sys_exit(e):
+    # exit if we catch a w_SystemExit
+    exitcode = e.code
+    if exitcode is None:
+        exitcode = 0
+    else:
+        try:
+            exitcode = int(exitcode)
+        except:
+            # not an integer: print it to stderr
+            try:
+                stderr = sys.stderr
+            except AttributeError:
+                pass   # too bad
+            else:
+                print >> stderr, exitcode
+            exitcode = 1
+    raise SystemExit(exitcode)
+
 def run_toplevel(f, *fargs, **fkwds):
     """Calls f() and handles all OperationErrors.
     Intended use is to run the main program or one interactive statement.
@@ -44,67 +63,53 @@ def run_toplevel(f, *fargs, **fkwds):
                 stdout.write('\n')
 
     except SystemExit, e:
-        # exit if we catch a w_SystemExit
-        exitcode = e.code
-        if exitcode is None:
-            exitcode = 0
-        else:
-            try:
-                exitcode = int(exitcode)
-            except:
-                # not an integer: print it to stderr
-                try:
-                    stderr = sys.stderr
-                except AttributeError:
-                    pass   # too bad
-                else:
-                    print >> stderr, exitcode
-                exitcode = 1
-        raise SystemExit(exitcode)
+        handle_sys_exit(e)
+    except:
+        display_exception()
+        return False
+    return True   # success
+
+def display_exception():
+    etype, evalue, etraceback = sys.exc_info()
+    try:
+        # extra debugging info in case the code below goes very wrong
+        if DEBUG and hasattr(sys, 'stderr'):
+            s = getattr(etype, '__name__', repr(etype))
+            print >> sys.stderr, "debug: exception-type: ", s
+            print >> sys.stderr, "debug: exception-value:", str(evalue)
+            tbentry = etraceback
+            if tbentry:
+                while tbentry.tb_next:
+                    tbentry = tbentry.tb_next
+                lineno = tbentry.tb_lineno
+                filename = tbentry.tb_frame.f_code.co_filename
+                print >> sys.stderr, "debug: exception-tb:    %s:%d" % (
+                    filename, lineno)
+
+        # set the sys.last_xxx attributes
+        sys.last_type = etype
+        sys.last_value = evalue
+        sys.last_traceback = etraceback
+
+        # call sys.excepthook
+        hook = getattr(sys, 'excepthook', originalexcepthook)
+        hook(etype, evalue, etraceback)
+        return # done
 
     except:
-        etype, evalue, etraceback = sys.exc_info()
         try:
-            # extra debugging info in case the code below goes very wrong
-            if DEBUG and hasattr(sys, 'stderr'):
-                s = getattr(etype, '__name__', repr(etype))
-                print >> sys.stderr, "debug: exception-type: ", s
-                print >> sys.stderr, "debug: exception-value:", str(evalue)
-                tbentry = etraceback
-                if tbentry:
-                    while tbentry.tb_next:
-                        tbentry = tbentry.tb_next
-                    lineno = tbentry.tb_lineno
-                    filename = tbentry.tb_frame.f_code.co_filename
-                    print >> sys.stderr, "debug: exception-tb:    %s:%d" % (
-                        filename, lineno)
+            stderr = sys.stderr
+        except AttributeError:
+            pass   # too bad
+        else:
+            print >> stderr, 'Error calling sys.excepthook:'
+            originalexcepthook(*sys.exc_info())
+            print >> stderr
+            print >> stderr, 'Original exception was:'
 
-            # set the sys.last_xxx attributes
-            sys.last_type = etype
-            sys.last_value = evalue
-            sys.last_traceback = etraceback
+    # we only get here if sys.excepthook didn't do its job
+    originalexcepthook(etype, evalue, etraceback)
 
-            # call sys.excepthook
-            hook = getattr(sys, 'excepthook', originalexcepthook)
-            hook(etype, evalue, etraceback)
-            return False   # done
-
-        except:
-            try:
-                stderr = sys.stderr
-            except AttributeError:
-                pass   # too bad
-            else:
-                print >> stderr, 'Error calling sys.excepthook:'
-                originalexcepthook(*sys.exc_info())
-                print >> stderr
-                print >> stderr, 'Original exception was:'
-
-        # we only get here if sys.excepthook didn't do its job
-        originalexcepthook(etype, evalue, etraceback)
-        return False
-
-    return True   # success
 
 # ____________________________________________________________
 # Option parsing
@@ -481,14 +486,25 @@ def run_command_line(interactive,
             sys.path.insert(0, scriptdir)
             success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
 
-        # start a prompt if requested
+    except SystemExit, e:
+        status = e.code
         if inspect_requested():
+            display_exception()
+    else:
+        status = not success
+
+    # start a prompt if requested
+    if inspect_requested():
+        inteactive = False
+        try:
             from _pypy_interact import interactive_console
             success = run_toplevel(interactive_console, mainmodule)
-    except SystemExit, e:
-        return e.code
-    else:
-        return not success
+        except SystemExit, e:
+            status = e.code
+        else:
+            status = not success
+
+    return status
 
 def resolvedirof(filename):
     try:

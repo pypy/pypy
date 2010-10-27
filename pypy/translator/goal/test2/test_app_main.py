@@ -241,6 +241,11 @@ class TestInteraction:
         child.sendline('"pypy.translator.goal.test2.mymodule" in sys.modules')
         child.expect('False')
 
+    def test_option_i_noexit(self):
+        child = self.spawn(['-i', '-c', 'import sys; sys.exit(1)'])
+        child.expect('Traceback')
+        child.expect('SystemExit: 1')
+
     def test_options_u_i(self):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
