@@ -172,6 +172,7 @@ class Transformer(object):
 
     def rewrite_op_same_as(self, op): pass
     def rewrite_op_cast_pointer(self, op): pass
+    def rewrite_op_cast_opaque_ptr(self, op): pass   # rlib.rerased
     def rewrite_op_cast_primitive(self, op): pass
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass

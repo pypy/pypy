@@ -437,7 +437,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             if is_data:
                 w_get = self.lookup(w_descr, "__get__")
             if w_get is None:
-                w_value = w_obj.getdictvalue_attr_is_in_class(self, name)
+                w_value = w_obj.getdictvalue(self, name)
                 if w_value is not None:
                     return w_value
                 if not is_data:
@@ -489,14 +489,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
-    def setitem_str(self, w_obj, key, w_value, shadows_type=True):
+    def setitem_str(self, w_obj, key, w_value):
         """ Same as setitem, but takes string instead of any wrapped object
-
-        XXX what shadows_type means???
         """
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
-            w_obj.setitem_str(key, w_value, shadows_type)
+            w_obj.setitem_str(key, w_value)
         else:
             self.setitem(w_obj, self.wrap(key), w_value)
 

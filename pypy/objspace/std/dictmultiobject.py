@@ -49,14 +49,6 @@ class W_DictMultiObject(W_Object):
         elif space.config.objspace.std.withdictmeasurement:
             assert w_type is None
             return MeasuringDictImplementation(space)
-        elif space.config.objspace.std.withsharingdict and instance:
-            from pypy.objspace.std.sharingdict import SharedDictImplementation
-            assert w_type is None
-            return SharedDictImplementation(space)
-        elif (space.config.objspace.std.withshadowtracking and instance and
-                classofinstance is not None):
-            assert w_type is None
-            return ShadowDetectingDictImplementation(space, classofinstance)
         elif instance or strdict or module:
             assert w_type is None
             return StrDictImplementation(space)
@@ -112,7 +104,7 @@ class W_DictMultiObject(W_Object):
         #return w_value or None
         raise NotImplementedError("abstract base class")
 
-    def impl_setitem_str(self, key, w_value, shadows_type=True):
+    def impl_setitem_str(self, key, w_value):
         raise NotImplementedError("abstract base class")
 
     def impl_setitem(self,  w_key, w_value):
@@ -165,20 +157,13 @@ class W_DictMultiObject(W_Object):
         key = OPTIMIZED_BUILTINS[i]
         return self.impl_getitem_str(key)
 
-    # this method will only be seen whan a certain config option is used
-    def impl_shadows_anything(self):
-        return True
-
-    def impl_set_shadows_anything(self):
-        pass
-
     # _________________________________________________________________
     # fallback implementation methods
 
     def impl_fallback_setitem(self, w_key, w_value):
         self.r_dict_content[w_key] = w_value
 
-    def impl_fallback_setitem_str(self, key, w_value, shadows_type=True):
+    def impl_fallback_setitem_str(self, key, w_value):
         return self.impl_fallback_setitem(self.space.wrap(key), w_value)
 
     def impl_fallback_delitem(self, w_key):
@@ -211,18 +196,12 @@ class W_DictMultiObject(W_Object):
         key = OPTIMIZED_BUILTINS[i]
         return self.impl_fallback_getitem_str(key)
 
-    def impl_fallback_shadows_anything(self):
-        return True
-
-    def impl_fallback_set_shadows_anything(self):
-        pass
-
 
 implementation_methods = [
     ("getitem", 1),
     ("getitem_str", 1),
     ("length", 0),
-    ("setitem_str", 3),
+    ("setitem_str", 2),
     ("setitem", 2),
     ("delitem", 1),
     ("iter", 0),
@@ -231,8 +210,6 @@ implementation_methods = [
     ("keys", 0),
     ("clear", 0),
     ("get_builtin_indexed", 1),
-    ("shadows_anything", 0),
-    ("set_shadows_anything", 0),
 ]
 
 
@@ -312,7 +289,7 @@ class StrDictImplementation(W_DictMultiObject):
         else:
             self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
-    def impl_setitem_str(self, key, w_value, shadows_type=True):
+    def impl_setitem_str(self, key, w_value):
         self.content[key] = w_value
 
     def impl_delitem(self, w_key):
@@ -388,47 +365,12 @@ class StrIteratorImplementation(IteratorImplementation):
             return None, None
 
 
-class ShadowDetectingDictImplementation(StrDictImplementation):
-    def __init__(self, space, w_type):
-        StrDictImplementation.__init__(self, space)
-        self.w_type = w_type
-        self.original_version_tag = w_type.version_tag()
-        if self.original_version_tag is None:
-            self._shadows_anything = True
-        else:
-            self._shadows_anything = False
-
-    def impl_setitem_str(self, key, w_value, shadows_type=True):
-        if shadows_type:
-            self._shadows_anything = True
-        StrDictImplementation.impl_setitem_str(
-            self, key, w_value, shadows_type)
-
-    def impl_setitem(self, w_key, w_value):
-        space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            if not self._shadows_anything:
-                w_obj = self.w_type.lookup(space.str_w(w_key))
-                if w_obj is not None:
-                    self._shadows_anything = True
-            StrDictImplementation.impl_setitem_str(
-                self, self.space.str_w(w_key), w_value, False)
-        else:
-            self._as_rdict().impl_fallback_setitem(w_key, w_value)
-
-    def impl_shadows_anything(self):
-        return (self._shadows_anything or 
-                self.w_type.version_tag() is not self.original_version_tag)
-
-    def impl_set_shadows_anything(self):
-        self._shadows_anything = True
-
 class WaryDictImplementation(StrDictImplementation):
     def __init__(self, space):
         StrDictImplementation.__init__(self, space)
         self.shadowed = [None] * len(BUILTIN_TO_INDEX)
 
-    def impl_setitem_str(self, key, w_value, shadows_type=True):
+    def impl_setitem_str(self, key, w_value):
         i = BUILTIN_TO_INDEX.get(key, -1)
         if i != -1:
             self.shadowed[i] = w_value
@@ -558,7 +500,7 @@ class MeasuringDictImplementation(W_DictMultiObject):
         self.info.writes += 1
         self.content[w_key] = w_value
         self.info.maxcontents = max(self.info.maxcontents, len(self.content))
-    def impl_setitem_str(self, key, w_value, shadows_type=True):
+    def impl_setitem_str(self, key, w_value):
         self.info.setitem_strs += 1
         self.impl_setitem(self.space.wrap(key), w_value)
     def impl_delitem(self, w_key):

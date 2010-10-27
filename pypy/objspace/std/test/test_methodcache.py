@@ -1,119 +1,8 @@
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test.test_typeobject import AppTestTypeObject
 
-class TestShadowTracking(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withshadowtracking": True,
-                                       "objspace.std.withmapdict": False})
 
-    def test_simple_shadowing(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.g = "foo"
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.f = "foo"
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_shadowing_via__dict__(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.__dict__["g"] = "foo"
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.__dict__["f"] = "foo"
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_changing__dict__(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.__dict__ = {}
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_changing__class__(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            class B(object):
-                def g(self):
-                    return 42
-            a.__class__ = B
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_changing_the_type(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                pass
-            a = A()
-            a.x = 72
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        w_x = space.appexec([w_inst], """(a):
-            a.__class__.x = 42
-            return a.x
-        """)
-        assert space.unwrap(w_x) == 72
-        assert w_inst.getdict().shadows_anything()
-
-class AppTestShadowTracking(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withshadowtracking": True})
-
-    def test_shadowtracking_does_not_blow_up(self):
-        class A(object):
-            def f(self):
-                return 42
-        a = A()
-        assert a.f() == 42
-        a.f = lambda : 43
-        assert a.f() == 43
-
-class AppTestTypeWithMethodCache(AppTestTypeObject):
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter" : True})
-
-class AppTestMethodCaching(AppTestShadowTracking):
+class AppTestMethodCaching(AppTestTypeObject):
     def setup_class(cls):
         cls.space = gettestobjspace(
             **{"objspace.std.withmethodcachecounter": True})
@@ -259,4 +148,3 @@ class AppTestMethodCaching(AppTestShadowTracking):
         assert cache_counter[0] >= 5
         assert cache_counter[1] >= 1 # should be (27, 3)
         assert sum(cache_counter) == 10
-
