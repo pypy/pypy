@@ -175,6 +175,8 @@ class AppTestBytesArray:
         assert b == 'ABC...defghi'
         b[3:6] = '()'
         assert b == 'ABC()defghi'
+        b[6:6] = '<<'
+        assert b == 'ABC()d<<efghi'
 
     def test_buffer(self):
         b = bytearray('abcdefghi')

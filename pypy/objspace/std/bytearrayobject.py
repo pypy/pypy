@@ -397,9 +397,31 @@ def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     if step != 1:
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("fixme: only step=1 for the moment"))
+    _setitem_helper(w_bytearray, start, stop, slicelength,
+                    space.str_w(w_other))
+
+def _setitem_helper(w_bytearray, start, stop, slicelength, data):
     assert start >= 0
     assert stop >= 0
-    w_bytearray.data[start:stop] = [c for c in space.str_w(w_other)]
+    step = 1
+    len2 = len(data)
+    delta = slicelength - len2
+    if delta < 0:
+        delta = -delta
+        newsize = len(w_bytearray.data) + delta
+        w_bytearray.data += ['\0'] * delta
+        lim = start + len2
+        i = newsize - 1
+        while i >= lim:
+            w_bytearray.data[i] = w_bytearray.data[i-delta]
+            i -= 1
+    elif start >= 0:
+        del w_bytearray.data[start:start+delta]
+    else:
+        assert delta == 0
+    for i in range(len2):
+        w_bytearray.data[start] = data[i]
+        start += step
 
 # __________________________________________________________
 # Buffer interface
