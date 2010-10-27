@@ -218,8 +218,9 @@ class W_ZipImporter(Wrappable):
     find_module.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
     def make_filename(self, fullname):
-        i = fullname.rfind('.')
-        subname = fullname[i+1:]
+        startpos = fullname.rfind('.') + 1 # 0 when not found
+        assert startpos >= 0
+        subname = fullname[start:]
         return self.prefix + subname
 
     def load_module(self, space, fullname):
