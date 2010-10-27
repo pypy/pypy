@@ -220,7 +220,7 @@ class W_ZipImporter(Wrappable):
     def make_filename(self, fullname):
         startpos = fullname.rfind('.') + 1 # 0 when not found
         assert startpos >= 0
-        subname = fullname[start:]
+        subname = fullname[startpos:]
         return self.prefix + subname
 
     def load_module(self, space, fullname):
