@@ -16,9 +16,11 @@ class CodeBuilder(codebuilder.ARMv7Builder):
 
     def hexdump(self):
         return ''.join(self.buffer)
+
 class ASMTest(object):
     def assert_equal(self, asm):
         assert self.cb.hexdump() == assemble(asm)
+
 
 class TestInstrCodeBuilder(ASMTest):
     def setup_method(self, ffuu_method):
@@ -151,6 +153,7 @@ def gen_test_data_proc_imm_func(name, table):
             func = getattr(self.cb, name)
             func(r.r3.value, r.r7.value, 23)
             self.assert_equal('%s r3, r7, #23' % name[:name.index('_')])
+            py.test.raises(ValueError, 'func(r.r3.value, r.r7.value, -12)')
     elif not table['base']:
         def f(self):
             func = getattr(self.cb, name)

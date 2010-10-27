@@ -35,6 +35,8 @@ def define_data_proc_imm(name, table):
         | (table['op'] & 0x1F) << 20)
     if table['result'] and table['base']:
         def imm_func(self, rd, rn, imm=0, cond=cond.AL, s=0):
+            if imm < 0:
+                raise ValueError
             # XXX check condition on rn
             self.write32(n
                 | cond << 28

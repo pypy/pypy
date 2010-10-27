@@ -178,6 +178,7 @@ class AssemblerARM(object):
             opnum = op.getopnum()
             fcond = self.operations[opnum](self, op, regalloc, fcond)
         self.gen_func_epilog()
+        print inputargs, operations
         if self._debug_asm:
             self._dump_trace('loop.asm')
         print 'Done assembling'
@@ -249,14 +250,18 @@ class AssemblerARM(object):
     def emit_op_int_add(self, op, regalloc, fcond):
         # assuming only one argument is constant
         res = regalloc.try_allocate_reg(op.result)
-        if isinstance(op.getarg(1), ConstInt):
-            reg = regalloc.try_allocate_reg(op.getarg(0))
-            arg1 = op.getarg(1)
-            self.mc.ADD_ri(res.value, reg.value, arg1.getint())
-        elif isinstance(op.getarg(0), ConstInt):
-            reg = regalloc.try_allocate_reg(op.getarg(1))
-            arg1 = op.getarg(0)
-            self.mc.ADD_ri(res.value, reg.value, arg1.getint())
+        if isinstance(op.getarg(0), ConstInt) or isinstance(op.getarg(1), ConstInt):
+            if isinstance(op.getarg(1), ConstInt):
+                reg = regalloc.try_allocate_reg(op.getarg(0))
+                arg1 = op.getarg(1)
+            elif isinstance(op.getarg(0), ConstInt):
+                reg = regalloc.try_allocate_reg(op.getarg(1))
+                arg1 = op.getarg(0)
+            value = arg1.getint()
+            if value < 0:
+                self.mc.SUB_ri(res.value, reg.value, -1 * value)
+            else:
+                self.mc.ADD_ri(res.value, reg.value, value)
         else:
             r1 = regalloc.try_allocate_reg(op.getarg(0))
             r2 = regalloc.try_allocate_reg(op.getarg(1))
@@ -268,14 +273,23 @@ class AssemblerARM(object):
     def emit_op_int_sub(self, op, regalloc, fcond):
         # assuming only one argument is constant
         res = regalloc.try_allocate_reg(op.result)
-        if isinstance(op.getarg(1), ConstInt):
-            reg = regalloc.try_allocate_reg(op.getarg(0))
-            arg1 = op.getarg(1)
-            self.mc.SUB_ri(res.value, reg.value, arg1.getint())
-        elif isinstance(op.getarg(0), ConstInt):
-            reg = regalloc.try_allocate_reg(op.getarg(1))
-            arg1 = op.getarg(0)
-            self.mc.SUB_ri(res.value, reg.value, arg1.getint())
+        if isinstance(op.getarg(0), ConstInt) or isinstance(op.getarg(1), ConstInt):
+            if isinstance(op.getarg(1), ConstInt):
+                reg = regalloc.try_allocate_reg(op.getarg(0))
+                value = op.getarg(1).getint()
+                if value < 0:
+                    self.mc.ADD_ri(res.value, reg.value, -1 * value)
+                else:
+                    self.mc.SUB_ri(res.value, reg.value, value)
+            elif isinstance(op.getarg(0), ConstInt):
+                reg = regalloc.try_allocate_reg(op.getarg(1))
+                value = op.getarg(0).getint()
+                if value < 0:
+                    self.mc.ADD_ri(res.value, reg.value, -1 * value)
+                    self.mc.MVN_rr(res.value, res.value)
+                else:
+                    # reverse substract ftw
+                    self.mc.RSB_ri(res.value, reg.value, value)
         else:
             r1 = regalloc.try_allocate_reg(op.getarg(0))
             r2 = regalloc.try_allocate_reg(op.getarg(1))
