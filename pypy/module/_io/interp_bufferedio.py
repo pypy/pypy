@@ -17,6 +17,29 @@ class BlockingIOError(Exception):
     pass
 
 class W_BufferedIOBase(W_IOBase):
+    def _unsupportedoperation(self, space, message):
+        w_exc = space.getattr(space.getbuiltinmodule('_io'),
+                              space.wrap('UnsupportedOperation'))
+        raise OperationError(w_exc, space.wrap(message))
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def read_w(self, space, w_size=None):
+        self._unsupportedoperation(space, "read")
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def write_w(self, space, w_data):
+        self._unsupportedoperation(space, "write")
+
+W_BufferedIOBase.typedef = TypeDef(
+    '_BufferedIOBase', W_IOBase.typedef,
+    __new__ = generic_new_descr(W_BufferedIOBase),
+    read = interp2app(W_BufferedIOBase.read_w),
+    write = interp2app(W_BufferedIOBase.write_w),
+    )
+
+class BufferedMixin:
+    _mixin_ = True
+
     def __init__(self, space):
         W_IOBase.__init__(self, space)
         self.state = STATE_ZERO
@@ -37,35 +60,12 @@ class W_BufferedIOBase(W_IOBase):
         self.readable = False
         self.writable = False
 
-    def _unsupportedoperation(self, space, message):
-        w_exc = space.getattr(space.getbuiltinmodule('_io'),
-                              space.wrap('UnsupportedOperation'))
-        raise OperationError(w_exc, space.wrap(message))
-
-    @unwrap_spec('self', ObjSpace, W_Root)
-    def read_w(self, space, w_size=None):
-        self._unsupportedoperation(space, "read")
-
-    @unwrap_spec('self', ObjSpace, W_Root)
-    def write_w(self, space, w_size=None):
-        self._unsupportedoperation(space, "write")
-
     def _reader_reset_buf(self):
         self.read_end = -1
 
     def _writer_reset_buf(self):
         self.write_pos = 0
         self.write_end = -1
-
-W_BufferedIOBase.typedef = TypeDef(
-    '_BufferedIOBase', W_IOBase.typedef,
-    __new__ = generic_new_descr(W_BufferedIOBase),
-    read = interp2app(W_BufferedIOBase.read_w),
-    write = interp2app(W_BufferedIOBase.write_w),
-    )
-
-class BufferedMixin:
-    _mixin_ = True
 
     def _init(self, space):
         if self.buffer_size <= 0:
@@ -245,11 +245,6 @@ class BufferedMixin:
         return self._write(space, ''.join(l))
 
 class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
-    def __init__(self, space):
-        W_BufferedIOBase.__init__(self, space)
-        self.ok = False
-        self.detached = False
-
     @unwrap_spec('self', ObjSpace, W_Root, int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
