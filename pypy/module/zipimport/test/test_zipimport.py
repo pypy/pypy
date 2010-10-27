@@ -292,6 +292,16 @@ class AppTestZipimport:
         assert archive == self.zipfile
         assert realprefix == prefix
 
+    def test_subdirectory_importer(self):
+        import os
+        import zipimport
+        self.writefile(
+            self, os.sep.join(("directory", "package", "__init__.py")), "")
+        z = zipimport.zipimporter(self.zipfile + "/directory")
+        mod = z.load_module("package")
+        assert z.is_package("package")
+        assert z._get_filename("package") == mod.__file__
+
     def test_zip_directory_cache(self):
         """ Check full dictionary interface
         """
