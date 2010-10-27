@@ -23,11 +23,6 @@ def autodetect_main_model():
         mach = os.popen('uname -m', 'r').read().strip()
         if not mach:
             raise ProcessorAutodetectError, "cannot run 'uname -m'"
-    if mach == 'x86_64':
-        if sys.maxint == 2147483647:
-            mach = 'x86'     # it's a 64-bit processor but in 32-bits mode, maybe
-        else:
-            assert sys.maxint == 2 ** 63 - 1
     try:
         return {'i386': 'x86',
                 'i486': 'x86',
@@ -36,17 +31,21 @@ def autodetect_main_model():
                 'i86pc': 'x86',    # Solaris/Intel
                 'x86':   'x86',    # Apple
                 'Power Macintosh': 'ppc',
-                'x86_64': 'x86_64', 
+                'x86_64': 'x86', 
                 }[mach]
     except KeyError:
         raise ProcessorAutodetectError, "unsupported processor '%s'" % mach
 
 def autodetect():
     model = autodetect_main_model()
-    if model == 'x86':
-        from pypy.jit.backend.x86.detect_sse2 import detect_sse2
-        if not detect_sse2():
-            model = 'x86-without-sse2'
+    if sys.maxint == 2**63-1:
+        model += '_64'
+    else:
+        assert sys.maxint == 2**31-1
+        if model == 'x86':
+            from pypy.jit.backend.x86.detect_sse2 import detect_sse2
+            if not detect_sse2():
+                model = 'x86-without-sse2'
     return model
 
 def getcpuclassname(backend_name="auto"):
