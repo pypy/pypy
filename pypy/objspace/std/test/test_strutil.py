@@ -88,6 +88,8 @@ class TestStrUtil:
             raises(ParseStringError, string_to_int, s+'  ')
             raises(ParseStringError, string_to_int, '+'+s)
             raises(ParseStringError, string_to_int, '-'+s)
+        raises(ParseStringError, string_to_int, '0x', 16)
+        raises(ParseStringError, string_to_int, '-0x', 16)
 
     def test_string_to_int_overflow(self):
         import sys

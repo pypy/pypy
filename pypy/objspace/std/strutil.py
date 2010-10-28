@@ -62,14 +62,14 @@ class NumberStringParser:
             raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
         self.base = base
 
-        if not s:
-            self.error()
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
             s = s[2:]
         if base == 8 and (s.startswith('0o') or s.startswith('0O')):
             s = s[2:]
         if base == 2 and (s.startswith('0b') or s.startswith('0B')):
             s = s[2:]
+        if not s:
+            self.error()
         self.s = s
         self.n = len(s)
         self.i = 0
