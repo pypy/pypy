@@ -1090,7 +1090,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
 
 ElfFunctionGcRootTracker64.init_regexp()
 
-class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker32):
+class DarwinFunctionGcRootTracker32(ElfFunctionGcRootTracker32):
     format = 'darwin'
     function_names_prefix = '_'
 
@@ -1102,7 +1102,19 @@ class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker32):
         funcname = '_' + match.group(1)
         FunctionGcRootTracker32.__init__(self, funcname, lines, filetag)
 
-class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker):
+class DarwinFunctionGcRootTracker64(ElfFunctionGcRootTracker64):
+    format = 'darwin64'
+    function_names_prefix = '_'
+
+    r_functionstart = re.compile(r"_(\w+):\s*$")
+    OFFSET_LABELS   = 0
+
+    def __init__(self, lines, filetag=0):
+        match = self.r_functionstart.match(lines[0])
+        funcname = '_' + match.group(1)
+        FunctionGcRootTracker64.__init__(self, funcname, lines, filetag)
+
+class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker32):
     format = 'mingw32'
     function_names_prefix = '_'
 
@@ -1373,7 +1385,7 @@ class ElfAssemblerParser64(ElfAssemblerParser):
 
 class DarwinAssemblerParser(AssemblerParser):
     format = "darwin"
-    FunctionGcRootTracker = DarwinFunctionGcRootTracker
+    FunctionGcRootTracker = DarwinFunctionGcRootTracker32
 
     r_textstart = re.compile(r"\t.text\s*$")
 
@@ -1418,6 +1430,10 @@ class DarwinAssemblerParser(AssemblerParser):
         entrypoint = '_' + entrypoint
         return super(DarwinAssemblerParser, self).process_function(
             lines, entrypoint, filename)
+
+class DarwinAssemblerParser64(DarwinAssemblerParser):
+    format = "darwin64"
+    FunctionGcRootTracker = DarwinFunctionGcRootTracker64
 
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
@@ -1542,6 +1558,7 @@ PARSERS = {
     'elf': ElfAssemblerParser,
     'elf64': ElfAssemblerParser64,
     'darwin': DarwinAssemblerParser,
+    'darwin64': DarwinAssemblerParser64,
     'mingw32': Mingw32AssemblerParser,
     'msvc': MsvcAssemblerParser,
     }
@@ -1885,7 +1902,10 @@ if __name__ == '__main__':
     shuffle = False
     output_raw_table = False
     if sys.platform == 'darwin':
-        format = 'darwin'
+        if sys.maxint > 2147483647:
+            format = 'darwin64'
+        else:
+            format = 'darwin'
     elif sys.platform == 'win32':
         format = 'mingw32'
     else:
