@@ -894,17 +894,21 @@ class Transformer(object):
             prefix = 'do_resizable_'
             ARRAY = LIST.items.TO
             if self._array_of_voids(ARRAY):
-                raise NotSupported("resizable lists of voids")
-            descrs = (self.cpu.arraydescrof(ARRAY),
-                      self.cpu.fielddescrof(LIST, 'length'),
-                      self.cpu.fielddescrof(LIST, 'items'),
-                      self.cpu.sizeof(LIST))
+                prefix += 'void_'
+                descrs = ()
+            else:
+                descrs = (self.cpu.arraydescrof(ARRAY),
+                          self.cpu.fielddescrof(LIST, 'length'),
+                          self.cpu.fielddescrof(LIST, 'items'),
+                          self.cpu.sizeof(LIST))
         else:
             prefix = 'do_fixed_'
             if self._array_of_voids(LIST):
-                raise NotSupported("fixed lists of voids")
-            arraydescr = self.cpu.arraydescrof(LIST)
-            descrs = (arraydescr,)
+                prefix += 'void_'
+                descrs = ()
+            else:
+                arraydescr = self.cpu.arraydescrof(LIST)
+                descrs = (arraydescr,)
         #
         try:
             meth = getattr(self, prefix + oopspec_name.replace('.', '_'))
@@ -942,6 +946,11 @@ class Transformer(object):
             op1 = SpaceOperation(checkname, [args[0],
                                              descr, args[1]], v_posindex)
             return v_posindex, [op0, op1]
+
+    def _prepare_void_list_getset(self, op):
+        non_negative, can_raise = self._get_list_nonneg_canraise_flags(op)
+        if can_raise:
+            raise NotSupported("list operation can raise")
 
     def _get_initial_newlist_length(self, op, args):
         # normalize number of arguments to the 'newlist' function
@@ -1014,6 +1023,12 @@ class Transformer(object):
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
 
+    def do_fixed_void_list_getitem(self, op, args):
+        self._prepare_void_list_getset(op)
+        return []
+    do_fixed_void_list_getitem_foldable = do_fixed_void_list_getitem
+    do_fixed_void_list_setitem = do_fixed_void_list_getitem
+
     # ---------- resizable lists ----------
 
     def do_resizable_newlist(self, op, args, arraydescr, lengthdescr,
@@ -1048,6 +1063,12 @@ class Transformer(object):
                               itemsdescr, structdescr):
         return SpaceOperation('getfield_gc_i',
                               [args[0], lengthdescr], op.result)
+
+    def do_resizable_void_list_getitem(self, op, args):
+        self._prepare_void_list_getset(op)
+        return []
+    do_resizable_void_list_getitem_foldable = do_resizable_void_list_getitem
+    do_resizable_void_list_setitem = do_resizable_void_list_getitem
 
     # ----------
     # Strings and Unicodes.
