@@ -19,7 +19,9 @@ class AppTestBytesIO:
         import gc; gc.collect()
         f.close()
 
-    ## def test_seek(self):
-    ##     import _io
-    ##     f = _io.BytesIO("hello")
-    ##     assert f.seek(-1, 2) == 4
+    def test_seek(self):
+        import _io
+        f = _io.BytesIO("hello")
+        assert f.tell() == 0
+        assert f.seek(-1, 2) == 4
+        assert f.tell() == 4

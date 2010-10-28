@@ -2,8 +2,11 @@ from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
+import sys
 
 def buffer2string(buffer, start, end):
     from pypy.rlib.rstring import StringBuilder
@@ -84,6 +87,38 @@ class W_BytesIO(W_BufferedIOBase):
         self._check_closed(space)
         return space.wrap(buffer2string(self.buf, 0, self.string_size))
 
+    @unwrap_spec('self', ObjSpace)
+    def tell_w(self, space):
+        self._check_closed(space)
+        return space.wrap(self.pos)
+
+    @unwrap_spec('self', ObjSpace, r_longlong, int)
+    def seek_w(self, space, pos, whence=0):
+        self._check_closed(space)
+
+        if whence == 0:
+            if pos < 0:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "negative seek value"))
+        if whence == 1:
+            if pos > sys.maxint - self.pos:
+                raise OperationError(space.w_OverflowError, space.wrap(
+                    "new position too large"))
+            pos += self.pos
+        elif whence == 2:
+            if pos > sys.maxint - self.string_size:
+                raise OperationError(space.w_OverflowError, space.wrap(
+                    "new position too large"))
+            pos += self.string_size
+        else:
+            raise operationerrfmt(space.w_ValueError,
+                "whence must be between 0 and 2, not %d", whence)
+
+        if pos >= 0:
+            self.pos = pos
+        else:
+            self.pos = 0
+        return space.wrap(self.pos)
 
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
@@ -93,5 +128,7 @@ W_BytesIO.typedef = TypeDef(
     read = interp2app(W_BytesIO.read_w),
     write = interp2app(W_BytesIO.write_w),
     getvalue = interp2app(W_BytesIO.getvalue_w),
+    seek = interp2app(W_BytesIO.seek_w),
+    tell = interp2app(W_BytesIO.tell_w),
     )
 
