@@ -123,6 +123,10 @@ class BufferedMixin:
         self._check_init(space)
         W_IOBase._check_closed(self, space, message)
 
+    def _deprecated_max_buffer_size(self, space):
+        space.warn("max_buffer_size is deprecated",
+                   space.w_DeprecationWarning)
+
     def _raw_tell(self, space):
         w_pos = space.call_method(self.raw, "tell")
         pos = space.r_longlong_w(w_pos)
@@ -503,8 +507,12 @@ W_BufferedReader.typedef = TypeDef(
     )
 
 class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec('self', ObjSpace, W_Root, int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+    @unwrap_spec('self', ObjSpace, W_Root, int, int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
+                   max_buffer_size=-234):
+        if max_buffer_size != -234:
+            self._deprecated_max_buffer_size(space)
+
         self.state = STATE_ZERO
         raw = space.interp_w(W_IOBase, w_raw)
         raw.check_writable_w(space)

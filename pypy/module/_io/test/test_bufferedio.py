@@ -131,6 +131,17 @@ class AppTestBufferedWriter:
         raises(ValueError, b.flush)
         raises(ValueError, b.close)
 
+    def test_deprecated_max_buffer_size(self):
+        import _io, warnings
+        raw = _io.FileIO(self.tmpfile, 'w')
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            f = _io.BufferedWriter(raw, max_buffer_size=8192)
+        f.close()
+        assert len(w) == 1
+        assert str(w[0].message) == "max_buffer_size is deprecated"
+        assert w[0].category is DeprecationWarning
+
     def test_check_several_writes(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'w')
