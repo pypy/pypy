@@ -187,3 +187,11 @@ class AppTestBufferedWriter:
         import gc; gc.collect()
         assert record == [1, 2, 3]
 
+    def test_truncate(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'w+')
+        raw.write('x' * 20)
+        b = _io.BufferedReader(raw)
+        assert b.seek(8) == 8
+        assert b.truncate() == 8
+        assert b.tell() == 8

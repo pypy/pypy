@@ -170,7 +170,9 @@ class BufferedMixin:
             # Check if seeking leaves us inside the current buffer, so as to
             # return quickly if possible. Also, we needn't take the lock in
             # this fast path.
-            current = self._raw_tell(space)
+            if self.abs_pos == -1:
+                self._raw_tell(space)
+            current = self.abs_pos
             available = self._readahead()
             if available > 0:
                 if whence == 0:
@@ -292,6 +294,23 @@ class BufferedMixin:
     def fileno_w(self, space):
         self._check_init(space)
         return space.call_method(self.raw, "fileno")
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def truncate_w(self, space, w_size=None):
+        self._check_init(space)
+        with self.lock:
+            if self.writable:
+                self._writer_flush_unlocked(space)
+            if self.readable:
+                if space.is_w(w_size, space.w_None):
+                    # Rewind the raw stream so that its position corresponds
+                    # to the current logical position
+                    self._raw_seek(space, -self._raw_offset(), 1)
+                self._reader_reset_buf()
+            # invalidate cached position
+            self.abs_pos = -1
+
+            return space.call_method(self.raw, "truncate", w_size)
 
 class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
     @unwrap_spec('self', ObjSpace, W_Root, int)
@@ -512,6 +531,7 @@ W_BufferedReader.typedef = TypeDef(
     close = interp2app(W_BufferedReader.close_w),
     flush = interp2app(W_BufferedReader.flush_w),
     detach = interp2app(W_BufferedReader.detach_w),
+    truncate = interp2app(W_BufferedReader.truncate_w),
     fileno = interp2app(W_BufferedReader.fileno_w),
     closed = GetSetProperty(W_BufferedReader.closed_get_w),
     )
@@ -673,6 +693,7 @@ W_BufferedWriter.typedef = TypeDef(
     close = interp2app(W_BufferedWriter.close_w),
     fileno = interp2app(W_BufferedWriter.fileno_w),
     detach = interp2app(W_BufferedWriter.detach_w),
+    truncate = interp2app(W_BufferedWriter.truncate_w),
     closed = GetSetProperty(W_BufferedWriter.closed_get_w),
     )
 
