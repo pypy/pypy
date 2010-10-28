@@ -574,20 +574,17 @@ class ArgErrCount(ArgErr):
         args = None
         #args_w, kwds_w = args.unpack()
         if self.has_kwarg or (self.num_kwds and self.num_defaults):
-            msg2 = "non-keyword "
             if self.missing_args:
                 required_args = self.expected_nargs - self.num_defaults
                 nargs = required_args - self.missing_args
             else:
                 nargs = self.num_args
         else:
-            msg2 = ""
             nargs = self.num_args + self.num_kwds
         n = self.expected_nargs
         if n == 0:
-            msg = "%s() takes no %sargument (%d given)" % (
+            msg = "%s() takes no argument (%d given)" % (
                 fnname, 
-                msg2,
                 nargs)
         else:
             defcount = self.num_defaults
@@ -598,17 +595,14 @@ class ArgErrCount(ArgErr):
             else:
                 msg1 = "at least"
                 n -= defcount
-                if not self.num_kwds:  # msg "f() takes at least X non-keyword args"
-                    msg2 = ""   # is confusing if no kwd arg actually provided
             if n == 1:
                 plural = ""
             else:
                 plural = "s"
-            msg = "%s() takes %s %d %sargument%s (%d given)" % (
+            msg = "%s() takes %s %d argument%s (%d given)" % (
                 fnname,
                 msg1,
                 n,
-                msg2,
                 plural,
                 nargs)
         return msg

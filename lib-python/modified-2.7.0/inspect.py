@@ -952,7 +952,7 @@ def getcallargs(func, *positional, **named):
             f_name, 'at most' if defaults else 'exactly', num_args,
             'arguments' if num_args > 1 else 'argument', num_total))
     elif num_args == 0 and num_total:
-        raise TypeError('%s() takes no arguments (%d given)' %
+        raise TypeError('%s() takes no argument (%d given)' %
                         (f_name, num_total))
     for arg in args:
         if isinstance(arg, str) and arg in named:

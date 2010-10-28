@@ -486,10 +486,10 @@ class TestErrorHandling(object):
         assert s == "foo() takes at most 2 arguments (3 given)"
         err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
         s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
+        assert s == "foo() takes at least 1 argument (0 given)"
         err = ArgErrCount(2, 1, 1, False, True, [], 0)
         s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 non-keyword argument (2 given)"
+        assert s == "foo() takes exactly 1 argument (2 given)"
 
 
     def test_unknown_keywords(self):
