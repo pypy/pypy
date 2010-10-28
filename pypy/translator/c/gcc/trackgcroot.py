@@ -1652,7 +1652,7 @@ class GcRootTracker(object):
                }
             }
             """
-        elif self.format == 'elf64':
+        elif self.format in ('elf64', 'darwin64'):
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
             _variant(elf64='.type pypy_asm_stackwalk, @function',
