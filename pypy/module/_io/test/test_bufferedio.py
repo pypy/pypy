@@ -55,6 +55,15 @@ class AppTestBufferedReader:
         assert raw.nbreads == 3
         f.close()
 
+    def test_readinto(self):
+        import _io
+        a = bytearray('x' * 10)
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw)
+        assert f.readinto(a) == 5
+        f.close()
+        assert a == 'a\nb\ncxxxxx'
+
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)

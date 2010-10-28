@@ -38,6 +38,19 @@ class W_BufferedIOBase(W_IOBase):
     def detach_w(self, space):
         self._unsupportedoperation(space, "detach")
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def readinto_w(self, space, w_buffer):
+        rwbuffer = space.rwbuffer_w(w_buffer)
+        length = rwbuffer.getlength()
+        w_data = space.call_method(self, "read", space.wrap(length))
+
+        if not space.isinstance_w(w_data, space.w_str):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "read() should return bytes"))
+        data = space.str_w(w_data)
+        rwbuffer.setslice(0, data)
+        return space.wrap(len(data))
+
 W_BufferedIOBase.typedef = TypeDef(
     '_BufferedIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_BufferedIOBase),
@@ -45,6 +58,7 @@ W_BufferedIOBase.typedef = TypeDef(
     read1 = interp2app(W_BufferedIOBase.read1_w),
     write = interp2app(W_BufferedIOBase.write_w),
     detach = interp2app(W_BufferedIOBase.detach_w),
+    readinto = interp2app(W_BufferedIOBase.readinto_w),
     )
 
 class BufferedMixin:
