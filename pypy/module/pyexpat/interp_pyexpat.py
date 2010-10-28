@@ -527,6 +527,16 @@ information passed to the ExternalEntityRefHandler."""
     def descr_ErrorByteIndex(space, self):
         return space.wrap(XML_GetErrorByteIndex(self.itself))
 
+    def get_buffer_size(space, self):
+        return space.wrap(self.buffer_size)
+    def set_buffer_size(space, self, w_value):
+        value = space.int_w(w_value)
+        if value <= 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "buffer_size must be greater than zero"))
+        self.flush_character_buffer(space)
+        self.buffer_size = value
+
     def get_buffer_text(space, self):
         return space.wrap(self.buffer_w is not None)
     def set_buffer_text(space, self, w_value):
@@ -561,6 +571,9 @@ W_XMLParserType.typedef = TypeDef(
     ordered_attributes = bool_property('ordered_attributes', W_XMLParserType),
     specified_attributes = bool_property('specified_attributes', W_XMLParserType),
     intern = GetSetProperty(W_XMLParserType.get_intern, cls=W_XMLParserType),
+    buffer_size = GetSetProperty(W_XMLParserType.get_buffer_size,
+                                 W_XMLParserType.set_buffer_size,
+                                 cls=W_XMLParserType),
     buffer_text = GetSetProperty(W_XMLParserType.get_buffer_text,
                                  W_XMLParserType.set_buffer_text, cls=W_XMLParserType),
 
