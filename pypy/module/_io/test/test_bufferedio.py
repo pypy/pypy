@@ -94,6 +94,22 @@ class AppTestBufferedReader:
         assert not raw.closed
         raw.close()
 
+    def test_tell(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw, buffer_size=2)
+        assert f.tell() == 0
+        d1 = f.read(1)
+        assert f.tell() == 1
+        d2 = f.read(2)
+        assert f.tell() == 3
+        assert f.seek(0) == 0
+        assert f.tell() == 0
+        d3 = f.read(3)
+        assert f.tell() == 3
+        assert d1 + d2 == d3
+        f.close()
+
 class AppTestBufferedWriter:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_io'])

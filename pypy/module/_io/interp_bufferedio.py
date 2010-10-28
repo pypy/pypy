@@ -153,6 +153,12 @@ class BufferedMixin:
             return self.raw_pos - self.pos
         return 0
 
+    @unwrap_spec('self', ObjSpace)
+    def tell_w(self, space):
+        self._check_init(space)
+        pos = self._raw_tell(space) - self._raw_offset()
+        return space.wrap(pos)
+
     @unwrap_spec('self', ObjSpace, r_longlong, int)
     def seek_w(self, space, pos, whence=0):
         self._check_init(space)
@@ -425,6 +431,8 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
             data = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos),
                                       current_size)
             builder.append(data)
+            remaining -= len(data)
+            written += len(data)
         self._reader_reset_buf()
 
         # XXX potential bug in CPython? The following is not enabled.
@@ -446,6 +454,7 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
             size = len(data)
             if size == 0:
                 return builder.build()
+            builder.append(data)
             remaining -= size
             written += size
 
@@ -499,6 +508,7 @@ W_BufferedReader.typedef = TypeDef(
 
     # from the mixin class
     seek = interp2app(W_BufferedReader.seek_w),
+    tell = interp2app(W_BufferedReader.tell_w),
     close = interp2app(W_BufferedReader.close_w),
     flush = interp2app(W_BufferedReader.flush_w),
     detach = interp2app(W_BufferedReader.detach_w),
@@ -659,6 +669,7 @@ W_BufferedWriter.typedef = TypeDef(
 
     # from the mixin class
     seek = interp2app(W_BufferedWriter.seek_w),
+    tell = interp2app(W_BufferedWriter.tell_w),
     close = interp2app(W_BufferedWriter.close_w),
     fileno = interp2app(W_BufferedWriter.fileno_w),
     detach = interp2app(W_BufferedWriter.detach_w),
