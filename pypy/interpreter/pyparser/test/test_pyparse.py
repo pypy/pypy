@@ -69,9 +69,9 @@ stuff = "nothing"
         assert exc.offset == 5
         assert exc.text.startswith("name another for")
         exc = py.test.raises(SyntaxError, parse, "\"blah").value
-        assert exc.msg == "EOL while scanning single-quoted string"
+        assert exc.msg == "EOL while scanning string literal"
         exc = py.test.raises(SyntaxError, parse, "'''\n").value
-        assert exc.msg == "EOF while scanning triple-quoted string"
+        assert exc.msg == "EOF while scanning triple-quoted string literal"
         for input in ("())", "(()", "((", "))"):
             py.test.raises(SyntaxError, parse, input)
 
