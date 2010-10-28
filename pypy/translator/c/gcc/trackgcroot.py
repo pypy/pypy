@@ -1655,7 +1655,8 @@ class GcRootTracker(object):
         elif self.format == 'elf64':
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
-            print >> output, "\t.type pypy_asm_stackwalk, @function"
+            _variant(elf64='.type pypy_asm_stackwalk, @function',
+                     darwin64='')
             print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
             print >> output, """\
@@ -1700,8 +1701,9 @@ class GcRootTracker(object):
             /* the return value is the one of the 'call' above, */
             /* because %rax (and possibly %rdx) are unmodified  */
             ret
-            .size pypy_asm_stackwalk, .-pypy_asm_stackwalk
             """
+            _variant(elf64='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
+                     darwin64='')
         else:
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
@@ -1828,6 +1830,7 @@ class GcRootTracker(object):
             _variant(elf='.section\t.rodata',
                      elf64='.section\t.rodata',
                      darwin='.const',
+                     darwin64='.const',
                      mingw32='')
 
             print >> output, """\
