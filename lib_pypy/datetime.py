@@ -1612,10 +1612,11 @@ class datetime(date):
     @classmethod
     def strptime(cls, date_string, format):
         'string, format -> new datetime parsed from a string (like time.strptime()).'
+        from _strptime import _strptime
         # _strptime._strptime returns a two-element tuple.  The first
         # element is a time.struct_time object.  The second is the
         # microseconds (which are not defined for time.struct_time).
-        struct, micros = _time.strptime(date_string, format)
+        struct, micros = _strptime(date_string, format)
         return cls(*(struct[0:6] + (micros,)))
 
     def utcoffset(self):
