@@ -41,6 +41,10 @@ class BaseStringFormatter(object):
     def std_wp_int(self, r, prefix='', keep_zero=False):
         # use self.prec to add some '0' on the left of the number
         if self.prec >= 0:
+            if self.prec > 1000:
+                raise OperationError(
+                    self.space.w_OverflowError, self.space.wrap(
+                    'formatted integer is too long (precision too large?)'))
             sign = r[0] == '-'
             padding = self.prec - (len(r)-int(sign))
             if padding > 0:
