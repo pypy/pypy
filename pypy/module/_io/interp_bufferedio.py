@@ -30,11 +30,16 @@ class W_BufferedIOBase(W_IOBase):
     def write_w(self, space, w_data):
         self._unsupportedoperation(space, "write")
 
+    @unwrap_spec('self', ObjSpace)
+    def detach_w(self, space):
+        self._unsupportedoperation(space, "detach")
+
 W_BufferedIOBase.typedef = TypeDef(
     '_BufferedIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_BufferedIOBase),
     read = interp2app(W_BufferedIOBase.read_w),
     write = interp2app(W_BufferedIOBase.write_w),
+    detach = interp2app(W_BufferedIOBase.detach_w),
     )
 
 class BufferedMixin:
@@ -127,6 +132,7 @@ class BufferedMixin:
 
     @unwrap_spec('self', ObjSpace, r_longlong, int)
     def seek_w(self, space, pos, whence=0):
+        self._check_init(space)
         if whence not in (0, 1, 2):
             raise operationerrfmt(space.w_ValueError,
                 "whence must be between 0 and 2, not %d", whence)
@@ -244,6 +250,20 @@ class BufferedMixin:
             l.append(self.buffer[i])
         return self._write(space, ''.join(l))
 
+    @unwrap_spec('self', ObjSpace)
+    def detach_w(self, space):
+        self._check_init(space)
+        space.call_method(self, "flush")
+        raw = self.raw
+        self.raw = None
+        self.state = STATE_DETACHED
+        return space.wrap(raw)
+
+    @unwrap_spec('self', ObjSpace)
+    def fileno_w(self, space):
+        self._check_init(space)
+        return space.call_method(self.raw, "fileno")
+
 class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
     @unwrap_spec('self', ObjSpace, W_Root, int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
@@ -261,6 +281,7 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
+        self._check_init(space)
         self._check_closed(space, "read of closed file")
         size = convert_size(space, w_size)
 
@@ -417,6 +438,8 @@ W_BufferedReader.typedef = TypeDef(
     seek = interp2app(W_BufferedReader.seek_w),
     close = interp2app(W_BufferedReader.close_w),
     flush = interp2app(W_BufferedReader.flush_w),
+    detach = interp2app(W_BufferedReader.detach_w),
+    fileno = interp2app(W_BufferedReader.fileno_w),
     closed = GetSetProperty(W_BufferedReader.closed_get_w),
     )
 
@@ -442,6 +465,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
+        self._check_init(space)
         self._check_closed(space, "write to closed file")
         data = space.str_w(w_data)
         size = len(data)
@@ -548,6 +572,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
 
     @unwrap_spec('self', ObjSpace)
     def flush_w(self, space):
+        self._check_init(space)
         self._check_closed(space, "flush of closed file")
         with self.lock:
             self._writer_flush_unlocked(space)
@@ -568,6 +593,8 @@ W_BufferedWriter.typedef = TypeDef(
     # from the mixin class
     seek = interp2app(W_BufferedWriter.seek_w),
     close = interp2app(W_BufferedWriter.close_w),
+    fileno = interp2app(W_BufferedWriter.fileno_w),
+    detach = interp2app(W_BufferedWriter.detach_w),
     closed = GetSetProperty(W_BufferedWriter.closed_get_w),
     )
 

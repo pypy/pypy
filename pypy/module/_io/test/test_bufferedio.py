@@ -49,6 +49,19 @@ class AppTestBufferedReader:
         f = _io.BufferedReader(raw)
         assert f.readlines() == ['a\n', 'b\n', 'c']
 
+    def test_detach(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw)
+        assert f.fileno() == raw.fileno()
+        assert f.detach() is raw
+        raises(ValueError, f.fileno)
+        raises(ValueError, f.close)
+        raises(ValueError, f.detach)
+        raises(ValueError, f.flush)
+        assert not raw.closed
+        raw.close()
+
 class AppTestBufferedWriter:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_io'])
