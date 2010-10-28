@@ -22,6 +22,16 @@ class AppTestBufferedReader:
         assert r == "a\nb\n"
         f.close()
 
+    def test_read_pieces(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw)
+        assert f.read(3) == "a\nb"
+        assert f.read(3) == "\nc"
+        assert f.read(3) == ""
+        assert f.read(3) == ""
+        f.close()
+
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
@@ -32,6 +42,12 @@ class AppTestBufferedReader:
         f.seek(-2, 2)
         assert f.read() == "\nc"
         f.close()
+
+    def test_readlines(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw)
+        assert f.readlines() == ['a\n', 'b\n', 'c']
 
 class AppTestBufferedWriter:
     def setup_class(cls):

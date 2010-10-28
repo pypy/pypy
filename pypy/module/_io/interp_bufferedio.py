@@ -371,12 +371,14 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
         self.read_end = 0
 
         while remaining > 0 and self.read_end < self.buffer_size:
-            # Read until EOF or until read() would block
             try:
                 size = self._fill_buffer(space)
             except BlockingIOError:
+                # EOF or read() would block
                 if written == 0:
                     return None
+                size = 0
+            if size == 0:
                 break
 
             if remaining > 0:
