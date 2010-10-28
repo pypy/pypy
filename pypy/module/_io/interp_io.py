@@ -18,7 +18,7 @@ class W_BlockingIOError(W_IOError):
         self.written = written
 
 W_BlockingIOError.typedef = TypeDef(
-    'BlockingIOError',
+    'BlockingIOError', W_IOError.typedef,
     __doc__ = ("Exception raised when I/O would block "
                "on a non-blocking I/O stream"),
     __new__  = generic_new_descr(W_BlockingIOError),

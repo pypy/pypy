@@ -42,6 +42,16 @@ class AppTestIoModule:
         import _io
         e = _io.UnsupportedOperation("seek")
 
+    def test_blockingerror(self):
+        import _io
+        try:
+            raise _io.BlockingIOError(42, "test blocking", 123)
+        except IOError, e:
+            assert isinstance(e, _io.BlockingIOError)
+            assert e.errno == 42
+            assert e.strerror == "test blocking"
+            assert e.characters_written == 123
+
     def test_destructor(self):
         import io
         io.IOBase()
