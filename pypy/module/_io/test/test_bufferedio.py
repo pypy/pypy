@@ -32,6 +32,29 @@ class AppTestBufferedReader:
         assert f.read(3) == ""
         f.close()
 
+    def test_read1(self):
+        import _io
+        class RecordingFileIO(_io.FileIO):
+            def read(self, size=-1):
+                self.nbreads += 1
+                return _io.FileIO.read(self, size)
+            def readinto(self, buf):
+                self.nbreads += 1
+                return _io.FileIO.readinto(self, buf)
+        raw = RecordingFileIO(self.tmpfile)
+        raw.nbreads = 0
+        f = _io.BufferedReader(raw, buffer_size=3)
+        assert f.read(1) == 'a'
+        assert f.read1(1) == '\n'
+        assert raw.nbreads == 1
+        assert f.read1(100) == 'b'
+        assert raw.nbreads == 1
+        assert f.read1(100) == '\nc'
+        assert raw.nbreads == 2
+        assert f.read1(100) == ''
+        assert raw.nbreads == 3
+        f.close()
+
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)

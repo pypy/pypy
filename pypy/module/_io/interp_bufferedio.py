@@ -27,6 +27,10 @@ class W_BufferedIOBase(W_IOBase):
         self._unsupportedoperation(space, "read")
 
     @unwrap_spec('self', ObjSpace, W_Root)
+    def read1_w(self, space, w_size):
+        self._unsupportedoperation(space, "read1")
+
+    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._unsupportedoperation(space, "write")
 
@@ -38,6 +42,7 @@ W_BufferedIOBase.typedef = TypeDef(
     '_BufferedIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_BufferedIOBase),
     read = interp2app(W_BufferedIOBase.read_w),
+    read1 = interp2app(W_BufferedIOBase.read1_w),
     write = interp2app(W_BufferedIOBase.write_w),
     detach = interp2app(W_BufferedIOBase.detach_w),
     )
@@ -296,6 +301,45 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
                     res = self._read_generic(space, size)
         return space.wrap(res)
 
+    @unwrap_spec('self', ObjSpace, int)
+    def read1_w(self, space, size):
+        self._check_init(space)
+        self._check_closed(space, "read of closed file")
+
+        if size < 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "read length must be positive"))
+        if size == 0:
+            return space.wrap("")
+
+        with self.lock:
+            if self.writable:
+                self._writer_flush_unlocked(space, restore_pos=True)
+
+            # Return up to n bytes.  If at least one byte is buffered, we only
+            # return buffered bytes.  Otherwise, we do one raw read.
+
+            # XXX: this mimicks the io.py implementation but is probably
+            # wrong. If we need to read from the raw stream, then we could
+            # actually read all `n` bytes asked by the caller (and possibly
+            # more, so as to fill our buffer for the next reads).
+
+            have = self._readahead()
+            if have == 0:
+                # Fill the buffer from the raw stream
+                self._reader_reset_buf()
+                self.pos = 0
+                try:
+                    have = self._fill_buffer(space)
+                except BlockingIOError:
+                    have = 0
+            if size > have:
+                size = have
+            data = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos),
+                                      size)
+            self.pos += size
+            return space.wrap(data)
+
     def _read_all(self, space):
         "Read all the file, don't update the cache"
         builder = StringBuilder()
@@ -433,6 +477,7 @@ W_BufferedReader.typedef = TypeDef(
     __init__  = interp2app(W_BufferedReader.descr_init),
 
     read = interp2app(W_BufferedReader.read_w),
+    read1 = interp2app(W_BufferedReader.read1_w),
 
     # from the mixin class
     seek = interp2app(W_BufferedReader.seek_w),
