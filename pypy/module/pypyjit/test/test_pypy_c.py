@@ -294,7 +294,11 @@ class PyPyCJITTests(object):
 
         ops = self.get_by_bytecode("LOAD_ATTR")
         assert len(ops) == 2
-        assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
+        # With mapdict, we get fast access to (so far) the 5 first
+        # attributes, which means it is done with only the following
+        # operations.  (For the other attributes there is additionally
+        # a getarrayitem_gc.)
+        assert ops[0].get_opnames() == ["getfield_gc",
                                         "guard_nonnull_class"]
         assert not ops[1] # second LOAD_ATTR folded away
 
