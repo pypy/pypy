@@ -505,7 +505,7 @@ information passed to the ExternalEntityRefHandler."""
         err = rffi.charp2strn(XML_ErrorString(code), 200)
         lineno = XML_GetCurrentLineNumber(self.itself)
         colno = XML_GetCurrentColumnNumber(self.itself)
-        msg = "%s: line: %d, column: %d" % (err, lineno, colno)
+        msg = "%s: line %d, column %d" % (err, lineno, colno)
         w_module = space.getbuiltinmodule('pyexpat')
         w_errorcls = space.getattr(w_module, space.wrap('error'))
         w_error = space.call_function(
