@@ -1037,7 +1037,7 @@ class __extend__(pyframe.PyFrame):
 
     def LIST_APPEND(self, oparg, next_instr):
         w = self.popvalue()
-        v = self.peekvalue(oparg)
+        v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
 
     def SET_ADD(self, oparg, next_instr):
@@ -1123,11 +1123,6 @@ class __extend__(pyframe.CPythonFrame):
                 raise BytecodeCorruption
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
-
-    def LIST_APPEND(self, oparg, next_instr):
-        w_value = self.popvalue()
-        w_list = self.peekvalue(oparg + 1)
-        self.space.call_method(w_list, "append", w_value)
 
     def STORE_MAP(self, zero, next_instr):
         if sys.version_info >= (2, 6):

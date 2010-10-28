@@ -1060,7 +1060,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._listcomp_generator(gens, gen_index, elt)
         else:
             elt.walkabout(self)
-            self.emit_op_arg(ops.LIST_APPEND, gen_index)
+            self.emit_op_arg(ops.LIST_APPEND, gen_index + 1)
             self.use_next_block(skip)
         self.use_next_block(if_cleanup)
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
