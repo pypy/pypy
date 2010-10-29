@@ -885,6 +885,8 @@ PyTraceback.typedef = TypeDef("traceback",
 PyTraceback.typedef.acceptable_as_base_class = False
 
 GeneratorIterator.typedef = TypeDef("generator",
+    __repr__   = interp2app(GeneratorIterator.descr__repr__,
+                            unwrap_spec=['self', ObjSpace]),
     __reduce__   = interp2app(GeneratorIterator.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     next       = interp2app(GeneratorIterator.descr_next,

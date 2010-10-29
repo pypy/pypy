@@ -241,3 +241,8 @@ z = [1, 2, 7]
 res = f()
 """ in d
         assert d['res'] == (10, 7)
+
+    def test_repr(self):
+        def myFunc():
+            yield 1
+        assert repr(myFunc()).startswith("<generator object myFunc at 0x")

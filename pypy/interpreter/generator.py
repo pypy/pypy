@@ -13,6 +13,12 @@ class GeneratorIterator(Wrappable):
         self.frame = frame
         self.running = False
 
+    def descr__repr__(self, space):
+        code_name = self.frame.pycode.co_name
+        addrstring = self.getaddrstring(space)
+        return space.wrap("<generator object %s at 0x%s>" %
+                          (code_name, addrstring))
+
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
