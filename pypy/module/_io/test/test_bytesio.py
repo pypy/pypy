@@ -25,3 +25,4 @@ class AppTestBytesIO:
         assert f.tell() == 0
         assert f.seek(-1, 2) == 4
         assert f.tell() == 4
+        assert f.seek(0) == 0

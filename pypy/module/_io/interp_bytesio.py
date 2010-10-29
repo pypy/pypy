@@ -100,7 +100,7 @@ class W_BytesIO(W_BufferedIOBase):
             if pos < 0:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "negative seek value"))
-        if whence == 1:
+        elif whence == 1:
             if pos > sys.maxint - self.pos:
                 raise OperationError(space.w_OverflowError, space.wrap(
                     "new position too large"))
