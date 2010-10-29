@@ -209,7 +209,7 @@ class VArrayValue(AbstractVirtualValue):
         key = self.get_key_box()
         if key in already_seen:
             return
-        already_seen.append(key)
+        already_seen[key] = None
         if self.box is None:
             for itemvalue in self._items:
                 itemvalue.enum_forced_boxes(boxes, already_seen)

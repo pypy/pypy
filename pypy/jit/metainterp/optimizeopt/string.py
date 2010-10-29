@@ -112,7 +112,7 @@ class VStringPlainValue(VAbstractStringValue):
         key = self.get_key_box()
         if key in already_seen:
             return
-        already_seen.append(key)
+        already_seen[key] = None
         if self.box is None:
             for box in self._chars:
                 box.enum_forced_boxes(boxes, already_seen)
@@ -164,7 +164,7 @@ class VStringConcatValue(VAbstractStringValue):
         key = self.get_key_box()
         if key in already_seen:
             return
-        already_seen.append(key)
+        already_seen[key] = None
         if self.box is None:
             self.left.enum_forced_boxes(boxes, already_seen)
             self.right.enum_forced_boxes(boxes, already_seen)
@@ -220,7 +220,7 @@ class VStringSliceValue(VAbstractStringValue):
         key = self.get_key_box()
         if key in already_seen:
             return
-        already_seen.append(key)
+        already_seen[key] = None
         if self.box is None:
             self.vstr.enum_forced_boxes(boxes, already_seen)
             self.vstart.enum_forced_boxes(boxes, already_seen)
