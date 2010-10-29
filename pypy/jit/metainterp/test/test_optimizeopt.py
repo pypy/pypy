@@ -215,7 +215,9 @@ class Storage(compile.ResumeGuardDescr):
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure
     def clone_if_mutable(self):
-        return Storage(self.metainterp_sd, self.original_greenkey)
+        res = Storage(self.metainterp_sd, self.original_greenkey)
+        self.copy_all_attrbutes_into(res)
+        return res
 
 def _sortboxes(boxes):
     _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
