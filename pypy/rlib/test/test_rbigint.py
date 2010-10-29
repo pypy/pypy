@@ -448,6 +448,30 @@ class TestInternalFunctions(object):
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
                 r_ulonglong(-9**50))
 
+    def test_parse_digit_string(self):
+        from pypy.rlib.rbigint import parse_digit_string
+        class Parser:
+            def __init__(self, base, sign, digits):
+                self.base = base
+                self.sign = sign
+                self.next_digit = iter(digits + [-1]).next
+        x = parse_digit_string(Parser(10, 1, [6]))
+        assert x.eq(rbigint.fromint(6))
+        x = parse_digit_string(Parser(10, 1, [6, 2, 3]))
+        assert x.eq(rbigint.fromint(623))
+        x = parse_digit_string(Parser(10, -1, [6, 2, 3]))
+        assert x.eq(rbigint.fromint(-623))
+        x = parse_digit_string(Parser(16, 1, [0xA, 0x4, 0xF]))
+        assert x.eq(rbigint.fromint(0xA4F))
+        num = 0
+        for i in range(36):
+            x = parse_digit_string(Parser(36, 1, range(i)))
+            assert x.eq(rbigint.fromlong(num))
+            num = num * 36 + i
+        x = parse_digit_string(Parser(16, -1, range(15,-1,-1)*99))
+        assert x.eq(rbigint.fromlong(long('-0x' + 'FEDCBA9876543210'*99, 16)))
+
+
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):

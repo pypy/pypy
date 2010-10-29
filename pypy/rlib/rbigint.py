@@ -1596,11 +1596,16 @@ def _hash(v):
 
 # a few internal helpers
 
-DEC_PER_DIGIT = 1
-while int('9' * DEC_PER_DIGIT) < MASK:
-    DEC_PER_DIGIT += 1
-DEC_PER_DIGIT -= 1
-DEC_MAX = 10 ** DEC_PER_DIGIT
+def digits_max_for_base(base):
+    dec_per_digit = 1
+    while base ** dec_per_digit < MASK:
+        dec_per_digit += 1
+    dec_per_digit -= 1
+    return base ** dec_per_digit
+
+BASE_MAX = [0, 0] + [digits_max_for_base(_base) for _base in range(2, 37)]
+DEC_MAX = digits_max_for_base(10)
+assert DEC_MAX == BASE_MAX[10]
 
 def _decimalstr_to_bigint(s):
     # a string that has been already parsed to be decimal and valid,
@@ -1615,7 +1620,6 @@ def _decimalstr_to_bigint(s):
         p += 1
 
     a = rbigint.fromint(0)
-    cnt = DEC_PER_DIGIT
     tens = 1
     dig = 0
     ord0 = ord('0')
@@ -1631,4 +1635,23 @@ def _decimalstr_to_bigint(s):
         a.sign = -1
     return a
 
-
+def parse_digit_string(parser):
+    # helper for objspace.std.strutil
+    a = rbigint.fromint(0)
+    base = parser.base
+    digitmax = BASE_MAX[base]
+    tens, dig = 1, 0
+    while True:
+        digit = parser.next_digit()
+        if tens == digitmax or digit < 0:
+            a = _muladd1(a, tens, dig)
+            if digit < 0:
+                break
+            dig = digit
+            tens = base
+        else:
+            dig = dig * base + digit
+            tens *= base
+    if parser.sign == -1:
+        a.sign = -1
+    return a
