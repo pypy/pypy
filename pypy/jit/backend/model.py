@@ -33,14 +33,14 @@ class AbstractCPU(object):
         pass
 
 
-    def compile_loop(self, inputargs, operations, looptoken):
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
         """Assemble the given loop.
         Extra attributes should be put in the LoopToken to
         point to the compiled loop in assembler.
         """
         raise NotImplementedError
 
-    def compile_bridge(self, faildescr, inputargs, operations):
+    def compile_bridge(self, faildescr, inputargs, operations, log=True):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
         """

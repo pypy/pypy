@@ -599,5 +599,5 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes):
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
         ]
     operations[1].setfailargs([])
-    cpu.compile_loop(inputargs, operations, loop_token)
+    cpu.compile_loop(inputargs, operations, loop_token, log=False)
     return loop_token

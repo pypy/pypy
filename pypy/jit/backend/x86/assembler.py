@@ -295,7 +295,7 @@ class Assembler386(object):
         self.mc.RET()
         self.mc.done()
 
-    def assemble_loop(self, inputargs, operations, looptoken):
+    def assemble_loop(self, inputargs, operations, looptoken, log):
         """adds the following attributes to looptoken:
                _x86_loop_code       (an integer giving an address)
                _x86_bootstrap_code  (an integer giving an address)
@@ -310,10 +310,11 @@ class Assembler386(object):
 
         self.setup()
         funcname = self._find_debug_merge_point(operations)
-
+        if log:
+            self._register_counter()
+            operations = self._inject_debugging_code(operations)
         
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        operations = self._inject_debugging_code(operations)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         looptoken._x86_arglocs = arglocs
 
@@ -340,13 +341,16 @@ class Assembler386(object):
         self.mc.end_function()
         self.write_pending_failure_recoveries()
         
-    def assemble_bridge(self, faildescr, inputargs, operations):
+    def assemble_bridge(self, faildescr, inputargs, operations, log):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup()
         funcname = self._find_debug_merge_point(operations)
+        if log:
+            self._register_counter()
+            operations = self._inject_debugging_code(operations)
 
         arglocs = self.rebuild_faillocs_from_descr(
             faildescr._x86_failure_recovery_bytecode)
@@ -401,12 +405,14 @@ class Assembler386(object):
         else:
             funcname = "<loop %d>" % len(self.loop_run_counters)
         # invent the counter, so we don't get too confused
+        return funcname
+
+    def _register_counter(self):
         if self._debug:
             struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                    track_allocation=False)   # known to leak
             struct.i = 0
             self.loop_run_counters.append((len(self.loop_run_counters), struct))
-        return funcname
         
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset

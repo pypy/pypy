@@ -118,13 +118,13 @@ class BaseCPU(model.AbstractCPU):
             self._descrs[key] = descr
             return descr
 
-    def compile_bridge(self, faildescr, inputargs, operations):
+    def compile_bridge(self, faildescr, inputargs, operations, log=True):
         c = llimpl.compile_start()
         self._compile_loop_or_bridge(c, inputargs, operations)
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, loopdescr):
+    def compile_loop(self, inputargs, operations, loopdescr, log=True):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl

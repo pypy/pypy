@@ -49,11 +49,13 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler.finish_once()
         self.profile_agent.shutdown()
 
-    def compile_loop(self, inputargs, operations, looptoken):
-        self.assembler.assemble_loop(inputargs, operations, looptoken)
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
+        self.assembler.assemble_loop(inputargs, operations, looptoken,
+                                     log=log)
 
-    def compile_bridge(self, faildescr, inputargs, operations):
-        self.assembler.assemble_bridge(faildescr, inputargs, operations)
+    def compile_bridge(self, faildescr, inputargs, operations, log=True):
+        self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                       log=log)
 
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)
