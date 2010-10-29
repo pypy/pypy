@@ -777,3 +777,19 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 0, 1)
         res = self.check(f, 'x')
         assert res == (0, 0, 1)
+
+class TestDictSubclassShortcutBug(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmapdict": True,
+               "objspace.std.withmethodcachecounter": True})
+
+    def test_bug(self):
+        w_dict = self.space.appexec([], """():
+                class A(dict):
+                    def __getitem__(self, key):
+                        return 1
+                assert eval("a", globals(), A()) == 1
+                return A()
+                """)
+        assert w_dict.user_overridden_class

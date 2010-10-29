@@ -203,6 +203,7 @@ def _builduserclswithfeature(config, supercls, *features):
         from pypy.objspace.std.mapdict import BaseMapdictObject, ObjectMixin
         add(BaseMapdictObject)
         add(ObjectMixin)
+        body["user_overridden_class"] = True
         features = ()
 
     if "user" in features:     # generic feature needed by all subcls
