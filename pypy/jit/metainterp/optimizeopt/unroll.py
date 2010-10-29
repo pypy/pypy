@@ -48,10 +48,8 @@ class OptUnroll(Optimization):
         for op in self.optimizer.pure_operations.values():
             v = self.getvalue(op.result)
             v.fromstart = True
-            
 
-        self.snapshot_map ={None: None}
-        
+        self.snapshot_map = {None: None}
         inputargs = []
         seen_inputargs = {}
         for arg in jump_args:
@@ -62,7 +60,6 @@ class OptUnroll(Optimization):
                     inputargs.append(a)
 
         for newop in loop_operations:
-            #import pdb; pdb.set_trace()
             newop.initarglist([self.inline_arg(a) for a in newop.getarglist()])
             if newop.result:
                 old_result = newop.result
@@ -75,38 +72,22 @@ class OptUnroll(Optimization):
                 
             if newop.getopnum() == rop.JUMP:
                 args = []
-                #for arg in newop.getarglist():
                 for arg in inputargs:
                     arg = argmap[arg]
                     args.append(self.getvalue(arg).force_box())
                 newop.initarglist(args + inputargs[len(args):])
 
             #print 'P: ', str(newop)
-            #current = len(self.optimizer.newoperations)
             self.emit_operation(newop)
 
-
-            # FIXME: force_lazy_setfield in heap.py may reorder last ops
-            #current = max(current-1, 0)
-        
         jmp = self.optimizer.newoperations[-1]
         assert jmp.getopnum() == rop.JUMP
         jumpargs = jmp.getarglist()
         for op in self.optimizer.newoperations:
-            print 'E: ', str(op)
-            #if op.is_guard():
-            #    descr = op.getdescr()
-            #    assert isinstance(descr, ResumeGuardDescr)
-            #    descr.rd_snapshot = None #FIXME: In the right place?
+            #print 'E: ', str(op)
             args = op.getarglist()
             if op.is_guard():
-                #new_failargs = []
-                #for a in op.getfailargs():
-                #    new_failargs.append(self.getvalue(self.inline_arg(a)).force_box())
-                #op.setfailargs(new_failargs)
-                    
                 args = args + op.getfailargs()
-            print "Args: ", args
             
             for a in args:
                 if not isinstance(a, Const) and a in self.optimizer.values:
@@ -118,20 +99,7 @@ class OptUnroll(Optimization):
                             newval = self.getvalue(argmap[a])
                             jumpargs.append(newval.force_box())
 
-
-                        #boxes = []
-                        #v.enum_forced_boxes(boxes, seen_inputargs)
-                        #for b in boxes:
-                        #    if not isinstance(b, Const):
-                        #        inputargs.append(b)
-                        #        jumpargs.append(b)
-                                
-                        #newval = self.getvalue(argmap[a])
-                        #jumpargs.append(newval.force_box())
         jmp.initarglist(jumpargs)
-
-        print "Inputargs: ", inputargs
-
         return inputargs
 
     def inline_arg(self, arg):
