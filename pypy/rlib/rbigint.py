@@ -1631,7 +1631,7 @@ def _decimalstr_to_bigint(s):
             a = _muladd1(a, tens, dig)
             tens = 1
             dig = 0
-    if sign:
+    if sign and a.sign == 1:
         a.sign = -1
     return a
 
@@ -1652,6 +1652,5 @@ def parse_digit_string(parser):
         else:
             dig = dig * base + digit
             tens *= base
-    if parser.sign == -1:
-        a.sign = -1
+    a.sign *= parser.sign
     return a

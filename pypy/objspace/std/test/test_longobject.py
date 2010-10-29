@@ -254,3 +254,7 @@ class AppTestLong:
         class myotherlong(long):
             pass
         assert long(myotherlong(21)) == 21L
+
+    def test_negative_zero(self):
+        x = eval("-0L")
+        assert x == 0L

@@ -112,6 +112,23 @@ class Test_rbigint(object):
         assert rbigint.fromrarith_int(r_uint(2*sys.maxint+1)).eq(
             rbigint.fromlong(2*sys.maxint+1))
 
+    def test_fromdecimalstr(self):
+        x = rbigint.fromdecimalstr("12345678901234567890523897987")
+        assert x.tolong() == 12345678901234567890523897987L
+        assert x.tobool() is True
+        x = rbigint.fromdecimalstr("+12345678901234567890523897987")
+        assert x.tolong() == 12345678901234567890523897987L
+        assert x.tobool() is True
+        x = rbigint.fromdecimalstr("-12345678901234567890523897987")
+        assert x.tolong() == -12345678901234567890523897987L
+        assert x.tobool() is True
+        x = rbigint.fromdecimalstr("+0")
+        assert x.tolong() == 0
+        assert x.tobool() is False
+        x = rbigint.fromdecimalstr("-0")
+        assert x.tolong() == 0
+        assert x.tobool() is False
+
     def test_add(self):
         x = 123456789123456789000000L
         y = 123858582373821923936744221L
@@ -470,6 +487,11 @@ class TestInternalFunctions(object):
             num = num * 36 + i
         x = parse_digit_string(Parser(16, -1, range(15,-1,-1)*99))
         assert x.eq(rbigint.fromlong(long('-0x' + 'FEDCBA9876543210'*99, 16)))
+        assert x.tobool() is True
+        x = parse_digit_string(Parser(7, 1, [0, 0, 0]))
+        assert x.tobool() is False
+        x = parse_digit_string(Parser(7, -1, [0, 0, 0]))
+        assert x.tobool() is False
 
 
 BASE = 2 ** SHIFT
