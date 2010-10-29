@@ -9,8 +9,11 @@ class OptUnroll(Optimization):
     distinction anymore)"""
     
     def setup(self, virtuals):
-        self.enabled = virtuals
-
+        self.enabled = virtuals        
+        self.cloned_operations = []
+        for op in self.optimizer.loop.operations:
+            self.cloned_operations.append(op.clone())
+            
     def propagate_forward(self, op):
         if not self.enabled:
             self.emit_operation(op)
@@ -22,8 +25,7 @@ class OptUnroll(Optimization):
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
             op.initarglist([])
-            inputargs = self.inline(loop.operations,
-                                    #loop.preamble.operations + [op],
+            inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
@@ -51,27 +53,24 @@ class OptUnroll(Optimization):
         self.snapshot_map ={None: None}
         
         inputargs = []
-        seen = {}
+        seen_inputargs = {}
         for arg in jump_args:
             boxes = []
-            self.getvalue(arg).enum_forced_boxes(boxes, seen)
+            self.getvalue(arg).enum_forced_boxes(boxes, seen_inputargs)
             for a in boxes:
                 if not isinstance(a, Const):
                     inputargs.append(a)
 
-        for op in loop_operations:
+        for newop in loop_operations:
             #import pdb; pdb.set_trace()
-            newop = op.clone()
             newop.initarglist([self.inline_arg(a) for a in newop.getarglist()])
-            if op.result:
-                newop.result = op.result.clonebox()
-                argmap[op.result] = newop.result
+            if newop.result:
+                old_result = newop.result
+                newop.result = newop.result.clonebox()
+                argmap[old_result] = newop.result
+
             descr = newop.getdescr()
             if isinstance(descr, ResumeGuardDescr):
-                orgdescr = op.getdescr()
-                assert isinstance(orgdescr, ResumeGuardDescr)
-                orgdescr.rd_snapshot = None #FIXME: In the right place?
-                descr.rd_numb = None
                 descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
                 
             if newop.getopnum() == rop.JUMP:
@@ -83,34 +82,55 @@ class OptUnroll(Optimization):
                 newop.initarglist(args + inputargs[len(args):])
 
             #print 'P: ', str(newop)
-            current = len(self.optimizer.newoperations)
+            #current = len(self.optimizer.newoperations)
             self.emit_operation(newop)
 
+
             # FIXME: force_lazy_setfield in heap.py may reorder last ops
-            current = max(current-1, 0)
-                
-            for op in self.optimizer.newoperations[current:]:
-                #print 'E: ', str(op)
-                if op.is_guard():
-                    descr = op.getdescr()
-                    assert isinstance(descr, ResumeGuardDescr)
-                    descr.rd_snapshot = None #FIXME: In the right place?
-                args = op.getarglist()
-                if op.is_guard():
-                    args = args + op.getfailargs()
-                #if op.getopnum() == rop.SETFIELD_GC:
-                #    import pdb; pdb.set_trace()
-                for a in args:
-                    if not isinstance(a, Const) and a in self.optimizer.values:
-                        v = self.getvalue(a)
-                        if v.fromstart and a not in inputargs:
+            #current = max(current-1, 0)
+        
+        jmp = self.optimizer.newoperations[-1]
+        assert jmp.getopnum() == rop.JUMP
+        jumpargs = jmp.getarglist()
+        for op in self.optimizer.newoperations:
+            print 'E: ', str(op)
+            #if op.is_guard():
+            #    descr = op.getdescr()
+            #    assert isinstance(descr, ResumeGuardDescr)
+            #    descr.rd_snapshot = None #FIXME: In the right place?
+            args = op.getarglist()
+            if op.is_guard():
+                #new_failargs = []
+                #for a in op.getfailargs():
+                #    new_failargs.append(self.getvalue(self.inline_arg(a)).force_box())
+                #op.setfailargs(new_failargs)
+                    
+                args = args + op.getfailargs()
+            print "Args: ", args
+            
+            for a in args:
+                if not isinstance(a, Const) and a in self.optimizer.values:
+                    v = self.getvalue(a)
+                    if v.fromstart and not v.is_constant():
+                        a = v.force_box()
+                        if a not in inputargs:
                             inputargs.append(a)
-                            jmp = self.optimizer.newoperations[-1]
-                            if jmp.getopnum() == rop.JUMP:
-                                newval = self.getvalue(argmap[a])
-                                boxes = jmp.getarglist()
-                                boxes.append(newval.force_box())
-                                jmp.initarglist(boxes)
+                            newval = self.getvalue(argmap[a])
+                            jumpargs.append(newval.force_box())
+
+
+                        #boxes = []
+                        #v.enum_forced_boxes(boxes, seen_inputargs)
+                        #for b in boxes:
+                        #    if not isinstance(b, Const):
+                        #        inputargs.append(b)
+                        #        jumpargs.append(b)
+                                
+                        #newval = self.getvalue(argmap[a])
+                        #jumpargs.append(newval.force_box())
+        jmp.initarglist(jumpargs)
+
+        print "Inputargs: ", inputargs
 
         return inputargs
 

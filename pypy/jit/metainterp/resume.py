@@ -298,7 +298,7 @@ class ResumeDataVirtualAdder(object):
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
-        #storage.rd_snapshot = None FIXME!!
+        storage.rd_snapshot = None
 
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v

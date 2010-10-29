@@ -3092,8 +3092,8 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i2)
         '''
         expected = '''
-        [i0]
-        jump(1)
+        []
+        jump()
         '''
         self.optimize_loop(ops, 'Not', expected)
 
@@ -3109,28 +3109,30 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i2)
         '''
         expected = '''
-        [i0]
-        jump(3)
+        []
+        jump()
         '''
         self.optimize_loop(ops, 'Not', expected)
 
     def test_arraycopy_not_virtual(self):
         ops = '''
-        [p0]
+        []
         p1 = new_array(3, descr=arraydescr)
         p2 = new_array(3, descr=arraydescr)
         setarrayitem_gc(p1, 2, 10, descr=arraydescr)
         setarrayitem_gc(p2, 2, 13, descr=arraydescr)
         call(0, p1, p2, 0, 0, 3, descr=arraycopydescr)
-        jump(p2)
+        escape(p2)
+        jump()
         '''
         expected = '''
-        [p0]
+        []
         p2 = new_array(3, descr=arraydescr)
         setarrayitem_gc(p2, 2, 10, descr=arraydescr)
-        jump(p2)
+        escape(p2)
+        jump()
         '''
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, '', expected)
 
     def test_arraycopy_no_elem(self):
         """ this was actually observed in the wild
