@@ -55,6 +55,8 @@ class TestProfile(ProfilerMixin):
             TRACING,
             BACKEND,
             ~ BACKEND,
+            BACKEND,
+            ~ BACKEND,
             ~ TRACING,
             RUNNING,
             ~ RUNNING,
@@ -62,8 +64,8 @@ class TestProfile(ProfilerMixin):
             ~ BLACKHOLE
             ]
         assert profiler.events == expected
-        assert profiler.times == [2, 1, 1, 1]
-        assert profiler.counters == [1, 1, 1, 1, 3, 3, 1, 7, 1, 0, 0, 0,
+        assert profiler.times == [3, 2, 1, 1]
+        assert profiler.counters == [1, 2, 1, 1, 3, 3, 1, 13, 2, 0, 0, 0,
                                      0, 0, 0, 0]
 
     def test_simple_loop_with_call(self):
