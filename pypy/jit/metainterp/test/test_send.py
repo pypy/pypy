@@ -149,9 +149,9 @@ class SendTests:
             def foo(self):
                 return 3
         def externfn(y):
-            if y % 4 == 0: return W1()
-            elif y % 4 == 3: return W2()
-            else: return W3()
+            lst = [W1, W1, W2, W2, W3, W3, W2, W1, W3]
+            W = lst[y % len(lst)]
+            return W()
         def f(y):
             while y > 0:
                 myjitdriver.can_enter_jit(y=y)
@@ -164,7 +164,8 @@ class SendTests:
         for j in range(69, 75):
             res = self.meta_interp(f, [j], policy=policy)
             assert res == 42
-            self.check_loop_count(3)
+            self.check_enter_count(5)
+            self.check_loop_count(5)
 
     def test_oosend_guard_failure(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])
