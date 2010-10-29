@@ -160,6 +160,13 @@ def test_special():
     assert obj.getweakref() is lifeline1
     assert obj.getdictvalue(space, "weakref") == 41
 
+    lifeline1 = WeakrefLifeline(space)
+    obj = c.instantiate()
+    assert obj.getweakref() is None
+    obj.setweakref(space, lifeline1)
+    obj.setweakref(space, None)
+
+
 
 def test_slots():
     cls = Class()
