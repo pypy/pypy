@@ -7,7 +7,7 @@ class AppTestHashlib:
 
     def test_simple(self):
         import _hashlib
-        assert isinstance(_hashlib.new('md5'), _hashlib.HASH)
+        assert _hashlib.new('md5').__class__.__name__ == 'HASH'
         assert len(_hashlib.new('md5').hexdigest()) == 32
 
     def test_attributes(self):
@@ -59,5 +59,5 @@ class AppTestHashlib:
 
     def test_unicode(self):
         import _hashlib
-        assert isinstance(_hashlib.new('sha1', u'xxx'), _hashlib.HASH)
+        assert _hashlib.new('sha1', u'xxx').__class__.__name__ == 'HASH'
 
