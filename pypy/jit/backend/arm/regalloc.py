@@ -19,6 +19,9 @@ class ARMRegisterManager(RegisterManager):
             self.try_allocate_reg(inputargs[i], r.all_regs[ord(enc[j])])
             j += 1
 
+    def convert_to_imm(self, c):
+        return c
+
 class ARMFrameManager(FrameManager):
     @staticmethod
     def frame_pos(loc, type):

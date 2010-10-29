@@ -3,7 +3,7 @@ from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
-from pypy.jit.backend.arm.regalloc import ARMRegisterManager
+from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
@@ -25,6 +25,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self._debug_asm = True
 
+        self._exit_code_addr = self.mc.curraddr()
         self._gen_exit_path()
         self.align()
         self.mc._start_addr = self.mc.curraddr()
@@ -136,7 +137,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
         n = self.cpu.get_fail_descr_number(op.getdescr())
         self.encode32(mem, j+1, n)
         self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond)
-        self.mc.gen_load_int(reg.value, self.mc.baseaddr(), cond=fcond)
+        self.mc.gen_load_int(reg.value, self._exit_code_addr, cond=fcond)
         self.mc.MOV_rr(r.pc.value, reg.value, cond=fcond)
 
         # This register is used for patching when assembling a bridge
@@ -168,7 +169,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken):
         longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self.mc)
+        regalloc = ARMRegisterManager(longevity, assembler=self.mc, frame_manager=ARMFrameManager())
         self.align()
         loop_start=self.mc.curraddr()
         self.gen_func_prolog()
@@ -189,7 +190,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
     def assemble_bridge(self, faildescr, inputargs, operations):
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
         longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self.mc)
+        regalloc = ARMRegisterManager(longevity, assembler=self.mc, frame_manager=ARMFrameManager())
 
         regalloc.update_bindings(enc, inputargs)
         bridge_head = self.mc.curraddr()

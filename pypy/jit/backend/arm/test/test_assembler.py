@@ -1,3 +1,4 @@
+from pypy.jit.backend.arm.arch import arm_int_div, arm_int_div_sign
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD
@@ -36,6 +37,18 @@ class TestRunningAssembler():
         self.a.mc.gen_load_int(r.r0.value, 0xFFFFFF85)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == -123
+
+    def test_load_neg_int_to_reg(self):
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.r0.value, -110)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == -110
+
+    def test_load_neg_int_to_reg2(self):
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.r0.value, -3)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == -3
 
 
     def test_or(self):
@@ -107,6 +120,47 @@ class TestRunningAssembler():
         self.a.mc.MOV_rr(r.pc.value, r.r1.value)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 133
+
+    def test_division(self):
+        self.a.gen_func_prolog()
+        self.a.mc.MOV_ri(r.r0.value, 123)
+        self.a.mc.MOV_ri(r.r1.value, 2)
+
+        # call to div
+        self.a.mc.PUSH(range(2, 12))
+        div_addr = rffi.cast(lltype.Signed, llhelper(arm_int_div_sign, arm_int_div))
+        self.a.mc.gen_load_int(r.r10.value, div_addr)
+        self.a.mc.gen_load_int(r.lr.value, self.a.mc.curraddr()+self.a.mc.size_of_gen_load_int+WORD)
+        self.a.mc.MOV_rr(r.pc.value, r.r10.value)
+        self.a.mc.LDM(r.sp.value, range(2, 12), w=1) # XXX Replace with POP instr. someday
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 61
+
+    def test_DIV(self):
+        self.a.gen_func_prolog()
+        self.a.mc.MOV_ri(r.r0.value, 123)
+        self.a.mc.MOV_ri(r.r1.value, 2)
+        self.a.mc.DIV()
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 61
+
+    def test_DIV2(self):
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.r0.value, -110)
+        self.a.mc.gen_load_int(r.r1.value, 3)
+        self.a.mc.DIV()
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == -36
+
+    def test_DIV3(self):
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.r8.value, 110)
+        self.a.mc.gen_load_int(r.r9.value, -3)
+        self.a.mc.MOV_rr(r.r0.value, r.r8.value)
+        self.a.mc.MOV_rr(r.r1.value, r.r9.value)
+        self.a.mc.DIV()
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == -36
 
 def callme(inp):
     i = inp + 10

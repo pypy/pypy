@@ -1,7 +1,8 @@
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
-from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
+from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
+                                        arm_int_div_sign, arm_int_mod_sign, arm_int_mod)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
@@ -68,7 +69,44 @@ class IntOpAsslember(object):
         return fcond
 
     def emit_op_int_mul(self, op, regalloc, fcond):
-        import pdb; pdb.set_trace()
+        res = regalloc.try_allocate_reg(op.result)
+        reg1 = self._put_in_reg(op.getarg(0), regalloc)
+        reg2 = self._put_in_reg(op.getarg(1), regalloc)
+        self.mc.MUL(res.value, reg1.value, reg2.value)
+        regalloc.possibly_free_var(reg1)
+        regalloc.possibly_free_var(reg2)
+        return fcond
+
+    def emit_op_int_floordiv(self, op, regalloc, fcond):
+        arg1 = regalloc.make_sure_var_in_reg(op.getarg(0), selected_reg=r.r0)
+        arg2 = regalloc.make_sure_var_in_reg(op.getarg(1), selected_reg=r.r1)
+        assert arg1 == r.r0
+        assert arg2 == r.r1
+        res = regalloc.try_allocate_reg(op.result)
+        self.mc.DIV(fcond)
+        self.mc.MOV_rr(res.value, r.r0.value, cond=fcond)
+        regalloc.possibly_free_vars_for_op(op)
+        return fcond
+
+    def emit_op_int_mod(self, op, regalloc, fcond):
+        arg1 = regalloc.make_sure_var_in_reg(op.getarg(0), selected_reg=r.r0)
+        arg2 = regalloc.make_sure_var_in_reg(op.getarg(1), selected_reg=r.r1)
+        assert arg1 == r.r0
+        assert arg2 == r.r1
+        res = regalloc.try_allocate_reg(op.result)
+        self.mc.MOD(fcond)
+        self.mc.MOV_rr(res.value, r.r0.value, cond=fcond)
+        regalloc.possibly_free_vars_for_op(op)
+        return fcond
+
+    def _put_in_reg(self, box, regalloc):
+        if isinstance(box, ConstInt):
+            t = Box()
+            reg = regalloc.try_allocate_reg(t)
+            self.mc.gen_load_int(reg.value, box.getint())
+        else:
+            reg = regalloc.try_allocate_reg(box)
+        return reg
 
 class GuardOpAssembler(object):
     _mixin_ = True

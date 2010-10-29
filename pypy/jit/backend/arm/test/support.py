@@ -13,6 +13,7 @@ def run_asm(asm):
     addr = asm.mc._start_addr
     assert addr % 8 == 0
     func = rffi.cast(lltype.Ptr(BOOTSTRAP_TP), addr)
+    asm.mc._dump_trace('test.asm')
     return func()
 
 def skip_unless_arm():
