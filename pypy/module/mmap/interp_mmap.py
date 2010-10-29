@@ -248,3 +248,4 @@ W_MMap.typedef = TypeDef("mmap",
 
 constants = rmmap.constants
 PAGESIZE = rmmap.PAGESIZE
+ALLOCATIONGRANULARITY = rmmap.ALLOCATIONGRANULARITY

@@ -4,6 +4,7 @@ from pypy.rlib import rmmap
 class Module(MixedModule):
     interpleveldefs = {
         'PAGESIZE': 'space.wrap(interp_mmap.PAGESIZE)',
+        'ALLOCATIONGRANULARITY': 'space.wrap(interp_mmap.ALLOCATIONGRANULARITY)',
         'mmap': 'interp_mmap.W_MMap'
     }
 

@@ -11,8 +11,11 @@ class AppTestMMap:
     def test_page_size(self):
         import mmap
         assert mmap.PAGESIZE > 0
+        assert mmap.ALLOCATIONGRANULARITY > 0
         assert isinstance(mmap.PAGESIZE, int)
-        
+        assert isinstance(mmap.ALLOCATIONGRANULARITY, int)
+        assert mmap.ALLOCATIONGRANULARITY % mmap.PAGESIZE == 0
+
     def test_attributes(self):
         import mmap
         import os
