@@ -34,7 +34,8 @@ class AppTestMMap:
         from mmap import mmap
         import os
         import sys
-        
+
+        assert isinstance(mmap, type)
         raises(TypeError, mmap, "foo")
         raises(TypeError, mmap, 0, "foo")
              

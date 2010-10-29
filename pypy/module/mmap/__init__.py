@@ -4,7 +4,7 @@ from pypy.rlib import rmmap
 class Module(MixedModule):
     interpleveldefs = {
         'PAGESIZE': 'space.wrap(interp_mmap.PAGESIZE)',
-        'mmap': 'interp_mmap.mmap'
+        'mmap': 'interp_mmap.W_MMap'
     }
 
     appleveldefs = {
