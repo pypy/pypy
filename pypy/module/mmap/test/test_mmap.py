@@ -35,7 +35,6 @@ class AppTestMMap:
         import os
         import sys
 
-        assert isinstance(mmap, type)
         raises(TypeError, mmap, "foo")
         raises(TypeError, mmap, 0, "foo")
              
@@ -52,6 +51,13 @@ class AppTestMMap:
             raises(TypeError, mmap, 0, 1, tagname=123)
             raises(TypeError, mmap, 0, 1, access="foo")
             raises(ValueError, mmap, 0, 1, access=-1)
+
+    def test_subclass(self):
+        import mmap
+        class anon_mmap(mmap.mmap):
+            def __new__(klass, *args, **kwargs):
+                return mmap.mmap.__new__(klass, -1, *args, **kwargs)
+        anon_mmap(mmap.PAGESIZE)
 
     def test_file_size(self):
         import os
