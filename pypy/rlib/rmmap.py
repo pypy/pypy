@@ -421,8 +421,11 @@ class MMap(object):
         
         if len(byte) != 1:
             raise RTypeError("write_byte() argument must be char")
-        
+
         self.check_writeable()
+        if self.pos >= self.size:
+            raise RValueError("write byte out of range")
+
         self.data[self.pos] = byte[0]
         self.pos += 1
 
