@@ -160,7 +160,6 @@ class ThreadableTest:
 
     def clientTearDown(self):
         self.done.set()
-        test_support.gc_collect()
         thread.exit()
 
 class ThreadedTCPSocketTest(SocketTCPTest, ThreadableTest):
@@ -729,7 +728,6 @@ class TCPCloserTest(ThreadedTCPSocketTest):
     def testClose(self):
         conn, addr = self.serv.accept()
         conn.close()
-        test_support.gc_collect() # not sure why
 
         sd = self.cli
         read, write, err = select.select([sd], [], [], 1.0)
