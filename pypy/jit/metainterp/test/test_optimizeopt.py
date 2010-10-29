@@ -242,7 +242,8 @@ class BaseTestOptimizeOpt(BaseTest):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap)
 
-    def optimize_loop(self, ops, spectext, optops, checkspecnodes=True):
+    def optimize_loop(self, ops, spectext, optops, checkspecnodes=True,
+                      expected_preamble=None):
         loop = self.parse(ops)
         #
         if checkspecnodes:
@@ -259,6 +260,7 @@ class BaseTestOptimizeOpt(BaseTest):
         #
         self.loop = loop
         loop.preamble = TreeLoop('preamble')
+        loop.preamble.inputargs = loop.inputargs
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
@@ -270,20 +272,20 @@ class BaseTestOptimizeOpt(BaseTest):
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
 
+        if expected_preamble:
+            expected = self.parse(expected_preamble)
+            self.assert_equal(loop.preamble, expected)
+
     def test_simple(self):
         ops = """
-        [i]
-        i0 = int_sub(i, 1)
-        guard_value(i0, 0) [i0]
-        jump(i)
+        []
+        f = escape()
+        f0 = float_sub(f, 1.0)
+        guard_value(f0, 0.0) [f0]
+        escape(f)
+        jump()
         """
-        expected = """
-        [i]
-        i0 = int_sub(i, 1)
-        guard_value(i0, 0) [i0]
-        jump(1)
-        """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, '', ops)
 
     def test_constant_propagate(self):
         ops = """
@@ -363,12 +365,16 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected, expected_preamble=preamble)
 
     def test_remove_guard_class_2(self):
         ops = """
@@ -3718,41 +3724,48 @@ class TestLLtype(BaseTestOptimizeOpt, LLtypeMixin):
 
     def test_bound_eq(self):
         ops = """
-        [i0, i1]
+        []
+        i0 = escape()
+        i1 = escape()
         i2 = int_le(i0, 4)
         guard_true(i2) []
         i3 = int_eq(i0, i1)
         guard_true(i3) []
         i4 = int_lt(i1, 5)
         guard_true(i4) []
-        jump(i0, i1)
+        jump()
         """
         expected = """
-        [i0, i1]
+        []
+        i0 = escape()
+        i1 = escape()
         i2 = int_le(i0, 4)
         guard_true(i2) []
         i3 = int_eq(i0, i1)
         guard_true(i3) []
-        jump(i0, i1)
+        jump()
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, '', expected)
 
     def test_bound_eq_const(self):
         ops = """
-        [i0]
+        []
+        i0 = escape()
         i1 = int_eq(i0, 7)
         guard_true(i1) []
         i2 = int_add(i0, 3)
-        jump(i2)
+        escape(i2)
+        jump()
         """
         expected = """
-        [i0]
+        []
+        i0 = escape()
         i1 = int_eq(i0, 7)
         guard_true(i1) []
-        jump(10)
-
+        escape(10)
+        jump()
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, '', expected)
 
     def test_bound_eq_const_not(self):
         ops = """
