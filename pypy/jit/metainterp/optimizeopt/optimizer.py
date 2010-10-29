@@ -47,14 +47,11 @@ class OptValue(object):
     def get_key_box(self):
         return self.box
 
-    # FIXME: Reuse get_args_for_fail instead?
-    def get_forced_boxes(self, already_seen):
+    def enum_forced_boxes(self, boxes, already_seen):
         key = self.get_key_box()
-        if key in already_seen:
-            return []
-        box = self.force_box()
-        already_seen.append(self.get_key_box())
-        return [box]
+        if key not in already_seen:
+            boxes.append(self.force_box())
+            already_seen[self.get_key_box()] = None
 
     def get_args_for_fail(self, modifier):
         pass

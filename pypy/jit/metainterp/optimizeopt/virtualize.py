@@ -121,20 +121,17 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
-    def get_forced_boxes(self, already_seen):
+    def enum_forced_boxes(self, boxes, already_seen):
         key = self.get_key_box()
         if key in already_seen:
-            return []
-        already_seen.append(key)
+            return
+        already_seen[key] = None
         if self.box is None:
             lst = self._get_field_descr_list()
-            fieldboxes = []
             for ofs in lst:
-                boxes = self._fields[ofs].get_forced_boxes(already_seen)
-                fieldboxes.extend(boxes)
-            return fieldboxes
+                self._fields[ofs].enum_forced_boxes(boxes, already_seen)
         else:
-            return [self.box]
+            boxes.append(self.box)
 
 
 class VirtualValue(AbstractVirtualStructValue):
@@ -208,18 +205,16 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
-    def get_forced_boxes(self, already_seen):
+    def enum_forced_boxes(self, boxes, already_seen):
         key = self.get_key_box()
         if key in already_seen:
-            return []
+            return
         already_seen.append(key)
         if self.box is None:
-            boxes = []
             for itemvalue in self._items:
-                boxes.extend(itemvalue.get_forced_boxes(already_seen))
-            return boxes
+                itemvalue.enum_forced_boxes(boxes, already_seen)
         else:
-            return [self.box]
+            boxes.append(self.box)
 
 
 class __extend__(SpecNode):

@@ -51,9 +51,11 @@ class OptUnroll(Optimization):
         self.snapshot_map ={None: None}
         
         inputargs = []
-        seen = []
+        seen = {}
         for arg in jump_args:
-            for a in self.getvalue(arg).get_forced_boxes(seen):
+            boxes = []
+            self.getvalue(arg).enum_forced_boxes(boxes, seen)
+            for a in boxes:
                 if not isinstance(a, Const):
                     inputargs.append(a)
 
@@ -75,8 +77,9 @@ class OptUnroll(Optimization):
             if newop.getopnum() == rop.JUMP:
                 args = []
                 #for arg in newop.getarglist():
-                for arg in [argmap[a] for a in inputargs]:
-                    args.extend(self.getvalue(arg).get_forced_boxes([]))
+                for arg in inputargs:
+                    arg = argmap[arg]
+                    self.getvalue(arg).enum_forced_boxes(args, {})
                 newop.initarglist(args + inputargs[len(args):])
 
             #print 'P: ', str(newop)
@@ -105,8 +108,9 @@ class OptUnroll(Optimization):
                             jmp = self.optimizer.newoperations[-1]
                             if jmp.getopnum() == rop.JUMP:
                                 newval = self.getvalue(argmap[a])
-                                newarg = newval.get_forced_boxes([])
-                                jmp.initarglist(jmp.getarglist() + newarg)
+                                boxes = jmp.getarglist()[:]
+                                newval.enum_forced_boxes(boxes, {})
+                                jmp.initarglist(boxes)
 
         return inputargs
 

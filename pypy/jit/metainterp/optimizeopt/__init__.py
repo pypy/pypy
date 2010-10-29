@@ -16,7 +16,7 @@ def optimize_loop_1(metainterp_sd, loop, virtuals=True):
                      OptIntBounds(),
                      OptRewrite(),
                      OptVirtualize(),
-#                     OptString(),
+                     OptString(),
                      OptHeap(),
                     ]
     optimizer = Optimizer(metainterp_sd, loop, optimizations, virtuals)
