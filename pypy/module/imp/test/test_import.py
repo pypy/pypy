@@ -869,7 +869,7 @@ class AppTestImportHooks(object):
             if path == "xxx":
                 return Importer()
             raise ImportError()
-        import sys
+        import sys, imp
         try:
             sys.path_hooks.append(importer_for_path)
             sys.path.insert(0, "yyy")
@@ -879,7 +879,8 @@ class AppTestImportHooks(object):
                 import b
             except ImportError:
                 pass
-            assert sys.path_importer_cache['yyy'] is None
+            assert isinstance(sys.path_importer_cache['yyy'],
+                              imp.NullImporter)
         finally:
             sys.path.pop(0)
             sys.path.pop(0)
