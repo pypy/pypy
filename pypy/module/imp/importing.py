@@ -290,10 +290,11 @@ class W_NullImporter(Wrappable):
         try:
             st = os.stat(path)
         except OSError:
-            return # ok
-        if stat.S_ISDIR(st.st_mode):
-            raise OperationError(space.w_ImportError, space.wrap(
-                "existing directory"))
+            pass
+        else:
+            if stat.S_ISDIR(st.st_mode):
+                raise OperationError(space.w_ImportError, space.wrap(
+                    "existing directory"))
 
     @unwrap_spec('self', ObjSpace, Arguments)
     def find_module_w(self, space, __args__):
