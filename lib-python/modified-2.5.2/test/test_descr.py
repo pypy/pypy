@@ -2028,7 +2028,9 @@ def weakrefs():
     except TypeError, msg:
         verify(str(msg).find("weak reference") >= 0)
     else:
-        verify(0, "weakref.ref(no) should be illegal")
+        # in PyPy it is (sometimes) possible to take a weakref here
+        #verify(0, "weakref.ref(no) should be illegal")
+        pass
     class Weak(object):
         __slots__ = ['foo', '__weakref__']
     yes = Weak()
