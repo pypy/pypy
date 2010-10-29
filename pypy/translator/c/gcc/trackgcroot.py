@@ -1599,7 +1599,7 @@ class GcRootTracker(object):
             txt = kwargs[self.format]
             print >> output, "\t%s" % txt
 
-        if self.format == 'elf64':
+        if self.format in ('elf64', 'darwin64'):
             word_decl = '.quad'
         else:
             word_decl = '.long'
