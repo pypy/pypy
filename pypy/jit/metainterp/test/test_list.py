@@ -216,4 +216,4 @@ class TestLLtype(ListTests, LLJitMixin):
             return a * b
         res = self.meta_interp(f, [37])
         assert res == f(37)
-        self.check_loops(getfield_gc=1)
+        self.check_loops(getfield_gc=1, everywhere=True)
