@@ -591,6 +591,9 @@ if _POSIX:
         else:
             raise RValueError("mmap invalid access parameter.")
 
+        if prot == PROT_READ:
+            access = ACCESS_READ
+
         # check file size
         try:
             st = os.fstat(fd)
