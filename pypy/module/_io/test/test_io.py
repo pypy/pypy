@@ -71,6 +71,13 @@ class AppTestIoModule:
         import gc; gc.collect()
         assert record == [1, 2, 3]
 
+    def test_tell(self):
+        import io
+        class MyIO(io.IOBase):
+            def seek(self, pos, whence=0):
+                return 42
+        assert MyIO().tell() == 42
+
 class AppTestOpen:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile').ensure()

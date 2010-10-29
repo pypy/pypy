@@ -74,6 +74,10 @@ class W_IOBase(Wrappable):
                 space.wrap("I/O operation on closed file"))
 
     @unwrap_spec('self', ObjSpace)
+    def tell_w(self, space):
+        return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
+
+    @unwrap_spec('self', ObjSpace)
     def enter_w(self, space):
         self._check_closed(space)
         return space.wrap(self)
@@ -225,6 +229,7 @@ W_IOBase.typedef = TypeDef(
     next = interp2app(W_IOBase.next_w),
     close = interp2app(W_IOBase.close_w),
     flush = interp2app(W_IOBase.flush_w),
+    tell = interp2app(W_IOBase.tell_w),
     isatty = interp2app(W_IOBase.isatty_w),
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
