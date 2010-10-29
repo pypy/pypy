@@ -7,7 +7,6 @@ class LoopSpecTest(test_loop.LoopTest):
     optimizer = OPTIMIZER_FULL
     automatic_promotion_result = {
         'int_add' : 3, 'int_gt' : 1, 'guard_false' : 1, 'jump' : 1, 
-        'guard_value' : 1
     }
 
     # ====> test_loop.py
