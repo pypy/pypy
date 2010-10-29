@@ -599,19 +599,19 @@ class RecursiveTests:
                            get_printable_location = lambda codeno : str(codeno))
 
         def portal(codeno, j):
-            i = 0
+            i = 1
             while 1:
                 driver.jit_merge_point(codeno=codeno, i=i, j=j)
-                if i == 1:
+                if (i >> 1) == 1:
                     if j == 0:
                         return
                     portal(2, j - 1)
-                elif i == 3:
+                elif i == 5:
                     return
                 i += 1
                 driver.can_enter_jit(codeno=codeno, i=i, j=j)
 
-        portal(2, 50)
+        portal(2, 5)
 
         from pypy.jit.metainterp import compile, pyjitpl
         pyjitpl._warmrunnerdesc = None
@@ -623,8 +623,8 @@ class RecursiveTests:
         original_ctc = compile.compile_tmp_callback
         try:
             compile.compile_tmp_callback = my_ctc
-            self.meta_interp(portal, [2, 20], inline=True)
-            self.check_loops(call_assembler=1, call_may_force=0,
+            self.meta_interp(portal, [2, 5], inline=True)
+            self.check_loops(call_assembler=2, call_may_force=0,
                              everywhere=True)
         finally:
             compile.compile_tmp_callback = original_ctc
