@@ -66,6 +66,9 @@ class BaseTestOptimizeOpt(BaseTest):
 
     def optimize_loop(self, ops, spectext, optops, expected_preamble=None):
         loop = self.parse(ops)
+        expected = self.parse(optops)
+        if expected_preamble:
+            expected_preamble = self.parse(expected_preamble)
         #
         self.loop = loop
         loop.preamble = TreeLoop('preamble')
@@ -75,7 +78,6 @@ class BaseTestOptimizeOpt(BaseTest):
             metainterp_sd.virtualref_info = self.vrefinfo
         optimize_loop_1(metainterp_sd, loop)
         #
-        expected = self.parse(optops)
 
         print
         print loop.preamble.inputargs
@@ -87,12 +89,35 @@ class BaseTestOptimizeOpt(BaseTest):
         
         self.assert_equal(loop, expected)
         if expected_preamble:
-            expected = self.parse(expected_preamble)
-            self.assert_equal(loop.preamble, expected)
+            self.assert_equal(loop.preamble, expected_preamble)
 
         return loop
 
 class OptimizeOptTest(BaseTestOptimizeOpt):
+
+    def setup_method(self, meth=None):
+        class FailDescr(compile.ResumeGuardDescr):
+            oparse = None
+            def _oparser_uses_descr_of_guard(self, oparse, fail_args):
+                # typically called twice, before and after optimization
+                if self.oparse is None:
+                    self.rd_frame_info_list = resume.FrameInfo(None,
+                                                                 "code", 11)
+                    self.rd_snapshot = resume.Snapshot(None, fail_args)
+                self.oparse = oparse
+            def _clone_if_mutable(self):
+                assert self is fdescr
+                return fdescr2
+        #
+        fdescr = instantiate(FailDescr)
+        self.namespace['fdescr'] = fdescr
+        fdescr2 = instantiate(FailDescr)
+        self.namespace['fdescr2'] = fdescr2
+
+    def teardown_method(self, meth):
+        self.namespace.pop('fdescr', None)
+        self.namespace.pop('fdescr2', None)
+
 
     def test_simple(self):
         ops = """
@@ -2079,7 +2104,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
 
     def test_merge_guard_nonnull_guard_class(self):
-        self.make_fail_descr()
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1, descr=fdescr) [i0]
@@ -2087,17 +2111,22 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_class(p1, ConstClass(node_vtable)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
-        expected = """
+        preamble = """
         [p1, i0, i1, i2, p2]
         guard_nonnull_class(p1, ConstClass(node_vtable), descr=fdescr) [i0]
         i3 = int_add(i1, i2)
-        jump(p2, i0, i1, i3, p2)
+        jump(p2, i0, i1, i3)
         """
-        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+        expected = """
+        [p2, i0, i1, i2]
+        guard_nonnull_class(p2, ConstClass(node_vtable), descr=fdescr2) [i0]
+        i3 = int_add(i1, i2)
+        jump(p2, i0, i1, i3)
+        """
+        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected, preamble)
         self.check_expanded_fail_descr("i0", rop.GUARD_NONNULL_CLASS)
 
     def test_merge_guard_nonnull_guard_value(self):
-        self.make_fail_descr()
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1, descr=fdescr) [i0]
@@ -2115,7 +2144,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_merge_guard_nonnull_guard_class_guard_value(self):
-        self.make_fail_descr()
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1, descr=fdescr) [i0]
@@ -2333,23 +2361,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
 
     # ----------
 
-    def make_fail_descr(self):
-        class FailDescr(compile.ResumeGuardDescr):
-            oparse = None
-            def _oparser_uses_descr_of_guard(self, oparse, fail_args):
-                # typically called twice, before and after optimization
-                if self.oparse is None:
-                    fdescr.rd_frame_info_list = resume.FrameInfo(None,
-                                                                 "code", 11)
-                    fdescr.rd_snapshot = resume.Snapshot(None, fail_args)
-                self.oparse = oparse
-        #
-        fdescr = instantiate(FailDescr)
-        self.namespace['fdescr'] = fdescr
-
-    def teardown_method(self, meth):
-        self.namespace.pop('fdescr', None)
-
     def _verify_fail_args(self, boxes, oparse, text):
         import re
         r = re.compile(r"\bwhere\s+(\w+)\s+is a\s+(\w+)")
@@ -2458,7 +2469,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         self._verify_fail_args(boxes, fdescr.oparse, expectedtext)
 
     def test_expand_fail_1(self):
-        self.make_fail_descr()
         ops = """
         [i1, i3]
         # first rename i3 into i4
@@ -2479,7 +2489,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         self.check_expanded_fail_descr('15, i3', rop.GUARD_TRUE)
 
     def test_expand_fail_2(self):
-        self.make_fail_descr()
         ops = """
         [i1, i2]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2499,7 +2508,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_3(self):
-        self.make_fail_descr()
         ops = """
         [i1, i2, i3, p3]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2525,7 +2533,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
     def test_expand_fail_4(self):
         for arg in ['p1', 'i2,p1', 'p1,p2', 'p2,p1',
                     'i2,p1,p2', 'i2,p2,p1']:
-            self.make_fail_descr()
+            self.setup_method() # humpf
             ops = """
             [i1, i2, i3]
             p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2550,7 +2558,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
                                            rop.GUARD_TRUE)
 
     def test_expand_fail_5(self):
-        self.make_fail_descr()
         ops = """
         [i1, i2, i3, i4]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2574,7 +2581,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_6(self):
-        self.make_fail_descr()
         ops = """
         [p0, i0, i1]
         guard_true(i0, descr=fdescr) [p0]
@@ -2594,7 +2600,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_varray(self):
-        self.make_fail_descr()
         ops = """
         [i1]
         p1 = new_array(3, descr=arraydescr)
@@ -2615,7 +2620,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_vstruct(self):
-        self.make_fail_descr()
         ops = """
         [i1, p1]
         p2 = new(descr=ssize)
@@ -2637,7 +2641,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_v_all_1(self):
-        self.make_fail_descr()
         ops = """
         [i1, p1a, i2]
         p6s = getarrayitem_gc(p1a, 0, descr=arraydescr2)
@@ -2678,7 +2681,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_lazy_setfield_1(self):
-        self.make_fail_descr()
         ops = """
         [p1, i2, i3]
         p2 = new_with_vtable(ConstClass(node_vtable))
@@ -2704,7 +2706,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_lazy_setfield_2(self):
-        self.make_fail_descr()
         ops = """
         [i2, i3]
         p2 = new_with_vtable(ConstClass(node_vtable))
@@ -3022,7 +3023,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         self.optimize_loop(ops, 'Not, Not', expected)
 
     def test_vref_virtual_2(self):
-        self.make_fail_descr()
         ops = """
         [p0, i1]
         #
@@ -3069,7 +3069,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
             ''', rop.GUARD_NOT_FORCED)
 
     def test_vref_virtual_and_lazy_setfield(self):
-        self.make_fail_descr()
         ops = """
         [p0, i1]
         #
@@ -3108,7 +3107,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
             ''', rop.GUARD_NO_EXCEPTION)
 
     def test_vref_virtual_after_finish(self):
-        self.make_fail_descr()
         ops = """
         [i1]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3136,7 +3134,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         self.optimize_loop(ops, 'Not', expected)
 
     def test_vref_nonvirtual_and_lazy_setfield(self):
-        self.make_fail_descr()
         ops = """
         [i1, p1]
         p2 = virtual_ref(p1, 23)
