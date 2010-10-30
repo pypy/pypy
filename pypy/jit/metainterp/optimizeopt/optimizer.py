@@ -190,7 +190,7 @@ class Optimization(object):
         op = ResOperation(opnum, args, result)
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
-    def setup(self, virtuals):
+    def setup(self, not_a_bridge):
         pass
 
     def force_at_end_of_preamble(self):
@@ -199,7 +199,7 @@ class Optimization(object):
 
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None, virtuals=True):
+    def __init__(self, metainterp_sd, loop, optimizations=None, not_a_bridge=True):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
@@ -220,7 +220,7 @@ class Optimizer(Optimization):
             optimizations[-1].next_optimization = self
             for o in optimizations:
                 o.optimizer = self
-                o.setup(virtuals)
+                o.setup(not_a_bridge)
         else:
             self.first_optimization = self
 

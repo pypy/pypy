@@ -278,8 +278,8 @@ class __extend__(VirtualArraySpecNode):
 class OptVirtualize(Optimization):
     "Virtualize objects until they escape."
 
-    def setup(self, virtuals):
-        if not virtuals:
+    def setup(self, not_a_bridge):
+        if not not_a_bridge:
             return
 
         inputargs = self.optimizer.loop.inputargs
