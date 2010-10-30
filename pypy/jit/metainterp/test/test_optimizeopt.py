@@ -2226,12 +2226,16 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_false(i2) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
         jump(p0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_remove_duplicate_pure_op(self):
         ops = """
