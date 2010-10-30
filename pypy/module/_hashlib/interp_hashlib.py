@@ -124,8 +124,8 @@ def new(space, name, string=''):
     return space.wrap(w_hash)
 
 # shortcut functions
-def make_new_hash(name):
-    @func_renamer(newname)
+def make_new_hash(name, funcname):
+    @func_renamer(funcname)
     @unwrap_spec(ObjSpace, str)
     def new_hash(space, string=''):
         return new(space, name, string)
@@ -133,4 +133,4 @@ def make_new_hash(name):
 
 for name in algorithms:
     newname = 'new_%s' % (name,)
-    globals()[newname] = make_new_hash(name)
+    globals()[newname] = make_new_hash(name, newname)
