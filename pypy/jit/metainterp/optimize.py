@@ -2,7 +2,7 @@ from pypy.rlib.debug import debug_start, debug_stop
 
 # ____________________________________________________________
 
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+from pypy.jit.metainterp.optimizeopt import optimize_loop_1, optimize_bridge_1
 
 def optimize_loop(metainterp_sd, old_loop_tokens, loop):
     debug_start("jit-optimize")
@@ -33,6 +33,9 @@ def _optimize_bridge(metainterp_sd, old_loop_tokens, bridge):
     cpu = metainterp_sd.cpu
     metainterp_sd.logger_noopt.log_loop(bridge.inputargs, bridge.operations)
     if old_loop_tokens:
+        old_loop_token = old_loop_tokens[0]
+        bridge.operations[-1].setdescr(old_loop_token)   # patch jump target
+        optimize_bridge_1(metainterp_sd, bridge)
         return old_loop_tokens[0]
     return None
 
