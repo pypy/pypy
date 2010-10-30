@@ -1680,7 +1680,7 @@ class MetaInterp(object):
                 # raises in case it works -- which is the common case
                 self.compile(original_boxes, live_arg_boxes, start)
                 # creation of the loop was cancelled!
-                self.staticdata.log('cancelled, going on...')
+                self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
