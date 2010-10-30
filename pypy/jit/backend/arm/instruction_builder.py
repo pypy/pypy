@@ -94,6 +94,42 @@ def define_data_proc(name, table):
                         | reg_operation(rd, rn, rm, imm, s, shifttype))
     return f
 
+def define_data_proc_register_shifted(name, table):
+    n = ((0x1 << 4) | (table['op1'] & 0x1F) << 20 | (table['op2'] & 0x3) << 5)
+    if 'result' in table and not table['result']:
+        result = False
+    else:
+        result = True
+    if name[-2:] == 'sr':
+        if result:
+            def f(self, rd, rn, rm, rs, cond=cond.AL, s=0, shifttype=0):
+                self.write32(n
+                            | cond << 28
+                            | (s & 0x1) << 20
+                            | (rn & 0xF) << 16
+                            | (rd & 0xF) << 12
+                            | (rs & 0xF) << 8
+                            | (shifttype & 0x3) << 5
+                            | (rm & 0xF))
+        else:
+            def f(self, rn, rm, rs, cond=cond.AL, s=0, shifttype=0):
+                self.write32(n
+                            | cond << 28
+                            | (s & 0x1) << 20
+                            | (rn & 0xF) << 16
+                            | (rs & 0xF) << 8
+                            | (shifttype & 0x3) << 5
+                            | (rm & 0xF))
+    else:
+        def f(self, rd, rn, rm, cond=cond.AL, s=0):
+            self.write32(n
+                        | cond << 28
+                        | (s & 0x1) << 20
+                        | (rd & 0xF) << 12
+                        | (rm & 0xF) << 8
+                        | (rn & 0xF))
+    return f
+
 def define_supervisor_and_coproc(name, table):
     n = (0x3 << 26 | (table['op1'] & 0x3F) << 20 | (table['op'] & 0x1) << 4)
     def f(self, coproc, opc1, rt, crn, crm, opc2=0, cond=cond.AL):
@@ -162,7 +198,8 @@ def define_instructions(target):
                 (instructions.data_proc, define_data_proc),
                 (instructions.data_proc_imm, define_data_proc_imm),
                 (instructions.supervisor_and_coproc, define_supervisor_and_coproc),
-                (instructions.multiply, define_multiply_instructions)]
+                (instructions.multiply, define_multiply_instructions),
+                (instructions.data_proc_reg_shift_reg, define_data_proc_register_shifted)]
 
     for inss, gen in i_g_map:
         for key, val in inss.iteritems():

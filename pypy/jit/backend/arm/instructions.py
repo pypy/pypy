@@ -31,6 +31,30 @@ data_proc = {
     'ASR_ri': {'op1':0x1A, 'op2':0, 'op3':0x2, 'op2cond':'', 'result':False, 'base':True},
     #'RRX_ri': {'op1':0x1A, 'op2':0, 'op3':0x3, 'op2cond':'0', 'result':False, 'base':True},
     'ROR_ri': {'op1':0x1A, 'op2':0x0, 'op3':0x3, 'op2cond':'!0', 'result':True, 'base':False},
+    #BIC
+    #MVN
+}
+
+data_proc_reg_shift_reg = {
+    'AND_rr_sr': {'op1':0x0,  'op2':0},
+    'EOR_rr_sr': {'op1':0x2,  'op2':0},
+    'SUB_rr_sr': {'op1':0x4,  'op2':0},
+    'RSB_rr_sr': {'op1':0x6,  'op2':0},
+    'ADD_rr_sr': {'op1':0x8,  'op2':0},
+    'ADC_rr_sr': {'op1':0xA,  'op2':0},
+    'SBC_rr_sr': {'op1':0xC,  'op2':0},
+    'RSC_rr_sr': {'op1':0xE,  'op2':0},
+    'TST_rr_sr': {'op1':0x11, 'op2':0, 'result': False},
+    'TEQ_rr_sr': {'op1':0x13, 'op2':0, 'result': False},
+    'CMP_rr_sr': {'op1':0x15, 'op2':0, 'result': False},
+    'CMN_rr_sr': {'op1':0x17, 'op2':0, 'result': False},
+    'ORR_rr_sr': {'op1':0x18, 'op2':0},
+    'LSL_rr': {'op1':0x1A, 'op2':0, },
+    'LSR_rr': {'op1':0x1A, 'op2':0x1},
+    'ASR_rr': {'op1':0x1A, 'op2':0x2},
+    #'RRX_rr': {'op1':0x1A, 'op2':0,},
+    'ROR_rr': {'op1':0x1A, 'op2':0x3},
+    # BIC, MVN
 }
 
 data_proc_imm = {

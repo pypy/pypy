@@ -126,23 +126,6 @@ class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
         self.cb = CodeBuilder()
 
-def build_tests():
-    test_name = 'test_generated_%s'
-    for key, value in instructions.load_store.iteritems():
-        if value['imm']:
-            f = gen_test_imm_func
-        else:
-            f = gen_test_reg_func
-        build_test(f, key, value, test_name)
-
-    for key, value, in instructions.data_proc.iteritems():
-        build_test(gen_test_data_reg_func, key, value, test_name)
-
-    for key, value, in instructions.data_proc_imm.iteritems():
-        build_test(gen_test_data_proc_imm_func, key, value, test_name)
-
-    for key, value, in instructions.multiply.iteritems():
-        build_test(gen_test_mul_func, key, value, test_name)
 # XXX refactor this functions
 
 def build_test(builder, key, value, test_name):
@@ -200,6 +183,31 @@ def gen_test_mul_func(name, table):
             self.assert_equal('%s r3, r7, r12' % name)
     return f
 
+def gen_test_data_reg_shift_reg_func(name, table):
+    if name[-2:] == 'rr':
+        def f(self):
+            func = getattr(self.cb, name)
+            func(r.r3.value, r.r7.value, r.r12.value)
+            self.assert_equal('%s r3, r7, r12' % name[:name.index('_')])
+
+    else:
+        if 'result' in table and not table['result']:
+            result = False
+        else:
+            result = True
+        if result:
+            def f(self):
+                func = getattr(self.cb, name)
+                func(r.r3.value, r.r7.value, r.r8.value, r.r11.value, shifttype=0x2)
+                self.assert_equal('%s r3, r7, r8, ASR r11' % name[:name.index('_')])
+        else:
+            def f(self):
+                func = getattr(self.cb, name)
+                func(r.r3.value, r.r7.value, r.r11.value, shifttype=0x2)
+                self.assert_equal('%s r3, r7, ASR r11' % name[:name.index('_')])
+
+    return f
+
 def gen_test_data_reg_func(name, table):
     if name[-2:] == 'ri':
         def f(self):
@@ -219,5 +227,26 @@ def gen_test_data_reg_func(name, table):
             self.assert_equal('%s r3, r7' % name[:name.index('_')])
 
     return f
+
+def build_tests():
+    test_name = 'test_generated_%s'
+    for key, value in instructions.load_store.iteritems():
+        if value['imm']:
+            f = gen_test_imm_func
+        else:
+            f = gen_test_reg_func
+        build_test(f, key, value, test_name)
+
+    for key, value, in instructions.data_proc.iteritems():
+        build_test(gen_test_data_reg_func, key, value, test_name)
+
+    for key, value, in instructions.data_proc_reg_shift_reg.iteritems():
+        build_test(gen_test_data_reg_shift_reg_func, key, value, test_name)
+
+    for key, value, in instructions.data_proc_imm.iteritems():
+        build_test(gen_test_data_proc_imm_func, key, value, test_name)
+
+    for key, value, in instructions.multiply.iteritems():
+        build_test(gen_test_mul_func, key, value, test_name)
 
 build_tests()

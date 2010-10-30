@@ -12,7 +12,7 @@ from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 
-def gen_emit_op_ri(opname):
+def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True):
     def f(self, op, regalloc, fcond):
         ri_op = getattr(self.mc, '%s_ri' % opname)
         rr_op = getattr(self.mc, '%s_rr' % opname)
@@ -20,17 +20,15 @@ def gen_emit_op_ri(opname):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
         res = regalloc.try_allocate_reg(op.result)
-        if self._check_imm_arg(arg0, 0xFF) and not isinstance(arg1, ConstInt):
-            print 'arg0 is imm'
+        if (commutative
+                and self._check_imm_arg(arg0, imm_size)
+                and not isinstance(arg1, ConstInt)):
             reg = regalloc.try_allocate_reg(arg1)
             ri_op(res.value, reg.value, imm=arg0.getint(), cond=fcond)
-        elif self._check_imm_arg(arg1, 0xFF) and not isinstance(arg0, ConstInt):
-            print 'arg1 is imm'
-            box = Box()
+        elif self._check_imm_arg(arg1, imm_size) and not isinstance(arg0, ConstInt):
             reg = regalloc.try_allocate_reg(arg0)
             ri_op(res.value, reg.value, imm=arg1.getint(), cond=fcond)
         else:
-            print 'generating rr'
             reg = self._put_in_reg(arg0, regalloc)
             reg2 = self._put_in_reg(arg1, regalloc)
             rr_op(res.value, reg.value, reg2.value)
@@ -140,9 +138,14 @@ class IntOpAsslember(object):
     emit_op_int_and = gen_emit_op_ri('AND')
     emit_op_int_or = gen_emit_op_ri('ORR')
     emit_op_int_xor = gen_emit_op_ri('EOR')
+    emit_op_int_lshift = gen_emit_op_ri('LSL', imm_size=0x1F, commutative=False)
+    emit_op_int_rshift = gen_emit_op_ri('ASR', imm_size=0x1F, commutative=False)
+    emit_op_uint_rshift = gen_emit_op_ri('LSR', imm_size=0x1F, commutative=False)
+
 
     def _check_imm_arg(self, arg, size):
-        return isinstance(arg, ConstInt) and arg.getint() <= size and arg.getint() >= 0
+        #XXX check ranges for different operations
+        return isinstance(arg, ConstInt) and arg.getint() <= size and arg.getint() > 0
 
 
 class GuardOpAssembler(object):
