@@ -2271,7 +2271,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i2) []
         jump(p1, p2)
         """
-        expected = """
+        preamble = """
         [p1, p2]
         i1 = ptr_eq(p1, p2)
         i3 = int_add(i1, 1)
@@ -2282,7 +2282,13 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i1) []
         jump(p1, p2)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p1, p2]
+        escape(2)
+        escape(2)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_remove_duplicate_pure_op_with_descr(self):
         ops = """
