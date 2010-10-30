@@ -2821,6 +2821,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # time.  Check that it is either constant-folded (and replaced by
         # the result of the call, recorded as the first arg), or turned into
         # a regular CALL.
+        # XXX can this test be improved with unrolling?
         ops = '''
         [i0, i1, i2]
         escape(i1)
@@ -2829,14 +2830,21 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = call_pure(43, 123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i3, i4)
         '''
-        expected = '''
+        preamble = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
-        jump(i0, 42, i4)
+        jump(i0, i4)
         '''
-        self.optimize_loop(ops, expected)
+        expected = '''
+        [i0, i2]
+        escape(42)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        jump(i0, i4)
+        '''
+        self.optimize_loop(ops, expected, preamble)
 
     def test_vref_nonvirtual_nonescape(self):
         ops = """
