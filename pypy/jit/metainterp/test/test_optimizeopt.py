@@ -3147,13 +3147,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_noguard(self):
         ops = """
