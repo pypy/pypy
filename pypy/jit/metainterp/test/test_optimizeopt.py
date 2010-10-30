@@ -2109,13 +2109,19 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_value(p1, ConstPtr(myptr)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
-        expected = """
+        preamble = """
         [p1, i0, i1, i2, p2]
         guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
-        jump(p2, i0, i1, i3, p2)
+        jump(p2, i0, i1, i3)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p2, i0, i1, i2]
+        guard_value(p2, ConstPtr(myptr)) [i0]
+        i3 = int_add(i1, i2)
+        jump(ConstPtr(myptr), i0, i1, i3)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_merge_guard_nonnull_guard_class(self):
         ops = """
