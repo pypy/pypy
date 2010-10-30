@@ -682,6 +682,26 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         # if it does not crash, we are fine. It crashes if you forget the hash field.
         self.interpret(func, [])
 
+    def test_dict_popitem(self):
+        def func():
+            d = {}
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
+
     # ____________________________________________________________
 
     def test_opt_nullkeymarker(self):

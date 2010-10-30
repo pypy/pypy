@@ -157,6 +157,16 @@ class W_DictMultiObject(W_Object):
         key = OPTIMIZED_BUILTINS[i]
         return self.impl_getitem_str(key)
 
+    def impl_popitem(self):
+        # default implementation
+        space = self.space
+        iterator = self.impl_iter()
+        w_key, w_value = iterator.next()
+        if w_key is None:
+            raise KeyError
+        self.impl_delitem(w_key)
+        return w_key, w_value
+
     # _________________________________________________________________
     # fallback implementation methods
 
@@ -196,6 +206,9 @@ class W_DictMultiObject(W_Object):
         key = OPTIMIZED_BUILTINS[i]
         return self.impl_fallback_getitem_str(key)
 
+    def impl_fallback_popitem(self):
+        return self.r_dict_content.popitem()
+
 
 implementation_methods = [
     ("getitem", 1),
@@ -210,6 +223,7 @@ implementation_methods = [
     ("keys", 0),
     ("clear", 0),
     ("get_builtin_indexed", 1),
+    ("popitem", 0),
 ]
 
 
@@ -779,16 +793,11 @@ def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
         return w_item
 
 def dict_popitem__DictMulti(space, w_dict):
-    # XXX should somehow use the same trick as CPython: saving the index
-    # of the last popped item in the hash table, so that the next call to
-    # popitem() can be more efficient, instead of always starting from the
-    # beginning of the hash table.
-    iterator = w_dict.iter()
-    w_key, w_value = iterator.next()
-    if w_key is None:
+    try:
+        w_key, w_value = w_dict.popitem()
+    except KeyError:
         raise OperationError(space.w_KeyError,
                              space.wrap("popitem(): dictionary is empty"))
-    w_dict.delitem(w_key)
     return space.newtuple([w_key, w_value])
 
 app = gateway.applevel('''

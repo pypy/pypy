@@ -238,7 +238,16 @@ class AppTest_DictObject:
         assert len(d) == 0
         assert (it!=it1) and (it1==(1,2) or it1==(3,4))
         raises(KeyError, d.popitem)
-    
+
+    def test_popitem_2(self):
+        class A(object):
+            pass
+        d = A().__dict__
+        d['x'] = 5
+        it1 = d.popitem()
+        assert it1 == ('x', 5)
+        raises(KeyError, d.popitem)
+
     def test_setdefault(self):
         d = {1:2, 3:4}
         dd = d.copy()
