@@ -1933,8 +1933,6 @@ class BaseTestOptimizeOpt(BaseTest):
         self.optimize_loop(ops, 'Not, Not, Not, Not, Not', expected)
 
     def test_duplicate_setfield_virtual(self):
-        # the difference with the previous test is that the field value is
-        # a virtual, which we try hard to keep virtual
         ops = """
         [p1, i2, i3, p4]
         p2 = new_with_vtable(ConstClass(node_vtable))
