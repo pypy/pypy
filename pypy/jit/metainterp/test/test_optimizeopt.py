@@ -891,14 +891,21 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(i3, p1)
         """
+        preamble = """
+        [i0, p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        i1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_sub(i1, 1)
+        i3 = int_add(i0, i1)
+        jump(i3, i2)
+        """
         expected = """
         [i0, i1]
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
         jump(i3, i2)
         """
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
-                           expected)
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
     def test_virtual_5(self):
         ops = """
@@ -914,18 +921,21 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p1, p2, descr=nextdescr)
         jump(i3, p1)
         """
+        preamble = """
+        [i0, p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        i1 = getfield_gc(p0, descr=valuedescr)
+        i2 = int_sub(i1, 1)
+        i3 = int_add(i0, i1)
+        jump(i3, i2, i1)
+        """
         expected = """
         [i0, i1, i1bis]
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
         jump(i3, i2, i1)
         """
-        self.optimize_loop(ops,
-            '''Not, Virtual(node_vtable,
-                            valuedescr=Not,
-                            nextdescr=Virtual(node_vtable2,
-                                              valuedescr=Not))''',
-                           expected)
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
     def test_virtual_constant_isnull(self):
         ops = """

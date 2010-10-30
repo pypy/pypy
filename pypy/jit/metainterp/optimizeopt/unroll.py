@@ -13,6 +13,7 @@ class OptUnroll(Optimization):
         self.cloned_operations = []
         for op in self.optimizer.loop.operations:
             self.cloned_operations.append(op.clone())
+        
             
     def propagate_forward(self, op):
 
