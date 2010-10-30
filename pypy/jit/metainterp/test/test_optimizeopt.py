@@ -2179,14 +2179,21 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_value(p1, ConstPtr(myptr)) [i1]
         jump(p2, i0, i1, i4, p2)
         """
-        expected = """
+        preamble = """
         [p1, i0, i1, i2, p2]
         guard_value(p1, ConstPtr(myptr), descr=fdescr) [i0]
         i3 = int_add(i1, i2)
         i4 = int_sub(i3, 1)
-        jump(p2, i0, i1, i4, p2)
+        jump(p2, i0, i1, i4)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p2, i0, i1, i2]
+        guard_value(p2, ConstPtr(myptr), descr=fdescr2) [i0]
+        i3 = int_add(i1, i2)
+        i4 = int_sub(i3, 1)
+        jump(ConstPtr(myptr), i0, i1, i4)
+        """
+        self.optimize_loop(ops, expected, preamble)
         self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_guard_class_oois(self):
