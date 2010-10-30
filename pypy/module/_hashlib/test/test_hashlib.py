@@ -57,6 +57,10 @@ class AppTestHashlib:
             assert c_digest    == digest
             assert c_hexdigest == hexdigest
 
+    def test_shortcut(self):
+        import hashlib
+        assert repr(hashlib.md5()).startswith("<md5 HASH object")
+
     def test_unicode(self):
         import _hashlib
         assert _hashlib.new('sha1', u'xxx').__class__.__name__ == 'HASH'
