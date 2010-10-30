@@ -1635,7 +1635,22 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+        preamble = """
+        [p1, i1, i2, i3]
+        setfield_gc(p1, i1, descr=valuedescr)
+        guard_true(i3) []
+        i4 = int_neg(i2)
+        setfield_gc(p1, i2, descr=valuedescr)
+        jump(p1, i1, i2, i4)
+        """
+        expected = """
+        [p1, i1, i2, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        guard_true(i4) []
+        setfield_gc(p1, i2, descr=valuedescr)
+        jump(p1, i1, i2, 1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, preamble)
 
     def test_duplicate_setfield_residual_guard_2(self):
         # the difference with the previous test is that the field value is
@@ -1649,14 +1664,20 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
         """
-        expected = """
+        preamble = """
         [p1, i2, i3]
         guard_true(i3) [p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        expected = """
+        [p1, i2, i4]
+        guard_true(i4) [p1]
+        setfield_gc(p1, NULL, descr=nextdescr)
+        jump(p1, i2, 1)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not', expected, preamble)
 
     def test_duplicate_setfield_residual_guard_3(self):
         ops = """
@@ -1669,12 +1690,18 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
         """
-        expected = """
+        preamble = """
         [p1, i2, i3]
         guard_true(i3) [i2, p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
+        """
+        expected = """
+        [p1, i2, i4]
+        guard_true(i4) [i2, p1]
+        setfield_gc(p1, NULL, descr=nextdescr)
+        jump(p1, i2, 1)
         """
         self.optimize_loop(ops, 'Not, Not, Not', expected)
 
@@ -1690,7 +1717,16 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+        preamble = ops
+        expected = """
+        [p1, i1, i2, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i5 = int_eq(i4, 5)
+        guard_true(i5) []
+        setfield_gc(p1, i2, descr=valuedescr)
+        jump(p1, i1, i2, 5)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, preamble)
 
     def test_duplicate_setfield_aliasing(self):
         # a case where aliasing issues (and not enough cleverness) mean
