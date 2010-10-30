@@ -226,7 +226,7 @@ def _sortboxes(boxes):
     _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
     return sorted(boxes, key=lambda box: _kind2count[box.type])
 
-class BaseTestOptimizeBasic(BaseTest):
+class BaseTestBasic(BaseTest):
 
     def invent_fail_descr(self, fail_args):
         if fail_args is None:
@@ -259,12 +259,14 @@ class BaseTestOptimizeBasic(BaseTest):
                                                      OptVirtualize,
                                                      OptString,
                                                      OptHeap,
+                                                     OptFfiCall,
                                                      Optimizer)
         optimizations = [OptIntBounds(),
                          OptRewrite(),
                          OptVirtualize(),
                          OptString(),
                          OptHeap(),
+                         OptFfiCall(),
                          ]
         optimizer = Optimizer(metainterp_sd, loop, optimizations,
                               not_a_bridge=True)
@@ -273,6 +275,9 @@ class BaseTestOptimizeBasic(BaseTest):
         expected = self.parse(optops)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
+
+
+class BaseTestOptimizeBasic(BaseTestBasic):
 
     def test_simple(self):
         ops = """

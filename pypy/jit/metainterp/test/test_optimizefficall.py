@@ -2,7 +2,8 @@ from pypy.rpython.lltypesystem import llmemory
 from pypy.rlib.libffi import Func, types
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.test.test_optimizeopt import BaseTestOptimizeOpt, LLtypeMixin
+from pypy.jit.metainterp.test.test_optimizebasic import BaseTestBasic
+from pypy.jit.metainterp.test.test_optimizebasic import LLtypeMixin
 
 class MyCallDescr(AbstractDescr):
     """
@@ -30,7 +31,7 @@ class FakeLLObject(object):
         return id(self)
 
 
-class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
+class TestFfiCall(BaseTestBasic, LLtypeMixin):
 
     class namespace:
         cpu = LLtypeMixin.cpu
@@ -45,13 +46,15 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
                              argtypes=[types.sint, types.double],
                              restype=types.sint)
         #
-        def calldescr(cpu, FUNC, oopspecindex):
-            einfo = EffectInfo([], [], [], oopspecindex=oopspecindex)
+        def calldescr(cpu, FUNC, oopspecindex, extraeffect=None):
+            einfo = EffectInfo([], [], [], oopspecindex=oopspecindex,
+                               extraeffect=extraeffect)
             return cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, einfo)
         #
         libffi_prepare =  calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_PREPARE)
         libffi_push_arg = calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_PUSH_ARG)
-        libffi_call =     calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_CALL)
+        libffi_call =     calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_CALL,
+                                 EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
     
     namespace = namespace.__dict__
 
@@ -77,7 +80,7 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         guard_no_exception() []
         jump(i3, f1)
         """
-        loop = self.optimize_loop(ops, 'Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
 
     def test_ffi_call_nonconst(self):
         ops = """
@@ -91,7 +94,7 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i3, f1, p2)
         """
         expected = ops
-        loop = self.optimize_loop(ops, 'Not, Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
 
     def test_handle_virtualizables(self):
         # this test needs an explanation to understand what goes on: see the
@@ -117,7 +120,7 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         guard_no_exception() [p2]
         jump(i3, f1, p2)
         """
-        loop = self.optimize_loop(ops, 'Not, Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
 
     # ----------------------------------------------------------------------
     # in pratice, the situations described in these tests should never happen,
@@ -136,7 +139,7 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i3, f1)
         """
         expected = ops
-        loop = self.optimize_loop(ops, 'Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
 
     def test_rollback_multiple_calls(self):
         ops = """
@@ -159,7 +162,7 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i3, i4, f1)
         """
         expected = ops
-        loop = self.optimize_loop(ops, 'Not, Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
 
     def test_rollback_multiple_prepare(self):
         ops = """
@@ -182,7 +185,7 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i3, i4, f1)
         """
         expected = ops
-        loop = self.optimize_loop(ops, 'Not, Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
 
     def test_optimize_nested_call(self):
         ops = """
@@ -220,7 +223,7 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         guard_no_exception() []
         jump(i3, i4, f1)
         """
-        loop = self.optimize_loop(ops, 'Not, Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
 
     def test_rollback_force_token(self):
         ops = """
@@ -237,4 +240,4 @@ class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
         jump(i3, f1, p2)
         """
         expected = ops
-        loop = self.optimize_loop(ops, 'Not, Not, Not', expected)
+        loop = self.optimize_loop(ops, expected)
