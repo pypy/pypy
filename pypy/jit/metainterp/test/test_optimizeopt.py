@@ -2301,14 +2301,18 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i3) []
         jump(p1)
         """
-        expected = """
+        preamble = """
         [p1]
         i0 = arraylen_gc(p1, descr=arraydescr)
         i1 = int_gt(i0, 0)
         guard_true(i1) []
         jump(p1)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p1]
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_remove_duplicate_pure_op_ovf(self):
         ops = """
@@ -2325,7 +2329,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         escape(i4)
         jump(i1)
         """
-        expected = """
+        preamble = """
         [i1]
         i3 = int_add_ovf(i1, 1)
         guard_no_overflow() []
@@ -2333,9 +2337,15 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i3b) []
         escape(i3)
         escape(i3)
-        jump(i1)
+        jump(i1, i3)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i1, i3]
+        escape(i3)
+        escape(i3)
+        jump(i1, i3)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_int_and_or_with_zero(self):
         ops = """
