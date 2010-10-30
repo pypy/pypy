@@ -1961,9 +1961,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         p3 = escape()
         jump(i0, p3)
         """
-        xxx # was Not, Virtual(node_vtable, nextdescr=Not)
-        self.optimize_loop(ops,
-                           expected)
+        self.optimize_loop(ops, expected)
 
     def test_bug_2(self):
         ops = """
@@ -1985,9 +1983,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         p3 = escape()
         jump(i0, p3)
         """
-        xxx # was Not, VArray(arraydescr2, Not)
-        self.optimize_loop(ops,
-                           expected)
+        self.optimize_loop(ops, expected)
 
     def test_bug_3(self):
         ops = """
