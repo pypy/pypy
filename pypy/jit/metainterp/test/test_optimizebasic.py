@@ -11,7 +11,7 @@ from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
-from pypy.jit.metainterp.test.oparser import pure_parse
+from pypy.jit.tool.oparser import pure_parse
 
 ##class FakeFrame(object):
 ##    parent_resumedata_snapshot = None
