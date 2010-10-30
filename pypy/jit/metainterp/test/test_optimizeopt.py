@@ -2090,10 +2090,9 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         jump(p2)
         """
         py.test.raises(InvalidLoop, self.optimize_loop,
-                       ops, 'Virtual(node_vtable)', None)
+                       ops, ops)
 
     def test_invalid_loop_2(self):
-        py.test.skip("this would fail if we had Fixed again in the specnodes")
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
@@ -2103,7 +2102,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         jump(p2)
         """
         py.test.raises(InvalidLoop, self.optimize_loop,
-                       ops, '...', None)
+                       ops, ops)
 
     def test_invalid_loop_3(self):
         ops = """
@@ -2116,9 +2115,8 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p3, p4, descr=nextdescr)
         jump(p3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops,
-                       'Virtual(node_vtable, nextdescr=Virtual(node_vtable))',
-                       None)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
 
     def test_merge_guard_class_guard_value(self):
         ops = """
