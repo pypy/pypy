@@ -11,7 +11,6 @@ from pypy.jit.metainterp.history import TreeLoop, Box, History, LoopToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.specnode import NotSpecNode, more_general_specnodes
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.codewriter import heaptracker
@@ -42,7 +41,6 @@ def create_empty_loop(metainterp):
 
 def make_loop_token(nb_args, jitdriver_sd):
     loop_token = LoopToken()
-    loop_token.specnodes = [prebuiltNotSpecNode] * nb_args
     loop_token.outermost_jitdriver_sd = jitdriver_sd
     return loop_token
 
@@ -82,8 +80,6 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
         return old_loop_token
 
     if loop.preamble.operations:
-        loop.token.specnodes = [prebuiltNotSpecNode] * len(loop.inputargs) # FIXME
-        loop.preamble.token.specnodes = [prebuiltNotSpecNode] * len(loop.preamble.inputargs) # FIXME
         send_loop_to_backend(metainterp_sd, loop, "loop")
         send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
         insert_loop_token(old_loop_tokens, loop.preamble.token)
@@ -100,13 +96,8 @@ def insert_loop_token(old_loop_tokens, loop_token):
     # The following algo means "as late as possible, but before another
     # loop token that would be more general and so completely mask off
     # the new loop_token".
-    for i in range(len(old_loop_tokens)):
-        if more_general_specnodes(old_loop_tokens[i].specnodes,
-                                  loop_token.specnodes):
-            old_loop_tokens.insert(i, loop_token)
-            break
-    else:
-        old_loop_tokens.append(loop_token)
+    # XXX do we still need a list?
+    old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(metainterp_sd, loop, type):
     globaldata = metainterp_sd.globaldata
@@ -189,13 +180,10 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
-prebuiltNotSpecNode = NotSpecNode()
-
 class TerminatingLoopToken(LoopToken):
     terminating = True
 
     def __init__(self, nargs, finishdescr):
-        self.specnodes = [prebuiltNotSpecNode]*nargs
         self.finishdescr = finishdescr
 
 def make_done_loop_tokens():

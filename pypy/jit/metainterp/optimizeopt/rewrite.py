@@ -207,9 +207,6 @@ class OptRewrite(Optimization):
         assert isinstance(expectedclassbox, Const)
         realclassbox = value.get_constant_class(self.optimizer.cpu)
         if realclassbox is not None:
-            # the following assert should always be true for now,
-            # because invalid loops that would fail it are detected
-            # earlier, in optimizefindnode.py.
             if realclassbox.same_constant(expectedclassbox):
                 return
             raise InvalidLoop

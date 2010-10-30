@@ -1,9 +1,8 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.test.test_optimizefindnode import (LLtypeMixin,
-                                                            #OOtypeMixin,
-                                                            BaseTest)
-from pypy.jit.metainterp.optimizefindnode import PerfectSpecializationFinder
+from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
+                                                        #OOtypeMixin,
+                                                        BaseTest)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
@@ -244,9 +243,8 @@ class BaseTestOptimizeBasic(BaseTest):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap)
 
-    def optimize_loop(self, ops, spectext, optops, checkspecnodes=True):
+    def optimize_loop(self, ops, spectext, optops):
         loop = self.parse(ops)
-        loop.token.specnodes = self.unpack_specnodes(spectext)
         #
         self.loop = loop
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
@@ -858,7 +856,7 @@ class BaseTestOptimizeBasic(BaseTest):
         """
         py.test.skip("XXX")
         self.optimize_loop(ops, 'Not, Virtual(node_vtable, floatdescr=Not)',
-                           expected, checkspecnodes=False)
+                           expected)
 
     def test_virtual_2(self):
         ops = """
@@ -913,7 +911,7 @@ class BaseTestOptimizeBasic(BaseTest):
         self.optimize_loop(ops, '''Virtual(node_vtable),
                                    Virtual(node_vtable),
                                    Not''',
-                           expected, checkspecnodes=False)
+                           expected)
         #
         # to be complete, we also check the no-opt case where most comparisons
         # are not removed.  The exact set of comparisons removed depends on

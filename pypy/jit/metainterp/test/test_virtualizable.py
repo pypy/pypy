@@ -11,7 +11,7 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
+from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 
 def promote_virtualizable(*args):
     pass

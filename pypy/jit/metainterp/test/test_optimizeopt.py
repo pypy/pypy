@@ -1,9 +1,8 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.test.test_optimizefindnode import (LLtypeMixin,
-                                                            #OOtypeMixin,
-                                                            BaseTest)
-from pypy.jit.metainterp.optimizefindnode import PerfectSpecializationFinder
+from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
+                                                        #OOtypeMixin,
+                                                        BaseTest)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
@@ -67,7 +66,6 @@ class BaseTestOptimizeOpt(BaseTest):
 
     def optimize_loop(self, ops, spectext, optops, expected_preamble=None):
         loop = self.parse(ops)
-        loop.token.specnodes = self.unpack_specnodes(spectext)
         #
         self.loop = loop
         loop.preamble = TreeLoop('preamble')

@@ -1746,8 +1746,7 @@ class MetaInterp(object):
     def designate_target_loop(self, gmp):
         loop_token = gmp.target_loop_token
         num_green_args = self.jitdriver_sd.num_green_args
-        residual_args = self.get_residual_args(loop_token.specnodes,
-                                               gmp.argboxes[num_green_args:])
+        residual_args = gmp.argboxes[num_green_args:]
         history.set_future_values(self.cpu, residual_args)
         return loop_token
 
@@ -1853,16 +1852,6 @@ class MetaInterp(object):
                                                        self.resumekey)
         if target_loop_token is not loop_tokens[0]:
             compile.giveup()
-
-    def get_residual_args(self, specnodes, args):
-        if specnodes is None:     # it is None only for tests
-            return args
-        assert len(specnodes) == len(args)
-        expanded_args = []
-        for i in range(len(specnodes)):
-            specnode = specnodes[i]
-            specnode.extract_runtime_data(self.cpu, args[i], expanded_args)
-        return expanded_args
 
     @specialize.arg(1)
     def initialize_original_boxes(self, jitdriver_sd, *args):
