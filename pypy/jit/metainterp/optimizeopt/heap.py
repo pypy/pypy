@@ -148,6 +148,10 @@ class OptHeap(Optimization):
         self.clean_caches()
 
 
+    def force_at_end_of_preamble(self):
+        self.force_all_lazy_setfields()
+        self.next_optimization.force_at_end_of_preamble()
+        
     def force_lazy_setfield(self, descr, before_guard=False):
         try:
             op = self.lazy_setfields[descr]

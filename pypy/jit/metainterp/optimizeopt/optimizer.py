@@ -150,6 +150,8 @@ llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
 class Optimization(object):
+    next_optimization = None
+    
     def propagate_forward(self, op):
         raise NotImplementedError
 
@@ -190,6 +192,10 @@ class Optimization(object):
 
     def setup(self, virtuals):
         pass
+
+    def force_at_end_of_preamble(self):
+        if self.next_optimization:
+            self.next_optimization.force_at_end_of_preamble()
 
 class Optimizer(Optimization):
 

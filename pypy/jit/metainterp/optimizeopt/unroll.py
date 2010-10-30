@@ -18,8 +18,9 @@ class OptUnroll(Optimization):
         if not self.enabled:
             self.emit_operation(op)
             return
-        
+
         if op.getopnum() == rop.JUMP:
+            self.force_at_end_of_preamble()
             loop = self.optimizer.loop
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer.newoperations = []
@@ -93,10 +94,13 @@ class OptUnroll(Optimization):
                 if not isinstance(a, Const) and a in self.optimizer.values:
                     v = self.getvalue(a)
                     if v.fromstart and not v.is_constant():
-                        a = v.force_box()
-                        if a not in inputargs:
-                            inputargs.append(a)
-                            newval = self.getvalue(argmap[a])
+                        b = v.force_box()
+                        if b not in inputargs:
+                        #boxes = []
+                        #v.enum_forced_boxes(boxes, seen_inputargs)
+                        #for b in boxes:
+                            inputargs.append(b)
+                            newval = self.getvalue(argmap[b])
                             jumpargs.append(newval.force_box())
 
         jmp.initarglist(jumpargs)

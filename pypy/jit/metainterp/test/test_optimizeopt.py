@@ -854,16 +854,20 @@ class BaseTestOptimizeOpt(BaseTest):
         p3sub = getfield_gc(p3, descr=nextdescr)
         i3 = getfield_gc(p3sub, descr=valuedescr)
         escape(i3)
-        jump(i1, p2)
-        """
-        expected = """
-        [i1, p3]
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
-        setfield_gc(p3, p2sub, descr=nextdescr)
-        escape(i1)
-        p4 = new_with_vtable(ConstClass(node_vtable))
-        jump(i1, p4)
+        setfield_gc(p2, p2sub, descr=nextdescr)        
+        jump(i1, p2, p2sub)
+        """
+        expected = """
+        [i1, p2, p2sub]
+        i3 = getfield_gc(p2sub, descr=valuedescr)
+        escape(i3)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        p3sub = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p3sub, i1, descr=valuedescr)
+        setfield_gc(p1, p3sub, descr=nextdescr)
+        jump(i1, p1, p3sub)
         """
         self.optimize_loop(ops, 'Not, Not, Not', expected, preamble)
 
