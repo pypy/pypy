@@ -69,7 +69,7 @@ class TestRunningAssembler():
     def test_cmp(self):
         self.a.gen_func_prolog()
         self.a.mc.gen_load_int(r.r1.value, 22)
-        self.a.mc.CMP(r.r1.value, 123)
+        self.a.mc.CMP_ri(r.r1.value, 123)
         self.a.mc.MOV_ri(r.r0.value, 1, c.LE)
         self.a.mc.MOV_ri(r.r0.value, 0, c.GT)
         self.a.gen_func_epilog()
@@ -78,7 +78,7 @@ class TestRunningAssembler():
     def test_int_le_false(self):
         self.a.gen_func_prolog()
         self.a.mc.gen_load_int(r.r1.value, 2222)
-        self.a.mc.CMP(r.r1.value, 123)
+        self.a.mc.CMP_ri(r.r1.value, 123)
         self.a.mc.MOV_ri(r.r0.value, 1, c.LE)
         self.a.mc.MOV_ri(r.r0.value, 0, c.GT)
         self.a.gen_func_epilog()
@@ -88,7 +88,7 @@ class TestRunningAssembler():
         self.a.gen_func_prolog()
         self.a.mc.MOV_ri(r.r1.value, 1)
         loop_head = self.a.mc.curraddr()
-        self.a.mc.CMP(r.r1.value, 0) # z=0, z=1
+        self.a.mc.CMP_ri(r.r1.value, 0) # z=0, z=1
         self.a.mc.MOV_ri(r.r1.value, 0, cond=c.NE)
         self.a.mc.MOV_ri(r.r1.value, 7, cond=c.EQ)
         self.a.mc.gen_load_int(r.r4.value, loop_head, cond=c.NE)
@@ -102,7 +102,7 @@ class TestRunningAssembler():
         self.a.mc.MOV_ri(r.r1.value, 1)
         loop_head = self.a.mc.curraddr()
         self.a.mc.ADD_ri(r.r1.value, r.r1.value, 1)
-        self.a.mc.CMP(r.r1.value, 9)
+        self.a.mc.CMP_ri(r.r1.value, 9)
         self.a.mc.gen_load_int(r.r4.value, loop_head, cond=c.NE)
         self.a.mc.MOV_rr(r.pc.value, r.r4.value, cond=c.NE)
         self.a.mc.MOV_rr(r.r0.value, r.r1.value)

@@ -113,7 +113,7 @@ class TestInstrCodeBuilder(ASMTest):
         self.assert_equal('SUB r3, r7, #4095')
 
     def test_cmp_ri(self):
-        self.cb.CMP(r.r3.value, 123)
+        self.cb.CMP_ri(r.r3.value, 123)
         self.assert_equal('CMP r3, #123')
 
     def test_mcr(self):
