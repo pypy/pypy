@@ -807,10 +807,10 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_value(i2, 1) []
         i3 = call_loopinvariant(1, i1, descr=nonwritedescr)
         guard_no_exception() []
-        guard_value(i2, 1) []
+        guard_value(i3, 1) []
         i4 = call_loopinvariant(1, i1, descr=nonwritedescr)
         guard_no_exception() []
-        guard_value(i2, 1) []
+        guard_value(i4, 1) []
         jump(i1)
         """
         expected = """
