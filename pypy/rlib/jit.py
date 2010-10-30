@@ -260,8 +260,8 @@ PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
               'trace_limit': 10000,
               'inlining': False,
-              #'optimizer': OPTIMIZER_FULL,
-              'optimizer': OPTIMIZER_NO_PERFECTSPEC,
+              'optimizer': OPTIMIZER_FULL,
+              #'optimizer': OPTIMIZER_NO_PERFECTSPEC,
               'debug' : DEBUG_STEPS,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
