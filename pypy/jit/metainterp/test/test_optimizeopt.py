@@ -947,11 +947,15 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i1 = ptr_eq(p2, NULL)
         jump(i1)
         """
-        expected = """
+        preamble = """
         [i0]
-        jump(1)
+        jump()
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
 
     def test_virtual_constant_isnonnull(self):
@@ -963,9 +967,13 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i1 = ptr_eq(p2, NULL)
         jump(i1)
         """
-        expected = """
+        preamble = """
         [i0]
-        jump(0)
+        jump()
+        """
+        expected = """
+        []
+        jump()
         """
         self.optimize_loop(ops, 'Not', expected)
 
@@ -1001,8 +1009,22 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i, p1)
         """
-        expected = ops
-        self.optimize_loop(ops, 'Not, Not', expected)
+        preamble = """
+        [i, p0]
+        i0 = getfield_gc(p0, descr=valuedescr)
+        escape(p0)
+        i1 = int_add(i0, i)
+        jump(i, i1)
+        """
+        expected = """
+        [i, i1]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        escape(p1)
+        i2 = int_add(i1, i)
+        jump(i, i2)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
     def test_nonvirtual_later(self):
         ops = """
@@ -1079,8 +1101,12 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
         jump(i1)
         """
-        expected = ops
-        self.optimize_loop(ops, 'Not', expected)
+        preamble = ops
+        expected = """
+        [i]
+        jump(i)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_varray_1(self):
         ops = """
@@ -1107,11 +1133,15 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         jump(i2)
         """
-        expected = """
+        preamble = """
         [i1]
-        jump(0)
+        jump()
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_varray_float(self):
         ops = """
@@ -1176,13 +1206,21 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setarrayitem_gc(p2, 0, 20, descr=arraydescr)
         jump(i0, p2)
         """
-        expected = """
-        [i0, i1, i2]
+        preamble = """
+        [i0, p1]
+        i1 = getarrayitem_gc(p1, 0, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         i3 = int_sub(i1, i2)
         guard_value(i3, 15) []
-        jump(i0, 20, i0)
+        jump(i0)
         """
-        self.optimize_loop(ops, 'Not, VArray(arraydescr, Not, Not)', expected)
+        expected = """
+        [i0]
+        i3 = int_sub(20, i0)
+        guard_value(i3, 15) []
+        jump(5)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
     def test_p123_array(self):
         ops = """
