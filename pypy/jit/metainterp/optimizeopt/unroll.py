@@ -8,16 +8,13 @@ class OptUnroll(Optimization):
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
     
-    def setup(self, virtuals):
-        self.enabled = virtuals        
+    def setup(self, not_a_bridge):
+        assert not_a_bridge
         self.cloned_operations = []
         for op in self.optimizer.loop.operations:
             self.cloned_operations.append(op.clone())
             
     def propagate_forward(self, op):
-        if not self.enabled:
-            self.emit_operation(op)
-            return
 
         if op.getopnum() == rop.JUMP:
             self.force_at_end_of_preamble()
