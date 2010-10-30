@@ -1,18 +1,20 @@
+from pypy.jit.metainterp.history import Const, ConstInt
 from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
 from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
 from pypy.jit.metainterp.specnode import VirtualArraySpecNode
 from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
+from pypy.jit.metainterp.optimizeutil import descrlist_dict
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp.optimizeopt.optimizer import *
+from pypy.jit.metainterp.optimizeopt import optimizer
 
 
-class AbstractVirtualValue(OptValue):
+class AbstractVirtualValue(optimizer.OptValue):
     _attrs_ = ('optimizer', 'keybox', 'source_op', '_cached_vinfo')
     box = None
-    level = LEVEL_NONNULL
+    level = optimizer.LEVEL_NONNULL
     _cached_vinfo = None
 
     def __init__(self, optimizer, keybox, source_op=None):
@@ -67,7 +69,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         return self._fields.get(ofs, default)
 
     def setfield(self, ofs, fieldvalue):
-        assert isinstance(fieldvalue, OptValue)
+        assert isinstance(fieldvalue, optimizer.OptValue)
         self._fields[ofs] = fieldvalue
 
     def _really_force(self):
@@ -135,7 +137,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
 
 
 class VirtualValue(AbstractVirtualStructValue):
-    level = LEVEL_KNOWNCLASS
+    level = optimizer.LEVEL_KNOWNCLASS
 
     def __init__(self, optimizer, known_class, keybox, source_op=None):
         AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
@@ -172,7 +174,7 @@ class VArrayValue(AbstractVirtualValue):
         return res
 
     def setitem(self, index, itemvalue):
-        assert isinstance(itemvalue, OptValue)
+        assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
 
     def _really_force(self):
@@ -275,7 +277,7 @@ class __extend__(VirtualArraySpecNode):
             subspecnode = self.items[index]
             subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
 
-class OptVirtualize(Optimization):
+class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
     def setup(self, not_a_bridge):
