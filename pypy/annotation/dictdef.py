@@ -77,7 +77,7 @@ class DictValue(ListItem):
             dictdef.dictvalue = self
 
 
-class DictDef:
+class DictDef(object):
     """A dict definition remembers how general the keys and values in that
     particular dict have to be.  Every dict creation makes a new DictDef,
     and the union of two dicts merges the DictKeys and DictValues that each
