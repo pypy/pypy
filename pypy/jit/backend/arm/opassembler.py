@@ -52,6 +52,32 @@ def gen_emit_op_by_helper_call(opname):
         return fcond
     return f
 
+def gen_emit_cmp_op(condition, inverse=False):
+    def f(self, op, regalloc, fcond):
+        assert fcond == c.AL
+        if not inverse:
+            arg0 = op.getarg(0)
+            arg1 = op.getarg(1)
+        else:
+            arg0 = op.getarg(1)
+            arg1 = op.getarg(0)
+        res = regalloc.try_allocate_reg(op.result)
+        # XXX consider swapping argumentes if arg0 is const
+        if self._check_imm_arg(arg1) and not isinstance(arg0, ConstInt):
+            reg = regalloc.try_allocate_reg(arg0)
+            self.mc.CMP_ri(reg.value, imm=arg1.getint(), cond=fcond)
+        else:
+            reg = self._put_in_reg(arg0, regalloc)
+            reg2 = self._put_in_reg(arg1, regalloc)
+            self.mc.CMP_rr(reg.value, reg2.value)
+            regalloc.possibly_free_var(reg2)
+
+        inv = c.get_opposite_of(condition)
+        self.mc.MOV_ri(res.value, 1, cond=condition)
+        self.mc.MOV_ri(res.value, 0, cond=inv)
+        return condition
+    return f
+
 class IntOpAsslember(object):
     _mixin_ = True
 
@@ -137,8 +163,21 @@ class IntOpAsslember(object):
     emit_op_int_rshift = gen_emit_op_ri('ASR', imm_size=0x1F, commutative=False)
     emit_op_uint_rshift = gen_emit_op_ri('LSR', imm_size=0x1F, commutative=False)
 
+    emit_op_int_lt = gen_emit_cmp_op(c.LT)
+    emit_op_int_le = gen_emit_cmp_op(c.LE)
+    emit_op_int_eq = gen_emit_cmp_op(c.EQ)
+    emit_op_int_ne = gen_emit_cmp_op(c.NE)
+    emit_op_int_gt = gen_emit_cmp_op(c.GT)
+    emit_op_int_ge = gen_emit_cmp_op(c.GE)
 
-    def _check_imm_arg(self, arg, size):
+    emit_op_uint_le = gen_emit_cmp_op(c.LS)
+    emit_op_uint_gt = gen_emit_cmp_op(c.HI)
+
+    emit_op_uint_lt = gen_emit_cmp_op(c.HI, inverse=True)
+    emit_op_uint_ge = gen_emit_cmp_op(c.LS, inverse=True)
+
+
+    def _check_imm_arg(self, arg, size=0xFF):
         #XXX check ranges for different operations
         return isinstance(arg, ConstInt) and arg.getint() <= size and arg.getint() > 0
 
@@ -155,8 +194,10 @@ class GuardOpAssembler(object):
         descr._arm_guard_cond = fcond
 
     def emit_op_guard_true(self, op, regalloc, fcond):
-        assert fcond == c.GT
-        self._emit_guard(op, regalloc, fcond)
+        assert fcond == c.LE
+        cond = c.get_opposite_of(fcond)
+        assert cond == c.GT
+        self._emit_guard(op, regalloc, cond)
         return c.AL
 
     def emit_op_guard_false(self, op, regalloc, fcond):
@@ -183,17 +224,5 @@ class OpAssembler(object):
         return fcond
 
     def emit_op_finish(self, op, regalloc, fcond):
-        self._gen_path_to_exit_path(op, op.getarglist(), regalloc, fcond)
+        self._gen_path_to_exit_path(op, op.getarglist(), regalloc, c.AL)
         return fcond
-
-    def emit_op_int_le(self, op, regalloc, fcond):
-        reg = regalloc.try_allocate_reg(op.getarg(0))
-        assert isinstance(op.getarg(1), ConstInt)
-        self.mc.CMP(reg.value, op.getarg(1).getint())
-        return c.GT
-
-    def emit_op_int_eq(self, op, regalloc, fcond):
-        reg = regalloc.try_allocate_reg(op.getarg(0))
-        assert isinstance(op.getarg(1), ConstInt)
-        self.mc.CMP(reg.value, op.getarg(1).getint())
-        return c.EQ

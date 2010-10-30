@@ -16,12 +16,12 @@ def binary_helper_call(name):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
         self.ensure_can_fit(self.size_of_gen_load_int*2+3*WORD)
-        self.PUSH(range(2, 12), cond=cond)
+        self.PUSH(range(2, 4), cond=cond)
         addr = rffi.cast(lltype.Signed, llhelper(signature, function))
         self.gen_load_int(reg.r2.value, addr, cond=cond)
         self.gen_load_int(reg.lr.value, self.curraddr()+self.size_of_gen_load_int+WORD, cond=cond)
         self.MOV_rr(reg.pc.value, reg.r2.value, cond=cond)
-        self.LDM(reg.sp.value, range(2, 12), w=1, cond=cond) # XXX Replace with POP instr. someday
+        self.LDM(reg.sp.value, range(2, 4), w=1, cond=cond) # XXX Replace with POP instr. someday
     return f
 
 class AbstractARMv7Builder(object):
@@ -48,15 +48,6 @@ class AbstractARMv7Builder(object):
         instr = cond << 28 | 0x89 << 20 | w << 21 | (rn & 0xFF) << 16
         instr = self._encode_reg_list(instr, regs)
         self.write32(instr)
-
-    def CMP(self, rn, imm, cond=cond.AL):
-        if 0 <= imm <= 255:
-            self.write32(cond << 28
-                        | 0x35 << 20
-                        | (rn & 0xFF) <<  16
-                        | (imm & 0xFFF))
-        else:
-            raise NotImplentedError
 
     def BKPT(self, cond=cond.AL):
         self.write32(cond << 28 | 0x1200070)
