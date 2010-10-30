@@ -15,6 +15,7 @@ def binary_helper_call(name):
     def f(self, cond=cond.AL):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
+        self.ensure_can_fit(self.size_of_gen_load_int*2+3*WORD)
         self.PUSH(range(2, 12), cond=cond)
         addr = rffi.cast(lltype.Signed, llhelper(signature, function))
         self.gen_load_int(reg.r2.value, addr, cond=cond)
@@ -34,6 +35,9 @@ class AbstractARMv7Builder(object):
         for i in range(self._pos):
             f.write(self._data[i])
         f.close()
+
+    def ensure_can_fit(self, n):
+        raise NotImplentedError
 
     def PUSH(self, regs, cond=cond.AL):
         assert reg.sp not in regs
@@ -109,6 +113,7 @@ class ARMv7InMemoryBuilder(AbstractARMv7Builder):
         data = rffi.cast(PTR, start)
         self._init(data, map_size)
 
+
 class ARMv7Builder(AbstractARMv7Builder):
 
     def __init__(self):
@@ -119,7 +124,7 @@ class ARMv7Builder(AbstractARMv7Builder):
         self.checks = True
         self.n_data=0
 
-    _space_for_jump = 9 * WORD
+    _space_for_jump = 2 * WORD
     def writechar(self, char):
         if self.checks and not self._pos < self._size - self._space_for_jump:
             self.checks = False
@@ -131,13 +136,17 @@ class ARMv7Builder(AbstractARMv7Builder):
     def _add_more_mem(self):
         new_mem = alloc(self._size)
         new_mem_addr = rffi.cast(lltype.Signed, new_mem)
-        self.PUSH([reg.ip.value, reg.lr.value])
-        self.gen_load_int(reg.lr.value, new_mem_addr)
-        self.MOV_rr(reg.pc.value, reg.lr.value)
+        self.LDR_ri(reg.pc.value, reg.pc.value, -4)
+        self.write32(new_mem_addr)
         self._dump_trace('data%d.asm' % self.n_data)
         self.n_data += 1
         self._data = new_mem
         self._pos = 0
-        self.LDM(reg.sp.value, [reg.ip.value, reg.lr.value], w=1) # XXX Replace with POP instr. someday
+
+    def ensure_can_fit(self, n):
+        """ensure after this call there is enough space for n instructions
+        in a contiguous memory chunk"""
+        if not self._pos + n + self._space_for_jump < self._size:
+            self._add_more_mem()
 
 define_instructions(AbstractARMv7Builder)
