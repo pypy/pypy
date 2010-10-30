@@ -1932,6 +1932,34 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         self.optimize_loop(ops, 'Not, Not, Not, Not, Not', expected)
 
+    def test_duplicate_setfield_virtual(self):
+        # the difference with the previous test is that the field value is
+        # a virtual, which we try hard to keep virtual
+        ops = """
+        [p1, i2, i3, p4]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, p4, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        guard_true(i3) []
+        i4 = int_neg(i2)
+        jump(p1, i2, i4, p4)
+        """
+        preamble = """
+        [p1, i2, i3, p4]
+        guard_true(i3) [p1, p4]
+        i4 = int_neg(i2)
+        jump(p1, i2, i4, p4)
+        """
+        expected = """
+        [p1, i2, i4, p4]
+        guard_true(i4) [p1, p4]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, p4, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        jump(p1, i2, 1, p4)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, preamble)
+
     def test_bug_1(self):
         ops = """
         [i0, p1]
