@@ -1231,8 +1231,22 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
         jump(i1, p1, p2)
         """
+        preamble = """
+        [i1, p2, p3]
+        i3 = getarrayitem_gc(p3, 0, descr=arraydescr)
+        escape(i3)
+        jump(i1, p2)
+        """
+        expected = """
+        [i1, p2]
+        i3 = getarrayitem_gc(p2, 0, descr=arraydescr)
+        escape(i3)
+        p1 = new_array(1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        jump(i1, p1)
+        """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, 'Not, Not, Not', expected, preamble)
 
     def test_varray_forced_1(self):
         ops = """
@@ -1265,12 +1279,18 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p3, i1, descr=adescr)
         jump(i1, p3)
         """
-        expected = """
-        [i1, i2]
+        preamble = """
+        [i1, p2]
+        i2 = getfield_gc(p2, descr=adescr)
         escape(i2)
-        jump(i1, i1)
+        jump(i1)
         """
-        self.optimize_loop(ops, 'Not, VStruct(ssize, adescr=Not)', expected)
+        expected = """
+        [i1]
+        escape(i1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
     def test_p123_vstruct(self):
         ops = """
@@ -1281,8 +1301,22 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, i1, descr=adescr)
         jump(i1, p1, p2)
         """
+        preamble = """
+        [i1, p2, p3]
+        i3 = getfield_gc(p3, descr=adescr)
+        escape(i3)
+        jump(i1, p2)
+        """
+        expected = """
+        [i1, p2]
+        i3 = getfield_gc(p2, descr=adescr)
+        escape(i3)
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=adescr)
+        jump(i1, p1)
+        """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, 'Not, Not, Not', expected, preamble)
 
     def test_duplicate_getfield_1(self):
         ops = """
