@@ -2204,12 +2204,16 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i) []
         jump(p1)
         """
-        expected = """
+        preamble = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
         jump(p1)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p1]
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_oois_of_itself(self):
         ops = """
