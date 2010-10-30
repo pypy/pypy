@@ -1569,7 +1569,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, p3)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, p3]
         #
         i3 = getarrayitem_gc_pure(p3, 1, descr=arraydescr)
@@ -1579,9 +1579,20 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         #
         setfield_gc(p1, i2, descr=valuedescr)
         setfield_gc(p1, i4, descr=nextdescr)
-        jump(p1, i1, i2, p3)
+        jump(p1, i1, i2, p3, i3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        expected = """
+        [p1, i1, i2, p3, i3]
+        #
+        i4 = getarrayitem_gc(p3, i3, descr=arraydescr)
+        i5 = int_add(i3, i4)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
+        #
+        setfield_gc(p1, i2, descr=valuedescr)
+        setfield_gc(p1, i4, descr=nextdescr)
+        jump(p1, i1, i2, p3, i3)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not, Not', expected, preamble)
 
     def test_duplicate_setfield_5(self):
         ops = """
