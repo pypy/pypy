@@ -4,7 +4,7 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
 
 class OptUnroll(Optimization):
-    """Unroll the loop into two itterations. The first one will
+    """Unroll the loop into two iterations. The first one will
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
     
@@ -43,7 +43,7 @@ class OptUnroll(Optimization):
         for v in self.optimizer.values.values():
             v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
             if not v.is_constant() and v.box:
-                v.fromstart = True
+                v.fromstart = True # XXX do we really need to use an attribute?
 
         for op in self.optimizer.pure_operations.values():
             v = self.getvalue(op.result)
