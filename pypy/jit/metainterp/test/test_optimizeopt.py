@@ -242,21 +242,9 @@ class BaseTestOptimizeOpt(BaseTest):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap)
 
-    def optimize_loop(self, ops, spectext, optops, checkspecnodes=True,
-                      expected_preamble=None):
+    def optimize_loop(self, ops, spectext, optops, expected_preamble=None):
         loop = self.parse(ops)
-        #
-        if checkspecnodes:
-            # verify that 'spectext' is indeed what optimizefindnode would
-            # compute for this loop
-            cpu = self.cpu
-            perfect_specialization_finder = PerfectSpecializationFinder(cpu)
-            perfect_specialization_finder.find_nodes_loop(loop)
-            self.check_specnodes(loop.token.specnodes, spectext)
-        else:
-            # for cases where we want to see how optimizeopt behaves with
-            # combinations different from the one computed by optimizefindnode
-            loop.token.specnodes = self.unpack_specnodes(spectext)
+        loop.token.specnodes = self.unpack_specnodes(spectext)
         #
         self.loop = loop
         loop.preamble = TreeLoop('preamble')
@@ -267,11 +255,16 @@ class BaseTestOptimizeOpt(BaseTest):
         optimize_loop_1(metainterp_sd, loop)
         #
         expected = self.parse(optops)
-        print
-        print "Ops: "
-        print '\n'.join([str(o) for o in loop.operations])
-        self.assert_equal(loop, expected)
 
+        print
+        print loop.preamble.inputargs
+        print '\n'.join([str(o) for o in loop.preamble.operations])
+        print 
+        print loop.inputargs
+        print '\n'.join([str(o) for o in loop.operations])
+        print
+        
+        self.assert_equal(loop, expected)
         if expected_preamble:
             expected = self.parse(expected_preamble)
             self.assert_equal(loop.preamble, expected)
@@ -414,13 +407,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_false(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 0)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected, expected_preamble=preamble)
 
     def test_constant_boolrewrite_gt(self):
         ops = """
@@ -431,13 +428,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_false(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_gt(i0, 0)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected, expected_preamble=preamble)
 
     def test_constant_boolrewrite_reflex(self):
         ops = """
@@ -448,13 +449,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_gt(i0, 0)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected, expected_preamble=preamble)
 
     def test_constant_boolrewrite_reflex_invers(self):
         ops = """
@@ -465,13 +470,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_false(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_gt(i0, 0)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected, expected_preamble=preamble)
 
     def test_remove_consecutive_guard_value_constfold(self):
         ops = """
@@ -497,13 +506,13 @@ class BaseTestOptimizeOpt(BaseTest):
         ops = """
         [p1]
         guard_value(p1, ConstPtr(myptr)) []
-        jump(ConstPtr(myptr))
+        jump(p1)
         """
         expected = """
         []
         jump()
         """
-        self.optimize_loop(ops, 'Constant(myptr)', expected)
+        self.optimize_loop(ops, 'Not', expected)
 
     def test_ooisnull_oononnull_1(self):
         ops = """
@@ -512,12 +521,16 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_nonnull(p0) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_int_is_true_1(self):
         ops = """
@@ -528,13 +541,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_is_true(i0)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_int_is_true_is_zero(self):
         py.test.skip("XXX implement me")
@@ -561,12 +578,16 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_nonnull(p0) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         guard_nonnull(p0) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_ooisnull_on_null_ptr_1(self):
         ops = """
@@ -594,12 +615,16 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_nonnull(p1) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         guard_nonnull(p0) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_oois_1(self):
         ops = """
@@ -615,12 +640,16 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_false(i1) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_nonnull_1(self):
         ops = """
@@ -673,13 +702,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_value(i1, 1) [i]
         jump(i)
         """
-        expected = """
+        preamble = """
         [i]
         i1 = int_lt(i, 3)
         guard_true(i1) [i]
         jump(i)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i]
+        jump(i)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_guard_value_to_guard_false(self):
         ops = """
@@ -688,13 +721,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_value(i1, 0) [i]
         jump(i)
         """
-        expected = """
+        preamble = """
         [i]
         i1 = int_is_true(i)
         guard_false(i1) [i]
         jump(i)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i]
+        jump(i)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_guard_value_on_nonbool(self):
         ops = """
@@ -703,13 +740,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_value(i1, 0) [i]
         jump(i)
         """
-        expected = """
+        preamble = """
         [i]
         i1 = int_add(i, 3)
         guard_value(i1, 0) [i]
-        jump(-3)
+        jump()
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_int_is_true_of_bool(self):
         ops = """
@@ -720,13 +761,17 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_value(i4, 0) [i0, i1]
         jump(i0, i1)
         """
-        expected = """
+        preamble = """
         [i0, i1]
         i2 = int_gt(i0, i1)
         guard_false(i2) [i0, i1]
         jump(i0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        expected = """
+        [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
 
 
@@ -740,8 +785,22 @@ class BaseTestOptimizeOpt(BaseTest):
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i1, p1, p2)
         """
+        preamble = """
+        [i1, p2, p3]
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        jump(i1, p2)
+        """
+        expected = """
+        [i1, p2]
+        i3 = getfield_gc(p2, descr=valuedescr)
+        escape(i3)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, i1, descr=valuedescr)        
+        jump(i1, p3)
+        """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, 'Not, Not, Not', expected, preamble)
 
     def test_p123_nested(self):
         ops = """
@@ -757,7 +816,24 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         # The same as test_p123_simple, but with a virtual containing another
         # virtual.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        preamble = """
+        [i1, p2, p3]
+        i3 = getfield_gc(p3, descr=valuedescr)
+        escape(i3)
+        jump(i1, p2)
+        """
+        expected = """
+        [i1, p2]
+        i3 = getfield_gc(p2, descr=valuedescr)
+        escape(i3)
+        p4 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p4, i1, descr=valuedescr)
+        p1sub = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p1sub, i1, descr=valuedescr)
+        setfield_gc(p4, p1sub, descr=nextdescr)
+        jump(i1, p4)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not', expected, preamble)
 
     def test_p123_anti_nested(self):
         ops = """
@@ -773,7 +849,23 @@ class BaseTestOptimizeOpt(BaseTest):
         """
         # The same as test_p123_simple, but in the end the "old" p2 contains
         # a "young" virtual p2sub.  Make sure it is all forced.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        preamble = """
+        [i1, p2, p3]
+        p3sub = getfield_gc(p3, descr=nextdescr)
+        i3 = getfield_gc(p3sub, descr=valuedescr)
+        escape(i3)
+        jump(i1, p2)
+        """
+        expected = """
+        [i1, p3]
+        p2sub = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p2sub, i1, descr=valuedescr)
+        setfield_gc(p3, p2sub, descr=nextdescr)
+        escape(i1)
+        p4 = new_with_vtable(ConstClass(node_vtable))
+        jump(i1, p4)
+        """
+        self.optimize_loop(ops, 'Not, Not, Not', expected, preamble)
 
     # ----------
 
