@@ -55,14 +55,14 @@ class BaseTestOptimizeOpt(BaseTest):
         descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
         return descr
 
-    def assert_equal(self, optimized, expected):
+    def assert_equal(self, optimized, expected, text_right=None):
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
         for box1, box2 in zip(optimized.inputargs, expected.inputargs):
             assert box1.__class__ == box2.__class__
             remap[box2] = box1
         assert equaloplists(optimized.operations,
-                            expected.operations, False, remap)
+                            expected.operations, False, remap, text_right)
 
     def optimize_loop(self, ops, optops, expected_preamble=None):
         loop = self.parse(ops)
@@ -89,7 +89,8 @@ class BaseTestOptimizeOpt(BaseTest):
         
         self.assert_equal(loop, expected)
         if expected_preamble:
-            self.assert_equal(loop.preamble, expected_preamble)
+            self.assert_equal(loop.preamble, expected_preamble,
+                              text_right='expected preamble')
 
         return loop
 

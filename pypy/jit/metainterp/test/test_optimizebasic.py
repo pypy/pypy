@@ -129,7 +129,8 @@ def test_descrlist_dict():
 
 # ____________________________________________________________
 
-def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):
+def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
+                 text_right=None):
     # try to use the full width of the terminal to display the list
     # unfortunately, does not work with the default capture method of py.test
     # (which is fd), you you need to use either -s or --capture=sys, else you
@@ -137,7 +138,8 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):
     totwidth = py.io.get_terminal_width()
     width = totwidth / 2 - 1
     print ' Comparing lists '.center(totwidth, '-')
-    print '%s| %s' % ('optimized'.center(width), 'expected'.center(width))
+    text_right = text_right or 'expected'
+    print '%s| %s' % ('optimized'.center(width), text_right.center(width))
     for op1, op2 in zip(oplist1, oplist2):
         txt1 = str(op1)
         txt2 = str(op2)
@@ -167,7 +169,7 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):
                 fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
                 assert fail_args1 == fail_args2
     assert len(oplist1) == len(oplist2)
-    print '-'*57
+    print '-'*totwidth
     return True
 
 def test_equaloplists():
