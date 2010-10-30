@@ -243,7 +243,7 @@ class BaseTestOptimizeBasic(BaseTest):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap)
 
-    def optimize_loop(self, ops, spectext, optops):
+    def optimize_loop(self, ops, optops):
         loop = self.parse(ops)
         #
         self.loop = loop
@@ -285,7 +285,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_value(i0, 0) [i0]
         jump(1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constant_propagate(self):
         ops = """
@@ -302,7 +302,7 @@ class BaseTestOptimizeBasic(BaseTest):
         []
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constant_propagate_ovf(self):
         ops = """
@@ -320,7 +320,7 @@ class BaseTestOptimizeBasic(BaseTest):
         []
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constfold_all(self):
         from pypy.jit.backend.llgraph.llimpl import TYPES     # xxx fish
@@ -354,7 +354,7 @@ class BaseTestOptimizeBasic(BaseTest):
             escape(%d)
             jump()
             """ % expected_value
-            self.optimize_loop(ops, '', expected)
+            self.optimize_loop(ops, expected)
 
     # ----------
 
@@ -370,7 +370,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_remove_guard_class_2(self):
         ops = """
@@ -386,7 +386,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p0)
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_remove_guard_class_constant(self):
         ops = """
@@ -399,7 +399,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constant_boolrewrite_lt(self):
         ops = """
@@ -416,7 +416,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constant_boolrewrite_gt(self):
         ops = """
@@ -433,7 +433,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constant_boolrewrite_reflex(self):
         ops = """
@@ -450,7 +450,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constant_boolrewrite_reflex_invers(self):
         ops = """
@@ -467,7 +467,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_remove_consecutive_guard_value_constfold(self):
         ops = """
@@ -487,7 +487,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(3)
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_remove_guard_value_if_constant(self):
         ops = """
@@ -514,7 +514,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_int_is_true_1(self):
         ops = """
@@ -531,7 +531,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_int_is_true_is_zero(self):
         py.test.skip("XXX implement me")
@@ -549,7 +549,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_ooisnull_oononnull_2(self):
         ops = """
@@ -563,7 +563,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_nonnull(p0) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_ooisnull_on_null_ptr_1(self):
         ops = """
@@ -579,7 +579,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_isnull(p0) []
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_ooisnull_oononnull_via_virtual(self):
         ops = """
@@ -596,7 +596,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_nonnull(p0) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_oois_1(self):
         ops = """
@@ -617,7 +617,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_nonnull_1(self):
         ops = """
@@ -639,7 +639,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p0, 5, descr=valuedescr)
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_const_guard_value(self):
         ops = """
@@ -652,7 +652,7 @@ class BaseTestOptimizeBasic(BaseTest):
         []
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_constptr_guard_value(self):
         ops = """
@@ -661,7 +661,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_value(p1, ConstPtr(myptr)) []
         jump()
         """
-        self.optimize_loop(ops, '', ops)
+        self.optimize_loop(ops, ops)
 
     def test_guard_value_to_guard_true(self):
         ops = """
@@ -676,7 +676,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) [i]
         jump(i)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_guard_value_to_guard_false(self):
         ops = """
@@ -691,7 +691,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_false(i1) [i]
         jump(i)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_guard_value_on_nonbool(self):
         ops = """
@@ -706,7 +706,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_value(i1, 0) [i]
         jump(-3)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_int_is_true_of_bool(self):
         ops = """
@@ -723,7 +723,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_false(i2) [i0, i1]
         jump(i0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
 
 
@@ -738,7 +738,7 @@ class BaseTestOptimizeBasic(BaseTest):
         jump(i1, p1, p2)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_p123_nested(self):
         ops = """
@@ -754,7 +754,7 @@ class BaseTestOptimizeBasic(BaseTest):
         """
         # The same as test_p123_simple, but with a virtual containing another
         # virtual.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_p123_anti_nested(self):
         ops = """
@@ -770,7 +770,7 @@ class BaseTestOptimizeBasic(BaseTest):
         """
         # The same as test_p123_simple, but in the end the "old" p2 contains
         # a "young" virtual p2sub.  Make sure it is all forced.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     # ----------
 
@@ -794,7 +794,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     # ----------
 
@@ -819,7 +819,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_value(i2, 1) []
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
 
     # ----------
@@ -927,7 +927,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i11) []
         jump(p0, p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected2)
+        self.optimize_loop(ops, expected2)
 
     def test_virtual_default_field(self):
         ops = """
@@ -963,7 +963,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i1 = int_add(i, 1)
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_virtual_4(self):
         ops = """
@@ -1027,7 +1027,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
 
     def test_virtual_constant_isnonnull(self):
@@ -1043,7 +1043,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_nonvirtual_1(self):
         ops = """
@@ -1065,7 +1065,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p1)
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_nonvirtual_2(self):
         ops = """
@@ -1078,7 +1078,7 @@ class BaseTestOptimizeBasic(BaseTest):
         jump(i, p1)
         """
         expected = ops
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_nonvirtual_later(self):
         ops = """
@@ -1100,7 +1100,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i3 = int_add(i, i2)
         jump(i3)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_nonvirtual_dont_write_null_fields_on_force(self):
         ops = """
@@ -1120,7 +1120,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i2 = getfield_gc(p1, descr=valuedescr)
         jump(i2)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_getfield_gc_pure_1(self):
         ops = """
@@ -1134,7 +1134,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i]
         jump(i)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_getfield_gc_pure_2(self):
         ops = """
@@ -1147,7 +1147,7 @@ class BaseTestOptimizeBasic(BaseTest):
         jump(5)
         """
         self.node.value = 5
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_getfield_gc_nonpure_2(self):
         ops = """
@@ -1156,7 +1156,7 @@ class BaseTestOptimizeBasic(BaseTest):
         jump(i1)
         """
         expected = ops
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_varray_1(self):
         ops = """
@@ -1173,7 +1173,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i1]
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_varray_alloc_and_set(self):
         ops = """
@@ -1187,7 +1187,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i1]
         jump(0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_varray_float(self):
         ops = """
@@ -1204,7 +1204,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [f1]
         jump(f1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_array_non_optimized(self):
         ops = """
@@ -1220,7 +1220,7 @@ class BaseTestOptimizeBasic(BaseTest):
         p1 = new_array(i1, descr=arraydescr)
         jump(i1, p1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_nonvirtual_array_dont_write_null_fields_on_force(self):
         ops = """
@@ -1238,7 +1238,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p1)
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_varray_2(self):
         ops = """
@@ -1271,7 +1271,7 @@ class BaseTestOptimizeBasic(BaseTest):
         jump(i1, p1, p2)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_varray_forced_1(self):
         ops = """
@@ -1293,7 +1293,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i2)
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_vstruct_1(self):
         ops = """
@@ -1322,7 +1322,7 @@ class BaseTestOptimizeBasic(BaseTest):
         jump(i1, p1, p2)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_getfield_1(self):
         ops = """
@@ -1347,7 +1347,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i2)
         jump(p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_getfield_after_setfield(self):
         ops = """
@@ -1363,7 +1363,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump(p1, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_setfield_of_different_type_does_not_clear(self):
         ops = """
@@ -1381,7 +1381,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump(p1, p2, i1)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_setfield_of_same_type_clears(self):
         ops = """
@@ -1392,7 +1392,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i3)
         jump(p1, p2, i1, i3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_getfield_mergepoint_has_no_side_effects(self):
         ops = """
@@ -1412,7 +1412,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump(p1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getfield_ovf_op_does_not_clear(self):
         ops = """
@@ -1434,7 +1434,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump(p1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getfield_setarrayitem_does_not_clear(self):
         ops = """
@@ -1454,7 +1454,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump(p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getfield_constant(self):
         ops = """
@@ -1472,7 +1472,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getfield_guard_value_const(self):
         ops = """
@@ -1504,7 +1504,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i2)
         jump(p1)
         """
-        self.optimize_loop(ops, 'Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_getfield_sideeffects_2(self):
         ops = """
@@ -1515,7 +1515,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i2)
         jump(p1, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_setfield_1(self):
         ops = """
@@ -1529,7 +1529,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_setfield_2(self):
         ops = """
@@ -1546,7 +1546,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump(p1, i1, i3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_setfield_3(self):
         ops = """
@@ -1559,7 +1559,7 @@ class BaseTestOptimizeBasic(BaseTest):
         """
         # potential aliasing of p1 and p2 means that we cannot kill the
         # the setfield_gc
-        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_setfield_4(self):
         ops = """
@@ -1588,7 +1588,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, i4, descr=nextdescr)
         jump(p1, i1, i2, p3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_setfield_5(self):
         ops = """
@@ -1610,7 +1610,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i1)
         jump(p0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_setfield_sideeffects_1(self):
         ops = """
@@ -1620,7 +1620,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_setfield_residual_guard_1(self):
         ops = """
@@ -1631,7 +1631,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_setfield_residual_guard_2(self):
         # the difference with the previous test is that the field value is
@@ -1652,7 +1652,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_setfield_residual_guard_3(self):
         ops = """
@@ -1672,7 +1672,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_setfield_residual_guard_4(self):
         # test that the setfield_gc does not end up between int_eq and
@@ -1686,7 +1686,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_setfield_aliasing(self):
         # a case where aliasing issues (and not enough cleverness) mean
@@ -1698,7 +1698,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, p2, i1, i2, i3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_duplicate_setfield_guard_value_const(self):
         ops = """
@@ -1739,7 +1739,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p3)
         jump(p1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_after_setarrayitem_1(self):
         ops = """
@@ -1755,7 +1755,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p2)
         jump(p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
         ops = """
@@ -1777,7 +1777,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p3)
         jump(p1, p2, p3, i1)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_after_setarrayitem_3(self):
         ops = """
@@ -1804,7 +1804,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p4)
         jump(p1, p2, p3, p4, i1)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_getarrayitem_pure_does_not_invalidate(self):
         ops = """
@@ -1825,7 +1825,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p3)
         jump(p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_after_setarrayitem_two_arrays(self):
         ops = """
@@ -1846,7 +1846,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(p4)
         jump(p1, p2, p3, p4, i1)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bug_1(self):
         ops = """
@@ -2017,7 +2017,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3, p2)
         """
-        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+        self.optimize_loop(ops, expected)
 
     def test_merge_guard_nonnull_guard_class(self):
         self.make_fail_descr()
@@ -2034,7 +2034,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3, p2)
         """
-        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr("i0", rop.GUARD_NONNULL_CLASS)
 
     def test_merge_guard_nonnull_guard_value(self):
@@ -2052,7 +2052,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3, p2)
         """
-        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_merge_guard_nonnull_guard_class_guard_value(self):
@@ -2073,7 +2073,7 @@ class BaseTestOptimizeBasic(BaseTest):
         i4 = int_sub(i3, 1)
         jump(p2, i0, i1, i4, p2)
         """
-        self.optimize_loop(ops, "Not, Not, Not, Not, Not", expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_guard_class_oois(self):
@@ -2089,7 +2089,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_class(p1, ConstClass(node_vtable2)) []
         jump(p1)
         """
-        self.optimize_loop(ops, "Not", expected)
+        self.optimize_loop(ops, expected)
 
     def test_oois_of_itself(self):
         ops = """
@@ -2107,7 +2107,7 @@ class BaseTestOptimizeBasic(BaseTest):
         p1 = getfield_gc(p0, descr=nextdescr)
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op(self):
         ops = """
@@ -2137,7 +2137,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(p1, p2)
         """
-        self.optimize_loop(ops, "Not, Not", expected)
+        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op_with_descr(self):
         ops = """
@@ -2157,7 +2157,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1) []
         jump(p1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op_ovf(self):
         ops = """
@@ -2184,7 +2184,7 @@ class BaseTestOptimizeBasic(BaseTest):
         escape(i3)
         jump(i1)
         """
-        self.optimize_loop(ops, "Not", expected)
+        self.optimize_loop(ops, expected)
 
     def test_int_and_or_with_zero(self):
         ops = """
@@ -2199,7 +2199,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0, i1]
         jump(i1, i0)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_fold_partially_constant_ops(self):
         ops = """
@@ -2211,7 +2211,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
         ops = """
         [i0]
@@ -2222,7 +2222,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
         ops = """
         [i0]
@@ -2233,7 +2233,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_fold_partially_constant_ops_ovf(self):
         ops = """
@@ -2246,7 +2246,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
         ops = """
         [i0]
@@ -2258,7 +2258,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
         ops = """
         [i0]
@@ -2270,7 +2270,7 @@ class BaseTestOptimizeBasic(BaseTest):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     # ----------
 
@@ -2416,7 +2416,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1, descr=fdescr) [i3]
         jump(1, i3)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('15, i3', rop.GUARD_TRUE)
 
     def test_expand_fail_2(self):
@@ -2434,7 +2434,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1, descr=fdescr) [i2]
         jump(1, i2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''ptr
             where ptr is a node_vtable, valuedescr=i2
             ''', rop.GUARD_TRUE)
@@ -2457,7 +2457,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1, descr=fdescr) [i3, i2, p3]
         jump(i2, 1, i3, p3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''i3, p1
             where p1 is a node_vtable, valuedescr=1, nextdescr=p2
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p3
@@ -2484,7 +2484,7 @@ class BaseTestOptimizeBasic(BaseTest):
             guard_true(i1, descr=fdescr) [i3, i2]
             jump(1, i2, i3)
             """
-            self.optimize_loop(ops % arg, 'Not, Not, Not', expected)
+            self.optimize_loop(ops % arg, expected)
             self.check_expanded_fail_descr('''i3, i3, %s
                 where p1 is a node_vtable, valuedescr=i2, nextdescr=p2
                 where p2 is a node_vtable, valuedescr=i2''' % arg,
@@ -2508,7 +2508,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1, descr=fdescr) [i3, i4, i2]
         jump(i2, 1, i3, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''i3, i4, p1, p2
             where p1 is a node_vtable, valuedescr=i4, nextdescr=p2
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p1
@@ -2551,7 +2551,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1, descr=fdescr) [i1]
         jump(1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''p1
             where p1 is a varray arraydescr: 25, i1
             ''', rop.GUARD_TRUE)
@@ -2573,7 +2573,7 @@ class BaseTestOptimizeBasic(BaseTest):
         guard_true(i1, descr=fdescr) [i1, p1]
         jump(1, p1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''p2
             where p2 is a vstruct ssize, adescr=i1, bdescr=p1
             ''', rop.GUARD_TRUE)
@@ -2639,7 +2639,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.loop.inputargs[0].value = self.nodebox.value
         self.check_expanded_fail_descr('''
             p1.nextdescr = p2
@@ -2665,7 +2665,7 @@ class BaseTestOptimizeBasic(BaseTest):
         setfield_gc(ConstPtr(myptr), NULL, descr=nextdescr)
         jump(i2, i4)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''
             ConstPtr(myptr).nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
@@ -2692,7 +2692,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i1)
         jump(p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_residual_call_invalidate_some_caches(self):
         ops = """
@@ -2720,7 +2720,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i2)
         jump(p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_residual_call_invalidate_arrays(self):
         ops = """
@@ -2747,7 +2747,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(p4)
         jump(p1, p2, i1)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_residual_call_invalidate_some_arrays(self):
         ops = """
@@ -2782,7 +2782,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i4)
         jump(p1, p2, i1)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_residual_call_invalidates_some_read_caches_1(self):
         ops = """
@@ -2802,7 +2802,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_residual_call_invalidates_some_read_caches_2(self):
         ops = """
@@ -2822,7 +2822,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_residual_call_invalidates_some_read_caches_3(self):
         ops = """
@@ -2834,7 +2834,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_call_assembler_invalidates_caches(self):
         ops = '''
@@ -2844,7 +2844,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
-        self.optimize_loop(ops, 'Not, Not', ops)
+        self.optimize_loop(ops, ops)
 
     def test_call_pure_invalidates_caches(self):
         # CALL_PURE should still force the setfield_gc() to occur before it
@@ -2862,7 +2862,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_call_pure_constant_folding(self):
         # CALL_PURE is not marked as is_always_pure(), because it is wrong
@@ -2885,7 +2885,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, 42, i4)
         '''
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_vref_nonvirtual_nonescape(self):
         ops = """
@@ -2899,7 +2899,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i0 = force_token()
         jump(p1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_vref_nonvirtual_escape(self):
         ops = """
@@ -2922,7 +2922,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         """
         # XXX we should optimize a bit more the case of a nonvirtual.
         # in theory it is enough to just do 'p2 = p1'.
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_vref_virtual_1(self):
         ops = """
@@ -2962,7 +2962,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p2, -3, descr=virtualtokendescr)
         jump(p0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_vref_virtual_2(self):
         self.make_fail_descr()
@@ -3005,7 +3005,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         """
         # the point of this test is that 'i1' should show up in the fail_args
         # of 'guard_not_forced', because it was stored in the virtual 'p1b'.
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''p2, p1
             where p1 is a node_vtable, nextdescr=p1b
             where p1b is a node_vtable, valuedescr=i1
@@ -3037,7 +3037,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p0, NULL, descr=refdescr)
         jump(p0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
         # the fail_args contain [i3, i1, p0]:
         #  - i3 is from the virtual expansion of p2
         #  - i1 is from the virtual expansion of p1
@@ -3076,7 +3076,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_not_forced() []
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_vref_nonvirtual_and_lazy_setfield(self):
         self.make_fail_descr()
@@ -3102,7 +3102,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_not_forced() [i1]
         jump(i1, p1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_arraycopy_1(self):
         ops = '''
@@ -3119,7 +3119,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         jump(1)
         '''
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_arraycopy_2(self):
         ops = '''
@@ -3136,7 +3136,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         jump(3)
         '''
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_arraycopy_not_virtual(self):
         ops = '''
@@ -3154,7 +3154,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setarrayitem_gc(p2, 2, 10, descr=arraydescr)
         jump(p2)
         '''
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_arraycopy_no_elem(self):
         """ this was actually observed in the wild
@@ -3169,7 +3169,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [p1]
         jump(p1)
         '''
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt(self):
         ops = """
@@ -3186,7 +3186,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_noguard(self):
         ops = """
@@ -3201,7 +3201,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i2 = int_lt(i0, 5)
         jump(i2)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_noopt(self):
         ops = """
@@ -3220,7 +3220,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i2) []
         jump(4)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_rev(self):
         ops = """
@@ -3237,7 +3237,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_false(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_tripple(self):
         ops = """
@@ -3256,7 +3256,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_add(self):
         ops = """
@@ -3275,7 +3275,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i2 = int_add(i0, 10)
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_add_before(self):
         ops = """
@@ -3294,7 +3294,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_add_ovf(self):
         ops = """
@@ -3314,7 +3314,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i2 = int_add(i0, 10)
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_add_ovf_before(self):
         ops = """
@@ -3335,7 +3335,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_sub(self):
         ops = """
@@ -3354,7 +3354,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i2 = int_sub(i0, 10)
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt_sub_before(self):
         ops = """
@@ -3373,7 +3373,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_ltle(self):
         ops = """
@@ -3390,7 +3390,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lelt(self):
         ops = """
@@ -3407,7 +3407,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_gt(self):
         ops = """
@@ -3424,7 +3424,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_gtge(self):
         ops = """
@@ -3441,7 +3441,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_gegt(self):
         ops = """
@@ -3458,7 +3458,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_ovf(self):
         ops = """
@@ -3480,7 +3480,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i3 = int_add(i0, 1)
         jump(i3)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_arraylen(self):
         ops = """
@@ -3500,7 +3500,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setarrayitem_gc(p0, 0, p1)
         jump(i0, p0)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_strlen(self):
         ops = """
@@ -3516,7 +3516,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i0 = strlen(p0)
         jump(p0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_addsub_const(self):
         ops = """
@@ -3533,7 +3533,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i4 = int_mul(i0, i1)
         jump(i4)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_addsub_int(self):
         ops = """
@@ -3550,7 +3550,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i4 = int_add(i0, i1)
         jump(i4, i10)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_addsub_int2(self):
         ops = """
@@ -3567,7 +3567,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i4 = int_add(i0, i1)
         jump(i4, i10)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_framestackdepth_overhead(self):
         ops = """
@@ -3597,7 +3597,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         setfield_gc(p0, i1, descr=valuedescr)
         jump(p0, i22)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_addsub_ovf(self):
         ops = """
@@ -3615,7 +3615,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i2 = int_sub(i1, 5)
         jump(i2)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_subadd_ovf(self):
         ops = """
@@ -3633,7 +3633,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i2 = int_add(i1, 5)
         jump(i2)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_and(self):
         ops = """
@@ -3678,7 +3678,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i15) []
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_subsub_ovf(self):
         ops = """
@@ -3702,7 +3702,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i3 = int_sub(1, i0)
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_eq(self):
         ops = """
@@ -3723,7 +3723,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i3) []
         jump(i0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_eq_const(self):
         ops = """
@@ -3740,7 +3740,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         jump(10)
 
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_eq_const_not(self):
         ops = """
@@ -3758,7 +3758,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         jump(i2)
 
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_ne_const(self):
         ops = """
@@ -3775,7 +3775,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         jump(10)
 
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_ne_const_not(self):
         ops = """
@@ -3792,7 +3792,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i2 = int_add(i0, 3)
         jump(i2)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_ltne(self):
         ops = """
@@ -3809,7 +3809,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i2) []
         jump(i0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_bound_lege_const(self):
         ops = """
@@ -3830,7 +3830,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         jump(10)
 
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_mul_ovf(self):
         ops = """
@@ -3862,7 +3862,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i8) []
         jump(i0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_mul_ovf_before(self):
         ops = """
@@ -3891,7 +3891,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i5) []
         jump(i0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_sub_ovf_before(self):
         ops = """
@@ -3920,7 +3920,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_true(i5) []
         jump(i0, i1)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_newstr_1(self):
         ops = """
@@ -3934,7 +3934,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_newstr_2(self):
         ops = """
@@ -3950,7 +3950,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0, i1]
         jump(i1, i0)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_concat_1(self):
         ops = """
@@ -3971,7 +3971,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         copystrcontent(p2, p3, 0, i4, i5)
         jump(p2, p3)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_concat_vstr2_str(self):
         ops = """
@@ -3994,7 +3994,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         copystrcontent(p2, p3, 0, 2, i4)
         jump(i1, i0, p3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_concat_str_vstr2(self):
         ops = """
@@ -4018,7 +4018,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i6 = int_add(i5, 1)      # will be killed by the backend
         jump(i1, i0, p3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_concat_str_str_str(self):
         ops = """
@@ -4045,7 +4045,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         copystrcontent(p3, p5, 0, i12b, i3b)
         jump(p2, p3, p5)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_concat_str_cstr1(self):
         ops = """
@@ -4064,7 +4064,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i5 = int_add(i4, 1)      # will be killed by the backend
         jump(p3)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_concat_consts(self):
         ops = """
@@ -4080,7 +4080,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape("abcde")
         jump()
         """
-        self.optimize_loop(ops, '', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_slice_1(self):
         ops = """
@@ -4095,7 +4095,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         copystrcontent(p1, p2, i1, 0, i3)
         jump(p2, i1, i2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_slice_2(self):
         ops = """
@@ -4109,7 +4109,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         copystrcontent(p1, p2, 0, 0, i2)
         jump(p2, i2)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_slice_3(self):
         ops = """
@@ -4127,7 +4127,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         copystrcontent(p1, p3, i6, 0, i5)
         jump(p3, i1, i2, i3, i4)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_slice_getitem1(self):
         ops = """
@@ -4145,7 +4145,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i4)
         jump(p1, i1, i2, i3)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_slice_plain(self):
         ops = """
@@ -4163,7 +4163,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i4)
         jump(i3, i4)
         """
-        self.optimize_loop(ops, 'Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_slice_concat(self):
         ops = """
@@ -4184,10 +4184,10 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         copystrcontent(p2, p4, 0, i3, i4b)
         jump(p4, i1, i2, p2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     # ----------
-    def optimize_loop_extradescrs(self, ops, spectext, optops):
+    def optimize_loop_extradescrs(self, ops, optops):
         from pypy.jit.metainterp.optimizeopt import string
         def my_callinfo_for_oopspec(oopspecindex):
             calldescrtype = type(LLtypeMixin.strequaldescr)
@@ -4202,7 +4202,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         saved = string.callinfo_for_oopspec
         try:
             string.callinfo_for_oopspec = my_callinfo_for_oopspec
-            self.optimize_loop(ops, spectext, optops)
+            self.optimize_loop(ops, optops)
         finally:
             string.callinfo_for_oopspec = saved
 
@@ -4213,7 +4213,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, p2)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not', ops)
+        self.optimize_loop_extradescrs(ops, ops)
 
     def test_str_equal_noop2(self):
         ops = """
@@ -4238,7 +4238,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, p2, p3)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_slice1(self):
         ops = """
@@ -4255,7 +4255,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, i1, i2, p3)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_slice2(self):
         ops = """
@@ -4272,7 +4272,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, i1, i2, p3)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_slice3(self):
         ops = """
@@ -4291,7 +4291,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, i1, i2, p3)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_slice4(self):
         ops = """
@@ -4308,7 +4308,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, i1, i2)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_slice5(self):
         ops = """
@@ -4327,7 +4327,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, i1, i2, i3)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not, Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_none1(self):
         ops = """
@@ -4342,7 +4342,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_none2(self):
         ops = """
@@ -4357,7 +4357,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_nonnull1(self):
         ops = """
@@ -4374,7 +4374,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_nonnull2(self):
         ops = """
@@ -4392,7 +4392,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_nonnull3(self):
         ops = """
@@ -4409,7 +4409,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_nonnull4(self):
         ops = """
@@ -4434,7 +4434,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1, p2)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_chars0(self):
         ops = """
@@ -4449,7 +4449,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(1)
         jump(i1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_chars1(self):
         ops = """
@@ -4466,7 +4466,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(i1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_chars2(self):
         ops = """
@@ -4487,7 +4487,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(i1, i2)
         """
-        self.optimize_loop_extradescrs(ops, 'Not, Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_chars3(self):
         ops = """
@@ -4502,7 +4502,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(i0)
         jump(p1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     def test_str_equal_lengthmismatch1(self):
         ops = """
@@ -4518,7 +4518,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         escape(0)
         jump(i1)
         """
-        self.optimize_loop_extradescrs(ops, 'Not', expected)
+        self.optimize_loop_extradescrs(ops, expected)
 
     # XXX unicode operations
     # XXX str2unicode
@@ -4537,7 +4537,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
 ##        [i0]
 ##        jump(1)
 ##        """
-##        self.optimize_loop(ops, 'Not', expected)
+##        self.optimize_loop(ops, expected)
 
 ##    def test_instanceof_guard_class(self):
 ##        ops = """
@@ -4551,4 +4551,4 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
 ##        guard_class(p0, ConstClass(node_vtable)) []
 ##        jump(1, p0)
 ##        """
-##        self.optimize_loop(ops, 'Not, Not', expected)
+##        self.optimize_loop(ops, expected)

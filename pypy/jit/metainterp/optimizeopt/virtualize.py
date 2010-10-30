@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.history import Const, ConstInt
+from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import descrlist_dict
