@@ -3082,7 +3082,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i2 = int_lt(i0, 5)
         jump(i2)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, expected)
 
     def test_bound_lt_noopt(self):
         ops = """
@@ -3093,15 +3093,19 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         guard_false(i1) []
         i2 = int_lt(i0, 5)
         guard_true(i2) []
-        jump(4)
+        jump()
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_rev(self):
         ops = """
@@ -3112,13 +3116,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         guard_false(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_tripple(self):
         ops = """
@@ -3131,13 +3139,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 0)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_add(self):
         ops = """
@@ -3149,14 +3161,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
         i2 = int_add(i0, 10)
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_add_before(self):
         ops = """
@@ -3168,14 +3184,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i2 = int_add(i0, 10)
         i3 = int_lt(i2, 15)
         guard_true(i3) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_add_ovf(self):
         ops = """
@@ -3188,14 +3208,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
         i2 = int_add(i0, 10)
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_add_ovf_before(self):
         ops = """
