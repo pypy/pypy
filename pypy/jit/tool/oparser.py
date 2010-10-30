@@ -5,7 +5,7 @@ in a nicer fashion
 
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
      ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
-     LoopToken, get_const_ptr_for_string
+     LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
 from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.codewriter.heaptracker import adr2int
@@ -30,9 +30,6 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
 
     def getopnum(self):
         return self.OPNUM
-
-    def clone(self):
-        return ESCAPE_OP(self.OPNUM, self.getarglist()[:], self.result, self.getdescr())
 
 class ExtendedTreeLoop(TreeLoop):
 
@@ -161,10 +158,15 @@ class OpParser(object):
         except ValueError:
             if self.is_float(arg):
                 return ConstFloat(float(arg))
-            if arg.startswith('"') or arg.startswith("'"):
+            if (arg.startswith('"') or arg.startswith("'") or
+                arg.startswith('s"')):
                 # XXX ootype
-                info = arg.strip("'\"")
+                info = arg[1:].strip("'\"")
                 return get_const_ptr_for_string(info)
+            if arg.startswith('u"'):
+                # XXX ootype
+                info = arg[1:].strip("'\"")
+                return get_const_ptr_for_unicode(info)
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')
@@ -182,24 +184,9 @@ class OpParser(object):
                 self.newvar(arg)
             return self.vars[arg]
 
-    def parse_op(self, line):
-        num = line.find('(')
-        if num == -1:
-            raise ParseError("invalid line: %s" % line)
-        opname = line[:num]
-        try:
-            opnum = getattr(rop, opname.upper())
-        except AttributeError:
-            if opname == 'escape':
-                opnum = ESCAPE_OP.OPNUM
-            else:
-                raise ParseError("unknown op: %s" % opname)
-        endnum = line.rfind(')')
-        if endnum == -1:
-            raise ParseError("invalid line: %s" % line)
+    def parse_args(self, opname, argspec):
         args = []
         descr = None
-        argspec = line[num + 1:endnum]
         if argspec.strip():
             if opname == 'debug_merge_point':
                 allargs = [argspec]
@@ -217,6 +204,24 @@ class OpParser(object):
                     args.append(self.getvar(arg))
                 except KeyError:
                     raise ParseError("Unknown var: %s" % arg)
+        return args, descr
+
+    def parse_op(self, line):
+        num = line.find('(')
+        if num == -1:
+            raise ParseError("invalid line: %s" % line)
+        opname = line[:num]
+        try:
+            opnum = getattr(rop, opname.upper())
+        except AttributeError:
+            if opname == 'escape':
+                opnum = ESCAPE_OP.OPNUM
+            else:
+                raise ParseError("unknown op: %s" % opname)
+        endnum = line.rfind(')')
+        if endnum == -1:
+            raise ParseError("invalid line: %s" % line)
+        args, descr = self.parse_args(opname, line[num + 1:endnum])
         if rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST:
             i = line.find('[', endnum) + 1
             j = line.find(']', i)

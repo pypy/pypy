@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
@@ -24,7 +24,11 @@ def specialize_value(TYPE, x):
     """
     INPUT = lltype.typeOf(x)
     if INPUT is lltype.Signed:
-        return lltype.cast_primitive(TYPE, x)    # XXX missing: Ptr(non-gc)
+        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'raw':
+            # non-gc pointer
+            return rffi.cast(TYPE, x)
+        else:
+            return lltype.cast_primitive(TYPE, x)
     elif INPUT is lltype.Float:
         assert TYPE is lltype.Float
         return x
@@ -172,6 +176,9 @@ class WarmEnterState(object):
             meth(default_value)
 
     def set_param_threshold(self, threshold):
+        if threshold < 0:
+            self.increment_threshold = 0   # never reach the THRESHOLD_LIMIT
+            return
         if threshold < 2:
             threshold = 2
         self.increment_threshold = (self.THRESHOLD_LIMIT // threshold) + 1

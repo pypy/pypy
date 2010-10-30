@@ -1,38 +1,42 @@
-
-""" Tests of libffi wrapper
-"""
-
-from pypy.translator.c.test.test_genc import compile
-from pypy.rlib.libffi import *
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
-from pypy.rpython.lltypesystem import rffi, lltype
 import py
 import sys
-import time
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
+from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name
+from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
 
-def setup_module(mod):
-    for name in type_names:
-        # XXX force this to be seen by ll2ctypes
-        # so that ALLOCATED.clear() clears it
-        ffistruct = globals()[name]
-        rffi.cast(rffi.VOIDP, ffistruct)
+class TestLibffiMisc(BaseFfiTest):
 
-class TestLibffi:
-    def setup_method(self, meth):
-        ALLOCATED.clear()
+    CDLL = CDLL
 
-    def get_libc(self):
-        return CDLL(get_libc_name())
-    
-    def get_libm(self):
-        if sys.platform == 'win32':
-            return CDLL('msvcrt.dll')
-        elif sys.platform == "darwin":
-            return CDLL('libm.dylib')
-        else:
-            return CDLL('libm.so')
-    
+    def test_argchain(self):
+        chain = ArgChain()
+        assert chain.numargs == 0
+        chain2 = chain.arg(42)
+        assert chain2 is chain
+        assert chain.numargs == 1
+        intarg = chain.first
+        assert chain.last is intarg
+        assert intarg.intval == 42
+        chain.arg(123.45)
+        assert chain.numargs == 2
+        assert chain.first is intarg
+        assert intarg.next is chain.last
+        floatarg = intarg.next
+        assert floatarg.floatval == 123.45
+
+    def test_wrong_args(self):
+        # so far the test passes but for the wrong reason :-), i.e. because
+        # .arg() only supports integers and floats
+        chain = ArgChain()
+        x = lltype.malloc(lltype.GcStruct('xxx'))
+        y = lltype.malloc(lltype.GcArray(rffi.LONG), 3)
+        z = lltype.malloc(lltype.Array(rffi.LONG), 4, flavor='raw')
+        py.test.raises(TypeError, "chain.arg(x)")
+        py.test.raises(TypeError, "chain.arg(y)")
+        py.test.raises(TypeError, "chain.arg(z)")
+        lltype.free(z, flavor='raw')
+
     def test_library_open(self):
         lib = self.get_libc()
         del lib
@@ -40,380 +44,221 @@ class TestLibffi:
 
     def test_library_get_func(self):
         lib = self.get_libc()
-        ptr = lib.getpointer('fopen', [], ffi_type_void)
-        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], ffi_type_void)
+        ptr = lib.getpointer('fopen', [], types.void)
+        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], types.void)
         del ptr
         del lib
         assert not ALLOCATED
 
-    def test_library_func_call(self):
-        lib = self.get_libc()
-        ptr = lib.getpointer('rand', [], ffi_type_sint)
-        zeroes = 0
-        first = ptr.call(rffi.INT)
-        for i in range(100):
-            res = ptr.call(rffi.INT)
-            if res == first:
-                zeroes += 1
-        assert zeroes < 90
-        # not very hard check, but something :]
-        del ptr
-        del lib
-        assert not ALLOCATED
 
-    def test_call_args(self):
-        libm = self.get_libm()
-        pow = libm.getpointer('pow', [ffi_type_double, ffi_type_double],
-                              ffi_type_double)
-        pow.push_arg(2.0)
-        pow.push_arg(2.0)
-        res = pow.call(rffi.DOUBLE)
-        assert res == 4.0
-        pow.push_arg(3.0)
-        pow.push_arg(3.0)
-        res = pow.call(rffi.DOUBLE)
-        assert res == 27.0
-        del pow
-        del libm
-        assert not ALLOCATED
+class TestLibffiCall(BaseFfiTest):
+    """
+    Test various kind of calls through libffi.
 
-    def test_wrong_args(self):
-        libc = self.get_libc()
-        # XXX assume time_t is long
-        ulong = cast_type_to_ffitype(rffi.ULONG)
-        ctime = libc.getpointer('fopen', [ffi_type_pointer], ulong)
-        x = lltype.malloc(lltype.GcStruct('xxx'))
-        y = lltype.malloc(lltype.GcArray(rffi.LONG), 3)
-        z = lltype.malloc(lltype.Array(rffi.LONG), 4, flavor='raw')
-        py.test.raises(ValueError, "ctime.push_arg(x)")
-        py.test.raises(ValueError, "ctime.push_arg(y)")
-        py.test.raises(ValueError, "ctime.push_arg(z)")
-        del ctime
-        del libc
-        lltype.free(z, flavor='raw')
-        # allocation check makes no sense, since we've got GcStructs around
+    The peculiarity of these tests is that they are run both directly (going
+    really through libffi) and by jit/metainterp/test/test_fficall.py, which
+    tests the call when JITted.
 
-    def test_unichar(self):
-        from pypy.rlib.runicode import MAXUNICODE
-        wchar = cast_type_to_ffitype(lltype.UniChar)
-        if MAXUNICODE > 65535:
-            assert wchar is ffi_type_uint32
-        else:
-            assert wchar is ffi_type_uint16
+    If you need to test a behaviour than it's not affected by JITing (e.g.,
+    typechecking), you should put your test in TestLibffiMisc.
+    """
 
-    def test_call_time(self):
-        libc = self.get_libc()
-        # XXX assume time_t is long
-        ulong = cast_type_to_ffitype(rffi.ULONG)
-        try:
-            ctime = libc.getpointer('time', [ffi_type_pointer], ulong)
-        except KeyError:
-            # This function is named differently since msvcr80
-            ctime = libc.getpointer('_time32', [ffi_type_pointer], ulong)
-        ctime.push_arg(lltype.nullptr(rffi.CArray(rffi.LONG)))
-        t0 = ctime.call(rffi.LONG)
-        time.sleep(2)
-        ctime.push_arg(lltype.nullptr(rffi.CArray(rffi.LONG)))
-        t1 = ctime.call(rffi.LONG)
-        assert t1 > t0
-        l_t = lltype.malloc(rffi.CArray(rffi.LONG), 1, flavor='raw')
-        ctime.push_arg(l_t)
-        t1 = ctime.call(rffi.LONG)
-        assert l_t[0] == t1
-        lltype.free(l_t, flavor='raw')
-        del ctime
-        del libc
-        assert not ALLOCATED
+    CDLL = CDLL
 
-    def test_closure_heap(self):
-        ch = ClosureHeap()
-
-        assert not ch.free_list
-        a = ch.alloc()
-        assert ch.free_list        
-        b = ch.alloc()
-        
-        chunks = [a, b]
-        p = ch.free_list
-        while p:
-            chunks.append(p)
-            p = rffi.cast(rffi.VOIDPP, p)[0]
-        closure_size = rffi.sizeof(FFI_CLOSUREP.TO)
-        assert len(chunks) == CHUNK//closure_size
-        for i in range(len(chunks) -1 ):
-            s = rffi.cast(rffi.UINT, chunks[i+1])
-            e = rffi.cast(rffi.UINT, chunks[i])
-            assert (e-s) >= rffi.sizeof(FFI_CLOSUREP.TO)
-
-        ch.free(a)
-        assert ch.free_list == rffi.cast(rffi.VOIDP, a)
-        snd = rffi.cast(rffi.VOIDPP, a)[0]
-        assert snd == chunks[2]
-
-        ch.free(b)
-        assert ch.free_list == rffi.cast(rffi.VOIDP, b)
-        snd = rffi.cast(rffi.VOIDPP, b)[0]
-        assert snd == rffi.cast(rffi.VOIDP, a)
-        
-    def test_callback(self):
-        slong = cast_type_to_ffitype(rffi.LONG)
-        libc = self.get_libc()
-        qsort = libc.getpointer('qsort', [ffi_type_pointer, slong,
-                                          slong, ffi_type_pointer],
-                                ffi_type_void)
-
-        def callback(ll_args, ll_res, stuff):
-            p_a1 = rffi.cast(rffi.VOIDPP, ll_args[0])[0]
-            p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
-            a1 = rffi.cast(rffi.INTP, p_a1)[0]
-            a2 = rffi.cast(rffi.INTP, p_a2)[0]
-            res = rffi.cast(rffi.INTP, ll_res)
-            if a1 > a2:
-                res[0] = rffi.cast(rffi.INT, 1)
-            else:
-                res[0] = rffi.cast(rffi.INT, -1)
-
-        ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
-                              ffi_type_sint, callback)
-        
-        TP = rffi.CArray(rffi.INT)
-        to_sort = lltype.malloc(TP, 4, flavor='raw')
-        to_sort[0] = rffi.cast(rffi.INT, 4)
-        to_sort[1] = rffi.cast(rffi.INT, 3)
-        to_sort[2] = rffi.cast(rffi.INT, 1)
-        to_sort[3] = rffi.cast(rffi.INT, 2)
-        qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
-        qsort.push_arg(rffi.sizeof(rffi.INT))
-        qsort.push_arg(4)
-        qsort.push_arg(ptr.ll_closure)
-        qsort.call(lltype.Void)
-        assert ([rffi.cast(lltype.Signed, to_sort[i]) for i in range(4)] ==
-                [1,2,3,4])
-        lltype.free(to_sort, flavor='raw')
-        keepalive_until_here(ptr)  # <= this test is not translated, but don't
-                                   #    forget this in code that is meant to be
-
-    def test_compile(self):
-        import py
-        py.test.skip("Segfaulting test, skip")
-        # XXX cannot run it on top of llinterp, some problems
-        # with pointer casts
-
-        def f(x, y):
-            libm = self.get_libm()
-            c_pow = libm.getpointer('pow', [ffi_type_double, ffi_type_double], ffi_type_double)
-            c_pow.push_arg(x)
-            c_pow.push_arg(y)
-            res = c_pow.call(rffi.DOUBLE)
-            return res
-
-        fn = compile(f, [float, float])
-        res = fn(2.0, 4.0)
-        assert res == 16.0
-
-    def test_rawfuncptr(self):
-        libm = self.get_libm()
-        pow = libm.getrawpointer('pow', [ffi_type_double, ffi_type_double],
-                                 ffi_type_double)
-        buffer = lltype.malloc(rffi.DOUBLEP.TO, 3, flavor='raw')
-        buffer[0] = 2.0
-        buffer[1] = 3.0
-        buffer[2] = 43.5
-        pow.call([rffi.cast(rffi.VOIDP, buffer),
-                  rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 1))],
-                 rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 2)))
-        assert buffer[2] == 8.0
-        lltype.free(buffer, flavor='raw')
-        del pow
-        del libm
-        assert not ALLOCATED
-
-    def test_make_struct_ffitype_e(self):
-        tpe = make_struct_ffitype_e(16, 4, [ffi_type_pointer, ffi_type_uchar])
-        assert tpe.ffistruct.c_type == FFI_TYPE_STRUCT
-        assert tpe.ffistruct.c_size == 16
-        assert tpe.ffistruct.c_alignment == 4
-        assert tpe.ffistruct.c_elements[0] == ffi_type_pointer
-        assert tpe.ffistruct.c_elements[1] == ffi_type_uchar
-        assert not tpe.ffistruct.c_elements[2]
-        lltype.free(tpe, flavor='raw')
-
-    def test_nested_struct_elements(self):
-        tpe2 = make_struct_ffitype_e(16, 4, [ffi_type_pointer, ffi_type_uchar])
-        tp2 = tpe2.ffistruct
-        tpe = make_struct_ffitype_e(32, 4, [tp2, ffi_type_schar])
-        assert tpe.ffistruct.c_elements[0] == tp2
-        assert tpe.ffistruct.c_elements[1] == ffi_type_schar
-        assert not tpe.ffistruct.c_elements[2]
-        lltype.free(tpe, flavor='raw')
-        lltype.free(tpe2, flavor='raw')
-
-    def test_struct_by_val(self):
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        from pypy.translator.platform import platform
-        from pypy.tool.udir import udir
-
-        c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
-        c_file.write(py.code.Source('''
-        #include <stdlib.h>
-        #include <stdio.h>
-
-        struct x_y {
-            long x;
-            long y;
-        };
-
-        long sum_x_y(struct x_y s) {
-            return s.x + s.y;
-        }
-
-        long sum_x_y_p(struct x_y *p) {
-            return p->x + p->y;
-        }
-        
-        '''))
-        eci = ExternalCompilationInfo(export_symbols=['sum_x_y'])
-        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
-
-        lib = CDLL(lib_name)
-
-        slong = cast_type_to_ffitype(rffi.LONG)
-        size = slong.c_size*2
-        alignment = slong.c_alignment
-        tpe = make_struct_ffitype_e(size, alignment, [slong, slong])
-
-        sum_x_y = lib.getrawpointer('sum_x_y', [tpe.ffistruct], slong)
-
-        buffer = lltype.malloc(rffi.LONGP.TO, 3, flavor='raw')
-        buffer[0] = 200
-        buffer[1] = 220
-        buffer[2] = 666
-        sum_x_y.call([rffi.cast(rffi.VOIDP, buffer)],
-                     rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 2)))
-        assert buffer[2] == 420
-
-        lltype.free(buffer, flavor='raw')
-        del sum_x_y
-        lltype.free(tpe, flavor='raw')
-        del lib
-
-        assert not ALLOCATED
-
-    def test_ret_struct_val(self):
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        from pypy.translator.platform import platform
-        from pypy.tool.udir import udir
-
-        c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
-        c_file.write(py.code.Source('''
-        #include <stdlib.h>
-        #include <stdio.h>
-
-        struct s2h {
-            short x;
-            short y;
-        };
-
-        struct s2h give(short x, short y) {
-            struct s2h out;
-            out.x = x;
-            out.y = y;
-            return out;
-        }
-
-        struct s2h perturb(struct s2h inp) {
-            inp.x *= 2;
-            inp.y *= 3;
-            return inp;
-        }
-        
-        '''))
-        eci = ExternalCompilationInfo(export_symbols=['give', 'perturb'])
-        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
-
-        lib = CDLL(lib_name)
-
-        size = ffi_type_sshort.c_size*2
-        alignment = ffi_type_sshort.c_alignment
-        tpe = make_struct_ffitype_e(size, alignment, [ffi_type_sshort]*2)
-
-        give  = lib.getrawpointer('give', [ffi_type_sshort, ffi_type_sshort],
-                                  tpe.ffistruct)
-        inbuffer = lltype.malloc(rffi.SHORTP.TO, 2, flavor='raw')
-        inbuffer[0] = rffi.cast(rffi.SHORT, 40)
-        inbuffer[1] = rffi.cast(rffi.SHORT, 72)
-
-        outbuffer = lltype.malloc(rffi.SHORTP.TO, 2, flavor='raw')
-
-        give.call([rffi.cast(rffi.VOIDP, inbuffer),
-                   rffi.cast(rffi.VOIDP, rffi.ptradd(inbuffer, 1))],
-                   rffi.cast(rffi.VOIDP, outbuffer))
-
-        assert outbuffer[0] == 40
-        assert outbuffer[1] == 72
-
-        perturb  = lib.getrawpointer('perturb', [tpe.ffistruct], tpe.ffistruct)
-
-        inbuffer[0] = rffi.cast(rffi.SHORT, 7)
-        inbuffer[1] = rffi.cast(rffi.SHORT, 11)
-
-        perturb.call([rffi.cast(rffi.VOIDP, inbuffer)],
-                     rffi.cast(rffi.VOIDP, outbuffer))
-
-        assert inbuffer[0] == 7
-        assert inbuffer[1] == 11
-
-        assert outbuffer[0] == 14
-        assert outbuffer[1] == 33
-
-        lltype.free(outbuffer, flavor='raw')
-        lltype.free(inbuffer, flavor='raw')
-        del give
-        del perturb
-        lltype.free(tpe, flavor='raw')
-        del lib
-
-        assert not ALLOCATED
-
-    def test_cdll_life_time(self):
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        from pypy.translator.platform import platform
-        from pypy.tool.udir import udir
-
-        c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
-        c_file.write(py.code.Source('''
-        long fun(long i) {
-            return i + 42;
-        }
-        '''))
-        eci = ExternalCompilationInfo(export_symbols=['fun'])
-        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
-
-        lib = CDLL(lib_name)
-        slong = cast_type_to_ffitype(rffi.LONG)
-        fun = lib.getrawpointer('fun', [slong], slong)
-        del lib     # already delete here
-
-        buffer = lltype.malloc(rffi.LONGP.TO, 2, flavor='raw')
-        buffer[0] = 200
-        buffer[1] = -1
-        fun.call([rffi.cast(rffi.VOIDP, buffer)],
-                 rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 1)))
-        assert buffer[1] == 242
-
-        lltype.free(buffer, flavor='raw')
-        del fun
-
-        assert not ALLOCATED
-
-class TestWin32Handles:
+    @classmethod
     def setup_class(cls):
-        if sys.platform != 'win32':
-            py.test.skip("Handle to libc library, Win-only test")
-    
-    def test_get_libc_handle(self):
-        handle = get_libc_handle()
-        print get_libc_name()
-        print hex(handle)
-        assert handle != 0
-        assert handle % 0x1000 == 0
+        from pypy.tool.udir import udir
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.translator.platform import platform
+
+        BaseFfiTest.setup_class()
+        # prepare C code as an example, so we can load it and call
+        # it via rlib.libffi
+        c_file = udir.ensure("test_libffi", dir=1).join("foolib.c")
+        # automatically collect the C source from the docstrings of the tests
+        snippets = []
+        for name in dir(cls):
+            if name.startswith('test_'):
+                meth = getattr(cls, name)
+                # the heuristic to determine it it's really C code could be
+                # improved: so far we just check that there is a '{' :-)
+                if meth.__doc__ is not None and '{' in meth.__doc__:
+                    snippets.append(meth.__doc__)
+        #
+        c_file.write(py.code.Source('\n'.join(snippets)))
+        eci = ExternalCompilationInfo(export_symbols=[])
+        cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
+                                               standalone=False))
+
+    def get_libfoo(self):
+        return self.CDLL(self.libfoo_name)
+
+    def call(self, funcspec, args, RESULT, init_result=0):
+        """
+        Call the specified function after constructing and ArgChain with the
+        arguments in ``args``.
+
+        The function is specified with ``funcspec``, which is a tuple of the
+        form (lib, name, argtypes, restype).
+
+        This method is overridden by metainterp/test/test_fficall.py in
+        order to do the call in a loop and JIT it. The optional arguments are
+        used only by that overridden method.
+        
+        """
+        lib, name, argtypes, restype = funcspec
+        func = lib.getpointer(name, argtypes, restype)
+        chain = ArgChain()
+        for arg in args:
+            chain.arg(arg)
+        return func.call(chain, RESULT)
+
+    def check_loops(self, *args, **kwds):
+        """
+        Ignored here, but does something in the JIT tests
+        """
+        pass
+
+    # ------------------------------------------------------------------------
+
+    def test_simple(self):
+        """
+            int sum_xy(int x, double y)
+            {
+                return (x + (int)y);
+            }
+        """
+        libfoo = self.get_libfoo() 
+        func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
+        res = self.call(func, [38, 4.2], rffi.LONG)
+        assert res == 42
+        self.check_loops({
+                'call_may_force': 1,
+                'guard_no_exception': 1,
+                'guard_not_forced': 1,
+                'int_add': 1,
+                'int_lt': 1,
+                'guard_true': 1,
+                'jump': 1})
+
+    def test_float_result(self):
+        libm = self.get_libm()
+        func = (libm, 'pow', [types.double, types.double], types.double)
+        res = self.call(func, [2.0, 3.0], rffi.DOUBLE, init_result=0.0)
+        assert res == 8.0
+        self.check_loops(call_may_force=1, guard_no_exception=1, guard_not_forced=1)
+
+    def test_cast_result(self):
+        """
+            unsigned char cast_to_uchar_and_ovf(int x)
+            {
+                return 200+(unsigned char)x;
+            }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'cast_to_uchar_and_ovf', [types.sint], types.uchar)
+        res = self.call(func, [0], rffi.UCHAR)
+        assert res == 200
+        self.check_loops(call_may_force=1, guard_no_exception=1, guard_not_forced=1)
+
+    def test_cast_argument(self):
+        """
+            int many_args(char a, int b)
+            {
+                return a+b;
+            }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'many_args', [types.uchar, types.sint], types.sint)
+        res = self.call(func, [chr(20), 22], rffi.LONG)
+        assert res == 42
+
+    def test_unsigned_short_args(self):
+        """
+            unsigned short sum_xy_us(unsigned short x, unsigned short y)
+            {
+                return x+y;
+            }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_us', [types.ushort, types.ushort], types.ushort)
+        res = self.call(func, [32000, 8000], rffi.USHORT)
+        assert res == 40000
+
+
+    def test_pointer_as_argument(self):
+        """#include <stdlib.h>
+            long inc(long* x)
+            {
+                long oldval;
+                if (x == NULL)
+                    return -1;
+                oldval = *x;
+                *x = oldval+1;
+                return oldval;
+            }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'inc', [types.pointer], types.slong)
+        LONGP = lltype.Ptr(rffi.CArray(rffi.LONG))
+        null = lltype.nullptr(LONGP.TO)
+        res = self.call(func, [null], rffi.LONG)
+        assert res == -1
+        #
+        ptr_result = lltype.malloc(LONGP.TO, 1, flavor='raw')
+        ptr_result[0] = 41
+        res = self.call(func, [ptr_result], rffi.LONG)
+        if self.__class__ is TestLibffiCall:
+            # the function was called only once
+            assert res == 41
+            assert ptr_result[0] == 42
+            lltype.free(ptr_result, flavor='raw')
+            # the test does not make sense when run with the JIT through
+            # meta_interp, because the __del__ are not properly called (hence
+            # we "leak" memory)
+            del libfoo
+            assert not ALLOCATED
+        else:
+            # the function as been called 9 times
+            assert res == 50
+            assert ptr_result[0] == 51
+            lltype.free(ptr_result, flavor='raw')
+
+    def test_return_pointer(self):
+        """
+            struct pair {
+                long a;
+                long b;
+            };
+
+            struct pair my_static_pair = {10, 20};
+            
+            long* get_pointer_to_b()
+            {
+                return &my_static_pair.b;
+            }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'get_pointer_to_b', [], types.pointer)
+        LONGP = lltype.Ptr(rffi.CArray(rffi.LONG))
+        null = lltype.nullptr(LONGP.TO)
+        res = self.call(func, [], LONGP, init_result=null)
+        assert res[0] == 20
+
+    def test_void_result(self):
+        """
+            int dummy;
+            void set_dummy(int val) { dummy = val; }
+            int get_dummy() { return dummy; }
+        """
+        libfoo = self.get_libfoo()
+        set_dummy = (libfoo, 'set_dummy', [types.sint], types.void)
+        get_dummy = (libfoo, 'get_dummy', [], types.sint)
+        #
+        initval = self.call(get_dummy, [], rffi.LONG)
+        #
+        res = self.call(set_dummy, [initval+1], lltype.Void, init_result=None)
+        assert res is None
+        #
+        res = self.call(get_dummy, [], rffi.LONG)
+        assert res == initval+1

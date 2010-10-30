@@ -93,7 +93,7 @@ class AbstractResOp(object):
     def __repr__(self):
         return self.repr()
 
-    def repr(self):
+    def repr(self, graytext=False):
         # RPython-friendly version
         if self.result is not None:
             sres = '%s = ' % (self.result,)
@@ -101,6 +101,8 @@ class AbstractResOp(object):
             sres = ''
         if self.name:
             prefix = "%s:%s   " % (self.name, self.pc)
+            if graytext:
+                prefix = "\f%s\f" % prefix
         else:
             prefix = ""
         args = self.getarglist()
@@ -455,15 +457,16 @@ _oplist = [
     'UNICODESETITEM/3',
     'NEWUNICODE/1',
     #'RUNTIMENEW/1',     # ootype operation    
-    'COND_CALL_GC_WB/1d',  # [objptr]   (for the write barrier)
+    'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
     'DEBUG_MERGE_POINT/1',      # debugging only
+    'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     'CALL/*d',
-    'CALL_ASSEMBLER/*d',
+    'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
     #'OOSEND',                     # ootype operation

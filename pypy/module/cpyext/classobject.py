@@ -15,16 +15,20 @@ def PyInstance_NewRaw(space, w_class, w_dict):
     class is the class of new object.  The dict parameter will be used as the
     object's __dict__; if NULL, a new dictionary will be created for the
     instance."""
-    if not PyClass_Check(space, w_class):
+    if not isinstance(w_class, W_ClassObject):
         return PyErr_BadInternalCall(space)
-    return W_InstanceObject(space, w_class, w_dict)
+    w_result = w_class.instantiate(space)
+    if w_dict is not None:
+        w_result.setdict(space, w_dict)
+    return w_result
 
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL)
 def _PyInstance_Lookup(space, w_instance, w_name):
+    name = space.str_w(w_name)
     assert isinstance(w_instance, W_InstanceObject)
-    w_result = space.finditem(w_instance.w_dict, w_name)
+    w_result = w_instance.getdictvalue(space, name)
     if w_result is not None:
         return w_result
-    return w_instance.w_class.lookup(space, w_name)
+    return w_instance.w_class.lookup(space, name)
 
 

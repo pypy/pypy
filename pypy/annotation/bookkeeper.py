@@ -24,7 +24,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import extregistry
 from pypy.tool.identity_dict import identity_dict
 
-class Stats:
+class Stats(object):
 
     def __init__(self, bookkeeper):
         self.bookkeeper = bookkeeper
@@ -137,7 +137,7 @@ class Stats:
     def consider_dict_delitem(self, dic):
         return dic
 
-class Bookkeeper:
+class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
     again during reflowing.  Like ExecutionContext, there is an implicit
@@ -736,7 +736,7 @@ def ishashable(x):
         return True
 
 # for parsing call arguments
-class RPythonCallsSpace:
+class RPythonCallsSpace(object):
     """Pseudo Object Space providing almost no real operation.
     For the Arguments class: if it really needs other operations, it means
     that the call pattern is too complex for R-Python.

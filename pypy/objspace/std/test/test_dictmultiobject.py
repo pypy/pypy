@@ -4,7 +4,6 @@ from pypy.objspace.std.dictmultiobject import \
      StrDictImplementation
 
 from pypy.objspace.std.celldict import ModuleDictImplementation
-from pypy.objspace.std.sharingdict import SharedDictImplementation
 from pypy.conftest import gettestobjspace
 
 
@@ -238,7 +237,17 @@ class AppTest_DictObject:
         it1 = d.popitem()
         assert len(d) == 0
         assert (it!=it1) and (it1==(1,2) or it1==(3,4))
-    
+        raises(KeyError, d.popitem)
+
+    def test_popitem_2(self):
+        class A(object):
+            pass
+        d = A().__dict__
+        d['x'] = 5
+        it1 = d.popitem()
+        assert it1 == ('x', 5)
+        raises(KeyError, d.popitem)
+
     def test_setdefault(self):
         d = {1:2, 3:4}
         dd = d.copy()
@@ -446,7 +455,9 @@ class AppTest_DictObject:
         d1 = {}
         d2 = D(a='foo')
         d1.update(d2)
-        assert d1['a'] == 42 # fails on CPython, d1['a'] == 'foo'
+        assert d1['a'] == 'foo'
+        # a bit of an obscure case: now (from r78295) we get the same result
+        # as CPython does
 
     def test_index_keyerror_unpacking(self):
         d = {}
@@ -508,32 +519,6 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         assert key == s
         assert type(key) is str
         assert getattr(a, s) == 42
-
-
-class TestW_DictSharing(TestW_DictObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
-
-class AppTest_DictSharing(AppTest_DictObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
-
-    def test_values_does_not_share(self):
-        class A(object):
-            pass
-        a = A()
-        a.abc = 12
-        l = a.__dict__.values()
-        assert l == [12]
-        l[0] = 24
-        assert a.abc == 12
-
-    def test_items(self):
-        class A(object):
-            pass
-        a = A()
-        a.abc = 12
-        a.__dict__.items() == [("abc", 12)]
 
 
 class AppTestModuleDict(object):
@@ -602,6 +587,15 @@ class FakeSpace:
                 classofinstance=classofinstance,
                 from_strdict_shared=from_strdict_shared)
 
+    def finditem_str(self, w_dict, s):
+        return w_dict.getitem_str(s) # assume it's a multidict
+
+    def setitem_str(self, w_dict, s, w_value):
+        return w_dict.setitem_str(s, w_value) # assume it's a multidict
+
+    def delitem(self, w_dict, w_s):
+        return w_dict.delitem(w_s) # assume it's a multidict
+
     def allocate_instance(self, cls, type):
         return object.__new__(cls)
 
@@ -611,7 +605,7 @@ class FakeSpace:
     w_StopIteration = StopIteration
     w_None = None
     StringObjectCls = FakeString
-    w_dict = None
+    w_dict = W_DictMultiObject
     iter = iter
     fixedview = list
     listview  = list
@@ -620,10 +614,8 @@ class Config:
     class objspace:
         class std:
             withdictmeasurement = False
-            withsharingdict = False
             withsmalldicts = False
             withcelldict = False
-            withshadowtracking = False
         class opcodes:
             CALL_LIKELY_BUILTIN = False
 
@@ -686,6 +678,14 @@ class BaseTestRDictImplementation:
         self.impl.delitem(self.string)
         assert self.impl.length() == 0
         self.check_not_devolved()
+
+    def test_clear(self):
+        self.fill_impl()
+        assert self.impl.length() == 2
+        self.impl.clear()
+        assert self.impl.length() == 0
+        self.check_not_devolved()
+
 
     def test_keys(self):
         self.fill_impl()
@@ -750,9 +750,6 @@ class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
     string = "int"
     string2 = "isinstance"
 
-class TestSharedDictImplementation(BaseTestRDictImplementation):
-    ImplementionClass = SharedDictImplementation
-
 
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def fill_impl(self):
@@ -774,8 +771,6 @@ class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictI
     string = "int"
     string2 = "isinstance"
 
-class TestDevolvedSharedDictImplementation(BaseTestDevolvedDictImplementation):
-    ImplementionClass = SharedDictImplementation
 
 def test_module_uses_strdict():
     fakespace = FakeSpace()

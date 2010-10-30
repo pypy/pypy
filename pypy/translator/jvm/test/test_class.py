@@ -1,6 +1,6 @@
 import py
 from pypy.translator.jvm.test.runtest import JvmTest
-from pypy.translator.oosupport.test_template.class_ import BaseTestClass, BaseTestSpecialcase
+from pypy.translator.oosupport.test_template.class_ import BaseTestClass
 
 class TestJvmClass(JvmTest, BaseTestClass):    
     def test_overridden_classattr_as_defaults(self):
@@ -26,6 +26,3 @@ class TestJvmClass(JvmTest, BaseTestClass):
             
     def test_specialize_methods(self):
         py.test.skip('ABSTRACT METHOD FIX: RE-TEST AFTER MERGE')
-
-class TestJvmSpecialCase(JvmTest, BaseTestSpecialcase):
-    pass

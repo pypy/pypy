@@ -153,8 +153,8 @@ common structure object and thus save the space in the individual instance
 dicts:
 the representation of the instance dict contains only a list of values.
 
-You can enable this feature with the :config:`objspace.std.withsharingdict`
-option.
+A more advanced version of sharing dicts, called *map dicts,* is available
+with the :config:`objspace.std.withmapdict` option.
 
 Builtin-Shadowing
 +++++++++++++++++
@@ -219,8 +219,7 @@ is found, the instance dictionary is then checked for instance attributes
 shadowing the class attribute. If we know that there is no shadowing (since
 instance dict tells us that) we can save this lookup on the instance dictionary.
 
-You can enable this feature with the :config:`objspace.std.withshadowtracking`
-option.
+*This was deprecated and is no longer available.*
 
 
 Method Caching

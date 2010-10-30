@@ -760,6 +760,20 @@ class BlackholeInterpreter(object):
     def bhimpl_debug_fatalerror(msg):
         llop.debug_fatalerror(lltype.Void, msg)
 
+    @arguments("r", "i", "i", "i", "i")
+    def bhimpl_jit_debug(string, arg1=0, arg2=0, arg3=0, arg4=0):
+        pass
+
+    @arguments("i")
+    def bhimpl_int_assert_green(x):
+        pass
+    @arguments("r")
+    def bhimpl_ref_assert_green(x):
+        pass
+    @arguments("f")
+    def bhimpl_float_assert_green(x):
+        pass
+
     # ----------
     # the main hints and recursive calls
 
@@ -1072,6 +1086,10 @@ class BlackholeInterpreter(object):
     bhimpl_getfield_vable_i = bhimpl_getfield_gc_i
     bhimpl_getfield_vable_r = bhimpl_getfield_gc_r
     bhimpl_getfield_vable_f = bhimpl_getfield_gc_f
+
+    bhimpl_getfield_gc_i_greenfield = bhimpl_getfield_gc_i
+    bhimpl_getfield_gc_r_greenfield = bhimpl_getfield_gc_r
+    bhimpl_getfield_gc_f_greenfield = bhimpl_getfield_gc_f
 
     @arguments("cpu", "i", "d", returns="i")
     def bhimpl_getfield_raw_i(cpu, struct, fielddescr):

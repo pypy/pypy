@@ -928,29 +928,33 @@ class AppTestOldstyle(object):
         assert x is b
         assert y == 5
 
-
-class AppTestOldStyleSharing(AppTestOldstyle):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
-        if option.runappdirect:
-            py.test.skip("can only be run on py.py")
-        def is_sharing(space, w_inst):
-            from pypy.objspace.std.sharingdict import SharedDictImplementation
-            w_d = w_inst.getdict()
-            return space.wrap(isinstance(w_d, SharedDictImplementation) and w_d.r_dict_content is None)
-        cls.w_is_sharing = cls.space.wrap(gateway.interp2app(is_sharing))
-
-
-    def test_real_sharing(self):
+    def test_cant_subclass_instance(self):
         class A:
-            def __init__(self):
-                self.x = 42
-        A1, A2, A3 = A(), A(), A()
-        assert self.is_sharing(A3)
-        assert self.is_sharing(A2)
-        assert self.is_sharing(A1)
+            pass
+        try:
+            class B(type(A())):
+                pass
+        except TypeError:
+            pass
+        else:
+            assert 0, "should have raised"
 
-class AppTestOldStyleModDict(object):
+    def test_dict_descriptor(self):
+        import sys
+        if not hasattr(sys, 'pypy_objspaceclass'):
+            skip("on CPython old-style instances don't have a __dict__ descriptor")
+        class A:
+            pass
+        a = A()
+        a.x = 1
+        descr = type(a).__dict__['__dict__']
+        assert descr.__get__(a) == {'x': 1}
+        descr.__set__(a, {'x': 2})
+        assert a.x == 2
+        raises(TypeError, descr.__delete__, a)
+
+
+class AppTestOldStyleClassStrDict(object):
     def setup_class(cls):
         if option.runappdirect:
             py.test.skip("can only be run on py.py")
@@ -966,3 +970,22 @@ class AppTestOldStyleModDict(object):
             a = 1
             b = 2
         assert self.is_strdict(A)
+
+class AppTestOldStyleMapDict(AppTestOldstyle):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
+        if option.runappdirect:
+            py.test.skip("can only be run on py.py")
+        def has_mapdict(space, w_inst):
+            return space.wrap(w_inst._get_mapdict_map() is not None)
+        cls.w_has_mapdict = cls.space.wrap(gateway.interp2app(has_mapdict))
+
+
+    def test_has_mapdict(self):
+        class A:
+            def __init__(self):
+                self.x = 42
+        a = A()
+        assert a.x == 42
+        assert self.has_mapdict(a)
+

@@ -255,7 +255,7 @@ def parse_command_line(argv):
             break
         elif arg == '-u':
             unbuffered = True
-        elif arg == '-O':
+        elif arg == '-O' or arg == '-OO':
             pass
         elif arg == '--version' or arg == '-V':
             print "Python", sys.version
@@ -385,9 +385,12 @@ def run_command_line(go_interactive,
                 python_startup = os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
-                        startup = open(python_startup).read()
-                    except IOError:
-                        pass
+                        f = open(python_startup)
+                        startup = f.read()
+                        f.close()
+                    except IOError, e:
+                        print >> sys.stderr, "Could not open PYTHONSTARTUP"
+                        print >> sys.stderr, "IOError:", e
                     else:
                         def run_it():
                             co_python_startup = compile(startup,

@@ -47,7 +47,7 @@ def test_set_opt_level():
 def test_set_pypy_opt_level():
     conf = get_pypy_config()
     set_pypy_opt_level(conf, '2')
-    assert conf.objspace.std.withsharingdict
+    assert conf.objspace.std.newshortcut
     conf = get_pypy_config()
     set_pypy_opt_level(conf, '0')
     assert not conf.objspace.std.newshortcut
@@ -59,7 +59,6 @@ def test_rweakref_required():
 
     assert not conf.objspace.std.withtypeversion
     assert not conf.objspace.std.withmethodcache
-    assert not conf.objspace.std.withshadowtracking
 
 def test_check_documentation():
     def check_file_exists(fn):

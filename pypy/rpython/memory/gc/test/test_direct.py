@@ -70,6 +70,7 @@ class DirectGCTest(object):
         GC_PARAMS = self.GC_PARAMS.copy()
         if hasattr(meth, 'GC_PARAMS'):
             GC_PARAMS.update(meth.GC_PARAMS)
+        GC_PARAMS['translated_to_c'] = False
         self.gc = self.GCClass(config, **GC_PARAMS)
         self.gc.DEBUG = True
         self.rootwalker = DirectRootWalker(self)
@@ -86,17 +87,19 @@ class DirectGCTest(object):
 
     def write(self, p, fieldname, newvalue):
         if self.gc.needs_write_barrier:
+            newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
-            self.gc.write_barrier(addr_struct)
+            self.gc.write_barrier(newaddr, addr_struct)
         setattr(p, fieldname, newvalue)
 
     def writearray(self, p, index, newvalue):
         if self.gc.needs_write_barrier:
+            newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
             if hasattr(self.gc, 'write_barrier_from_array'):
-                self.gc.write_barrier_from_array(addr_struct, index)
+                self.gc.write_barrier_from_array(newaddr, addr_struct, index)
             else:
-                self.gc.write_barrier(addr_struct)
+                self.gc.write_barrier(newaddr, addr_struct)
         p[index] = newvalue
 
     def malloc(self, TYPE, n=None):

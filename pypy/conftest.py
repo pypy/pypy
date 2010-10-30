@@ -7,6 +7,7 @@ from pypy.config.config import ConflictConfigError
 from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
+from pypy.tool import leakfinder
 
 # pytest settings
 pytest_plugins = "resultlog",
@@ -354,7 +355,14 @@ class IntTestFunction(PyPyTestFunction):
 
     def runtest(self):
         try:
-            super(IntTestFunction, self).runtest()
+            leakfinder.start_tracking_allocations()
+            try:
+                super(IntTestFunction, self).runtest()
+            finally:
+                if leakfinder.TRACK_ALLOCATIONS:
+                    leaks = leakfinder.stop_tracking_allocations(False)
+                else:
+                    leaks = None   # stop_tracking_allocations() already called
         except OperationError, e:
             check_keyboard_interrupt(e)
             raise
@@ -373,6 +381,8 @@ class IntTestFunction(PyPyTestFunction):
                 _pygame_imported = True
                 assert option.view, ("should not invoke Pygame "
                                      "if conftest.option.view is False")
+        if leaks:        # check for leaks, but only if the test passed so far
+            raise leakfinder.MallocMismatch(leaks)
 
 class AppTestFunction(PyPyTestFunction):
     def _prunetraceback(self, traceback):

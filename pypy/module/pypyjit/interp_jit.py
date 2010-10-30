@@ -5,10 +5,10 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.jit import JitDriver, hint, we_are_jitted
+from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import ObjSpace, Arguments
+from pypy.interpreter.gateway import ObjSpace, Arguments, W_Root
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
@@ -131,3 +131,10 @@ def set_param(space, args):
                                   "no JIT parameter '%s'", key)
 
 set_param.unwrap_spec = [ObjSpace, Arguments]
+
+@dont_look_inside
+def residual_call(space, w_callable, args):
+    '''For testing.  Invokes callable(...), but without letting
+    the JIT follow the call.'''
+    return space.call_args(w_callable, args)
+residual_call.unwrap_spec = [ObjSpace, W_Root, Arguments]

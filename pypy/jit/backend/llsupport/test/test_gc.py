@@ -141,8 +141,8 @@ class FakeLLOp:
                             repr(offset_to_length), p))
         return p
 
-    def _write_barrier_failing_case(self, adr_struct):
-        self.record.append(('barrier', adr_struct))
+    def _write_barrier_failing_case(self, adr_struct, adr_newptr):
+        self.record.append(('barrier', adr_struct, adr_newptr))
 
     def get_write_barrier_failing_case(self, FPTRTYPE):
         return llhelper(FPTRTYPE, self._write_barrier_failing_case)
@@ -239,6 +239,7 @@ class TestFramework:
         s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
         r_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, r)
         s_adr = llmemory.cast_ptr_to_adr(s)
+        r_adr = llmemory.cast_ptr_to_adr(r)
         #
         s_hdr.tid &= ~gc_ll_descr.GCClass.JIT_WB_IF_FLAG
         gc_ll_descr.do_write_barrier(s_gcref, r_gcref)
@@ -246,7 +247,7 @@ class TestFramework:
         #
         s_hdr.tid |= gc_ll_descr.GCClass.JIT_WB_IF_FLAG
         gc_ll_descr.do_write_barrier(s_gcref, r_gcref)
-        assert self.llop1.record == [('barrier', s_adr)]
+        assert self.llop1.record == [('barrier', s_adr, r_adr)]
 
     def test_gen_write_barrier(self):
         gc_ll_descr = self.gc_ll_descr
@@ -254,11 +255,13 @@ class TestFramework:
         #
         newops = []
         v_base = BoxPtr()
-        gc_ll_descr._gen_write_barrier(newops, v_base)
+        v_value = BoxPtr()
+        gc_ll_descr._gen_write_barrier(newops, v_base, v_value)
         assert llop1.record == []
         assert len(newops) == 1
         assert newops[0].getopnum() == rop.COND_CALL_GC_WB
         assert newops[0].getarg(0) == v_base
+        assert newops[0].getarg(1) == v_value
         assert newops[0].result is None
         wbdescr = newops[0].getdescr()
         assert isinstance(wbdescr.jit_wb_if_flag, int)
@@ -358,6 +361,7 @@ class TestFramework:
         #
         assert operations[0].getopnum() == rop.COND_CALL_GC_WB
         assert operations[0].getarg(0) == v_base
+        assert operations[0].getarg(1) == v_value
         assert operations[0].result is None
         #
         assert operations[1].getopnum() == rop.SETFIELD_RAW
@@ -381,6 +385,7 @@ class TestFramework:
         #
         assert operations[0].getopnum() == rop.COND_CALL_GC_WB
         assert operations[0].getarg(0) == v_base
+        assert operations[0].getarg(1) == v_value
         assert operations[0].result is None
         #
         assert operations[1].getopnum() == rop.SETARRAYITEM_RAW

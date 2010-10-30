@@ -100,6 +100,10 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = used
 
     @staticmethod
+    def ll_getlength(ll_builder):
+        return ll_builder.used
+
+    @staticmethod
     def ll_build(ll_builder):
         final_size = ll_builder.used
         assert final_size >= 0

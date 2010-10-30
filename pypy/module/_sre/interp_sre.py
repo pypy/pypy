@@ -290,10 +290,8 @@ class W_SRE_Pattern(Wrappable):
 def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
     n = space.int_w(space.len(w_code))
-    code = [0] * n
-    for i in range(n):
-        x = space.uint_w(space.getitem(w_code, space.wrap(i)))
-        code[i] = intmask(x)
+    code = [intmask(space.uint_w(space.getitem(w_code, space.wrap(i))))
+            for i in range(n)]
     #
     w_srepat = space.allocate_instance(W_SRE_Pattern, w_subtype)
     srepat = space.interp_w(W_SRE_Pattern, w_srepat)

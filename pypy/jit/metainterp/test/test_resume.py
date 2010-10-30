@@ -240,6 +240,17 @@ class FakeResumeDataReader(AbstractResumeDataReader):
         return FakeBuiltObject(strconcat=[left, right])
     def slice_string(self, str, start, length):
         return FakeBuiltObject(strslice=[str, start, length])
+    def allocate_unicode(self, length):
+        return FakeBuiltObject(unistring=[None]*length)
+    def unicode_setitem(self, unistring, i, fieldnum):
+        value, tag = untag(fieldnum)
+        assert tag == TAGINT
+        assert 0 <= i < len(unistring.unistring)
+        unistring.unistring[i] = value
+    def concat_unicodes(self, left, right):
+        return FakeBuiltObject(uniconcat=[left, right])
+    def slice_unicode(self, str, start, length):
+        return FakeBuiltObject(unislice=[str, start, length])
 
 class FakeBuiltObject(object):
     def __init__(self, **kwds):
@@ -303,6 +314,30 @@ def test_vstrsliceinfo():
     reader._prepare_virtuals([info])
     assert reader.force_all_virtuals() == [
         FakeBuiltObject(strslice=info.fieldnums)]
+
+def test_vuniplaininfo():
+    info = VUniPlainInfo()
+    info.fieldnums = [tag(60, TAGINT)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(unistring=[60])]
+
+def test_vuniconcatinfo():
+    info = VUniConcatInfo()
+    info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(uniconcat=info.fieldnums)]
+
+def test_vunisliceinfo():
+    info = VUniSliceInfo()
+    info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX), tag(30, TAGBOX)]
+    reader = FakeResumeDataReader()
+    reader._prepare_virtuals([info])
+    assert reader.force_all_virtuals() == [
+        FakeBuiltObject(unislice=info.fieldnums)]
 
 # ____________________________________________________________
 

@@ -105,11 +105,13 @@ class ItemOffset(AddressOffset):
         if (isinstance(self.TYPE, lltype.ContainerType)
             and self.TYPE._gckind == 'gc'):
             assert self.repeat == 1
-            p = lltype.malloc(self.TYPE, flavor='raw', zero=zero)
+            p = lltype.malloc(self.TYPE, flavor='raw', zero=zero,
+                              track_allocation=False)
             return cast_ptr_to_adr(p)
         else:
             T = lltype.FixedSizeArray(self.TYPE, self.repeat)
-            p = lltype.malloc(T, flavor='raw', zero=zero)
+            p = lltype.malloc(T, flavor='raw', zero=zero,
+                              track_allocation=False)
             array_adr = cast_ptr_to_adr(p)
             return array_adr + ArrayItemsOffset(T)
 
@@ -288,7 +290,8 @@ class ArrayItemsOffset(AddressOffset):
             count = 0
         p = lltype.malloc(parenttype or self.TYPE, count,
                           immortal = self.TYPE._gckind == 'raw',
-                          zero = zero)
+                          zero = zero,
+                          track_allocation = False)
         return cast_ptr_to_adr(p)
 
     def raw_memcopy(self, srcadr, dstadr):

@@ -44,7 +44,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
         else:
             typ = type(w_descr)
             if typ is function.Function or typ is function.FunctionWithFixedCode:
-                w_value = w_obj.getdictvalue_attr_is_in_class(space, name)
+                w_value = w_obj.getdictvalue(space, name)
                 if w_value is None:
                     # fast method path: a function object in the class,
                     # nothing in the instance
@@ -103,7 +103,7 @@ def call_method_opt(space, w_obj, methname, *arg_w):
         w_descr = space.lookup(w_obj, methname)
         typ = type(w_descr)
         if typ is function.Function or typ is function.FunctionWithFixedCode:
-            w_value = w_obj.getdictvalue_attr_is_in_class(space, methname)
+            w_value = w_obj.getdictvalue(space, methname)
             if w_value is None:
                 # fast method path: a function object in the class,
                 # nothing in the instance

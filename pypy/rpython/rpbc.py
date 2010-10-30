@@ -256,6 +256,8 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
     def convert_const(self, value):
         if isinstance(value, types.MethodType) and value.im_self is None:
             value = value.im_func   # unbound method -> bare function
+        elif isinstance(value, staticmethod):
+            value = value.__get__(42) # hackish, get the function wrapped by staticmethod
         if self.lowleveltype is Void:
             return None
         if value is None:

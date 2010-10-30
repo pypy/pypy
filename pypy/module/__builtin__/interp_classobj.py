@@ -2,9 +2,11 @@ import new
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.interpreter.typedef import TypeDef, make_weakref_descr
+from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
+from pypy.interpreter.typedef import descr_set_dict
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import compute_identity_hash
 from pypy.rlib.debug import make_sure_not_resized
@@ -57,6 +59,14 @@ class W_ClassObject(Wrappable):
         self.bases_w = bases
         self.w_dict = w_dict
  
+    def instantiate(self, space):
+        cache = space.fromcache(Cache)
+        if self.lookup(space, '__del__') is not None:
+            w_inst = cache.cls_with_del(space, self)
+        else:
+            w_inst = cache.cls_without_del(space, self)
+        return w_inst
+
     def getdict(self):
         return self.w_dict
 
@@ -100,15 +110,15 @@ class W_ClassObject(Wrappable):
         return False
 
     @jit.unroll_safe
-    def lookup(self, space, w_attr):
+    def lookup(self, space, attr):
         # returns w_value or interplevel None
-        w_result = space.finditem(self.w_dict, w_attr)
+        w_result = space.finditem_str(self.w_dict, attr)
         if w_result is not None:
             return w_result
         for base in self.bases_w:
             # XXX fix annotation of bases_w to be a list of W_ClassObjects
             assert isinstance(base, W_ClassObject)
-            w_result = base.lookup(space, w_attr)
+            w_result = base.lookup(space, attr)
             if w_result is not None:
                 return w_result
         return None
@@ -122,7 +132,7 @@ class W_ClassObject(Wrappable):
                 return space.wrap(self.name)
             elif name == "__bases__":
                 return space.newtuple(self.bases_w)
-        w_value = self.lookup(space, w_attr)
+        w_value = self.lookup(space, name)
         if w_value is None:
             raise operationerrfmt(
                 space.w_AttributeError,
@@ -147,7 +157,7 @@ class W_ClassObject(Wrappable):
                 self.setbases(space, w_value)
                 return
             elif name == "__del__":
-                if self.lookup(space, w_attr) is None:
+                if self.lookup(space, name) is None:
                     msg = ("a __del__ method added to an existing class "
                            "will not be called")
                     space.warn(msg, space.w_RuntimeWarning)
@@ -195,13 +205,20 @@ class W_ClassObject(Wrappable):
         # NOT_RPYTHON
         return '<W_ClassObject(%s)>' % self.name
 
+class Cache:
+    def __init__(self, space):
+        from pypy.interpreter.typedef import _usersubclswithfeature
+        # evil
+        self.cls_without_del = _usersubclswithfeature(
+                space.config, W_InstanceObject, "dict", "weakref")
+        self.cls_with_del = _usersubclswithfeature(
+                space.config, self.cls_without_del, "del")
+
+
 def class_descr_call(space, w_self, __args__):
     self = space.interp_w(W_ClassObject, w_self)
-    if self.lookup(space, space.wrap('__del__')) is not None:
-        w_inst = W_InstanceObjectWithDel(space, self)
-    else:
-        w_inst = W_InstanceObject(space, self)
-    w_init = w_inst.getattr_from_class(space, space.wrap('__init__'))
+    w_inst = self.instantiate(space)
+    w_init = w_inst.getattr_from_class(space, '__init__')
     if w_init is not None:
         w_result = space.call_args(w_init, __args__)
         if not space.is_w(w_result, space.w_None):
@@ -234,7 +251,7 @@ W_ClassObject.typedef.acceptable_as_base_class = False
 
 def make_unary_instance_method(name):
     def unaryop(self, space):
-        w_meth = self.getattr(space, space.wrap(name), True)
+        w_meth = self.getattr(space, name, True)
         return space.call_function(w_meth)
     unaryop.func_name = name
     return unaryop
@@ -242,7 +259,7 @@ def make_unary_instance_method(name):
 def make_binary_returning_notimplemented_instance_method(name):
     def binaryop(self, space, w_other):
         try:
-            w_meth = self.getattr(space, space.wrap(name), False)
+            w_meth = self.getattr(space, name, False)
         except OperationError, e:
             if e.match(space, space.w_AttributeError):
                 return space.w_NotImplemented
@@ -267,7 +284,7 @@ def make_binary_instance_method(name):
             w_a = self
             w_b = w_other
         if w_a is self:
-            w_meth = self.getattr(space, space.wrap(specialname), False)
+            w_meth = self.getattr(space, specialname, False)
             if w_meth is None:
                 return space.w_NotImplemented
             return space.call_function(w_meth, w_b)
@@ -278,7 +295,7 @@ def make_binary_instance_method(name):
     def rbinaryop(self, space, w_other):
         w_a, w_b = _coerce_helper(space, self, w_other)
         if w_a is None or w_a is self:
-            w_meth = self.getattr(space, space.wrap(rspecialname), False)
+            w_meth = self.getattr(space, rspecialname, False)
             if w_meth is None:
                 return space.w_NotImplemented
             return space.call_function(w_meth, w_other)
@@ -302,46 +319,34 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
         raise OperationError(
             space.w_TypeError,
             space.wrap("instance() first arg must be class"))
-    if space.is_w(w_dict, space.w_None):
-        w_dict = None
-    elif not space.is_true(space.isinstance(w_dict, space.w_dict)):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("instance() second arg must be dictionary or None"))
-    return W_InstanceObject(space, w_class, w_dict)
+    w_result = w_class.instantiate(space)
+    if not space.is_w(w_dict, space.w_None):
+        w_result.setdict(space, w_dict)
+    return w_result
 
 class W_InstanceObject(Wrappable):
-    def __init__(self, space, w_class, w_dict=None):
-        if w_dict is None:
-            w_dict = space.newdict(instance=True)
+    def __init__(self, space, w_class):
+        # note that user_setup is overridden by the typedef.py machinery
+        self.user_setup(space, space.gettypeobject(self.typedef))
         assert isinstance(w_class, W_ClassObject)
         self.w_class = w_class
-        self.w_dict = w_dict
+
+    def user_setup(self, space, w_subtype):
         self.space = space
 
-    def getdict(self):
-        return self.w_dict
-
-    def setdict(self, space, w_dict):
-        if (w_dict is None or
-            not space.is_true(space.isinstance(w_dict, space.w_dict))):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__dict__ must be a dictionary object"))
-        self.w_dict = w_dict
-
-    def setclass(self, space, w_class):
+    def set_oldstyle_class(self, space, w_class):
         if w_class is None or not isinstance(w_class, W_ClassObject):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("__class__ must be set to a class"))
         self.w_class = w_class
 
-    def getattr_from_class(self, space, w_name):
+    def getattr_from_class(self, space, name):
         # Look up w_name in the class dict, and call its __get__.
         # This method ignores the instance dict and the __getattr__.
         # Returns None if not found.
-        w_value = self.w_class.lookup(space, w_name)
+        assert isinstance(name, str)
+        w_value = self.w_class.lookup(space, name)
         if w_value is None:
             return None
         w_descr_get = space.lookup(w_value, '__get__')
@@ -349,19 +354,20 @@ class W_InstanceObject(Wrappable):
             return w_value
         return space.call_function(w_descr_get, w_value, self, self.w_class)
 
-    def getattr(self, space, w_name, exc=True):
+    def getattr(self, space, name, exc=True):
         # Normal getattr rules: look up w_name in the instance dict,
         # in the class dict, and then via a call to __getatttr__.
-        w_result = space.finditem(self.w_dict, w_name)
+        assert isinstance(name, str)
+        w_result = self.getdictvalue(space, name)
         if w_result is not None:
             return w_result
-        w_result = self.getattr_from_class(space, w_name)
+        w_result = self.getattr_from_class(space, name)
         if w_result is not None:
             return w_result
-        w_meth = self.getattr_from_class(space, space.wrap('__getattr__'))
+        w_meth = self.getattr_from_class(space, '__getattr__')
         if w_meth is not None:
             try:
-                return space.call_function(w_meth, w_name)
+                return space.call_function(w_meth, space.wrap(name))
             except OperationError, e:
                 if not exc and e.match(space, space.w_AttributeError):
                     return None     # eat the AttributeError
@@ -371,7 +377,7 @@ class W_InstanceObject(Wrappable):
             raise operationerrfmt(
                 space.w_AttributeError,
                 "%s instance has no attribute '%s'",
-                self.w_class.name, space.str_w(w_name))
+                self.w_class.name, name)
         else:
             return None
 
@@ -379,24 +385,25 @@ class W_InstanceObject(Wrappable):
         name = space.str_w(w_attr)
         if len(name) >= 8 and name[0] == '_':
             if name == "__dict__":
-                return self.w_dict
+                return self.getdict()
             elif name == "__class__":
                 return self.w_class
-        return self.getattr(space, w_attr)
+        return self.getattr(space, name)
 
     def descr_setattr(self, space, w_name, w_value):
         name = unwrap_attr(space, w_name)
-        w_meth = self.getattr_from_class(space, space.wrap('__setattr__'))
+        w_meth = self.getattr_from_class(space, '__setattr__')
         if name and name[0] == "_":
             if name == '__dict__':
                 self.setdict(space, w_value)
                 return
             if name == '__class__':
-                self.setclass(space, w_value)
+                self.set_oldstyle_class(space, w_value)
                 return
             if name == '__del__' and w_meth is None:
-                if (not isinstance(self, W_InstanceObjectWithDel)
-                    and space.finditem(self.w_dict, w_name) is None):
+                cache = space.fromcache(Cache)
+                if (not isinstance(self, cache.cls_with_del)
+                    and self.getdictvalue(space, '__del__') is None):
                     msg = ("a __del__ method added to an instance "
                            "with no __del__ in the class will not be called")
                     space.warn(msg, space.w_RuntimeWarning)
@@ -410,13 +417,13 @@ class W_InstanceObject(Wrappable):
         if name and name[0] == "_":
             if name == '__dict__':
                 # use setdict to raise the error
-                self.setdict(space, None)
+                self.setdict(space, space.w_None)
                 return
             elif name == '__class__':
-                # use setclass to raise the error
-                self.setclass(space, None)
+                # use set_oldstyle_class to raise the error
+                self.set_oldstyle_class(space, None)
                 return
-        w_meth = self.getattr_from_class(space, space.wrap('__delattr__'))
+        w_meth = self.getattr_from_class(space, '__delattr__')
         if w_meth is not None:
             space.call_function(w_meth, w_name)
         else:
@@ -427,7 +434,7 @@ class W_InstanceObject(Wrappable):
                     self.w_class.name, name)
 
     def descr_repr(self, space):
-        w_meth = self.getattr(space, space.wrap('__repr__'), False)
+        w_meth = self.getattr(space, '__repr__', False)
         if w_meth is None:
             w_class = self.w_class
             mod = w_class.get_module_string(space)
@@ -435,19 +442,19 @@ class W_InstanceObject(Wrappable):
         return space.call_function(w_meth)
 
     def descr_str(self, space):
-        w_meth = self.getattr(space, space.wrap('__str__'), False)
+        w_meth = self.getattr(space, '__str__', False)
         if w_meth is None:
             return self.descr_repr(space)
         return space.call_function(w_meth)
 
     def descr_unicode(self, space):
-        w_meth = self.getattr(space, space.wrap('__unicode__'), False)
+        w_meth = self.getattr(space, '__unicode__', False)
         if w_meth is None:
             return self.descr_str(space)
         return space.call_function(w_meth)
 
     def descr_len(self, space):
-        w_meth = self.getattr(space, space.wrap('__len__'))
+        w_meth = self.getattr(space, '__len__')
         w_result = space.call_function(w_meth)
         if space.is_true(space.isinstance(w_result, space.w_int)):
             if space.is_true(space.lt(w_result, space.wrap(0))):
@@ -460,22 +467,22 @@ class W_InstanceObject(Wrappable):
             space.wrap("__len__() should return an int"))
 
     def descr_getitem(self, space, w_key):
-        w_meth = self.getattr(space, space.wrap('__getitem__'))
+        w_meth = self.getattr(space, '__getitem__')
         return space.call_function(w_meth, w_key)
 
     def descr_setitem(self, space, w_key, w_value):
-        w_meth = self.getattr(space, space.wrap('__setitem__'))
+        w_meth = self.getattr(space, '__setitem__')
         space.call_function(w_meth, w_key, w_value)
 
     def descr_delitem(self, space, w_key):
-        w_meth = self.getattr(space, space.wrap('__delitem__'))
+        w_meth = self.getattr(space, '__delitem__')
         space.call_function(w_meth, w_key)
 
     def descr_iter(self, space):
-        w_meth = self.getattr(space, space.wrap('__iter__'), False)
+        w_meth = self.getattr(space, '__iter__', False)
         if w_meth is not None:
             return space.call_function(w_meth)
-        w_meth = self.getattr(space, space.wrap('__getitem__'), False)
+        w_meth = self.getattr(space, '__getitem__', False)
         if w_meth is None:
             raise OperationError(
                 space.w_TypeError,
@@ -485,14 +492,14 @@ class W_InstanceObject(Wrappable):
     # don't see the point
 
     def descr_getslice(self, space, w_i, w_j):
-        w_meth = self.getattr(space, space.wrap('__getslice__'), False)
+        w_meth = self.getattr(space, '__getslice__', False)
         if w_meth is not None:
             return space.call_function(w_meth, w_i, w_j)
         else:
             return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
 
     def descr_setslice(self, space, w_i, w_j, w_sequence):
-        w_meth = self.getattr(space, space.wrap('__setslice__'), False)
+        w_meth = self.getattr(space, '__setslice__', False)
         if w_meth is not None:
             space.call_function(w_meth, w_i, w_j, w_sequence)
         else:
@@ -500,20 +507,20 @@ class W_InstanceObject(Wrappable):
                           w_sequence)
 
     def descr_delslice(self, space, w_i, w_j):
-        w_meth = self.getattr(space, space.wrap('__delslice__'), False)
+        w_meth = self.getattr(space, '__delslice__', False)
         if w_meth is not None:
             space.call_function(w_meth, w_i, w_j)
         else:
             return space.delitem(self, space.newslice(w_i, w_j, space.w_None))
 
     def descr_call(self, space, __args__):
-        w_meth = self.getattr(space, space.wrap('__call__'))
+        w_meth = self.getattr(space, '__call__')
         return space.call_args(w_meth, __args__)
 
     def descr_nonzero(self, space):
-        w_func = self.getattr(space, space.wrap('__nonzero__'), False)
+        w_func = self.getattr(space, '__nonzero__', False)
         if w_func is None:
-            w_func = self.getattr(space, space.wrap('__len__'), False)
+            w_func = self.getattr(space, '__len__', False)
             if w_func is None:
                 return space.w_True
         w_result = space.call_function(w_func)
@@ -537,7 +544,7 @@ class W_InstanceObject(Wrappable):
                 not isinstance(w_b, W_InstanceObject)):
                 return space.cmp(w_a, w_b)
         if isinstance(w_a, W_InstanceObject):
-            w_func = w_a.getattr(space, space.wrap('__cmp__'), False)
+            w_func = w_a.getattr(space, '__cmp__', False)
             if w_func is not None:
                 w_res = space.call_function(w_func, w_b)
                 if space.is_w(w_res, space.w_NotImplemented):
@@ -556,7 +563,7 @@ class W_InstanceObject(Wrappable):
                     return space.wrap(-1)
                 return space.wrap(0)
         if isinstance(w_b, W_InstanceObject):
-            w_func = w_b.getattr(space, space.wrap('__cmp__'), False)
+            w_func = w_b.getattr(space, '__cmp__', False)
             if w_func is not None:
                 w_res = space.call_function(w_func, w_a)
                 if space.is_w(w_res, space.w_NotImplemented):
@@ -577,10 +584,10 @@ class W_InstanceObject(Wrappable):
         return space.w_NotImplemented
 
     def descr_hash(self, space):
-        w_func = self.getattr(space, space.wrap('__hash__'), False)
+        w_func = self.getattr(space, '__hash__', False)
         if w_func is None:
-            w_eq =  self.getattr(space, space.wrap('__eq__'), False)
-            w_cmp =  self.getattr(space, space.wrap('__cmp__'), False)
+            w_eq =  self.getattr(space, '__eq__', False)
+            w_cmp =  self.getattr(space, '__cmp__', False)
             if w_eq is not None or w_cmp is not None:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("unhashable instance"))
@@ -595,7 +602,7 @@ class W_InstanceObject(Wrappable):
         return w_ret
 
     def descr_index(self, space):
-        w_func = self.getattr(space, space.wrap('__index__'), False)
+        w_func = self.getattr(space, '__index__', False)
         if w_func is not None:
             return space.call_function(w_func)
         raise OperationError(
@@ -603,7 +610,7 @@ class W_InstanceObject(Wrappable):
             space.wrap("object cannot be interpreted as an index"))
 
     def descr_contains(self, space, w_obj):
-        w_func = self.getattr(space, space.wrap('__contains__'), False)
+        w_func = self.getattr(space, '__contains__', False)
         if w_func is not None:
             return space.wrap(space.is_true(space.call_function(w_func, w_obj)))
         # now do it ourselves
@@ -626,7 +633,7 @@ class W_InstanceObject(Wrappable):
                 w_a = self
                 w_b = w_other
             if w_a is self:
-                w_func = self.getattr(space, space.wrap('__pow__'), False)
+                w_func = self.getattr(space, '__pow__', False)
                 if w_func is not None:
                     return space.call_function(w_func, w_other)
                 return space.w_NotImplemented
@@ -634,7 +641,7 @@ class W_InstanceObject(Wrappable):
                 return space.pow(w_a, w_b, space.w_None)
         else:
             # CPython also doesn't try coercion in this case
-            w_func = self.getattr(space, space.wrap('__pow__'), False)
+            w_func = self.getattr(space, '__pow__', False)
             if w_func is not None:
                 return space.call_function(w_func, w_other, w_modulo)
             return space.w_NotImplemented
@@ -646,7 +653,7 @@ class W_InstanceObject(Wrappable):
                 w_a = self
                 w_b = w_other
             if w_a is self:
-                w_func = self.getattr(space, space.wrap('__rpow__'), False)
+                w_func = self.getattr(space, '__rpow__', False)
                 if w_func is not None:
                     return space.call_function(w_func, w_other)
                 return space.w_NotImplemented
@@ -654,13 +661,13 @@ class W_InstanceObject(Wrappable):
                 return space.pow(w_b, w_a, space.w_None)
         else:
             # CPython also doesn't try coercion in this case
-            w_func = self.getattr(space, space.wrap('__rpow__'), False)
+            w_func = self.getattr(space, '__rpow__', False)
             if w_func is not None:
                 return space.call_function(w_func, w_other, w_modulo)
             return space.w_NotImplemented
 
     def descr_next(self, space):
-        w_func = self.getattr(space, space.wrap('next'), False)
+        w_func = self.getattr(space, 'next', False)
         if w_func is None:
             raise OperationError(space.w_TypeError,
                                  space.wrap("instance has no next() method"))
@@ -669,10 +676,9 @@ class W_InstanceObject(Wrappable):
     def descr_del(self, space):
         # Note that this is called from executioncontext.UserDelAction
         # via the space.userdel() method.
-        w_name = space.wrap('__del__')
-        w_func = space.finditem(self.w_dict, w_name)
+        w_func = self.getdictvalue(space, '__del__')
         if w_func is None:
-            w_func = self.getattr_from_class(space, w_name)
+            w_func = self.getattr_from_class(space, '__del__')
         if w_func is not None:
             space.call_function(w_func)
 
@@ -716,6 +722,14 @@ for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv"
     rawdict[rspecialname] = interp2app(
         rmeth,
         unwrap_spec=["self", ObjSpace, W_Root])
+
+
+def descr_del_dict(space, w_inst):
+    # use setdict to raise the error
+    w_inst.setdict(space, space.w_None)
+
+dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict)
+dict_descr.name = '__dict__'
 
 W_InstanceObject.typedef = TypeDef("instance",
     __new__ = interp2app(descr_instance_new),
@@ -766,12 +780,9 @@ W_InstanceObject.typedef = TypeDef("instance",
                          unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
     next = interp2app(W_InstanceObject.descr_next,
                       unwrap_spec=['self', ObjSpace]),
-    __weakref__ = make_weakref_descr(W_InstanceObject),
     __del__ = interp2app(W_InstanceObject.descr_del,
                          unwrap_spec=['self', ObjSpace]),
+    __dict__ = dict_descr,
     **rawdict
 )
-
-class W_InstanceObjectWithDel(W_InstanceObject):
-    def __del__(self):
-        self._enqueue_for_destruction(self.space)
+W_InstanceObject.typedef.acceptable_as_base_class = False

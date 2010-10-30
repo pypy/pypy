@@ -386,6 +386,20 @@ class AbstractStringLenOperation(AbstractStringOperation):
         v_string = self.get_string(builder, r)
         builder.do(self.opnum, [v_string])
 
+class AbstractCopyContentOperation(AbstractStringOperation):
+    def produce_into(self, builder, r):
+        v_srcstring = self.get_string(builder, r)
+        v_dststring = self.get_string(builder, r)
+        if v_srcstring.value == v_dststring.value:    # because it's not a
+            raise test_random.CannotProduceOperation  # memmove(), but memcpy()
+        srclen = len(v_srcstring.getref(self.ptr).chars)
+        dstlen = len(v_dststring.getref(self.ptr).chars)
+        v_length = builder.get_index(min(srclen, dstlen), r)
+        v_srcstart = builder.get_index(srclen - v_length.value + 1, r)
+        v_dststart = builder.get_index(dstlen - v_length.value + 1, r)
+        builder.do(self.opnum, [v_srcstring, v_dststring,
+                                v_srcstart, v_dststart, v_length])
+
 class StrGetItemOperation(AbstractGetItemOperation, _StrOperation):
     pass
 
@@ -402,6 +416,13 @@ class StrLenOperation(AbstractStringLenOperation, _StrOperation):
     pass
 
 class UnicodeLenOperation(AbstractStringLenOperation, _UnicodeOperation):
+    pass
+
+class CopyStrContentOperation(AbstractCopyContentOperation, _StrOperation):
+    pass
+
+class CopyUnicodeContentOperation(AbstractCopyContentOperation,
+                                  _UnicodeOperation):
     pass
 
 
@@ -577,6 +598,8 @@ for i in range(4):      # make more common
     OPERATIONS.append(UnicodeSetItemOperation(rop.UNICODESETITEM))
     OPERATIONS.append(StrLenOperation(rop.STRLEN))
     OPERATIONS.append(UnicodeLenOperation(rop.UNICODELEN))
+    OPERATIONS.append(CopyStrContentOperation(rop.COPYSTRCONTENT))
+    OPERATIONS.append(CopyUnicodeContentOperation(rop.COPYUNICODECONTENT))
 
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))

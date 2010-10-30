@@ -118,13 +118,13 @@ class BaseCPU(model.AbstractCPU):
             self._descrs[key] = descr
             return descr
 
-    def compile_bridge(self, faildescr, inputargs, operations):
+    def compile_bridge(self, faildescr, inputargs, operations, log=True):
         c = llimpl.compile_start()
         self._compile_loop_or_bridge(c, inputargs, operations)
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, loopdescr):
+    def compile_loop(self, inputargs, operations, loopdescr, log=True):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
@@ -154,7 +154,7 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
             if isinstance(descr, Descr):
-                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo)
+                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo, descr.arg_types)
             if isinstance(descr, history.LoopToken) and op.getopnum() != rop.JUMP:
                 llimpl.compile_add_loop_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
@@ -296,6 +296,18 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(RESULT)
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
+
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
+        from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
+        arg_types = []
+        for arg in ffi_args:
+            kind = get_ffi_type_kind(arg)
+            if kind != history.VOID:
+                arg_types.append(kind)
+        reskind = get_ffi_type_kind(ffi_result)
+        return self.getdescr(0, reskind, extrainfo=extrainfo,
+                             arg_types=''.join(arg_types))
+
 
     def grab_exc_value(self):
         return llimpl.grab_exc_value()

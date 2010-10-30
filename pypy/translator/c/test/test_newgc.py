@@ -624,13 +624,13 @@ class TestUsingFramework(object):
         os.unlink(self.filename)
 
     def define_callback_with_collect(cls):
-        from pypy.rlib.libffi import ffi_type_pointer, cast_type_to_ffitype,\
+        from pypy.rlib.clibffi import ffi_type_pointer, cast_type_to_ffitype,\
              CDLL, ffi_type_void, CallbackFuncPtr, ffi_type_sint
         from pypy.rpython.lltypesystem import rffi, ll2ctypes
         import gc
         ffi_size_t = cast_type_to_ffitype(rffi.SIZE_T)
 
-        from pypy.rlib.libffi import get_libc_name
+        from pypy.rlib.clibffi import get_libc_name
 
         def callback(ll_args, ll_res, stuff):
             gc.collect()

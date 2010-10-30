@@ -6,7 +6,7 @@ from pypy.translator.c.gcc.instruction import Insn, Label, InsnCall, InsnRet
 from pypy.translator.c.gcc.instruction import InsnFunctionStart, InsnStop
 from pypy.translator.c.gcc.instruction import InsnSetLocal, InsnCopyLocal
 from pypy.translator.c.gcc.instruction import InsnPrologue, InsnEpilogue
-from pypy.translator.c.gcc.instruction import InsnGCROOT
+from pypy.translator.c.gcc.instruction import InsnGCROOT, InsnCondJump
 from pypy.translator.c.gcc.instruction import InsnStackAdjust
 from pypy.translator.c.gcc.instruction import InsnCannotFollowEsp
 from pypy.translator.c.gcc.instruction import LocalVar, somenewvalue
@@ -46,6 +46,7 @@ class FunctionGcRootTracker(object):
         self.findlabels()
         self.parse_instructions()
         try:
+            self.trim_unreachable_instructions()
             self.find_noncollecting_calls()
             if not self.list_collecting_call_insns():
                 return []
@@ -122,19 +123,36 @@ class FunctionGcRootTracker(object):
                 assert label not in self.labels, "duplicate label: %s" % label
                 self.labels[label] = Label(label, lineno)
 
+    def trim_unreachable_instructions(self):
+        reached = set([self.insns[0]])
+        prevlen = 0
+        while len(reached) > prevlen:
+            prevlen = len(reached)
+            for insn in self.insns:
+                if insn not in reached:
+                    for previnsn in insn.previous_insns:
+                        if previnsn in reached:
+                            # this instruction is reachable too
+                            reached.add(insn)
+                            break
+        # now kill all unreachable instructions
+        i = 0
+        while i < len(self.insns):
+            if self.insns[i] in reached:
+                i += 1
+            else:
+                del self.insns[i]
+
     def find_noncollecting_calls(self):
-        cannot_collect = self.CANNOT_COLLECT.copy()
+        cannot_collect = {}
         for line in self.lines:
             match = self.r_gcnocollect_marker.search(line)
             if match:
                 name = match.group(1)
                 cannot_collect[name] = True
         #
-        if self.format in ('darwin', 'mingw32', 'msvc'):
-            self.cannot_collect = dict.fromkeys(
-                ['_' + name for name in cannot_collect])
-        else:
-            self.cannot_collect = cannot_collect
+        self.cannot_collect = dict.fromkeys(
+            [self.function_names_prefix + name for name in cannot_collect])
 
     def append_instruction(self, insn):
         # Add the instruction to the list, and link it to the previous one.
@@ -410,7 +428,8 @@ class FunctionGcRootTracker(object):
         return result
     # ____________________________________________________________
 
-    CANNOT_COLLECT = {    # some of the most used functions that cannot collect
+    BASE_FUNCTIONS_NOT_RETURNING = {
+        'abort': None,
         'pypy_debug_catch_fatal_exception': None,
         'RPyAbort': None,
         'RPyAssertFailed': None,
@@ -427,6 +446,7 @@ class FunctionGcRootTracker(object):
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
         'cmp', 'test', 'set', 'sahf', 'lahf', 'cltd', 'cld', 'std',
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'cwde', 'prefetch',
+        'pslld', 
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
@@ -438,7 +458,7 @@ class FunctionGcRootTracker(object):
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 
         # zero-extending moves should not produce GC pointers
-        'movz',
+        'movz', 
         ])
 
     visit_movb = visit_nop
@@ -644,7 +664,7 @@ class FunctionGcRootTracker(object):
                 if label != '0':
                     self.register_jump_to(label)
                 tablelin += 1
-            return InsnStop()
+            return InsnStop("jump table")
         if self.r_unaryinsn_star.match(line):
             # that looks like an indirect tail-call.
             # tail-calls are equivalent to RET for us
@@ -658,7 +678,7 @@ class FunctionGcRootTracker(object):
             assert not target.startswith('.')
             # tail-calls are equivalent to RET for us
             return InsnRet(self.CALLEE_SAVE_REGISTERS)
-        return InsnStop()
+        return InsnStop("jump")
     
     def register_jump_to(self, label):
         if not isinstance(self.insns[-1], InsnStop):
@@ -682,7 +702,7 @@ class FunctionGcRootTracker(object):
         else:
             label = match.group(1)
         self.register_jump_to(label)
-        return []
+        return [InsnCondJump(label)]
 
     visit_jmpl = visit_jmp
     visit_je = conditional_jump
@@ -754,7 +774,7 @@ class FunctionGcRootTracker(object):
                     target, = sources
 
         if target in self.FUNCTIONS_NOT_RETURNING:
-            return [InsnStop(), InsnCannotFollowEsp()]
+            return [InsnStop(target)]
         if self.format == 'mingw32' and target == '__alloca':
             # in functions with large stack requirements, windows
             # needs a call to _alloca(), to turn reserved pages
@@ -885,7 +905,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
             # statically known pointer to a register
 
             # %eax -> %rax
-            new_line = re.sub(r"%e(ax|bx|cx|dx|di|si)$", r"%r\1", line)
+            new_line = re.sub(r"%e(ax|bx|cx|dx|di|si|bp)$", r"%r\1", line)
             # %r10d -> %r10
             new_line = re.sub(r"%r(\d+)d$", r"%r\1", new_line)
             return func(self, new_line)
@@ -951,6 +971,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
 
 class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     format = 'elf'
+    function_names_prefix = ''
 
     ESP     = '%esp'
     EBP     = '%ebp'
@@ -984,13 +1005,14 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     r_bottom_marker = re.compile(r"\t/[*] GC_STACK_BOTTOM [*]/")
 
     FUNCTIONS_NOT_RETURNING = {
-        'abort': None,
         '_exit': None,
         '__assert_fail': None,
         '___assert_rtn': None,
         'L___assert_rtn$stub': None,
         'L___eprintf$stub': None,
         }
+    for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
+        FUNCTIONS_NOT_RETURNING[_name] = None
 
     def __init__(self, lines, filetag=0):
         match = self.r_functionstart.match(lines[0])
@@ -1010,6 +1032,8 @@ ElfFunctionGcRootTracker32.init_regexp()
 
 class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     format = 'elf64'
+    function_names_prefix = ''
+
     ESP = '%rsp'
     EBP = '%rbp'
     EAX = '%rax'
@@ -1042,13 +1066,14 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     r_bottom_marker = re.compile(r"\t/[*] GC_STACK_BOTTOM [*]/")
 
     FUNCTIONS_NOT_RETURNING = {
-        'abort': None,
         '_exit': None,
         '__assert_fail': None,
         '___assert_rtn': None,
         'L___assert_rtn$stub': None,
         'L___eprintf$stub': None,
         }
+    for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
+        FUNCTIONS_NOT_RETURNING[_name] = None
 
     def __init__(self, lines, filetag=0):
         match = self.r_functionstart.match(lines[0])
@@ -1066,8 +1091,9 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
 
 ElfFunctionGcRootTracker64.init_regexp()
 
-class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker32):
+class DarwinFunctionGcRootTracker32(ElfFunctionGcRootTracker32):
     format = 'darwin'
+    function_names_prefix = '_'
 
     r_functionstart = re.compile(r"_(\w+):\s*$")
     OFFSET_LABELS   = 0
@@ -1077,17 +1103,36 @@ class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker32):
         funcname = '_' + match.group(1)
         FunctionGcRootTracker32.__init__(self, funcname, lines, filetag)
 
-class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker):
+class DarwinFunctionGcRootTracker64(ElfFunctionGcRootTracker64):
+    format = 'darwin64'
+    function_names_prefix = '_'
+
+    LABEL = ElfFunctionGcRootTracker32.LABEL
+    r_jmptable_item = re.compile(r"\t.(?:long|quad)\t"+LABEL+"(-\"?[A-Za-z0-9$]+\"?)?\s*$")
+
+    r_functionstart = re.compile(r"_(\w+):\s*$")
+    OFFSET_LABELS   = 0
+
+    def __init__(self, lines, filetag=0):
+        match = self.r_functionstart.match(lines[0])
+        funcname = '_' + match.group(1)
+        FunctionGcRootTracker64.__init__(self, funcname, lines, filetag)
+
+class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker32):
     format = 'mingw32'
+    function_names_prefix = '_'
 
     FUNCTIONS_NOT_RETURNING = {
-        '_abort': None,
         '_exit': None,
         '__assert': None,
         }
+    for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
+        FUNCTIONS_NOT_RETURNING['_' + _name] = None
 
 class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
     format = 'msvc'
+    function_names_prefix = '_'
+
     ESP = 'esp'
     EBP = 'ebp'
     EAX = 'eax'
@@ -1127,7 +1172,6 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
     r_bottom_marker = re.compile(r"; .+\tpypy_asm_stack_bottom\(\);")
 
     FUNCTIONS_NOT_RETURNING = {
-        '_abort': None,
         '__exit': None,
         '__assert': None,
         '__wassert': None,
@@ -1136,6 +1180,8 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
         'DWORD PTR __imp__abort': None,
         'DWORD PTR __imp___wassert': None,
         }
+    for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
+        FUNCTIONS_NOT_RETURNING['_' + _name] = None
 
     @classmethod
     def init_regexp(cls):
@@ -1343,7 +1389,7 @@ class ElfAssemblerParser64(ElfAssemblerParser):
 
 class DarwinAssemblerParser(AssemblerParser):
     format = "darwin"
-    FunctionGcRootTracker = DarwinFunctionGcRootTracker
+    FunctionGcRootTracker = DarwinFunctionGcRootTracker32
 
     r_textstart = re.compile(r"\t.text\s*$")
 
@@ -1388,6 +1434,10 @@ class DarwinAssemblerParser(AssemblerParser):
         entrypoint = '_' + entrypoint
         return super(DarwinAssemblerParser, self).process_function(
             lines, entrypoint, filename)
+
+class DarwinAssemblerParser64(DarwinAssemblerParser):
+    format = "darwin64"
+    FunctionGcRootTracker = DarwinFunctionGcRootTracker64
 
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
@@ -1512,6 +1562,7 @@ PARSERS = {
     'elf': ElfAssemblerParser,
     'elf64': ElfAssemblerParser64,
     'darwin': DarwinAssemblerParser,
+    'darwin64': DarwinAssemblerParser64,
     'mingw32': Mingw32AssemblerParser,
     'msvc': MsvcAssemblerParser,
     }
@@ -1543,15 +1594,13 @@ class GcRootTracker(object):
         assert self.seen_main
 
         def _globalname(name, disp=""):
-            if self.format in ('darwin', 'mingw32', 'msvc'):
-                name = '_' + name
-            return name
+            return tracker_cls.function_names_prefix + name
 
         def _variant(**kwargs):
             txt = kwargs[self.format]
             print >> output, "\t%s" % txt
 
-        if self.format == 'elf64':
+        if self.format in ('elf64', 'darwin64'):
             word_decl = '.quad'
         else:
             word_decl = '.long'
@@ -1604,10 +1653,11 @@ class GcRootTracker(object):
                }
             }
             """
-        elif self.format == 'elf64':
+        elif self.format in ('elf64', 'darwin64'):
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
-            print >> output, "\t.type pypy_asm_stackwalk, @function"
+            _variant(elf64='.type pypy_asm_stackwalk, @function',
+                     darwin64='')
             print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
             print >> output, """\
@@ -1652,8 +1702,9 @@ class GcRootTracker(object):
             /* the return value is the one of the 'call' above, */
             /* because %rax (and possibly %rdx) are unmodified  */
             ret
-            .size pypy_asm_stackwalk, .-pypy_asm_stackwalk
             """
+            _variant(elf64='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
+                     darwin64='')
         else:
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
@@ -1780,6 +1831,7 @@ class GcRootTracker(object):
             _variant(elf='.section\t.rodata',
                      elf64='.section\t.rodata',
                      darwin='.const',
+                     darwin64='.const',
                      mingw32='')
 
             print >> output, """\
@@ -1857,7 +1909,10 @@ if __name__ == '__main__':
     shuffle = False
     output_raw_table = False
     if sys.platform == 'darwin':
-        format = 'darwin'
+        if sys.maxint > 2147483647:
+            format = 'darwin64'
+        else:
+            format = 'darwin'
     elif sys.platform == 'win32':
         format = 'mingw32'
     else:

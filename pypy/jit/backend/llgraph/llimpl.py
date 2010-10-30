@@ -10,7 +10,7 @@ from pypy.jit.metainterp.history import (ConstInt, ConstPtr,
                                          BoxInt, BoxPtr, BoxObj, BoxFloat,
                                          REF, INT, FLOAT)
 from pypy.jit.codewriter import heaptracker
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.module.support import LLSupport, OOSupport
 from pypy.rpython.llinterp import LLException
@@ -129,7 +129,7 @@ TYPES = {
     'arraylen_gc'     : (('ref',), 'int'),
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('varargs',), 'intorptr'),
-    'cond_call_gc_wb' : (('ptr',), None),
+    'cond_call_gc_wb' : (('ptr', 'ptr'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
@@ -305,12 +305,12 @@ def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
 
-def compile_add_descr(loop, ofs, type):
+def compile_add_descr(loop, ofs, type, arg_types):
     from pypy.jit.backend.llgraph.runner import Descr
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     assert isinstance(type, str) and len(type) == 1
-    op.descr = Descr(ofs, type)
+    op.descr = Descr(ofs, type, arg_types=arg_types)
 
 def compile_add_loop_token(loop, descr):
     if we_are_translated():
@@ -801,7 +801,7 @@ class Frame(object):
             else:
                 raise TypeError(x)
         try:
-            return _do_call_common(func, args_in_order)
+            return _do_call_common(func, args_in_order, calldescr)
         except LLException, lle:
             _last_exception = lle
             d = {'v': None,
@@ -810,7 +810,7 @@ class Frame(object):
                  FLOAT: 0.0}
             return d[calldescr.typeinfo]
 
-    def op_cond_call_gc_wb(self, descr, a):
+    def op_cond_call_gc_wb(self, descr, a, b):
         py.test.skip("cond_call_gc_wb not supported")
 
     def op_oosend(self, descr, obj, *args):
@@ -1018,6 +1018,9 @@ def cast_from_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
         if isinstance(x, (int, long, llmemory.AddressAsInt)):
             x = llmemory.cast_int_to_adr(x)
+        if TYPE is rffi.VOIDP:
+            # assume that we want a "C-style" cast, without typechecking the value
+            return rffi.cast(TYPE, x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
     elif TYPE == llmemory.Address:
         if isinstance(x, (int, long, llmemory.AddressAsInt)):
@@ -1411,10 +1414,26 @@ def do_call_pushptr(x):
 def do_call_pushfloat(x):
     _call_args_f.append(x)
 
-def _do_call_common(f, args_in_order=None):
+kind2TYPE = {
+    'i': lltype.Signed,
+    'f': lltype.Float,
+    'v': lltype.Void,
+    }
+
+def _do_call_common(f, args_in_order=None, calldescr=None):
     ptr = llmemory.cast_int_to_adr(f).ptr
-    FUNC = lltype.typeOf(ptr).TO
-    ARGS = FUNC.ARGS
+    PTR = lltype.typeOf(ptr)
+    if PTR == rffi.VOIDP:
+        # it's a pointer to a C function, so we don't have a precise
+        # signature: create one from the descr
+        ARGS = map(kind2TYPE.get, calldescr.arg_types)
+        RESULT = kind2TYPE[calldescr.typeinfo]
+        FUNC = lltype.FuncType(ARGS, RESULT)
+        func_to_call = rffi.cast(lltype.Ptr(FUNC), ptr)
+    else:
+        FUNC = PTR.TO
+        ARGS = FUNC.ARGS
+        func_to_call = ptr._obj._callable
     args = cast_call_args(ARGS, _call_args_i, _call_args_r, _call_args_f,
                           args_in_order)
     del _call_args_i[:]
@@ -1426,7 +1445,7 @@ def _do_call_common(f, args_in_order=None):
         result = llinterp.eval_graph(ptr._obj.graph, args)
         # ^^^ may raise, in which case we get an LLException
     else:
-        result = ptr._obj._callable(*args)
+        result = func_to_call(*args)
     return result
 
 def do_call_void(f):

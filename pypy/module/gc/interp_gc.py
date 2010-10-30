@@ -5,6 +5,11 @@ from pypy.rlib.streamio import open_file_as_stream
 
 def collect(space):
     "Run a full collection."
+    # First clear the method cache.  See test_gc for an example of why.
+    if space.config.objspace.std.withmethodcache:
+        from pypy.objspace.std.typeobject import MethodCache
+        cache = space.fromcache(MethodCache)
+        cache.clear()
     rgc.collect()
     return space.wrap(0)
     

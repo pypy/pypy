@@ -11,7 +11,7 @@ class PyPyJitPolicy(JitPolicy):
         if '.' in modname:
             modname, _ = modname.split('.', 1)
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
-                       'imp', 'sys', 'array']:
+                       'imp', 'sys', 'array', '_ffi']:
             return True
         return False
 

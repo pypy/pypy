@@ -607,6 +607,15 @@ def make_string_mappings(strtype):
         return array
     str2charp._annenforceargs_ = [strtype]
 
+    def str2charp_immortal(s):
+        "NOT_RPYTHON"
+        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw',
+                              immortal=True)
+        for i in range(len(s)):
+            array[i] = s[i]
+        array[len(s)] = lastchar
+        return array
+
     def free_charp(cp):
         lltype.free(cp, flavor='raw')
 
@@ -644,10 +653,18 @@ def make_string_mappings(strtype):
         """
         Either free a non-moving buffer or keep the original storage alive.
         """
-        if rgc.can_move(data):
+        # We cannot rely on rgc.can_move(data) here, because its result
+        # might have changed since get_nonmovingbuffer().  Instead we check
+        # if 'buf' points inside 'data'.  This is only possible if we
+        # followed the 2nd case in get_nonmovingbuffer(); in the first case,
+        # 'buf' points to its own raw-malloced memory.
+        data = llstrtype(data)
+        data_start = cast_ptr_to_adr(data) + \
+            offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
+        followed_2nd_path = (buf == cast(TYPEP, data_start))
+        keepalive_until_here(data)
+        if not followed_2nd_path:
             lltype.free(buf, flavor='raw')
-        else:
-            keepalive_until_here(data)
 
     # int -> (char*, str)
     def alloc_buffer(count):
@@ -717,19 +734,19 @@ def make_string_mappings(strtype):
         l = [cp[i] for i in range(size)]
         return emptystr.join(l)
 
-    return (str2charp, free_charp, charp2str,
+    return (str2charp, str2charp_immortal, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
             charp2strn, charpsize2str,
             )
 
-(str2charp, free_charp, charp2str,
+(str2charp, str2charp_immortal, free_charp, charp2str,
  get_nonmovingbuffer, free_nonmovingbuffer,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str,
  ) = make_string_mappings(str)
 
-(unicode2wcharp, free_wcharp, wcharp2unicode,
+(unicode2wcharp, unicode2wcharp_immortal, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode,
@@ -916,3 +933,11 @@ def getintfield(pdst, fieldname):
     """
     return cast(lltype.Signed, getattr(pdst, fieldname))
 getintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
+
+class scoped_str2charp:
+    def __init__(self, value):
+        self.buf = str2charp(value)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        free_charp(self.buf)

@@ -8,8 +8,8 @@ from pypy.module._rawffi.structure import unpack_fields
 from pypy.module._rawffi.array import get_elem, push_elem
 from pypy.module._rawffi.interp_rawffi import W_DataInstance, letter2tp, \
      wrap_value, unwrap_value, unwrap_truncate_int
-from pypy.rlib.libffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
-from pypy.rlib.libffi import ffi_type_void
+from pypy.rlib.clibffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
+from pypy.rlib.clibffi import ffi_type_void
 from pypy.module._rawffi.tracker import tracker
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway

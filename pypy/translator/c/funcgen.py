@@ -427,7 +427,7 @@ class FunctionCodeGenerator(object):
         r = self.expr(op.result)
         return 'OP_CALL_ARGS((%s), %s);' % (', '.join(args), r)
 
-    def generic_call(self, FUNC, fnexpr, args_v, v_result):
+    def generic_call(self, FUNC, fnexpr, args_v, v_result, targets=None):
         args = []
         assert len(args_v) == len(FUNC.TO.ARGS)
         for v, ARGTYPE in zip(args_v, FUNC.TO.ARGS):
@@ -444,17 +444,26 @@ class FunctionCodeGenerator(object):
             # skip assignment of 'void' return value
             r = self.expr(v_result)
             line = '%s = %s' % (r, line)
+        if targets:
+            for graph in targets:
+                if getattr(graph, 'inhibit_tail_call', False):
+                    line += '\nPYPY_INHIBIT_TAIL_CALL();'
+                    break
         return line
 
     def OP_DIRECT_CALL(self, op):
         fn = op.args[0]
+        try:
+            targets = [fn.value._obj.graph]
+        except AttributeError:
+            targets = None
         return self.generic_call(fn.concretetype, self.expr(fn),
-                                 op.args[1:], op.result)
+                                 op.args[1:], op.result, targets)
 
     def OP_INDIRECT_CALL(self, op):
         fn = op.args[0]
         return self.generic_call(fn.concretetype, self.expr(fn),
-                                 op.args[1:-1], op.result)
+                                 op.args[1:-1], op.result, op.args[-1].value)
 
     def OP_ADR_CALL(self, op):
         ARGTYPES = [v.concretetype for v in op.args[1:]]

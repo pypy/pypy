@@ -100,11 +100,14 @@ class ArenaCollection(object):
         # allocation of the given size.
         length = small_request_threshold / WORD + 1
         self.page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                           flavor='raw', zero=True)
+                                           flavor='raw', zero=True,
+                                           immortal=True)
         self.full_page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                                flavor='raw', zero=True)
+                                                flavor='raw', zero=True,
+                                                immortal=True)
         self.nblocks_for_size = lltype.malloc(rffi.CArray(lltype.Signed),
-                                              length, flavor='raw')
+                                              length, flavor='raw',
+                                              immortal=True)
         self.hdrsize = llmemory.raw_malloc_usage(llmemory.sizeof(PAGE_HEADER))
         assert page_size > self.hdrsize
         self.nblocks_for_size[0] = 0    # unused
@@ -114,11 +117,13 @@ class ArenaCollection(object):
         self.max_pages_per_arena = arena_size // page_size
         self.arenas_lists = lltype.malloc(rffi.CArray(ARENA_PTR),
                                           self.max_pages_per_arena,
-                                          flavor='raw', zero=True)
+                                          flavor='raw', zero=True,
+                                          immortal=True)
         # this is used in mass_free() only
         self.old_arenas_lists = lltype.malloc(rffi.CArray(ARENA_PTR),
                                               self.max_pages_per_arena,
-                                              flavor='raw', zero=True)
+                                              flavor='raw', zero=True,
+                                              immortal=True)
         #
         # the arena currently consumed; it must have at least one page
         # available, or be NULL.  The arena object that we point to is
@@ -281,7 +286,7 @@ class ArenaCollection(object):
         npages = (arena_end - firstpage) // self.page_size
         #
         # Allocate an ARENA object and initialize it
-        arena = lltype.malloc(ARENA, flavor='raw')
+        arena = lltype.malloc(ARENA, flavor='raw', track_allocation=False)
         arena.base = arena_base
         arena.nfreepages = 0        # they are all uninitialized pages
         arena.totalpages = npages
@@ -332,7 +337,7 @@ class ArenaCollection(object):
                     #
                     # The whole arena is empty.  Free it.
                     llarena.arena_free(arena.base)
-                    lltype.free(arena, flavor='raw')
+                    lltype.free(arena, flavor='raw', track_allocation=False)
                     #
                 else:
                     # Insert 'arena' in the correct arenas_lists[n]

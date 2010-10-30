@@ -117,6 +117,10 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
+        if self.space.config.objspace.std.withmapdict:
+            from pypy.objspace.std.mapdict import init_mapdict_cache
+            init_mapdict_cache(self)
+
     def _freeze_(self):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
@@ -252,6 +256,12 @@ class PyCode(eval.Code):
                          self.co_lnotab,
                          tuple(self.co_freevars),
                          tuple(self.co_cellvars) )
+
+    def exec_host_bytecode(self, w_dict, w_globals, w_locals):
+        from pypy.interpreter.pyframe import CPythonFrame
+        frame = CPythonFrame(self.space, self, w_globals, None)
+        frame.setdictscope(w_locals)
+        return frame.run()
 
     def dump(self):
         """A dis.dis() dump of the code object."""

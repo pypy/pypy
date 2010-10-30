@@ -329,16 +329,33 @@ class InstanceRepr(AbstractInstanceRepr):
             fields['__class__'] = 'typeptr', get_type_repr(self.rtyper)
         else:
             # instance attributes
-            if llfields is None:
-                llfields = []
             attrs = self.classdef.attrs.items()
             attrs.sort()
+            myllfields = []
             for name, attrdef in attrs:
                 if not attrdef.readonly:
                     r = self.rtyper.getrepr(attrdef.s_value)
                     mangled_name = 'inst_' + name
                     fields[name] = mangled_name, r
-                    llfields.append((mangled_name, r.lowleveltype))
+                    myllfields.append((mangled_name, r.lowleveltype))
+
+            # Sort the instance attributes by decreasing "likely size",
+            # as reported by rffi.sizeof(), to minimize padding holes in C.
+            # Fields of the same size are sorted by name (by attrs.sort()
+            # above) just to minimize randomness.
+            def keysize((_, T)):
+                if T is lltype.Void:
+                    return None
+                from pypy.rpython.lltypesystem.rffi import sizeof
+                try:
+                    return -sizeof(T)
+                except StandardError:
+                    return None
+            myllfields.sort(key = keysize)
+            if llfields is None:
+                llfields = myllfields
+            else:
+                llfields = llfields + myllfields
 
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
                                          self.gcflavor)
@@ -403,7 +420,7 @@ class InstanceRepr(AbstractInstanceRepr):
         return cast_pointer(self.lowleveltype, result)
 
     def create_instance(self):
-        return malloc(self.object_type, flavor=self.gcflavor)
+        return malloc(self.object_type, flavor=self.gcflavor, immortal=True)
 
     def initialize_prebuilt_data(self, value, classdef, result):
         if self.classdef is not None:

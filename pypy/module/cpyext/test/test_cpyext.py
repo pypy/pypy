@@ -16,6 +16,7 @@ from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
 from pypy.translator.goal import autopath
 from pypy.tool.identity_dict import identity_dict
+from pypy.tool import leakfinder
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -78,7 +79,6 @@ def freeze_refcnts(self):
         self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
     #state.print_refcounts()
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
-    lltype.start_tracking_allocations()
 
 class LeakCheckingTest(object):
     def check_and_print_leaks(self):
@@ -126,17 +126,8 @@ class LeakCheckingTest(object):
         for w_obj in lost_objects_w:
             print >>sys.stderr, "Lost object %r" % (w_obj, )
             leaking = True
-        for llvalue in set(ll2ctypes.ALLOCATED.values()) - self.frozen_ll2callocations:
-            if getattr(llvalue, "_traceback", None): # this means that the allocation should be tracked
-                leaking = True
-                print >>sys.stderr, "Did not deallocate %r (ll2ctypes)" % (llvalue, )
-                print >>sys.stderr, "\t" + "\n\t".join(llvalue._traceback.splitlines())
-        for llvalue in lltype.ALLOCATED.keys():
-            leaking = True
-            print >>sys.stderr, "Did not deallocate %r (llvalue)" % (llvalue, )
-            print >>sys.stderr, "\t" + "\n\t".join(llvalue._traceback.splitlines())
-
-        lltype.stop_tracking_allocations()
+        # the actual low-level leak checking is done by pypy.tool.leakfinder,
+        # enabled automatically by pypy.conftest.
         return leaking
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):

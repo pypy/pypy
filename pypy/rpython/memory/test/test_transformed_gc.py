@@ -906,7 +906,8 @@ class TestMarkSweepGC(GenericGCTests):
     gcname = "marksweep"
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 1024*WORD }
+            GC_PARAMS = {'start_heap_size': 1024*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
 
@@ -1144,7 +1145,8 @@ class TestPrintingGC(GenericGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC as GCClass
-            GC_PARAMS = {'start_heap_size': 1024*WORD }
+            GC_PARAMS = {'start_heap_size': 1024*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
 class TestSemiSpaceGC(GenericMovingGCTests):
@@ -1154,7 +1156,8 @@ class TestSemiSpaceGC(GenericMovingGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
-            GC_PARAMS = {'space_size': 512*WORD}
+            GC_PARAMS = {'space_size': 512*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
 class TestMarkCompactGC(GenericMovingGCTests):
@@ -1163,7 +1166,8 @@ class TestMarkCompactGC(GenericMovingGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
-            GC_PARAMS = {'space_size': 4096*WORD}
+            GC_PARAMS = {'space_size': 4096*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
 class TestGenerationGC(GenericMovingGCTests):
@@ -1175,7 +1179,8 @@ class TestGenerationGC(GenericMovingGCTests):
             from pypy.rpython.memory.gc.generation import GenerationGC as \
                                                           GCClass
             GC_PARAMS = {'space_size': 512*WORD,
-                         'nursery_size': 32*WORD}
+                         'nursery_size': 32*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
     def define_weakref_across_minor_collection(cls):
@@ -1372,7 +1377,8 @@ class TestGenerationalNoFullCollectGC(GCTest):
                 GenerationGC._teardown(self)
                 
             GC_PARAMS = {'space_size': 512*WORD,
-                         'nursery_size': 128*WORD}
+                         'nursery_size': 128*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
     def define_working_nursery(cls):
@@ -1404,7 +1410,8 @@ class TestHybridGC(TestGenerationGC):
             from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
             GC_PARAMS = {'space_size': 512*WORD,
                          'nursery_size': 32*WORD,
-                         'large_object': 8*WORD}
+                         'large_object': 8*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
     def define_ref_from_rawmalloced_to_regular(cls):
@@ -1477,6 +1484,7 @@ class TestMiniMarkGC(TestHybridGC):
                          'large_object': 8*WORD,
                          'large_object_gcptrs': 10*WORD,
                          'card_page_indices': 4,
+                         'translated_to_c': False,
                          }
             root_stack_depth = 200
 
@@ -1585,7 +1593,8 @@ class TestMarkSweepTaggedPointerGC(TaggedPointerGCTests):
     gcname = "marksweep"
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 1024*WORD }
+            GC_PARAMS = {'start_heap_size': 1024*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
 class TestHybridTaggedPointerGC(TaggedPointerGCTests):
@@ -1596,7 +1605,8 @@ class TestHybridTaggedPointerGC(TaggedPointerGCTests):
             from pypy.rpython.memory.gc.generation import GenerationGC as \
                                                           GCClass
             GC_PARAMS = {'space_size': 512*WORD,
-                         'nursery_size': 32*WORD}
+                         'nursery_size': 32*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200
 
 class TestMarkCompactTaggedpointerGC(TaggedPointerGCTests):
@@ -1605,5 +1615,6 @@ class TestMarkCompactTaggedpointerGC(TaggedPointerGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
-            GC_PARAMS = {'space_size': 4096*WORD}
+            GC_PARAMS = {'space_size': 4096*WORD,
+                         'translated_to_c': False}
             root_stack_depth = 200

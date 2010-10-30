@@ -1,4 +1,4 @@
-import py, os
+import py, os, sys
 from pypy.tool.udir import udir
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
@@ -63,8 +63,32 @@ class TestTranslationX86(CCompiledMixin):
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
             return total * 10
+        #
+        from pypy.rpython.lltypesystem import lltype, rffi
+        from pypy.rlib.libffi import types, CDLL, ArgChain
+        from pypy.rlib.test.test_libffi import get_libm_name
+        libm_name = get_libm_name(sys.platform)
+        jitdriver2 = JitDriver(greens=[], reds = ['i', 'func', 'res', 'x'])
+        def libffi_stuff(i, j):
+            lib = CDLL(libm_name)
+            func = lib.getpointer('fabs', [types.double], types.double)
+            res = 0.0
+            x = float(j)
+            while i > 0:
+                jitdriver2.jit_merge_point(i=i, res=res, func=func, x=x)
+                jitdriver2.can_enter_jit(i=i, res=res, func=func, x=x)
+                func = hint(func, promote=True)
+                argchain = ArgChain()
+                argchain.arg(x)
+                res = func.call(argchain, rffi.DOUBLE)
+                i -= 1
+            return res
+        #
+        def main(i, j):
+            return f(i, j) + libffi_stuff(i, j)
+        expected = f(40, -49)
         res = self.meta_interp(f, [40, -49])
-        assert res == f(40, -49)
+        assert res == expected
 
     def test_direct_assembler_call_translates(self):
         class Thing(object):

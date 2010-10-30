@@ -60,6 +60,15 @@ class MethodCache(object):
             self.hits = {}
             self.misses = {}
 
+    def clear(self):
+        None_None = (None, None)
+        for i in range(len(self.versions)):
+            self.versions[i] = None
+        for i in range(len(self.names)):
+            self.names[i] = None
+        for i in range(len(self.lookup_where)):
+            self.lookup_where[i] = None_None
+
 
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
@@ -75,7 +84,9 @@ class W_TypeObject(W_Object):
                           'weakrefable',
                           'hasdict',
                           'nslots',
-                          'instancetypedef']
+                          'instancetypedef',
+                          'terminator',
+                          ]
 
     # for config.objspace.std.getattributeshortcut
     # (False is a conservative default, fixed during real usage)
@@ -102,20 +113,24 @@ class W_TypeObject(W_Object):
 
         if overridetypedef is not None:
             setup_builtin_type(w_self)
-            custom_metaclass = False
         else:
             setup_user_defined_type(w_self)
-            custom_metaclass = not space.is_w(space.type(w_self), space.w_type)
         w_self.w_same_layout_as = get_parent_layout(w_self)
 
         if space.config.objspace.std.withtypeversion:
-            if custom_metaclass or not is_mro_purely_of_types(w_self.mro_w):
+            if not is_mro_purely_of_types(w_self.mro_w):
                 pass
             else:
                 # the _version_tag should change, whenever the content of
                 # dict_w of any of the types in the mro changes, or if the mro
                 # itself changes
                 w_self._version_tag = VersionTag()
+        if space.config.objspace.std.withmapdict:
+            from pypy.objspace.std.mapdict import DictTerminator, NoDictTerminator
+            if w_self.hasdict:
+                w_self.terminator = DictTerminator(space, w_self)
+            else:
+                w_self.terminator = NoDictTerminator(space, w_self)
 
     def mutated(w_self):
         space = w_self.space
@@ -551,11 +566,13 @@ def create_slot(w_self, slot_name):
                              space.wrap('__slots__ must be identifiers'))
     # create member
     slot_name = _mangle(slot_name, w_self.name)
-    # Force interning of slot names.
-    slot_name = space.str_w(space.new_interned_str(slot_name))
-    member = Member(w_self.nslots, slot_name, w_self)
-    w_self.dict_w[slot_name] = space.wrap(member)
-    w_self.nslots += 1
+    if slot_name not in w_self.dict_w:
+        # Force interning of slot names.
+        slot_name = space.str_w(space.new_interned_str(slot_name))
+        # in cpython it is ignored less, but we probably don't care
+        member = Member(w_self.nslots, slot_name, w_self)
+        w_self.dict_w[slot_name] = space.wrap(member)
+        w_self.nslots += 1
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:

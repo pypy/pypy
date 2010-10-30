@@ -400,7 +400,7 @@ class AppTest_Descroperation:
         class D(object):
             def __init__(self, a):
                 self.a = a
-        
+
         assert A(1) == B(1)
         assert B(1) == A(1)
         assert A(1) == C(1)
@@ -456,6 +456,20 @@ class AppTest_Descroperation:
             assert '%' in str(e)
         else:
             assert False, "did not raise"
+
+    def test_attribute_error(self):
+        class classmethodonly(classmethod):
+            def __get__(self, instance, type):
+                if instance is not None:
+                    raise AttributeError("Must be called on a class, not an instance.")
+                return super(classmethodonly, self).__get__(instance, type)
+
+        class A(object):
+            @classmethodonly
+            def a(cls):
+                return 3
+
+        raises(AttributeError, lambda: A().a)
 
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):

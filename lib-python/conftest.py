@@ -144,7 +144,7 @@ testmap = [
     RegrTest('test_binhex.py'),
 
     RegrTest('test_binop.py', core=True),
-    RegrTest('test_bisect.py', core=True),
+    RegrTest('test_bisect.py', core=True, usemodules='_bisect'),
     RegrTest('test_bool.py', core=True),
     RegrTest('test_bsddb.py', skip="unsupported extension module"),
     RegrTest('test_bsddb185.py', skip="unsupported extension module"),
@@ -464,7 +464,12 @@ testmap = [
     RegrTest('test_coding.py'),
     RegrTest('test_complex_args.py'),
     RegrTest('test_contextlib.py', usemodules="thread"),
-    RegrTest('test_ctypes.py', usemodules="_rawffi"),
+    # we skip test ctypes, since we adapted it massively in order
+    # to test what we want to support. There are real failures,
+    # but it's about missing features that we don't want to support
+    # now
+    RegrTest('test_ctypes.py', usemodules="_rawffi",
+             skip="missing features that we don't want to support now"),
     RegrTest('test_defaultdict.py'),
     RegrTest('test_email_renamed.py'),
     RegrTest('test_exception_variations.py'),

@@ -18,7 +18,7 @@ from pypy.jit.metainterp.specnode import VirtualStructSpecNode
 from pypy.jit.metainterp.specnode import ConstantSpecNode
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -117,33 +117,32 @@ class LLtypeMixin(object):
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                  EffectInfo([], [], [], oopspecindex=EffectInfo.OS_ARRAYCOPY))
-    strconcatdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR_CONCAT))
-    slicedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR_SLICE))
-    strequaldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR_EQUAL))
-    streq_slice_checknull_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [],
-                     oopspecindex=EffectInfo.OS_STREQ_SLICE_CHECKNULL))
-    streq_slice_nonnull_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [],
-                     oopspecindex=EffectInfo.OS_STREQ_SLICE_NONNULL))
-    streq_slice_char_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [],
-                     oopspecindex=EffectInfo.OS_STREQ_SLICE_CHAR))
-    streq_nonnull_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [],
-                     oopspecindex=EffectInfo.OS_STREQ_NONNULL))
-    streq_nonnull_char_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [],
-                     oopspecindex=EffectInfo.OS_STREQ_NONNULL_CHAR))
-    streq_checknull_char_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [],
-                     oopspecindex=EffectInfo.OS_STREQ_CHECKNULL_CHAR))
-    streq_lengthok_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [],
-                     oopspecindex=EffectInfo.OS_STREQ_LENGTHOK))
+
+    for _name, _os in [
+        ('strconcatdescr',               'OS_STR_CONCAT'),
+        ('strslicedescr',                'OS_STR_SLICE'),
+        ('strequaldescr',                'OS_STR_EQUAL'),
+        ('streq_slice_checknull_descr',  'OS_STREQ_SLICE_CHECKNULL'),
+        ('streq_slice_nonnull_descr',    'OS_STREQ_SLICE_NONNULL'),
+        ('streq_slice_char_descr',       'OS_STREQ_SLICE_CHAR'),
+        ('streq_nonnull_descr',          'OS_STREQ_NONNULL'),
+        ('streq_nonnull_char_descr',     'OS_STREQ_NONNULL_CHAR'),
+        ('streq_checknull_char_descr',   'OS_STREQ_CHECKNULL_CHAR'),
+        ('streq_lengthok_descr',         'OS_STREQ_LENGTHOK'),
+        ]:
+        _oopspecindex = getattr(EffectInfo, _os)
+        locals()[_name] = \
+            cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                EffectInfo([], [], [], oopspecindex=_oopspecindex))
+        #
+        _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
+        locals()[_name.replace('str', 'unicode')] = \
+            cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                EffectInfo([], [], [], oopspecindex=_oopspecindex))
+
+    s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))
+    #
 
     class LoopToken(AbstractDescr):
         pass

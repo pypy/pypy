@@ -1,7 +1,7 @@
 import py, sys
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
 from pypy.rpython.lltypesystem import llmemory
-from pypy.jit.backend.test import conftest as demo_conftest
+from pypy.jit.backend import conftest as demo_conftest
 from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
 from pypy.jit.metainterp.history import BoxInt, ConstInt, LoopToken
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr
@@ -102,7 +102,7 @@ class OperationBuilder(object):
             elif isinstance(v, ConstFloat):
                 args.append('ConstFloat(%r)' % v.value)
             elif isinstance(v, ConstInt):
-                args.append('ConstInt(%d)' % v.value)
+                args.append('ConstInt(%s)' % v.value)
             else:
                 raise NotImplementedError(v)
         if op.getdescr() is None:
@@ -113,7 +113,7 @@ class OperationBuilder(object):
             except AttributeError:
                 descrstr = ', descr=...'
         print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
-            opname[op.opnum], ', '.join(args), names[op.result], descrstr)
+            opname[op.getopnum()], ', '.join(args), names[op.result], descrstr)
         #if getattr(op, 'suboperations', None) is not None:
         #    subops.append(op)
 
@@ -189,7 +189,7 @@ class OperationBuilder(object):
                                                                        v.value)
         print >>s, '    op = cpu.execute_token(looptoken)'
         if self.should_fail_by is None:
-            fail_args = self.loop.operations[-1].args
+            fail_args = self.loop.operations[-1].getarglist()
         else:
             fail_args = self.should_fail_by.getfailargs()
         for i, v in enumerate(fail_args):

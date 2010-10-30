@@ -43,7 +43,7 @@ def transparent_class(name, BaseCls):
                     raise
                 return None
         
-        def setdictvalue(self, space, attr, w_value, shadows_type=True):
+        def setdictvalue(self, space, attr, w_value):
             try:
                 space.call_function(self.w_controller, space.wrap('__setattr__'),
                    space.wrap(attr), w_value)

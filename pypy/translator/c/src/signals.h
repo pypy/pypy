@@ -6,20 +6,6 @@
 
 #include <limits.h>
 
-#ifndef LONG_MAX
-#if SIZEOF_LONG == 4
-#define LONG_MAX 0X7FFFFFFFL
-#elif SIZEOF_LONG == 8
-#define LONG_MAX 0X7FFFFFFFFFFFFFFFL
-#else
-#error "could not set LONG_MAX in pyport.h"
-#endif
-#endif
-
-#ifndef LONG_MIN
-#define LONG_MIN (-LONG_MAX-1)
-#endif
-
 #include <stdlib.h>
 
 #ifdef MS_WINDOWS
@@ -27,10 +13,6 @@
 #endif
 
 #include <signal.h>
-
-#ifndef SIG_ERR
-#define SIG_ERR ((PyOS_sighandler_t)(-1))
-#endif
 
 #if defined(PYOS_OS2) && !defined(PYCC_GCC)
 #define NSIG 12
@@ -65,11 +47,11 @@ void pypysig_setflag(int signum); /* signal will set a flag which can be
 /* utility to poll for signals that arrived */
 int pypysig_poll(void);   /* => signum or -1 */
 
-/* When a signal is received, the high bit of pypysig_occurred is set.
-   After all signals are processed by pypysig_poll(), the high bit is
+/* When a signal is received, the bit 30 of pypysig_occurred is set.
+   After all signals are processed by pypysig_poll(), the bit 30 is
    cleared again.  The variable is exposed and RPython code is free to
    use the other bits in any way. */
-#define PENDING_SIGNAL_BIT   (LONG_MIN)   /* high bit */
+#define PENDING_SIGNAL_BIT   (1 << 30)
 /* This is a struct for the JIT. See interp_signal.py. */
 struct pypysig_long_struct {
     long value;

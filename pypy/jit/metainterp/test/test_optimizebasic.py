@@ -131,14 +131,21 @@ def test_descrlist_dict():
 # ____________________________________________________________
 
 def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={}):
-    print '-'*20, 'Comparing lists', '-'*20
+    # try to use the full width of the terminal to display the list
+    # unfortunately, does not work with the default capture method of py.test
+    # (which is fd), you you need to use either -s or --capture=sys, else you
+    # get the standard 80 columns width
+    totwidth = py.io.get_terminal_width()
+    width = totwidth / 2 - 1
+    print ' Comparing lists '.center(totwidth, '-')
+    print '%s| %s' % ('optimized'.center(width), 'expected'.center(width))
     for op1, op2 in zip(oplist1, oplist2):
         txt1 = str(op1)
         txt2 = str(op2)
         while txt1 or txt2:
-            print '%-39s| %s' % (txt1[:39], txt2[:39])
-            txt1 = txt1[39:]
-            txt2 = txt2[39:]
+            print '%s| %s' % (txt1[:width].ljust(width), txt2[:width])
+            txt1 = txt1[width:]
+            txt2 = txt2[width:]
         assert op1.getopnum() == op2.getopnum()
         assert op1.numargs() == op2.numargs()
         for i in range(op1.numargs()):

@@ -95,15 +95,8 @@ class IOState:
 def getio(space):
     return space.fromcache(IOState)
 
-def _pypy_getudir(space):
-    """NOT_RPYTHON"""
+def pypy_getudir(space):
+    """NOT_RPYTHON
+    (should be removed from interpleveldefs before translation)"""
     from pypy.tool.udir import udir
     return space.wrap(str(udir))
-_pypy_getudir._annspecialcase_ = "override:ignore"
-
-# we need the indirection because this function will live in a dictionary with other 
-# RPYTHON functions and share call sites with them. Better it not be a special-case
-# directly. 
-def pypy_getudir(space):
-    return _pypy_getudir(space)
-

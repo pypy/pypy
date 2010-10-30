@@ -4,7 +4,6 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
 from pypy.rpython.memory.gc import minimarkpage, base, generation
-from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -140,7 +139,7 @@ class MiniMarkGC(MovingGCBase):
         "large_object_gcptrs": 8250*WORD,
         }
 
-    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
+    def __init__(self, config,
                  read_from_env=False,
                  nursery_size=32*WORD,
                  page_size=16*WORD,
@@ -150,8 +149,9 @@ class MiniMarkGC(MovingGCBase):
                  card_page_indices=0,
                  large_object=8*WORD,
                  large_object_gcptrs=10*WORD,
-                 ArenaCollectionClass=None):
-        MovingGCBase.__init__(self, config, chunk_size)
+                 ArenaCollectionClass=None,
+                 **kwds):
+        MovingGCBase.__init__(self, config, **kwds)
         assert small_request_threshold % WORD == 0
         self.read_from_env = read_from_env
         self.nursery_size = nursery_size
@@ -636,6 +636,14 @@ class MiniMarkGC(MovingGCBase):
                   "odd-valued (i.e. tagged) pointer unexpected here")
         return self.nursery <= addr < self.nursery_top
 
+    def appears_to_be_in_nursery(self, addr):
+        # same as is_in_nursery(), but may return True accidentally if
+        # 'addr' is a tagged pointer with just the wrong value.
+        if not self.translated_to_c:
+            if not self.is_valid_gc_object(addr):
+                return False
+        return self.nursery <= addr < self.nursery_top
+
     def is_forwarded(self, obj):
         """Returns True if the nursery obj is marked as forwarded.
         Implemented a bit obscurely by checking an unrelated flag
@@ -726,16 +734,16 @@ class MiniMarkGC(MovingGCBase):
     def JIT_max_size_of_young_obj(cls):
         return cls.TRANSLATION_PARAMS['large_object']
 
-    def write_barrier(self, addr_struct):
+    def write_barrier(self, newvalue, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
-            self.remember_young_pointer(addr_struct)
+            self.remember_young_pointer(addr_struct, newvalue)
 
-    def write_barrier_from_array(self, addr_array, index):
+    def write_barrier_from_array(self, newvalue, addr_array, index):
         if self.header(addr_array).tid & GCFLAG_NO_YOUNG_PTRS:
             if self.card_page_indices > 0:     # <- constant-folded
                 self.remember_young_pointer_from_array(addr_array, index)
             else:
-                self.remember_young_pointer(addr_array)
+                self.remember_young_pointer(addr_array, newvalue)
 
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
@@ -746,27 +754,28 @@ class MiniMarkGC(MovingGCBase):
         # For x86, there is also an extra requirement: when the JIT calls
         # remember_young_pointer(), it assumes that it will not touch the SSE
         # registers, so it does not save and restore them (that's a *hack*!).
-        def remember_young_pointer(addr_struct):
+        def remember_young_pointer(addr_struct, newvalue):
             # 'addr_struct' is the address of the object in which we write.
+            # 'newvalue' is the address that we are going to write in there.
             if DEBUG:
                 ll_assert(not self.is_in_nursery(addr_struct),
                           "nursery object with GCFLAG_NO_YOUNG_PTRS")
             #
-            # We assume that what we are writing is a pointer to the nursery
-            # (and don't care for the fact that this new pointer may not
-            # actually point to the nursery, which seems ok).  What we need is
+            # If it seems that what we are writing is a pointer to the nursery
+            # (as checked with appears_to_be_in_nursery()), then we need
             # to remove the flag GCFLAG_NO_YOUNG_PTRS and add the old object
             # to the list 'old_objects_pointing_to_young'.  We know that
             # 'addr_struct' cannot be in the nursery, because nursery objects
             # never have the flag GCFLAG_NO_YOUNG_PTRS to start with.
-            self.old_objects_pointing_to_young.append(addr_struct)
             objhdr = self.header(addr_struct)
-            objhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
+            if self.appears_to_be_in_nursery(newvalue):
+                self.old_objects_pointing_to_young.append(addr_struct)
+                objhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
             #
             # Second part: if 'addr_struct' is actually a prebuilt GC
             # object and it's the first time we see a write to it, we
             # add it to the list 'prebuilt_root_objects'.  Note that we
-            # do it even in the (rare?) case of 'addr' being another
+            # do it even in the (rare?) case of 'addr' being NULL or another
             # prebuilt object, to simplify code.
             if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                 objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
@@ -780,16 +789,24 @@ class MiniMarkGC(MovingGCBase):
 
 
     def _init_writebarrier_with_card_marker(self):
+        DEBUG = self.DEBUG
         def remember_young_pointer_from_array(addr_array, index):
             # 'addr_array' is the address of the object in which we write,
             # which must have an array part;  'index' is the index of the
             # item that is (or contains) the pointer that we write.
+            if DEBUG:
+                ll_assert(not self.is_in_nursery(addr_array),
+                          "nursery array with GCFLAG_NO_YOUNG_PTRS")
             objhdr = self.header(addr_array)
             if objhdr.tid & GCFLAG_HAS_CARDS == 0:
                 #
-                # no cards, use default logic.  The 'nocard_logic()' is just
-                # 'remember_young_pointer()', but forced to be inlined here.
-                nocard_logic(addr_array)
+                # no cards, use default logic.  Mostly copied from above.
+                self.old_objects_pointing_to_young.append(addr_array)
+                objhdr = self.header(addr_array)
+                objhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
+                if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
+                    objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                    self.prebuilt_root_objects.append(addr_array)
                 return
             #
             # 'addr_array' is a raw_malloc'ed array with card markers
@@ -807,17 +824,15 @@ class MiniMarkGC(MovingGCBase):
                 return
             #
             # We set the flag (even if the newly written address does not
-            # actually point to the nursery -- like remember_young_pointer()).
+            # actually point to the nursery, which seems to be ok -- actually
+            # it seems more important that remember_young_pointer_from_array()
+            # does not take 3 arguments).
             addr_byte.char[0] = chr(byte | bitmask)
             #
             if objhdr.tid & GCFLAG_CARDS_SET == 0:
                 self.old_objects_with_cards_set.append(addr_array)
                 objhdr.tid |= GCFLAG_CARDS_SET
 
-        nocard_logic = func_with_new_name(self.remember_young_pointer,
-                                          'remember_young_pointer_nocard')
-        del nocard_logic._dont_inline_
-        nocard_logic._always_inline_ = True
         remember_young_pointer_from_array._dont_inline_ = True
         self.remember_young_pointer_from_array = (
             remember_young_pointer_from_array)

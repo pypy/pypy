@@ -401,6 +401,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             for i in range(n):
                 p = malloc(S, flavor='raw', zero=True)
                 if p.x != 0 or p.y != 0:
+                    free(p, flavor='raw')
                     return -1
                 p.x = i
                 p.y = i
@@ -418,14 +419,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         def f(n):
             for length in range(n-1, -1, -1):
                 p = malloc(S, length, flavor='raw', zero=True)
-                if p.x != 0:
-                    return -1
-                p.x = n
-                for j in range(length):
-                    if p.y[j] != 0:
-                        return -3
-                    p.y[j] = n^j
-                free(p, flavor='raw')
+                try:
+                    if p.x != 0:
+                        return -1
+                    p.x = n
+                    for j in range(length):
+                        if p.y[j] != 0:
+                            return -3
+                        p.y[j] = n^j
+                finally:
+                    free(p, flavor='raw')
             return 42
 
         fn = self.getcompiled(f, [int])
@@ -655,7 +658,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
     def test_prebuilt_ll2ctypes_array(self):
         from pypy.rpython.lltypesystem import rffi, ll2ctypes
         A = rffi.CArray(Char)
-        a = malloc(A, 6, flavor='raw')
+        a = malloc(A, 6, flavor='raw', immortal=True)
         a[0] = 'a'
         a[1] = 'b'
         a[2] = 'c'
@@ -676,7 +679,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
     def test_ll2ctypes_array_from_c(self):
         from pypy.rpython.lltypesystem import rffi, ll2ctypes
         A = rffi.CArray(Char)
-        a = malloc(A, 6, flavor='raw')
+        a = malloc(A, 6, flavor='raw', immortal=True)
         a[0] = 'a'
         a[1] = 'b'
         a[2] = 'c'

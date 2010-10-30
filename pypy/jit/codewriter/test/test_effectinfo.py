@@ -1,13 +1,22 @@
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
+from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze,\
+    EffectInfo
 
 class FakeCPU:
     def fielddescrof(self, T, fieldname):
         return ('fielddescr', T, fieldname)
     def arraydescrof(self, A):
         return ('arraydescr', A)
+
+def test_no_oopspec_duplicate():
+    # check that all the various EffectInfo.OS_* have unique values
+    oopspecs = set()
+    for name, value in EffectInfo.__dict__.iteritems():
+        if name.startswith('OS_'):
+            assert value not in oopspecs
+            oopspecs.add(value)
 
 def test_include_read_field():
     S = lltype.GcStruct("S", ("a", lltype.Signed))

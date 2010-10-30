@@ -170,7 +170,14 @@ class SetMaxHeapSizeEntry(ExtRegistryEntry):
         return hop.genop('gc_set_max_heap_size', [v_nbytes],
                          resulttype=lltype.Void)
 
-def can_move(p):    # NB. must not be called with NULL pointers
+def can_move(p):
+    """Check if the GC object 'p' is at an address that can move.
+    Must not be called with None.  With non-moving GCs, it is always False.
+    With some moving GCs like the SemiSpace GC, it is always True.
+    With other moving GCs like the MiniMark GC, it can be True for some
+    time, then False for the same object, when we are sure that it won't
+    move any more.
+    """
     return True
 
 class CanMoveEntry(ExtRegistryEntry):

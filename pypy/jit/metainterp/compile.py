@@ -140,7 +140,6 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
     if not we_are_translated():
         show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
-        pass
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
@@ -387,7 +386,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         from pypy.jit.metainterp.resume import force_from_resumedata
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
-        all_virtuals = force_from_resumedata(metainterp_sd, self, vinfo)
+        ginfo = self.jitdriver_sd.greenfield_info
+        all_virtuals = force_from_resumedata(metainterp_sd, self, vinfo, ginfo)
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED
@@ -616,5 +616,5 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes):
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
         ]
     operations[1].setfailargs([])
-    cpu.compile_loop(inputargs, operations, loop_token)
+    cpu.compile_loop(inputargs, operations, loop_token, log=False)
     return loop_token

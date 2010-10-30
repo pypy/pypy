@@ -765,6 +765,7 @@ class TestLL2Ctypes(object):
         assert abs(float(b[1]) - 1.1) < 1E-6
         assert isinstance(b[2], rffi.r_singlefloat)
         assert abs(float(b[2]) - 2.2) < 1E-6
+        lltype.free(a, flavor='raw')
 
     def test_different_signatures(self):
         if sys.platform=='win32':
@@ -879,6 +880,7 @@ class TestLL2Ctypes(object):
         qsort(rffi.cast(rffi.VOIDP, a), 5, rffi.sizeof(rffi.INT), compare)
         for i in range(5):
             assert a[i] == i + 1
+        lltype.free(a, flavor='raw')
 
     def test_array_type_bug(self):
         A = lltype.Array(lltype.Signed)

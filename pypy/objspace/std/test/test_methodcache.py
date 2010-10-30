@@ -1,118 +1,8 @@
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test.test_typeobject import AppTestTypeObject
 
-class TestShadowTracking(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withshadowtracking": True})
 
-    def test_simple_shadowing(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.g = "foo"
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.f = "foo"
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_shadowing_via__dict__(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.__dict__["g"] = "foo"
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.__dict__["f"] = "foo"
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_changing__dict__(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            a.__dict__ = {}
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_changing__class__(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                def f(self):
-                    return 42
-            a = A()
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        space.appexec([w_inst], """(a):
-            class B(object):
-                def g(self):
-                    return 42
-            a.__class__ = B
-        """)
-        assert w_inst.getdict().shadows_anything()
-
-    def test_changing_the_type(self):
-        space = self.space
-        w_inst = space.appexec([], """():
-            class A(object):
-                pass
-            a = A()
-            a.x = 72
-            return a
-        """)
-        assert not w_inst.getdict().shadows_anything()
-        w_x = space.appexec([w_inst], """(a):
-            a.__class__.x = 42
-            return a.x
-        """)
-        assert space.unwrap(w_x) == 72
-        assert w_inst.getdict().shadows_anything()
-
-class AppTestShadowTracking(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withshadowtracking": True})
-
-    def test_shadowtracking_does_not_blow_up(self):
-        class A(object):
-            def f(self):
-                return 42
-        a = A()
-        assert a.f() == 42
-        a.f = lambda : 43
-        assert a.f() == 43
-
-class AppTestTypeWithMethodCache(AppTestTypeObject):
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter" : True})
-
-class AppTestMethodCaching(AppTestShadowTracking):
+class AppTestMethodCaching(AppTestTypeObject):
     def setup_class(cls):
         cls.space = gettestobjspace(
             **{"objspace.std.withmethodcachecounter": True})
@@ -139,10 +29,11 @@ class AppTestMethodCaching(AppTestShadowTracking):
 
     def test_class_that_cannot_be_cached(self):
         import __pypy__
-        class metatype(type):
+        class X:
             pass
-        class A(object):
-            __metaclass__ = metatype
+        class Y(object):
+            pass
+        class A(Y, X):
             def f(self):
                 return 42
 
@@ -240,3 +131,20 @@ class AppTestMethodCaching(AppTestShadowTracking):
             foo = 3
         D.__bases__ = (C, F)
         assert e.foo == 3
+
+    def test_custom_metaclass(self):
+        import __pypy__
+        class MetaA(type):
+            def __getattribute__(self, x):
+                return 1
+        def f(self):
+            return 42
+        A = type.__new__(MetaA, "A", (), {"f": f})
+        l = [type.__getattribute__(A, "__new__")(A)] * 10
+        __pypy__.reset_method_cache_counter()
+        for i, a in enumerate(l):
+            assert a.f() == 42
+        cache_counter = __pypy__.method_cache_counter("f")
+        assert cache_counter[0] >= 5
+        assert cache_counter[1] >= 1 # should be (27, 3)
+        assert sum(cache_counter) == 10

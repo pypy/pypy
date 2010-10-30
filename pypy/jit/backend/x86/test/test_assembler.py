@@ -81,7 +81,8 @@ def test_write_failure_recovery_description():
 
     # also test rebuild_faillocs_from_descr(), which should not
     # reproduce the holes at all
-    bytecode = lltype.malloc(rffi.UCHARP.TO, len(mc.content), flavor='raw')
+    bytecode = lltype.malloc(rffi.UCHARP.TO, len(mc.content), flavor='raw',
+                             immortal=True)
     for i in range(len(mc.content)):
         assert 0 <= mc.content[i] <= 255
         bytecode[i] = rffi.cast(rffi.UCHAR, mc.content[i])
@@ -115,7 +116,8 @@ def do_failure_recovery_func(withfloats):
         assert withfloats
         value = random.random() - 0.5
         # make sure it fits into 64 bits
-        tmp = lltype.malloc(rffi.LONGP.TO, 2, flavor='raw')
+        tmp = lltype.malloc(rffi.LONGP.TO, 2, flavor='raw',
+                            track_allocation=False)
         rffi.cast(rffi.DOUBLEP, tmp)[0] = value
         return rffi.cast(rffi.DOUBLEP, tmp)[0], tmp[0], tmp[1]
 
@@ -152,10 +154,12 @@ def do_failure_recovery_func(withfloats):
 
     # prepare the expected target arrays, the descr_bytecode,
     # the 'registers' and the 'stack' arrays according to 'content'
-    xmmregisters = lltype.malloc(rffi.LONGP.TO, 16+ACTUAL_CPU.NUM_REGS+1, flavor='raw')
+    xmmregisters = lltype.malloc(rffi.LONGP.TO, 16+ACTUAL_CPU.NUM_REGS+1,
+                                 flavor='raw', immortal=True)
     registers = rffi.ptradd(xmmregisters, 16)
     stacklen = baseloc + 10
-    stack = lltype.malloc(rffi.LONGP.TO, stacklen, flavor='raw')
+    stack = lltype.malloc(rffi.LONGP.TO, stacklen, flavor='raw',
+                          immortal=True)
     expected_ints = [0] * len(content)
     expected_ptrs = [lltype.nullptr(llmemory.GCREF.TO)] * len(content)
     expected_floats = [0.0] * len(content)
@@ -221,7 +225,7 @@ def do_failure_recovery_func(withfloats):
     descr_bytecode.append(0x00)
     descr_bytecode.append(0xCC)   # end marker
     descr_bytes = lltype.malloc(rffi.UCHARP.TO, len(descr_bytecode),
-                                flavor='raw')
+                                flavor='raw', immortal=True)
     for i in range(len(descr_bytecode)):
         assert 0 <= descr_bytecode[i] <= 255
         descr_bytes[i] = rffi.cast(rffi.UCHAR, descr_bytecode[i])

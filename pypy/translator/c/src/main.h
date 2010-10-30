@@ -53,10 +53,16 @@ int PYPY_MAIN_FUNCTION(int argc, char *argv[])
     }
 
     exitcode = STANDALONE_ENTRY_POINT(list);
+
+#ifdef RPY_ASSERT
+    pypy_debug_alloc_results();
+#endif
+
     if (RPyExceptionOccurred()) {
         /* print the RPython traceback */
         pypy_debug_catch_fatal_exception();
     }
+
     return exitcode;
 
  memory_out:

@@ -442,8 +442,11 @@ class LocationCodeBuilder(object):
     MOV8 = _binaryop('MOV8')
     MOV16 = _16_bit_binaryop('MOV')
     MOVZX8 = _binaryop('MOVZX8')
+    MOVSX8 = _binaryop('MOVSX8')
     MOVZX16 = _binaryop('MOVZX16')
+    MOVSX16 = _binaryop('MOVSX16')
     MOV32 = _binaryop('MOV32')
+    MOVSX32 = _binaryop('MOVSX32')
     XCHG = _binaryop('XCHG')
 
     PUSH = _unaryop('PUSH')
@@ -472,6 +475,9 @@ def imm(x):
         return ImmedLoc(x.getint())
     else:
         return ImmedLoc(x)
+
+imm0 = imm(0)
+imm1 = imm(1)
 
 all_extra_instructions = [name for name in LocationCodeBuilder.__dict__
                           if name[0].isupper()]

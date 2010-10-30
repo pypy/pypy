@@ -205,6 +205,7 @@ class OptIntBounds(Optimization):
         v1.intbound.make_ge(IntLowerBound(0))
 
     optimize_STRLEN = optimize_ARRAYLEN_GC
+    optimize_UNICODELEN = optimize_ARRAYLEN_GC
 
     def make_int_lt(self, box1, box2):
         v1 = self.getvalue(box1)

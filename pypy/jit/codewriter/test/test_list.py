@@ -19,6 +19,7 @@ VARLIST = lltype.Ptr(lltype.GcStruct('VARLIST',
 class FakeCPU:
     class arraydescrof(AbstractDescr):
         def __init__(self, ARRAY):
+            assert ARRAY.OF != lltype.Void
             self.ARRAY = ARRAY
         def __repr__(self):
             return '<ArrayDescr>'
