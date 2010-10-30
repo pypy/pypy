@@ -23,6 +23,8 @@ class OptUnroll(Optimization):
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
             op.initarglist([])
+            # Exceptions not caught in one itteration should not propagate to the next
+            self.optimizer.exception_might_have_happened = False 
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs

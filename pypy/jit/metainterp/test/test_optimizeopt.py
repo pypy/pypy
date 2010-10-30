@@ -893,7 +893,7 @@ class BaseTestOptimizeOpt(BaseTest):
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, 'Not', expected, expected)
 
     # ----------
 
@@ -905,20 +905,24 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_value(i2, 1) []
         i3 = call_loopinvariant(1, i1, descr=nonwritedescr)
         guard_no_exception() []
-        guard_value(i2, 1) []
+        guard_value(i3, 1) []
         i4 = call_loopinvariant(1, i1, descr=nonwritedescr)
         guard_no_exception() []
-        guard_value(i2, 1) []
+        guard_value(i4, 1) []
         jump(i1)
         """
-        expected = """
+        preamble = """
         [i1]
         i2 = call(1, i1, descr=nonwritedescr)
         guard_no_exception() []
         guard_value(i2, 1) []
         jump(i1)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
 
     # ----------
@@ -928,49 +932,44 @@ class BaseTestOptimizeOpt(BaseTest):
         [i, p0]
         i0 = getfield_gc(p0, descr=valuedescr)
         i1 = int_add(i0, i)
-        setfield_gc(p0, i1, descr=valuedescr)
-        jump(i, p0)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(i, p1)
+        """
+        preamble = """
+        [i, p0]
+        i0 = getfield_gc(p0, descr=valuedescr)        
+        i1 = int_add(i0, i)
+        jump(i, i1)
         """
         expected = """
         [i, i2]
         i1 = int_add(i2, i)
         jump(i, i1)
         """
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
-                           expected, checkspecnodes=False)
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
     def test_virtual_float(self):
         ops = """
         [f, p0]
         f0 = getfield_gc(p0, descr=floatdescr)
         f1 = float_add(f0, f)
-        setfield_gc(p0, f1, descr=floatdescr)
-        jump(f, p0)
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, f1, descr=floatdescr)
+        jump(f, p1)
+        """
+        preamble = """
+        [f, p0]
+        f2 = getfield_gc(p0, descr=floatdescr)
+        f1 = float_add(f2, f)
+        jump(f, f1)
         """
         expected = """
         [f, f2]
         f1 = float_add(f2, f)
         jump(f, f1)
         """
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, floatdescr=Not)',
-                           expected, checkspecnodes=False)
-
-    def test_virtual_2(self):
-        ops = """
-        [i, p0]
-        i0 = getfield_gc(p0, descr=valuedescr)
-        i1 = int_add(i0, i)
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p1, i1, descr=valuedescr)
-        jump(i, p1)
-        """
-        expected = """
-        [i, i2]
-        i1 = int_add(i2, i)
-        jump(i, i1)
-        """
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
-                           expected)
+        self.optimize_loop(ops, 'Not, Not', expected, preamble)
 
     def test_virtual_oois(self):
         ops = """
@@ -999,14 +998,10 @@ class BaseTestOptimizeOpt(BaseTest):
         jump(p0, p1, p2)
         """
         expected = """
-        [p2]
+        [p0, p1, p2]
         # all constant-folded :-)
-        jump(p2)
+        jump(p0, p1, p2)
         """
-        self.optimize_loop(ops, '''Virtual(node_vtable),
-                                   Virtual(node_vtable),
-                                   Not''',
-                           expected, checkspecnodes=False)
         #
         # to be complete, we also check the no-opt case where most comparisons
         # are not removed.  The exact set of comparisons removed depends on
@@ -1022,7 +1017,7 @@ class BaseTestOptimizeOpt(BaseTest):
         guard_true(i11) []
         jump(p0, p1, p2)
         """
-        self.optimize_loop(ops, 'Not, Not, Not', expected2)
+        self.optimize_loop(ops, 'Not, Not, Not', expected, expected2)
 
     def test_virtual_default_field(self):
         ops = """
@@ -1033,15 +1028,17 @@ class BaseTestOptimizeOpt(BaseTest):
         # the field 'value' has its default value of 0
         jump(p1)
         """
-        expected = """
-        [i]
-        guard_value(i, 0) []
-        jump(0)
+        preamble = """
+        [p0]
+        i0 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i0, 0) []
+        jump(p1)
         """
-        # the 'expected' is sub-optimal, but it should be done by another later
-        # optimization step.  See test_find_nodes_default_field() for why.
-        self.optimize_loop(ops, 'Virtual(node_vtable, valuedescr=Not)',
-                           expected)
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, 'Not', expected, preamble)
 
     def test_virtual_3(self):
         ops = """
