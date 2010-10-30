@@ -2007,28 +2007,32 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         preamble = """
         [p1]
-        guard_nonnull(p1) []
-        guard_class(p1, ConstClass(node_vtable2)) []
+        guard_nonnull_class(p1, ConstClass(node_vtable2)) []
         p2 = getfield_gc(p1, descr=nextdescr)
         guard_class(p2, ConstClass(node_vtable)) []
         p3 = getfield_gc(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
+        setfield_gc(p3, p2, descr=otherdescr)
         p3a = new_with_vtable(ConstClass(node_vtable))
         escape(p3a)
-        setfield_gc(p3, p2, descr=otherdescr)
-        jump(p2a, p3a)
+        jump(p3a)
         """
         expected = """
-        [p2, p3]
-        guard_class(p2, ConstClass(node_vtable)) []
-        guard_class(p3, ConstClass(node_vtable)) []
-        setfield_gc(p3, p2, descr=otherdescr)
-        p3a = new_with_vtable(ConstClass(node_vtable))
-        escape(p3a)
-        p2a = new_with_vtable(ConstClass(node_vtable))
-        jump(p2a, p3a)
+        [p3a]
+        # p1=p1a(next=p2a, other=p3a), p2()
+        # p2 = getfield_gc(p1, descr=nextdescr) # p2a
+        # p3 = getfield_gc(p1, descr=otherdescr)# p3a
+        # setfield_gc(p3, p2, descr=otherdescr) # p3a.other = p2a
+        # p1a = new_with_vtable(ConstClass(node_vtable2))
+        # p2a = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3a, p2, descr=otherdescr) # p3a.other = p2a
+        p3anew = new_with_vtable(ConstClass(node_vtable))
+        escape(p3anew)
+        jump(p3anew)
         """
-        self.optimize_loop(ops, expected) # XXX Virtual(node_vtable2, nextdescr=Not, otherdescr=Not)
+        #self.optimize_loop(ops, expected) # XXX Virtual(node_vtable2, nextdescr=Not, otherdescr=Not)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bug_3bis(self):
         ops = """
