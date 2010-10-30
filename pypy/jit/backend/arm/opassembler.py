@@ -39,6 +39,19 @@ def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True):
         return fcond
     return f
 
+def gen_emit_op_by_helper_call(opname):
+    def f(self, op, regalloc, fcond):
+        arg1 = regalloc.make_sure_var_in_reg(op.getarg(0), selected_reg=r.r0)
+        arg2 = regalloc.make_sure_var_in_reg(op.getarg(1), selected_reg=r.r1)
+        assert arg1 == r.r0
+        assert arg2 == r.r1
+        res = regalloc.try_allocate_reg(op.result)
+        getattr(self.mc, opname)(fcond)
+        self.mc.MOV_rr(res.value, r.r0.value, cond=fcond)
+        regalloc.possibly_free_vars_for_op(op)
+        return fcond
+    return f
+
 class IntOpAsslember(object):
     _mixin_ = True
 
@@ -104,28 +117,6 @@ class IntOpAsslember(object):
         regalloc.possibly_free_var(reg2)
         return fcond
 
-    def emit_op_int_floordiv(self, op, regalloc, fcond):
-        arg1 = regalloc.make_sure_var_in_reg(op.getarg(0), selected_reg=r.r0)
-        arg2 = regalloc.make_sure_var_in_reg(op.getarg(1), selected_reg=r.r1)
-        assert arg1 == r.r0
-        assert arg2 == r.r1
-        res = regalloc.try_allocate_reg(op.result)
-        self.mc.DIV(fcond)
-        self.mc.MOV_rr(res.value, r.r0.value, cond=fcond)
-        regalloc.possibly_free_vars_for_op(op)
-        return fcond
-
-    def emit_op_int_mod(self, op, regalloc, fcond):
-        res = regalloc.force_allocate_reg(op.result)
-        arg1 = regalloc.make_sure_var_in_reg(op.getarg(0), selected_reg=r.r0)
-        arg2 = regalloc.make_sure_var_in_reg(op.getarg(1), selected_reg=r.r1)
-        assert arg1 == r.r0
-        assert arg2 == r.r1
-        self.mc.MOD(fcond)
-        self.mc.MOV_rr(res.value, r.r0.value, cond=fcond)
-        regalloc.possibly_free_vars_for_op(op)
-        return fcond
-
     def _put_in_reg(self, box, regalloc):
         if isinstance(box, ConstInt):
             t = Box()
@@ -134,6 +125,10 @@ class IntOpAsslember(object):
         else:
             reg = regalloc.try_allocate_reg(box)
         return reg
+
+    emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
+    emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
+    emit_op_uint_floordiv = gen_emit_op_by_helper_call('UDIV')
 
     emit_op_int_and = gen_emit_op_ri('AND')
     emit_op_int_or = gen_emit_op_ri('ORR')

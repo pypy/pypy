@@ -175,6 +175,8 @@ def define_multiply_instructions(name, table):
 
     return f
 
+def define_long_mult_div_instructions(name, table):
+    pass
 def imm_operation(rt, rn, imm):
     return ((rn & 0xFF) << 16
     | (rt & 0xFF) << 12

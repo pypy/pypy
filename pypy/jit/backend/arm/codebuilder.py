@@ -1,13 +1,27 @@
+from pypy.jit.backend.arm import arch
 from pypy.jit.backend.arm import conditions as cond
 from pypy.jit.backend.arm import registers as reg
-from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
-                                        arm_int_div_sign, arm_int_mod_sign, arm_int_mod)
+from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN)
 from pypy.jit.backend.arm.instruction_builder import define_instructions
 
 from pypy.rlib.rmmap import alloc, PTR
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
+
+def binary_helper_call(name):
+    signature = getattr(arch, 'arm_%s_sign' % name)
+    function = getattr(arch, 'arm_%s' % name)
+    def f(self, cond=cond.AL):
+        """Generates a call to a helper function, takes its
+        arguments in r0 and r1, result is placed in r0"""
+        self.PUSH(range(2, 12), cond=cond)
+        addr = rffi.cast(lltype.Signed, llhelper(signature, function))
+        self.gen_load_int(reg.r2.value, addr, cond=cond)
+        self.gen_load_int(reg.lr.value, self.curraddr()+self.size_of_gen_load_int+WORD, cond=cond)
+        self.MOV_rr(reg.pc.value, reg.r2.value, cond=cond)
+        self.LDM(reg.sp.value, range(2, 12), w=1, cond=cond) # XXX Replace with POP instr. someday
+    return f
 
 class AbstractARMv7Builder(object):
     def _init(self, data, map_size):
@@ -43,25 +57,9 @@ class AbstractARMv7Builder(object):
     def BKPT(self, cond=cond.AL):
         self.write32(cond << 28 | 0x1200070)
 
-    def DIV(self, cond=cond.AL):
-        """Generates a call to a helper function used for division, takes its
-        arguments in r0 and r1, result is placed in r0"""
-        self.PUSH(range(2, 12), cond=cond)
-        div_addr = rffi.cast(lltype.Signed, llhelper(arm_int_div_sign, arm_int_div))
-        self.gen_load_int(reg.r2.value, div_addr, cond=cond)
-        self.gen_load_int(reg.lr.value, self.curraddr()+self.size_of_gen_load_int+WORD, cond=cond)
-        self.MOV_rr(reg.pc.value, reg.r2.value, cond=cond)
-        self.LDM(reg.sp.value, range(2, 12), w=1, cond=cond) # XXX Replace with POP instr. someday
-
-    def MOD(self, cond=cond.AL):
-        """Generate a call to a helper function used for modulo, takes its
-        arguments in r0 and r1, result is placed in r0"""
-        self.PUSH(range(2, 12), cond=cond)
-        mod_addr = rffi.cast(lltype.Signed, llhelper(arm_int_mod_sign, arm_int_mod))
-        self.gen_load_int(reg.r2.value, mod_addr, cond=cond)
-        self.gen_load_int(reg.lr.value, self.curraddr()+self.size_of_gen_load_int+WORD, cond=cond)
-        self.MOV_rr(reg.pc.value, reg.r2.value, cond=cond)
-        self.LDM(reg.sp.value, range(2, 12), w=1, cond=cond) # XXX Replace with POP instr. someday
+    DIV = binary_helper_call('int_div')
+    MOD = binary_helper_call('int_mod')
+    UDIV = binary_helper_call('uint_div')
 
     def _encode_reg_list(self, instr, regs):
         for reg in regs:
@@ -121,7 +119,7 @@ class ARMv7Builder(AbstractARMv7Builder):
         self.checks = True
         self.n_data=0
 
-    _space_for_jump = 10 * WORD
+    _space_for_jump = 9 * WORD
     def writechar(self, char):
         if self.checks and not self._pos < self._size - self._space_for_jump:
             self.checks = False
@@ -133,13 +131,13 @@ class ARMv7Builder(AbstractARMv7Builder):
     def _add_more_mem(self):
         new_mem = alloc(self._size)
         new_mem_addr = rffi.cast(lltype.Signed, new_mem)
-        self.PUSH([reg.r0.value, reg.ip.value])
-        self.gen_load_int(reg.r0.value, new_mem_addr)
-        self.MOV_rr(reg.pc.value, reg.r0.value)
+        self.PUSH([reg.ip.value, reg.lr.value])
+        self.gen_load_int(reg.lr.value, new_mem_addr)
+        self.MOV_rr(reg.pc.value, reg.lr.value)
         self._dump_trace('data%d.asm' % self.n_data)
-        self.n_data+=1
+        self.n_data += 1
         self._data = new_mem
         self._pos = 0
-        self.LDM(reg.sp.value, [reg.r0.value, reg.ip.value], w=1) # XXX Replace with POP instr. someday
+        self.LDM(reg.sp.value, [reg.ip.value, reg.lr.value], w=1) # XXX Replace with POP instr. someday
 
 define_instructions(AbstractARMv7Builder)
