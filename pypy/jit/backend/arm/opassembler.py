@@ -12,6 +12,35 @@ from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 
+def gen_emit_op_ri(opname):
+    def f(self, op, regalloc, fcond):
+        ri_op = getattr(self.mc, '%s_ri' % opname)
+        rr_op = getattr(self.mc, '%s_rr' % opname)
+
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        res = regalloc.try_allocate_reg(op.result)
+        if self._check_imm_arg(arg0, 0xFF) and not isinstance(arg1, ConstInt):
+            print 'arg0 is imm'
+            reg = regalloc.try_allocate_reg(arg1)
+            ri_op(res.value, reg.value, imm=arg0.getint(), cond=fcond)
+        elif self._check_imm_arg(arg1, 0xFF) and not isinstance(arg0, ConstInt):
+            print 'arg1 is imm'
+            box = Box()
+            reg = regalloc.try_allocate_reg(arg0)
+            ri_op(res.value, reg.value, imm=arg1.getint(), cond=fcond)
+        else:
+            print 'generating rr'
+            reg = self._put_in_reg(arg0, regalloc)
+            reg2 = self._put_in_reg(arg1, regalloc)
+            rr_op(res.value, reg.value, reg2.value)
+            regalloc.possibly_free_var(reg2)
+
+        regalloc.possibly_free_var(res)
+        regalloc.possibly_free_var(reg)
+        return fcond
+    return f
+
 class IntOpAsslember(object):
     _mixin_ = True
 
@@ -89,11 +118,11 @@ class IntOpAsslember(object):
         return fcond
 
     def emit_op_int_mod(self, op, regalloc, fcond):
+        res = regalloc.force_allocate_reg(op.result)
         arg1 = regalloc.make_sure_var_in_reg(op.getarg(0), selected_reg=r.r0)
         arg2 = regalloc.make_sure_var_in_reg(op.getarg(1), selected_reg=r.r1)
         assert arg1 == r.r0
         assert arg2 == r.r1
-        res = regalloc.try_allocate_reg(op.result)
         self.mc.MOD(fcond)
         self.mc.MOV_rr(res.value, r.r0.value, cond=fcond)
         regalloc.possibly_free_vars_for_op(op)
@@ -107,6 +136,14 @@ class IntOpAsslember(object):
         else:
             reg = regalloc.try_allocate_reg(box)
         return reg
+
+    emit_op_int_and = gen_emit_op_ri('AND')
+    emit_op_int_or = gen_emit_op_ri('ORR')
+    emit_op_int_xor = gen_emit_op_ri('EOR')
+
+    def _check_imm_arg(self, arg, size):
+        return isinstance(arg, ConstInt) and arg.getint() <= size and arg.getint() >= 0
+
 
 class GuardOpAssembler(object):
     _mixin_ = True

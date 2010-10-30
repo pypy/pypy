@@ -169,7 +169,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken):
         longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self.mc, frame_manager=ARMFrameManager())
+        regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
         self.align()
         loop_start=self.mc.curraddr()
         self.gen_func_prolog()
@@ -190,7 +190,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
     def assemble_bridge(self, faildescr, inputargs, operations):
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
         longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self.mc, frame_manager=ARMFrameManager())
+        regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
 
         regalloc.update_bindings(enc, inputargs)
         bridge_head = self.mc.curraddr()
@@ -218,6 +218,13 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
         b.gen_load_int(reg.value, bridge_addr, fcond)
         b.MOV_rr(r.pc.value, reg.value, cond=fcond)
 
+    # regalloc support
+    def regalloc_mov(self, prev_loc, loc):
+        if isinstance(prev_loc, ConstInt):
+            # XXX check size of imm for current instr
+            self.mc.gen_load_int(loc.value, prev_loc.getint())
+        else:
+            self.mc.MOV_rr(loc.value, prev_loc.value)
 
 def make_operation_list():
     def notimplemented(self, op, regalloc, fcond):

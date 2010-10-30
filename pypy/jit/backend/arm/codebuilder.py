@@ -104,13 +104,6 @@ class AbstractARMv7Builder(object):
             self.MOV_ri(ip, t, cond=cond)
             self.ORR_rr(r, r, ip, offset, cond=cond)
 
-    # regalloc support
-    def regalloc_mov(self, prev_loc, loc):
-        if isinstance(prev_loc, ConstInt):
-            # XXX check size of imm for current instr
-            self.gen_load_int(loc.value, prev_loc.getint())
-        else:
-            self.MOV_rr(loc.value, prev_loc.value)
 
 class ARMv7InMemoryBuilder(AbstractARMv7Builder):
     def __init__(self, start, end):
@@ -121,7 +114,7 @@ class ARMv7InMemoryBuilder(AbstractARMv7Builder):
 class ARMv7Builder(AbstractARMv7Builder):
 
     def __init__(self):
-        map_size = 1024
+        map_size = 4096
         data = alloc(map_size)
         self._pos = 0
         self._init(data, map_size)
@@ -140,13 +133,13 @@ class ARMv7Builder(AbstractARMv7Builder):
     def _add_more_mem(self):
         new_mem = alloc(self._size)
         new_mem_addr = rffi.cast(lltype.Signed, new_mem)
-        self.PUSH([reg.r0.value])
+        self.PUSH([reg.r0.value, reg.ip.value])
         self.gen_load_int(reg.r0.value, new_mem_addr)
         self.MOV_rr(reg.pc.value, reg.r0.value)
         self._dump_trace('data%d.asm' % self.n_data)
         self.n_data+=1
         self._data = new_mem
         self._pos = 0
-        self.LDM(reg.sp.value, [reg.r0.value], w=1) # XXX Replace with POP instr. someday
+        self.LDM(reg.sp.value, [reg.r0.value, reg.ip.value], w=1) # XXX Replace with POP instr. someday
 
 define_instructions(AbstractARMv7Builder)

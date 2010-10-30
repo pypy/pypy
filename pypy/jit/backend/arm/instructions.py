@@ -34,7 +34,7 @@ data_proc = {
 }
 
 data_proc_imm = {
-    'ADD_ri': {'op': 0, 'rncond':'', 'result':True, 'base':True},
+    'AND_ri': {'op': 0, 'rncond':'', 'result':True, 'base':True},
     'EOR_ri': {'op': 0x2, 'rncond':'', 'result':True, 'base':True},
     'SUB_ri': {'op': 0x4, 'rncond':'!0xF', 'result':True, 'base':True},
     #'ADR_ri': {'op': 0x4, 'rncond':'0xF', 'result':True, 'base':True},
