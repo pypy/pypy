@@ -1926,6 +1926,9 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         [p1, i2, i3, p4]
         guard_true(i3) [p1, p4]
         i4 = int_neg(i2)
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, p4, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
         jump(p1, i2, i4, p4)
         """
         expected = """
@@ -2003,6 +2006,19 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1a, p2a, descr=nextdescr)
         setfield_gc(p1a, p3a, descr=otherdescr)
         jump(p1a)
+        """
+        preamble = """
+        [p1]
+        guard_nonnull(p1) []
+        guard_class(p1, ConstClass(node_vtable2)) []
+        p2 = getfield_gc(p1, descr=nextdescr)
+        guard_class(p2, ConstClass(node_vtable)) []
+        p3 = getfield_gc(p1, descr=otherdescr)
+        guard_class(p3, ConstClass(node_vtable)) []
+        p3a = new_with_vtable(ConstClass(node_vtable))
+        escape(p3a)
+        setfield_gc(p3, p2, descr=otherdescr)
+        jump(p2a, p3a)
         """
         expected = """
         [p2, p3]
