@@ -856,7 +856,7 @@ class BaseTestOptimizeOpt(BaseTest):
         [p0]
         i0 = getfield_gc(p0, descr=valuedescr)
         guard_value(i0, 0) []
-        jump(p1)
+        jump()
         """
         expected = """
         []

@@ -371,7 +371,8 @@ class OptVirtualize(optimizer.Optimization):
             # optimizefindnode should ensure that fieldvalue is found
             assert isinstance(value, AbstractVirtualValue)
             fieldvalue = value.getfield(op.getdescr(), None)
-            assert fieldvalue is not None
+            if fieldvalue is None:
+                fieldvalue = self.optimizer.new_const(op.getdescr())
             self.make_equal_to(op.result, fieldvalue)
         else:
             value.ensure_nonnull()
