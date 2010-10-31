@@ -3544,6 +3544,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         ops = """
         [p4, p7, i30]
         p16 = getfield_gc(p4, descr=valuedescr)
+        p17 = getarrayitem_gc(p4, 1, descr=arraydescr)        
         guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
         i1 = getfield_raw(p7, descr=nextdescr)
         i2 = int_add(i1, i30)
@@ -3557,6 +3558,28 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i2 = int_add(i1, i30)
         setfield_raw(p7, 7, descr=nextdescr)
         setfield_raw(p7, i2, descr=nextdescr)
+        jump(p4, p7, i30)
+        """
+        self.optimize_loop(ops, expected, ops)
+
+    def test_setgetarrayitem_raw(self):
+        ops = """
+        [p4, p7, i30]
+        p16 = getfield_gc(p4, descr=valuedescr)
+        guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
+        p17 = getarrayitem_gc(p4, 1, descr=arraydescr)
+        i1 = getarrayitem_raw(p7, 1, descr=arraydescr)
+        i2 = int_add(i1, i30)
+        setarrayitem_raw(p7, 1, 7, descr=arraydescr)
+        setarrayitem_raw(p7, 1, i2, descr=arraydescr)
+        jump(p4, p7, i30)
+        """
+        expected = """
+        [p4, p7, i30]
+        i1 = getarrayitem_raw(p7, 1, descr=arraydescr)
+        i2 = int_add(i1, i30)
+        setarrayitem_raw(p7, 1, 7, descr=arraydescr)
+        setarrayitem_raw(p7, 1, i2, descr=arraydescr)
         jump(p4, p7, i30)
         """
         self.optimize_loop(ops, expected, ops)
@@ -3672,7 +3695,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i4) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_sub_ovf(1, i0)
         guard_no_overflow() []
@@ -3681,7 +3704,11 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = int_sub(1, i0)
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_eq(self):
         ops = """
