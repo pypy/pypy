@@ -8,8 +8,7 @@ class OptUnroll(Optimization):
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
     
-    def setup(self, not_a_bridge):
-        assert not_a_bridge
+    def setup(self):
         self.cloned_operations = []
         for op in self.optimizer.loop.operations:
             self.cloned_operations.append(op.clone())
@@ -20,12 +19,13 @@ class OptUnroll(Optimization):
         if op.getopnum() == rop.JUMP:
             self.force_at_end_of_preamble()
             loop = self.optimizer.loop
+            assert op.getdescr() is loop.token
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer.newoperations = []
             jump_args = op.getarglist()
             op.initarglist([])
-            # Exceptions not caught in one itteration should not propagate to the next
-            self.optimizer.exception_might_have_happened = False 
+            # Exceptions not caught in one iteration should not propagate to the next
+            self.optimizer.exception_might_have_happened = False
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
@@ -60,6 +60,8 @@ class OptUnroll(Optimization):
                 if not isinstance(a, Const):
                     inputargs.append(a)
 
+        # this loop is equivalent to the main optimization loop in
+        # Optimizer.propagate_all_forward
         for newop in loop_operations:
             newop.initarglist([self.inline_arg(a) for a in newop.getarglist()])
             if newop.result:

@@ -7,7 +7,7 @@ from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.string import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import OptUnroll
 
-def optimize_loop_1(metainterp_sd, loop, not_a_bridge=True):
+def optimize_loop_1(metainterp_sd, loop, unroll=True):
     """Optimize loop.operations to remove internal overheadish operations. 
     """
     optimizations = [OptIntBounds(),
@@ -17,9 +17,9 @@ def optimize_loop_1(metainterp_sd, loop, not_a_bridge=True):
                      OptHeap(),
                      OptFfiCall(),
                     ]
-    if not_a_bridge:
+    if unroll:
         optimizations.insert(0, OptUnroll())
-    optimizer = Optimizer(metainterp_sd, loop, optimizations, not_a_bridge)
+    optimizer = Optimizer(metainterp_sd, loop, optimizations)
     optimizer.propagate_all_forward()
 
 def optimize_bridge_1(metainterp_sd, bridge):
