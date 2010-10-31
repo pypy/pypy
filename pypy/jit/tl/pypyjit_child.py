@@ -2,7 +2,7 @@ from pypy.conftest import option
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
 from pypy.module.pypyjit.policy import PyPyJitPolicy
-from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_NO_PERFECTSPEC
+from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_NO_UNROLL
 
 
 def run_child(glob, loc):
@@ -35,5 +35,5 @@ def apply_jit(interp, graph, CPUClass):
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=CPUClass,
                              backendopt=True, inline=False,
-                             optimizer=OPTIMIZER_NO_PERFECTSPEC)
+                             optimizer=OPTIMIZER_NO_UNROLL)
 

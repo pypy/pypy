@@ -1,12 +1,12 @@
 
 from pypy.jit.metainterp.test import test_loop, test_send
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import OPTIMIZER_NO_PERFECTSPEC
+from pypy.rlib.jit import OPTIMIZER_NO_UNROLL
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 class LoopNoPSpecTest(test_send.SendTests):
     def meta_interp(self, func, args, **kwds):
-        return ll_meta_interp(func, args, optimizer=OPTIMIZER_NO_PERFECTSPEC,
+        return ll_meta_interp(func, args, optimizer=OPTIMIZER_NO_UNROLL,
                               CPUClass=self.CPUClass, 
                               type_system=self.type_system,
                               **kwds)

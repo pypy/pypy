@@ -248,7 +248,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 OPTIMIZER_SIMPLE = 0
-OPTIMIZER_NO_PERFECTSPEC = 1
+OPTIMIZER_NO_UNROLL = 1
 OPTIMIZER_FULL = 2
 
 DEBUG_OFF = 0
@@ -261,7 +261,7 @@ PARAMETERS = {'threshold': 1000,
               'trace_limit': 10000,
               'inlining': False,
               'optimizer': OPTIMIZER_FULL,
-              #'optimizer': OPTIMIZER_NO_PERFECTSPEC,
+              #'optimizer': OPTIMIZER_NO_UNROLL,
               'debug' : DEBUG_STEPS,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
