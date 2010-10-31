@@ -402,7 +402,7 @@ class LoopTest(object):
             self.check_tree_loop_count(2)   # 1 loop, 1 bridge from interp
         else:
             self.check_loop_count(2)
-            self.check_tree_loop_count(1)   # 1 loop, 1 bridge from interp
+            self.check_tree_loop_count(1)   # 1 loop, callable from the interp
 
     def test_example(self):
         myjitdriver = JitDriver(greens = ['i'],
