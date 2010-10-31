@@ -3990,7 +3990,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p2, p3)
         """
         expected = """
-        [p1, p2]
+        [p2, p1]
         i1 = strlen(p1)
         i2 = strlen(p2)
         i3 = int_add(i1, i2)
@@ -4000,7 +4000,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i5 = strlen(p2)
         i6 = int_add(i4, i5)      # will be killed by the backend
         copystrcontent(p2, p3, 0, i4, i5)
-        jump(p2, p3)
+        jump(p3, p2)
         """
         self.optimize_strunicode_loop(ops, expected)
 
