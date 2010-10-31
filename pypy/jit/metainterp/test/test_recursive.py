@@ -575,7 +575,7 @@ class RecursiveTests:
                 result += f('-c-----------l-', i+100)
         self.meta_interp(g, [10], backendopt=True)
         self.check_aborted_count(1)
-        self.check_history(call_assembler=1, call=0)
+        self.check_loops(call_assembler=1, call=0)
         self.check_tree_loop_count(3)
 
     def test_directly_call_assembler(self):
