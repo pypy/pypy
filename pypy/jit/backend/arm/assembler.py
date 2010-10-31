@@ -100,9 +100,10 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         self.mc.MOV_rr(r.r0.value, r.lr.value)  # move mem block address, to r0 to pass as
                                     # parameter to next procedure call
         self.mc.MOV_rr(r.r1.value, r.sp.value)  # pass the current stack pointer as second param
-        self.mc.gen_load_int(r.r2.value, rffi.cast(lltype.Signed, decode_registers_addr))
-        self.mc.gen_load_int(r.lr.value, self.mc.curraddr()+self.mc.size_of_gen_load_int+WORD)
-        self.mc.MOV_rr(r.pc.value, r.r2.value)
+
+        self.mc.ADD_ri(r.lr.value, r.pc.value, 4)
+        self.mc.LDR_ri(r.pc.value, r.pc.value, -4)
+        self.mc.write32(rffi.cast(lltype.Signed, decode_registers_addr))
         self.mc.MOV_rr(r.ip.value, r.r0.value)
         self.mc.LDM(r.sp.value, range(12), w=1) # XXX Replace with POP instr. someday
 
