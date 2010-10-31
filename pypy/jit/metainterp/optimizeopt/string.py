@@ -162,7 +162,7 @@ class VStringPlainValue(VAbstractStringValue):
             for value in self._chars:
                 value.get_args_for_fail(modifier)
 
-    def enum_forced_boxes(self, boxes, already_seen):
+    def FIXME_enum_forced_boxes(self, boxes, already_seen):
         key = self.get_key_box()
         if key in already_seen:
             return
@@ -225,7 +225,7 @@ class VStringConcatValue(VAbstractStringValue):
             self.left.get_args_for_fail(modifier)
             self.right.get_args_for_fail(modifier)
 
-    def enum_forced_boxes(self, boxes, already_seen):
+    def FIXME_enum_forced_boxes(self, boxes, already_seen):
         key = self.get_key_box()
         if key in already_seen:
             return
@@ -283,7 +283,7 @@ class VStringSliceValue(VAbstractStringValue):
             self.vstart.get_args_for_fail(modifier)
             self.vlength.get_args_for_fail(modifier)
 
-    def enum_forced_boxes(self, boxes, already_seen):
+    def FIXME_enum_forced_boxes(self, boxes, already_seen):
         key = self.get_key_box()
         if key in already_seen:
             return
@@ -365,7 +365,8 @@ def _strgetitem(newoperations, strbox, indexbox, mode):
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
-
+    enabled = True
+    
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
         self.make_equal_to(box, vvalue)
@@ -643,6 +644,10 @@ class OptString(optimizer.Optimization):
         self.optimizer.newoperations.append(op)
 
     def propagate_forward(self, op):
+        if not self.enabled:
+            self.emit_operation(op)
+            return
+            
         opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:
@@ -650,6 +655,9 @@ class OptString(optimizer.Optimization):
                 break
         else:
             self.emit_operation(op)
+
+    def force_at_end_of_preamble(self):
+        self.enabled = True
 
 optimize_ops = _findall(OptString, 'optimize_')
 

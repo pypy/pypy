@@ -3946,12 +3946,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         self.optimize_loop(ops, expected, preamble)
 
     # ----------
-    def optimize_strunicode_loop(self, ops, optops, preamble):
+    def optimize_strunicode_loop(self, ops, optops, preamble=None):
+        if not preamble:
+            preamble = ops # FIXME: Force proper testing of preamble
         # check with the arguments passed in
         self.optimize_loop(ops, optops, preamble)
         # check with replacing 'str' with 'unicode' everywhere
         def r(s):
-            return r.replace('str','unicode').replace('s"', 'u"')
+            return s.replace('str','unicode').replace('s"', 'u"')
         self.optimize_loop(r(ops), r(optops), r(preamble))
 
     def test_newstr_1(self):
@@ -3991,7 +3993,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p2, p3)
         """
         expected = """
-        [p2, p1]
+        [p1, p2]
         i1 = strlen(p1)
         i2 = strlen(p2)
         i3 = int_add(i1, i2)
@@ -4001,7 +4003,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i5 = strlen(p2)
         i6 = int_add(i4, i5)      # will be killed by the backend
         copystrcontent(p2, p3, 0, i4, i5)
-        jump(p3, p2)
+        jump(p2, p3)
         """
         self.optimize_strunicode_loop(ops, expected)
 
@@ -4107,12 +4109,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(p3)
         jump()
         """
+        preamble = """
+        []
+        p3 = call(0, s"ab", s"cde", descr=strconcatdescr)
+        escape(p3)
+        jump()
+        """
         expected = """
         []
         escape(s"abcde")
         jump()
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_slice_1(self):
         ops = """
@@ -4219,7 +4227,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         self.optimize_strunicode_loop(ops, expected)
 
     # ----------
-    def optimize_strunicode_loop_extradescrs(self, ops, optops):
+    def optimize_strunicode_loop_extradescrs(self, ops, optops, preamble=None):
         from pypy.jit.metainterp.optimizeopt import string
         def my_callinfo_for_oopspec(oopspecindex):
             calldescrtype = type(LLtypeMixin.strequaldescr)
@@ -4234,7 +4242,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         saved = string.callinfo_for_oopspec
         try:
             string.callinfo_for_oopspec = my_callinfo_for_oopspec
-            self.optimize_strunicode_loop(ops, optops)
+            self.optimize_strunicode_loop(ops, optops, preamble)
         finally:
             string.callinfo_for_oopspec = saved
 
@@ -4320,14 +4328,13 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p1, i1, i2, p3]
-        guard_nonnull(p3) []
         i4 = int_sub(i2, i1)
         i0 = call(0, p1, i1, i4, p3, descr=streq_slice_nonnull_descr)
         escape(i0)
         jump(p1, i1, i2, p3)
         """
         self.optimize_strunicode_loop_extradescrs(ops,
-                                                  expected)
+                                                  expected, ops)
 
     def test_str_equal_slice4(self):
         ops = """
@@ -4407,7 +4414,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p1]
-        guard_nonnull(p1) []
         i0 = call(0, p1, s"hello world", descr=streq_nonnull_descr)
         escape(i0)
         jump(p1)
@@ -4424,7 +4430,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p1]
-        guard_nonnull(p1) []
         i1 = strlen(p1)
         i0 = int_eq(i1, 0)
         escape(i0)
@@ -4442,7 +4447,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p1]
-        guard_nonnull(p1) []
         i0 = call(0, p1, 120, descr=streq_nonnull_char_descr)
         escape(i0)
         jump(p1)

@@ -10,15 +10,18 @@ from pypy.jit.metainterp.optimizeopt.unroll import OptUnroll
 def optimize_loop_1(metainterp_sd, loop, unroll=True):
     """Optimize loop.operations to remove internal overheadish operations. 
     """
+    opt_str = OptString()
     optimizations = [OptIntBounds(),
                      OptRewrite(),
                      OptVirtualize(),
-                     OptString(),
+                     opt_str,
                      OptHeap(),
                      OptFfiCall(),
                     ]
     if unroll:
         optimizations.insert(0, OptUnroll())
+        opt_str.enabled = False # FIXME: Workaround to disable string optimisation
+                                # during preamble but to keep it during the loop
     optimizer = Optimizer(metainterp_sd, loop, optimizations)
     optimizer.propagate_all_forward()
 
