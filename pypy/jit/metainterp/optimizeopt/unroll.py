@@ -78,7 +78,7 @@ class OptUnroll(Optimization):
                     args.append(self.getvalue(arg).force_box())
                 newop.initarglist(args + inputargs[len(args):])
 
-            #print 'P: ', str(newop)
+            print 'P: ', str(newop)
             self.emit_operation(newop)
 
         jmp = self.optimizer.newoperations[-1]

@@ -3232,7 +3232,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i2 = int_add_ovf(i0, 10)
         guard_no_overflow() []
@@ -3240,7 +3240,12 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        i2 = int_add(i0, 10)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_sub(self):
         ops = """
@@ -3252,14 +3257,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i3) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
         i2 = int_sub(i0, 10)
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_sub_before(self):
         ops = """
@@ -3271,14 +3280,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i1) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i2 = int_sub(i0, 10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_ltle(self):
         ops = """
@@ -3289,13 +3302,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lelt(self):
         ops = """
@@ -3306,13 +3323,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_le(i0, 4)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_gt(self):
         ops = """
@@ -3323,13 +3344,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_gt(i0, 5)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_gtge(self):
         ops = """
@@ -3340,13 +3365,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_gt(i0, 5)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_gegt(self):
         ops = """
@@ -3357,13 +3386,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_ge(i0, 5)
         guard_true(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_ovf(self):
         ops = """
@@ -3376,7 +3409,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_no_overflow() []
         jump(i3)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_ge(i0, 0)
         guard_true(i1) []
@@ -3385,7 +3418,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = int_add(i0, 1)
         jump(i3)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_add(i0, 1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_arraylen(self):
         ops = """
@@ -3712,14 +3752,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i2 = int_add(i0, 3)
         jump(i2)
         """
-        expected = """
-        [i0]
-        i1 = int_ne(i0, 7)
-        guard_false(i1) []
-        jump(10)
-
-        """
-        self.optimize_loop(ops, expected)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_bound_ne_const_not(self):
         ops = """
@@ -3747,13 +3780,17 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i2) []
         jump(i0, i1)
         """
-        expected = """
+        preamble = """
         [i0, i1]
         i2 = int_lt(i0, 7)
         guard_true(i2) []
         jump(i0, i1)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lege_const(self):
         ops = """
@@ -3765,16 +3802,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = int_add(i0, 3)
         jump(i3)
         """
-        expected = """
-        [i0]
-        i1 = int_ge(i0, 7)
-        guard_true(i1) []
-        i2 = int_le(i0, 7)
-        guard_true(i2) []
-        jump(10)
-
-        """
-        self.optimize_loop(ops, expected)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_mul_ovf(self):
         ops = """
