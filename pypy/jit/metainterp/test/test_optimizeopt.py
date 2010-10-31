@@ -3552,12 +3552,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p4, p7, i30)
         """
         expected = """
-        [p4, p7, i30, i2]
-        i33 = int_add(i2, i30)
-        setfield_raw(p7, i33, descr=nextdescr)        
-        jump(p4, p7, i30, i33)
+        [p4, p7, i30]
+        i1 = getfield_raw(p7, descr=nextdescr)
+        i2 = int_add(i1, i30)
+        setfield_raw(p7, 7, descr=nextdescr)
+        setfield_raw(p7, i2, descr=nextdescr)
+        jump(p4, p7, i30)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, ops)
 
     def test_pure(self):
         ops = """

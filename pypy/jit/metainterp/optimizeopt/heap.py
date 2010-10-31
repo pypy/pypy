@@ -107,7 +107,9 @@ class OptHeap(Optimization):
             return
         opnum = op.getopnum()
         if (opnum == rop.SETFIELD_GC or
+            opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_GC or
+            opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.DEBUG_MERGE_POINT):
             return
         assert opnum != rop.CALL_PURE
