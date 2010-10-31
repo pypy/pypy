@@ -2,10 +2,11 @@ import py
 from pypy.rlib.jit import JitDriver, hint, purefunction
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-
+from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE
 
 class SendTests:
-
+    optimizer=OPTIMIZER_FULL
+    
     def test_green_send(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['counter'])
         lst = ["123", "45"]
@@ -164,8 +165,12 @@ class SendTests:
         for j in range(69, 75):
             res = self.meta_interp(f, [j], policy=policy)
             assert res == 42
-            self.check_enter_count(5)
-            self.check_loop_count(5)
+            if self.optimizer == OPTIMIZER_SIMPLE:
+                self.check_enter_count(3)
+                self.check_loop_count(3)
+            else:
+                self.check_enter_count(5)
+                self.check_loop_count(5)
 
     def test_oosend_guard_failure(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])

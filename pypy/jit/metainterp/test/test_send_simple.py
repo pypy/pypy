@@ -6,8 +6,9 @@ from pypy.rlib.jit import OPTIMIZER_SIMPLE
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 class LoopDummyTest(test_send.SendTests):
+    optimizer=OPTIMIZER_SIMPLE
     def meta_interp(self, func, args, **kwds):
-        return ll_meta_interp(func, args, optimizer=OPTIMIZER_SIMPLE,
+        return ll_meta_interp(func, args, optimizer=self.optimizer,
                               CPUClass=self.CPUClass, 
                               type_system=self.type_system,
                               **kwds)
