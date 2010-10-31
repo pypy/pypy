@@ -3851,7 +3851,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i8) []
         jump(i0, i1)
         """
-        expected = """
+        preamble = """
         [i0, i1]
         i2 = int_and(i0, 255)
         i3 = int_lt(i1, 5)
@@ -3863,7 +3863,11 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i8) []
         jump(i0, i1)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_mul_ovf_before(self):
         ops = """
@@ -3880,7 +3884,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_false(i6) []
         jump(i0, i1)
         """
-        expected = """
+        preamble = """
         [i0, i1]
         i2 = int_and(i0, 255)
         i22 = int_add(i2, 1)
@@ -3890,9 +3894,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i4) []
         i5 = int_gt(i3, 2)
         guard_true(i5) []
-        jump(i0, i1)
+        jump(i0, i1, i22)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0, i1, i22]
+        i3 = int_mul(i22, i1)
+        i4 = int_lt(i3, 10)
+        guard_true(i4) []
+        i5 = int_gt(i3, 2)
+        guard_true(i5) []
+        jump(i0, i1, i22)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_sub_ovf_before(self):
         ops = """
@@ -3910,7 +3923,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_false(i7) []
         jump(i0, i1)
         """
-        expected = """
+        preamble = """
         [i0, i1]
         i2 = int_and(i0, 255)
         i3 = int_sub_ovf(i2, i1)
@@ -3919,9 +3932,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i4) []
         i5 = int_ge(i3, 2)
         guard_true(i5) []
-        jump(i0, i1)
+        jump(i0, i1, i2)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_sub(i2, i1)
+        i4 = int_le(i3, 10)
+        guard_true(i4) []
+        i5 = int_ge(i3, 2)
+        guard_true(i5) []
+        jump(i0, i1, i2)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops):
