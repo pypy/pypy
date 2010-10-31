@@ -227,6 +227,7 @@ class Optimizer(Optimization):
         self.optimizations  = optimizations 
 
     def force_at_end_of_preamble(self):
+        self.resumedata_memo = resume.ResumeDataLoopMemo(self.metainterp_sd)
         for o in self.optimizations:
             o.force_at_end_of_preamble()
 
