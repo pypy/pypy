@@ -409,7 +409,10 @@ class SendTests:
         # we expect 1 loop, 1 entry bridge, and 1 bridge going from the
         # loop back to the start of the entry bridge
         self.check_loop_count(2)        # 1 loop + 1 bridge
-        self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
+        if self.optimizer == OPTIMIZER_SIMPLE:
+            self.check_tree_loop_count(1)   # 1 loop 
+        else:
+            self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
         self.check_aborted_count(0)
 
     def test_three_cases(self):
@@ -430,7 +433,10 @@ class SendTests:
             return node.x
         res = self.meta_interp(f, [55])
         assert res == f(55)
-        self.check_tree_loop_count(2)
+        if self.optimizer == OPTIMIZER_SIMPLE:
+            self.check_tree_loop_count(1)
+        else:
+            self.check_tree_loop_count(2)
 
     def test_three_classes(self):
         class Base:
@@ -460,7 +466,10 @@ class SendTests:
             return n
         res = self.meta_interp(f, [55], policy=StopAtXPolicy(extern))
         assert res == f(55)
-        self.check_tree_loop_count(2)
+        if self.optimizer == OPTIMIZER_SIMPLE:
+            self.check_tree_loop_count(1)
+        else:
+            self.check_tree_loop_count(2)
 
     def test_bug1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
