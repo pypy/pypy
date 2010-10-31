@@ -268,8 +268,7 @@ class BaseTestBasic(BaseTest):
                          OptHeap(),
                          OptFfiCall(),
                          ]
-        optimizer = Optimizer(metainterp_sd, loop, optimizations,
-                              not_a_bridge=True)
+        optimizer = Optimizer(metainterp_sd, loop, optimizations)
         optimizer.propagate_all_forward()
         #
         expected = self.parse(optops)
