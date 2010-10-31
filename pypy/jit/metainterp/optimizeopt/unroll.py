@@ -116,17 +116,7 @@ class OptUnroll(Optimization):
     def inline_snapshot(self, snapshot):
         if snapshot in self.snapshot_map:
             return self.snapshot_map[snapshot]
-        boxes = []
-        for a in snapshot.boxes:
-            if isinstance(a, Const):
-                boxes.append(a)
-            else:
-                boxes.append(self.inline_arg(a))
-        new_snapshot = Snapshot(self.inline_snapshot(snapshot.prev), boxes[:])
+        boxes = [self.inline_arg(a) for a in snapshot.boxes]
+        new_snapshot = Snapshot(self.inline_snapshot(snapshot.prev), boxes)
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
-    
-
-        
-        
-        
