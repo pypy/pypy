@@ -3461,7 +3461,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i0 = strlen(p0)
         jump(p0)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_addsub_const(self):
         ops = """
