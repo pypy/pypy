@@ -165,7 +165,7 @@ class SendTests:
         for j in range(69, 75):
             res = self.meta_interp(f, [j], policy=policy)
             assert res == 42
-            if self.optimizer == OPTIMIZER_SIMPLE:
+            if self.optimizer != OPTIMIZER_FULL:
                 self.check_enter_count(3)
                 self.check_loop_count(3)
             else:
@@ -353,7 +353,7 @@ class SendTests:
         assert res == f(198)
         # we get two TreeLoops: an initial one, and one entering from
         # the interpreter
-        if self.optimizer == OPTIMIZER_SIMPLE:
+        if self.optimizer != OPTIMIZER_FULL:
             self.check_tree_loop_count(1)
         else:
             self.check_tree_loop_count(2)
@@ -409,7 +409,7 @@ class SendTests:
         # we expect 1 loop, 1 entry bridge, and 1 bridge going from the
         # loop back to the start of the entry bridge
         self.check_loop_count(2)        # 1 loop + 1 bridge
-        if self.optimizer == OPTIMIZER_SIMPLE:
+        if self.optimizer != OPTIMIZER_FULL:
             self.check_tree_loop_count(1)   # 1 loop 
         else:
             self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
@@ -433,7 +433,7 @@ class SendTests:
             return node.x
         res = self.meta_interp(f, [55])
         assert res == f(55)
-        if self.optimizer == OPTIMIZER_SIMPLE:
+        if self.optimizer != OPTIMIZER_FULL:
             self.check_tree_loop_count(1)
         else:
             self.check_tree_loop_count(2)
@@ -466,7 +466,7 @@ class SendTests:
             return n
         res = self.meta_interp(f, [55], policy=StopAtXPolicy(extern))
         assert res == f(55)
-        if self.optimizer == OPTIMIZER_SIMPLE:
+        if self.optimizer != OPTIMIZER_FULL:
             self.check_tree_loop_count(1)
         else:
             self.check_tree_loop_count(2)

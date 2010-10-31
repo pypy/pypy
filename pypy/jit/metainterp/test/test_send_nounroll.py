@@ -5,8 +5,10 @@ from pypy.rlib.jit import OPTIMIZER_NO_UNROLL
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 class LoopNoPSpecTest(test_send.SendTests):
+    optimizer=OPTIMIZER_NO_UNROLL
+    
     def meta_interp(self, func, args, **kwds):
-        return ll_meta_interp(func, args, optimizer=OPTIMIZER_NO_UNROLL,
+        return ll_meta_interp(func, args, optimizer=self.optimizer,
                               CPUClass=self.CPUClass, 
                               type_system=self.type_system,
                               **kwds)
@@ -22,9 +24,7 @@ class LoopNoPSpecTest(test_send.SendTests):
 
 
 class TestLLtype(LoopNoPSpecTest, LLJitMixin):
-    def check_tree_loop_count(self, count):
-        # we get one less entry bridge
-        return LLJitMixin.check_tree_loop_count(self, count - 1)
+    pass
 
 class TestOOtype(LoopNoPSpecTest, OOJitMixin):
     pass
