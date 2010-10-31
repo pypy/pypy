@@ -4,7 +4,7 @@ from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
-from pypy.jit.metainterp import optimize_nopspec, jitprof, typesystem, compile
+from pypy.jit.metainterp import nounroll_optimize, jitprof, typesystem, compile
 from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 from pypy.jit.tool.oparser import parse
 
@@ -38,7 +38,7 @@ class FakeLogger:
         pass
 
 class FakeState:
-    optimize_loop = staticmethod(optimize_nopspec.optimize_loop)
+    optimize_loop = staticmethod(nounroll_optimize.optimize_loop)
     debug_level = 0
 
     def attach_unoptimized_bridge_from_interp(*args):

@@ -2,8 +2,6 @@
 from pypy.rlib.debug import debug_start, debug_stop
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1, optimize_bridge_1
 
-# XXX this file should probably disable unrolling instead
-
 def optimize_loop(metainterp_sd, old_loop_tokens, loop):
     debug_start("jit-optimize")
     try:
@@ -16,7 +14,7 @@ def _optimize_loop(metainterp_sd, old_loop_tokens, loop):
     metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations)
     if old_loop_tokens:
         return old_loop_tokens[0]
-    optimize_loop_1(metainterp_sd, loop)
+    optimize_loop_1(metainterp_sd, loop, False)
     return None
 
 def optimize_bridge(metainterp_sd, old_loop_tokens, bridge):

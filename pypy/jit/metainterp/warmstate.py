@@ -199,9 +199,9 @@ class WarmEnterState(object):
             self.optimize_loop = simple_optimize.optimize_loop
             self.optimize_bridge = simple_optimize.optimize_bridge
         elif optimizer == OPTIMIZER_NO_PERFECTSPEC:
-            from pypy.jit.metainterp import optimize_nopspec
-            self.optimize_loop = optimize_nopspec.optimize_loop
-            self.optimize_bridge = optimize_nopspec.optimize_bridge
+            from pypy.jit.metainterp import nounroll_optimize
+            self.optimize_loop = nounroll_optimize.optimize_loop
+            self.optimize_bridge = nounroll_optimize.optimize_bridge
         elif optimizer == OPTIMIZER_FULL:
             from pypy.jit.metainterp import optimize
             self.optimize_loop = optimize.optimize_loop
