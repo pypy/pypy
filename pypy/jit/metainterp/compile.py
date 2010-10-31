@@ -79,7 +79,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
         metainterp.staticdata.log("reusing old loop")
         return old_loop_token
 
-    if loop.preamble.operations:
+    if loop.preamble.operations is not None:
         send_loop_to_backend(metainterp_sd, loop, "loop")
         send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
         insert_loop_token(old_loop_tokens, loop.preamble.token)
@@ -89,6 +89,8 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     else:
         send_loop_to_backend(metainterp_sd, loop, "loop")
         insert_loop_token(old_loop_tokens, loop_token)
+        jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
+            greenkey, loop.token)
         return loop_token
 
 def insert_loop_token(old_loop_tokens, loop_token):
