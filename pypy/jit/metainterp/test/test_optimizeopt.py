@@ -3946,12 +3946,13 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         self.optimize_loop(ops, expected, preamble)
 
     # ----------
-    def optimize_strunicode_loop(self, ops, optops):
+    def optimize_strunicode_loop(self, ops, optops, preamble):
         # check with the arguments passed in
-        self.optimize_loop(ops, optops)
+        self.optimize_loop(ops, optops, preamble)
         # check with replacing 'str' with 'unicode' everywhere
-        self.optimize_loop(ops.replace('str','unicode').replace('s"', 'u"'),
-                           optops.replace('str','unicode').replace('s"', 'u"'))
+        def r(s):
+            return r.replace('str','unicode').replace('s"', 'u"')
+        self.optimize_loop(r(ops), r(optops), r(preamble))
 
     def test_newstr_1(self):
         ops = """
