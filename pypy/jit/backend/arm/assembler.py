@@ -12,12 +12,14 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.backend.arm.opassembler import (GuardOpAssembler,
                                                 IntOpAsslember,
-                                                OpAssembler)
+                                                OpAssembler,
+                                                UnaryIntOpAssembler)
 # XXX Move to llsupport
 from pypy.jit.backend.x86.support import values_array
 
 
-class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
+class AssemblerARM(GuardOpAssembler, IntOpAsslember,
+                    OpAssembler, UnaryIntOpAssembler):
 
     def __init__(self, cpu, failargs_limit=1000):
         self.mc = ARMv7Builder()
@@ -182,7 +184,6 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
             opnum = op.getopnum()
             fcond = self.operations[opnum](self, op, regalloc, fcond)
         self.gen_func_epilog()
-        print inputargs, operations
         if self._debug_asm:
             self._dump_trace('loop.asm')
         print 'Done assembling'
@@ -209,6 +210,10 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember, OpAssembler):
 
     def _dump_trace(self, name):
         self.mc._dump_trace(name)
+
+    def _check_imm_arg(self, arg, size=0xFF):
+        #XXX check ranges for different operations
+        return isinstance(arg, ConstInt) and arg.getint() <= size and arg.getint() > 0
 
     def patch_trace(self, faildescr, bridge_addr):
         # XXX make sure there is enough space at patch target

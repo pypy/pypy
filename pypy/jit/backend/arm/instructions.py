@@ -32,7 +32,8 @@ data_proc = {
     #'RRX_ri': {'op1':0x1A, 'op2':0, 'op3':0x3, 'op2cond':'0', 'result':False, 'base':True},
     'ROR_ri': {'op1':0x1A, 'op2':0x0, 'op3':0x3, 'op2cond':'!0', 'result':True, 'base':False},
     #BIC
-    #MVN
+    'MVN_rr': {'op1':0x1E, 'op2':0x0, 'op3':0x0, 'result':True, 'base':False},
+
 }
 
 data_proc_reg_shift_reg = {
