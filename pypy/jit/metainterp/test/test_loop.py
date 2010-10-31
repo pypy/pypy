@@ -397,8 +397,12 @@ class LoopTest(object):
         res = self.meta_interp(f, [100, 5], policy=StopAtXPolicy(externfn))
         assert res == expected
 
-        self.check_loop_count(2)
-        self.check_tree_loop_count(2)   # 1 loop, 1 bridge from interp
+        if self.optimizer == OPTIMIZER_FULL:
+            self.check_loop_count(2)
+            self.check_tree_loop_count(2)   # 1 loop, 1 bridge from interp
+        else:
+            self.check_loop_count(2)
+            self.check_tree_loop_count(1)   # 1 loop, 1 bridge from interp
 
     def test_example(self):
         myjitdriver = JitDriver(greens = ['i'],
