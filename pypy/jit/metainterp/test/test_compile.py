@@ -87,11 +87,11 @@ def test_compile_new_loop():
     loop_tokens = []
     loop_token = compile_new_loop(metainterp, loop_tokens, [], 0)
     assert loop_tokens == [loop_token]
-    assert loop_token.number == 2
-    assert staticdata.globaldata.loopnumbering == 3
+    assert loop_token.number == 1
+    assert staticdata.globaldata.loopnumbering == 2
     #
-    assert len(cpu.seen) == 2
-    assert cpu.seen[1][2] == loop_token
+    assert len(cpu.seen) == 1
+    assert cpu.seen[0][2] == loop_token
     #
     del cpu.seen[:]
     metainterp = FakeMetaInterp()
@@ -105,7 +105,7 @@ def test_compile_new_loop():
     assert loop_token_2 is loop_token
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0
-    assert staticdata.globaldata.loopnumbering == 3
+    assert staticdata.globaldata.loopnumbering == 2
 
 
 def test_resume_guard_counters():
