@@ -176,6 +176,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
+            xxxxxxxxx
             return W_LongObject.fromrarith_int(x)
 
         # _____ below here is where the annotator should not get _____
@@ -198,6 +199,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # The following cases are even stranger.
         # Really really only for tests.
         if type(x) is long:
+            if self.config.objspace.std.withsmalllong:
+                from pypy.rlib.rarithmetic import r_longlong
+                try:
+                    rx = r_longlong(x)
+                except OverflowError:
+                    pass
+                else:
+                    from pypy.objspace.std.smalllongobject import \
+                                                   W_SmallLongObject
+                    return W_SmallLongObject(rx)
             return W_LongObject.fromlong(x)
         if isinstance(x, slice):
             return W_SliceObject(self.wrap(x.start),
@@ -261,6 +272,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ComplexObject(realval, imagval)
 
     def newlong(self, val): # val is an int
+        if self.config.objspace.std.withsmalllong:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject.fromint(self, val)
         return W_LongObject.fromint(self, val)
 
     def newtuple(self, list_w):

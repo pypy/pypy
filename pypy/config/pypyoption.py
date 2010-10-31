@@ -194,6 +194,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         IntOption("prebuiltintto", "highest integer which is prebuilt",
                   default=100, cmdline="--prebuiltintto"),
 
+        BoolOption("withsmalllong", "use a version of 'long' in a C long long",
+                   default=False),
+
         BoolOption("withstrjoin", "use strings optimized for addition",
                    default=False),
 

@@ -60,6 +60,12 @@ class W_LongObject(W_Object):
 
 registerimplementation(W_LongObject)
 
+def newbigint(space, w_longtype, bigint):
+    w_obj = space.allocate_instance(W_LongObject, w_longtype)
+    W_LongObject.__init__(w_obj, bigint)
+    return w_obj
+
+
 # bool-to-long
 def delegate_Bool2Long(space, w_bool):
     return W_LongObject(rbigint.frombool(space.is_true(w_bool)))

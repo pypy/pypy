@@ -3,7 +3,7 @@ Pure Python implementation of string utilities.
 """
 
 from pypy.rlib.rarithmetic import ovfcheck, break_up_float, parts_to_float,\
-     INFINITY, NAN
+     INFINITY, NAN, r_longlong
 from pypy.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math
