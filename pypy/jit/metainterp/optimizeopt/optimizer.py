@@ -194,8 +194,7 @@ class Optimization(object):
         pass
 
     def force_at_end_of_preamble(self):
-        if self.next_optimization:
-            self.next_optimization.force_at_end_of_preamble()
+        pass
 
 class Optimizer(Optimization):
 
@@ -222,7 +221,14 @@ class Optimizer(Optimization):
                 o.optimizer = self
                 o.setup()
         else:
+            optimizations = []
             self.first_optimization = self
+            
+        self.optimizations  = optimizations 
+
+    def force_at_end_of_preamble(self):
+        for o in self.optimizations:
+            o.force_at_end_of_preamble()
 
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(jitprof.OPT_FORCINGS)

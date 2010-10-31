@@ -17,7 +17,7 @@ class OptUnroll(Optimization):
     def propagate_forward(self, op):
 
         if op.getopnum() == rop.JUMP:
-            self.force_at_end_of_preamble()
+            self.optimizer.force_at_end_of_preamble()
             loop = self.optimizer.loop
             assert op.getdescr() is loop.token
             loop.preamble.operations = self.optimizer.newoperations
