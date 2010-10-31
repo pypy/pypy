@@ -35,9 +35,9 @@ def show_loop(metainterp_sd, loop=None, error=None):
             extraloops = [loop]
         metainterp_sd.stats.view(errmsg=errmsg, extraloops=extraloops)
 
-def create_empty_loop(metainterp):
+def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
-    return TreeLoop(name)
+    return TreeLoop(name_prefix + name)
 
 def make_loop_token(nb_args, jitdriver_sd):
     loop_token = LoopToken()
@@ -65,7 +65,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     loop.token = loop_token
     loop.operations[-1].setdescr(loop_token)     # patch the target of the JUMP
 
-    loop.preamble = create_empty_loop(metainterp)
+    loop.preamble = create_empty_loop(metainterp, 'Preamble ')
     loop.preamble.greenkey = greenkey
     loop.preamble.inputargs = loop.inputargs
     loop.preamble.token = make_loop_token(len(loop.inputargs), jitdriver_sd)
