@@ -299,9 +299,9 @@ class ResumeDataVirtualAdder(object):
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
         assert storage.rd_numb is None
-        assert storage.rd_snapshot is not None # is that true?
-        numb, liveboxes_from_env, v = self.memo.number(values,
-                                                       storage.rd_snapshot)
+        snapshot = storage.rd_snapshot
+        assert snapshot is not None # is that true?
+        numb, liveboxes_from_env, v = self.memo.number(values, snapshot)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
