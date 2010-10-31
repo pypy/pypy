@@ -353,7 +353,10 @@ class SendTests:
         assert res == f(198)
         # we get two TreeLoops: an initial one, and one entering from
         # the interpreter
-        self.check_tree_loop_count(2)
+        if self.optimizer == OPTIMIZER_SIMPLE:
+            self.check_tree_loop_count(1)
+        else:
+            self.check_tree_loop_count(2)
 
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
