@@ -82,12 +82,12 @@ class W_Hash(Wrappable):
         # XXX significantly harder to implement in another way.
         # Values are digest sizes in bytes
         return {
-            'md5': 16,
-            'sha1': 20,
-            'sha224': 28,
-            'sha256': 32,
-            'sha384': 48,
-            'sha512': 64,
+            'md5':    16, 'MD5':    16,
+            'sha1':   20, 'SHA1':   20,
+            'sha224': 28, 'SHA224': 28,
+            'sha256': 32, 'SHA256': 32,
+            'sha384': 48, 'SHA384': 48,
+            'sha512': 64, 'SHA512': 64,
             }.get(self.name, 0)
 
     def _block_size(self):
@@ -96,12 +96,12 @@ class W_Hash(Wrappable):
         # XXX and would be significantly harder to implement in
         # XXX another way.
         return {
-            'md5':     64,
-            'sha1':    64,
-            'sha224':  64,
-            'sha256':  64,
-            'sha384': 128,
-            'sha512': 128,
+            'md5':     64, 'MD5':     64,
+            'sha1':    64, 'SHA1':    64,
+            'sha224':  64, 'SHA224':  64,
+            'sha256':  64, 'SHA256':  64,
+            'sha384': 128, 'SHA384': 128,
+            'sha512': 128, 'SHA512': 128,
             }.get(self.name, 0)
 
 W_Hash.typedef = TypeDef(

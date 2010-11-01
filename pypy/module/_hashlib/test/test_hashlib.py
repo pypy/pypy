@@ -65,3 +65,9 @@ class AppTestHashlib:
         import _hashlib
         assert _hashlib.new('sha1', u'xxx').__class__.__name__ == 'HASH'
 
+    def test_uppercase(self):
+        import _hashlib
+        h = _hashlib.new('MD5')
+        assert h.digest_size == 16
+        assert len(h.hexdigest()) == 32
+
