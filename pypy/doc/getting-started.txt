@@ -5,6 +5,11 @@ PyPy - Getting Started
 .. contents::
 .. sectnum::
 
+translations: Belorussian_ (Nov 2010) by Movavi_
+
+.. _Belorussian: http://www.movavi.com/opensource/getting-started-be
+.. _Movavi: http://www.movavi.com/
+
 .. _howtopypy: 
 
 What is PyPy ?
@@ -17,6 +22,7 @@ compiler toolsuite that can produce custom Python versions.  Platform, memory
 and threading models, as well as the JIT compiler itself, are aspects of the
 translation process - as opposed to encoding low level details into the
 language implementation itself. `more...`_
+
 
 .. _Python: http://docs.python.org/ref
 .. _`more...`: architecture.html
