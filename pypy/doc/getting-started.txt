@@ -5,11 +5,6 @@ PyPy - Getting Started
 .. contents::
 .. sectnum::
 
-translations: Belorussian_ (Nov 2010) by Movavi_
-
-.. _Belorussian: http://www.movavi.com/opensource/getting-started-be
-.. _Movavi: http://www.movavi.com/
-
 .. _howtopypy: 
 
 What is PyPy ?
