@@ -1,6 +1,7 @@
 from pypy.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, compute_vars_longevity
 from pypy.jit.backend.arm import registers as r
+from pypy.jit.backend.arm import locations
 
 class ARMRegisterManager(RegisterManager):
     all_regs              = r.all_regs
@@ -16,30 +17,13 @@ class ARMRegisterManager(RegisterManager):
         for i in range(len(inputargs)):
             while enc[j] == '\xFE':
                 j += 1
-            self.try_allocate_reg(inputargs[i], r.all_regs[ord(enc[j])])
+            self.force_allocate_reg(inputargs[i], selected_reg=r.all_regs[ord(enc[j])])
             j += 1
 
     def convert_to_imm(self, c):
-        return c
+        return locations.ImmLocation(c.value)
 
 class ARMFrameManager(FrameManager):
     @staticmethod
     def frame_pos(loc, type):
         pass
-
-#class RegAlloc(object):
-#    def __init__(self, assembler, translate_support_code=False):
-#        self.assembler = assembler
-#        self.translate_support_code = translate_support_code
-#        self.fm = None
-#
-#    def _prepare(self, inputargs, operations):
-#        longevity = compute_vars_longevity(inputargs, operations)
-#        self.rm = ARMRegisterManager(longevity, self.fm)
-#
-#    def prepare_loop(self, inputargs, operations, looptoken):
-#        self._prepare(inputargs, operations)
-#
-#    def force_allocate_reg(self, v, forbidden_vars=[], selected_reg=None,
-#                           need_lower_byte=False):
-#        return self.rm.force_allocate_reg(v, forbidden_vars, selected_reg, need_lower_byte)

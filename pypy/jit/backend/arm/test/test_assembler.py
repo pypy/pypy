@@ -109,6 +109,18 @@ class TestRunningAssembler():
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 9
 
+    def test_jump_with_inline_address(self):
+        self.a.gen_func_prolog()
+        self.a.mc.MOV_ri(r.r1.value, 1)
+        loop_head = self.a.mc.curraddr()
+        self.a.mc.ADD_ri(r.r1.value, r.r1.value, 1)
+        self.a.mc.CMP_ri(r.r1.value, 9)
+        self.a.mc.LDR_ri(r.pc.value, r.pc.value, imm=4, cond=c.NE)
+        self.a.mc.MOV_rr(r.r0.value, r.r1.value)
+        self.a.gen_func_epilog()
+        self.a.mc.write32(loop_head)
+        assert run_asm(self.a) == 9
+
 
     def test_call_python_func(self):
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))

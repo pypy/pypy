@@ -113,7 +113,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
 
     def _gen_path_to_exit_path(self, op, args, regalloc, fcond=c.AL):
         box = Box()
-        reg = regalloc.try_allocate_reg(box)
+        reg = regalloc.force_allocate_reg(box)
         # XXX free this memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), (len(args)+5)*4, flavor='raw')
         i = 0
@@ -121,7 +121,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         while(i < len(args)):
             if args[i]:
                 if not isinstance(args[i], ConstInt):
-                    curreg = regalloc.try_allocate_reg(args[i])
+                    curreg = regalloc.make_sure_var_in_reg(args[i])
                     mem[j] = chr(curreg.value)
                     j += 1
                 else:
@@ -147,6 +147,8 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         # guards going to be patched are allways conditional
         if fcond != c.AL:
             op.getdescr()._arm_guard_reg = reg
+        else:
+            regalloc.possibly_free_var(reg)
         return memaddr
 
     def align(self):
@@ -162,7 +164,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
     def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
         regs = []
         for i in range(len(inputargs)):
-            reg = regalloc.try_allocate_reg(inputargs[i])
+            reg = regalloc.force_allocate_reg(inputargs[i])
             addr = self.fail_boxes_int.get_addr_for_num(i)
             self.mc.gen_load_int(reg.value, addr)
             self.mc.LDR_ri(reg.value, reg.value)
@@ -182,6 +184,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         looptoken._arm_loop_code = loop_head
         fcond=c.AL
         for op in operations:
+            # XXX consider merging ops with next one if it is an adecuate guard
             opnum = op.getopnum()
             fcond = self.operations[opnum](self, op, regalloc, fcond)
         self.gen_func_epilog()
@@ -226,7 +229,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
 
     # regalloc support
     def regalloc_mov(self, prev_loc, loc):
-        if isinstance(prev_loc, ConstInt):
+        if prev_loc.is_imm():
             # XXX check size of imm for current instr
             self.mc.gen_load_int(loc.value, prev_loc.getint())
         else:

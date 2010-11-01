@@ -21,80 +21,68 @@ class IntOpAsslember(object):
 
     def emit_op_int_add(self, op, regalloc, fcond):
         # assuming only one argument is constant
-        res = regalloc.try_allocate_reg(op.result)
+        res = regalloc.force_allocate_reg(op.result)
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         imm_a0 = isinstance(a0, ConstInt) and (a0.getint() <= 0xFF or -1 * a0.getint() <= 0xFF)
         imm_a1 = isinstance(a1, ConstInt) and (a1.getint() <= 0xFF or -1 * a1.getint() <= 0xFF)
-        if imm_a0 or imm_a1:
-            if imm_a1:
-                reg = regalloc.try_allocate_reg(a0)
-                arg1 = a1
-            elif imm_a0:
-                reg = regalloc.try_allocate_reg(a1)
-                arg1 = a0
-            value = arg1.getint()
-            if value < 0:
-                self.mc.SUB_ri(res.value, reg.value, -1 * value)
+        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=imm_a0)
+        l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=imm_a1)
+        if imm_a0:
+            imm_a0, imm_a1 = imm_a1, imm_a0
+            a0, a1 = a1, a0
+        if imm_a1:
+            l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+            l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=True)
+            if l1.getint() < 0:
+                self.mc.SUB_ri(res.value, l0.value, -1 * l1.getint())
             else:
-                self.mc.ADD_ri(res.value, reg.value, value)
+                self.mc.ADD_ri(res.value, l0.value, l1.getint())
         else:
-            r1 = regalloc.try_allocate_reg(a0)
-            r2 = regalloc.try_allocate_reg(a1)
-            self.mc.ADD_rr(res.value, r1.value, r2.value)
+            l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+            l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
+            self.mc.ADD_rr(res.value, l0.value, l1.value)
 
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
     def emit_op_int_sub(self, op, regalloc, fcond):
         # assuming only one argument is constant
-        res = regalloc.try_allocate_reg(op.result)
+        res = regalloc.force_allocate_reg(op.result)
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         imm_a0 = isinstance(a0, ConstInt) and (a0.getint() <= 0xFF or -1 * a0.getint() <= 0xFF)
         imm_a1 = isinstance(a1, ConstInt) and (a1.getint() <= 0xFF or -1 * a1.getint() <= 0xFF)
-        if imm_a0 or imm_a1:
-            if imm_a1:
-                reg = self._put_in_reg(a0, regalloc)
-                value = a1.getint()
-                if value < 0:
-                    self.mc.ADD_ri(res.value, reg.value, -1 * value)
-                else:
-                    self.mc.SUB_ri(res.value, reg.value, value)
-            elif imm_a0:
-                reg = self._put_in_reg(a1, regalloc)
-                value = a0.getint()
-                if value < 0:
-                    self.mc.ADD_ri(res.value, reg.value, -1 * value)
-                    self.mc.MVN_rr(res.value, res.value)
-                else:
-                    # reverse substract ftw
-                    self.mc.RSB_ri(res.value, reg.value, value)
+        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=imm_a0)
+        l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=imm_a1)
+        if imm_a0:
+            value = l0.getint()
+            if value < 0:
+                # XXX needs a test
+                self.mc.ADD_ri(res.value, l1.value, -1 * value)
+                self.mc.MVN_rr(res.value, l1.value)
+            else:
+                # reverse substract ftw
+                self.mc.RSB_ri(res.value, l1.value, value)
+        elif imm_a1:
+            value = a1.getint()
+            if value < 0:
+                self.mc.ADD_ri(res.value, l0.value, -1 * value)
+            else:
+                self.mc.SUB_ri(res.value, l0.value, value)
         else:
-            r1 = regalloc.try_allocate_reg(a0)
-            r2 = regalloc.try_allocate_reg(a1)
-            self.mc.SUB_rr(res.value, r1.value, r2.value)
+            self.mc.SUB_rr(res.value, l0.value, l1.value)
 
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
     def emit_op_int_mul(self, op, regalloc, fcond):
-        res = regalloc.try_allocate_reg(op.result)
-        reg1 = self._put_in_reg(op.getarg(0), regalloc)
-        reg2 = self._put_in_reg(op.getarg(1), regalloc)
+        res = regalloc.force_allocate_reg(op.result)
+        reg1 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        reg2 = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
         self.mc.MUL(res.value, reg1.value, reg2.value)
-        regalloc.possibly_free_var(reg1)
-        regalloc.possibly_free_var(reg2)
+        regalloc.possibly_free_vars_for_op(op)
         return fcond
-
-    def _put_in_reg(self, box, regalloc):
-        if isinstance(box, ConstInt):
-            t = Box()
-            reg = regalloc.try_allocate_reg(t)
-            self.mc.gen_load_int(reg.value, box.getint())
-        else:
-            reg = regalloc.try_allocate_reg(box)
-        return reg
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
     emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
@@ -127,25 +115,21 @@ class UnaryIntOpAssembler(object):
     emit_op_int_is_zero = gen_emit_op_unary_cmp(c.EQ, c.NE)
 
     def emit_op_int_invert(self, op, regalloc, fcond):
-        arg = op.getarg(0)
-        reg = self._put_in_reg(arg, regalloc)
-        res = regalloc.try_allocate_reg(op.result)
+        reg = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result)
 
         self.mc.MVN_rr(res.value, reg.value)
-        regalloc.possibly_free_var(reg)
-        regalloc.possibly_free_var(res)
+        regalloc.possibly_free_vars_for_op(op)
         return fcond
 
     #XXX check for a better way of doing this
     def emit_op_int_neg(self, op, regalloc, fcond):
             arg = op.getarg(0)
-            reg = self._put_in_reg(arg, regalloc)
-            reg2 = self._put_in_reg(ConstInt(-1), regalloc)
-            res = regalloc.try_allocate_reg(op.result)
+            l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+            l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), imm_fine=False)
+            res = regalloc.force_allocate_reg(op.result)
             self.mc.MUL(res.value, reg.value, reg2.value)
-            regalloc.possibly_free_var(reg)
-            regalloc.possibly_free_var(reg2)
-            regalloc.possibly_free_var(res)
+            regalloc.possibly_free_vars([l0, l1, res])
             return fcond
 
 class GuardOpAssembler(object):
@@ -175,18 +159,15 @@ class OpAssembler(object):
     _mixin_ = True
 
     def emit_op_jump(self, op, regalloc, fcond):
-        tmp = Box()
-        tmpreg = regalloc.try_allocate_reg(tmp)
         registers = op.getdescr()._arm_arglocs
         for i in range(op.numargs()):
-            reg = regalloc.try_allocate_reg(op.getarg(i))
+            #XXX we are assuming that every value is in a register for now
+            reg = regalloc.make_sure_var_in_reg(op.getarg(i), imm_fine=False)
             inpreg = registers[i]
-            # XXX only if every value is in a register
             self.mc.MOV_rr(inpreg.value, reg.value)
         loop_code = op.getdescr()._arm_loop_code
-        self.mc.gen_load_int(tmpreg.value, loop_code)
-        self.mc.MOV_rr(r.pc.value, tmpreg.value)
-        regalloc.possibly_free_var(tmpreg)
+        self.mc.LDR_ri(r.pc.value, r.pc.value, -4)
+        self.mc.write32(loop_code)
         return fcond
 
     def emit_op_finish(self, op, regalloc, fcond):
