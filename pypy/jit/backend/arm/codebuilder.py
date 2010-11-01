@@ -12,16 +12,16 @@ from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
 def binary_helper_call(name):
     signature = getattr(arch, 'arm_%s_sign' % name)
     function = getattr(arch, 'arm_%s' % name)
-    def f(self, cond=cond.AL):
+    def f(self, c=cond.AL):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
-        self.ensure_can_fit(self.size_of_gen_load_int*2+3*WORD)
-        self.PUSH(range(2, 4), cond=cond)
         addr = rffi.cast(lltype.Signed, llhelper(signature, function))
-        self.gen_load_int(reg.r2.value, addr, cond=cond)
-        self.gen_load_int(reg.lr.value, self.curraddr()+self.size_of_gen_load_int+WORD, cond=cond)
-        self.MOV_rr(reg.pc.value, reg.r2.value, cond=cond)
-        self.LDM(reg.sp.value, range(2, 4), w=1, cond=cond) # XXX Replace with POP instr. someday
+        if c == cond.AL:
+            self.BL(addr)
+        else:
+            self.PUSH(range(2, 4), cond=c)
+            self.BL(addr, cond=c, some_reg=reg.r2)
+            self.LDM(reg.sp.value, range(2, 4), w=1, cond=c) # XXX Replace with POP instr. someday
     return f
 
 class AbstractARMv7Builder(object):
@@ -51,6 +51,30 @@ class AbstractARMv7Builder(object):
 
     def BKPT(self, cond=cond.AL):
         self.write32(cond << 28 | 0x1200070)
+
+    def B(self, target, c=cond.AL, some_reg=None):
+        if c == cond.AL:
+            self.ensure_can_fit(2*WORD)
+            self.LDR_ri(reg.pc.value, reg.pc.value, -4)
+            self.write32(target)
+        else:
+            assert some_reg is not None
+            self.ensure_can_fit(self.size_of_gen_load_int+WORD)
+            self.gen_load_int(some_reg.value, target, cond=c)
+            self.MOV_rr(reg.pc.value, some_reg.value, cond=c)
+
+    def BL(self, target, c=cond.AL, some_reg=None):
+        if c == cond.AL:
+            self.ensure_can_fit(3*WORD)
+            self.ADD_ri(reg.lr.value, reg.pc.value, 4)
+            self.LDR_ri(reg.pc.value, reg.pc.value, imm=-4)
+            self.write32(target)
+        else:
+            assert some_reg is not None
+            self.ensure_can_fit(self.size_of_gen_load_int*2+WORD)
+            self.gen_load_int(some_reg.value, target, cond=c)
+            self.gen_load_int(reg.lr.value, self.curraddr()+self.size_of_gen_load_int+WORD, cond=c)
+            self.MOV_rr(reg.pc.value, some_reg.value, cond=c)
 
     DIV = binary_helper_call('int_div')
     MOD = binary_helper_call('int_mod')
@@ -104,6 +128,11 @@ class ARMv7InMemoryBuilder(AbstractARMv7Builder):
         data = rffi.cast(PTR, start)
         self._init(data, map_size)
 
+    def ensure_can_fit(self, n):
+        """ensure after this call there is enough space for n instructions
+        in a contiguous memory chunk or raise an exception"""
+        if not self._pos + n < self._size:
+            raise ValueError
 
 class ARMv7Builder(AbstractARMv7Builder):
 

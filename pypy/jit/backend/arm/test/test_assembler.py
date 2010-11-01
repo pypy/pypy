@@ -91,8 +91,7 @@ class TestRunningAssembler():
         self.a.mc.CMP_ri(r.r1.value, 0) # z=0, z=1
         self.a.mc.MOV_ri(r.r1.value, 0, cond=c.NE)
         self.a.mc.MOV_ri(r.r1.value, 7, cond=c.EQ)
-        self.a.mc.gen_load_int(r.r4.value, loop_head, cond=c.NE)
-        self.a.mc.MOV_rr(r.pc.value, r.r4.value, cond=c.NE)
+        self.a.mc.B(loop_head, c.NE, some_reg = r.r4)
         self.a.mc.MOV_rr(r.r0.value, r.r1.value)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 7
@@ -103,8 +102,7 @@ class TestRunningAssembler():
         loop_head = self.a.mc.curraddr()
         self.a.mc.ADD_ri(r.r1.value, r.r1.value, 1)
         self.a.mc.CMP_ri(r.r1.value, 9)
-        self.a.mc.gen_load_int(r.r4.value, loop_head, cond=c.NE)
-        self.a.mc.MOV_rr(r.pc.value, r.r4.value, cond=c.NE)
+        self.a.mc.B(loop_head, c.NE, some_reg = r.r4)
         self.a.mc.MOV_rr(r.r0.value, r.r1.value)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 9
@@ -127,9 +125,7 @@ class TestRunningAssembler():
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, callme))
         self.a.gen_func_prolog()
         self.a.mc.MOV_ri(r.r0.value, 123)
-        self.a.mc.gen_load_int(r.r1.value, call_addr)
-        self.a.mc.gen_load_int(r.lr.value, self.a.mc.curraddr()+self.a.mc.size_of_gen_load_int+WORD)
-        self.a.mc.MOV_rr(r.pc.value, r.r1.value)
+        self.a.mc.BL(call_addr)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 133
 
@@ -141,9 +137,7 @@ class TestRunningAssembler():
         # call to div
         self.a.mc.PUSH(range(2, 12))
         div_addr = rffi.cast(lltype.Signed, llhelper(arm_int_div_sign, arm_int_div))
-        self.a.mc.gen_load_int(r.r10.value, div_addr)
-        self.a.mc.gen_load_int(r.lr.value, self.a.mc.curraddr()+self.a.mc.size_of_gen_load_int+WORD)
-        self.a.mc.MOV_rr(r.pc.value, r.r10.value)
+        self.a.mc.BL(div_addr, some_reg=r.r2)
         self.a.mc.LDM(r.sp.value, range(2, 12), w=1) # XXX Replace with POP instr. someday
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 61
@@ -173,6 +167,17 @@ class TestRunningAssembler():
         self.a.mc.DIV()
         self.a.gen_func_epilog()
         assert run_asm(self.a) == -36
+
+
+    def test_bl_with_conditional_exec(self):
+        functype = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+        call_addr = rffi.cast(lltype.Signed, llhelper(functype, callme))
+        self.a.gen_func_prolog()
+        self.a.mc.MOV_ri(r.r0.value, 123)
+        self.a.mc.CMP_ri(r.r0.value, 1)
+        self.a.mc.BL(call_addr, c.NE, some_reg=r.r1)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 133
 
 def callme(inp):
     i = inp + 10

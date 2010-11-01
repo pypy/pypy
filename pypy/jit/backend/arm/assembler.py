@@ -101,9 +101,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
                                     # parameter to next procedure call
         self.mc.MOV_rr(r.r1.value, r.sp.value)  # pass the current stack pointer as second param
 
-        self.mc.ADD_ri(r.lr.value, r.pc.value, 4)
-        self.mc.LDR_ri(r.pc.value, r.pc.value, -4)
-        self.mc.write32(rffi.cast(lltype.Signed, decode_registers_addr))
+        self.mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
         self.mc.MOV_rr(r.ip.value, r.r0.value)
         self.mc.LDM(r.sp.value, range(12), w=1) # XXX Replace with POP instr. someday
 
@@ -139,9 +137,8 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
 
         n = self.cpu.get_fail_descr_number(op.getdescr())
         self.encode32(mem, j+1, n)
-        self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond)
-        self.mc.gen_load_int(reg.value, self._exit_code_addr, cond=fcond)
-        self.mc.MOV_rr(r.pc.value, reg.value, cond=fcond)
+        self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond) # use lr to pass an argument
+        self.mc.B(self._exit_code_addr, fcond, reg)
 
         # This register is used for patching when assembling a bridge
         # guards going to be patched are allways conditional
@@ -183,6 +180,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_loop_code = loop_head
         fcond=c.AL
+        #print inputargs, operations
         for op in operations:
             # XXX consider merging ops with next one if it is an adecuate guard
             opnum = op.getopnum()
@@ -222,10 +220,8 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
     def patch_trace(self, faildescr, bridge_addr):
         # XXX make sure there is enough space at patch target
         fcond = faildescr._arm_guard_cond
-        b = ARMv7InMemoryBuilder(faildescr._arm_guard_code, faildescr._arm_guard_code+100)
-        reg = faildescr._arm_guard_reg
-        b.gen_load_int(reg.value, bridge_addr, fcond)
-        b.MOV_rr(r.pc.value, reg.value, cond=fcond)
+        b = ARMv7InMemoryBuilder(faildescr._arm_guard_code, faildescr._arm_guard_size)
+        b.B(bridge_addr, fcond, some_reg=faildescr._arm_guard_reg)
 
     # regalloc support
     def regalloc_mov(self, prev_loc, loc):

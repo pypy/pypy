@@ -128,7 +128,7 @@ class UnaryIntOpAssembler(object):
             l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), imm_fine=False)
             res = regalloc.force_allocate_reg(op.result)
-            self.mc.MUL(res.value, reg.value, reg2.value)
+            self.mc.MUL(res.value, l0.value, l1.value)
             regalloc.possibly_free_vars([l0, l1, res])
             return fcond
 
@@ -142,6 +142,7 @@ class GuardOpAssembler(object):
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc, fcond)
         descr._failure_recovery_code = memaddr
         descr._arm_guard_cond = fcond
+        descr._arm_guard_size = self.mc.curraddr() - descr._arm_guard_code
 
     def emit_op_guard_true(self, op, regalloc, fcond):
         assert fcond == c.LE
@@ -166,8 +167,7 @@ class OpAssembler(object):
             inpreg = registers[i]
             self.mc.MOV_rr(inpreg.value, reg.value)
         loop_code = op.getdescr()._arm_loop_code
-        self.mc.LDR_ri(r.pc.value, r.pc.value, -4)
-        self.mc.write32(loop_code)
+        self.mc.B(loop_code, fcond)
         return fcond
 
     def emit_op_finish(self, op, regalloc, fcond):
