@@ -52,9 +52,9 @@ class AppTestFfi:
         }
         
         const char *static_str = "xxxxxx";
-        const long static_int = 42;
-        const double static_double = 42.42;
-        const long double static_longdouble = 42.42;
+        long static_int = 42;
+        double static_double = 42.42;
+        long double static_longdouble = 42.42;
         
         unsigned short add_shorts(short one, short two)
         {
@@ -817,10 +817,16 @@ class AppTestFfi:
             return _rawffi.Array(typecode).fromaddress(addr, 1)
         a = getprimitive("l", "static_int")
         assert a[0] == 42
+        a[0] = 43
+        assert a[0] == 43
         a = getprimitive("d", "static_double")
         assert a[0] == 42.42
+        a[0] = 43.43
+        assert a[0] == 43.43
         a = getprimitive("g", "static_longdouble")
         assert a[0] == 42.42
+        a[0] = 43.43
+        assert a[0] == 43.43
         raises(ValueError, getprimitive, 'z', 'ddddddd')
         raises(ValueError, getprimitive, 'zzz', 'static_int')
 

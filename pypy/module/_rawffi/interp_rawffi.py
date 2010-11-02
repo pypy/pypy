@@ -316,7 +316,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         else:
             ptr = unwrap_truncate_int(rffi.VOIDP, space, w_arg)
         push_func(add_arg, argdesc, ptr)
-    elif letter == "d":
+    elif letter == "d" or letter == "g":
         push_func(add_arg, argdesc, space.float_w(w_arg))
     elif letter == "f":
         push_func(add_arg, argdesc, rffi.cast(rffi.FLOAT,
