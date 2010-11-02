@@ -89,6 +89,13 @@ class TestNumber(BaseCTypesTestChecker):
             parm = byref(t())
             assert ArgType == type(parm)
 
+    def test_init_again(self):
+        for t in signed_types + unsigned_types + float_types:
+            parm = t()
+            addr1 = addressof(parm)
+            parm.__init__(0)
+            addr2 = addressof(parm)
+            assert addr1 == addr2
 
     def test_floats(self):
         # c_float and c_double can be created from

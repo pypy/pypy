@@ -109,6 +109,13 @@ class TestArray(BaseCTypesTestChecker):
         assert sz[:] == "foo"
         assert sz.value == "foo"
 
+    def test_init_again(self):
+        sz = (c_char * 3)()
+        addr1 = addressof(sz)
+        sz.__init__(*"foo")
+        addr2 = addressof(sz)
+        assert addr1 == addr2
+
     try:
         create_unicode_buffer
     except NameError:
