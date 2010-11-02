@@ -42,7 +42,7 @@ class W_BaseConnection(Wrappable):
         return False
     def do_send_string(self, space, buffer, offset, size):
         raise NotImplementedError
-    def do_recv_string(self, space, maxlength):
+    def do_recv_string(self, space, buflength, maxlength):
         raise NotImplementedError
 
     def close(self):
@@ -93,7 +93,8 @@ class W_BaseConnection(Wrappable):
             raise OperationError(space.w_ValueError,
                                  space.wrap("maxlength < 0"))
 
-        res, newbuf = self.do_recv_string(space, maxlength)
+        res, newbuf = self.do_recv_string(
+            space, self.BUFFER_SIZE, maxlength)
         res = intmask(res) # XXX why?
         try:
             if newbuf:
@@ -109,7 +110,8 @@ class W_BaseConnection(Wrappable):
         rwbuffer = space.rwbuffer_w(w_buffer)
         length = rwbuffer.getlength()
 
-        res, newbuf = self.do_recv_string(space, length - offset)
+        res, newbuf = self.do_recv_string(
+            space, length - offset, PY_SSIZE_T_MAX)
         res = intmask(res) # XXX why?
         try:
             if newbuf:
@@ -141,7 +143,8 @@ class W_BaseConnection(Wrappable):
     def recv(self, space):
         self._check_readable(space)
 
-        res, newbuf = self.do_recv_string(space, PY_SSIZE_T_MAX)
+        res, newbuf = self.do_recv_string(
+            space, self.BUFFER_SIZE, PY_SSIZE_T_MAX)
         res = intmask(res) # XXX why?
         try:
             if newbuf:
@@ -226,7 +229,7 @@ class W_FileConnection(W_BaseConnection):
         finally:
             lltype.free(message, flavor='raw')
 
-    def do_recv_string(self, space, maxlength):
+    def do_recv_string(self, space, buflength, maxlength):
         length_ptr = lltype.malloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
                                    flavor='raw')
         self._recvall(space, rffi.cast(rffi.CCHARP, length_ptr), 4)
@@ -238,7 +241,7 @@ class W_FileConnection(W_BaseConnection):
             raise OperationError(space.w_IOError, space.wrap(
                 "bad message length"))
 
-        if length <= self.BUFFER_SIZE:
+        if length <= buflength:
             self._recvall(space, self.buffer, length)
             return length, lltype.nullptr(rffi.CCHARP.TO)
         else:
@@ -359,7 +362,7 @@ class W_PipeConnection(W_BaseConnection):
             rffi.free_charp(charp)
             lltype.free(written_ptr, flavor='raw')
 
-    def do_recv_string(self, space, maxlength):
+    def do_recv_string(self, space, buflength, maxlength):
         from pypy.module._multiprocessing.interp_win32 import (
             _ReadFile, _PeekNamedPipe, ERROR_BROKEN_PIPE, ERROR_MORE_DATA)
         from pypy.rlib import rwin32
@@ -371,7 +374,7 @@ class W_PipeConnection(W_BaseConnection):
                                  flavor='raw')
         try:
             result = _ReadFile(self.handle,
-                               self.buffer, min(self.BUFFER_SIZE, maxlength),
+                               self.buffer, min(self.BUFFER_SIZE, buflength),
                                read_ptr, rffi.NULL)
             if result:
                 return read_ptr[0], lltype.nullptr(rffi.CCHARP.TO)
@@ -394,8 +397,8 @@ class W_PipeConnection(W_BaseConnection):
                 self.flags &= ~READABLE
                 if self.flags == 0:
                     self.close()
-                    raise OperationError(space.w_IOError, space.wrap(
-                        "bad message length"))
+                raise OperationError(space.w_IOError, space.wrap(
+                    "bad message length"))
 
             newbuf = lltype.malloc(rffi.CCHARP.TO, length + 1, flavor='raw')
             for i in range(read_ptr[0]):

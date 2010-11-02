@@ -53,6 +53,16 @@ class BaseConnectionTest(object):
         assert rhandle.recv() == 1
         assert rhandle.poll() == False
 
+    def test_read_into(self):
+        import array, multiprocessing
+        rhandle, whandle = self.make_pair()
+
+        obj = [1, 2.0, "hello"]
+        whandle.send(obj)
+        buffer = array.array('b', [0]*10)
+        raises(multiprocessing.BufferTooShort, rhandle.recv_bytes_into, buffer)
+        assert rhandle.readable
+
 class AppTestWinpipeConnection(BaseConnectionTest):
     def setup_class(cls):
         if sys.platform != "win32":
