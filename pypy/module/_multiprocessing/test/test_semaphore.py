@@ -19,7 +19,7 @@ class AppTestSemaphore:
         sem = SemLock(kind, value, maxvalue)
         assert sem.kind == kind
         assert sem.maxvalue == maxvalue
-        assert isinstance(sem.handle, int)
+        assert isinstance(sem.handle, (int, long))
 
         assert sem._count() == 0
         assert sem._get_value() == 1

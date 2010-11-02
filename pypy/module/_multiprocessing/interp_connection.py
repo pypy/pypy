@@ -14,8 +14,11 @@ PY_SSIZE_T_MAX = sys.maxint
 PY_SSIZE_T_MIN = -sys.maxint - 1
 
 def BufferTooShort(space, w_data):
-    return OperationError(space.w_ValueError,
-                          space.wrap("BufferTooShort"))
+    w_builtins = space.getbuiltinmodule('__builtin__')
+    w_module = space.call_method(
+        w_builtins, '__import__', space.wrap("multiprocessing"))
+    w_BufferTooShort = space.getattr(w_module, space.wrap("BufferTooShort"))
+    return OperationError(w_BufferTooShort, w_data)
 
 def w_handle(space, handle):
     return space.wrap(rffi.cast(rffi.INTPTR_T, handle))

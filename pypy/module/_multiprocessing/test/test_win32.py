@@ -43,7 +43,8 @@ class AppTestWin32:
             if e.args[0] != win32.ERROR_PIPE_CONNECTED:
                 raise
 
-        exc = raises(WindowsError, win32.WaitNamedPipe, address, timeout=100)
+        timeout = 100
+        exc = raises(WindowsError, win32.WaitNamedPipe, address, timeout)
         assert exc.value.winerror == 121 # ERROR_SEM_TIMEOUT
 
         win32.CloseHandle(readhandle)
