@@ -113,7 +113,8 @@ class W_BaseConnection(Wrappable):
         res = intmask(res) # XXX why?
         try:
             if newbuf:
-                raise BufferTooShort(space, rffi.charpsize2str(newbuf, res))
+                raise BufferTooShort(space, space.wrap(
+                    rffi.charpsize2str(newbuf, res)))
             rwbuffer.setslice(offset, rffi.charpsize2str(self.buffer, res))
         finally:
             if newbuf:
