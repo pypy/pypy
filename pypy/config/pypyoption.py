@@ -62,7 +62,10 @@ if sys.platform == "sunos5":
 
 
 
-module_dependencies = {}
+module_dependencies = {
+    '_multiprocessing': [('objspace.usemodules.rctime', True),
+                         ('objspace.usemodules.thread', True)],
+    }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
     # itself needs the interp-level struct module

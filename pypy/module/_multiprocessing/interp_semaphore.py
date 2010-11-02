@@ -27,67 +27,6 @@ if sys.platform == 'win32':
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL)
 
-    CtrlHandler_type = lltype.Ptr(lltype.FuncType([], rwin32.BOOL))
-    _CreateEvent = rwin32.winexternal(
-        'CreateEventA', [rffi.VOIDP, rwin32.BOOL, rwin32.BOOL, rwin32.LPCSTR],
-        rwin32.HANDLE)
-    _SetEvent = rwin32.winexternal(
-        'SetEvent', [rwin32.HANDLE], rwin32.BOOL)
-    _ResetEvent = rwin32.winexternal(
-        'ResetEvent', [rwin32.HANDLE], rwin32.BOOL)
-
-    # This is needed because the handler function must have the "WINAPI"
-    # calling convention, which is not supported by lltype.Ptr.
-    eci = ExternalCompilationInfo(
-        separate_module_sources=['''
-            #include <windows.h>
-
-            static BOOL (*CtrlHandlerRoutine)(
-                DWORD dwCtrlType);
-
-            static BOOL WINAPI winapi_CtrlHandlerRoutine(
-              DWORD dwCtrlType)
-            {
-                return CtrlHandlerRoutine(dwCtrlType);
-            }
-
-            BOOL pypy_multiprocessing_setCtrlHandlerRoutine(BOOL (*f)(DWORD))
-            {
-                CtrlHandlerRoutine = f;
-                SetConsoleCtrlHandler(winapi_CtrlHandlerRoutine, TRUE);
-            }
-
-        '''],
-        export_symbols=['pypy_multiprocessing_setCtrlHandlerRoutine'],
-        )
-    _setCtrlHandlerRoutine = rffi.llexternal(
-        'pypy_multiprocessing_setCtrlHandlerRoutine',
-        [CtrlHandler_type], rwin32.BOOL,
-        compilation_info=eci)
-
-    def ProcessingCtrlHandler():
-        _SetEvent(globalState.sigint_event)
-        return 0
-
-    class GlobalState:
-        def __init__(self):
-            self.init()
-
-        def init(self):
-            self.sigint_event = rwin32.NULL_HANDLE
-
-        def startup(self, space):
-            # Initialize the event handle used to signal Ctrl-C
-            globalState.sigint_event = _CreateEvent(
-                rffi.NULL, True, False, rffi.NULL)
-            if globalState.sigint_event == rwin32.NULL_HANDLE:
-                raise wrap_windowserror(
-                    space, rwin32.lastWindowsError("CreateEvent"))
-            if not _setCtrlHandlerRoutine(ProcessingCtrlHandler):
-                raise wrap_windowserror(
-                    space, rwin32.lastWindowsError("SetConsoleCtrlHandler"))
-
-
 else:
     from pypy.rlib import rposix
 
@@ -187,25 +126,12 @@ else:
     def handle_w(space, w_handle):
         return rffi.cast(SEM_T, space.uint_w(w_handle))
 
-    class GlobalState:
-        def init(self):
-            pass
-
-        def startup(self, space):
-            pass
-
-globalState = GlobalState()
-
 class CounterState:
     def __init__(self, space):
         self.counter = 0
 
     def _freeze_(self):
         self.counter = 0
-        globalState.init()
-
-    def startup(self, space):
-        globalState.startup(space)
 
     def getCount(self):
         value = self.counter
@@ -250,10 +176,12 @@ if sys.platform == 'win32':
         start = _GetTickCount()
 
         while True:
-            handles = [self.handle, globalState.sigint_event]
+            from pypy.module.rctime.interp_time import State
+            interrupt_event = space.fromcache(State).get_interrupt_event()
+            handles = [self.handle, interrupt_event]
 
             # do the wait
-            _ResetEvent(globalState.sigint_event)
+            rwin32.ResetEvent(interrupt_event)
             res = rwin32.WaitForMultipleObjects(handles, timeout=msecs)
 
             if res != rwin32.WAIT_OBJECT_0 + 1:

@@ -275,3 +275,16 @@ if WIN32:
             return res
         finally:
             lltype.free(handle_array, flavor='raw')
+
+    _CreateEvent = winexternal(
+        'CreateEventA', [rffi.VOIDP, BOOL, BOOL, LPCSTR], HANDLE)
+    def CreateEvent(*args):
+        handle = _CreateEvent(*args)
+        if handle == NULL_HANDLE:
+            raise lastWindowsError("CreateEvent")
+        return handle
+    SetEvent = winexternal(
+        'SetEvent', [HANDLE], BOOL)
+    ResetEvent = winexternal(
+        'ResetEvent', [HANDLE], BOOL)
+
