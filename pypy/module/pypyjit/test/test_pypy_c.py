@@ -131,27 +131,35 @@ class PyPyCJITTests(object):
         return result
 
     def parse_loops(self, opslogfile):
-        from pypy.jit.tool.oparser import parse
         from pypy.tool import logparser
         assert opslogfile.check()
         log = logparser.parse_log_file(str(opslogfile))
         parts = logparser.extract_category(log, 'jit-log-opt-')
         self.rawloops = [part for part in parts
                          if not from_entry_bridge(part, parts)]
-        # skip entry bridges, they can contain random things
-        self.loops = [parse(part, no_namespace=True) for part in self.rawloops]
-        self.sliced_loops = [] # contains all bytecodes of all loops
-        self.total_ops = 0
-        for loop in self.loops:
-            self.total_ops += len(loop.operations)
+        self.loops, self.sliced_loops, self.total_ops = \
+                                           self.parse_rawloops(self.rawloops)
+        self.check_0_op_bytecodes()
+        self.rawentrybridges = [part for part in parts
+                                if from_entry_bridge(part, parts)]
+        _, self.sliced_entrybridge, _ = \
+                                    self.parse_rawloops(self.rawentrybridges)
+
+    def parse_rawloops(self, rawloops):
+        from pypy.jit.tool.oparser import parse
+        loops = [parse(part, no_namespace=True) for part in rawloops]
+        sliced_loops = [] # contains all bytecodes of all loops
+        total_ops = 0
+        for loop in loops:
+            total_ops += len(loop.operations)
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     sliced_loop = BytecodeTrace()
                     sliced_loop.bytecode = op.getarg(0)._get_str().rsplit(" ", 1)[1]
-                    self.sliced_loops.append(sliced_loop)
+                    sliced_loops.append(sliced_loop)
                 else:
                     sliced_loop.append(op)
-        self.check_0_op_bytecodes()
+        return loops, sliced_loops, total_ops
 
     def check_0_op_bytecodes(self):
         for bytecodetrace in self.sliced_loops:
@@ -159,8 +167,12 @@ class PyPyCJITTests(object):
                 continue
             assert not bytecodetrace
 
-    def get_by_bytecode(self, name):
-        return [ops for ops in self.sliced_loops if ops.bytecode == name]
+    def get_by_bytecode(self, name, from_entry_bridge=False):
+        if from_entry_bridge:
+            sliced_loops = self.sliced_entrybridge
+        else:
+            sliced_loops = self.sliced_loops
+        return [ops for ops in sliced_loops if ops.bytecode == name]
 
     def print_loops(self):
         for rawloop in self.rawloops:
@@ -471,6 +483,8 @@ class PyPyCJITTests(object):
         bytecode, = self.get_by_bytecode("CALL_METHOD")
         assert len(bytecode.get_opnames("new_with_vtable")) == 1 # the forcing of the int
         assert len(bytecode.get_opnames("call")) == 1 # the call to append
+        assert len(bytecode.get_opnames("guard")) == 1 # guard for guard_no_exception after the call
+        bytecode, = self.get_by_bytecode("CALL_METHOD", True)
         assert len(bytecode.get_opnames("guard")) == 2 # guard for profiling disabledness + guard_no_exception after the call
 
     def test_range_iter(self):
