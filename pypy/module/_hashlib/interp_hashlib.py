@@ -26,13 +26,10 @@ class W_Hash(Wrappable):
         return space.wrap("<%s HASH object at 0x%s>" % (
             self.name, addrstring))
 
-    @unwrap_spec('self', ObjSpace, str)
-    def update(self, space, buffer):
-        buf = rffi.str2charp(buffer)
-        try:
-            ropenssl.EVP_DigestUpdate(self.ctx, buf, len(buffer))
-        finally:
-            rffi.free_charp(buf)
+    @unwrap_spec('self', ObjSpace, 'bufferstr')
+    def update(self, space, string):
+        with rffi.scoped_nonmovingbuffer(string) as buf:
+            ropenssl.EVP_DigestUpdate(self.ctx, buf, len(string))
 
     @unwrap_spec('self', ObjSpace)
     def copy(self, space):
@@ -117,7 +114,7 @@ W_Hash.typedef = TypeDef(
     block_size=GetSetProperty(W_Hash.get_block_size),
     )
 
-@unwrap_spec(ObjSpace, str, str)
+@unwrap_spec(ObjSpace, str, 'bufferstr')
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
     w_hash.update(space, string)

@@ -71,3 +71,10 @@ class AppTestHashlib:
         assert h.digest_size == 16
         assert len(h.hexdigest()) == 32
 
+    def test_buffer(self):
+        import _hashlib, array
+        b = array.array('b', 'x' * 10)
+        h = _hashlib.new('md5', b)
+        h.update(b)
+        assert h.digest() == _hashlib.openssl_md5('x' * 20).digest()
+
