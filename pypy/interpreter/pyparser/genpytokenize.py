@@ -17,12 +17,17 @@ from pypy.interpreter.pyparser.automata import NonGreedyDFA, DFA, DEFAULT
 def makePyPseudoDFA ():
     import string
     states = []
+    def makeEOL():
+        return group(states,
+                     newArcPair(states, "\n"),
+                     chain(states,
+                           newArcPair(states, "\r"),
+                           maybe(states, newArcPair(states, "\n"))))
     # ____________________________________________________________
     def makeLineCont ():
         return chain(states,
                      newArcPair(states, "\\"),
-                     maybe(states, newArcPair(states, "\r")),
-                     newArcPair(states, "\n"))
+                     makeEOL())
     # ____________________________________________________________
     # Ignore stuff
     def makeWhitespace ():
@@ -124,9 +129,7 @@ def makePyPseudoDFA ():
                      newArcPair(states, "~"))
     bracket = groupStr(states, "[](){}")
     special = group(states,
-                    chain(states,
-                          maybe(states, newArcPair(states, "\r")),
-                          newArcPair(states, "\n")),
+                    makeEOL(),
                     groupStr(states, "@:;.,`"))
     funny = group(states, operator, bracket, special)
     # ____________________________________________________________
@@ -140,13 +143,13 @@ def makePyPseudoDFA ():
                           makeStrPrefix(),
                           newArcPair(states, "'"),
                           any(states,
-                              notGroupStr(states, "\n'\\")),
+                              notGroupStr(states, "\r\n'\\")),
                           any(states,
                               chain(states,
                                     newArcPair(states, "\\"),
                                     newArcPair(states, DEFAULT),
                                     any(states,
-                                        notGroupStr(states, "\n'\\")))),
+                                        notGroupStr(states, "\r\n'\\")))),
                           group(states,
                                 newArcPair(states, "'"),
                                 makeLineCont())),
@@ -154,13 +157,13 @@ def makePyPseudoDFA ():
                           makeStrPrefix(),
                           newArcPair(states, '"'),
                           any(states,
-                              notGroupStr(states, '\n"\\')),
+                              notGroupStr(states, '\r\n"\\')),
                           any(states,
                               chain(states,
                                     newArcPair(states, "\\"),
                                     newArcPair(states, DEFAULT),
                                     any(states,
-                                        notGroupStr(states, '\n"\\')))),
+                                        notGroupStr(states, '\r\n"\\')))),
                           group(states,
                                 newArcPair(states, '"'),
                                 makeLineCont())))
