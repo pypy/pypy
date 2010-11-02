@@ -358,6 +358,14 @@ class PyPyCJITTests(object):
         ops = self.get_by_bytecode("CALL_FUNCTION")
         assert len(ops) == 2
         for i, bytecode in enumerate(ops):
+            assert not bytecode.get_opnames("call")
+            assert not bytecode.get_opnames("new")
+        assert len(ops[0].get_opnames("guard")) <= 14
+        assert len(ops[1].get_opnames("guard")) <= 3
+
+        ops = self.get_by_bytecode("CALL_FUNCTION", True)
+        assert len(ops) == 2
+        for i, bytecode in enumerate(ops):
             if i == 0:
                 assert "call(getexecutioncontext)" in str(bytecode)
             else:
