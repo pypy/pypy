@@ -1,3 +1,6 @@
+import sys
+sys.setcheckinterval(1<<20)
+
 from array import array
 class Circular(array):
     def __new__(cls):
@@ -12,8 +15,7 @@ def main():
     buf = Circular()
     i = 10
     sa = 0
-    #         1048576
-    while i < 949999:
+    while i < 200000000:
         sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
         if i%100 == 0: sys.stderr.write('%d\n'%i)
         i += 1
