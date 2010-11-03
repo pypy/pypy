@@ -167,20 +167,30 @@ def gen_test_reg_func(name, table):
 
 def gen_test_mul_func(name, table):
     if 'acc' in table and table['acc']:
-        def f(self):
-            func = getattr(self.cb, name)
-            func(r.r3.value, r.r7.value, r.r12.value, r.r13.value)
-            self.assert_equal('%s r3, r7, r12, r13' % name)
+        if 'update_flags' in table and table['update_flags']:
+            def f(self):
+                func = getattr(self.cb, name)
+                func(r.r3.value, r.r7.value, r.r12.value, r.r13.value)
+                func(r.r3.value, r.r7.value, r.r12.value, r.r13.value, s=1)
+                self.assert_equal("""
+    %(name)s r3, r7, r12, r13
+    %(name)sS r3, r7, r12, r13
+    """ % {'name':name})
+        else:
+            def f(self):
+                func = getattr(self.cb, name)
+                func(r.r3.value, r.r7.value, r.r12.value, r.r13.value)
+                self.assert_equal("""%(name)s r3, r7, r12, r13 """ % {'name':name})
     elif 'long' in table and table['long']:
         def f(self):
             func = getattr(self.cb, name)
             func(r.r3.value, r.r13.value, r.r7.value, r.r12.value)
-            self.assert_equal('%s r13, r3, r7, r12' % name)
+            self.assert_equal("""%(name)s r13, r3, r7, r12 """ % {'name':name})
     else:
         def f(self):
             func = getattr(self.cb, name)
             func(r.r3.value, r.r7.value, r.r12.value)
-            self.assert_equal('%s r3, r7, r12' % name)
+            self.assert_equal("""%(name)s r3, r7, r12 """ % {'name':name})
     return f
 
 def gen_test_data_reg_shift_reg_func(name, table):

@@ -99,7 +99,7 @@ branch = {
 
 multiply = {
     'MUL':   {'op':0x0},
-    'MLA':   {'op':0x2, 'acc': True},
+    'MLA':   {'op':0x2, 'acc': True, 'update_flags':True},
     'UMAAL': {'op':0x4, 'long': True},
     'MLS':   {'op':0x6, 'acc': True},
     'UMULL': {'op':0x8, 'long': True},

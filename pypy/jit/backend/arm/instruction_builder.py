@@ -146,20 +146,29 @@ def define_supervisor_and_coproc(name, table):
 def define_multiply_instructions(name, table):
     n = (table['op'] & 0xF) << 20 | 0x9 << 4
     if 'acc' in table and table['acc']:
-        def f(self, rd, rn, rm, ra, cond=cond.AL, s=0):
-            self.write32(n
-                        | cond << 28
-                        | (s & 0x1)
-                        | (rd & 0xF) << 16
-                        | (ra & 0xF) << 12
-                        | (rm & 0xF) << 8
-                        | (rn & 0xF))
+        if 'update_flags' in table and table['update_flags']:
+            def f(self, rd, rn, rm, ra, cond=cond.AL, s=0):
+                self.write32(n
+                            | cond << 28
+                            | (s & 0x1) << 20
+                            | (rd & 0xF) << 16
+                            | (ra & 0xF) << 12
+                            | (rm & 0xF) << 8
+                            | (rn & 0xF))
+        else:
+            def f(self, rd, rn, rm, ra, cond=cond.AL):
+                self.write32(n
+                            | cond << 28
+                            | (rd & 0xF) << 16
+                            | (ra & 0xF) << 12
+                            | (rm & 0xF) << 8
+                            | (rn & 0xF))
+
     elif 'long' in table and table['long']:
-       def f(self, rdhi, rdlo, rn, rm, cond=cond.AL, s=0):
+       def f(self, rdhi, rdlo, rn, rm, cond=cond.AL):
             assert rdhi != rdlo
             self.write32(n
                         | cond << 28
-                        | (s & 0x1)
                         | (rdhi & 0xF) << 16
                         | (rdlo & 0xF) << 12
                         | (rm & 0xF) << 8
@@ -168,7 +177,7 @@ def define_multiply_instructions(name, table):
         def f(self, rd, rn, rm, cond=cond.AL, s=0):
             self.write32(n
                         | cond << 28
-                        | (s & 0x1)
+                        | (s & 0x1) << 20
                         | (rd & 0xF) << 16
                         | (rm & 0xF) << 8
                         | (rn & 0xF))
