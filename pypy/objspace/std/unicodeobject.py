@@ -13,7 +13,7 @@ from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash
 from pypy.rlib.rstring import string_repeat
 from pypy.rlib.runicode import unicode_encode_unicode_escape
-from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
+from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.objspace.std.formatting import mod_format

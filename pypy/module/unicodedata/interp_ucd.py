@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 
-from pypy.module.unicodedata import unicodedb_5_0_0, unicodedb_4_1_0, unicodedb_3_2_0
+from pypy.module.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
 
 # Contants for Hangul characters
 SBase = 0xAC00
@@ -297,7 +297,6 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_4_1_0 = UCD(unicodedb_4_1_0)
-ucd_5_0_0 = UCD(unicodedb_5_0_0)
-ucd = ucd_4_1_0
+ucd_5_2_0 = UCD(unicodedb_5_2_0)
+ucd = ucd_5_2_0
 

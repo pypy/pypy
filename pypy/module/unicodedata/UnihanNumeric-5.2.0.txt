@@ -1,3 +1,19 @@
+#
+# Unihan_NumericValues.txt
+# Date: 2009-08-30 23:54:17 UDT [JHJ]
+#
+# Unicode Character Database
+# Copyright (c) 1991-2009 Unicode, Inc.
+# For terms of use, see http://www.unicode.org/terms_of_use.html
+# For documentation, see http://www.unicode.org/reports/tr44/
+#
+# This file contains data on the following fields from the Unihan database:
+#	kAccountingNumeric
+#	kOtherNumeric
+#	kPrimaryNumeric
+#
+# For details on the file format, see http://www.unicode.org/reports/tr38/
+#
 U+3405	kOtherNumeric	5
 U+3483	kOtherNumeric	2
 U+382A	kOtherNumeric	5
@@ -43,6 +59,7 @@ U+5F10	kAccountingNumeric	2
 U+62FE	kAccountingNumeric	10
 U+634C	kAccountingNumeric	8
 U+67D2	kAccountingNumeric	7
+U+6F06	kAccountingNumeric	7
 U+7396	kAccountingNumeric	9
 U+767E	kPrimaryNumeric	100
 U+8086	kAccountingNumeric	4
@@ -50,6 +67,7 @@ U+842C	kAccountingNumeric	10000
 U+8CAE	kAccountingNumeric	2
 U+8CB3	kAccountingNumeric	2
 U+8D30	kAccountingNumeric	2
+U+9621	kAccountingNumeric	1000
 U+9646	kAccountingNumeric	6
 U+964C	kAccountingNumeric	100
 U+9678	kAccountingNumeric	6
@@ -69,3 +87,5 @@ U+22390	kOtherNumeric	2
 U+22998	kOtherNumeric	3
 U+23B1B	kOtherNumeric	3
 U+2626D	kOtherNumeric	4
+
+# EOF

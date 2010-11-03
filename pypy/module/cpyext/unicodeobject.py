@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
+from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
     bootstrap_function, PyObjectFields, cpython_struct, CONST_STRING,
