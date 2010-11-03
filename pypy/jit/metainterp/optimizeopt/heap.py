@@ -97,7 +97,7 @@ class OptHeap(Optimization):
         self.emitting_operation(op)
         self.next_optimization.propagate_forward(op)
 
-    def emitting_operation(self, op):        
+    def emitting_operation(self, op):
         if op.has_no_side_effect():
             return
         if op.is_ovf():

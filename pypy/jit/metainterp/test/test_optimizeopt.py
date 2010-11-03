@@ -3518,6 +3518,41 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         self.node.value = 5
         self.optimize_loop(ops, expected)
 
+    def test_getfield_guard_const(self):
+        ops = """
+        [p0]
+        p20 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p20) []
+        guard_class(p20, ConstClass(node_vtable)) []
+        guard_class(p20, ConstClass(node_vtable)) []
+        p23 = getfield_gc(p20, descr=valuedescr)
+        guard_isnull(p23) []
+        guard_class(p20, ConstClass(node_vtable)) []
+        guard_value(p20, ConstPtr(myptr)) []
+
+        p37 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p37) []
+        guard_class(p37, ConstClass(node_vtable)) []
+        guard_class(p37, ConstClass(node_vtable)) []
+        p40 = getfield_gc(p37, descr=valuedescr)
+        guard_isnull(p40) []
+        guard_class(p37, ConstClass(node_vtable)) []
+        guard_value(p37, ConstPtr(myptr)) []
+
+        p64 = call_may_force(p23, p40, descr=plaincalldescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p20 = getfield_gc(p0, descr=nextdescr)
+        guard_value(p20, ConstPtr(myptr)) []
+        p23 = getfield_gc(p20, descr=valuedescr)
+        guard_isnull(p23) []
+        p64 = call_may_force(NULL, NULL, descr=plaincalldescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected)
+
     def test_addsub_ovf(self):
         ops = """
         [i0]
@@ -4504,6 +4539,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # more generally, supporting non-constant but virtual cases is
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
+
 
 
 ##class TestOOtype(OptimizeOptTest, OOtypeMixin):

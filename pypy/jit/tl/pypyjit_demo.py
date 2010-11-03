@@ -58,27 +58,38 @@ try:
 ##     #img=array('h',(1,2,3,4))
 ##     print f(3)
 
-    from array import array
-    class Circular(array):
-        def __new__(cls):
-            self = array.__new__(cls, 'i', range(16))
-            return self
-        def __getitem__(self, i):
-            #assert self.__len__() == 16 
-            return array.__getitem__(self, i & 15)
+##     from array import array
+##     class Circular(array):
+##         def __new__(cls):
+##             self = array.__new__(cls, 'i', range(16))
+##             return self
+##         def __getitem__(self, i):
+##             #assert self.__len__() == 16 
+##             return array.__getitem__(self, i & 15)
 
-    def main():
-        buf = Circular()
-        i = 10
-        sa = 0
-        while i < 20:
-            #sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
-            sa += buf[i]
-            i += 1
-        return sa
+##     def main():
+##         buf = Circular()
+##         i = 10
+##         sa = 0
+##         while i < 20:
+##             #sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+##             sa += buf[i]
+##             i += 1
+##         return sa
 
     import pypyjit
     pypyjit.set_param(threshold=3, inlining=True)
+##     print main()
+
+    def main():
+        i=2
+        sa=0
+        while i < 10: 
+            #sa+=max(range(i))
+            a = range
+            b = max([i])
+            i+=1
+        return sa
     print main()
     
 except Exception, e:
