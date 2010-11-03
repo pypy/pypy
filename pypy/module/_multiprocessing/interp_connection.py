@@ -5,6 +5,7 @@ from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import rpoll
 import sys
 
 READABLE = 1
@@ -322,7 +323,6 @@ class W_FileConnection(W_BaseConnection):
             return self.fd >= 0 and self.fd < rpoll.FD_SETSIZE
 
     def do_poll(self, space, timeout):
-        from pypy.rlib import rpoll
         if not self._check_fd():
             raise OperationError(space.w_IOError, space.wrap(
                 "handle out of range in select()"))
