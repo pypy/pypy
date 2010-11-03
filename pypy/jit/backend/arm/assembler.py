@@ -192,24 +192,43 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         self.align()
         loop_start=self.mc.curraddr()
         self.gen_func_prolog()
-        # XXX
-        #Patch the sp with a correct value
-        self.mc.SUB_ri(r.sp.value, r.sp.value, 10*WORD)
+        # Generate NOP as placeholder to patch the instruction(s) to update the
+        # sp according to the number of spilled variables
+        sp_patch_location = self.mc.curraddr()
+        for _ in range((self.mc.size_of_gen_load_int+WORD)//WORD):
+            self.mc.MOV_rr(r.r0.value, r.r0.value)
         # END
         self.gen_bootstrap_code(inputargs, regalloc, looptoken)
         loop_head=self.mc.curraddr()
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_loop_code = loop_head
         fcond=c.AL
-        #print inputargs, operations
+        print inputargs, operations
         for op in operations:
             # XXX consider merging ops with next one if it is an adecuate guard
             opnum = op.getopnum()
             fcond = self.operations[opnum](self, op, regalloc, fcond)
+
+        self._patch_sp_offset(sp_patch_location, regalloc)
         #self.gen_func_epilog()
         if self._debug_asm:
             self._dump_trace('loop.asm')
         print 'Done assembling'
+
+    def _patch_sp_offset(self, addr, regalloc):
+        cb = ARMv7InMemoryBuilder(addr, ARMv7InMemoryBuilder.size_of_gen_load_int)
+        n = regalloc.frame_manager.frame_depth*WORD
+        if n == 1:
+            return
+        if n <= 0xFF:
+            cb.SUB_ri(r.sp.value, r.sp.value, n)
+        else:
+            b = Box()
+            reg = regalloc.force_allocate_reg(b)
+            cb.gen_load_int(reg.value, n)
+            cb.SUB_rr(r.sp.value, r.sp.value, reg.value)
+            regalloc.possibly_free_var(reg)
+
 
     def assemble_bridge(self, faildescr, inputargs, operations):
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
