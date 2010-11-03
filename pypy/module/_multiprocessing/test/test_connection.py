@@ -52,6 +52,7 @@ class BaseConnectionTest(object):
         assert rhandle.poll(None) == True
         assert rhandle.recv() == 1
         assert rhandle.poll() == False
+        raises(IOError, whandle.poll)
 
     def test_read_into(self):
         import array, multiprocessing
@@ -83,7 +84,7 @@ class AppTestWinpipeConnection(BaseConnectionTest):
         cls.w_make_pair = cls.space.appexec([], """():
             import multiprocessing
             def make_pair():
-                rhandle, whandle = multiprocessing.Pipe()
+                rhandle, whandle = multiprocessing.Pipe(duplex=False)
                 return rhandle, whandle
             return make_pair
         """)

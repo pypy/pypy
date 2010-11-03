@@ -165,6 +165,7 @@ class W_BaseConnection(Wrappable):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def poll(self, space, w_timeout=0.0):
+        self._check_readable(space)
         if space.is_w(w_timeout, space.w_None):
             timeout = -1.0 # block forever
         else:
