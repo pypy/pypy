@@ -190,8 +190,8 @@ class StdTypeModel:
                 (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Int2SmallLong),
                 ]
             self.typeorder[smalllongobject.W_SmallLongObject] += [
-                (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
                 (longobject.W_LongObject, smalllongobject.delegate_SmallLong2Long),
+                (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
                 (complexobject.W_ComplexObject, smalllongobject.delegate_SmallLong2Complex),
                 ]
         self.typeorder[longobject.W_LongObject] += [
