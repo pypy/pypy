@@ -16,6 +16,7 @@ def registerimplementation(implcls):
 
 option_to_typename = {
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
+    "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
     "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
@@ -68,6 +69,7 @@ class StdTypeModel:
         from pypy.objspace.std import complexobject
         from pypy.objspace.std import setobject
         from pypy.objspace.std import smallintobject
+        from pypy.objspace.std import smalllongobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
@@ -180,6 +182,18 @@ class StdTypeModel:
             (longobject.W_LongObject,   longobject.delegate_Int2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
+        if config.objspace.std.withsmalllong:
+            self.typeorder[boolobject.W_BoolObject] += [
+                (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Bool2SmallLong),
+                ]
+            self.typeorder[intobject.W_IntObject] += [
+                (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Int2SmallLong),
+                ]
+            self.typeorder[smalllongobject.W_SmallLongObject] += [
+                (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
+                (longobject.W_LongObject, smalllongobject.delegate_SmallLong2Long),
+                (complexobject.W_ComplexObject, smalllongobject.delegate_SmallLong2Complex),
+                ]
         self.typeorder[longobject.W_LongObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
             (complexobject.W_ComplexObject,

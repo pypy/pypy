@@ -35,7 +35,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 return w_obj
             # the following is all for the 'subclass_of_long(x)' case
             if W_SmallLongObject and isinstance(w_obj, W_SmallLongObject):
-                bigint = w_obj.as_bigint()
+                bigint = w_obj.asbigint()
             elif isinstance(w_obj, W_LongObject):
                 bigint = w_obj.num
             elif space.is_true(space.isinstance(w_obj, space.w_int)):
@@ -70,14 +70,14 @@ def string_to_w_long(space, w_longtype, s, base=10):
                              space.wrap(e.msg))
     if (space.config.objspace.std.withsmalllong
         and space.is_w(w_longtype, space.w_long)):
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
         try:
-            longlong = bigint.tolonglong()
+            return W_SmallLongObject.frombigint(bigint)
         except OverflowError:
             pass
-        else:
-            from pypy.objspace.std.smalllongobject import W_SmallLongObject
-            return W_SmallLongObject(longlong)
+    from pypy.objspace.std.longobject import newbigint
     return newbigint(space, w_longtype, bigint)
+string_to_w_long._dont_inline_ = True
 
 # ____________________________________________________________
 

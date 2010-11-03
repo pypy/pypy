@@ -558,6 +558,34 @@ class rbigint(object):
         if self._numdigits() == 1 and self.digits[0] == 0:
             self.sign = 0
 
+    def getsign(self):
+        return self.sign
+
+
+    @staticmethod
+    def static_add(a, b):
+        return a.add(b)
+
+    @staticmethod
+    def static_mul(a, b):
+        return a.mul(b)
+
+    @staticmethod
+    def static_floordiv(a, b):
+        return a.floordiv(b)
+
+    @staticmethod
+    def static_lshift(a, b):
+        return a.lshift(b)
+
+    @staticmethod
+    def static_rshift(a, b):
+        return a.rshift(b)
+
+    @staticmethod
+    def static_pow(a, b):
+        return a.pow(b)
+
 
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, %s>" % (self.digits, self.sign, self.str())

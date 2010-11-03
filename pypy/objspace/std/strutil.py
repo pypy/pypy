@@ -205,67 +205,66 @@ def interp_string_to_float(space, s):
         digits = '0'
 
     # a few abbreviations
-    from pypy.objspace.std import longobject
-    mklong = longobject.W_LongObject.fromint
-    d2long = longobject.W_LongObject.fromdecimalstr
-    adlong = longobject.add__Long_Long
-    longup = longobject.pow__Long_Long_None
-    multip = longobject.mul__Long_Long
-    divide = longobject.div__Long_Long
-    lshift = longobject.lshift__Long_Long
-    rshift = longobject.rshift__Long_Long
+    from pypy.rlib.rbigint import rbigint
+    mklong = rbigint.fromint
+    d2long = rbigint.fromdecimalstr
+    adlong = rbigint.static_add
+    longup = rbigint.static_pow
+    multip = rbigint.static_mul
+    divide = rbigint.static_floordiv
+    lshift = rbigint.static_lshift
+    rshift = rbigint.static_rshift
 
     # 4) compute the exponent and truncate to +-400
     if not exponent:
         exponent = '0'
-    w_le = d2long(exponent)
-    w_le = adlong(space, w_le, mklong(space, dexp))
+    b_le = d2long(exponent)
+    b_le = adlong(b_le, mklong(dexp))
     try:
-        e = w_le.toint()
+        e = b_le.toint()
     except OverflowError:
-        # XXX poking at internals
-        e = w_le.num.sign * 400
+        e = b_le.getsign() * 400
     if e >= 400:
         e = 400
     elif e <= -400:
         e = -400
 
     # 5) compute the value using long math and proper rounding.
-    w_lr = d2long(digits)
-    w_10 = mklong(space, 10)
-    w_1 = mklong(space, 1)
+    b_lr = d2long(digits)
+    b_10 = mklong(10)
+    b_1 = mklong(1)
     if e >= 0:
         bits = 0
-        w_pten = longup(space, w_10, mklong(space, e), space.w_None)
-        w_m = multip(space, w_lr, w_pten)
+        b_pten = longup(b_10, mklong(e))
+        b_m = multip(b_lr, b_pten)
     else:
         # compute a sufficiently large scale
         prec = MANTISSA_DIGITS * 2 + 22 # 128, maybe
         bits = - (int(math.ceil(-e / math.log10(2.0) - 1e-10)) + prec)
-        w_scale = lshift(space, w_1, mklong(space, -bits))
-        w_pten = longup(space, w_10, mklong(space, -e), None)
-        w_tmp = multip(space, w_lr, w_scale)
-        w_m = divide(space, w_tmp, w_pten)
+        b_scale = lshift(b_1, -bits)
+        b_pten = longup(b_10, mklong(-e))
+        b_tmp = multip(b_lr, b_scale)
+        b_m = divide(b_tmp, b_pten)
 
     # we now have a fairly large mantissa.
     # Shift it and round the last bit.
 
     # first estimate the bits and do a big shift
-    mbits = w_m._count_bits()
+    mbits = b_m._count_bits()
     needed = MANTISSA_BITS
     if mbits > needed:
         if mbits > needed+1:
             shifted = mbits - (needed+1)
-            w_m = rshift(space, w_m, mklong(space, shifted))
+            b_m = rshift(b_m, shifted)
             bits += shifted
         # do the rounding
         bits += 1
-        round = w_m.is_odd()
-        w_m = rshift(space, w_m, w_1)
-        w_m = adlong(space, w_m, mklong(space, round))
+        round = b_m.is_odd()
+        b_m = rshift(b_m, 1)
+        b_m = adlong(b_m, mklong(round))
 
     try:
-        r = math.ldexp(w_m.tofloat(), bits)
+        r = math.ldexp(b_m.tofloat(), bits)
         # XXX I guess we do not check for overflow in ldexp as we agreed to!
         if r == 2*r and r != 0.0:
             raise OverflowError

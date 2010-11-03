@@ -49,6 +49,9 @@ while _itest == _Ltest and type(_itest) is int:
 LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
 LONG_TEST = _Ltest
+LONGLONG_BIT  = 64
+LONGLONG_MASK = (2**LONGLONG_BIT)-1
+LONGLONG_TEST = 2**(LONGLONG_BIT-1)
 
 LONG_BIT_SHIFT = 0
 while (1 << LONG_BIT_SHIFT) != LONG_BIT:
@@ -75,6 +78,15 @@ def intmask(n):
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
     return int(n)
+
+def longlongmask(n):
+    if isinstance(n, int):
+        n = long(n)
+    assert isinstance(n, long)
+    n &= LONGLONG_MASK
+    if n >= LONGLONG_TEST:
+        n -= 2*LONGLONG_TEST
+    return r_longlong(n)
 
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
@@ -388,6 +400,8 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
+
+longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 
 # float as string  -> sign, beforept, afterpt, exponent

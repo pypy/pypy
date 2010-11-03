@@ -24,6 +24,10 @@ class AppTestMarshalMore:
         assert z == 10000000000
         z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
         assert z == -10000000000
+        z = marshal.loads('I\x88\x87\x86\x85\x84\x83\x82\x01')
+        assert z == 108793946209421192
+        z = marshal.loads('I\xd8\xd8\xd9\xda\xdb\xdc\xcd\xfe')
+        assert z == -0x0132232425262728
 
     def test_buffer(self):
         import marshal

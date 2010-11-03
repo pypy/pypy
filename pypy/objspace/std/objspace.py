@@ -176,7 +176,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
-            xxxxxxxxx
+            if self.config.objspace.std.withsmalllong:
+                from pypy.objspace.std.smalllongobject import W_SmallLongObject
+                from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+                from pypy.rlib.rarithmetic import longlongmax
+                if (not isinstance(x, r_ulonglong)
+                    or x <= r_ulonglong(longlongmax)):
+                    return W_SmallLongObject(r_longlong(x))
             return W_LongObject.fromrarith_int(x)
 
         # _____ below here is where the annotator should not get _____
@@ -274,7 +280,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newlong(self, val): # val is an int
         if self.config.objspace.std.withsmalllong:
             from pypy.objspace.std.smalllongobject import W_SmallLongObject
-            return W_SmallLongObject.fromint(self, val)
+            return W_SmallLongObject.fromint(val)
         return W_LongObject.fromint(self, val)
 
     def newtuple(self, list_w):
