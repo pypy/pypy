@@ -944,6 +944,17 @@ class scoped_str2charp:
     def __exit__(self, *args):
         free_charp(self.buf)
 
+
+class scoped_nonmovingbuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmovingbuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmovingbuffer(self.data, self.buf)
+
+
 class scoped_alloc_buffer:
     def __init__(self, size):
         self.size = size
