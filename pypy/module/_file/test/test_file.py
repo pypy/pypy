@@ -108,9 +108,12 @@ class AppTestFile(object):
         f.write("\r\n")
         assert f.newlines is None
         f.close()
+        assert f.newlines is None
         f = self.file(self.temppath, "rU")
         res = f.read()
         assert res == "\n"
+        assert f.newlines == "\r\n"
+        f.close()
         assert f.newlines == "\r\n"
 
     def test_unicode(self):
