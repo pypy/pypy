@@ -34,6 +34,10 @@ def test_direct():
         space.lshift(w5, space.wrap(49)), w14000000000000)) is False
     assert space.is_true(space.eq(
         space.lshift(w5, space.wrap(50)), w14000000000000)) is True
+    #
+    w_huge = space.sub(space.lshift(w5, space.wrap(150)), space.wrap(1))
+    wx = space.and_(w14000000000000, w_huge)
+    assert space.is_true(space.eq(wx, w14000000000000))
 
 
 class AppTestSmallLong(test_longobject.AppTestLong):
