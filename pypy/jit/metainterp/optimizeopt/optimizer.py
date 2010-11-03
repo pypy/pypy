@@ -320,7 +320,6 @@ class Optimizer(Optimization):
         self.i = 0
         while self.i < len(self.loop.operations):
             op = self.loop.operations[self.i]
-            #print "OP: %s" % op
             self.first_optimization.propagate_forward(op)
             self.i += 1
         self.loop.operations = self.newoperations

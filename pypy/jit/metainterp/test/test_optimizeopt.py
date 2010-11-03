@@ -3553,6 +3553,41 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, expected)
 
+    def test_getfield_guard_const_preamble(self):
+        ops = """
+        [p0]
+        p01 = getfield_gc(p0, descr=nextdescr)
+        p02 = getfield_gc(p01, descr=valuedescr)
+        guard_value(p01, ConstPtr(myptr)) []
+        p11 = getfield_gc(p0, descr=nextdescr)
+        p12 = getfield_gc(p11, descr=valuedescr)
+        guard_value(p11, ConstPtr(myptr)) []
+        p64 = call_may_force(p02, p12, descr=plaincalldescr)
+
+        p21 = getfield_gc(p0, descr=nextdescr)
+        p22 = getfield_gc(p21, descr=valuedescr)
+        guard_value(p21, ConstPtr(myptr)) []
+        p31 = getfield_gc(p0, descr=nextdescr)
+        p32 = getfield_gc(p31, descr=valuedescr)
+        guard_value(p31, ConstPtr(myptr)) []
+        p65 = call_may_force(p22, p32, descr=plaincalldescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p01 = getfield_gc(p0, descr=nextdescr)
+        p02 = getfield_gc(p01, descr=valuedescr)
+        guard_value(p01, ConstPtr(myptr)) []
+        p64 = call_may_force(p02, p02, descr=plaincalldescr)
+
+        p21 = getfield_gc(p0, descr=nextdescr)
+        p22 = getfield_gc(p21, descr=valuedescr)
+        guard_value(p21, ConstPtr(myptr)) []
+        p65 = call_may_force(p22, p22, descr=plaincalldescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected)
+        
     def test_addsub_ovf(self):
         ops = """
         [i0]
