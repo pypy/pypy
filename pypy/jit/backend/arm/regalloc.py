@@ -15,6 +15,7 @@ class ARMRegisterManager(RegisterManager):
     def update_bindings(self, enc, inputargs):
         j = 0
         for i in range(len(inputargs)):
+            # XXX decode imm and and stack locs
             while enc[j] == '\xFE':
                 j += 1
             self.force_allocate_reg(inputargs[i], selected_reg=r.all_regs[ord(enc[j])])
@@ -24,6 +25,11 @@ class ARMRegisterManager(RegisterManager):
         return locations.ImmLocation(c.value)
 
 class ARMFrameManager(FrameManager):
+    def __init__(self):
+        FrameManager.__init__(self)
+        self.frame_depth = 1
+
     @staticmethod
     def frame_pos(loc, type):
-        pass
+        # XXX for now we only have one word stack locs
+        return locations.StackLocation(loc)

@@ -21,19 +21,17 @@ class IntOpAsslember(object):
 
     def emit_op_int_add(self, op, regalloc, fcond):
         # assuming only one argument is constant
-        res = regalloc.force_allocate_reg(op.result)
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         imm_a0 = isinstance(a0, ConstInt) and (a0.getint() <= 0xFF or -1 * a0.getint() <= 0xFF)
         imm_a1 = isinstance(a1, ConstInt) and (a1.getint() <= 0xFF or -1 * a1.getint() <= 0xFF)
-        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=imm_a0)
-        l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=imm_a1)
         if imm_a0:
             imm_a0, imm_a1 = imm_a1, imm_a0
             a0, a1 = a1, a0
         if imm_a1:
             l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=True)
+            res = regalloc.force_allocate_reg(op.result)
             if l1.getint() < 0:
                 self.mc.SUB_ri(res.value, l0.value, -1 * l1.getint())
             else:
@@ -41,6 +39,7 @@ class IntOpAsslember(object):
         else:
             l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
+            res = regalloc.force_allocate_reg(op.result)
             self.mc.ADD_rr(res.value, l0.value, l1.value)
 
         regalloc.possibly_free_vars_for_op(op)
@@ -48,13 +47,13 @@ class IntOpAsslember(object):
 
     def emit_op_int_sub(self, op, regalloc, fcond):
         # assuming only one argument is constant
-        res = regalloc.force_allocate_reg(op.result)
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         imm_a0 = isinstance(a0, ConstInt) and (a0.getint() <= 0xFF or -1 * a0.getint() <= 0xFF)
         imm_a1 = isinstance(a1, ConstInt) and (a1.getint() <= 0xFF or -1 * a1.getint() <= 0xFF)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=imm_a0)
         l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=imm_a1)
+        res = regalloc.force_allocate_reg(op.result)
         if imm_a0:
             value = l0.getint()
             if value < 0:
@@ -65,7 +64,7 @@ class IntOpAsslember(object):
                 # reverse substract ftw
                 self.mc.RSB_ri(res.value, l1.value, value)
         elif imm_a1:
-            value = a1.getint()
+            value = l1.getint()
             if value < 0:
                 self.mc.ADD_ri(res.value, l0.value, -1 * value)
             else:
@@ -77,9 +76,9 @@ class IntOpAsslember(object):
         return fcond
 
     def emit_op_int_mul(self, op, regalloc, fcond):
-        res = regalloc.force_allocate_reg(op.result)
         reg1 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         reg2 = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result)
         self.mc.MUL(res.value, reg1.value, reg2.value)
         regalloc.possibly_free_vars_for_op(op)
         return fcond
@@ -91,7 +90,7 @@ class IntOpAsslember(object):
     emit_op_int_and = gen_emit_op_ri('AND')
     emit_op_int_or = gen_emit_op_ri('ORR')
     emit_op_int_xor = gen_emit_op_ri('EOR')
-    emit_op_int_lshift = gen_emit_op_ri('LSL', imm_size=0x1F, commutative=False)
+    emit_op_int_lshift = gen_emit_op_ri('LSL', imm_size=0x1F, allow_zero=False, commutative=False)
     emit_op_int_rshift = gen_emit_op_ri('ASR', imm_size=0x1F, commutative=False)
     emit_op_uint_rshift = gen_emit_op_ri('LSR', imm_size=0x1F, commutative=False)
 
@@ -143,6 +142,7 @@ class GuardOpAssembler(object):
         descr._failure_recovery_code = memaddr
         descr._arm_guard_cond = fcond
         descr._arm_guard_size = self.mc.curraddr() - descr._arm_guard_code
+        regalloc.possibly_free_vars_for_op(op)
 
     def emit_op_guard_true(self, op, regalloc, fcond):
         assert fcond == c.LE
@@ -162,10 +162,11 @@ class OpAssembler(object):
     def emit_op_jump(self, op, regalloc, fcond):
         registers = op.getdescr()._arm_arglocs
         for i in range(op.numargs()):
-            #XXX we are assuming that every value is in a register for now
-            reg = regalloc.make_sure_var_in_reg(op.getarg(i), imm_fine=False)
-            inpreg = registers[i]
-            self.mc.MOV_rr(inpreg.value, reg.value)
+            # avoid moving stuff twice
+            loc = registers[i]
+            prev_loc = regalloc.loc(op.getarg(i))
+            self.mov_loc_loc(prev_loc, loc)
+
         loop_code = op.getdescr()._arm_loop_code
         self.mc.B(loop_code, fcond)
         return fcond

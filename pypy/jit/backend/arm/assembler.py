@@ -57,16 +57,21 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         while(True):
             i += 1
             fail_index += 1
-            r = enc[i]
-            if r == '\xFE':
+            res = enc[i]
+            if res == '\xFE':
                 continue
-            if r == '\xFF':
+            if res == '\xFF':
                 break
-            if r == '\xFD':
+            if res == '\xFD':
                 # imm value
                 value = self.decode32(enc, i+1)
                 i += 4
-            else:
+            elif res == '\xFC': # stack location
+                stack_loc = self.decode32(enc, i+1)
+                #XXX ffuu use propper calculation here
+                value = self.decode32(stack, len(r.all_regs)*WORD+40-stack_loc*WORD)
+                i += 4
+            else: # an int for now
                 reg = ord(enc[i])
                 value = self.decode32(stack, reg*WORD)
 
@@ -96,20 +101,24 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         self.setup_failure_recovery()
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
         decode_registers_addr = llhelper(functype, self.failure_recovery_func)
-        self.mc.PUSH(range(12))     # registers r0 .. r11
+        self.mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
         self.mc.MOV_rr(r.r0.value, r.lr.value)  # move mem block address, to r0 to pass as
                                     # parameter to next procedure call
         self.mc.MOV_rr(r.r1.value, r.sp.value)  # pass the current stack pointer as second param
 
         self.mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
         self.mc.MOV_rr(r.ip.value, r.r0.value)
-        self.mc.LDM(r.sp.value, range(12), w=1) # XXX Replace with POP instr. someday
-
+        self.mc.LDM(r.sp.value, [reg.value for reg in r.all_regs], w=1) # XXX Replace with POP instr. someday
         self.mc.MOV_rr(r.r0.value, r.ip.value)
-
         self.gen_func_epilog()
 
     def _gen_path_to_exit_path(self, op, args, regalloc, fcond=c.AL):
+        """
+        \xFC = stack location
+        \xFD = imm location
+        \xFE = Empty arg
+        """
+
         box = Box()
         reg = regalloc.force_allocate_reg(box)
         # XXX free this memory
@@ -118,13 +127,18 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         j = 0
         while(i < len(args)):
             if args[i]:
-                if not isinstance(args[i], ConstInt):
-                    curreg = regalloc.make_sure_var_in_reg(args[i])
-                    mem[j] = chr(curreg.value)
+                loc = regalloc.loc(args[i])
+                if loc.is_reg():
+                    mem[j] = chr(loc.value)
                     j += 1
-                else:
+                elif loc.is_imm():
                     mem[j] = '\xFD'
-                    self.encode32(mem, j+1, args[i].getint())
+                    self.encode32(mem, j+1, loc.getint())
+                    j += 5
+                else:
+                    #print 'Encoding a stack location'
+                    mem[j] = '\xFC'
+                    self.encode32(mem, j+1, loc.position)
                     j += 5
             else:
                 mem[j] = '\xFE'
@@ -152,11 +166,14 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         while(self.mc.curraddr() % FUNC_ALIGN != 0):
             self.mc.writechar(chr(0))
 
+    epilog_size = 2*WORD
     def gen_func_epilog(self,cond=c.AL):
+        self.mc.MOV_rr(r.sp.value, r.fp.value)
         self.mc.LDM(r.sp.value, [reg.value for reg in r.callee_restored_registers], cond=cond, w=1)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
+        self.mc.MOV_rr(r.fp.value, r.sp.value)
 
     def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
         regs = []
@@ -175,6 +192,10 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         self.align()
         loop_start=self.mc.curraddr()
         self.gen_func_prolog()
+        # XXX
+        #Patch the sp with a correct value
+        self.mc.SUB_ri(r.sp.value, r.sp.value, 10*WORD)
+        # END
         self.gen_bootstrap_code(inputargs, regalloc, looptoken)
         loop_head=self.mc.curraddr()
         looptoken._arm_bootstrap_code = loop_start
@@ -185,7 +206,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
             # XXX consider merging ops with next one if it is an adecuate guard
             opnum = op.getopnum()
             fcond = self.operations[opnum](self, op, regalloc, fcond)
-        self.gen_func_epilog()
+        #self.gen_func_epilog()
         if self._debug_asm:
             self._dump_trace('loop.asm')
         print 'Done assembling'
@@ -213,9 +234,13 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
     def _dump_trace(self, name):
         self.mc._dump_trace(name)
 
-    def _check_imm_arg(self, arg, size=0xFF):
+    def _check_imm_arg(self, arg, size=0xFF, allow_zero=True):
+        if allow_zero:
+            lower_bound = arg.getint() >= 0
+        else:
+            lower_bound = arg.getint() > 0
         #XXX check ranges for different operations
-        return isinstance(arg, ConstInt) and arg.getint() <= size and arg.getint() > 0
+        return isinstance(arg, ConstInt) and arg.getint() <= size and lower_bound
 
     def patch_trace(self, faildescr, bridge_addr):
         # XXX make sure there is enough space at patch target
@@ -228,8 +253,13 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         if prev_loc.is_imm():
             # XXX check size of imm for current instr
             self.mc.gen_load_int(loc.value, prev_loc.getint())
+        elif loc.is_stack():
+            self.mc.STR_ri(prev_loc.value, r.fp.value, loc.position*-WORD)
+        elif prev_loc.is_stack():
+            self.mc.LDR_ri(loc.value, r.fp.value, prev_loc.position*-WORD)
         else:
             self.mc.MOV_rr(loc.value, prev_loc.value)
+    mov_loc_loc = regalloc_mov
 
 def make_operation_list():
     def notimplemented(self, op, regalloc, fcond):

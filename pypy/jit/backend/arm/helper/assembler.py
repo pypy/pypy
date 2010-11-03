@@ -13,27 +13,29 @@ def gen_emit_op_unary_cmp(true_cond, false_cond):
         return fcond
     return f
 
-def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True):
+def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
     def f(self, op, regalloc, fcond):
         ri_op = getattr(self.mc, '%s_ri' % opname)
         rr_op = getattr(self.mc, '%s_rr' % opname)
 
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
-        imm_a0 = self._check_imm_arg(arg0, imm_size)
-        imm_a1 = self._check_imm_arg(arg1, imm_size)
-        res = regalloc.force_allocate_reg(op.result)
+        imm_a0 = self._check_imm_arg(arg0, imm_size, allow_zero=allow_zero)
+        imm_a1 = self._check_imm_arg(arg1, imm_size, allow_zero=allow_zero)
         if commutative and imm_a0:
             l0 = regalloc.make_sure_var_in_reg(arg0, imm_fine=imm_a0)
             l1 = regalloc.make_sure_var_in_reg(arg1)
+            res = regalloc.force_allocate_reg(op.result)
             ri_op(res.value, l1.value, imm=l0.getint(), cond=fcond)
         elif imm_a1:
             l0 = regalloc.make_sure_var_in_reg(arg0, imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(arg1, imm_fine=True)
+            res = regalloc.force_allocate_reg(op.result)
             ri_op(res.value, l0.value, imm=l1.getint(), cond=fcond)
         else:
             l0 = regalloc.make_sure_var_in_reg(arg0, imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(arg1, imm_fine=False)
+            res = regalloc.force_allocate_reg(op.result)
             rr_op(res.value, l0.value, l1.value)
         regalloc.possibly_free_vars_for_op(op)
         return fcond
@@ -61,17 +63,18 @@ def gen_emit_cmp_op(condition, inverse=False):
         else:
             arg0 = op.getarg(1)
             arg1 = op.getarg(0)
-        res = regalloc.force_allocate_reg(op.result)
         # XXX consider swapping argumentes if arg0 is const
         imm_a0 = self._check_imm_arg(arg0)
         imm_a1 = self._check_imm_arg(arg1)
         if imm_a1 and not imm_a0:
             l0 = regalloc.make_sure_var_in_reg(arg0, imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(arg1)
+            l1 = regalloc.make_sure_var_in_reg(arg1, [l0])
+            res = regalloc.force_allocate_reg(op.result)
             self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
         else:
             l0 = regalloc.make_sure_var_in_reg(arg0, imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(arg1, imm_fine=False)
+            l1 = regalloc.make_sure_var_in_reg(arg1, [l0], imm_fine=False)
+            res = regalloc.force_allocate_reg(op.result)
             self.mc.CMP_rr(l0.value, l1.value)
 
         inv = c.get_opposite_of(condition)

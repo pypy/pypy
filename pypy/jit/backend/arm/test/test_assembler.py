@@ -113,7 +113,8 @@ class TestRunningAssembler():
         loop_head = self.a.mc.curraddr()
         self.a.mc.ADD_ri(r.r1.value, r.r1.value, 1)
         self.a.mc.CMP_ri(r.r1.value, 9)
-        self.a.mc.LDR_ri(r.pc.value, r.pc.value, imm=4, cond=c.NE)
+        self.a.mc.LDR_ri(r.pc.value, r.pc.value,
+        imm=self.a.epilog_size, cond=c.NE) # we want to read after the last instr. of gen_func_prolog
         self.a.mc.MOV_rr(r.r0.value, r.r1.value)
         self.a.gen_func_epilog()
         self.a.mc.write32(loop_head)

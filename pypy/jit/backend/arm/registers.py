@@ -10,7 +10,7 @@ sp = r13
 lr = r14
 pc = r15
 
-all_regs = registers[:12]
+all_regs = registers[:11]
 
 callee_resp = [r4, r5, r6, r7, r8, r9, r10, r11]
 callee_saved_registers = callee_resp+[lr]
