@@ -93,17 +93,42 @@ class AppTestSocketConnection(BaseConnectionTest):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
         cls.space = space
-        cls.w_make_pair = space.appexec([], """():
+
+        def socketpair(space):
+            "A socket.socketpair() that works on Windows"
+            import socket, errno
+            serverSocket = socket.socket()
+            serverSocket.bind(('127.0.0.1', 0))
+            serverSocket.listen(1)
+
+            client = socket.socket()
+            client.setblocking(False)
+            try:
+                client.connect(('127.0.0.1', serverSocket.getsockname()[1]))
+            except socket.error, e:
+                assert e.args[0] in (errno.EINPROGRESS, errno.EWOULDBLOCK)
+            server, addr = serverSocket.accept()
+
+            # keep sockets alive during the test
+            cls.connections = server, client
+
+            return space.wrap((server.fileno(), client.fileno()))
+        w_socketpair = space.wrap(interp2app(socketpair))
+
+        cls.w_make_pair = space.appexec(
+            [w_socketpair], """(socketpair):
             import _multiprocessing
             import os
             def make_pair():
-                fd1, fd2 = os.pipe()
+                fd1, fd2 = socketpair()
                 rhandle = _multiprocessing.Connection(fd1, writable=False)
                 whandle = _multiprocessing.Connection(fd2, readable=False)
                 return rhandle, whandle
             return make_pair
         """)
 
-    if sys.platform == "win32":
-        def test_poll(self):
-            skip("poll() does not accept file handles on Windows")
+    def teardown_class(cls):
+        try:
+            del cls.connections
+        except AttributeError:
+            pass

@@ -5,7 +5,7 @@ from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.rlib.rarithmetic import intmask
-import sys, os
+import sys
 
 READABLE = 1
 WRITABLE = 2
@@ -33,7 +33,10 @@ class W_BaseConnection(Wrappable):
 
     def __del__(self):
         lltype.free(self.buffer, flavor='raw')
-        self.do_close()
+        try:
+            self.do_close()
+        except OSError:
+            pass
 
     # Abstract methods
     def do_close(self):
@@ -192,6 +195,35 @@ W_BaseConnection.typedef = TypeDef(
 class W_FileConnection(W_BaseConnection):
     INVALID_HANDLE_VALUE = -1
 
+    if sys.platform == 'win32':
+        def WRITE(self, data):
+            from pypy.rlib._rsocket_rffi import send, geterrno
+            length = send(self.fd, data, len(data), 0)
+            if length < 0:
+                raise WindowsError(geterrno(), "send")
+            return length
+        def READ(self, size):
+            from pypy.rlib._rsocket_rffi import socketrecv, geterrno
+            with rffi.scoped_alloc_buffer(size) as buf:
+                length = socketrecv(self.fd, buf.raw, buf.size, 0)
+                if length < 0:
+                    raise WindowsError(geterrno(), "recv")
+                return buf.str(length)
+        def CLOSE(self):
+            from pypy.rlib._rsocket_rffi import socketclose, geterrno
+            if socketclose(self.fd) < 0:
+                raise WindowsError(geterrno(), "close")
+    else:
+        def WRITE(self, data):
+            import os
+            return os.write(self.fd, data)
+        def READ(self, length):
+            import os
+            return os.read(self.fd, length)
+        def CLOSE(self):
+            import os
+            os.close(self.fd)
+
     def __init__(self, fd, flags):
         W_BaseConnection.__init__(self, flags)
         self.fd = fd
@@ -213,7 +245,7 @@ class W_FileConnection(W_BaseConnection):
 
     def do_close(self):
         if self.is_valid():
-            os.close(self.fd)
+            self.CLOSE()
             self.fd = self.INVALID_HANDLE_VALUE
 
     def do_send_string(self, space, buffer, offset, size):
@@ -255,7 +287,7 @@ class W_FileConnection(W_BaseConnection):
             # XXX inefficient
             data = rffi.charpsize2str(message, size)
             try:
-                count = os.write(self.fd, data)
+                count = self.WRITE(data)
             except OSError, e:
                 raise wrap_oserror(space, e)
             size -= count
@@ -266,7 +298,7 @@ class W_FileConnection(W_BaseConnection):
         remaining = length
         while remaining > 0:
             try:
-                data = os.read(self.fd, remaining)
+                data = self.READ(remaining)
             except OSError, e:
                 raise wrap_oserror(space, e)
             count = len(data)
@@ -282,12 +314,16 @@ class W_FileConnection(W_BaseConnection):
             remaining -= count
             buffer = rffi.ptradd(buffer, count)
 
-    def do_poll(self, space, timeout):
-        # XXX Won't work on Windows
+    if sys.platform == 'win32':
+        def _check_fd(self):
+            return self.fd >= 0
+    else:
+        def _check_fd(self):
+            return self.fd >= 0 and self.fd < rpoll.FD_SETSIZE
 
+    def do_poll(self, space, timeout):
         from pypy.rlib import rpoll
-        # just verify the fd
-        if self.fd < 0 or self.fd > rpoll.FD_SETSIZE:
+        if not self._check_fd():
             raise OperationError(space.w_IOError, space.wrap(
                 "handle out of range in select()"))
 
