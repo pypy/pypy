@@ -4,7 +4,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
 
 class ARMRegisterManager(RegisterManager):
-    all_regs              = r.all_regs[:3]
+    all_regs              = r.all_regs
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
     save_around_call_regs = all_regs

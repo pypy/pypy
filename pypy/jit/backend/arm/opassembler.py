@@ -33,14 +33,14 @@ class IntOpAsslember(object):
             l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=True)
             res = regalloc.force_allocate_reg(op.result)
             if l1.getint() < 0:
-                self.mc.SUB_ri(res.value, l0.value, -1 * l1.getint())
+                self.mc.SUB_ri(res.value, l0.value, -1 * l1.getint(), s=1)
             else:
-                self.mc.ADD_ri(res.value, l0.value, l1.getint())
+                self.mc.ADD_ri(res.value, l0.value, l1.getint(), s=1)
         else:
             l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
             res = regalloc.force_allocate_reg(op.result)
-            self.mc.ADD_rr(res.value, l0.value, l1.value)
+            self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
 
         regalloc.possibly_free_vars_for_op(op)
         return fcond
@@ -58,19 +58,19 @@ class IntOpAsslember(object):
             value = l0.getint()
             if value < 0:
                 # XXX needs a test
-                self.mc.ADD_ri(res.value, l1.value, -1 * value)
-                self.mc.MVN_rr(res.value, l1.value)
+                self.mc.ADD_ri(res.value, l1.value, -1 * value, s=1)
+                self.mc.MVN_rr(res.value, l1.value, s=1)
             else:
                 # reverse substract ftw
-                self.mc.RSB_ri(res.value, l1.value, value)
+                self.mc.RSB_ri(res.value, l1.value, value, s=1)
         elif imm_a1:
             value = l1.getint()
             if value < 0:
-                self.mc.ADD_ri(res.value, l0.value, -1 * value)
+                self.mc.ADD_ri(res.value, l0.value, -1 * value, s=1)
             else:
-                self.mc.SUB_ri(res.value, l0.value, value)
+                self.mc.SUB_ri(res.value, l0.value, value, s=1)
         else:
-            self.mc.SUB_rr(res.value, l0.value, l1.value)
+            self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
 
         regalloc.possibly_free_vars_for_op(op)
         return fcond
@@ -107,6 +107,8 @@ class IntOpAsslember(object):
     emit_op_uint_lt = gen_emit_cmp_op(c.HI, inverse=True)
     emit_op_uint_ge = gen_emit_cmp_op(c.LS, inverse=True)
 
+    emit_op_int_add_ovf = emit_op_int_add
+    emit_op_int_sub_ovf = emit_op_int_sub
 
 
 class UnaryIntOpAssembler(object):
@@ -143,18 +145,20 @@ class GuardOpAssembler(object):
         descr._arm_guard_cond = fcond
         descr._arm_guard_size = self.mc.curraddr() - descr._arm_guard_code
         regalloc.possibly_free_vars_for_op(op)
+        return c.AL
 
     def emit_op_guard_true(self, op, regalloc, fcond):
         assert fcond == c.LE
         cond = c.get_opposite_of(fcond)
         assert cond == c.GT
-        self._emit_guard(op, regalloc, cond)
-        return c.AL
+        return self._emit_guard(op, regalloc, cond)
 
     def emit_op_guard_false(self, op, regalloc, fcond):
         assert fcond == c.EQ
-        self._emit_guard(op, regalloc, fcond)
-        return c.AL
+        return self._emit_guard(op, regalloc, fcond)
+
+    def emit_op_guard_no_overflow(self, op, regalloc, fcond):
+        return self._emit_guard(op, regalloc, c.VS)
 
 class OpAssembler(object):
     _mixin_ = True

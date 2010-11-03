@@ -222,9 +222,9 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
 
     def _patch_sp_offset(self, addr, regalloc):
         cb = ARMv7InMemoryBuilder(addr, ARMv7InMemoryBuilder.size_of_gen_load_int)
-        n = regalloc.frame_manager.frame_depth*WORD
-        if n == 1:
+        if regalloc.frame_manager.frame_depth == 1:
             return
+        n = regalloc.frame_manager.frame_depth*WORD
         if n <= 0xFF:
             cb.SUB_ri(r.sp.value, r.sp.value, n)
         else:
