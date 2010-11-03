@@ -626,6 +626,7 @@ class CStandaloneBuilder(CBuilder):
                         python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -m$(PYPY_MAIN_FUNCTION) -t $< > $*.gcmap')
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                         python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@')
+                mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
 
         else:
             mk.definition('DEBUGFLAGS', '-O1 -g')
