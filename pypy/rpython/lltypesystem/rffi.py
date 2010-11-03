@@ -943,3 +943,14 @@ class scoped_str2charp:
         return self.buf
     def __exit__(self, *args):
         free_charp(self.buf)
+
+class scoped_alloc_buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_buffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_buffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return str_from_buffer(self.raw, self.gc_buf, self.size, length)
