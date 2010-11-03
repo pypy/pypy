@@ -209,22 +209,29 @@ def gen_test_data_reg_shift_reg_func(name, table):
     return f
 
 def gen_test_data_reg_func(name, table):
+    op_name = name[:name.index('_')]
     if name[-2:] == 'ri':
         def f(self):
             func = getattr(self.cb, name)
             func(r.r3.value, r.r7.value, 12)
-            self.assert_equal('%s r3, r7, #12' % name[:name.index('_')])
+            func(r.r3.value, r.r7.value, 12, s=1)
+            self.assert_equal("""
+%(name)s r3, r7, #12
+%(name)sS r3, r7, #12""" % {'name': op_name})
 
     elif table['base'] and table['result']:
         def f(self):
             func = getattr(self.cb, name)
             func(r.r3.value, r.r7.value, r.r12.value)
-            self.assert_equal('%s r3, r7, r12' % name[:name.index('_')])
+            func(r.r3.value, r.r7.value, r.r12.value, s=1)
+            self.assert_equal("""%(name)s r3, r7, r12
+%(name)sS r3, r7, r12
+""" % {'name':op_name})
     else:
         def f(self):
             func = getattr(self.cb, name)
             func(r.r3.value, r.r7.value)
-            self.assert_equal('%s r3, r7' % name[:name.index('_')])
+            self.assert_equal("""%(name)s r3, r7""" % {'name':op_name})
 
     return f
 

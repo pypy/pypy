@@ -184,7 +184,7 @@ def imm_operation(rt, rn, imm):
 
 def reg_operation(rt, rn, rm, imm, s, shifttype):
     # XXX encode shiftype correctly
-    return ((s & 0x1 << 20)
+    return ((s & 0x1) << 20
             | (rn & 0xFF) << 16
             | (rt & 0xFF) << 12
             | (imm & 0x1F) << 7
