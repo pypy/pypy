@@ -22,6 +22,9 @@ class W_BufferedIOBase(W_IOBase):
                               space.wrap('UnsupportedOperation'))
         raise OperationError(w_exc, space.wrap(message))
 
+    def _check_init(self, space):
+        raise NotImplementedError
+
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._unsupportedoperation(space, "read")
