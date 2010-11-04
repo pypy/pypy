@@ -185,7 +185,7 @@ def gen_test_mul_func(name, table):
         def f(self):
             func = getattr(self.cb, name)
             func(r.r3.value, r.r13.value, r.r7.value, r.r12.value)
-            self.assert_equal("""%(name)s r13, r3, r7, r12 """ % {'name':name})
+            self.assert_equal("""%(name)s r3, r13, r7, r12 """ % {'name':name})
     else:
         def f(self):
             func = getattr(self.cb, name)

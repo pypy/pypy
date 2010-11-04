@@ -6,7 +6,9 @@ class ASMInstruction(object):
     asm_opts = '-mcpu=cortex-a8 -march=armv7'
     body = """.section .text
 .arm
-.global main
+_start: .global _start
+        .global main
+        b main
 main:
     .ascii "START"
     %s
