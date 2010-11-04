@@ -42,17 +42,23 @@ Medium tasks
 
 - signal.set_wakeup_fd()
 
+- add 'unicode' in ObjSpace.MethodTable + probably a default implementation that
+  falls back to space.str().
+
 Longer tasks
 ------------
 
-- Implement the _io module.  At least _io.FileIO, and have io.py import
-  everything from _pyio.py
+- Finish the _io module.
 
 - Finish _multiprocessing
 
 - many features are missing from the _ssl module
 
 - Enable -3 option to run test_py3kwarn.
+
+- Change the way the unicodedata module stores its database: in
+  unicodedb_5_2_0.py, the "_composition" map contains values > 2**32 which
+  causes the translation to fail.
 
 More difficult issues
 ---------------------
