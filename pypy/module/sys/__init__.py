@@ -156,3 +156,7 @@ class Module(MixedModule):
         else:
             from pypy.module.sys.interp_encoding import get_w_default_encoder
             return get_w_default_encoder(self.space)
+
+    def get_flag(self, name):
+        space = self.space
+        return space.int_w(space.getattr(self.get('flags'), space.wrap(name)))
