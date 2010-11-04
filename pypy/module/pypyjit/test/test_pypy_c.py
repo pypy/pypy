@@ -519,6 +519,20 @@ class PyPyCJITTests(object):
                     s += g(n)[i]
                 return s
         ''', 143, ([1000], 1000 * 999 / 2))
+        bytecode, = self.get_by_bytecode("BINARY_SUBSCR", True)
+        assert bytecode.get_opnames("guard") == [
+            "guard_false",   # check that the index is >= 0
+            "guard_false",   # check that the index is lower than the current length
+            ]
+        bytecode, _ = self.get_by_bytecode("FOR_ITER", True) # second bytecode is the end of the loop
+        assert bytecode.get_opnames("guard") == [
+            "guard_value",
+            "guard_class",   # check the class of the iterator
+            "guard_nonnull", # check that the iterator is not finished
+            "guard_isnull",  # check that the range list is not forced
+            "guard_false",   # check that the index is lower than the current length
+            ]
+
         bytecode, = self.get_by_bytecode("BINARY_SUBSCR")
         assert bytecode.get_opnames("guard") == [
             "guard_false",   # check that the index is >= 0
@@ -526,12 +540,9 @@ class PyPyCJITTests(object):
             ]
         bytecode, _ = self.get_by_bytecode("FOR_ITER") # second bytecode is the end of the loop
         assert bytecode.get_opnames("guard") == [
-            "guard_class",   # check the class of the iterator
-            "guard_nonnull", # check that the iterator is not finished
-            "guard_isnull",  # check that the range list is not forced
             "guard_false",   # check that the index is lower than the current length
             ]
- 
+
     def test_exception_inside_loop_1(self):
         py.test.skip("exceptions: in-progress")
         self.run_source('''
