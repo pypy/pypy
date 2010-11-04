@@ -478,6 +478,10 @@ class TestX86OverflowMC(TestX86):
             # whether the test segfaults.
             assert self.cpu.get_latest_value_int(0) == finished.value
 
+    def test_overflow_guard_exception(self):
+        for i in range(50):
+            self.test_exceptions()
+
 
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):
