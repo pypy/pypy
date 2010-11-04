@@ -147,6 +147,7 @@ class AppTestAppFloatTest:
         assert float(X()) == 42.
 
     def test_round(self):
+        import math
         assert 1.0 == round(1.0)
         assert 1.0 == round(1.1)
         assert 2.0 == round(1.9)
@@ -158,6 +159,11 @@ class AppTestAppFloatTest:
         assert 22.2 == round(22.222222, 1)
         assert 20.0 == round(22.22222, -1)
         assert 0.0 == round(22.22222, -2)
+        #
+        assert round(123.456, -308) == 0.0
+        assert round(123.456, -700) == 0.0
+        assert round(123.456, -2**100) == 0.0
+        assert math.copysign(1., round(-123.456, -700)) == -1.
 
     def test_special_float_method(self):
         class a(object):
