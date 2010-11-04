@@ -60,6 +60,9 @@ Longer tasks
   unicodedb_5_2_0.py, the "_composition" map contains values > 2**32 which
   causes the translation to fail.
 
+- "Shorter float representation": copy dtoa.c from CPython and use it to
+  format/parse floats.  Enable this with a translation option.
+
 More difficult issues
 ---------------------
 
