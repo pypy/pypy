@@ -82,11 +82,20 @@ class AppTestUnicodeData:
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
 
+    def test_normalize_wide(self):
+        import sys, unicodedata
+        if sys.maxunicode < 0x10ffff:
+            skip("requires a 'wide' python build.")
+        # XXX this fails!
+        # Try to enable the three lines containing "69785 << 17 | 69818"
+        # in unicodedb_5_2_0.py;  then fix translation...
+        assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
+
 class TestUnicodeData(object):
     def setup_class(cls):
         import random, unicodedata
-        if unicodedata.unidata_version != '4.1.0':
-            skip('Needs python with unicode 4.1.0 database.')
+        if unicodedata.unidata_version != '5.2.0':
+            skip('Needs python with unicode 5.2.0 database.')
 
         seed = random.getrandbits(32)
         print "random seed: ", seed
