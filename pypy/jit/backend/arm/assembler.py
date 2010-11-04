@@ -225,15 +225,19 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         if regalloc.frame_manager.frame_depth == 1:
             return
         n = regalloc.frame_manager.frame_depth*WORD
-        if n <= 0xFF:
+        self._adjust_sp(n, cb)
+
+    def _adjust_sp(self, n, cb=None, fcond=c.AL):
+        if cb is None:
+            cb = self.mc
+        if n <= 0xFF and fcond == c.AL:
             cb.SUB_ri(r.sp.value, r.sp.value, n)
         else:
             b = Box()
             reg = regalloc.force_allocate_reg(b)
-            cb.gen_load_int(reg.value, n)
-            cb.SUB_rr(r.sp.value, r.sp.value, reg.value)
+            cb.gen_load_int(reg.value, n, cond=fcond)
+            cb.SUB_rr(r.sp.value, r.sp.value, reg.value, cond=fcond)
             regalloc.possibly_free_var(reg)
-
 
     def assemble_bridge(self, faildescr, inputargs, operations):
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)

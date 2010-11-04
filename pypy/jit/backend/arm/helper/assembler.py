@@ -47,9 +47,8 @@ def gen_emit_op_by_helper_call(opname):
         arg2 = regalloc.make_sure_var_in_reg(op.getarg(1), selected_reg=r.r1, imm_fine=False)
         assert arg1 == r.r0
         assert arg2 == r.r1
-        res = regalloc.force_allocate_reg(op.result)
+        res = regalloc.force_allocate_reg(op.result, selected_reg=r.r0)
         getattr(self.mc, opname)(fcond)
-        self.mc.MOV_rr(res.value, r.r0.value, cond=fcond)
         regalloc.possibly_free_vars_for_op(op)
         return fcond
     return f

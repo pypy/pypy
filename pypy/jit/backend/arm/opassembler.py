@@ -10,7 +10,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_ri, gen_emit_cmp_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
-from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
+from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
@@ -193,3 +193,29 @@ class OpAssembler(object):
     def emit_op_finish(self, op, regalloc, fcond):
         self._gen_path_to_exit_path(op, op.getarglist(), regalloc, c.AL)
         return fcond
+
+    def emit_op_call(self, op, regalloc, fcond):
+        locs = []
+        # all arguments past the 4th go on the stack
+        # XXX support types other than int (one word types)
+        if op.numargs() > 5:
+            stack_args = op.numargs() - 5
+            n = stack_args*WORD
+            self._adjust_sp(n, fcond=fcond)
+            for i in range(5, op.numargs()):
+                reg = regalloc.make_sure_var_in_reg(op.getarg(i))
+                self.mc.STR_ri(reg.value, r.sp.value, (i-5)*WORD)
+                regalloc.possibly_free_var(reg)
+
+        adr = self.cpu.cast_adr_to_int(op.getarg(0).getint())
+        regalloc.before_call()
+
+        reg_args = min(op.numargs()-1, 4)
+        for i in range(1, reg_args+1):
+            l = regalloc.make_sure_var_in_reg(op.getarg(i),
+                                            selected_reg=r.all_regs[i-1])
+            locs.append(l)
+        self.mc.BL(adr)
+        regalloc.force_allocate_reg(op.result, selected_reg=r.r0)
+        regalloc.after_call(op.result)
+        regalloc.possibly_free_vars(locs)

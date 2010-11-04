@@ -1,7 +1,7 @@
 from pypy.jit.backend.arm.assembler import AssemblerARM
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 
 
 class ArmCPU(AbstractLLCPU):
@@ -51,3 +51,7 @@ class ArmCPU(AbstractLLCPU):
         #    LLInterpreter.current_interpreter = prev_interpreter
         return res
 
+    @staticmethod
+    def cast_ptr_to_int(x):
+        adr = llmemory.cast_ptr_to_adr(x)
+        return self.cast_adr_to_int(adr)

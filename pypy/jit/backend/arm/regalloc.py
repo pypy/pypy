@@ -7,7 +7,7 @@ class ARMRegisterManager(RegisterManager):
     all_regs              = r.all_regs
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
-    save_around_call_regs = all_regs
+    save_around_call_regs = r.caller_resp
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
@@ -23,6 +23,9 @@ class ARMRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         return locations.ImmLocation(c.value)
+
+    def call_result_location(self, v):
+        return r.r0
 
 class ARMFrameManager(FrameManager):
     def __init__(self):

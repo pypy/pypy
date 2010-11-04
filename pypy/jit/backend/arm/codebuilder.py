@@ -146,27 +146,27 @@ class ARMv7Builder(AbstractARMv7Builder):
 
     _space_for_jump = 2 * WORD
     def writechar(self, char):
-        if self.checks and not self._pos < self._size - self._space_for_jump:
-            self.checks = False
+        if self.checks and not self._pos < self._size - self._space_for_jump - WORD:
             self._add_more_mem()
-            self.checks = True
-        assert self._pos < self._size
+        assert self._pos < self._size - 1
         AbstractARMv7Builder.writechar(self, char)
 
     def _add_more_mem(self):
+        self.checks = False
         new_mem = alloc(self._size)
         new_mem_addr = rffi.cast(lltype.Signed, new_mem)
         self.LDR_ri(reg.pc.value, reg.pc.value, -4)
         self.write32(new_mem_addr)
-        self._dump_trace('data%d.asm' % self.n_data)
+        self._dump_trace('data%04d.asm' % self.n_data)
         self.n_data += 1
         self._data = new_mem
         self._pos = 0
+        self.checks = True
 
     def ensure_can_fit(self, n):
         """ensure after this call there is enough space for n instructions
         in a contiguous memory chunk"""
-        if not self._pos + n + self._space_for_jump < self._size:
+        if not self._pos + n + self._space_for_jump < self._size - WORD:
             self._add_more_mem()
 
 define_instructions(AbstractARMv7Builder)
