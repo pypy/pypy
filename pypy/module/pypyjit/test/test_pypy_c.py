@@ -286,14 +286,18 @@ class PyPyCJITTests(object):
         ''', 93,
                    ([20], 20),
                     ([31], 32))
-        ops = self.get_by_bytecode("LOOKUP_METHOD")
+        ops = self.get_by_bytecode("LOOKUP_METHOD", True)
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 2
+        assert len(ops[0].get_opnames("guard")) <= 3
         assert not ops[1] # second LOOKUP_METHOD folded away
 
-        ops = self.get_by_bytecode("CALL_METHOD")
+        ops = self.get_by_bytecode("LOOKUP_METHOD")
+        assert not ops[0] # first LOOKUP_METHOD folded away
+        assert not ops[1] # second LOOKUP_METHOD folded away
+
+        ops = self.get_by_bytecode("CALL_METHOD", True)
         assert len(ops) == 2
         for i, bytecode in enumerate(ops):
             if i == 0:
@@ -304,7 +308,12 @@ class PyPyCJITTests(object):
             assert len(bytecode.get_opnames("guard")) <= 6
         assert len(ops[1]) < len(ops[0])
 
-        ops = self.get_by_bytecode("LOAD_ATTR")
+        ops = self.get_by_bytecode("CALL_METHOD")
+        assert len(ops) == 2
+        assert len(ops[0]) <= 1
+        assert len(ops[1]) <= 1
+        
+        ops = self.get_by_bytecode("LOAD_ATTR", True)
         assert len(ops) == 2
         # With mapdict, we get fast access to (so far) the 5 first
         # attributes, which means it is done with only the following
@@ -312,6 +321,10 @@ class PyPyCJITTests(object):
         # a getarrayitem_gc.)
         assert ops[0].get_opnames() == ["getfield_gc",
                                         "guard_nonnull_class"]
+        assert not ops[1] # second LOAD_ATTR folded away
+
+        ops = self.get_by_bytecode("LOAD_ATTR")
+        assert not ops[0] # first LOAD_ATTR folded away
         assert not ops[1] # second LOAD_ATTR folded away
 
     def test_static_classmethod_call(self):
