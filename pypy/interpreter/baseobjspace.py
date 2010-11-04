@@ -299,6 +299,8 @@ class ObjSpace(object):
                 self.timer.start("startup " + modname)
                 mod.init(self)
                 self.timer.stop("startup " + modname)
+        # Force the tick counter to have a valid value
+        self.actionflag.force_tick_counter()
 
     def finish(self):
         self.wait_for_thread_shutdown()
