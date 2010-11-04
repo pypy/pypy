@@ -117,12 +117,21 @@ class BaseStringFormatter(object):
         space = self.space
         x = space.float_w(maybe_float(space, w_value))
         if isnan(x):
-            r = 'nan'
+            if char in 'EFG':
+                r = 'NAN'
+            else:
+                r = 'nan'
         elif isinf(x):
             if x < 0:
-                r = '-inf'
+                if char in 'EFG':
+                    r = '-INF'
+                else:
+                    r = '-inf'
             else:
-                r = 'inf'
+                if char in 'EFG':
+                    r = 'INF'
+                else:
+                    r = 'inf'
         else:
             prec = self.prec
             if prec < 0:
