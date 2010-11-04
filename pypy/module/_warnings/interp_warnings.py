@@ -72,7 +72,7 @@ def setup_context(space, stacklevel):
     # Setup globals and lineno
     ec = space.getexecutioncontext()
     frame = ec.gettopframe_nohidden()
-    while frame and stacklevel:
+    while frame and stacklevel > 1:
         frame = ec.getnextframe_nohidden(frame)
         stacklevel -= 1
     if frame:
@@ -106,8 +106,8 @@ def setup_context(space, stacklevel):
         if not e.match(space, space.w_KeyError):
             raise
         if space.str_w(w_module) == '__main__':
-            w_argv = space.sys.get('argv')
-            if space.int_w(space.len(w_argv)) > 0:
+            w_argv = space.sys.getdictvalue(space, 'argv')
+            if w_argv and space.int_w(space.len(w_argv)) > 0:
                 w_filename = space.getitem(w_argv, space.wrap(0))
                 if not space.is_true(w_filename):
                     w_filename = space.wrap('__main__')
@@ -157,7 +157,7 @@ def get_filter(space, w_category, w_text, lineno, w_module):
     return action, None
 
 def get_default_action(space):
-    w_action = get_warnings_attr(space, "default_action");
+    w_action = get_warnings_attr(space, "defaultaction");
     if w_action is None:
         return space.str_w(space.fromcache(State).w_default_action)
 

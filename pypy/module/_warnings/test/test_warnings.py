@@ -25,3 +25,16 @@ class AppTestWarnings:
         _warnings.warn_explicit("some message", Warning,
                                 "<string>", 1, module_globals=globals())
 
+    def test_default_action(self):
+        import warnings, _warnings
+        warnings.defaultaction = 'ignore'
+        warnings.resetwarnings()
+        with warnings.catch_warnings(record=True) as w:
+            __warningregistry__ = {}
+            _warnings.warn_explicit("message", UserWarning, "<test>", 44,
+                                    registry={})
+            assert len(w) == 0
+        warnings.defaultaction = 'default'
+
+
+
