@@ -196,6 +196,9 @@ class Optimization(object):
     def force_at_end_of_preamble(self):
         pass
 
+    def turned_constant(self, value):
+        pass
+
 class Optimizer(Optimization):
 
     def __init__(self, metainterp_sd, loop, optimizations=None):
@@ -230,6 +233,10 @@ class Optimizer(Optimization):
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.metainterp_sd)
         for o in self.optimizations:
             o.force_at_end_of_preamble()
+
+    def turned_constant(self, value):
+        for o in self.optimizations:
+            o.turned_constant(value)
 
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(jitprof.OPT_FORCINGS)

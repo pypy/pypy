@@ -151,6 +151,16 @@ class OptHeap(Optimization):
 
     def force_at_end_of_preamble(self):
         self.force_all_lazy_setfields()
+
+    def turned_constant(self, value):
+        assert value.is_constant()
+        newvalue = self.getvalue(value.box)
+        if value is not newvalue:
+            for d in self.cached_fields.values():
+                if value in d:
+                    d[newvalue] = d[value]
+        # FIXME: Update the other caches too?
+        
         
     def force_lazy_setfield(self, descr, before_guard=False):
         try:
