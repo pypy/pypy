@@ -174,7 +174,7 @@ def get_once_registry(space):
 
 def update_registry(space, w_registry, w_text, w_category):
     w_key = space.newtuple([w_text, w_category])
-    return already_warned(space, w_registry, w_altkey, should_set=True)
+    return already_warned(space, w_registry, w_key, should_set=True)
 
 def already_warned(space, w_registry, w_key, should_set=False):
     try:
@@ -195,7 +195,9 @@ def normalize_module(space, w_filename):
     filename = space.str_w(w_filename)
     length = len(filename)
     if filename.endswith(".py"):
-        filename = filename[:-3]
+        n = len(filename) - 3
+        assert n >= 0
+        filename = filename[:n]
     return space.wrap(filename)
 
 def show_warning(space, w_filename, lineno, w_text, w_category,
@@ -211,11 +213,12 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     # Print "  source_line\n"
     if w_sourceline:
         line = space.str_w(w_sourceline)
+        message = "\n"
         for i in range(len(line)):
             c = line[i]
             if c not in ' \t\014':
+                message = "  %s\n" % (line[i:],)
                 break
-        message = "  %s\n" % (line[i:],)
         space.call_method(w_stderr, "write", space.wrap(message))
 
 def do_warn(space, w_message, w_category, stacklevel):
@@ -294,8 +297,10 @@ def warn(space, w_message, w_category=None, stacklevel=1):
     do_warn(space, w_message, w_category, stacklevel)
 
 
-def warn_with_loader(space, w_message, w_category, w_filename, lineno,
-                     w_module, w_registry, w_globals):
+def get_source_line(space, w_globals, lineno):
+    if space.is_w(w_globals, space.w_None):
+        return None
+
     # Check/get the requisite pieces needed for the loader.
     try:
         w_loader = space.getitem(w_globals, space.wrap("__loader__"))
@@ -303,7 +308,7 @@ def warn_with_loader(space, w_message, w_category, w_filename, lineno,
     except OperationError, e:
         if not e.match(space, space.w_KeyError):
             raise
-        return # perform standard call
+        return None
 
     # Make sure the loader implements the optional get_source() method.
     try:
@@ -311,31 +316,26 @@ def warn_with_loader(space, w_message, w_category, w_filename, lineno,
     except OperationError, e:
         if not e.match(space, space.w_AttributeError):
             raise
-        return # perform standard call
+        return None
 
     # Call get_source() to get the source code.
     w_source = space.call_function(w_get_source, w_module_name)
     if space.is_w(w_source, space.w_None):
-        return # perform standard call
+        return None
+
     # Split the source into lines.
     w_source_list = space.call_method(w_source, "splitlines")
+
     # Get the source line.
     w_source_line = space.getitem(w_source_list, space.wrap(lineno - 1))
-
-    # Handle the warning.
-    do_warn_explicit(space, w_category, w_message,
-                     (w_filename, lineno, w_module, w_registry),
-                     w_source_line)
-    return True
+    return w_source_line
 
 @unwrap_spec(ObjSpace, W_Root, W_Root, W_Root, int, W_Root, W_Root, W_Root)
 def warn_explicit(space, w_message, w_category, w_filename, lineno,
                   w_module=None, w_registry=None, w_module_globals=None):
 
-    if not space.is_w(w_module_globals, space.w_None):
-        if warn_with_loader(space, w_message, w_category, w_filename, lineno,
-                            w_module, w_registry, w_module_globals):
-            return
+    w_source_line = get_source_line(space, w_module_globals, lineno)
 
     do_warn_explicit(space, w_category, w_message,
-                     (w_filename, lineno, w_module, w_registry))
+                     (w_filename, lineno, w_module, w_registry),
+                     w_source_line)
