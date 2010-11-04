@@ -268,6 +268,7 @@ default_options = dict.fromkeys(
 
 def parse_command_line(argv):
     options = default_options.copy()
+    options['warnoptions'] = []
     print_sys_flags = False
     i = 0
     while i < len(argv):
@@ -335,7 +336,8 @@ def parse_command_line(argv):
             options["run_module"] = True
             break
         elif arg.startswith('-W'):
-            options["warnoptions"], i = get_argument('-W', argv, i)
+            warnoption, i = get_argument('-W', argv, i)
+            options["warnoptions"].append(warnoption)
         elif arg.startswith('--jit'):
             jitparam, i = get_argument('--jit', argv, i)
             if 'pypyjit' not in sys.builtin_module_names:
@@ -401,8 +403,11 @@ def run_command_line(interactive,
     # "site.py" file in the script's directory.
     sys.path.insert(0, '')
 
+    pythonwarnings = os.getenv('PYTHONWARNINGS')
+    if pythonwarnings:
+        warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
-        sys.warnoptions.append(warnoptions)
+        sys.warnoptions[:] = warnoptions
         from warnings import _processoptions
         _processoptions(sys.warnoptions)
 

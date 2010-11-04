@@ -431,6 +431,16 @@ class TestNonInteractive:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
+    def test_pythonwarnings(self):
+        old = os.environ.get('PYTHONWARNINGS', '')
+        try:
+            os.environ['PYTHONWARNINGS'] = "once,error"
+            data = self.run('-W ignore -W default '
+                            '-c "import sys; print sys.warnoptions"')
+            assert "['ignore', 'default', 'once', 'error']" in data
+        finally:
+            os.environ['PYTHONWARNINGS'] = old
+
     def test_option_m(self):
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
