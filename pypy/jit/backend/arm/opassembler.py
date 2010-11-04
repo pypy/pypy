@@ -1,6 +1,7 @@
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
+from pypy.jit.backend.arm import shift
 from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
                                         arm_int_div_sign, arm_int_mod_sign, arm_int_mod)
 
@@ -83,6 +84,16 @@ class IntOpAsslember(object):
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
+    #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
+    def emit_op_int_mul_ovf(self, op, regalloc, fcond):
+        reg1 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        reg2 = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result)
+        self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
+        self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, s=31, cond=fcond)
+        regalloc.possibly_free_vars_for_op(op)
+        return fcond
+
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
     emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
     emit_op_uint_floordiv = gen_emit_op_by_helper_call('UDIV')
@@ -109,6 +120,7 @@ class IntOpAsslember(object):
 
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
+
 
 
 class UnaryIntOpAssembler(object):
@@ -159,6 +171,9 @@ class GuardOpAssembler(object):
 
     def emit_op_guard_no_overflow(self, op, regalloc, fcond):
         return self._emit_guard(op, regalloc, c.VS)
+
+    def emit_op_guard_overflow(self, op, regalloc, fcond):
+        return self._emit_guard(op, regalloc, c.VC)
 
 class OpAssembler(object):
     _mixin_ = True

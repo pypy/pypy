@@ -165,7 +165,7 @@ def define_multiply_instructions(name, table):
                             | (rn & 0xF))
 
     elif 'long' in table and table['long']:
-       def f(self, rdhi, rdlo, rn, rm, cond=cond.AL):
+       def f(self, rdlo, rdhi, rn, rm, cond=cond.AL):
             assert rdhi != rdlo
             self.write32(n
                         | cond << 28
