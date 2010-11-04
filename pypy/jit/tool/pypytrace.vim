@@ -22,7 +22,7 @@ syn match pypyDebugMergePoint  '^debug_merge_point(.\+)'
 hi def link pypyLoopStart   Structure
 "hi def link pypyLoopArgs    PreProc
 hi def link pypyFailArgs    String
-hi def link pypyOpName      Statement
+"hi def link pypyOpName      Statement
 hi def link pypyDebugMergePoint  Comment
 hi def link pypyConstPtr    Constant
 hi def link pypyNumber      Number
