@@ -245,9 +245,10 @@ class PyPyCJITTests(object):
         ''', 98,
                    ([20], 20),
                     ([31], 32))
-        ops = self.get_by_bytecode("LOAD_GLOBAL")
+        ops = self.get_by_bytecode("LOAD_GLOBAL", True)
         assert len(ops) == 5
-        assert ops[0].get_opnames() == ["getfield_gc", "guard_value",
+        assert ops[0].get_opnames() == ["guard_value",
+                                        "getfield_gc", "guard_value",
                                         "getfield_gc", "guard_isnull",
                                         "getfield_gc", "guard_nonnull_class"]
         # the second getfield on the same globals is quicker
@@ -259,7 +260,7 @@ class PyPyCJITTests(object):
         assert ops[3].get_opnames() == ["guard_value",
                                         "getfield_gc", "guard_isnull"]
         assert not ops[4]
-        ops = self.get_by_bytecode("CALL_FUNCTION")
+        ops = self.get_by_bytecode("CALL_FUNCTION", True)
         assert len(ops) == 2
         for i, bytecode in enumerate(ops):
             if i == 0:
@@ -268,6 +269,17 @@ class PyPyCJITTests(object):
                 assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
             assert len(bytecode.get_opnames("guard")) <= 10
+
+        ops = self.get_by_bytecode("LOAD_GLOBAL")
+        assert len(ops) == 5
+        for bytecode in ops:
+            assert not bytecode
+
+        ops = self.get_by_bytecode("CALL_FUNCTION")
+        assert len(ops) == 2
+        for bytecode in ops:
+            assert len(bytecode) <= 1
+        
 
     def test_method_call(self):
         self.run_source('''
