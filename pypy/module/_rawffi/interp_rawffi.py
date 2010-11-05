@@ -501,6 +501,13 @@ def charp2rawstring(space, address, maxlength=-1):
     return space.wrap(s)
 charp2rawstring.unwrap_spec = [ObjSpace, r_uint, int]
 
+def wcharp2rawunicode(space, address, maxlength=-1):
+    if maxlength == -1:
+        return wcharp2unicode(space, address)
+    s = rffi.wcharpsize2unicode(rffi.cast(rffi.CCHARP, address), maxlength)
+    return space.wrap(s)
+charp2rawstring.unwrap_spec = [ObjSpace, r_uint, int]
+
 if _MS_WINDOWS:
     def FormatError(space, code):
         return space.wrap(rwin32.FormatError(code))

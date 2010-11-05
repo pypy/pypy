@@ -142,13 +142,12 @@ class SimpleType(_CDataMeta):
             result.value = property(_getvalue, _setvalue)
         elif tp == 'Z':
             # c_wchar_p
-            from _ctypes import _wstring_at_addr
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
-                    return _wstring_at_addr(addr, -1)
+                    return _rawffi.wcharp2unicode(addr)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):
@@ -217,14 +216,13 @@ class SimpleType(_CDataMeta):
             SysAllocStringLen = windll.oleaut32.SysAllocStringLen
             SysStringLen = windll.oleaut32.SysStringLen
             SysFreeString = windll.oleaut32.SysFreeString
-            from _ctypes import _wstring_at_addr
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
                     size = SysStringLen(addr)
-                    return _wstring_at_addr(addr, size)
+                    return _rawffi.wcharp2rawunicode(addr, size)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):

@@ -23,13 +23,4 @@ def set_conversion_mode(encoding, errors):
 def _wstring_at_addr(addr, lgt):
     import ctypes
     arg = ctypes.c_void_p._CData_value(addr)
-    # XXX purely applevel
-    if lgt == -1:
-        lgt = sys.maxint
-    a = _rawffi.Array('u').fromaddress(arg, lgt)
-    res = []
-    for i in xrange(lgt):
-        if lgt == sys.maxint and a[i] == '\x00':
-            break
-        res.append(a[i])
-    return u''.join(res)
+    return _rawffi.wcharp2rawunicode(arg, lgt)
