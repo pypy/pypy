@@ -746,6 +746,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
         ("SIZEOF_VOID_P", rffi.VOIDP),
         ("SIZEOF_SIZE_T", rffi.SIZE_T),
+        ("SIZEOF_TIME_T", rffi.TIME_T),
         ("SIZEOF_LONG", rffi.LONG),
         ("SIZEOF_SHORT", rffi.SHORT),
         ("SIZEOF_INT", rffi.INT)
