@@ -77,4 +77,5 @@ class AppTestHashlib:
         h = _hashlib.new('md5', b)
         h.update(b)
         assert h.digest() == _hashlib.openssl_md5('x' * 20).digest()
+        _hashlib.openssl_sha1(b).digest()
 

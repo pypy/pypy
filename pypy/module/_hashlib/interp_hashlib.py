@@ -123,7 +123,7 @@ def new(space, name, string=''):
 # shortcut functions
 def make_new_hash(name, funcname):
     @func_renamer(funcname)
-    @unwrap_spec(ObjSpace, str)
+    @unwrap_spec(ObjSpace, 'bufferstr')
     def new_hash(space, string=''):
         return new(space, name, string)
     return new_hash
