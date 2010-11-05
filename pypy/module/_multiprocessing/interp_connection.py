@@ -211,9 +211,7 @@ class W_FileConnection(W_BaseConnection):
                     raise WindowsError(geterrno(), "recv")
                 return buf.str(length)
         def CLOSE(self):
-            from pypy.rlib._rsocket_rffi import socketclose, geterrno
-            if socketclose(self.fd) < 0:
-                raise WindowsError(geterrno(), "close")
+            socketclose(self.fd)
     else:
         def WRITE(self, data):
             import os
@@ -223,7 +221,10 @@ class W_FileConnection(W_BaseConnection):
             return os.read(self.fd, length)
         def CLOSE(self):
             import os
-            os.close(self.fd)
+            try:
+                os.close(self.fd)
+            except OSError:
+                pass
 
     def __init__(self, fd, flags):
         W_BaseConnection.__init__(self, flags)

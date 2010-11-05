@@ -181,6 +181,9 @@ class TinyObjSpace(object):
     def getbuiltinmodule(self, name):
         return __import__(name)
 
+    def delslice(self, obj, *args):
+        obj.__delslice__(*args)
+
 def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")

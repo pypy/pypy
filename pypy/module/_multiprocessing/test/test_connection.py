@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.conftest import gettestobjspace, option
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, W_Root
 
 class TestImport:
     def test_simple(self):
@@ -93,6 +93,7 @@ class AppTestSocketConnection(BaseConnectionTest):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
         cls.space = space
+        cls.w_connections = space.newlist([])
 
         def socketpair(space):
             "A socket.socketpair() that works on Windows"
@@ -110,25 +111,43 @@ class AppTestSocketConnection(BaseConnectionTest):
             server, addr = serverSocket.accept()
 
             # keep sockets alive during the test
-            cls.connections = server, client
+            space.call_method(cls.w_connections, "append", space.wrap(server))
+            space.call_method(cls.w_connections, "append", space.wrap(client))
 
             return space.wrap((server.fileno(), client.fileno()))
-        w_socketpair = space.wrap(interp2app(socketpair))
+        if option.runappdirect:
+            w_socketpair = lambda: socketpair(space)
+        else:
+            w_socketpair = space.wrap(interp2app(socketpair))
 
         cls.w_make_pair = space.appexec(
-            [w_socketpair], """(socketpair):
+            [w_socketpair, cls.w_connections], """(socketpair, connections):
             import _multiprocessing
             import os
             def make_pair():
                 fd1, fd2 = socketpair()
                 rhandle = _multiprocessing.Connection(fd1, writable=False)
                 whandle = _multiprocessing.Connection(fd2, readable=False)
+                connections.append(rhandle)
+                connections.append(whandle)
                 return rhandle, whandle
             return make_pair
         """)
 
-    def teardown_class(cls):
+
+    def teardown_method(self, func):
+        # Work hard to close all sockets and connections now!
+        # since the fd is probably already closed, another unrelated
+        # part of the program will probably reuse it;
+        # And any object forgotten here will close it on destruction...
         try:
-            del cls.connections
+            w_connections = self.w_connections
         except AttributeError:
-            pass
+            return
+        space = self.space
+        for c in space.unpackiterable(w_connections):
+            if isinstance(c, W_Root):
+                space.call_method(c, "close")
+            else:
+                c.close()
+        space.delslice(w_connections, space.wrap(0), space.wrap(100))
