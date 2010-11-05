@@ -237,6 +237,8 @@ class CallControl(object):
                                     effectinfo)
 
     def _canraise(self, op):
+        if op.opname == 'pseudo_call_cannot_raise':
+            return False
         try:
             return self.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:

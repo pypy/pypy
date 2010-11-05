@@ -18,6 +18,7 @@ and threading models, as well as the JIT compiler itself, are aspects of the
 translation process - as opposed to encoding low level details into the
 language implementation itself. `more...`_
 
+
 .. _Python: http://docs.python.org/ref
 .. _`more...`: architecture.html
 

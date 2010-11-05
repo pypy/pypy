@@ -1,6 +1,7 @@
 # tests common to dict and UserDict
 import unittest
 import UserDict
+from test import test_support
 
 
 class BasicTestMappingProtocol(unittest.TestCase):
@@ -525,7 +526,8 @@ class TestMappingProtocol(BasicTestMappingProtocol):
                     self.assertEqual(va, int(ka))
                     kb, vb = tb = b.popitem()
                     self.assertEqual(vb, int(kb))
-                    self.assert_(not(copymode < 0 and ta != tb))
+                    if test_support.check_impl_detail():
+                        self.assert_(not(copymode < 0 and ta != tb))
                 self.assert_(not a)
                 self.assert_(not b)
 

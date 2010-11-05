@@ -93,6 +93,9 @@ class PyPyCJITTests(object):
         # some support code...
         print >> f, py.code.Source("""
             import sys
+            # we don't want to see the small bridges created
+            # by the checkinterval reaching the limit
+            sys.setcheckinterval(10000000)
             try: # make the file runnable by CPython
                 import pypyjit
                 pypyjit.set_param(threshold=%d)
