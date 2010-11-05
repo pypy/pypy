@@ -1,6 +1,13 @@
 import os, sys
 import tempfile
 
+# Monkeypatch & hacks to let ctypes.tests import.
+# This should be removed at some point.
+sys.getrefcount = None
+import _ctypes
+_ctypes.PyObj_FromPtr = None
+del _ctypes
+
 def compile_shared():
     """Compile '_ctypes_test.c' into an extension module, and import it
     """
