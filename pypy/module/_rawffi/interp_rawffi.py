@@ -487,6 +487,13 @@ def charp2string(space, address, maxlength=sys.maxint):
     return space.wrap(s)
 charp2string.unwrap_spec = [ObjSpace, r_uint, int]
 
+def wcharp2unicode(space, address, maxlength=sys.maxint):
+    if address == 0:
+        return space.w_None
+    s = rffi.wcharp2unicoden(rffi.cast(rffi.CWCHARP, address), maxlength)
+    return space.wrap(s)
+wcharp2unicode.unwrap_spec = [ObjSpace, r_uint, int]
+
 def charp2rawstring(space, address, maxlength=-1):
     if maxlength == -1:
         return charp2string(space, address)

@@ -298,6 +298,14 @@ class AppTestFfi:
         arg1.free()
         arg2.free()
 
+    def test_returning_unicode(self):
+        import _rawffi
+        A = _rawffi.Array('u')
+        a = A(6, u'xx\x00\x00xx')
+        res = _rawffi.wcharp2unicode(a.buffer)
+        assert isinstance(res, unicode)
+        assert res == u'xx'
+
     def test_raw_callable(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)

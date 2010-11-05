@@ -22,6 +22,7 @@ class Module(MixedModule):
         'sizeof'             : 'interp_rawffi.sizeof',
         'alignment'          : 'interp_rawffi.alignment',
         'charp2string'       : 'interp_rawffi.charp2string',
+        'wcharp2unicode'     : 'interp_rawffi.wcharp2unicode',
         'charp2rawstring'    : 'interp_rawffi.charp2rawstring',
         'CallbackPtr'        : 'callback.W_CallbackPtr',
         '_num_of_allocated_objects' : 'tracker.num_of_allocated_objects',
