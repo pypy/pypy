@@ -65,6 +65,7 @@ class AppTestPosix:
             cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
+        cls.w_python = space.wrap(sys.executable)
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -374,6 +375,15 @@ class AppTestPosix:
             assert open("onefile").read() == "xxx"
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
+
+    if hasattr(__import__(os.name), "spawnv"):
+        def test_spawnv(self):
+            os = self.posix
+            import sys
+            print self.python
+            ret = os.spawnv(os.P_WAIT, self.python,
+                            ['python', '-c', 'raise(SystemExit(42))'])
+            assert ret == 42
 
     def test_popen(self):
         os = self.posix

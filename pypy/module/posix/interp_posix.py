@@ -714,6 +714,15 @@ Execute a path with arguments and environment, replacing current process.
         raise wrap_oserror(space, e)
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
 
+def spawnv(space, mode, path, w_args):
+    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    try:
+        ret = os.spawnv(mode, path, args)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(ret)
+spawnv.unwrap_spec = [ObjSpace, int, str, W_Root]
+
 def utime(space, w_path, w_tuple):
     """ utime(path, (atime, mtime))
 utime(path, None)
