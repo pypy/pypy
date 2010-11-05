@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.function import Method, Function
+from pypy.interpreter.error import OperationError
 import time, sys
 
 class W_StatsEntry(Wrappable):
