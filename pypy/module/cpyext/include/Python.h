@@ -32,7 +32,23 @@
 # endif
 # define Py_LOCAL_INLINE(type) static __inline type __fastcall
 #endif
-#define DL_IMPORT(RTYPE) PyAPI_FUNC(RTYPE)
+
+/* Deprecated DL_IMPORT and DL_EXPORT macros */
+#ifdef _WIN32
+# if defined(Py_BUILD_CORE)
+#  define DL_IMPORT(RTYPE) __declspec(dllexport) RTYPE
+#  define DL_EXPORT(RTYPE) __declspec(dllexport) RTYPE
+# else
+#  define DL_IMPORT(RTYPE) __declspec(dllimport) RTYPE
+#  define DL_EXPORT(RTYPE) __declspec(dllexport) RTYPE
+# endif
+#endif
+#ifndef DL_EXPORT
+#       define DL_EXPORT(RTYPE) RTYPE
+#endif
+#ifndef DL_IMPORT
+#       define DL_IMPORT(RTYPE) RTYPE
+#endif
 
 #include <stdlib.h>
 
@@ -53,10 +69,6 @@ typedef long Py_ssize_t;
 #define Py_CHARMASK(c)		(c)
 #else
 #define Py_CHARMASK(c)		((unsigned char)((c) & 0xff))
-#endif
-
-#ifndef DL_EXPORT	/* declarations for DLL import/export */
-#define DL_EXPORT(RTYPE) RTYPE
 #endif
 
 #define statichere static
