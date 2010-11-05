@@ -101,7 +101,7 @@ return next yielded value or raise StopIteration."""
         return self.send_ex(space.w_None, operr)
              
     def descr_next(self):
-        """next() -> the next value, or raise StopIteration"""
+        """x.next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
  
     def descr_close(self):
@@ -125,6 +125,13 @@ return next yielded value or raise StopIteration."""
             return self.frame
         else:
             return space.w_None
+
+    def descr_gi_code(space, self):
+        return self.frame.pycode
+
+    def descr__name__(space, self):
+        code_name = self.frame.pycode.co_name
+        return space.wrap(code_name)
 
     def descr__del__(self):        
         """

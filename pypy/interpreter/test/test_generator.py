@@ -5,6 +5,14 @@ class AppTestGenerator:
             yield 1
         assert f().next() == 1
 
+    def test_attributes(self):
+        def f():
+            yield 1
+        g = f()
+        assert g.gi_code is f.func_code
+        assert g.__name__ == 'f'
+        assert g.gi_frame is not None
+
     def test_generator2(self):
         def f():
             yield 1
