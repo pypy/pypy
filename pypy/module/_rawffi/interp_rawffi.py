@@ -504,7 +504,7 @@ charp2rawstring.unwrap_spec = [ObjSpace, r_uint, int]
 def wcharp2rawunicode(space, address, maxlength=-1):
     if maxlength == -1:
         return wcharp2unicode(space, address)
-    s = rffi.wcharpsize2unicode(rffi.cast(rffi.CCHARP, address), maxlength)
+    s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
     return space.wrap(s)
 wcharp2rawunicode.unwrap_spec = [ObjSpace, r_uint, int]
 
