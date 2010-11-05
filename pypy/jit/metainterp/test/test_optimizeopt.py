@@ -3932,6 +3932,69 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_value_proven_to_be_constant_after_two_iterations(self):
+        class FakeDescr(AbstractDescr):
+            def __init__(self, name):
+                self.name = name
+            def sort_key(self):
+                return id(self)
+
+                
+        for n in ('inst_w_seq', 'inst_index', 'inst_w_list', 'inst_length',
+                  'inst_start', 'inst_step'):
+            self.namespace[n] = FakeDescr(n)
+        ops = """
+        [p0, p1, p2, p3, i4, p5, i6, p7, p8, p9, p14]
+        guard_value(i4, 3) []
+        guard_class(p9, 17278984) []
+        guard_class(p9, 17278984) []
+        p22 = getfield_gc(p9, descr=inst_w_seq)
+        guard_nonnull(p22) []
+        i23 = getfield_gc(p9, descr=inst_index)
+        p24 = getfield_gc(p22, descr=inst_w_list)
+        guard_isnull(p24) []
+        i25 = getfield_gc(p22, descr=inst_length)
+        i26 = int_ge(i23, i25)
+        guard_true(i26) []
+        setfield_gc(p9, ConstPtr(myptr), descr=inst_w_seq)
+
+        guard_nonnull(p14)  []
+        guard_class(p14, 17273920) []
+        guard_class(p14, 17273920) []
+
+        p75 = new_with_vtable(17278984)
+        setfield_gc(p75, p14, descr=inst_w_seq)
+        setfield_gc(p75, 0, descr=inst_index)
+        guard_class(p75, 17278984) []
+        guard_class(p75, 17278984) []
+        p79 = getfield_gc(p75, descr=inst_w_seq)
+        guard_nonnull(p79) []
+        i80 = getfield_gc(p75, descr=inst_index)
+        p81 = getfield_gc(p79, descr=inst_w_list)
+        guard_isnull(p81) []
+        i82 = getfield_gc(p79, descr=inst_length)
+        i83 = int_ge(i80, i82)
+        guard_false(i83) []
+        i84 = getfield_gc(p79, descr=inst_start)
+        i85 = getfield_gc(p79, descr=inst_step)
+        i86 = int_mul(i80, i85)
+        i87 = int_add(i84, i86)
+        i91 = int_add(i80, 1)
+        setfield_gc(p75, i91, descr=inst_index)
+        
+        p110 = same_as(ConstPtr(myptr))
+        i112 = same_as(3)
+        i114 = same_as(39)
+        jump(p0, p1, p110, p3, i112, p5, i114, p7, p8, p75, p14)
+        """
+        expected = """
+        [p0, p1, p3, p5, p7, p8, p14, i82]
+        i115 = int_ge(1, i82)
+        guard_true(i115) []
+        jump(p0, p1, p3, p5, p7, p8, p14, 1)
+        """
+        self.optimize_loop(ops, expected)
+        
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble=None):
         if not preamble:

@@ -40,15 +40,9 @@ class OptUnroll(Optimization):
         assert len(loop_args) == len(jump_args)
         for i in range(len(loop_args)):
            argmap[loop_args[i]] = jump_args[i]
-
+           
         for v in self.optimizer.values.values():
             v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
-            if not v.is_constant() and v.box:
-                v.fromstart = True # XXX do we really need to use an attribute?
-
-        for op in self.optimizer.pure_operations.values():
-            v = self.getvalue(op.result)
-            v.fromstart = True
 
         self.snapshot_map = {None: None}
         inputargs = []
@@ -83,29 +77,34 @@ class OptUnroll(Optimization):
             #print 'P: ', str(newop)
             self.emit_operation(newop)
 
-        jmp = self.optimizer.newoperations[-1]
+        # Remove jump to make sure forced code are placed before it
+        newoperations = self.optimizer.newoperations
+        jmp = newoperations[-1]
         assert jmp.getopnum() == rop.JUMP
+        self.optimizer.newoperations = newoperations[:-1]
+
+        boxes_created_this_iteration = {}
         jumpargs = jmp.getarglist()
-        for op in self.optimizer.newoperations:
+
+        # FIXME: Should also loop over operations added by forcing things in this loop 
+        for op in newoperations: 
             #print 'E: ', str(op)
+            boxes_created_this_iteration[op.result] = True
             args = op.getarglist()
             if op.is_guard():
                 args = args + op.getfailargs()
             
             for a in args:
-                if not isinstance(a, Const) and a in self.optimizer.values:
-                    v = self.getvalue(a)
-                    if v.fromstart and not v.is_constant():
-                        b = v.force_box()
-                        if b not in inputargs:
-                        #boxes = []
-                        #v.enum_forced_boxes(boxes, seen_inputargs)
-                        #for b in boxes:
-                            inputargs.append(b)
-                            newval = self.getvalue(argmap[b])
-                            jumpargs.append(newval.force_box())
+                if not isinstance(a, Const) and not a in boxes_created_this_iteration:
+                    if a not in inputargs:
+                        inputargs.append(a)
+                        b = self.getvalue(a).force_box()
+                        if not isinstance(b, Const):
+                            b = self.getvalue(argmap[b]).force_box()
+                        jumpargs.append(b)
 
         jmp.initarglist(jumpargs)
+        self.optimizer.newoperations.append(jmp)
         return inputargs
 
     def inline_arg(self, arg):
