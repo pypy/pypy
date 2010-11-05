@@ -12,7 +12,9 @@ def size_alignment_pos(fields, is_union=False):
     size = 0
     alignment = 1
     pos = []
-    for fieldname, ctype in fields:
+    for field in fields:
+        fieldname = field[0]
+        ctype = field[1]
         fieldsize = ctypes.sizeof(ctype)
         fieldalignment = ctypes.alignment(ctype)
         alignment = max(alignment, fieldalignment)
@@ -28,24 +30,28 @@ def size_alignment_pos(fields, is_union=False):
 
 def names_and_fields(_fields_, superclass, zero_offset=False, anon=None,
                      is_union=False):
+    # _fields_: list of (name, ctype, [optional_bitfield])
     if isinstance(_fields_, tuple):
         _fields_ = list(_fields_)
-    for _, tp in _fields_:
+    for f in _fields_:
+        tp = f[1]
         if not isinstance(tp, _CDataMeta):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
     import ctypes
     all_fields = _fields_[:]
     for cls in inspect.getmro(superclass):
         all_fields += getattr(cls, '_fields_', [])
-    names = [name for name, ctype in all_fields]
-    rawfields = [(name, ctype._ffishape)
-                 for name, ctype in all_fields]
+    names = [f[0] for f in all_fields]
+    rawfields = [(f[0], f[1]._ffishape)
+                 for f in all_fields]
     if not zero_offset:
         _, _, pos = size_alignment_pos(all_fields, is_union)
     else:
         pos = [0] * len(all_fields)
     fields = {}
-    for i, (name, ctype) in enumerate(all_fields):
+    for i, field in enumerate(all_fields):
+        name = field[0]
+        ctype = field[1]
         fields[name] = Field(name, pos[i], ctypes.sizeof(ctype), ctype, i)
     if anon:
         resnames = []
