@@ -1682,6 +1682,7 @@ class _TestFinalize(BaseTestCase):
         a = Foo()
         util.Finalize(a, conn.send, args=('a',))
         del a           # triggers callback for a
+        test_support.gc_collect()
 
         b = Foo()
         close_b = util.Finalize(b, conn.send, args=('b',))
