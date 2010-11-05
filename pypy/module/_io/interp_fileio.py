@@ -191,7 +191,7 @@ class W_FileIO(W_RawIOBase):
             try:
                 os.lseek(self.fd, 0, os.SEEK_END)
             except OSError, e:
-                raise wrap_oserror(space, e)
+                raise wrap_oserror(space, e, exception_name='w_IOError')
 
     def _mode(self):
         if self.readable:
@@ -213,6 +213,18 @@ class W_FileIO(W_RawIOBase):
             message = "I/O operation on closed file"
         if self.fd < 0:
             raise OperationError(space.w_ValueError, space.wrap(message))
+
+    def _check_readable(self, space):
+        if not self.readable:
+            raise OperationError(
+                space.w_IOError,
+                space.wrap("file not open for reading"))
+
+    def _check_writable(self, space):
+        if not self.writable:
+            raise OperationError(
+                space.w_IOError,
+                space.wrap("file not open for writing"))
 
     def _close(self, space):
         if self.fd < 0:
@@ -305,7 +317,7 @@ class W_FileIO(W_RawIOBase):
         try:
             res = os.isatty(self.fd)
         except OSError, e:
-            raise wrap_oserror(space, e)
+            raise wrap_oserror(space, e, exception_name='w_IOError')
         return space.wrap(res)
 
     @unwrap_spec('self', ObjSpace)
@@ -328,7 +340,7 @@ class W_FileIO(W_RawIOBase):
     @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._check_closed(space)
-        # XXX self._check_writable(space)
+        self._check_writable(space)
         data = space.str_w(w_data)
 
         try:
@@ -342,7 +354,7 @@ class W_FileIO(W_RawIOBase):
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
-        # XXX self._check_readable(space)
+        self._check_readable(space)
         size = convert_size(space, w_size)
 
         if size < 0:
@@ -359,8 +371,7 @@ class W_FileIO(W_RawIOBase):
     @unwrap_spec('self', ObjSpace, W_Root)
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
-
-        # XXX check readable
+        self._check_readable(space)
         rwbuffer = space.rwbuffer_w(w_buffer)
         length = rwbuffer.getlength()
         try:
@@ -374,6 +385,7 @@ class W_FileIO(W_RawIOBase):
     @unwrap_spec('self', ObjSpace)
     def readall_w(self, space):
         self._check_closed(space)
+        self._check_readable(space)
         total = 0
 
         builder = StringBuilder()
@@ -407,13 +419,15 @@ class W_FileIO(W_RawIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def truncate_w(self, space, w_size=None):
+        self._check_closed(space)
+        self._check_writable(space)
         if space.is_w(w_size, space.w_None):
             w_size = self.tell_w(space)
 
         try:
             self._truncate(space.r_longlong_w(w_size))
         except OSError, e:
-            raise wrap_oserror(space, e)
+            raise wrap_oserror(space, e, exception_name='w_IOError')
 
         return w_size
 
