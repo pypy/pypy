@@ -320,7 +320,7 @@ class ExecutionContext(object):
                         " traceback and see where this one comes from :-)")
 
 
-class AbstractActionFlag:
+class AbstractActionFlag(object):
     """This holds the global 'action flag'.  It is a single bitfield
     integer, with bits corresponding to AsyncAction objects that need to
     be immediately triggered.  The correspondance from bits to
