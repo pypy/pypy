@@ -11,6 +11,7 @@ for manipulation of the pathname component of URLs.
 """
 
 import os
+import sys
 import stat
 import genericpath
 import warnings
@@ -394,7 +395,7 @@ def _resolve_link(path):
             path = normpath(resolved)
     return path
 
-supports_unicode_filenames = False
+supports_unicode_filenames = (sys.platform == 'darwin')
 
 def relpath(path, start=curdir):
     """Return a relative version of a path"""
@@ -402,8 +403,8 @@ def relpath(path, start=curdir):
     if not path:
         raise ValueError("no path specified")
 
-    start_list = abspath(start).split(sep)
-    path_list = abspath(path).split(sep)
+    start_list = [x for x in abspath(start).split(sep) if x]
+    path_list = [x for x in abspath(path).split(sep) if x]
 
     # Work out how much of the filepath is shared by start and path.
     i = len(commonprefix([start_list, path_list]))

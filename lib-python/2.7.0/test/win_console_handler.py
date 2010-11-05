@@ -8,12 +8,14 @@ See http://msdn.microsoft.com/en-us/library/ms685049%28v=VS.85%29.aspx for a
 similar example in C.
 """
 
-from ctypes import wintypes
+from ctypes import wintypes, WINFUNCTYPE
 import signal
 import ctypes
+import mmap
+import sys
 
 # Function prototype for the handler function. Returns BOOL, takes a DWORD.
-HandlerRoutine = wintypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+HandlerRoutine = WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
 
 def _ctrl_handler(sig):
     """Handle a sig event and return 0 to terminate the process"""
@@ -37,6 +39,10 @@ if __name__ == "__main__":
     if not SetConsoleCtrlHandler(ctrl_handler, 1):
         print("Unable to add SetConsoleCtrlHandler")
         exit(-1)
+
+    # Awaken mail process
+    m = mmap.mmap(-1, 1, sys.argv[1])
+    m[0] = '1'
 
     # Do nothing but wait for the signal
     while True:

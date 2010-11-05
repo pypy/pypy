@@ -156,18 +156,19 @@ class BasicSocketTests(unittest.TestCase):
         if not test_support.is_resource_enabled('network'):
             return
         remote = ("svn.python.org", 443)
-        s = ssl.wrap_socket(socket.socket(socket.AF_INET),
-                            cert_reqs=ssl.CERT_NONE, ciphers="ALL")
-        s.connect(remote)
-        s = ssl.wrap_socket(socket.socket(socket.AF_INET),
-                            cert_reqs=ssl.CERT_NONE, ciphers="DEFAULT")
-        s.connect(remote)
-        # Error checking occurs when connecting, because the SSL context
-        # isn't created before.
-        s = ssl.wrap_socket(socket.socket(socket.AF_INET),
-                            cert_reqs=ssl.CERT_NONE, ciphers="^$:,;?*'dorothyx")
-        with self.assertRaisesRegexp(ssl.SSLError, "No cipher can be selected"):
+        with test_support.transient_internet(remote[0]):
+            s = ssl.wrap_socket(socket.socket(socket.AF_INET),
+                                cert_reqs=ssl.CERT_NONE, ciphers="ALL")
             s.connect(remote)
+            s = ssl.wrap_socket(socket.socket(socket.AF_INET),
+                                cert_reqs=ssl.CERT_NONE, ciphers="DEFAULT")
+            s.connect(remote)
+            # Error checking occurs when connecting, because the SSL context
+            # isn't created before.
+            s = ssl.wrap_socket(socket.socket(socket.AF_INET),
+                                cert_reqs=ssl.CERT_NONE, ciphers="^$:,;?*'dorothyx")
+            with self.assertRaisesRegexp(ssl.SSLError, "No cipher can be selected"):
+                s.connect(remote)
 
     @test_support.cpython_only
     def test_refcycle(self):
@@ -178,6 +179,19 @@ class BasicSocketTests(unittest.TestCase):
         wr = weakref.ref(ss)
         del ss
         self.assertEqual(wr(), None)
+
+    def test_wrapped_unconnected(self):
+        # The _delegate_methods in socket.py are correctly delegated to by an
+        # unconnected SSLSocket, so they will raise a socket.error rather than
+        # something unexpected like TypeError.
+        s = socket.socket(socket.AF_INET)
+        ss = ssl.wrap_socket(s)
+        self.assertRaises(socket.error, ss.recv, 1)
+        self.assertRaises(socket.error, ss.recv_into, bytearray(b'x'))
+        self.assertRaises(socket.error, ss.recvfrom, 1)
+        self.assertRaises(socket.error, ss.recvfrom_into, bytearray(b'x'), 1)
+        self.assertRaises(socket.error, ss.send, b'x')
+        self.assertRaises(socket.error, ss.sendto, b'x', ('0.0.0.0', 0))
 
 
 class NetworkedTests(unittest.TestCase):
@@ -1285,7 +1299,7 @@ def test_main(verbose=False):
         not os.path.exists(SVN_PYTHON_ORG_ROOT_CERT)):
         raise test_support.TestFailed("Can't read certificate files!")
 
-    tests = [BasicTests]
+    tests = [BasicTests, BasicSocketTests]
 
     if test_support.is_resource_enabled('network'):
         tests.append(NetworkedTests)

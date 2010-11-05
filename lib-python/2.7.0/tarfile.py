@@ -30,13 +30,13 @@
 """Read from and write to tar format archives.
 """
 
-__version__ = "$Revision: 81667 $"
+__version__ = "$Revision: 85213 $"
 # $Source$
 
 version     = "0.9.0"
 __author__  = "Lars Gustäbel (lars@gustaebel.de)"
-__date__    = "$Date: 2010-06-03 14:34:14 +0200 (Thu, 03 Jun 2010) $"
-__cvsid__   = "$Id: tarfile.py 81667 2010-06-03 12:34:14Z lars.gustaebel $"
+__date__    = "$Date: 2010-10-04 17:37:53 +0200 (Mon, 04 Oct 2010) $"
+__cvsid__   = "$Id: tarfile.py 85213 2010-10-04 15:37:53Z lars.gustaebel $"
 __credits__ = "Gustavo Niemeyer, Niels Gustäbel, Richard Townsend."
 
 #---------
@@ -928,8 +928,8 @@ class TarInfo(object):
         self.chksum = 0         # header checksum
         self.type = REGTYPE     # member type
         self.linkname = ""      # link name
-        self.uname = "root"     # user name
-        self.gname = "root"     # group name
+        self.uname = ""         # user name
+        self.gname = ""         # group name
         self.devmajor = 0       # device major number
         self.devminor = 0       # device minor number
 
@@ -1112,8 +1112,8 @@ class TarInfo(object):
             info.get("type", REGTYPE),
             stn(info.get("linkname", ""), 100),
             stn(info.get("magic", POSIX_MAGIC), 8),
-            stn(info.get("uname", "root"), 32),
-            stn(info.get("gname", "root"), 32),
+            stn(info.get("uname", ""), 32),
+            stn(info.get("gname", ""), 32),
             itn(info.get("devmajor", 0), 8, format),
             itn(info.get("devminor", 0), 8, format),
             stn(info.get("prefix", ""), 155)

@@ -1621,6 +1621,12 @@ class TestRFC2047(unittest.TestCase):
             dh = decode_header(s % q)
             self.assertEqual(dh, [(a, 'iso-8859-1')])
 
+    def test_rfc2047_Q_invalid_digits(self):
+        # issue 10004.
+        s = '=?iso-8659-1?Q?andr=e9=zz?='
+        self.assertEqual(decode_header(s),
+                        [(b'andr\xe9=zz', 'iso-8659-1')])
+
 
 # Test the MIMEMessage class
 class TestMIMEMessage(TestEmailBase):
@@ -2280,6 +2286,24 @@ class TestMiscellaneous(TestEmailBase):
         self.assertEqual(Utils.parseaddr(y), (a, b))
         # formataddr() quotes the name if there's a dot in it
         self.assertEqual(Utils.formataddr((a, b)), y)
+
+    def test_parseaddr_preserves_quoted_pairs_in_addresses(self):
+        # issue 10005.  Note that in the third test the second pair of
+        # backslashes is not actually a quoted pair because it is not inside a
+        # comment or quoted string: the address being parsed has a quoted
+        # string containing a quoted backslash, followed by 'example' and two
+        # backslashes, followed by another quoted string containing a space and
+        # the word 'example'.  parseaddr copies those two backslashes
+        # literally.  Per rfc5322 this is not technically correct since a \ may
+        # not appear in an address outside of a quoted string.  It is probably
+        # a sensible Postel interpretation, though.
+        eq = self.assertEqual
+        eq(Utils.parseaddr('""example" example"@example.com'),
+          ('', '""example" example"@example.com'))
+        eq(Utils.parseaddr('"\\"example\\" example"@example.com'),
+          ('', '"\\"example\\" example"@example.com'))
+        eq(Utils.parseaddr('"\\\\"example\\\\" example"@example.com'),
+          ('', '"\\\\"example\\\\" example"@example.com'))
 
     def test_multiline_from_comment(self):
         x = """\

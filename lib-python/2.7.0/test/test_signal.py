@@ -212,13 +212,13 @@ class BasicSignalTests(unittest.TestCase):
 @unittest.skipUnless(sys.platform == "win32", "Windows specific")
 class WindowsSignalTests(unittest.TestCase):
     def test_issue9324(self):
+        # Updated for issue #10003, adding SIGBREAK
         handler = lambda x, y: None
-        signal.signal(signal.SIGABRT, handler)
-        signal.signal(signal.SIGFPE, handler)
-        signal.signal(signal.SIGILL, handler)
-        signal.signal(signal.SIGINT, handler)
-        signal.signal(signal.SIGSEGV, handler)
-        signal.signal(signal.SIGTERM, handler)
+        for sig in (signal.SIGABRT, signal.SIGBREAK, signal.SIGFPE,
+                    signal.SIGILL, signal.SIGINT, signal.SIGSEGV,
+                    signal.SIGTERM):
+            # Set and then reset a handler for signals that work on windows
+            signal.signal(sig, signal.signal(sig, handler))
 
         with self.assertRaises(ValueError):
             signal.signal(-1, handler)
@@ -438,8 +438,8 @@ class ItimerTest(unittest.TestCase):
         self.assertEqual(self.hndl_called, True)
 
     # Issue 3864. Unknown if this affects earlier versions of freebsd also.
-    @unittest.skipIf(sys.platform=='freebsd6',
-        'itimer not reliable (does not mix well with threading) on freebsd6')
+    @unittest.skipIf(sys.platform in ('freebsd6', 'netbsd5'),
+        'itimer not reliable (does not mix well with threading) on some BSDs.')
     def test_itimer_virtual(self):
         self.itimer = signal.ITIMER_VIRTUAL
         signal.signal(signal.SIGVTALRM, self.sig_vtalrm)

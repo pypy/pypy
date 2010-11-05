@@ -866,6 +866,7 @@ def listen(port=DEFAULT_LOGGING_CONFIG_PORT):
                 logging._acquireLock()
                 abort = self.abort
                 logging._releaseLock()
+            self.socket.close()
 
     class Server(threading.Thread):
 
@@ -895,8 +896,10 @@ def stopListening():
     Stop the listening server which was created with a call to listen().
     """
     global _listener
-    if _listener:
-        logging._acquireLock()
-        _listener.abort = 1
-        _listener = None
+    logging._acquireLock()
+    try:
+        if _listener:
+            _listener.abort = 1
+            _listener = None
+    finally:
         logging._releaseLock()

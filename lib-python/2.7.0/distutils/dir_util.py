@@ -2,7 +2,7 @@
 
 Utility functions for manipulating directories and directory trees."""
 
-__revision__ = "$Id: dir_util.py 76956 2009-12-21 01:22:46Z tarek.ziade $"
+__revision__ = "$Id: dir_util.py 84862 2010-09-17 16:40:01Z senthil.kumaran $"
 
 import os
 from distutils.errors import DistutilsFileError, DistutilsInternalError
@@ -68,7 +68,7 @@ def mkpath(name, mode=0777, verbose=1, dry_run=0):
 
         if not dry_run:
             try:
-                os.mkdir(head)
+                os.mkdir(head, mode)
                 created_dirs.append(head)
             except OSError, exc:
                 raise DistutilsFileError, \

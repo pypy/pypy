@@ -9,7 +9,7 @@ Written by:   Fred L. Drake, Jr.
 Email:        <fdrake@acm.org>
 """
 
-__revision__ = "$Id: sysconfig.py 80804 2010-05-05 19:09:31Z ronald.oussoren $"
+__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import os
 import re
@@ -317,6 +317,11 @@ def parse_makefile(fn, g=None):
                 del notdone[name]
 
     fp.close()
+
+    # strip spurious spaces
+    for k, v in done.items():
+        if isinstance(v, str):
+            done[k] = v.strip()
 
     # save the results in the global dictionary
     g.update(done)

@@ -49,6 +49,25 @@ class BuildExtTestCase(support.TempdirManager,
                                     sys.platform == 'cygwin')
         super(BuildExtTestCase, self).tearDown()
 
+    def _fixup_command(self, cmd):
+        # When Python was build with --enable-shared, -L. is not good enough
+        # to find the libpython<blah>.so.  This is because regrtest runs it
+        # under a tempdir, not in the top level where the .so lives.  By the
+        # time we've gotten here, Python's already been chdir'd to the
+        # tempdir.
+        #
+        # To further add to the fun, we can't just add library_dirs to the
+        # Extension() instance because that doesn't get plumbed through to the
+        # final compiler command.
+        if (sysconfig.get_config_var('Py_ENABLE_SHARED') and
+            not sys.platform.startswith('win')):
+            runshared = sysconfig.get_config_var('RUNSHARED')
+            if runshared is None:
+                cmd.library_dirs = ['.']
+            else:
+                name, equals, value = runshared.partition('=')
+                cmd.library_dirs = value.split(os.pathsep)
+
     @unittest.skipIf(not os.path.exists(_XX_MODULE_PATH),
                      'xxmodule.c not found')
     def test_build_ext(self):
@@ -58,6 +77,7 @@ class BuildExtTestCase(support.TempdirManager,
         dist = Distribution({'name': 'xx', 'ext_modules': [xx_ext]})
         dist.package_dir = self.tmp_dir
         cmd = build_ext(dist)
+        self._fixup_command(cmd)
         if os.name == "nt":
             # On Windows, we must build a debug version iff running
             # a debug build of Python
@@ -250,6 +270,7 @@ class BuildExtTestCase(support.TempdirManager,
         dist = Distribution({'name': 'xx',
                              'ext_modules': [ext]})
         cmd = build_ext(dist)
+        self._fixup_command(cmd)
         cmd.ensure_finalized()
         self.assertEquals(len(cmd.get_outputs()), 1)
 
