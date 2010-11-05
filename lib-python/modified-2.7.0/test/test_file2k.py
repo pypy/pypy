@@ -136,6 +136,14 @@ class AutoFileTests(unittest.TestCase):
     def testReadWhenWriting(self):
         self.assertRaises(IOError, self.f.read)
 
+    def testNastyWritelinesGenerator(self):
+        def nasty():
+            for i in range(5):
+                if i == 3:
+                    self.f.close()
+                yield str(i)
+        self.assertRaises(ValueError, self.f.writelines, nasty())
+
     def testIssue5677(self):
         # Remark: Do not perform more than one test per open file,
         # since that does NOT catch the readline error on Windows.
@@ -173,7 +181,7 @@ class AutoFileTests(unittest.TestCase):
 class OtherFileTests(unittest.TestCase):
 
     def testOpenDir(self):
-        this_dir = os.path.dirname(__file__)
+        this_dir = os.path.dirname(__file__) or os.curdir
         for mode in (None, "w"):
             try:
                 if mode:
