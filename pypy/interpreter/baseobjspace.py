@@ -258,10 +258,9 @@ class ObjSpace(object):
 
         self.interned_strings = {}
         self.actionflag = ActionFlag()    # changed by the signal module
+        self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self.frame_trace_action = FrameTraceAction(self)
-        self.actionflag.register_action(self.user_del_action)
-        self.actionflag.register_action(self.frame_trace_action)
 
         from pypy.interpreter.pycode import cpython_magic, default_magic
         self.our_magic = default_magic
@@ -299,8 +298,6 @@ class ObjSpace(object):
                 self.timer.start("startup " + modname)
                 mod.init(self)
                 self.timer.stop("startup " + modname)
-        # Force the tick counter to have a valid value
-        self.actionflag.force_tick_counter()
 
     def finish(self):
         self.wait_for_thread_shutdown()

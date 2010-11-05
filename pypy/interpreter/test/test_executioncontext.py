@@ -19,7 +19,6 @@ class TestExecutionContext:
 
         space = self.space
         a1 = DemoAction(space)
-        space.actionflag.register_action(a1)
         for i in range(20):
             # assert does not raise:
             space.appexec([], """():
@@ -50,7 +49,7 @@ class TestExecutionContext:
 
         space = self.space
         a2 = DemoAction(space)
-        space.actionflag.register_action(a2)
+        space.actionflag.register_periodic_action(a2, True)
         try:
             for i in range(500):
                 space.appexec([], """():
@@ -59,7 +58,7 @@ class TestExecutionContext:
                 """)
         except Finished:
             pass
-        assert space.sys.checkinterval / 10 < i < space.sys.checkinterval * 3
+        assert space.sys.checkinterval / 10 < i < space.sys.checkinterval * 1.1
 
     def test_llprofile(self):
         l = []

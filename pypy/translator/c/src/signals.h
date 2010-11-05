@@ -47,16 +47,12 @@ void pypysig_setflag(int signum); /* signal will set a flag which can be
 /* utility to poll for signals that arrived */
 int pypysig_poll(void);   /* => signum or -1 */
 
-/* When a signal is received, the bit 30 of pypysig_occurred is set.
-   After all signals are processed by pypysig_poll(), the bit 30 is
-   cleared again.  The variable is exposed and RPython code is free to
-   use the other bits in any way. */
-#define PENDING_SIGNAL_BIT   (1 << 30)
+/* When a signal is received, pypysig_counter is set to -1. */
 /* This is a struct for the JIT. See interp_signal.py. */
 struct pypysig_long_struct {
     long value;
 };
-extern struct pypysig_long_struct pypysig_occurred;
+extern struct pypysig_long_struct pypysig_counter;
 
 /* some C tricks to get/set the variable as efficiently as possible:
    use macros when compiling as a stand-alone program, but still
@@ -64,18 +60,20 @@ extern struct pypysig_long_struct pypysig_occurred;
 #undef pypysig_getaddr_occurred
 void *pypysig_getaddr_occurred(void);
 #ifndef PYPY_NOT_MAIN_FILE
-void *pypysig_getaddr_occurred(void) { return (void *)(&pypysig_occurred); }
+void *pypysig_getaddr_occurred(void) { return (void *)(&pypysig_counter); }
 #endif
-#define pypysig_getaddr_occurred()   ((void *)(&pypysig_occurred))
+#define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
 
 /************************************************************/
 /* Implementation                                           */
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-struct pypysig_long_struct pypysig_occurred;
-static volatile long *pypysig_occurred_v = (volatile long *)&pypysig_occurred.value;
-static volatile int pypysig_flags[NSIG];
+struct pypysig_long_struct pypysig_counter = {0};
+static char volatile pypysig_flags[NSIG] = {0};
+static int volatile pypysig_occurred = 0;
+/* pypysig_occurred is only an optimization: it tells if any
+   pypysig_flags could be set. */
 
 void pypysig_ignore(int signum)
 {
@@ -108,10 +106,11 @@ void pypysig_default(int signum)
 static void signal_setflag_handler(int signum)
 {
     if (0 <= signum && signum < NSIG)
+      {
         pypysig_flags[signum] = 1;
-    /* the point of "*pypysig_occurred_v" instead of just "pypysig_occurred"
-       is the volatile declaration */
-    *pypysig_occurred_v |= PENDING_SIGNAL_BIT;
+        pypysig_occurred = 1;
+        pypysig_counter.value = -1;
+      }
 }
 
 void pypysig_setflag(int signum)
@@ -130,27 +129,21 @@ void pypysig_setflag(int signum)
 
 int pypysig_poll(void)
 {
-  /* the two commented out lines below are useful for performance in
-     normal usage of pypysig_poll(); however, pypy/module/signal/ is
-     not normal usage.  It only calls pypysig_poll() if the
-     PENDING_SIGNAL_BIT is set, and it clears that bit first. */
-
-/* if (pypysig_occurred & PENDING_SIGNAL_BIT) */
+  if (pypysig_occurred)
     {
-        int i;
-/*     pypysig_occurred &= ~PENDING_SIGNAL_BIT; */
-        for (i=0; i<NSIG; i++)
-            if (pypysig_flags[i])
-            {
-                pypysig_flags[i] = 0;
-                /* maybe another signal is pending: */
-                pypysig_occurred.value |= PENDING_SIGNAL_BIT;
-                return i;
-            }
+      int i;
+      pypysig_occurred = 0;
+      for (i=0; i<NSIG; i++)
+        if (pypysig_flags[i])
+          {
+            pypysig_flags[i] = 0;
+            pypysig_occurred = 1;   /* maybe another signal is pending */
+            return i;
+          }
     }
-    return -1;  /* no pending signal */
+  return -1;  /* no pending signal */
 }
 
-#endif
+#endif  /* !PYPY_NOT_MAIN_FILE */
 
 #endif
