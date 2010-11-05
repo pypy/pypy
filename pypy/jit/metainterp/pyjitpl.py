@@ -948,6 +948,11 @@ class MIFrame(object):
     opimpl_ref_assert_green   = _opimpl_assert_green
     opimpl_float_assert_green = _opimpl_assert_green
 
+    @arguments()
+    def opimpl_current_trace_length(self):
+        trace_length = len(self.metainterp.history.operations)
+        return ConstInt(trace_length)
+
     @arguments("box")
     def opimpl_virtual_ref(self, box):
         # Details on the content of metainterp.virtualref_boxes:

@@ -65,11 +65,11 @@ class SignalActionFlag(AbstractActionFlag):
         p = pypysig_getaddr_occurred()
         p.c_value = value
 
-    def decrement_ticker(self):
+    def decrement_ticker(self, by):
         p = pypysig_getaddr_occurred()
         value = p.c_value
         if self.has_bytecode_counter:    # this 'if' is constant-folded
-            value -= 1
+            value -= by
             p.c_value = value
         return value
 

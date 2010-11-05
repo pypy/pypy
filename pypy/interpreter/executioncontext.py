@@ -5,6 +5,8 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import jit
 
+TICK_COUNTER_STEP = 100
+
 def app_profile_call(space, w_callable, frame, event, w_arg):
     space.call_function(w_callable,
                         space.wrap(frame),
@@ -166,12 +168,12 @@ class ExecutionContext(object):
         if self.w_tracefunc is not None:
             self._trace(frame, 'return', w_retval)
 
-    def bytecode_trace(self, frame):
+    def bytecode_trace(self, frame, decr_by=TICK_COUNTER_STEP):
         "Trace function called before each bytecode."
         # this is split into a fast path and a slower path that is
         # not invoked every time bytecode_trace() is.
         actionflag = self.space.actionflag
-        if actionflag.decrement_ticker() < 0:
+        if actionflag.decrement_ticker(decr_by) < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
 
@@ -333,6 +335,7 @@ class AbstractActionFlag(object):
         self._nonperiodic_actions = []
         self.has_bytecode_counter = False
         self.fired_actions = None
+        self.checkinterval_scaled = 100 * TICK_COUNTER_STEP
         self._rebuild_action_dispatcher()
 
     def fire(self, action):
@@ -361,10 +364,16 @@ class AbstractActionFlag(object):
             self.has_bytecode_counter = True
         self._rebuild_action_dispatcher()
 
-    def setcheckinterval(self, space, interval):
+    def getcheckinterval(self):
+        return self.checkinterval_scaled // TICK_COUNTER_STEP
+
+    def setcheckinterval(self, interval):
+        MAX = sys.maxint // TICK_COUNTER_STEP
         if interval < 1:
             interval = 1
-        space.sys.checkinterval = interval
+        elif interval > MAX:
+            interval = MAX
+        self.checkinterval_scaled = interval * TICK_COUNTER_STEP
 
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)
@@ -372,7 +381,7 @@ class AbstractActionFlag(object):
         @jit.dont_look_inside
         def action_dispatcher(ec, frame):
             # periodic actions (first reset the bytecode counter)
-            self.reset_ticker(ec.space.sys.checkinterval)
+            self.reset_ticker(self.checkinterval_scaled)
             for action in periodic_actions:
                 action.perform(ec, frame)
 
@@ -399,10 +408,10 @@ class ActionFlag(AbstractActionFlag):
     def reset_ticker(self, value):
         self._ticker = value
 
-    def decrement_ticker(self):
+    def decrement_ticker(self, by):
         value = self._ticker
         if self.has_bytecode_counter:    # this 'if' is constant-folded
-            value -= 1
+            value -= by
             self._ticker = value
         return value
 

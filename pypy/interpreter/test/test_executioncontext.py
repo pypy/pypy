@@ -58,7 +58,8 @@ class TestExecutionContext:
                 """)
         except Finished:
             pass
-        assert space.sys.checkinterval / 10 < i < space.sys.checkinterval * 1.1
+        checkinterval = space.actionflag.getcheckinterval()
+        assert checkinterval / 10 < i < checkinterval * 1.1
 
     def test_llprofile(self):
         l = []

@@ -873,6 +873,8 @@ class Transformer(object):
         elif oopspec_name == 'jit.assert_green':
             kind = getkind(args[0].concretetype)
             return SpaceOperation('%s_assert_green' % kind, args, None)
+        elif oopspec_name == 'jit.current_trace_length':
+            return SpaceOperation('current_trace_length', [], op.result)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
