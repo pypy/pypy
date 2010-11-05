@@ -108,7 +108,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
 
         self.mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
         self.mc.MOV_rr(r.ip.value, r.r0.value)
-        self.mc.LDM(r.sp.value, [reg.value for reg in r.all_regs], w=1) # XXX Replace with POP instr. someday
+        self.mc.POP([reg.value for reg in r.all_regs])
         self.mc.MOV_rr(r.r0.value, r.ip.value)
         self.gen_func_epilog()
 
@@ -169,7 +169,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
     epilog_size = 2*WORD
     def gen_func_epilog(self,cond=c.AL):
         self.mc.MOV_rr(r.sp.value, r.fp.value)
-        self.mc.LDM(r.sp.value, [reg.value for reg in r.callee_restored_registers], cond=cond, w=1)
+        self.mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])

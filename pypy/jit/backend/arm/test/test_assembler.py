@@ -139,7 +139,7 @@ class TestRunningAssembler():
         self.a.mc.PUSH(range(2, 12))
         div_addr = rffi.cast(lltype.Signed, llhelper(arm_int_div_sign, arm_int_div))
         self.a.mc.BL(div_addr, some_reg=r.r2)
-        self.a.mc.LDM(r.sp.value, range(2, 12), w=1) # XXX Replace with POP instr. someday
+        self.a.mc.POP(range(2, 12))
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 61
 

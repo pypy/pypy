@@ -208,6 +208,7 @@ class OpAssembler(object):
                 regalloc.possibly_free_var(reg)
 
         adr = self.cpu.cast_adr_to_int(op.getarg(0).getint())
+        # XXX use PUSH here instead of spilling every reg for itself
         regalloc.before_call()
 
         reg_args = min(op.numargs()-1, 4)

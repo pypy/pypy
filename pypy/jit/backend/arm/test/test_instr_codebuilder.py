@@ -1,5 +1,6 @@
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import codebuilder
+from pypy.jit.backend.arm import conditions
 from pypy.jit.backend.arm import instructions
 from pypy.jit.backend.arm.test.support import requires_arm_as
 from gen import assemble
@@ -120,6 +121,30 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.MCR(15, 0, r.r1.value, 7, 10,0)
 
         self.assert_equal('MCR P15, 0, r1, c7, c10, 0')
+
+    def test_push_eq_stmdb(self):
+        # XXX check other conditions in STMDB
+        self.cb.PUSH([reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('STMDB SP!, {r0, r1, r2, r3}')
+
+    def test_push(self):
+        self.cb.PUSH([reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('PUSH {r0, r1, r2, r3}')
+
+    def test_push_raises_sp(self):
+        assert py.test.raises(AssertionError, 'self.cb.PUSH([r.sp.value])')
+
+    def test_pop(self):
+        self.cb.POP([reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('POP {r0, r1, r2, r3}')
+
+    def test_pop_eq_ldm(self):
+        # XXX check other conditions in LDM
+        self.cb.POP([reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('LDM SP!, {r0, r1, r2, r3}')
+
+    def test_pop_raises_on_lr(self):
+        assert py.test.raises(AssertionError, 'self.cb.POP([r.lr.value])')
 
 
 class TestInstrCodeBuilderForGeneratedInstr(ASMTest):

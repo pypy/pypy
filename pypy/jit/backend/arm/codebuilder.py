@@ -21,7 +21,7 @@ def binary_helper_call(name):
         else:
             self.PUSH(range(2, 4), cond=c)
             self.BL(addr, cond=c, some_reg=reg.r2)
-            self.LDM(reg.sp.value, range(2, 4), w=1, cond=c) # XXX Replace with POP instr. someday
+            self.POP(range(2,4), cond=c)
     return f
 
 class AbstractARMv7Builder(object):
@@ -40,8 +40,13 @@ class AbstractARMv7Builder(object):
         raise NotImplentedError
 
     def PUSH(self, regs, cond=cond.AL):
-        assert reg.sp not in regs
+        assert reg.sp.value not in regs
         instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
+        self.write32(instr)
+
+    def POP(self, regs, cond=cond.AL):
+        assert reg.lr.value not in regs
+        instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)
         self.write32(instr)
 
     def LDM(self, rn, regs, w=0, cond=cond.AL):
