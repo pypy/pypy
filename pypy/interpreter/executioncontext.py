@@ -19,6 +19,9 @@ class ExecutionContext(object):
     # XXX   self.w_tracefunc, self.profilefunc
     # XXX   frame.is_being_profiled
 
+    # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
+    #     over the place as well as w_tracefunc
+
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
