@@ -10,6 +10,21 @@ load_store = {
     'LDRB_ri': {'A':0, 'op1': 0x5, 'B': 0, 'imm': True},
     'LDRB_rr': {'A':1, 'op1': 0x5, 'B': 0, 'imm': False},
 }
+extra_load_store = { #Section 5.2.8
+    'STRH_rr':  {'op2': 0x1, 'op1': 0x0},
+    'LDRH_rr':  {'op2': 0x1, 'op1': 0x1},
+    'STRH_ri':  {'op2': 0x1, 'op1': 0x4},
+    'LDRH_ri':  {'op2': 0x1, 'op1': 0x5, 'rn':'!0xF'},
+    'LDRD_rr':  {'op2': 0x2, 'op1': 0x0},
+    'LDRSB_rr': {'op2': 0x2, 'op1': 0x1},
+    'LDRD_ri':  {'op2': 0x2, 'op1': 0x4},
+    'LDRSB_ri': {'op2': 0x2, 'op1': 0x5, 'rn':'!0xF'},
+    'STRD_rr':  {'op2': 0x3, 'op1': 0x0},
+    'LDRSH_rr': {'op2': 0x3, 'op1': 0x1},
+    'STRD_ri':  {'op2': 0x3, 'op1': 0x4},
+    'LDRSH_ri': {'op2': 0x3, 'op1': 0x5, 'rn':'!0xF'},
+}
+
 
 data_proc = {
     'AND_rr': {'op1':0x0, 'op2':0, 'op3':0, 'result':True, 'base':True},

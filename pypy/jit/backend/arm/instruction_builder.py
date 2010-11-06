@@ -30,6 +30,77 @@ def define_load_store_func(name, table):
                         | (w & 0x1) << 21
                         | reg_operation(rt, rn, rm, imm, s, shifttype))
     return f
+
+def define_extra_load_store_func(name, table):
+    def check_registers(r1, r2):
+        assert r1 % 2 == 0
+        assert r1 + 1 == r2
+        assert r1 != 14
+
+    n = ((table['op1'] & 0x1F) << 20
+        | 0x1 << 7
+        | (table['op2'] & 0x3) << 5
+        | 0x1 << 4)
+    p = 1
+    w = 0
+    rncond = ('rn' in table and table['rn'] == '!0xF')
+    dual =  (name[-4] == 'D')
+
+    if dual:
+        if name[-2:] == 'rr':
+            def f(self, rt, rt2, rn, rm, cond=cond.AL):
+                check_registers(rt, rt2)
+                assert not (rncond and rn == 0xF)
+                self.write32(n
+                        | cond << 28
+                        | (p & 0x1) << 24
+                        | (1 & 0x1) << 23
+                        | (w & 0x1) << 21
+                        | (rn & 0xF) << 16
+                        | (rt & 0xF) << 12
+                        | (rm & 0xF))
+        else:
+            def f(self, rt, rt2, rn, imm=0, cond=cond.AL):
+                check_registers(rt, rt2)
+                assert not (rncond and rn == 0xF)
+                u, imm = self._encode_imm(imm)
+                self.write32(n
+                        | cond << 28
+                        | (p & 0x1) << 24
+                        | (u & 0x1) << 23
+                        | (w & 0x1) << 21
+                        | (rn & 0xF) << 16
+                        | (rt & 0xF) << 12
+                        | ((imm >> 0x4) & 0xF) << 8
+                        | (imm & 0xF))
+
+    else:
+        if name[-2:] == 'rr':
+            def f(self, rt, rn, rm, cond=cond.AL):
+                assert not (rncond and rn == 0xF)
+                self.write32(n
+                        | cond << 28
+                        | (p & 0x1) << 24
+                        | (1 & 0x1) << 23
+                        | (w & 0x1) << 21
+                        | (rn & 0xF) << 16
+                        | (rt & 0xF) << 12
+                        | (rm & 0xF))
+        else:
+            def f(self, rt, rn, imm=0, cond=cond.AL):
+                assert not (rncond and rn == 0xF)
+                u, imm = self._encode_imm(imm)
+                self.write32(n
+                        | cond << 28
+                        | (p & 0x1) << 24
+                        | (u & 0x1) << 23
+                        | (w & 0x1) << 21
+                        | (rn & 0xF) << 16
+                        | (rt & 0xF) << 12
+                        | ((imm >> 0x4) & 0xF) << 8
+                        | (imm & 0xF))
+    return f
+
 def define_data_proc_imm(name, table):
     n = (0x1 << 25
         | (table['op'] & 0x1F) << 20)
@@ -194,11 +265,11 @@ def imm_operation(rt, rn, imm):
 def reg_operation(rt, rn, rm, imm, s, shifttype):
     # XXX encode shiftype correctly
     return ((s & 0x1) << 20
-            | (rn & 0xFF) << 16
-            | (rt & 0xFF) << 12
+            | (rn & 0xF) << 16
+            | (rt & 0xF) << 12
             | (imm & 0x1F) << 7
             | (shifttype & 0x3) << 5
-            | (rm & 0xFF))
+            | (rm & 0xF))
 
 def define_instruction(builder, key, val, target):
         f = builder(key, val)
@@ -206,6 +277,7 @@ def define_instruction(builder, key, val, target):
 
 def define_instructions(target):
     i_g_map = [(instructions.load_store, define_load_store_func),
+                (instructions.extra_load_store, define_extra_load_store_func),
                 (instructions.data_proc, define_data_proc),
                 (instructions.data_proc_imm, define_data_proc_imm),
                 (instructions.supervisor_and_coproc, define_supervisor_and_coproc),
