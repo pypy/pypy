@@ -6,8 +6,11 @@ from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api
 from pypy.module.cpyext.intobject import PyInt_AsLong, PyInt_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, from_ref, make_ref
-from pypy.module.cpyext.stringobject import (PyString_FromString,
-                                             PyString_FromStringAndSize)
+from pypy.module.cpyext.stringobject import (
+    PyString_FromString, PyString_FromStringAndSize)
+from pypy.module.cpyext.floatobject import PyFloat_AsDouble
+from pypy.module.cpyext.longobject import (
+    PyLong_AsLongLong, PyLong_AsUnsignedLongLong)
 from pypy.module.cpyext.typeobjectdefs import PyMemberDef
 from pypy.rlib.unroll import unrolling_iterable
 
@@ -19,6 +22,12 @@ integer_converters = unrolling_iterable([
     (T_UINT,   rffi.UINT,   PyInt_AsUnsignedLong),
     (T_ULONG,  rffi.ULONG,  PyInt_AsUnsignedLong),
     (T_BYTE,   rffi.UCHAR,  PyInt_AsLong),
+    (T_UBYTE,  rffi.UCHAR,  PyInt_AsUnsignedLong),
+    (T_BOOL,   rffi.UCHAR,  PyInt_AsLong),
+    (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble),
+    (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble),
+    (T_LONGLONG,  rffi.LONGLONG,  PyLong_AsLongLong),
+    (T_ULONGLONG, rffi.ULONGLONG, PyLong_AsUnsignedLongLong),
     ])
 
 
