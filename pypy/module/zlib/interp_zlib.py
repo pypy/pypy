@@ -315,7 +315,7 @@ class Decompress(ZLibObject):
     decompress.unwrap_spec = ['self', 'bufferstr', int]
 
 
-    def flush(self, length=0):
+    def flush(self, length=sys.maxint):
         """
         flush( [length] ) -- This is kept for backward compatibility,
         because each call to decompress() immediately returns as much
