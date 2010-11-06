@@ -54,10 +54,15 @@ class OptUnroll(Optimization):
                 if not isinstance(a, Const):
                     inputargs.append(a)
 
-        # this loop is equivalent to the main optimization loop in
+        # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
         for newop in loop_operations:
-            newop.initarglist([self.inline_arg(a) for a in newop.getarglist()])
+            if newop.getopnum() == rop.JUMP:
+                args = inputargs
+            else:
+                args = newop.getarglist()
+            newop.initarglist([self.inline_arg(a) for a in args])
+            
             if newop.result:
                 old_result = newop.result
                 newop.result = newop.result.clonebox()
@@ -67,14 +72,6 @@ class OptUnroll(Optimization):
             if isinstance(descr, ResumeGuardDescr):
                 descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
                 
-            if newop.getopnum() == rop.JUMP:
-                args = []
-                for arg in inputargs:
-                    arg = argmap[arg]
-                    args.append(self.getvalue(arg).force_box())
-                newop.initarglist(args + inputargs[len(args):])
-
-            #print 'P: ', str(newop)
             self.emit_operation(newop)
 
         # Remove jump to make sure forced code are placed before it
@@ -98,10 +95,10 @@ class OptUnroll(Optimization):
                 if not isinstance(a, Const) and not a in boxes_created_this_iteration:
                     if a not in inputargs:
                         inputargs.append(a)
-                        b = self.getvalue(a).force_box()
-                        if not isinstance(b, Const):
-                            b = self.getvalue(argmap[b]).force_box()
-                        jumpargs.append(b)
+                        box = self.inline_arg(a)
+                        if box in self.optimizer.values:
+                            box = self.optimizer.values[box].force_box()
+                        jumpargs.append(box)
 
         jmp.initarglist(jumpargs)
         self.optimizer.newoperations.append(jmp)
