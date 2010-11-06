@@ -9,35 +9,33 @@ from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, from_ref, make_ref
 from pypy.module.cpyext.stringobject import (PyString_FromString,
                                              PyString_FromStringAndSize)
 from pypy.module.cpyext.typeobjectdefs import PyMemberDef
+from pypy.rlib.unroll import unrolling_iterable
+
+integer_converters = unrolling_iterable([
+    (structmemberdefs.T_SHORT,  rffi.SHORT,  PyInt_AsLong),
+    (structmemberdefs.T_INT,    rffi.INT,    PyInt_AsLong),
+    (structmemberdefs.T_LONG,   rffi.LONG,   PyInt_AsLong),
+    (structmemberdefs.T_USHORT, rffi.USHORT, PyInt_AsUnsignedLong),
+    (structmemberdefs.T_UINT,   rffi.UINT,   PyInt_AsUnsignedLong),
+    (structmemberdefs.T_ULONG,  rffi.ULONG,  PyInt_AsUnsignedLong),
+    (structmemberdefs.T_BYTE,   rffi.UCHAR,  PyInt_AsLong),
+    ])
 
 
 @cpython_api([PyObject, lltype.Ptr(PyMemberDef)], PyObject)
 def PyMember_GetOne(space, obj, w_member):
     addr = rffi.cast(ADDR, obj)
     addr += w_member.c_offset
+
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
-    if member_type == structmemberdefs.T_SHORT:
-        result = rffi.cast(rffi.SHORTP, addr)
-        w_result = space.wrap(result[0])
-    elif member_type == structmemberdefs.T_INT:
-        result = rffi.cast(rffi.INTP, addr)
-        w_result = space.wrap(result[0])
-    elif member_type == structmemberdefs.T_LONG:
-        result = rffi.cast(rffi.LONGP, addr)
-        w_result = space.wrap(result[0])
-    elif member_type == structmemberdefs.T_USHORT:
-        result = rffi.cast(rffi.USHORTP, addr)
-        w_result = space.wrap(result[0])
-    elif member_type == structmemberdefs.T_UINT:
-        result = rffi.cast(rffi.UINTP, addr)
-        w_result = space.wrap(result[0])
-    elif member_type == structmemberdefs.T_ULONG:
-        result = rffi.cast(rffi.ULONGP, addr)
-        w_result = space.wrap(result[0])
-    elif member_type == structmemberdefs.T_BYTE:
-        result = rffi.cast(rffi.CCHARP, addr)
-        w_result = space.wrap(result[0])
-    elif member_type == structmemberdefs.T_STRING:
+    for converter in integer_converters:
+        typ, lltype, _ = converter
+        if typ == member_type
+            result = rffi.cast(rffi.CArrayPtr(lltype), addr)
+            w_result = space.wrap(result[0])
+            return w_result
+
+    if member_type == structmemberdefs.T_STRING:
         result = rffi.cast(rffi.CCHARPP, addr)
         if result[0]:
             w_result = PyString_FromString(space, result[0])
@@ -49,16 +47,19 @@ def PyMember_GetOne(space, obj, w_member):
     elif member_type == structmemberdefs.T_CHAR:
         result = rffi.cast(rffi.CCHARP, addr)
         w_result = space.wrap(result[0])
-    elif member_type in [structmemberdefs.T_OBJECT,
-                         structmemberdefs.T_OBJECT_EX]:
+    elif member_type == structmemberdefs.T_OBJECT:
         obj_ptr = rffi.cast(PyObjectP, addr)
         if obj_ptr[0]:
             w_result = from_ref(space, obj_ptr[0])
         else:
-            if member_type == structmemberdefs.T_OBJECT_EX:
-                w_name = space.wrap(rffi.charp2str(w_member.c_name))
-                raise OperationError(space.w_AttributeError, w_name)
             w_result = space.w_None
+    elif member_type == T_OBJECT_EX:
+        obj_ptr = rffi.cast(PyObjectP, addr)
+        if obj_ptr[0]:
+            w_result = from_ref(space, obj_ptr[0])
+        else:
+            w_name = space.wrap(rffi.charp2str(w_member.c_name))
+            raise OperationError(space.w_AttributeError, w_name)
     else:
         raise OperationError(space.w_SystemError,
                              space.wrap("bad memberdescr type"))
@@ -86,35 +87,15 @@ def PyMember_SetOne(space, obj, w_member, w_value):
             raise OperationError(space.w_TypeError,
                              space.wrap("can't delete numeric/char attribute"))
 
-    if member_type == structmemberdefs.T_SHORT:
-        w_long_value = PyInt_AsLong(space, w_value)
-        array = rffi.cast(rffi.SHORTP, addr)
-        array[0] = rffi.cast(rffi.SHORT, w_long_value)
-    elif member_type == structmemberdefs.T_INT:
-        w_long_value = PyInt_AsLong(space, w_value)
-        array = rffi.cast(rffi.INTP, addr)
-        array[0] = rffi.cast(rffi.INT, w_long_value)
-    elif member_type == structmemberdefs.T_LONG:
-        w_long_value = PyInt_AsLong(space, w_value)
-        array = rffi.cast(rffi.LONGP, addr)
-        array[0] = rffi.cast(rffi.LONG, w_long_value)
-    elif member_type == structmemberdefs.T_USHORT:
-        w_long_value = PyInt_AsUnsignedLong(space, w_value)
-        array = rffi.cast(rffi.USHORTP, addr)
-        array[0] = rffi.cast(rffi.USHORT, w_long_value)
-    elif member_type == structmemberdefs.T_UINT:
-        w_long_value = PyInt_AsUnsignedLong(space, w_value)
-        array = rffi.cast(rffi.UINTP, addr)
-        array[0] = rffi.cast(rffi.UINT, w_long_value)
-    elif member_type == structmemberdefs.T_ULONG:
-        w_long_value = PyInt_AsUnsignedLong(space, w_value)
-        array = rffi.cast(rffi.ULONGP, addr)
-        array[0] = rffi.cast(rffi.ULONG, w_long_value)
-    elif member_type == structmemberdefs.T_BYTE:
-        w_long_value = PyInt_AsLong(space, w_value)
-        array = rffi.cast(rffi.CCHARP, addr)
-        array[0] = rffi.cast(rffi.CHAR, w_long_value)
-    elif member_type == structmemberdefs.T_CHAR:
+    for converter in integer_converters:
+        typ, lltype, getter = converter
+        if typ == member_type:
+            value = getter(space, w_value)
+            array = rffi.cast(rffi.CarrayPtr(lltype), addr)
+            array[0] = rffi.cast(lltype, value)
+            return 0
+
+    if member_type == structmemberdefs.T_CHAR:
         str_value = space.str_w(w_value)
         if len(str_value) != 1:
             raise OperationError(space.w_TypeError,
