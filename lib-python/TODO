@@ -31,6 +31,10 @@ Probably easy tasks
 - in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
   proably requires to use the git_t typedef instead of rffi.INT.
 
+- missing posix.(confstr|pathconf|fpathconf)(_names)?
+
+- some set() methods now accept a variable number of arguments
+
 
 Medium tasks
 ------------
