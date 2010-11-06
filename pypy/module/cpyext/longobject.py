@@ -62,6 +62,48 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     raised."""
     return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
 
+@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], lltype.Signed,
+             error=-1)
+def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
+    """
+    Return a C long representation of the contents of pylong.  If pylong is
+    greater than LONG_MAX or less than LONG_MIN, set *overflow to 1 or -1,
+    respectively, and return -1; otherwise, set *overflow to 0.  If any other
+    exception occurs (for example a TypeError or MemoryError), then -1 will be
+    returned and *overflow will be 0."""
+    overflow_ptr[0] = 0
+    try:
+        return space.int_w(w_long)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    if space.is_true(space.gt(w_long, space.wrap(0))):
+        overflow_ptr[0] = 1
+    else:
+        overflow_ptr[0] = -1
+    return -1
+
+@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
+             error=-1)
+def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
+    """
+    Return a C long long representation of the contents of pylong.  If pylong is
+    greater than PY_LLONG_MAX or less than PY_LLONG_MIN, set *overflow to 1 or
+    -1, respectively, and return -1; otherwise, set *overflow to 0.  If any
+    other exception occurs (for example a TypeError or MemoryError), then -1
+    will be returned and *overflow will be 0."""
+    overflow_ptr[0] = 0
+    try:
+        return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    if space.is_true(space.gt(w_long, space.wrap(0))):
+        overflow_ptr[0] = 1
+    else:
+        overflow_ptr[0] = -1
+    return -1
+
 @cpython_api([lltype.Float], PyObject)
 def PyLong_FromDouble(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
