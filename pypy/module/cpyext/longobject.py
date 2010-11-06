@@ -71,16 +71,16 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     respectively, and return -1; otherwise, set *overflow to 0.  If any other
     exception occurs (for example a TypeError or MemoryError), then -1 will be
     returned and *overflow will be 0."""
-    overflow_ptr[0] = 0
+    overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return space.int_w(w_long)
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
-        overflow_ptr[0] = 1
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
     else:
-        overflow_ptr[0] = -1
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
 @cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
@@ -92,16 +92,16 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     -1, respectively, and return -1; otherwise, set *overflow to 0.  If any
     other exception occurs (for example a TypeError or MemoryError), then -1
     will be returned and *overflow will be 0."""
-    overflow_ptr[0] = 0
+    overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
-        overflow_ptr[0] = 1
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
     else:
-        overflow_ptr[0] = -1
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
 @cpython_api([lltype.Float], PyObject)
