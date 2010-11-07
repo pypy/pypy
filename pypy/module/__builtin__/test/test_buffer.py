@@ -160,9 +160,27 @@ class AppTestBuffer:
         raises(ValueError, buffer, a, -1)
         raises(ValueError, buffer, a, 0, -2)
 
-class AppTestMemoryview:
+class AppTestMemoryView:
     def test_basic(self):
         v = memoryview("abc")
         assert v.tobytes() == "abc"
         assert len(v) == 3
         assert list(v) == ['a', 'b', 'c']
+        assert v.tolist() == [97, 98, 99]
+        assert v[1] == "b"
+        assert v[-1] == "c"
+        raises(TypeError, "v[1] = 'x'")
+        assert v.readonly is True
+        w = v[1:234]
+        assert isinstance(w, memoryview)
+        assert len(w) == 2
+
+    def test_rw(self):
+        data = bytearray('abcefg')
+        v = memoryview(data)
+        assert v.readonly is False
+        v[0] = 'z'
+        assert data == bytearray(b'zbcefg')
+        v[1:4] = '123'
+        assert data == bytearray(b'z123fg')
+        raises((ValueError, TypeError), "v[2] = 'spam'")

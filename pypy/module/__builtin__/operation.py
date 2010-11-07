@@ -2,10 +2,10 @@
 Interp-level implementation of the basic space operations.
 """
 
-from pypy.interpreter import gateway, buffer
+from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rarithmetic import isnan, isinf
@@ -13,8 +13,6 @@ from pypy.rlib import rfloat
 import math
 import __builtin__
 NoneNotWrapped = gateway.NoneNotWrapped
-
-W_Buffer = buffer.Buffer
 
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
