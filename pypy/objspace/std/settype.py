@@ -23,10 +23,9 @@ set_discard                     = SMM('discard', 2,
                                       doc='Remove an element from a set if it'
                                           ' is a member.\n\nIf the element is'
                                           ' not a member, do nothing.')
-set_intersection                = SMM('intersection', 2,
-                                      doc='Return the intersection of two sets'
-                                          ' as a new set.\n\n(i.e. all'
-                                          ' elements that are in both sets.)')
+set_intersection                = SMM('intersection', 1, varargs_w=True,
+                                      doc='Return a new set with elements common'
+                                          ' to the set and all others.')
 set_intersection_update         = SMM('intersection_update', 2,
                                       doc='Update a set with the intersection'
                                           ' of itself and another.')

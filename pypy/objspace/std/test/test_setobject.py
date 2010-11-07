@@ -11,8 +11,8 @@ import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.setobject import _initialize_set
 from pypy.objspace.std.setobject import newset, make_setdata_from_w_iterable
-from pypy.objspace.std.setobject import set_intersection__Set_Set
-from pypy.objspace.std.setobject import set_intersection__Set_ANY
+from pypy.objspace.std.setobject import and__Set_Set
+from pypy.objspace.std.setobject import set_intersection__Set
 from pypy.objspace.std.setobject import eq__Set_Set
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -35,10 +35,10 @@ class TestW_SetObject:
         _initialize_set(self.space, t0, self.otherword)
         t1 = W_FrozensetObject(self.space,
                 make_setdata_from_w_iterable(self.space, self.otherword))
-        r0 = set_intersection__Set_Set(self.space, s, t0)
-        r1 = set_intersection__Set_Set(self.space, s, t1)
+        r0 = and__Set_Set(self.space, s, t0)
+        r1 = and__Set_Set(self.space, s, t1)
         assert eq__Set_Set(self.space, r0, r1) == self.true
-        sr = set_intersection__Set_ANY(self.space, s, self.otherword)
+        sr = set_intersection__Set(self.space, s, [self.otherword])
         assert eq__Set_Set(self.space, r0, sr) == self.true
 
     def test_compare(self):
@@ -284,3 +284,19 @@ class AppTestAppSetTest:
         assert not set([1,2,5]).isdisjoint(frozenset([4,5,6]))
         assert not set([1,2,5]).isdisjoint([4,5,6])
         assert not set([1,2,5]).isdisjoint((4,5,6))
+
+    def test_intersection(self):
+        assert set([1,2,3]).intersection(set([2,3,4])) == set([2,3])
+        assert set([1,2,3]).intersection(frozenset([2,3,4])) == set([2,3])
+        assert set([1,2,3]).intersection([2,3,4]) == set([2,3])
+        assert set([1,2,3]).intersection((2,3,4)) == set([2,3])
+        assert frozenset([1,2,3]).intersection(set([2,3,4])) == frozenset([2,3])
+        assert frozenset([1,2,3]).intersection(frozenset([2,3,4]))== frozenset([2,3])
+        assert frozenset([1,2,3]).intersection([2,3,4]) == frozenset([2,3])
+        assert frozenset([1,2,3]).intersection((2,3,4)) == frozenset([2,3])
+        assert set([1,2,3,4]).intersection([2,3,4,5], set((1,2,3))) == set([2,3])
+        assert frozenset([1,2,3,4]).intersection((2,3,4,5), [1,2,3]) == \
+                   frozenset([2,3])
+        s = set([1,2,3])
+        assert s.intersection() == s
+        assert s.intersection() is not s

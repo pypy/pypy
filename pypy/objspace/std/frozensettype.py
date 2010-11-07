@@ -11,10 +11,9 @@ frozenset_difference            = SMM('difference', 2,
                                           ' as a new set.\n\n(i.e. all'
                                           ' elements that are in this set but'
                                           ' not the other.)')
-frozenset_intersection          = SMM('intersection', 2,
-                                      doc='Return the intersection of two sets'
-                                          ' as a new set.\n\n(i.e. all'
-                                          ' elements that are in both sets.)')
+frozenset_intersection          = SMM('intersection', 1, varargs_w=True,
+                                      doc='Return a new set with elements common'
+                                          ' to the set and all others.')
 frozenset_issubset              = SMM('issubset', 2,
                                       doc='Report whether another set contains'
                                           ' this set.')

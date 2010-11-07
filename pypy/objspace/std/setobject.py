@@ -471,30 +471,32 @@ def set_pop__Set(space, w_left):
     del w_left.setdata[w_key]
     return w_key
 
-def set_intersection__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
+def and__Set_Set(space, w_left, w_other):
     ld, rd = w_left.setdata, w_other.setdata
     new_ld = _intersection_dict(space, ld, rd)
     return w_left._newobj(space, new_ld)
 
-set_intersection__Set_Frozenset = set_intersection__Set_Set
-set_intersection__Frozenset_Frozenset = set_intersection__Set_Set
-set_intersection__Frozenset_Set = set_intersection__Set_Set
+and__Set_Frozenset = and__Set_Set
+and__Frozenset_Set = and__Set_Set
+and__Frozenset_Frozenset = and__Set_Set
 
-def set_intersection__Set_ANY(space, w_left, w_other):
-    result = newset(space)
-    ld = w_left.setdata
-    for w_key in space.listview(w_other):
-        if w_key in ld:
-            result[w_key] = None
+def set_intersection__Set(space, w_left, others_w):
+    result = w_left.setdata
+    if len(others_w) == 0:
+        result = result.copy()
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            # optimization only
+            result = _intersection_dict(space, result, w_other.setdata)
+        else:
+            result2 = newset(space)
+            for w_key in space.listview(w_other):
+                if w_key in result:
+                    result2[w_key] = None
+            result = result2
     return w_left._newobj(space, result)
 
-frozenset_intersection__Frozenset_ANY = set_intersection__Set_ANY
-
-and__Set_Set = set_intersection__Set_Set
-and__Set_Frozenset = set_intersection__Set_Set
-and__Frozenset_Set = set_intersection__Set_Set
-and__Frozenset_Frozenset = set_intersection__Set_Set
+frozenset_intersection__Frozenset = set_intersection__Set
 
 def set_intersection_update__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
