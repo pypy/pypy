@@ -275,3 +275,12 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 def PyErr_Print(space):
     """Alias for PyErr_PrintEx(1)."""
     PyErr_PrintEx(space, 1)
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1):
+def PyTraceBack_Print(space, w_tb, w_file):
+    space.call_method(w_file, "write", space.wrap(
+        'Traceback (most recent call last):\n'))
+    w_traceback = space.call_method(space.builtin, '__import__',
+                                    space.wrap("traceback"))
+    space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
+    return 0
