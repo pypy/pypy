@@ -257,23 +257,22 @@ def set_difference__Set(space, w_left, others_w):
 frozenset_difference__Frozenset = set_difference__Set
 
 
-def set_difference_update__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    _difference_dict_update(space, ld, rd)
-
-set_difference_update__Set_Frozenset = set_difference_update__Set_Set
-
-def set_difference_update__Set_ANY(space, w_left, w_other):
+def set_difference_update__Set(space, w_left, others_w):
     ld = w_left.setdata
-    for w_key in space.listview(w_other):
-        try:
-            del ld[w_key]
-        except KeyError:
-            pass
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            # optimization only
+            _difference_dict_update(space, ld, w_other.setdata)
+        else:
+            for w_key in space.listview(w_other):
+                try:
+                    del ld[w_key]
+                except KeyError:
+                    pass
 
 def inplace_sub__Set_Set(space, w_left, w_other):
-    set_difference_update__Set_Set(space, w_left, w_other)
+    ld, rd = w_left.setdata, w_other.setdata
+    _difference_dict_update(space, ld, rd)
     return w_left
 
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set

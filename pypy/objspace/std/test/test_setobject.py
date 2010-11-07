@@ -333,3 +333,14 @@ class AppTestAppSetTest:
         assert s == set([2,3])
         s.intersection_update()
         assert s == set([2,3])
+
+    def test_difference_update(self):
+        s = set([1,2,3,4,7])
+        s.difference_update([0,7,8,9])
+        assert s == set([1,2,3,4])
+        s.difference_update((0,1), frozenset([4,5,6]))
+        assert s == set([2,3])
+        s.difference_update()
+        assert s == set([2,3])
+        s.difference_update(s)
+        assert s == set([])

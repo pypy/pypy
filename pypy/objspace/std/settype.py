@@ -14,9 +14,9 @@ set_copy                        = SMM('copy', 1,
 set_difference                  = SMM('difference', 1, varargs_w=True,
                                       doc='Return a new set with elements in'
                                           ' the set that are not in the others.')
-set_difference_update           = SMM('difference_update', 2,
-                                      doc='Remove all elements of another set'
-                                          ' from this set.')
+set_difference_update           = SMM('difference_update', 1, varargs_w=True,
+                                      doc='Update the set, removing elements'
+                                          ' found in others.')
 set_discard                     = SMM('discard', 2,
                                       doc='Remove an element from a set if it'
                                           ' is a member.\n\nIf the element is'
