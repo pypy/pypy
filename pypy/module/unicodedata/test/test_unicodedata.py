@@ -86,9 +86,6 @@ class AppTestUnicodeData:
         import sys, unicodedata
         if sys.maxunicode < 0x10ffff:
             skip("requires a 'wide' python build.")
-        # XXX this fails!
-        # Try to enable the three lines containing "69785 << 17 | 69818"
-        # in unicodedb_5_2_0.py;  then fix translation...
         assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
 
 class TestUnicodeData(object):

@@ -596,7 +596,6 @@ def decomposition(code):
 '''
     # Collect the composition pairs.
     compositions = []
-    composition_values = []
     for code in range(len(table)):
         unichar = table[code]
         if (not unichar.decomposition or
@@ -607,18 +606,10 @@ def decomposition(code):
             continue
         left, right = unichar.decomposition
         compositions.append((left, right, code))
-        composition_values.append(left)
-        composition_values.append(right)
-    composition_max = max(composition_values)
-    composition_shift = 1
-    while (1 << composition_shift) <= composition_max:
-        composition_shift += 1
-    print >> outfile, '_composition_max = %d' % composition_max
-    print >> outfile, '_composition_shift = %d' % composition_shift
     print >> outfile, '_composition = {'
     for left, right, code in compositions:
-        print >> outfile, '%5d << %d | %5d: %5d,' % (
-            left, composition_shift, right, code)
+        print >> outfile, 'r_longlong(%5d << 32 | %5d): %5d,' % (
+            left, right, code)
     print >> outfile, '}'
     print >> outfile
 
@@ -678,6 +669,8 @@ def main():
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
+    print >> outfile
+    print >> outfile, 'from pypy.rlib.rarithmetic import r_longlong'
     print >> outfile
     print >> outfile
     writeUnicodedata(options.unidata_version, table, outfile, options.base)
