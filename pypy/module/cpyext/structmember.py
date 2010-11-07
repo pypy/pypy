@@ -41,7 +41,10 @@ def PyMember_GetOne(space, obj, w_member):
         typ, lltyp, _ = converter
         if typ == member_type:
             result = rffi.cast(rffi.CArrayPtr(lltyp), addr)
-            w_result = space.wrap(result[0])
+            if lltyp is rffi.FLOAT:
+                w_result = space.wrap(rffi.cast(rffi.DOUBLE, result[0]))
+            else:
+                w_result = space.wrap(result[0])
             return w_result
 
     if member_type == T_STRING:
