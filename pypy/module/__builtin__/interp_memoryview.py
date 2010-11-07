@@ -6,6 +6,7 @@ from pypy.interpreter import gateway, buffer
 from pypy.interpreter.gateway import interp2app, unwrap_spec, ObjSpace, W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
+import operator
 
 W_Buffer = buffer.Buffer      # actually implemented in pypy.interpreter.buffer
 
