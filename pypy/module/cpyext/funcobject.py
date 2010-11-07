@@ -1,10 +1,11 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    PyObjectFields, generic_cpy_call,
+    PyObjectFields, generic_cpy_call, CONST_STRING,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
 from pypy.interpreter.function import Function, Method
+from pypy.interpreter.pycode import PyCode
 
 PyFunctionObjectStruct = lltype.ForwardReference()
 PyFunctionObject = lltype.Ptr(PyFunctionObjectStruct)
@@ -62,4 +63,23 @@ def PyMethod_Class(space, w_method):
     created from an instance, it will be the class of the instance."""
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
+
+@cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
+def PyCode_NewEmpty(space, filename, funcname, firstlineno):
+    """Creates a new empty code object with the specified source location."""
+    return space.wrap(PyCode(space,
+                             argcount=0,
+                             nlocals=0,
+                             stacksize=0,
+                             flags=0,
+                             code="",
+                             consts=[],
+                             names=[],
+                             varnames=[],
+                             filename=rffi.charp2str(filename),
+                             name=rffi.charp2str(funcname),
+                             firstlineno=firstlineno,
+                             lnotab="",
+                             freevars=[],
+                             cellvars=[]))
 
