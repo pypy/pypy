@@ -11,6 +11,8 @@ from pypy.rpython.lltypesystem import lltype
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
+from pypy.rpython.ootypesystem import ootype
+
 class X(object):
     pass
 
@@ -125,4 +127,4 @@ class TestLLtype(BaseTestVRef, LLRtypeMixin):
 class TestOOtype(BaseTestVRef, OORtypeMixin):
     OBJECTTYPE = OBJECT 
     def castable(self, TO, var):
-        return ootype.isSubclass(TO, lltype.typeOf(var))
+        return ootype.isSubclass(lltype.typeOf(var), TO)

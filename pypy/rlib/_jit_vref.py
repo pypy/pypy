@@ -65,8 +65,9 @@ class OOVRefRepr(VRefRepr):
     lowleveltype = OBJECT
     def rtype_simple_call(self, hop):
         [v] = hop.inputargs(self)
-        #v = hop.genop('jit_force_virtual', [v], resulttype = OBJECT)
-        return hop.genop('ooupcast', [v], resulttype = hop.r_result)
+        v = hop.genop('jit_force_virtual', [v], resulttype = OBJECT)
+        #RESULTTYPE, ptr
+        return hop.genop('oodowncast', [v], resulttype = hop.r_result)
     
     def convert_const(self, value):
         if value() is not None:
