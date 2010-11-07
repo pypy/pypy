@@ -2,6 +2,8 @@ from pypy.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, compute_vars_longevity
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
+from pypy.jit.metainterp.history import ConstInt
+from pypy.rpython.lltypesystem import rffi, lltype
 
 class ARMRegisterManager(RegisterManager):
     all_regs              = r.all_regs
@@ -15,14 +17,19 @@ class ARMRegisterManager(RegisterManager):
     def update_bindings(self, enc, inputargs):
         j = 0
         for i in range(len(inputargs)):
-            # XXX decode imm and and stack locs
+            # XXX decode imm and and stack locs and REFs
             while enc[j] == '\xFE':
                 j += 1
+            assert enc[j] == '\xEF'
+            j += 1
             self.force_allocate_reg(inputargs[i], selected_reg=r.all_regs[ord(enc[j])])
             j += 1
 
     def convert_to_imm(self, c):
-        return locations.ImmLocation(c.value)
+        if isinstance(c, ConstInt):
+            return locations.ImmLocation(c.value)
+        else:
+            return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
 
     def call_result_location(self, v):
         return r.r0

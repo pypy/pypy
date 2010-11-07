@@ -13,6 +13,6 @@ pc = r15
 all_regs = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10]
 
 caller_resp = [r0, r1, r2, r3]
-callee_resp = [r4, r5, r6, r7, r8, r9, r10, r11]
+callee_resp = [r4, r5, r6, r7, r8, r9, r10, fp]
 callee_saved_registers = callee_resp+[lr]
 callee_restored_registers = callee_resp+[pc]

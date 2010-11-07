@@ -5,7 +5,8 @@ from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
-from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
+from pypy.jit.metainterp.history import (ConstInt, BoxInt, Box, BasicFailDescr,
+                                                INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
@@ -13,18 +14,20 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.backend.arm.opassembler import (GuardOpAssembler,
                                                 IntOpAsslember,
                                                 OpAssembler,
-                                                UnaryIntOpAssembler)
+                                                UnaryIntOpAssembler,
+                                                FieldOpAssembler)
 # XXX Move to llsupport
 from pypy.jit.backend.x86.support import values_array
 
 
 class AssemblerARM(GuardOpAssembler, IntOpAsslember,
-                    OpAssembler, UnaryIntOpAssembler):
+                    OpAssembler, UnaryIntOpAssembler, FieldOpAssembler):
 
     def __init__(self, cpu, failargs_limit=1000):
         self.mc = ARMv7Builder()
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self._debug_asm = True
 
         self._exit_code_addr = self.mc.curraddr()
@@ -58,11 +61,16 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
             i += 1
             fail_index += 1
             res = enc[i]
-            if res == '\xFE':
-                continue
             if res == '\xFF':
                 break
+            if res == '\xFE':
+                continue
+
+            group = res
+            i += 1
+            res = enc[i]
             if res == '\xFD':
+                assert group == '\xEF'
                 # imm value
                 value = self.decode32(enc, i+1)
                 i += 4
@@ -75,7 +83,13 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
                 reg = ord(enc[i])
                 value = self.decode32(stack, reg*WORD)
 
-            self.fail_boxes_int.setitem(fail_index, value)
+            if group == '\xEF': # INT
+                self.fail_boxes_int.setitem(fail_index, value)
+            elif group == '\xEE': # REF
+                self.fail_boxes_ptr.setitem(fail_index, rffi.cast(llmemory.GCREF, value))
+            else:
+                assert 0, 'unknown type'
+
 
         assert enc[i] == '\xFF'
         descr = self.decode32(enc, i+1)
@@ -114,6 +128,10 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
 
     def _gen_path_to_exit_path(self, op, args, regalloc, fcond=c.AL):
         """
+        types:
+        \xEE = REF
+        \xEF = INT
+        location:
         \xFC = stack location
         \xFD = imm location
         \xFE = Empty arg
@@ -122,21 +140,31 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         box = Box()
         reg = regalloc.force_allocate_reg(box)
         # XXX free this memory
+        # XXX allocate correct amount of memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), (len(args)+5)*4, flavor='raw')
         i = 0
         j = 0
         while(i < len(args)):
             if args[i]:
                 loc = regalloc.loc(args[i])
+                if args[i].type == INT:
+                    mem[j] = '\xEF'
+                    j += 1
+                elif args[i].type == REF:
+                    mem[j] = '\xEE'
+                    j += 1
+                else:
+                    assert 0, 'unknown type'
+
                 if loc.is_reg():
                     mem[j] = chr(loc.value)
                     j += 1
                 elif loc.is_imm():
+                    assert args[i].type == INT
                     mem[j] = '\xFD'
                     self.encode32(mem, j+1, loc.getint())
                     j += 5
                 else:
-                    #print 'Encoding a stack location'
                     mem[j] = '\xFC'
                     self.encode32(mem, j+1, loc.position)
                     j += 5
@@ -178,8 +206,14 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
     def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
         regs = []
         for i in range(len(inputargs)):
-            reg = regalloc.force_allocate_reg(inputargs[i])
-            addr = self.fail_boxes_int.get_addr_for_num(i)
+            loc = inputargs[i]
+            reg = regalloc.force_allocate_reg(loc)
+            if loc.type == REF:
+                addr = self.fail_boxes_ptr.get_addr_for_num(i)
+            elif loc.type == INT:
+                addr = self.fail_boxes_int.get_addr_for_num(i)
+            else:
+                raise ValueError
             self.mc.gen_load_int(reg.value, addr)
             self.mc.LDR_ri(reg.value, reg.value)
             regs.append(reg)

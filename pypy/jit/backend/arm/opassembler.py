@@ -10,6 +10,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_ri, gen_emit_cmp_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
+from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
@@ -220,3 +221,46 @@ class OpAssembler(object):
         regalloc.force_allocate_reg(op.result, selected_reg=r.r0)
         regalloc.after_call(op.result)
         regalloc.possibly_free_vars(locs)
+
+class FieldOpAssembler(object):
+
+    def emit_op_setfield_gc(self, op, regalloc, fcond):
+        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        #ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
+        #size_loc = regalloc.make_sure_var_in_reg(ofs)
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        value_loc = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
+        if size == 4:
+            f = self.mc.STR_ri
+        elif size == 2:
+            f = self.mc.STRH_ri
+        elif size == 1:
+            f = self.mc.STRB_ri
+        else:
+            assert 0
+        f(value_loc.value, base_loc.value, ofs)
+        return fcond
+
+    def emit_op_getfield_gc(self, op, regalloc, fcond):
+        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        # ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result)
+        if size == 4:
+            f = self.mc.LDR_ri
+        elif size == 2:
+            f = self.mc.LDRH_ri
+        elif size == 1:
+            f = self.mc.LDRB_ri
+        else:
+            assert 0
+        f(res.value, base_loc.value, ofs)
+        return fcond
+
+    #XXX from ../x86/regalloc.py:791
+    def _unpack_fielddescr(self, fielddescr):
+        assert isinstance(fielddescr, BaseFieldDescr)
+        ofs = fielddescr.offset
+        size = fielddescr.get_field_size(self.cpu.translate_support_code)
+        ptr = fielddescr.is_pointer_field()
+        return ofs, size, ptr

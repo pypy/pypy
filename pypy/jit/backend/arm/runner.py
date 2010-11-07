@@ -24,8 +24,14 @@ class ArmCPU(AbstractLLCPU):
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)
 
+    def set_future_value_ref(self, index, ptrvalue):
+        self.assembler.fail_boxes_ptr.setitem(index, ptrvalue)
+
     def get_latest_value_int(self, index):
         return self.assembler.fail_boxes_int.getitem(index)
+
+    def get_latest_value_ref(self, index):
+        return self.assembler.fail_boxes_ptr.getitem(index)
 
     def get_latest_value_count(self):
         return self.assembler.fail_boxes_count
