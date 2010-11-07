@@ -43,6 +43,7 @@ void pypysig_ignore(int signum);  /* signal will be ignored (SIG_IGN) */
 void pypysig_default(int signum); /* signal will do default action (SIG_DFL) */
 void pypysig_setflag(int signum); /* signal will set a flag which can be
                                      queried with pypysig_poll() */
+int pypysig_set_wakeup_fd(int fd);
 
 /* utility to poll for signals that arrived */
 int pypysig_poll(void);   /* => signum or -1 */
@@ -76,6 +77,7 @@ void *pypysig_getaddr_occurred(void) { return (void *)(&pypysig_occurred); }
 struct pypysig_long_struct pypysig_occurred;
 static volatile long *pypysig_occurred_v = (volatile long *)&pypysig_occurred.value;
 static volatile int pypysig_flags[NSIG];
+static int wakeup_fd = -1;
 
 void pypysig_ignore(int signum)
 {
@@ -112,6 +114,9 @@ static void signal_setflag_handler(int signum)
     /* the point of "*pypysig_occurred_v" instead of just "pypysig_occurred"
        is the volatile declaration */
     *pypysig_occurred_v |= PENDING_SIGNAL_BIT;
+
+    if (wakeup_fd != -1)
+      write(wakeup_fd, "\0", 1);
 }
 
 void pypysig_setflag(int signum)
@@ -149,6 +154,13 @@ int pypysig_poll(void)
             }
     }
     return -1;  /* no pending signal */
+}
+
+int pypysig_set_wakeup_fd(int fd)
+{
+  int old_fd = wakeup_fd;
+  wakeup_fd = fd;
+  return old_fd;
 }
 
 #endif

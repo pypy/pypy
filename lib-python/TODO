@@ -44,7 +44,7 @@ Medium tasks
 
 - missing builtin: memoryview
 
-- signal.set_wakeup_fd()
+- signal.set_wakeup_fd()  DONE
 
 - add 'unicode' in ObjSpace.MethodTable + probably a default implementation that
   falls back to space.str().

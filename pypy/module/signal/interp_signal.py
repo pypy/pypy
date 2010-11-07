@@ -7,6 +7,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
 from pypy.tool import autopath
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import intmask
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
@@ -25,6 +26,7 @@ eci = ExternalCompilationInfo(
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['pypysig_poll', 'pypysig_default',
                       'pypysig_ignore', 'pypysig_setflag',
+                      'pypysig_set_wakeup_fd',
                       'pypysig_getaddr_occurred'],
 )
 
@@ -34,6 +36,7 @@ def external(name, args, result, **kwds):
 pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
 pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
+pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
 # pointless and a performance issue
@@ -213,3 +216,21 @@ def signal(space, signum, w_handler):
         action.handlers_w[signum] = w_handler
     return old_handler
 signal.unwrap_spec = [ObjSpace, int, W_Root]
+
+def set_wakeup_fd(space, fd):
+    """Sets the fd to be written to (with '\0') when a signal
+    comes in.  Returns the old fd.  A library can use this to
+    wakeup select or poll.  The previous fd is returned.
+    
+    The fd must be non-blocking.
+    """
+    if space.config.objspace.usemodules.thread:
+        main_ec = space.threadlocals.getmainthreadvalue()
+        ec = space.getexecutioncontext()
+        if ec is not main_ec:
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("set_wakeup_fd only works in main thread"))
+    old_fd = pypysig_set_wakeup_fd(fd)
+    return space.wrap(intmask(old_fd))
+set_wakeup_fd.unwrap_spec = [ObjSpace, int]
