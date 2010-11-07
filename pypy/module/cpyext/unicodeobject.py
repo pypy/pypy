@@ -287,6 +287,25 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
                              space.wrap("decoding Unicode is not supported"))
     return space.call_function(w_meth, w_encoding, w_errors)
 
+@cpython_api([CONST_STRING], PyObject)
+def PyUnicode_FromString(space, s):
+    """Create a Unicode object from an UTF-8 encoded null-terminated char buffer"""
+    w_str = space.wrap(rffi.charp2str(s))
+    return space.call_method(w_str, 'decode', space.wrap("utf-8"))
+
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject)
+def PyUnicode_FromStringAndSize(space, s, size):
+    """Create a Unicode Object from the char buffer u. The bytes will be
+    interpreted as being UTF-8 encoded. u may also be NULL which causes the
+    contents to be undefined. It is the user's responsibility to fill in the
+    needed data. The buffer is copied into the new object. If the buffer is not
+    NULL, the return value might be a shared object. Therefore, modification of
+    the resulting Unicode object is only allowed when u is NULL."""
+    if not s:
+        raise NotImplementedError
+    w_str = space.wrap(rffi.charpsize2str(s, size))
+    return space.call_method(w_str, 'decode', space.wrap("utf-8"))
+
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsUTF8String(space, w_unicode):
     """Encode a Unicode object using UTF-8 and return the result as Python string
