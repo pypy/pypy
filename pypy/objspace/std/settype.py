@@ -24,9 +24,9 @@ set_discard                     = SMM('discard', 2,
 set_intersection                = SMM('intersection', 1, varargs_w=True,
                                       doc='Return a new set with elements common'
                                           ' to the set and all others.')
-set_intersection_update         = SMM('intersection_update', 2,
-                                      doc='Update a set with the intersection'
-                                          ' of itself and another.')
+set_intersection_update         = SMM('intersection_update', 1, varargs_w=True,
+                                      doc='Update the set, keeping only elements'
+                                          ' found in it and all others.')
 set_issubset                    = SMM('issubset', 2,
                                       doc='Report whether another set contains'
                                           ' this set.')
