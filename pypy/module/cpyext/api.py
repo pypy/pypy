@@ -308,7 +308,7 @@ SYMBOLS_C = [
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
 
-    'PyErr_Format', 'PyErr_NewException',
+    'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',

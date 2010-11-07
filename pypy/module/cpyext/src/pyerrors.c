@@ -69,3 +69,37 @@ PyErr_NewException(char *name, PyObject *base, PyObject *dict)
 	Py_XDECREF(modulename);
 	return result;
 }
+
+/* Create an exception with docstring */
+PyObject *
+PyErr_NewExceptionWithDoc(char *name, char *doc, PyObject *base, PyObject *dict)
+{
+    int result;
+    PyObject *ret = NULL;
+    PyObject *mydict = NULL; /* points to the dict only if we create it */
+    PyObject *docobj;
+
+    if (dict == NULL) {
+        dict = mydict = PyDict_New();
+        if (dict == NULL) {
+            return NULL;
+        }
+    }
+
+    if (doc != NULL) {
+        docobj = PyString_FromString(doc);
+        if (docobj == NULL)
+            goto failure;
+        result = PyDict_SetItemString(dict, "__doc__", docobj);
+        Py_DECREF(docobj);
+        if (result < 0)
+            goto failure;
+    }
+
+    ret = PyErr_NewException(name, base, dict);
+  failure:
+    Py_XDECREF(mydict);
+    return ret;
+}
+
+

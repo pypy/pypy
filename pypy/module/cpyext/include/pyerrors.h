@@ -12,6 +12,7 @@ extern "C" {
       PyObject_IsSubclass((x), PyExc_BaseException)))
 
 PyObject *PyErr_NewException(char *name, PyObject *base, PyObject *dict);
+PyObject *PyErr_NewExceptionWithDoc(char *name, char *doc, PyObject *base, PyObject *dict);
 PyObject *PyErr_Format(PyObject *exception, const char *format, ...);
 
 #ifdef __cplusplus
