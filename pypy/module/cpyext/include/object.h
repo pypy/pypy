@@ -55,11 +55,9 @@ typedef struct {
                 }				\
         } while (0)
 
-#if 0  /* This will be added with python 2.6 */
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
-#endif /* This will be added with python 2.6 */
 
 #define Py_None (&_Py_NoneStruct)
 
