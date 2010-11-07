@@ -1390,7 +1390,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         ops = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
-        debug_merge_point(15)
+        debug_merge_point(15, 0)
         i2 = getfield_gc(p1, descr=valuedescr)
         escape(i1)
         escape(i2)
@@ -1399,7 +1399,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         expected = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
-        debug_merge_point(15)
+        debug_merge_point(15, 0)
         escape(i1)
         escape(i1)
         jump(p1)
