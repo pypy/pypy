@@ -27,6 +27,7 @@ Probably easy tasks
 - Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
 
 - missing functions in itertools: combinations, product, compress...
+  compress, product DONE
 
 - in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
   proably requires to use the git_t typedef instead of rffi.INT.

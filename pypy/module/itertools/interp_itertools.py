@@ -942,3 +942,137 @@ W_GroupByIterator.typedef = TypeDef(
         __iter__ = interp2app(W_GroupByIterator.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_GroupByIterator.next_w, unwrap_spec=['self']))
 W_GroupByIterator.typedef.acceptable_as_base_class = False
+
+
+class W_Compress(Wrappable):
+    def __init__(self, space, w_data, w_selectors):
+        self.space = space
+        self.w_data = space.iter(w_data)
+        self.w_selectors = space.iter(w_selectors)
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        if not self.w_data or not self.w_selectors:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+
+        while True:
+            w_next_item = self.space.next(self.w_data)
+            w_next_selector = self.space.next(self.w_selectors)
+            if self.space.is_true(w_next_selector):
+                return w_next_item
+
+
+def W_Compress__new__(space, w_subtype, w_data, w_selectors):
+    return space.wrap(W_Compress(space, w_data, w_selectors))
+
+W_Compress.typedef = TypeDef(
+    'compress',
+    __new__ = interp2app(W_Compress__new__,
+                         unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
+    __iter__ = interp2app(W_Compress.iter_w, unwrap_spec=['self']),
+    next     = interp2app(W_Compress.next_w, unwrap_spec=['self']),
+    __doc__ = """Make an iterator that filters elements from *data* returning
+   only those that have a corresponding element in *selectors* that evaluates to
+   ``True``.  Stops when either the *data* or *selectors* iterables has been
+   exhausted.
+   Equivalent to::
+
+       def compress(data, selectors):
+           # compress('ABCDEF', [1,0,1,0,1,1]) --> A C E F
+           return (d for d, s in izip(data, selectors) if s)
+""")
+
+
+class W_Product(Wrappable):
+
+    def __init__(self, space, args_w, repeat_w):
+        self.space = space
+        self.gears_w = [x for x in args_w] * repeat_w.intval
+        self.num_gears = len(self.gears_w)
+        # initialization of indicies to loop over
+        self.indicies = [(0, len(self.gears_w[x].wrappeditems))
+                         for x in range(0, self.num_gears)]
+        self.cont = True
+
+    def roll_gears(self):
+        # Starting from the end of the gear indicies work to the front
+        # incrementing the gear until the limit is reached. When the limit
+        # is reached carry operation to the next gear
+        should_carry = True
+
+        for n in range(0, self.num_gears):
+            nth_gear = self.num_gears - n - 1
+            if should_carry:
+                count, lim = self.indicies[nth_gear]
+                count += 1
+                if count == lim and nth_gear == 0:
+                    self.cont = False
+                if count == lim:
+                    should_carry = True
+                    count = 0
+                else:
+                    should_carry = False
+                self.indicies[nth_gear] = (count, lim)
+            else:
+                break
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        if not self.cont:
+            raise OperationError(self.space.w_StopIteration,
+                                     self.space.w_None)
+        l = []
+        for x in range(0, self.num_gears):
+            index, limit = self.indicies[x]
+            l.append(self.gears_w[x].wrappeditems[index])
+        self.roll_gears()
+        return self.space.newtuple(l)
+
+
+def W_Product__new__(space, args_w):
+    star_args_w, kw_args_w = args_w.unpack()
+    if len(kw_args_w) > 1:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("product() takes at most 1 argument (%d given)" %
+                             len(kw_args_w)))
+    repeat = kw_args_w.get('repeat', space.wrap(1))
+    return space.wrap(W_Product(space, star_args_w[1:], repeat))
+
+W_Product.typedef = TypeDef(
+    'product',
+    __new__ = interp2app(W_Product__new__,
+                         unwrap_spec=[ObjSpace, Arguments]),
+    __iter__ = interp2app(W_Product.iter_w, unwrap_spec=['self']),
+    next = interp2app(W_Product.next_w, unwrap_spec=['self']),
+    __doc__ = """
+   Cartesian product of input iterables.
+
+   Equivalent to nested for-loops in a generator expression. For example,
+   ``product(A, B)`` returns the same as ``((x,y) for x in A for y in B)``.
+
+   The nested loops cycle like an odometer with the rightmost element advancing
+   on every iteration.  This pattern creates a lexicographic ordering so that if
+   the input's iterables are sorted, the product tuples are emitted in sorted
+   order.
+
+   To compute the product of an iterable with itself, specify the number of
+   repetitions with the optional *repeat* keyword argument.  For example,
+   ``product(A, repeat=4)`` means the same as ``product(A, A, A, A)``.
+
+   This function is equivalent to the following code, except that the
+   actual implementation does not build up intermediate results in memory::
+
+       def product(*args, **kwds):
+           # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
+           # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
+           pools = map(tuple, args) * kwds.get('repeat', 1)
+           result = [[]]
+           for pool in pools:
+               result = [x+[y] for x in result for y in pool]
+           for prod in result:
+               yield tuple(prod)
+""")
