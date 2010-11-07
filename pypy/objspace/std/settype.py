@@ -52,10 +52,9 @@ set_symmetric_difference        = SMM('symmetric_difference', 2,
 set_symmetric_difference_update = SMM('symmetric_difference_update', 2,
                                       doc='Update a set with the symmetric'
                                           ' difference of itself and another.')
-set_union                       = SMM('union', 2,
-                                      doc='Return the union of two sets as a'
-                                          ' new set.\n\n(i.e. all elements'
-                                          ' that are in either set.)')
+set_union                       = SMM('union', 1, varargs_w=True,
+                                      doc='Return a new set with elements'
+                                          ' from the set and all others.')
 set_update                      = SMM('update', 2,
                                       doc='Update a set with the union of'
                                           ' itself and another.')

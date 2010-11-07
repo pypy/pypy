@@ -26,10 +26,9 @@ frozenset_symmetric_difference  = SMM('symmetric_difference', 2,
                                           ' two sets as a new set.\n\n(i.e.'
                                           ' all elements that are in exactly'
                                           ' one of the sets.)')
-frozenset_union                 = SMM('union', 2,
-                                      doc='Return the union of two sets as a'
-                                          ' new set.\n\n(i.e. all elements'
-                                          ' that are in either set.)')
+frozenset_union                 = SMM('union', 1, varargs_w=True,
+                                      doc='Return a new set with elements'
+                                          ' from the set and all others.')
 frozenset_reduce                = SMM('__reduce__',1,
                                       doc='Return state information for'
                                           ' pickling.')

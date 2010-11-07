@@ -582,30 +582,28 @@ def inplace_xor__Set_Set(space, w_left, w_other):
 
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 
-def set_union__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
+def or__Set_Set(space, w_left, w_other):
     ld, rd = w_left.setdata, w_other.setdata
     result = ld.copy()
     result.update(rd)
     return w_left._newobj(space, result)
 
-set_union__Set_Frozenset = set_union__Set_Set
-set_union__Frozenset_Set = set_union__Set_Set
-set_union__Frozenset_Frozenset = set_union__Set_Set
-or__Set_Set = set_union__Set_Set
-or__Set_Frozenset = set_union__Set_Set
-or__Frozenset_Set = set_union__Set_Set
-or__Frozenset_Frozenset = set_union__Set_Set
+or__Set_Frozenset = or__Set_Set
+or__Frozenset_Set = or__Set_Set
+or__Frozenset_Frozenset = or__Set_Set
 
-
-def set_union__Set_ANY(space, w_left, w_other):
+def set_union__Set(space, w_left, others_w):
     ld = w_left.setdata
     result = ld.copy()
-    for w_key in space.listview(w_other):
-        result[w_key] = None
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            result.update(w_other.setdata)     # optimization only
+        else:
+            for w_key in space.listview(w_other):
+                result[w_key] = None
     return w_left._newobj(space, result)
 
-frozenset_union__Frozenset_ANY = set_union__Set_ANY
+frozenset_union__Frozenset = set_union__Set
 
 def len__Set(space, w_left):
     return space.newint(len(w_left.setdata))

@@ -61,6 +61,10 @@ class AppTestAppSetTest:
         a = set([4, 5])
         b = a.union([5, 7])
         assert sorted(b) == [4, 5, 7]
+        c = a.union([5, 7], [1], set([9,7]), frozenset([2]), frozenset())
+        assert sorted(c) == [1, 2, 4, 5, 7, 9]
+        d = a.union()
+        assert d == a
 
     def test_compare(self):
         raises(TypeError, cmp, set('abc'), set('abd'))
