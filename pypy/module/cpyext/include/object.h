@@ -461,6 +461,11 @@ manually remove this flag though!
 #define PyObject_GC_New(type, typeobj) \
                 ( (type *) _PyObject_GC_New(typeobj) )
 
+/* A dummy PyGC_Head, just to please some tests. Don't use it! */
+typedef union _gc_head {
+    char dummy;
+} PyGC_Head;
+
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments
  * "visit" and "arg".  This is intended to keep tp_traverse functions
