@@ -2,7 +2,7 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, PyObject, CANNOT_FAIL,
                                     build_type_checkers, Py_ssize_t)
-
+from pypy.rlib.rarithmetic import r_uint
 
 PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
 
@@ -27,6 +27,20 @@ def PyInt_AsUnsignedLong(space, w_obj):
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
     return space.uint_w(space.int(w_obj))
+
+@cpython_api([PyObject], rffi.ULONG, error=-1)
+def PyInt_AsUnsignedLongMask(space, w_obj):
+    """Will first attempt to cast the object to a PyIntObject or
+    PyLongObject, if it is not already one, and then return its value as
+    unsigned long.  This function does not check for overflow.
+    """
+    w_int = space.int(w_obj)
+    if space.is_true(space.isinstance(w_int, space.w_int)):
+        num = space.int_w(w_int)
+        return r_uint(num)
+    else:
+        num = space.bigint_w(w_int)
+        return num.uintmask()
 
 @cpython_api([PyObject], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_AS_LONG(space, w_int):

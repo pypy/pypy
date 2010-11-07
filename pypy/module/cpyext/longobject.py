@@ -3,6 +3,7 @@ from pypy.module.cpyext.api import (cpython_api, PyObject, build_type_checkers,
                                     CONST_STRING, ADDR)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -37,6 +38,13 @@ def PyLong_AsUnsignedLong(space, w_long):
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
     return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+
+@cpython_api([PyObject], rffi.ULONG, error=-1)
+def PyLong_AsUnsignedLongMask(space, w_long):
+    """Return a C unsigned long from a Python long integer, without checking
+    for overflow.
+    """
+    return PyInt_AsUnsignedLongMask(space, w_long)
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyLong_AsLong(space, w_long):

@@ -1873,14 +1873,6 @@ def PyInt_FromSize_t(space, ival):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.ULONG, error=-1)
-def PyInt_AsUnsignedLongMask(space, io):
-    """Will first attempt to cast the object to a PyIntObject or
-    PyLongObject, if it is not already one, and then return its value as
-    unsigned long.  This function does not check for overflow.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.LONGLONG, error=-1)
 def PyInt_AsUnsignedLongLongMask(space, io):
     """Will first attempt to cast the object to a PyIntObject or
@@ -2010,13 +2002,6 @@ def PyLong_AsSsize_t(space, pylong):
     Return a C Py_ssize_t representation of the contents of pylong.  If
     pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
     and -1 will be returned.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.ULONG, error=-1)
-def PyLong_AsUnsignedLongMask(space, io):
-    """Return a C unsigned long from a Python long integer, without checking
-    for overflow.
     """
     raise NotImplementedError
 
