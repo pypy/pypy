@@ -62,6 +62,10 @@ set_update                      = SMM('update', 2,
 set_reduce                      = SMM('__reduce__',1,
                                       doc='Return state information for'
                                           ' pickling.')
+# 2.6 methods
+set_isdisjoint                  = SMM('isdisjoint', 2,
+                                      doc='Return True if two sets have a'
+                                          ' null intersection.')
 
 register_all(vars(), globals())
 

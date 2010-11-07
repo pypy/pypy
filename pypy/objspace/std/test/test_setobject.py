@@ -270,3 +270,13 @@ class AppTestAppSetTest:
         efs = [f, Frozenset(f)]
         # All empty frozenset subclass instances should have different ids
         assert len(set(map(id, efs))) == len(efs)
+
+    def test_isdisjoint(self):
+        assert set([1,2,3]).isdisjoint(set([4,5,6]))
+        assert set([1,2,3]).isdisjoint(frozenset([4,5,6]))
+        assert set([1,2,3]).isdisjoint([4,5,6])
+        assert set([1,2,3]).isdisjoint((4,5,6))
+        assert not set([1,2,5]).isdisjoint(set([4,5,6]))
+        assert not set([1,2,5]).isdisjoint(frozenset([4,5,6]))
+        assert not set([1,2,5]).isdisjoint([4,5,6])
+        assert not set([1,2,5]).isdisjoint((4,5,6))

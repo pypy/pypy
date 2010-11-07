@@ -167,6 +167,14 @@ def _intersection_dict(space, ld, rd):
             result[w_key] = None
     return result
 
+def _isdisjoint_dict(ld, rd):
+    if len(ld) > len(rd):
+        ld, rd = rd, ld     # loop over the smaller dict
+    for w_key in ld:
+        if w_key in rd:
+            return False
+    return True
+
 def _symmetric_difference_dict(space, ld, rd):
     result = newset(space)
     for w_key in ld:
@@ -509,6 +517,25 @@ def inplace_and__Set_Set(space, w_left, w_other):
     return w_left
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set
+
+def set_isdisjoint__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
+    ld, rd = w_left.setdata, w_other.setdata
+    disjoint = _isdisjoint_dict(ld, rd)
+    return space.newbool(disjoint)
+
+set_isdisjoint__Set_Frozenset = set_isdisjoint__Set_Set
+set_isdisjoint__Frozenset_Frozenset = set_isdisjoint__Set_Set
+set_isdisjoint__Frozenset_Set = set_isdisjoint__Set_Set
+
+def set_isdisjoint__Set_ANY(space, w_left, w_other):
+    ld = w_left.setdata
+    for w_key in space.listview(w_other):
+        if w_key in ld:
+            return space.w_False
+    return space.w_True
+
+frozenset_isdisjoint__Frozenset_ANY = set_isdisjoint__Set_ANY
 
 def set_symmetric_difference__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)

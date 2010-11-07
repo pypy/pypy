@@ -33,6 +33,10 @@ frozenset_union                 = SMM('union', 2,
 frozenset_reduce                = SMM('__reduce__',1,
                                       doc='Return state information for'
                                           ' pickling.')
+# 2.6 methods
+frozenset_isdisjoint            = SMM('isdisjoint', 2,
+                                      doc='Return True if two sets have a'
+                                          ' null intersection.')
 
 register_all(vars(), globals())
 
