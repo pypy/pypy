@@ -594,6 +594,8 @@ class AppTestStringObject:
         raises(ValueError, 'xyz'.translate, 'too short')
         raises(ValueError, 'xyz'.translate, 'too long'*33)
 
+        assert 'yz' == 'xyz'.translate(None, 'x')     # 2.6
+
     def test_iter(self):
         l=[]
         for i in iter("42"):

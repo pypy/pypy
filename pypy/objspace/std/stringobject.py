@@ -919,7 +919,9 @@ def repr__String(space, w_str):
 
     return space.wrap(buf.build())
 
-   
+
+DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])
+
 def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     """charfilter - unicode handling is not implemented
     
@@ -929,11 +931,14 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     which must be a string of length 256"""
 
     # XXX CPython accepts buffers, too, not sure what we should do
-    table = space.str_w(w_table)
-    if len(table) != 256:
-        raise OperationError(
-            space.w_ValueError,
-            space.wrap("translation table must be 256 characters long"))
+    if space.is_w(w_table, space.w_None):
+        table = DEFAULT_NOOP_TABLE
+    else:
+        table = space.str_w(w_table)
+        if len(table) != 256:
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("translation table must be 256 characters long"))
 
     string = w_string._value
     chars = []
