@@ -6,11 +6,9 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
 frozenset_copy                  = SMM('copy', 1,
                                       doc='Return a shallow copy of a set.')
-frozenset_difference            = SMM('difference', 2,
-                                      doc='Return the difference of two sets'
-                                          ' as a new set.\n\n(i.e. all'
-                                          ' elements that are in this set but'
-                                          ' not the other.)')
+frozenset_difference            = SMM('difference', 1, varargs_w=True,
+                                      doc='Return a new set with elements in'
+                                          ' the set that are not in the others.')
 frozenset_intersection          = SMM('intersection', 1, varargs_w=True,
                                       doc='Return a new set with elements common'
                                           ' to the set and all others.')

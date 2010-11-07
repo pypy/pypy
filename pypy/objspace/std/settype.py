@@ -11,11 +11,9 @@ set_clear                       = SMM('clear', 1,
                                       doc='Remove all elements from this set.')
 set_copy                        = SMM('copy', 1,
                                       doc='Return a shallow copy of a set.')
-set_difference                  = SMM('difference', 2,
-                                      doc='Return the difference of two sets'
-                                          ' as a new set.\n\n(i.e. all'
-                                          ' elements that are in this set but'
-                                          ' not the other.)')
+set_difference                  = SMM('difference', 1, varargs_w=True,
+                                      doc='Return a new set with elements in'
+                                          ' the set that are not in the others.')
 set_difference_update           = SMM('difference_update', 2,
                                       doc='Remove all elements of another set'
                                           ' from this set.')

@@ -300,3 +300,18 @@ class AppTestAppSetTest:
         s = set([1,2,3])
         assert s.intersection() == s
         assert s.intersection() is not s
+
+    def test_difference(self):
+        assert set([1,2,3]).difference(set([2,3,4])) == set([1])
+        assert set([1,2,3]).difference(frozenset([2,3,4])) == set([1])
+        assert set([1,2,3]).difference([2,3,4]) == set([1])
+        assert set([1,2,3]).difference((2,3,4)) == set([1])
+        assert frozenset([1,2,3]).difference(set([2,3,4])) == frozenset([1])
+        assert frozenset([1,2,3]).difference(frozenset([2,3,4]))== frozenset([1])
+        assert frozenset([1,2,3]).difference([2,3,4]) == frozenset([1])
+        assert frozenset([1,2,3]).difference((2,3,4)) == frozenset([1])
+        assert set([1,2,3,4]).difference([4,5], set((0,1))) == set([2,3])
+        assert frozenset([1,2,3,4]).difference((4,5), [0,1]) == frozenset([2,3])
+        s = set([1,2,3])
+        assert s.difference() == s
+        assert s.difference() is not s

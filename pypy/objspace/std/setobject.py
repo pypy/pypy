@@ -233,26 +233,28 @@ def frozenset_copy__Frozenset(space, w_left):
 def set_clear__Set(space, w_left):
     w_left.setdata.clear()
 
-def set_difference__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
+def sub__Set_Set(space, w_left, w_other):
     ld, rd = w_left.setdata, w_other.setdata
     new_ld = _difference_dict(space, ld, rd)
     return w_left._newobj(space, new_ld)
 
-set_difference__Set_Frozenset = set_difference__Set_Set
-frozenset_difference__Frozenset_Set = set_difference__Set_Set
-frozenset_difference__Frozenset_Frozenset = set_difference__Set_Set
-sub__Set_Set = set_difference__Set_Set
-sub__Set_Frozenset = set_difference__Set_Set
-sub__Frozenset_Set = set_difference__Set_Set
-sub__Frozenset_Frozenset = set_difference__Set_Set
+sub__Set_Frozenset = sub__Set_Set
+sub__Frozenset_Set = sub__Set_Set
+sub__Frozenset_Frozenset = sub__Set_Set
 
-def set_difference__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld = _difference_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+def set_difference__Set(space, w_left, others_w):
+    result = w_left.setdata
+    if len(others_w) == 0:
+        result = result.copy()
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            rd = w_other.setdata     # optimization only
+        else:
+            rd = make_setdata_from_w_iterable(space, w_other)
+        result = _difference_dict(space, result, rd)
+    return w_left._newobj(space, result)
 
-frozenset_difference__Frozenset_ANY = set_difference__Set_ANY
+frozenset_difference__Frozenset = set_difference__Set
 
 
 def set_difference_update__Set_Set(space, w_left, w_other):
