@@ -2741,12 +2741,6 @@ def Py_UNICODE_TONUMERIC(space, ch):
     possible.  This macro does not raise exceptions."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyUnicode_FromObject(space, obj):
-    """Shortcut for PyUnicode_FromEncodedObject(obj, NULL, "strict") which is used
-    throughout the interpreter whenever coercion to Unicode is needed."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyUnicode_Encode(space, s, size, encoding, errors):
     """Encode the Py_UNICODE buffer of the given size and return a Python
@@ -3131,12 +3125,6 @@ def PyUnicode_Replace(space, str, substr, replstr, maxcount):
     
     This function used an int type for maxcount. This might
     require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
-def PyUnicode_Compare(space, left, right):
-    """Compare two strings and return -1, 0, 1 for less than, equal, and greater than,
-    respectively."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)

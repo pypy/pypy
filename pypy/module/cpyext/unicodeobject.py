@@ -253,6 +253,15 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
         w_errors = space.w_None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
 
+@cpython_api([PyObject], PyObject)
+def PyUnicode_FromObject(space, w_obj):
+    """Shortcut for PyUnicode_FromEncodedObject(obj, NULL, "strict") which is used
+    throughout the interpreter whenever coercion to Unicode is needed."""
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return w_obj
+    else:
+        return space.call_function(space.w_unicode, w_obj)
+
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     """Coerce an encoded object obj to an Unicode object and return a reference with
@@ -424,3 +433,10 @@ if sys.platform == 'win32':
         else:
             w_errors = space.w_None
         return space.call_method(w_str, 'decode', w_encoding, w_errors)
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
+def PyUnicode_Compare(space, w_left, w_right):
+    """Compare two strings and return -1, 0, 1 for less than, equal, and greater
+    than, respectively."""
+    return space.int_w(space.cmp(w_left, w_right))
+
