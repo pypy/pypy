@@ -65,6 +65,15 @@ class TestUnicode(BaseApiTest):
         assert rffi.wcharp2unicode(buf) == 'a'
         rffi.free_wcharp(buf)
 
+    def test_fromstring(self, space, api):
+        s = rffi.str2charp(u'späm'.encode("utf-8"))
+        w_res = api.PyUnicode_FromString(s)
+        assert space.unwrap(w_res) == u'späm'
+
+        w_res = api.PyUnicode_FromStringAndSize(s, 4)
+        assert space.unwrap(w_res) == u'spä'
+        rffi.free_charp(s)
+
     def test_AsUTF8String(self, space, api):
         w_u = space.wrap(u'späm')
         w_res = api.PyUnicode_AsUTF8String(w_u)
