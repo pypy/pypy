@@ -93,6 +93,19 @@ class TestLongObject(BaseApiTest):
         assert space.unwrap(w_l) == 0L
         assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP_real.TO)
 
+    def test_sign_and_bits(self, space, api):
+        assert api._PyLong_Sign(space.wrap(0L)) == 0
+        assert api._PyLong_Sign(space.wrap(2L)) == 1
+        assert api._PyLong_Sign(space.wrap(-2L)) == -1
+
+        assert api._PyLong_NumBits(space.wrap(0)) == 0
+        assert api._PyLong_NumBits(space.wrap(1)) == 1
+        assert api._PyLong_NumBits(space.wrap(-1)) == 1
+        assert api._PyLong_NumBits(space.wrap(2)) == 2
+        assert api._PyLong_NumBits(space.wrap(-2)) == 2
+        assert api._PyLong_NumBits(space.wrap(3)) == 2
+        assert api._PyLong_NumBits(space.wrap(-3)) == 2
+
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
         module = self.import_extension('foo', [
