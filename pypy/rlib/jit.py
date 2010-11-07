@@ -457,8 +457,8 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 r_green = hop.args_r[i]
                 v_green = hop.inputarg(r_green, arg=i)
             else:
-                if hop.rtyper.type_system.name == 'ootypesystem':
-                    py.test.skip("lltype only")
+                #if hop.rtyper.type_system.name == 'ootypesystem':
+                    #py.test.skip("lltype only")
                 objname, fieldname = name.split('.')   # see test_green_field
                 assert objname in driver.reds
                 i = kwds_i['i_' + objname]
@@ -474,7 +474,10 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                         "field %r not found in %r" % (name,
                                                       r_red.lowleveltype.TO))
                     r_red = r_red.rbase
-                GTYPE = r_red.lowleveltype.TO
+                if hop.rtyper.type_system.name == 'ootypesystem':
+                    GTYPE = r_red.lowleveltype
+                else:
+                    GTYPE = r_red.lowleveltype.TO
                 assert GTYPE._immutable_field(mangled_name), (
                     "field %r must be declared as immutable" % name)
                 if not hasattr(driver, 'll_greenfields'):
