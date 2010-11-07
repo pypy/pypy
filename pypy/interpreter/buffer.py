@@ -207,6 +207,7 @@ extend to the end of the target object (or with the specified size).
     __mul__ = interp2app(Buffer.descr_mul),
     __rmul__ = interp2app(Buffer.descr_mul),
     __repr__ = interp2app(Buffer.descr_repr),
+    tobytes = interp2app(Buffer.descr_str),
     )
 Buffer.typedef.acceptable_as_base_class = False
 

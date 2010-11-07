@@ -163,6 +163,6 @@ class AppTestBuffer:
 class AppTestMemoryview:
     def test_basic(self):
         v = memoryview("abc")
-        assert v.to_bytes() == "abc"
+        assert v.tobytes() == "abc"
         assert len(v) == 3
         assert list(v) == ['a', 'b', 'c']

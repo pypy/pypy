@@ -16,23 +16,6 @@ NoneNotWrapped = gateway.NoneNotWrapped
 
 W_Buffer = buffer.Buffer
 
-class W_Memoryview(buffer.StringLikeBuffer):
-    @unwrap_spec(ObjSpace, W_Root, W_Root)
-    def descr_new(space, w_subtype, w_object):
-        self = space.allocate_instance(W_Memoryview, w_subtype)
-        buffer.StringLikeBuffer.__init__(self, space, w_object)
-        return space.wrap(self)
-
-    @unwrap_spec('self', ObjSpace)
-    def to_bytes_w(self, space):
-        return space.wrap(self.as_str())
-
-W_Memoryview.typedef = TypeDef(
-    "memoryview", W_Buffer.typedef,
-    __new__=interp2app(W_Memoryview.descr_new.im_func),
-    to_bytes=interp2app(W_Memoryview.to_bytes_w),
-    )
-
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
     return space.abs(w_val)
