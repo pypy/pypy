@@ -42,7 +42,7 @@ Medium tasks
 - Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
   test_pickle()
 
-- missing builtin: memoryview
+- missing builtin: memoryview  DONE (but not very much tested)
 
 - signal.set_wakeup_fd()  DONE
 
