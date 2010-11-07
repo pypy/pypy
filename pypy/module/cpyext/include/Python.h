@@ -80,6 +80,7 @@ typedef long Py_ssize_t;
 #include <pypy_macros.h>
 
 #include "patchlevel.h"
+#include "pyconfig.h"
 
 #include "object.h"
 #include "pyport.h"
@@ -91,8 +92,6 @@ typedef long Py_ssize_t;
 #include <assert.h>
 #include <locale.h>
 #include <ctype.h>
-
-#include "pyconfig.h"
 
 #include "boolobject.h"
 #include "floatobject.h"
