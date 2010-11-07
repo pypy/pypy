@@ -52,9 +52,9 @@ set_symmetric_difference_update = SMM('symmetric_difference_update', 2,
 set_union                       = SMM('union', 1, varargs_w=True,
                                       doc='Return a new set with elements'
                                           ' from the set and all others.')
-set_update                      = SMM('update', 2,
-                                      doc='Update a set with the union of'
-                                          ' itself and another.')
+set_update                      = SMM('update', 1, varargs_w=True,
+                                      doc='Update the set, adding elements'
+                                          ' from all others.')
 set_reduce                      = SMM('__reduce__',1,
                                       doc='Return state information for'
                                           ' pickling.')

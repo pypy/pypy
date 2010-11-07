@@ -197,19 +197,19 @@ def _issubset_dict(ldict, rdict):
 
 #end helper functions
 
-def set_update__Set_BaseSet(space, w_left, w_other):
-    # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    ld.update(rd)
-
-def set_update__Set_ANY(space, w_left, w_other):
+def set_update__Set(space, w_left, others_w):
     """Update a set with the union of itself and another."""
     ld = w_left.setdata
-    for w_item in space.listview(w_other):
-        ld[w_item] = None
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            ld.update(w_other.setdata)     # optimization only
+        else:
+            for w_key in space.listview(w_other):
+                ld[w_key] = None
 
 def inplace_or__Set_Set(space, w_left, w_other):
-    set_update__Set_BaseSet(space, w_left, w_other)
+    ld, rd = w_left.setdata, w_other.setdata
+    ld.update(rd)
     return w_left
 
 inplace_or__Set_Frozenset = inplace_or__Set_Set
@@ -597,8 +597,7 @@ or__Frozenset_Set = or__Set_Set
 or__Frozenset_Frozenset = or__Set_Set
 
 def set_union__Set(space, w_left, others_w):
-    ld = w_left.setdata
-    result = ld.copy()
+    result = w_left.setdata.copy()
     for w_other in others_w:
         if isinstance(w_other, W_BaseSetObject):
             result.update(w_other.setdata)     # optimization only
