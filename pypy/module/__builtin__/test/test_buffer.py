@@ -184,3 +184,11 @@ class AppTestMemoryView:
         v[1:4] = '123'
         assert data == bytearray(b'z123fg')
         raises((ValueError, TypeError), "v[2] = 'spam'")
+
+    def test_memoryview_attrs(self):
+        v = memoryview("a"*100)
+        assert v.format == "B"
+        assert v.itemsize == 1
+        assert v.shape == (100,)
+        assert v.ndim == 1
+        assert v.strides == (1,)

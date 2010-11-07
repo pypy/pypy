@@ -100,8 +100,18 @@ class W_MemoryView(Wrappable):
     def descr_len(self, space):
         return self.buf.descr_len(space)
 
-    def is_readonly(space, self):
+    def w_get_format(space, self):
+        return space.wrap("B")
+    def w_get_itemsize(space, self):
+        return space.wrap(1)
+    def w_get_ndim(space, self):
+        return space.wrap(1)
+    def w_is_readonly(space, self):
         return space.wrap(not isinstance(self.buf, buffer.RWBuffer))
+    def w_get_shape(space, self):
+        return space.newtuple([space.wrap(self.getlength())])
+    def w_get_strides(space, self):
+        return space.newtuple([space.wrap(1)])
 
 
 @unwrap_spec(ObjSpace, W_Root, W_Root)
@@ -127,12 +137,12 @@ Create a new memoryview object which references the given object.
     __setitem__ = interp2app(W_MemoryView.descr_setitem),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
-    #format
-    #itemsize
-    #ndim
-    readonly    = GetSetProperty(W_MemoryView.is_readonly)
-    #shape
-    #strides
-    #suboffsets
+    format      = GetSetProperty(W_MemoryView.w_get_format),
+    itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
+    ndim        = GetSetProperty(W_MemoryView.w_get_ndim),
+    readonly    = GetSetProperty(W_MemoryView.w_is_readonly),
+    shape       = GetSetProperty(W_MemoryView.w_get_shape),
+    strides     = GetSetProperty(W_MemoryView.w_get_strides),
+    #suboffsets? undocumented
     )
 W_MemoryView.typedef.acceptable_as_base_class = False

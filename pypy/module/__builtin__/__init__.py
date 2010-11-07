@@ -52,8 +52,8 @@ class Module(MixedModule):
         'object'        : '(space.w_object)',
         'bytes'         : '(space.w_str)',
         'unicode'       : '(space.w_unicode)',
-        'buffer'        : 'memoryview.W_Buffer',
-        'memoryview'    : 'memoryview.W_MemoryView',
+        'buffer'        : 'interp_memoryview.W_Buffer',
+        'memoryview'    : 'interp_memoryview.W_MemoryView',
 
         'file'          : 'state.get(space).w_file',
         'open'          : 'state.get(space).w_file',
