@@ -33,7 +33,7 @@ Probably easy tasks
 
 - missing posix.(confstr|pathconf|fpathconf)(_names)?
 
-- some set() methods now accept a variable number of arguments
+- some set() methods now accept a variable number of arguments  DONE
 
 
 Medium tasks
