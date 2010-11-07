@@ -207,7 +207,7 @@ def writeDict(outfile, name, dictionary, base_mod):
     print >> outfile, '}'
     print >> outfile
     print >> outfile, '%s_corrected = {' % name
-    for key in base_dict:
+    for key in sorted(base_dict):
         if key not in dictionary:
             print >> outfile, '%r: None,' % key
     print >> outfile, '}'
