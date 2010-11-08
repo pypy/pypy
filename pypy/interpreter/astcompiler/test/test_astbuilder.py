@@ -1147,6 +1147,10 @@ class TestAstBuilder:
         for num in ("0b00101", "0B00101", "0b101", "0B101"):
             assert space.eq_w(get_num(num), space.wrap(5))
 
+        py.test.raises(SyntaxError, self.get_ast, "0x")
+        py.test.raises(SyntaxError, self.get_ast, "0b")
+        py.test.raises(SyntaxError, self.get_ast, "0o")
+
     def check_comprehension(self, brackets, ast_type):
         def brack(s):
             return brackets % s
