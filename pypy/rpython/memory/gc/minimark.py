@@ -178,6 +178,7 @@ class MiniMarkGC(MovingGCBase):
         self.nursery      = NULL
         self.nursery_free = NULL
         self.nursery_top  = NULL
+        self.debug_always_do_minor_collect = False
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
         if ArenaCollectionClass is None:
@@ -245,6 +246,10 @@ class MiniMarkGC(MovingGCBase):
             # From there on, the GC is fully initialized and the code
             # below can use it
             newsize = base.read_from_env('PYPY_GC_NURSERY')
+            # PYPY_GC_NURSERY=1 forces a minor collect for every malloc.
+            # Useful to debug external factors, like trackgcroot or the
+            # handling of the write barrier.
+            self.debug_always_do_minor_collect = newsize == 1
             if newsize <= 0:
                 newsize = generation.estimate_best_nursery_size()
                 if newsize <= 0:
@@ -444,6 +449,10 @@ class MiniMarkGC(MovingGCBase):
         result = self.nursery_free
         self.nursery_free = result + totalsize
         ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
+        #
+        if self.debug_always_do_minor_collect:
+            self.nursery_free = self.nursery_top
+        #
         return result
     collect_and_reserve._dont_inline_ = True
 
