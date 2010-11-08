@@ -32,13 +32,18 @@ class deque(object):
         return self
 
     def __init__(self, iterable=(), maxlen=None):
+        self.clear()
         if maxlen is not None:
             if maxlen < 0:
                 raise ValueError("maxlen must be non-negative")
-        self.maxlen = maxlen
+        self._maxlen = maxlen
         add = self.append
         for elem in iterable:
             add(elem)
+
+    @property
+    def maxlen(self):
+        return self._maxlen
 
     def clear(self):
         self.right = self.left = [None] * BLOCKSIZ
@@ -349,6 +354,10 @@ class deque(object):
             return list(self) >= list(other)
         else:
             return NotImplemented
+
+    def __iadd__(self, other):
+        self.extend(other)
+        return self
 
 class deque_iterator(object):
 
