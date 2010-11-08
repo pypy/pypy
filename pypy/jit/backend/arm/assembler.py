@@ -146,7 +146,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         # XXX free this memory
         # XXX allocate correct amount of memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), (len(args)+5)*4, flavor='raw')
-        self.encode32(mem, 0, regalloc.frame_manager.frame_depth-1)
+        self.encode32(mem, 0, regalloc.frame_manager.frame_depth)
         i = 0
         j = 4
         while(i < len(args)):
@@ -264,7 +264,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         cb = ARMv7InMemoryBuilder(addr, ARMv7InMemoryBuilder.size_of_gen_load_int)
         if regalloc.frame_manager.frame_depth == 1:
             return
-        n = (regalloc.frame_manager.frame_depth - 1)*WORD
+        n = (regalloc.frame_manager.frame_depth)*WORD
         self._adjust_sp(n, cb)
 
     def _adjust_sp(self, n, cb=None, fcond=c.AL):
