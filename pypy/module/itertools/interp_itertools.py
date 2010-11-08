@@ -954,9 +954,8 @@ class W_Compress(Wrappable):
         return self.space.wrap(self)
 
     def next_w(self):
-        if not self.w_data or not self.w_selectors:
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
-
+        # No need to check for StopIteration since either w_data
+        # or w_selectors will raise this. The shortest one stops first.
         while True:
             w_next_item = self.space.next(self.w_data)
             w_next_selector = self.space.next(self.w_selectors)
