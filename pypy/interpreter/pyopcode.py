@@ -1140,7 +1140,7 @@ class SContinueLoop(SuspendedUnroller):
     state_pack_variables = staticmethod(state_pack_variables)
 
 
-class FrameBlock:
+class FrameBlock(object):
 
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
