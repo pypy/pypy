@@ -197,6 +197,7 @@ def _builduserclswithfeature(config, supercls, *features):
         from pypy.objspace.std.mapdict import BaseMapdictObject, ObjectMixin
         add(BaseMapdictObject)
         add(ObjectMixin)
+        body["user_overridden_class"] = True
         features = ()
 
     if "user" in features:     # generic feature needed by all subcls
@@ -256,16 +257,7 @@ def _builduserclswithfeature(config, supercls, *features):
                 return self.slots_w[index]
         add(Proto)
 
-    wantdict = "dict" in features
-    if wantdict and config.objspace.std.withinlineddict:
-        from pypy.objspace.std.objectobject import W_ObjectObject
-        from pypy.objspace.std.inlinedict import make_mixin
-        if supercls is W_ObjectObject:
-            Mixin = make_mixin(config)
-            add(Mixin)
-            wantdict = False
-
-    if wantdict:
+    if "dict" in features:
         base_user_setup = supercls.user_setup.im_func
         if "user_setup" in body:
             base_user_setup = body["user_setup"]
@@ -284,15 +276,6 @@ def _builduserclswithfeature(config, supercls, *features):
             def setclass(self, space, w_subtype):
                 # only used by descr_set___class__
                 self.w__class__ = w_subtype
-                if space.config.objspace.std.withshadowtracking:
-                    self.w__dict__.set_shadows_anything()
-
-            def getdictvalue_attr_is_in_class(self, space, name):
-                w_dict = self.w__dict__
-                if space.config.objspace.std.withshadowtracking:
-                    if not w_dict.shadows_anything():
-                        return None
-                return space.finditem_str(w_dict, name)
 
         add(Proto)
 

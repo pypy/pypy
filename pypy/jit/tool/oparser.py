@@ -189,7 +189,7 @@ class OpParser(object):
         descr = None
         if argspec.strip():
             if opname == 'debug_merge_point':
-                allargs = [argspec]
+                allargs = argspec.rsplit(', ', 1)
             else:
                 allargs = [arg for arg in argspec.split(",")
                            if arg != '']

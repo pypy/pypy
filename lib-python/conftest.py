@@ -131,7 +131,7 @@ testmap = [
     RegrTest('test_binhex.py'),
 
     RegrTest('test_binop.py', core=True),
-    RegrTest('test_bisect.py', core=True),
+    RegrTest('test_bisect.py', core=True, usemodules='_bisect'),
     RegrTest('test_bool.py', core=True),
     RegrTest('test_bsddb.py', skip="unsupported extension module"),
     RegrTest('test_bsddb185.py', skip="unsupported extension module"),

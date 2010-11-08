@@ -1,4 +1,4 @@
-from pypy.rlib import jit, objectmodel
+from pypy.rlib import jit, objectmodel, debug
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
@@ -10,6 +10,9 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 # attribute shapes
 
 NUM_DIGITS = 4
+NUM_DIGITS_POW2 = 1 << NUM_DIGITS
+# note: we use "x * NUM_DIGITS_POW2" instead of "x << NUM_DIGITS" because
+# we want to propagate knowledge that the result cannot be negative
 
 class AbstractAttribute(object):
     _immutable_fields_ = ['w_cls']
@@ -69,8 +72,10 @@ class AbstractAttribute(object):
         attr = self._get_new_attr(selector[0], selector[1])
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
-            oldattr._size_estimate += attr.size_estimate() - oldattr.size_estimate()
-            assert oldattr.size_estimate() >= oldattr.length()
+            size_est = (oldattr._size_estimate + attr.size_estimate()
+                                               - oldattr.size_estimate())
+            assert size_est >= (oldattr.length() * NUM_DIGITS_POW2)
+            oldattr._size_estimate = size_est
         if attr.length() > obj._mapdict_storage_length():
             # note that attr.size_estimate() is always at least attr.length()
             new_storage = [None] * attr.size_estimate()
@@ -188,7 +193,7 @@ class PlainAttribute(AbstractAttribute):
         self.selector = selector
         self.position = back.length()
         self.back = back
-        self._size_estimate = self.length() << NUM_DIGITS
+        self._size_estimate = self.length() * NUM_DIGITS_POW2
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
@@ -291,7 +296,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
     def getdictvalue(self, space, attrname):
         return self._get_mapdict_map().read(self, (attrname, DICT))
 
-    def setdictvalue(self, space, attrname, w_value, shadows_type=True):
+    def setdictvalue(self, space, attrname, w_value):
         return self._get_mapdict_map().write(self, (attrname, DICT), w_value)
 
     def deldictvalue(self, space, w_name):
@@ -356,7 +361,8 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
 
     def setweakref(self, space, weakreflifeline):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        assert isinstance(weakreflifeline, WeakrefLifeline)
+        assert (isinstance(weakreflifeline, WeakrefLifeline) or
+                    weakreflifeline is None)
         self._get_mapdict_map().write(self, ("weakref", SPECIAL), weakreflifeline)
 
 class ObjectMixin(object):
@@ -383,16 +389,18 @@ def get_subclass_of_correct_size(space, cls, w_type):
     assert space.config.objspace.std.withmapdict
     map = w_type.terminator
     classes = memo_get_subclass_of_correct_size(space, cls)
+    if SUBCLASSES_MIN_FIELDS == SUBCLASSES_MAX_FIELDS:
+        return classes[0]
     size = map.size_estimate()
-    if not size:
-        size = 1
-    try:
-        return classes[size - 1]
-    except IndexError:
-        return classes[-1]
+    debug.check_nonneg(size)
+    if size < len(classes):
+        return classes[size]
+    else:
+        return classes[len(classes)-1]
 get_subclass_of_correct_size._annspecialcase_ = "specialize:arg(1)"
 
-NUM_SUBCLASSES = 10 # XXX tweak this number
+SUBCLASSES_MIN_FIELDS = 5 # XXX tweak these numbers
+SUBCLASSES_MAX_FIELDS = 5
 
 def memo_get_subclass_of_correct_size(space, supercls):
     key = space, supercls
@@ -401,8 +409,12 @@ def memo_get_subclass_of_correct_size(space, supercls):
     except KeyError:
         assert not hasattr(supercls, "__del__")
         result = []
-        for i in range(1, NUM_SUBCLASSES+1):
+        for i in range(SUBCLASSES_MIN_FIELDS, SUBCLASSES_MAX_FIELDS+1):
             result.append(_make_subclass_size_n(supercls, i))
+        for i in range(SUBCLASSES_MIN_FIELDS):
+            result.insert(0, result[0])
+        if SUBCLASSES_MIN_FIELDS == SUBCLASSES_MAX_FIELDS:
+            assert len(set(result)) == 1
         _subclass_cache[key] = result
         return result
 memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
@@ -413,7 +425,7 @@ def _make_subclass_size_n(supercls, n):
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
-    class subcls(ObjectMixin, BaseMapdictObject, supercls):
+    class subcls(BaseMapdictObject, supercls):
         def _init_empty(self, map):
             from pypy.rlib.debug import make_sure_not_resized
             for i in rangen:
@@ -506,8 +518,8 @@ class MapDictImplementation(W_DictMultiObject):
     def impl_getitem_str(self, key):
         return self.w_obj.getdictvalue(self.space, key)
 
-    def impl_setitem_str(self,  key, w_value, shadows_type=True):
-        flag = self.w_obj.setdictvalue(self.space, key, w_value, shadows_type)
+    def impl_setitem_str(self,  key, w_value):
+        flag = self.w_obj.setdictvalue(self.space, key, w_value)
         assert flag
 
     def impl_setitem(self,  w_key, w_value):
@@ -587,8 +599,6 @@ class MapDictIteratorImplementation(IteratorImplementation):
 
 # ____________________________________________________________
 # Magic caching
-
-# XXX we also would like getdictvalue_attr_is_in_class() above
 
 class CacheEntry(object):
     map = None

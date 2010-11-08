@@ -25,3 +25,7 @@ class Module(MixedModule):
                                  'interp_magic.reset_method_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
+        #
+        from pypy.jit.backend import detect_cpu
+        model = detect_cpu.autodetect_main_model_and_size()
+        self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)

@@ -96,6 +96,8 @@ class C(B):
 )
 
 class W_Property(Wrappable):
+    _immutable_fields_ = ["w_fget", "w_fset", "w_fdel"]
+
     def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset

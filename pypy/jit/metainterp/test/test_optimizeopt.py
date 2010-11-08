@@ -807,10 +807,10 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_value(i2, 1) []
         i3 = call_loopinvariant(1, i1, descr=nonwritedescr)
         guard_no_exception() []
-        guard_value(i2, 1) []
+        guard_value(i3, 1) []
         i4 = call_loopinvariant(1, i1, descr=nonwritedescr)
         guard_no_exception() []
-        guard_value(i2, 1) []
+        guard_value(i4, 1) []
         jump(i1)
         """
         expected = """
@@ -1390,7 +1390,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         ops = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
-        debug_merge_point(15)
+        debug_merge_point(15, 0)
         i2 = getfield_gc(p1, descr=valuedescr)
         escape(i1)
         escape(i2)
@@ -1399,7 +1399,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         expected = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
-        debug_merge_point(15)
+        debug_merge_point(15, 0)
         escape(i1)
         escape(i1)
         jump(p1)

@@ -109,7 +109,7 @@ _pypy_g_RPyRaiseException:
  
 def test_computegcmaptable():
     tests = []
-    for format in ('elf', 'darwin', 'msvc', 'elf64'):
+    for format in ('elf', 'elf64', 'darwin', 'darwin64', 'msvc'):
         for path in this_dir.join(format).listdir("track*.s"):
             n = path.purebasename[5:]
             try:

@@ -8,7 +8,7 @@ from pypy.translator.platform import platform
 CPYTHON_VERSION            = (2, 7, 0, "final", 42)   #XXX # sync patchlevel.h
 CPYTHON_API_VERSION        = 1012   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 3, 0, "beta", '?')  #XXX # sync patchlevel.h
+PYPY_VERSION               = (1, 4, 0, "beta", '?')  #XXX # sync patchlevel.h
 # the last item is replaced by the svn revision ^^^
 
 TRIM_URL_UP_TO = 'svn/pypy/'

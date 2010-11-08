@@ -27,11 +27,11 @@ default_modules.update(dict.fromkeys(
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl",
-      "rctime" , "select", "zipimport", "_lsprof",
+     "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_multiprocessing", '_warnings']
+     "_bisect", "_multiprocessing", '_warnings']
 ))
 
 working_oo_modules = default_modules.copy()
@@ -232,27 +232,15 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.opcodes.CALL_LIKELY_BUILTIN", False),
                              ("objspace.honor__builtins__", False)]),
 
-        BoolOption("withsharingdict",
-                   "use dictionaries that share the keys part",
-                   default=False),
-
         BoolOption("withdictmeasurement",
                    "create huge files with masses of information "
                    "about dictionaries",
                    default=False),
 
-        BoolOption("withinlineddict",
-                   "make instances more compact by revoming a level of indirection",
-                   default=False,
-                   requires=[("objspace.std.withshadowtracking", False)]),
-
         BoolOption("withmapdict",
                    "make instances really small but slow without the JIT",
                    default=False,
-                   requires=[("objspace.std.withshadowtracking", False),
-                             ("objspace.std.withinlineddict", False),
-                             ("objspace.std.withsharingdict", False),
-                             ("objspace.std.getattributeshortcut", True),
+                   requires=[("objspace.std.getattributeshortcut", True),
                              ("objspace.std.withtypeversion", True),
                        ]),
 
@@ -269,12 +257,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
 
-        BoolOption("withshadowtracking",
-                   "track whether an instance attribute shadows a type"
-                   " attribute",
-                   default=False,
-                   requires=[("objspace.std.withtypeversion", True),
-                             ("translation.rweakref", True)]),
         BoolOption("withmethodcache",
                    "try to cache method lookups",
                    default=False,
@@ -346,9 +328,6 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)        
-        if type_system != 'ootype':
-            config.objspace.std.suggest(withsharingdict=True)
-        config.objspace.std.suggest(withinlineddict=True)
 
     # extra costly optimizations only go in level 3
     if level == '3':
@@ -377,7 +356,7 @@ def set_pypy_opt_level(config, level):
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        #config.objspace.std.suggest(withmapdict=True)
+        config.objspace.std.suggest(withmapdict=True)
 
 
 def enable_allworkingmodules(config):

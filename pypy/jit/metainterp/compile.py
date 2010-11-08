@@ -123,7 +123,6 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations):
     if not we_are_translated():
         show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
-        pass
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
@@ -600,5 +599,5 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes):
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
         ]
     operations[1].setfailargs([])
-    cpu.compile_loop(inputargs, operations, loop_token)
+    cpu.compile_loop(inputargs, operations, loop_token, log=False)
     return loop_token

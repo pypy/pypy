@@ -4,6 +4,7 @@ Pure Python implementation of string utilities.
 
 from pypy.rlib.rarithmetic import ovfcheck, break_up_float, parts_to_float,\
      INFINITY, NAN
+from pypy.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math
 
@@ -97,9 +98,10 @@ class NumberStringParser:
             return -1
 
 def string_to_int(s, base=10):
-    """Utility to converts a string to an integer (or possibly a long).
+    """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
+    Raises ParseStringOverflowError in case the result does not fit.
     """
     s = literal = strip_spaces(s)
     p = NumberStringParser(s, literal, base, 'int')
@@ -119,11 +121,9 @@ def string_to_int(s, base=10):
         except OverflowError:
             raise ParseStringOverflowError(p)
 
-def string_to_long(space, s, base=10, parser=None):
-    return string_to_w_long(space, s, base, parser).longval()
-
-def string_to_w_long(space, s, base=10, parser=None):
-    """As string_to_int(), but ignores an optional 'l' or 'L' suffix."""
+def string_to_bigint(s, base=10, parser=None):
+    """As string_to_int(), but ignores an optional 'l' or 'L' suffix
+    and returns an rbigint."""
     if parser is None:
         s = literal = strip_spaces(s)
         if (s.endswith('l') or s.endswith('L')) and base < 22:
@@ -132,18 +132,7 @@ def string_to_w_long(space, s, base=10, parser=None):
         p = NumberStringParser(s, literal, base, 'long')
     else:
         p = parser
-    w_base = space.newlong(p.base)
-    w_result = space.newlong(0)
-    while True:
-        digit = p.next_digit()
-        if digit == -1:
-            if p.sign == -1:
-                w_result = space.neg(w_result)
-            # XXX grumble
-            from pypy.objspace.std.longobject import W_LongObject
-            assert isinstance(w_result, W_LongObject)
-            return w_result
-        w_result = space.add(space.mul(w_result,w_base), space.newlong(digit))
+    return parse_digit_string(p)
 
 # Tim's comment:
 # 57 bits are more than needed in any case.

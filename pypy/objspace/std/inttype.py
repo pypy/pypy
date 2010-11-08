@@ -2,7 +2,7 @@ from pypy.interpreter import gateway, typedef
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
-from pypy.objspace.std.strutil import (string_to_int, string_to_w_long,
+from pypy.objspace.std.strutil import (string_to_int, string_to_bigint,
                                        ParseStringError,
                                        ParseStringOverflowError)
 from pypy.rlib.rarithmetic import r_uint
@@ -65,10 +65,12 @@ def wrapint(space, x):
 def retry_to_w_long(space, parser, base=0):
     parser.rewind()
     try:
-        return string_to_w_long(space, None, base=base, parser=parser)
+        bigint = string_to_bigint(None, base=base, parser=parser)
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
+    from pypy.objspace.std.longobject import W_LongObject
+    return W_LongObject(bigint)
 
 def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject

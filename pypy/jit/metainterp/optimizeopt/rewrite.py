@@ -244,14 +244,11 @@ class OptRewrite(Optimization):
         self.optimizer.exception_might_have_happened = False
 
     def optimize_CALL_LOOPINVARIANT(self, op):
-        funcvalue = self.getvalue(op.getarg(0))
-        if not funcvalue.is_constant():
-            # XXX this code path is never executed in tests nor in production.
-            # in fact, it can't even happen since residual_call in codewriter
-            # expects a compile-time constant
-            self.emit_operation(op)
-            return
-        key = make_hashable_int(op.getarg(0).getint())
+        arg = op.getarg(0)
+        # 'arg' must be a Const, because residual_call in codewriter
+        # expects a compile-time constant
+        assert isinstance(arg, Const)
+        key = make_hashable_int(arg.getint())
         resvalue = self.optimizer.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)

@@ -774,6 +774,10 @@ class BlackholeInterpreter(object):
     def bhimpl_float_assert_green(x):
         pass
 
+    @arguments(returns="i")
+    def bhimpl_current_trace_length():
+        return -1
+
     # ----------
     # the main hints and recursive calls
 

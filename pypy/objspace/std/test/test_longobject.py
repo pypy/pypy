@@ -47,22 +47,28 @@ class AppTestLong:
         assert math.trunc(-1L) == -1L
 
     def test_add(self):
-        assert int(123L + 12443L) == 123 + 12443
-        assert -20 + 2 + 3L + True == -14L
+        x = 123L
+        assert int(x + 12443L) == 123 + 12443
+        x = -20
+        assert x + 2 + 3L + True == -14L
 
     def test_sub(self):
-        assert int(58543L - 12332L) == 58543 - 12332
-        assert 237123838281233L * 12 == 237123838281233L * 12L
+        x = 58543L
+        assert int(x - 12332L) == 58543 - 12332
+        x = 237123838281233L
+        assert x * 12 == x * 12L
 
     def test_mul(self):
-        assert 363L * 2 ** 40 == 363L << 40
+        x = 363L
+        assert x * 2 ** 40 == x << 40
 
     def test_truediv(self):
         exec "from __future__ import division; a = 31415926L / 10000000L"
         assert a == 3.1415926
 
     def test_floordiv(self):
-        a = 31415926L // 10000000L
+        x = 31415926L
+        a = x // 10000000L
         assert a == 3L
 
     def test_numerator_denominator(self):
@@ -72,37 +78,39 @@ class AppTestLong:
         assert (42L).denominator == 1L
 
     def test_compare(self):
+        Z = 0
+        ZL = 0L
         for BIG in (1L, 1L << 62, 1L << 9999):
-            assert 0 == 0L
-            assert not (0 != 0L)
-            assert 0L == 0
-            assert not (0L != 0)
-            assert not (0 == BIG)
-            assert 0 != BIG
-            assert not (BIG == 0)
-            assert BIG != 0
-            assert not (0L == BIG)
-            assert 0L != BIG
-            assert 0 <= 0L
-            assert not (0 < 0L)
-            assert 0 <= BIG
-            assert 0 < BIG
-            assert not (BIG <= 0)
-            assert not (BIG < 0)
-            assert 0L <= 0L
-            assert not (0L < 0L)
-            assert 0L <= BIG
-            assert 0L < BIG
-            assert not (BIG <= 0L)
-            assert not (BIG < 0L)
-            assert not (0 <= -BIG)
-            assert not (0 < -BIG)
-            assert -BIG <= 0
-            assert -BIG < 0
-            assert not (0L <= -BIG)
-            assert not (0L < -BIG)
-            assert -BIG <= 0L
-            assert -BIG < 0L
+            assert Z == ZL
+            assert not (Z != ZL)
+            assert ZL == Z
+            assert not (ZL != Z)
+            assert not (Z == BIG)
+            assert Z != BIG
+            assert not (BIG == Z)
+            assert BIG != Z
+            assert not (ZL == BIG)
+            assert ZL != BIG
+            assert Z <= ZL
+            assert not (Z < ZL)
+            assert Z <= BIG
+            assert Z < BIG
+            assert not (BIG <= Z)
+            assert not (BIG < Z)
+            assert ZL <= ZL
+            assert not (ZL < ZL)
+            assert ZL <= BIG
+            assert ZL < BIG
+            assert not (BIG <= ZL)
+            assert not (BIG < ZL)
+            assert not (Z <= -BIG)
+            assert not (Z < -BIG)
+            assert -BIG <= Z
+            assert -BIG < Z
+            assert not (ZL <= -BIG)
+            assert not (ZL < -BIG)
+            assert -BIG <= ZL
+            assert -BIG < ZL
             #
             assert not (BIG <  int(BIG))
             assert     (BIG <= int(BIG))
@@ -149,7 +157,8 @@ class AppTestLong:
     def test_conversion(self):
         class long2(long):
             pass
-        x = long2(1L<<100)
+        x = 1L
+        x = long2(x<<100)
         y = int(x)
         assert type(y) == long
         assert type(+long2(5)) is long
@@ -164,7 +173,8 @@ class AppTestLong:
         assert type(long2(5) // 1) is long
 
     def test_pow(self):
-        assert pow(0L, 0L, 1L) == 0L
+        x = 0L
+        assert pow(x, 0L, 1L) == 0L
 
     def test_getnewargs(self):
         assert  0L .__getnewargs__() == (0L,)
@@ -205,13 +215,14 @@ class AppTestLong:
         assert oct(01234567012345670L) == '01234567012345670L'
 
     def test_bits(self):
-        assert 0xAAAAAAAAL | 0x55555555L == 0xFFFFFFFFL
-        assert 0xAAAAAAAAL & 0x55555555L == 0x00000000L
-        assert 0xAAAAAAAAL ^ 0x55555555L == 0xFFFFFFFFL
-        assert -0xAAAAAAAAL | 0x55555555L == -0xAAAAAAA9L
-        assert 0xAAAAAAAAL | 0x555555555L == 0x5FFFFFFFFL
-        assert 0xAAAAAAAAL & 0x555555555L == 0x000000000L
-        assert 0xAAAAAAAAL ^ 0x555555555L == 0x5FFFFFFFFL
+        x = 0xAAAAAAAAL
+        assert x | 0x55555555L == 0xFFFFFFFFL
+        assert x & 0x55555555L == 0x00000000L
+        assert x ^ 0x55555555L == 0xFFFFFFFFL
+        assert -x | 0x55555555L == -0xAAAAAAA9L
+        assert x | 0x555555555L == 0x5FFFFFFFFL
+        assert x & 0x555555555L == 0x000000000L
+        assert x ^ 0x555555555L == 0x5FFFFFFFFL
 
     def test_hash(self):
         # ints have the same hash as equal longs
@@ -241,7 +252,8 @@ class AppTestLong:
 
     def test_huge_longs(self):
         import operator
-        huge = 1L << 40000L
+        x = 1L
+        huge = x << 40000L
         raises(OverflowError, float, huge)
         raises(OverflowError, operator.truediv, huge, 3)
         raises(OverflowError, operator.truediv, huge, 3L)
@@ -260,17 +272,23 @@ class AppTestLong:
         class myotherlong(long):
             pass
         assert long(myotherlong(21)) == 21L
-    
+
     def test_conjugate(self):
         assert (7L).conjugate() == 7L
         assert (-7L).conjugate() == -7L
-        
+
         class L(long):
             pass
-        
+
         assert type(L(7).conjugate()) is long
 
     def test_bit_length(self):
         assert 8L.bit_length() == 4
         assert (-1<<40).bit_length() == 41
         assert ((2**31)-1).bit_length() == 31
+
+
+    def test_negative_zero(self):
+        x = eval("-0L")
+        assert x == 0L
+

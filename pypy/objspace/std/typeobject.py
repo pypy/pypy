@@ -61,6 +61,15 @@ class MethodCache(object):
             self.hits = {}
             self.misses = {}
 
+    def clear(self):
+        None_None = (None, None)
+        for i in range(len(self.versions)):
+            self.versions[i] = None
+        for i in range(len(self.names)):
+            self.names[i] = None
+        for i in range(len(self.lookup_where)):
+            self.lookup_where[i] = None_None
+
 
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef

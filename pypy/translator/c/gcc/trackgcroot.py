@@ -455,7 +455,7 @@ class FunctionGcRootTracker(object):
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
-        'punpck', 'pshufd', 
+        'punpck', 'pshufd', 'psll',
         # zero-extending moves should not produce GC pointers
         'movz',
         ])
@@ -1090,7 +1090,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
 
 ElfFunctionGcRootTracker64.init_regexp()
 
-class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker32):
+class DarwinFunctionGcRootTracker32(ElfFunctionGcRootTracker32):
     format = 'darwin'
     function_names_prefix = '_'
 
@@ -1102,7 +1102,22 @@ class DarwinFunctionGcRootTracker(ElfFunctionGcRootTracker32):
         funcname = '_' + match.group(1)
         FunctionGcRootTracker32.__init__(self, funcname, lines, filetag)
 
-class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker):
+class DarwinFunctionGcRootTracker64(ElfFunctionGcRootTracker64):
+    format = 'darwin64'
+    function_names_prefix = '_'
+
+    LABEL = ElfFunctionGcRootTracker32.LABEL
+    r_jmptable_item = re.compile(r"\t.(?:long|quad)\t"+LABEL+"(-\"?[A-Za-z0-9$]+\"?)?\s*$")
+
+    r_functionstart = re.compile(r"_(\w+):\s*$")
+    OFFSET_LABELS   = 0
+
+    def __init__(self, lines, filetag=0):
+        match = self.r_functionstart.match(lines[0])
+        funcname = '_' + match.group(1)
+        FunctionGcRootTracker64.__init__(self, funcname, lines, filetag)
+
+class Mingw32FunctionGcRootTracker(DarwinFunctionGcRootTracker32):
     format = 'mingw32'
     function_names_prefix = '_'
 
@@ -1373,7 +1388,7 @@ class ElfAssemblerParser64(ElfAssemblerParser):
 
 class DarwinAssemblerParser(AssemblerParser):
     format = "darwin"
-    FunctionGcRootTracker = DarwinFunctionGcRootTracker
+    FunctionGcRootTracker = DarwinFunctionGcRootTracker32
 
     r_textstart = re.compile(r"\t.text\s*$")
 
@@ -1418,6 +1433,10 @@ class DarwinAssemblerParser(AssemblerParser):
         entrypoint = '_' + entrypoint
         return super(DarwinAssemblerParser, self).process_function(
             lines, entrypoint, filename)
+
+class DarwinAssemblerParser64(DarwinAssemblerParser):
+    format = "darwin64"
+    FunctionGcRootTracker = DarwinFunctionGcRootTracker64
 
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
@@ -1542,6 +1561,7 @@ PARSERS = {
     'elf': ElfAssemblerParser,
     'elf64': ElfAssemblerParser64,
     'darwin': DarwinAssemblerParser,
+    'darwin64': DarwinAssemblerParser64,
     'mingw32': Mingw32AssemblerParser,
     'msvc': MsvcAssemblerParser,
     }
@@ -1579,7 +1599,7 @@ class GcRootTracker(object):
             txt = kwargs[self.format]
             print >> output, "\t%s" % txt
 
-        if self.format == 'elf64':
+        if self.format in ('elf64', 'darwin64'):
             word_decl = '.quad'
         else:
             word_decl = '.long'
@@ -1632,10 +1652,11 @@ class GcRootTracker(object):
                }
             }
             """
-        elif self.format == 'elf64':
+        elif self.format in ('elf64', 'darwin64'):
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
-            print >> output, "\t.type pypy_asm_stackwalk, @function"
+            _variant(elf64='.type pypy_asm_stackwalk, @function',
+                     darwin64='')
             print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
             print >> output, """\
@@ -1680,8 +1701,9 @@ class GcRootTracker(object):
             /* the return value is the one of the 'call' above, */
             /* because %rax (and possibly %rdx) are unmodified  */
             ret
-            .size pypy_asm_stackwalk, .-pypy_asm_stackwalk
             """
+            _variant(elf64='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
+                     darwin64='')
         else:
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
@@ -1808,6 +1830,7 @@ class GcRootTracker(object):
             _variant(elf='.section\t.rodata',
                      elf64='.section\t.rodata',
                      darwin='.const',
+                     darwin64='.const',
                      mingw32='')
 
             print >> output, """\
@@ -1881,11 +1904,14 @@ def getidentifier(s):
 
 
 if __name__ == '__main__':
-    verbose = 1
+    verbose = 0
     shuffle = False
     output_raw_table = False
     if sys.platform == 'darwin':
-        format = 'darwin'
+        if sys.maxint > 2147483647:
+            format = 'darwin64'
+        else:
+            format = 'darwin'
     elif sys.platform == 'win32':
         format = 'mingw32'
     else:

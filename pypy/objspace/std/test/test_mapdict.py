@@ -160,6 +160,13 @@ def test_special():
     assert obj.getweakref() is lifeline1
     assert obj.getdictvalue(space, "weakref") == 41
 
+    lifeline1 = WeakrefLifeline(space)
+    obj = c.instantiate()
+    assert obj.getweakref() is None
+    obj.setweakref(space, lifeline1)
+    obj.setweakref(space, None)
+
+
 
 def test_slots():
     cls = Class()
@@ -777,3 +784,19 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 0, 1)
         res = self.check(f, 'x')
         assert res == (0, 0, 1)
+
+class TestDictSubclassShortcutBug(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmapdict": True,
+               "objspace.std.withmethodcachecounter": True})
+
+    def test_bug(self):
+        w_dict = self.space.appexec([], """():
+                class A(dict):
+                    def __getitem__(self, key):
+                        return 1
+                assert eval("a", globals(), A()) == 1
+                return A()
+                """)
+        assert w_dict.user_overridden_class

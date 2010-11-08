@@ -5,7 +5,7 @@ Run this to rebuild _resource_cache.py.
 
 
 from ctypes import sizeof
-from ctypes_configure.dumpcache import dumpcache
+import dumpcache
 from ctypes_configure.configure import (configure,
     ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger,
     SimpleType)
@@ -59,4 +59,4 @@ for key in _OPTIONAL_CONSTANTS:
         del config[key]
 
 config['ALL_CONSTANTS'] = _CONSTANTS + tuple(optional_constants)
-dumpcache(__file__, '_resource_cache.py', config)
+dumpcache.dumpcache2('resource', config)

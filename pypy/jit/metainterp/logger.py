@@ -81,7 +81,8 @@ class Logger(object):
             op = operations[i]
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 loc = op.getarg(0)._get_str()
-                debug_print("debug_merge_point('%s')" % (loc,))
+                reclev = op.getarg(1).getint()
+                debug_print("debug_merge_point('%s', %s)" % (loc, reclev))
                 continue
             args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
             if op.result is not None:

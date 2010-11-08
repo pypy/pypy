@@ -25,7 +25,7 @@ class TestStrUtil:
                  ]
         for s, expected in cases:
             assert string_to_int(s) == expected
-            assert string_to_w_long(space, s).longval() == expected
+            assert string_to_bigint(s).tolong() == expected
 
     def test_string_to_int_base(self):
         space = self.space        
@@ -122,17 +122,16 @@ class TestStrUtil:
             raises(ParseStringError, string_to_int, '+'+s, base)
             raises(ParseStringError, string_to_int, '-'+s, base)
 
-    def test_string_to_w_long(self):
-        space = self.space
-        assert string_to_w_long(space, '123L').longval() == 123
-        assert string_to_w_long(space, '123L  ').longval() == 123
-        raises(ParseStringError, string_to_w_long, space, 'L')
-        raises(ParseStringError, string_to_w_long, space, 'L  ')
-        assert string_to_w_long(space, '123L', 4).longval() == 27
-        assert string_to_w_long(space, '123L', 30).longval() == 27000 + 1800 + 90 + 21
-        assert string_to_w_long(space, '123L', 22).longval() == 10648 + 968 + 66 + 21
-        assert string_to_w_long(space, '123L', 21).longval() == 441 + 42 + 3
-        assert string_to_w_long(space, '1891234174197319').longval() == 1891234174197319
+    def test_string_to_bigint(self):
+        assert string_to_bigint('123L').tolong() == 123
+        assert string_to_bigint('123L  ').tolong() == 123
+        raises(ParseStringError, string_to_bigint, 'L')
+        raises(ParseStringError, string_to_bigint, 'L  ')
+        assert string_to_bigint('123L', 4).tolong() == 27
+        assert string_to_bigint('123L', 30).tolong() == 27000 + 1800 + 90 + 21
+        assert string_to_bigint('123L', 22).tolong() == 10648 + 968 + 66 + 21
+        assert string_to_bigint('123L', 21).tolong() == 441 + 42 + 3
+        assert string_to_bigint('1891234174197319').tolong() == 1891234174197319
 
     def test_string_to_float(self):
         def string_to_float(x):

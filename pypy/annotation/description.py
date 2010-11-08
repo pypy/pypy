@@ -6,7 +6,7 @@ from pypy.interpreter.argument import ArgErr
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
-class CallFamily:
+class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
     The call families are conceptually a partition of all (callable) Desc
     objects, where the equivalence relation is the transitive closure of
@@ -51,7 +51,7 @@ class CallFamily:
             self.total_calltable_size += 1
 
 
-class FrozenAttrFamily:
+class FrozenAttrFamily(object):
     """A family of FrozenDesc objects that have any common 'getattr' sites.
     The attr families are conceptually a partition of FrozenDesc objects,
     where the equivalence relation is the transitive closure of:
@@ -80,7 +80,7 @@ class FrozenAttrFamily:
         self.attrs[attrname] = s_value
 
 
-class ClassAttrFamily:
+class ClassAttrFamily(object):
     """A family of ClassDesc objects that have common 'getattr' sites for a
     given attribute name.  The attr families are conceptually a partition
     of ClassDesc objects, where the equivalence relation is the transitive

@@ -1,5 +1,37 @@
 import os, py
+import signal as cpy_signal
 from pypy.conftest import gettestobjspace
+
+
+class TestCheckSignals:
+
+    def setup_class(cls):
+        if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
+            py.test.skip("requires os.kill() and os.getpid()")
+        cls.space = gettestobjspace(usemodules=['signal'])
+
+    def test_checksignals(self):
+        space = self.space
+        w_received = space.appexec([], """():
+            import signal
+            received = []
+            def myhandler(signum, frame):
+                received.append(signum)
+            signal.signal(signal.SIGUSR1, myhandler)
+            return received""")
+        #
+        assert not space.is_true(w_received)
+        #
+        # send the signal now
+        os.kill(os.getpid(), cpy_signal.SIGUSR1)
+        #
+        # myhandler() should not be immediately called
+        assert not space.is_true(w_received)
+        #
+        # calling ec.checksignals() should call it
+        space.getexecutioncontext().checksignals()
+        assert space.is_true(w_received)
+
 
 class AppTestSignal:
 
@@ -24,18 +56,12 @@ class AppTestSignal:
         signal.signal(signal.SIGUSR1, myhandler)
 
         posix.kill(posix.getpid(), signal.SIGUSR1)
-        for i in range(10000):
-             # wait a bit for the signal to be delivered to the handler
-            if received:
-                break
+        # the signal should be delivered to the handler immediately
         assert received == [signal.SIGUSR1]
         del received[:]
 
         posix.kill(posix.getpid(), signal.SIGUSR1)
-        for i in range(10000):
-             # wait a bit for the signal to be delivered to the handler
-            if received:
-                break
+        # the signal should be delivered to the handler immediately
         assert received == [signal.SIGUSR1]
         del received[:]
 

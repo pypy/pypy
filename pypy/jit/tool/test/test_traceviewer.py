@@ -19,7 +19,7 @@ class TestSplitLoops(object):
     def test_no_of_loops(self):
         data = [preparse("""
         # Loop 0 : loop with 39 ops
-        debug_merge_point('')
+        debug_merge_point('', 0)
         guard_class(p4, 141310752, descr=<Guard5>) [p0, p1]
         p60 = getfield_gc(p4, descr=<GcPtrFieldDescr 16>)
         guard_nonnull(p60, descr=<Guard6>) [p0, p1]
@@ -51,7 +51,7 @@ class TestSplitLoops(object):
         assert loop.right.content == 'extra'
 
     def test_postparse(self):
-        real_loops = [FinalBlock("debug_merge_point('<code object _runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357> #40 POP_TOP')", None)]
+        real_loops = [FinalBlock("debug_merge_point('<code object _runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357> #40 POP_TOP', 0)", None)]
         postprocess(real_loops, real_loops[:], {})
         assert real_loops[0].header.startswith("_runCallbacks, file '/tmp/x/twisted-trunk/twisted/internet/defer.py', line 357")
 

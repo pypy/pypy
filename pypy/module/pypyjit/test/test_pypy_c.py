@@ -93,6 +93,9 @@ class PyPyCJITTests(object):
         # some support code...
         print >> f, py.code.Source("""
             import sys
+            # we don't want to see the small bridges created
+            # by the checkinterval reaching the limit
+            sys.setcheckinterval(10000000)
             try: # make the file runnable by CPython
                 import pypyjit
                 pypyjit.set_param(threshold=%d)
@@ -136,9 +139,10 @@ class PyPyCJITTests(object):
         assert opslogfile.check()
         log = logparser.parse_log_file(str(opslogfile))
         parts = logparser.extract_category(log, 'jit-log-opt-')
+        self.rawloops = [part for part in parts
+                         if not from_entry_bridge(part, parts)]
         # skip entry bridges, they can contain random things
-        self.loops = [parse(part, no_namespace=True) for part in parts
-                          if not from_entry_bridge(part, parts)]
+        self.loops = [parse(part, no_namespace=True) for part in self.rawloops]
         self.sliced_loops = [] # contains all bytecodes of all loops
         self.total_ops = 0
         for loop in self.loops:
@@ -162,12 +166,11 @@ class PyPyCJITTests(object):
         return [ops for ops in self.sliced_loops if ops.bytecode == name]
 
     def print_loops(self):
-        for loop in self.loops:
+        for rawloop in self.rawloops:
             print
             print '@' * 79
             print
-            for op in loop.operations:
-                print op
+            print rawloop.rstrip()
         print
         print '@' * 79
 
@@ -278,7 +281,7 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 3     # we get 2 withmapdict
+        assert len(ops[0].get_opnames("guard")) <= 2
         assert not ops[1] # second LOOKUP_METHOD folded away
 
         ops = self.get_by_bytecode("CALL_METHOD")
@@ -294,7 +297,11 @@ class PyPyCJITTests(object):
 
         ops = self.get_by_bytecode("LOAD_ATTR")
         assert len(ops) == 2
-        assert ops[0].get_opnames() == ["getfield_gc", "getarrayitem_gc",
+        # With mapdict, we get fast access to (so far) the 5 first
+        # attributes, which means it is done with only the following
+        # operations.  (For the other attributes there is additionally
+        # a getarrayitem_gc.)
+        assert ops[0].get_opnames() == ["getfield_gc",
                                         "guard_nonnull_class"]
         assert not ops[1] # second LOAD_ATTR folded away
 
@@ -323,8 +330,8 @@ class PyPyCJITTests(object):
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 3    # we get 2 withmapdict
-        assert len(ops[0].get_opnames("getfield")) <= 5 # we get <5 withmapdict
+        assert len(ops[0].get_opnames("guard")) <= 2
+        assert len(ops[0].get_opnames("getfield")) <= 4
         assert not ops[1] # second LOOKUP_METHOD folded away
 
     def test_default_and_kw(self):

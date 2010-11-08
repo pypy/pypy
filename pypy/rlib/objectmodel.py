@@ -475,6 +475,10 @@ class r_dict(object):
     def setdefault(self, key, default):
         return self._dict.setdefault(_r_dictkey(self, key), default)
 
+    def popitem(self):
+        dk, value = self._dict.popitem()
+        return dk.key, value
+
     def copy(self):
         result = r_dict(self.key_eq, self.key_hash)
         result.update(self)

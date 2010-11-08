@@ -97,7 +97,7 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point("info")
+        debug_merge_point("info", 0)
         '''
         loop, oloop = self.reparse(inp, check_equal=False)
         assert loop.operations[0].getarg(0)._get_str() == 'info'

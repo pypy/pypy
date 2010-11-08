@@ -47,7 +47,7 @@ class ModuleDictImplementation(W_DictMultiObject):
         else:
             self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
-    def impl_setitem_str(self, name, w_value, shadows_type=True):
+    def impl_setitem_str(self, name, w_value):
         self.getcell(name, True).w_value = w_value
 
     def impl_delitem(self, w_key):

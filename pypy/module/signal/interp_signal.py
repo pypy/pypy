@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
+from pypy.interpreter.executioncontext import PeriodicAsyncAction
 import signal as cpy_signal
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -55,19 +56,29 @@ c_pause = external('pause', [], rffi.INT)
 
 
 class SignalActionFlag(AbstractActionFlag):
-    def get(self):
+    # This class uses the C-level pypysig_counter variable as the tick
+    # counter.  The C-level signal handler will reset it to -1 whenever
+    # a signal is received.
+
+    def get_ticker(self):
         p = pypysig_getaddr_occurred()
         return p.c_value
-    def set(self, value):
+
+    def reset_ticker(self, value):
         p = pypysig_getaddr_occurred()
         p.c_value = value
 
+    def decrement_ticker(self, by):
+        p = pypysig_getaddr_occurred()
+        value = p.c_value
+        if self.has_bytecode_counter:    # this 'if' is constant-folded
+            value -= by
+            p.c_value = value
+        return value
 
-class CheckSignalAction(AsyncAction):
+
+class CheckSignalAction(PeriodicAsyncAction):
     """An action that is automatically invoked when a signal is received."""
-
-    # The C-level signal handler sets the bit 30 of pypysig_occurred:
-    bitmask = 1 << 30
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
@@ -76,7 +87,6 @@ class CheckSignalAction(AsyncAction):
             # need a helper action in case signals arrive in a non-main thread
             self.pending_signals = {}
             self.reissue_signal_action = ReissueSignalAction(space)
-            space.actionflag.register_action(self.reissue_signal_action)
         else:
             self.reissue_signal_action = None
 

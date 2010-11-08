@@ -35,9 +35,7 @@ class Module(MixedModule):
         MixedModule.__init__(self, space, *args)
         # add the signal-checking callback as an action on the space
         space.check_signal_action = interp_signal.CheckSignalAction(space)
-        space.actionflag.register_action(space.check_signal_action)
-        # use the C-level pypysig_occurred variable as the action flag
-        # (the result is that the C-level signal handler will directly
-        # set the flag for the CheckSignalAction)
+        space.actionflag.register_periodic_action(space.check_signal_action,
+                                                  use_bytecode_counter=False)
         space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack

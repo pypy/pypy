@@ -67,7 +67,7 @@ def getrecursionlimit(space):
 def setcheckinterval(space, interval):
     """Tell the Python interpreter to check for asynchronous events every
     n instructions.  This also affects how often thread switches occur."""
-    space.actionflag.setcheckinterval(space, interval)
+    space.actionflag.setcheckinterval(interval)
 setcheckinterval.unwrap_spec = [ObjSpace, int]
 
 def getcheckinterval(space):
@@ -77,7 +77,7 @@ def getcheckinterval(space):
     # return 0.  The idea is that according to the CPython docs, <= 0
     # means "check every virtual instruction, maximizing responsiveness
     # as well as overhead".
-    result = space.sys.checkinterval
+    result = space.actionflag.getcheckinterval()
     if result <= 1:
         result = 0
     return space.wrap(result)

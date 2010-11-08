@@ -28,7 +28,7 @@ from pypy.rlib.objectmodel import we_are_translated
 # internal non-translatable parts: 
 import py
 
-class SignatureBuilder:
+class SignatureBuilder(object):
     "NOT_RPYTHON"
     def __init__(self, func=None, argnames=None, varargname=None,
                  kwargname=None, name = None):
@@ -51,7 +51,7 @@ class SignatureBuilder:
 
 #________________________________________________________________
 
-class UnwrapSpecRecipe:
+class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
     bases_order = [Wrappable, W_Root, ObjSpace, Arguments, object]
