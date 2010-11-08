@@ -1025,11 +1025,11 @@ class W_Product(Wrappable):
         if not self.cont:
             raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
-        l = []
+        l = [None] * self.num_gears
         for x in range(0, self.num_gears):
             index, limit = self.indicies[x]
-            l.append(self.space.getitem(self.gears_w[x],
-                                        self.space.wrap(index)))
+            l[x] = self.space.getitem(self.gears_w[x],
+                                      self.space.wrap(index)))
         self.roll_gears()
         return self.space.newtuple(l)
 
