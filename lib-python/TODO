@@ -36,6 +36,9 @@ Probably easy tasks
 
 - some set() methods now accept a variable number of arguments  DONE
 
+- remove code duplication: bit_length() and _count_bits() in rlib/rbigint.py,
+  objspace/std/longobject.py and objspace/std/longtype.py.
+
 
 Medium tasks
 ------------
@@ -46,6 +49,8 @@ Medium tasks
 - missing builtin: memoryview  DONE (but not very much tested)
 
 - signal.set_wakeup_fd()  DONE
+
+- Dictionary views: dict.viewkeys(), dict.viewvalues(), dict.viewitems()
 
 - add 'unicode' in ObjSpace.MethodTable + probably a default implementation that
   falls back to space.str().
