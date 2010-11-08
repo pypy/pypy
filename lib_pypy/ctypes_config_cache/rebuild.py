@@ -31,10 +31,25 @@ def rebuild_one(name):
         sys.path[:] = path
 
 def try_rebuild():
+    from pypy.jit.backend import detect_cpu
+    model = detect_cpu.autodetect_main_model_and_size()
+    # remove the files '_*_model_.py'
+    left = {}
+    for p in os.listdir(_dirpath):
+        if p.startswith('_') and (p.endswith('_%s_.py' % model) or
+                                  p.endswith('_%s_.pyc' % model)):
+            os.unlink(os.path.join(_dirpath, p))
+        elif p.startswith('_') and (p.endswith('_.py') or
+                                    p.endswith('_.pyc')):
+            for i in range(2, len(p)-4):
+                left[p[:i]] = True
+    # remove the files '_*_cache.py' if there is no '_*_*_.py' left around
     for p in os.listdir(_dirpath):
         if p.startswith('_') and (p.endswith('_cache.py') or
                                   p.endswith('_cache.pyc')):
-            os.unlink(os.path.join(_dirpath, p))
+            if p[:-9] not in left:
+                os.unlink(p)
+    #
     for p in os.listdir(_dirpath):
         if p.endswith('.ctc.py'):
             try:
