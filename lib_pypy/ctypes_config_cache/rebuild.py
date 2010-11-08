@@ -48,7 +48,7 @@ def try_rebuild():
         if p.startswith('_') and (p.endswith('_cache.py') or
                                   p.endswith('_cache.pyc')):
             if p[:-9] not in left:
-                os.unlink(p)
+                os.unlink(os.path.join(_dirpath, p))
     #
     for p in os.listdir(_dirpath):
         if p.endswith('.ctc.py'):
