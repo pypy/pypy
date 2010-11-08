@@ -55,7 +55,8 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         the failboxes.
         Registers are saved on the stack
         XXX Rest to follow"""
-        i = -1
+        frame_depth = self.decode32(enc, 0)
+        i = 3
         fail_index = -1
         while(True):
             i += 1
@@ -77,7 +78,8 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
             elif res == '\xFC': # stack location
                 stack_loc = self.decode32(enc, i+1)
                 #XXX ffuu use propper calculation here
-                value = self.decode32(stack, len(r.all_regs)*WORD+40-stack_loc*WORD)
+                value = self.decode32(stack,
+                                    (len(r.all_regs)+frame_depth-stack_loc)*WORD)
                 i += 4
             else: # an int for now
                 reg = ord(enc[i])
@@ -142,8 +144,9 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         # XXX free this memory
         # XXX allocate correct amount of memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), (len(args)+5)*4, flavor='raw')
+        self.encode32(mem, 0, regalloc.frame_manager.frame_depth-1)
         i = 0
-        j = 0
+        j = 4
         while(i < len(args)):
             if args[i]:
                 loc = regalloc.loc(args[i])
@@ -217,6 +220,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
             self.mc.gen_load_int(reg.value, addr)
             self.mc.LDR_ri(reg.value, reg.value)
             regs.append(reg)
+            regalloc.possibly_free_var(reg)
         looptoken._arm_arglocs = regs
 
     # cpu interface
@@ -258,7 +262,7 @@ class AssemblerARM(GuardOpAssembler, IntOpAsslember,
         cb = ARMv7InMemoryBuilder(addr, ARMv7InMemoryBuilder.size_of_gen_load_int)
         if regalloc.frame_manager.frame_depth == 1:
             return
-        n = regalloc.frame_manager.frame_depth*WORD
+        n = (regalloc.frame_manager.frame_depth - 1)*WORD
         self._adjust_sp(n, cb)
 
     def _adjust_sp(self, n, cb=None, fcond=c.AL):

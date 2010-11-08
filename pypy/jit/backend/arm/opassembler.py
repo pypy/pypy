@@ -32,16 +32,16 @@ class IntOpAsslember(object):
             a0, a1 = a1, a0
         if imm_a1:
             l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=True)
-            res = regalloc.force_allocate_reg(op.result)
+            l1 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=True)
+            res = regalloc.force_allocate_reg(op.result, [a0, a1])
             if l1.getint() < 0:
                 self.mc.SUB_ri(res.value, l0.value, -1 * l1.getint(), s=1)
             else:
                 self.mc.ADD_ri(res.value, l0.value, l1.getint(), s=1)
         else:
             l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
-            res = regalloc.force_allocate_reg(op.result)
+            l1 = regalloc.make_sure_var_in_reg(a1, forbidden_vars=[a0], imm_fine=False)
+            res = regalloc.force_allocate_reg(op.result, forbidden_vars=[a0, a1])
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
 
         regalloc.possibly_free_vars_for_op(op)
@@ -54,8 +54,8 @@ class IntOpAsslember(object):
         imm_a0 = isinstance(a0, ConstInt) and (a0.getint() <= 0xFF or -1 * a0.getint() <= 0xFF)
         imm_a1 = isinstance(a1, ConstInt) and (a1.getint() <= 0xFF or -1 * a1.getint() <= 0xFF)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=imm_a0)
-        l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=imm_a1)
-        res = regalloc.force_allocate_reg(op.result)
+        l1 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=imm_a1)
+        res = regalloc.force_allocate_reg(op.result, [a0, a1])
         if imm_a0:
             value = l0.getint()
             if value < 0:
@@ -78,18 +78,22 @@ class IntOpAsslember(object):
         return fcond
 
     def emit_op_int_mul(self, op, regalloc, fcond):
-        reg1 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        reg2 = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result)
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        reg1 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        reg2 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result, [a0, a1])
         self.mc.MUL(res.value, reg1.value, reg2.value)
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
     def emit_op_int_mul_ovf(self, op, regalloc, fcond):
-        reg1 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        reg2 = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result)
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        reg1 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        reg2 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result, [a0, a1])
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, s=31, cond=fcond)
         regalloc.possibly_free_vars_for_op(op)
@@ -129,8 +133,9 @@ class UnaryIntOpAssembler(object):
     emit_op_int_is_zero = gen_emit_op_unary_cmp(c.EQ, c.NE)
 
     def emit_op_int_invert(self, op, regalloc, fcond):
-        reg = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result)
+        a0 = op.getarg(0)
+        reg = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result, [a0])
 
         self.mc.MVN_rr(res.value, reg.value)
         regalloc.possibly_free_vars_for_op(op)
@@ -139,9 +144,9 @@ class UnaryIntOpAssembler(object):
     #XXX check for a better way of doing this
     def emit_op_int_neg(self, op, regalloc, fcond):
             arg = op.getarg(0)
-            l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), imm_fine=False)
-            res = regalloc.force_allocate_reg(op.result)
+            l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+            l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), [arg], imm_fine=False)
+            res = regalloc.force_allocate_reg(op.result, [a0])
             self.mc.MUL(res.value, l0.value, l1.value)
             regalloc.possibly_free_vars([l0, l1, res])
             return fcond
@@ -225,11 +230,13 @@ class OpAssembler(object):
 class FieldOpAssembler(object):
 
     def emit_op_setfield_gc(self, op, regalloc, fcond):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         #ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
         #size_loc = regalloc.make_sure_var_in_reg(ofs)
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        value_loc = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
+        base_loc = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        value_loc = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
         if size == 4:
             f = self.mc.STR_ri
         elif size == 2:
@@ -242,10 +249,11 @@ class FieldOpAssembler(object):
         return fcond
 
     def emit_op_getfield_gc(self, op, regalloc, fcond):
+        a0 = op.getarg(0)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         # ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result)
+        base_loc = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result, [a0])
         if size == 4:
             f = self.mc.LDR_ri
         elif size == 2:

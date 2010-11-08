@@ -15,7 +15,8 @@ class ARMRegisterManager(RegisterManager):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
     def update_bindings(self, enc, inputargs):
-        j = 0
+        # first word contains frame depth
+        j = 4
         for i in range(len(inputargs)):
             # XXX decode imm and and stack locs and REFs
             while enc[j] == '\xFE':
