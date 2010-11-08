@@ -564,7 +564,7 @@ class rbigint(object):
             return 0
         msd = self.digits[i - 1]
         msd_bits = 0
-        if msd >= 32:
+        while msd >= 32:
             msd_bits += 6
             msd >>= 6
         msd_bits += [

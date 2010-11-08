@@ -273,3 +273,4 @@ class AppTestLong:
     def test_bit_length(self):
         assert 8L.bit_length() == 4
         assert (-1<<40).bit_length() == 41
+        assert ((2**31)-1).bit_length() == 31
