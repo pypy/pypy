@@ -68,17 +68,18 @@ def PyMethod_Class(space, w_method):
 @cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
-    raise OperationError(space.w_NotImplementedError, space.wrap(
-        "PyCode_NewEmpty"))
-    # XXX I keep getting a "TooLateForChange" around the annotation of
-    # the consts variable
+    # XXX Something that annotates as SomeInstance(knownType=W_Root)
+    # XXX looks like a bug in make_sure_not_modified() used by PyCode.___init__
+    # XXX which also depends on the annotation order
+    w_const = space.and_(space.w_True, space.w_None)
+
     return space.wrap(PyCode(space,
                              argcount=0,
                              nlocals=0,
                              stacksize=0,
                              flags=0,
                              code="",
-                             consts=list([]),
+                             consts=[w_const],
                              names=[],
                              varnames=[],
                              filename=rffi.charp2str(filename),
