@@ -82,6 +82,8 @@ class deque(object):
             self.append(elem)
 
     def extendleft(self, iterable):
+        if iterable is self:
+            iterable = list(iterable)
         for elem in iterable:
             self.appendleft(elem)
 
