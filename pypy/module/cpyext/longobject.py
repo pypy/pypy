@@ -70,6 +70,15 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     raised."""
     return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
 
+@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
+def PyLong_AsUnsignedLongLongMask(space, w_long):
+    """Will first attempt to cast the object to a PyIntObject or
+    PyLongObject, if it is not already one, and then return its value as
+    unsigned long long, without checking for overflow.
+    """
+    num = space.bigint_w(w_long)
+    return num.ulonglongmask()
+
 @cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], lltype.Signed,
              error=-1)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
