@@ -65,21 +65,33 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
 
+# XXX Something that annotates as a list of (W_Root or None)
+# XXX looks like a bug in make_sure_not_modified() used by PyCode.___init__
+# XXX which also depends on the annotation order
+def consts_w():
+    return []
+
+from pypy.rpython import extregistry
+class For_some_const(extregistry.ExtRegistryEntry):
+    _about_ = consts_w
+
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        from pypy.interpreter.baseobjspace import W_Root
+        clsdef = self.bookkeeper.getuniqueclassdef(W_Root)
+        s_value = annmodel.SomeInstance(clsdef, can_be_None=True)
+        return self.bookkeeper.newlist(s_value)
+
 @cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
-    # XXX Something that annotates as SomeInstance(knownType=W_Root)
-    # XXX looks like a bug in make_sure_not_modified() used by PyCode.___init__
-    # XXX which also depends on the annotation order
-    w_const = space.and_(space.w_True, space.w_None)
-
     return space.wrap(PyCode(space,
                              argcount=0,
                              nlocals=0,
                              stacksize=0,
                              flags=0,
                              code="",
-                             consts=[w_const],
+                             consts=consts_w(),
                              names=[],
                              varnames=[],
                              filename=rffi.charp2str(filename),
