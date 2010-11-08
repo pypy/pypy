@@ -1904,7 +1904,7 @@ def getidentifier(s):
 
 
 if __name__ == '__main__':
-    verbose = 1
+    verbose = 0
     shuffle = False
     output_raw_table = False
     if sys.platform == 'darwin':
