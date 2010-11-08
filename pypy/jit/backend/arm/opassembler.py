@@ -71,6 +71,7 @@ class IntOpAsslember(object):
                 self.mc.ADD_ri(res.value, l0.value, -1 * value, s=1)
             else:
                 self.mc.SUB_ri(res.value, l0.value, value, s=1)
+                self.mc.BKPT()
         else:
             self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
 
@@ -248,6 +249,8 @@ class FieldOpAssembler(object):
         f(value_loc.value, base_loc.value, ofs)
         return fcond
 
+    emit_op_setfield_raw = emit_op_setfield_gc
+
     def emit_op_getfield_gc(self, op, regalloc, fcond):
         a0 = op.getarg(0)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
@@ -264,6 +267,12 @@ class FieldOpAssembler(object):
             assert 0
         f(res.value, base_loc.value, ofs)
         return fcond
+
+    emit_op_getfield_raw = emit_op_getfield_gc
+    emit_op_getfield_raw_pure = emit_op_getfield_gc
+    emit_op_getfield_gc_pure = emit_op_getfield_gc
+
+
 
     #XXX from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):
