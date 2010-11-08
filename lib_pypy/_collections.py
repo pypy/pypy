@@ -76,6 +76,8 @@ class deque(object):
             self.pop()
 
     def extend(self, iterable):
+        if iterable is self:
+            iterable = list(iterable)
         for elem in iterable:
             self.append(elem)
 
