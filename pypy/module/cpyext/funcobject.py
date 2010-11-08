@@ -96,7 +96,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                              varnames=[],
                              filename=rffi.charp2str(filename),
                              name=rffi.charp2str(funcname),
-                             firstlineno=firstlineno,
+                             firstlineno=rffi.cast(lltype.Signed, firstlineno),
                              lnotab="",
                              freevars=[],
                              cellvars=[]))
