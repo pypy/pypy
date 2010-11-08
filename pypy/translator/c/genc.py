@@ -623,9 +623,15 @@ class CStandaloneBuilder(CBuilder):
                 mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
                 mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
-                        python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -m$(PYPY_MAIN_FUNCTION) -t $< > $*.gcmap')
+                        [python +
+                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                             '-m$(PYPY_MAIN_FUNCTION) -t $< > $*.gctmp',
+                         'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
-                        python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@')
+                        [python +
+                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                             '$(GCMAPFILES) > $@.tmp',
+                         'mv $@.tmp $@'])
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
 
         else:
