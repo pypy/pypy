@@ -1029,7 +1029,7 @@ class W_Product(Wrappable):
         for x in range(0, self.num_gears):
             index, limit = self.indicies[x]
             l[x] = self.space.getitem(self.gears_w[x],
-                                      self.space.wrap(index)))
+                                      self.space.wrap(index))
         self.roll_gears()
         return self.space.newtuple(l)
 
