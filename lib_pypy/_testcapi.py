@@ -13,8 +13,13 @@ def compile_shared():
 
     # Compile .c file
     include_dir = os.path.join(thisdir, '..', 'include')
+    if sys.platform == 'win32':
+        ccflags = []
+    else:
+        ccflags = ['-fPIC', '-Wimplicit-function-declaration']
     res = compiler.compile([os.path.join(thisdir, '_testcapimodule.c')],
-                           include_dirs=[include_dir])
+                           include_dirs=[include_dir],
+                           extra_preargs=ccflags)
     object_filename = res[0]
 
     # set link options
