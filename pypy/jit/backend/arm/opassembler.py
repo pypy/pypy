@@ -71,7 +71,6 @@ class IntOpAsslember(object):
                 self.mc.ADD_ri(res.value, l0.value, -1 * value, s=1)
             else:
                 self.mc.SUB_ri(res.value, l0.value, value, s=1)
-                self.mc.BKPT()
         else:
             self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
 
@@ -145,9 +144,9 @@ class UnaryIntOpAssembler(object):
     #XXX check for a better way of doing this
     def emit_op_int_neg(self, op, regalloc, fcond):
             arg = op.getarg(0)
-            l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+            l0 = regalloc.make_sure_var_in_reg(arg, imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), [arg], imm_fine=False)
-            res = regalloc.force_allocate_reg(op.result, [a0])
+            res = regalloc.force_allocate_reg(op.result, [arg])
             self.mc.MUL(res.value, l0.value, l1.value)
             regalloc.possibly_free_vars([l0, l1, res])
             return fcond
@@ -281,3 +280,77 @@ class FieldOpAssembler(object):
         size = fielddescr.get_field_size(self.cpu.translate_support_code)
         ptr = fielddescr.is_pointer_field()
         return ofs, size, ptr
+
+class ArrayOpAssember(object):
+
+    def emit_op_arraylen_gc(self, op, regalloc, fcond):
+        arraydescr = op.getdescr()
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        regalloc.possibly_free_vars_for_op(op)
+        res = regalloc.force_allocate_reg(op.result, forbidden_vars=[base_loc])
+
+        self.mc.LDR_ri(res.value, base_loc.value, ofs)
+        regalloc.possibly_free_var(op.getarg(0))
+
+    def emit_op_setarrayitem_gc(self, op, regalloc, fcond):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        a2 = op.getarg(2)
+        scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+
+        base_loc  = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        ofs_loc = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
+        #XXX check if imm would be fine here
+        value_loc = regalloc.make_sure_var_in_reg(a2, imm_fine=False)
+
+        if scale == 2:
+            self.mc.STR_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond,
+                            imm=scale, shifttype=shift.LSL)
+        elif scale == 1:
+            self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
+            self.mc.STRH_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
+        elif scale == 0:
+            self.mc.STRB_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
+        else:
+            assert 0
+        return fcond
+
+    emit_op_setarrayitem_raw = emit_op_setarrayitem_gc
+
+    def emit_op_getarrayitem_gc(self, op, regalloc, fcond):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+
+        base_loc  = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        ofs_loc = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result)
+        if scale == 2:
+            f = self.mc.LDR_rr
+        elif scale == 1:
+            f = self.mc.LDRH_rr
+        elif scale == 0:
+            f = self.mc.LDRB_rr
+        else:
+            assert 0
+        if scale > 0:
+            self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
+        f(res.value, base_loc.value, ofs_loc.value, cond=fcond)
+
+    emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
+    emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
+
+    #XXX from ../x86/regalloc.py:779
+    def _unpack_arraydescr(self, arraydescr):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.cpu.translate_support_code)
+        ofs = arraydescr.get_base_size(self.cpu.translate_support_code)
+        size = arraydescr.get_item_size(self.cpu.translate_support_code)
+        ptr = arraydescr.is_array_of_pointers()
+        scale = 0
+        while (1 << scale) < size:
+            scale += 1
+        assert (1 << scale) == size
+        return scale, ofs, ofs_length, ptr

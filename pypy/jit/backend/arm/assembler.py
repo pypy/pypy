@@ -15,13 +15,15 @@ from pypy.jit.backend.arm.opassembler import (GuardOpAssembler,
                                                 IntOpAsslember,
                                                 OpAssembler,
                                                 UnaryIntOpAssembler,
-                                                FieldOpAssembler)
+                                                FieldOpAssembler,
+                                                ArrayOpAssember)
 # XXX Move to llsupport
 from pypy.jit.backend.x86.support import values_array
 
 
 class AssemblerARM(GuardOpAssembler, IntOpAsslember,
-                    OpAssembler, UnaryIntOpAssembler, FieldOpAssembler):
+                    OpAssembler, UnaryIntOpAssembler,
+                    FieldOpAssembler, ArrayOpAssember):
 
     def __init__(self, cpu, failargs_limit=1000):
         self.mc = ARMv7Builder()
