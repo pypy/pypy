@@ -987,9 +987,9 @@ W_Compress.typedef = TypeDef(
 
 class W_Product(Wrappable):
 
-    def __init__(self, space, args_w, repeat_w):
+    def __init__(self, space, args_w, w_repeat):
         self.space = space
-        self.gears_w = [x for x in args_w] * repeat_w.intval
+        self.gears_w = [x for x in args_w] * space.int_w(w_repeat)
         self.num_gears = len(self.gears_w)
         # initialization of indicies to loop over
         self.indicies = [(0, space.int_w(space.len(w_gear)))
@@ -1040,8 +1040,8 @@ def W_Product__new__(space, args_w):
         raise OperationError(space.w_TypeError,
                              space.wrap("product() takes at most 1 argument (%d given)" %
                              len(kw_args_w)))
-    repeat = kw_args_w.get('repeat', space.wrap(1))
-    return space.wrap(W_Product(space, star_args_w[1:], repeat))
+    w_repeat = kw_args_w.get('repeat', space.wrap(1))
+    return space.wrap(W_Product(space, star_args_w[1:], w_repeat))
 
 W_Product.typedef = TypeDef(
     'product',
