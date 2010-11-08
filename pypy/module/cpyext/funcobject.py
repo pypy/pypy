@@ -82,6 +82,9 @@ class For_some_const(extregistry.ExtRegistryEntry):
         s_value = annmodel.SomeInstance(clsdef, can_be_None=True)
         return self.bookkeeper.newlist(s_value)
 
+    def specialize_call(self, hop):
+        return hop.rtyper.type_system.rlist.newlist(hop.llops, hop.r_result, [])
+
 @cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
