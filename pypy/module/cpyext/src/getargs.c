@@ -557,8 +557,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 	switch (c) {
 	
 	case 'b': { /* unsigned byte -- very short int */
-    Py_FatalError("'b' unimplemented for PyArg_*\n");
-#if 0
 		char *p = va_arg(*p_va, char *);
 		long ival;
 		if (float_argument_error(arg))
@@ -579,13 +577,10 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = (unsigned char) ival;
 		break;
-#endif
 	}
 	
 	case 'B': {/* byte sized bitfield - both signed and unsigned
 		      values allowed */  
-    Py_FatalError("'B' unimplemented for PyArg_*\n");
-#if 0
 		char *p = va_arg(*p_va, char *);
 		long ival;
 		if (float_argument_error(arg))
@@ -596,12 +591,9 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = (unsigned char) ival;
 		break;
-#endif
 	}
 	
 	case 'h': {/* signed short int */
-    Py_FatalError("'h' unimplemented for PyArg_*\n");
-#if 0
 		short *p = va_arg(*p_va, short *);
 		long ival;
 		if (float_argument_error(arg))
@@ -622,13 +614,10 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = (short) ival;
 		break;
-#endif
 	}
 	
 	case 'H': { /* short int sized bitfield, both signed and
 		       unsigned allowed */ 
-    Py_FatalError("'H' unimplemented for PyArg_*\n");
-#if 0
 		unsigned short *p = va_arg(*p_va, unsigned short *);
 		long ival;
 		if (float_argument_error(arg))
@@ -639,7 +628,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = (unsigned short) ival;
 		break;
-#endif
 	}
 	case 'i': {/* signed int */
 		int *p = va_arg(*p_va, int *);
@@ -665,8 +653,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 	}
 	case 'I': { /* int sized bitfield, both signed and
 		       unsigned allowed */ 
-    Py_FatalError("'I' unimplemented for PyArg_*\n");
-#if 0
 		unsigned int *p = va_arg(*p_va, unsigned int *);
 		unsigned int ival;
 		if (float_argument_error(arg))
@@ -677,7 +663,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = ival;
 		break;
-#endif	
 	}
 	case 'n': /* Py_ssize_t */
 #if SIZEOF_SIZE_T != SIZEOF_LONG
@@ -708,8 +693,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 	}
 
 	case 'k': { /* long sized bitfield */
-    Py_FatalError("'k' unimplemented for PyArg_*\n");
-#if 0
 		unsigned long *p = va_arg(*p_va, unsigned long *);
 		unsigned long ival;
 		if (PyInt_Check(arg))
@@ -720,13 +703,10 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 			return converterr("integer<k>", arg, msgbuf, bufsize);
 		*p = ival;
 		break;
-#endif
 	}
 	
 #ifdef HAVE_LONG_LONG
 	case 'L': {/* PY_LONG_LONG */
-    Py_FatalError("'L' unimplemented for PyArg_*\n");
-#if 0
 		PY_LONG_LONG *p = va_arg( *p_va, PY_LONG_LONG * );
 		PY_LONG_LONG ival = PyLong_AsLongLong( arg );
 		if (ival == (PY_LONG_LONG)-1 && PyErr_Occurred() ) {
@@ -735,12 +715,9 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 			*p = ival;
 		}
 		break;
-#endif
 	}
 
 	case 'K': { /* long long sized bitfield */
-    Py_FatalError("'K' unimplemented for PyArg_*\n");
-#if 0
 		unsigned PY_LONG_LONG *p = va_arg(*p_va, unsigned PY_LONG_LONG *);
 		unsigned PY_LONG_LONG ival;
 		if (PyInt_Check(arg))
@@ -751,7 +728,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 			return converterr("integer<K>", arg, msgbuf, bufsize);
 		*p = ival;
 		break;
-#endif	
   }
 #endif // HAVE_LONG_LONG
 
@@ -777,8 +753,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 	
 #ifndef WITHOUT_COMPLEX
 	case 'D': {/* complex double */
-    Py_FatalError("'D' unimplemented for PyArg_*\n");
-#if 0
 		Py_complex *p = va_arg(*p_va, Py_complex *);
 		Py_complex cval;
 		cval = PyComplex_AsCComplex(arg);
@@ -787,7 +761,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		else
 			*p = cval;
 		break;
-#endif
 	}
 #endif /* WITHOUT_COMPLEX */
 	
@@ -985,8 +958,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		break;
 	}
 	case 'e': {/* encoded string */
-    Py_FatalError("'e' unimplemented for PyArg_*\n");
-#if 0
 		char **buffer;
 		const char *encoding;
 		PyObject *s;
@@ -1150,7 +1121,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		}
 		Py_DECREF(s);
 		break;
-#endif
 	}
 
 #ifdef Py_USING_UNICODE
