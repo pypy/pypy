@@ -303,6 +303,7 @@ class Assembler386(object):
                _x86_frame_depth
                _x86_param_depth
                _x86_arglocs
+               _x86_debug_checksum
         """
         if not we_are_translated():
             # Arguments should be unique
@@ -312,7 +313,7 @@ class Assembler386(object):
         funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
-            operations = self._inject_debugging_code(operations)
+            operations = self._inject_debugging_code(looptoken, operations)
         
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
@@ -336,8 +337,9 @@ class Assembler386(object):
         self._assemble_bootstrap_direct_call(arglocs, curadr,
                                              frame_depth+param_depth)
         #
-        debug_print("Loop #", looptoken.number, "has address",
-                    looptoken._x86_loop_code, "to", self.mc.tell())
+        debug_print("Loop #%d has address %x to %x" % (looptoken.number,
+                                                       looptoken._x86_loop_code,
+                                                       self.mc.tell()))
         self.mc.end_function()
         self.write_pending_failure_recoveries()
         
@@ -350,7 +352,7 @@ class Assembler386(object):
         funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
-            operations = self._inject_debugging_code(operations)
+            operations = self._inject_debugging_code(faildescr, operations)
 
         arglocs = self.rebuild_faillocs_from_descr(
             faildescr._x86_failure_recovery_bytecode)
@@ -377,9 +379,8 @@ class Assembler386(object):
             faildescr._x86_bridge_param_depth = param_depth
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, adr_bridge)
-        debug_print("Bridge out of guard",
-                    descr_number,
-                    "has address", adr_bridge, "to", self.mc.tell())
+        debug_print("Bridge out of guard %d has address %x to %x" %
+                    (descr_number, adr_bridge, self.mc.tell()))
         self.mc.end_function()
         self.write_pending_failure_recoveries()
 
@@ -432,9 +433,14 @@ class Assembler386(object):
 
         mc.done()
 
-    def _inject_debugging_code(self, operations):
+    @specialize.argtype(1)
+    def _inject_debugging_code(self, looptoken, operations):
         if self._debug:
             # before doing anything, let's increase a counter
+            s = 0
+            for op in operations:
+                s += op.getopnum()
+            looptoken._x86_debug_checksum = s
             c_adr = ConstInt(rffi.cast(lltype.Signed,
                                      self.loop_run_counters[-1][1]))
             box = BoxInt()
