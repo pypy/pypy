@@ -179,9 +179,9 @@ class HeapDumper:
             _hd_add_root)
         self.gc._heap_dumper = None
         pendingroots = self.pending
-        self.pending = AddressStack()
         self.walk(pendingroots)
         pendingroots.delete()
+        self.pending = AddressStack()
         self.write_marker()
 
     def walk(self, pending):
