@@ -75,6 +75,13 @@ Longer tasks
 - "Shorter float representation": copy dtoa.c from CPython and use it to
   format/parse floats.  Enable this with a translation option.
 
+- Fix usage of __cmp__ in subclasses::
+
+    class badint(int):
+        def __cmp__(self, other):
+            raise RuntimeError
+    raises(RuntimeError, cmp, 0, badint(1))
+
 More difficult issues
 ---------------------
 
