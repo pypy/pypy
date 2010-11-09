@@ -19,6 +19,7 @@ from pypy.jit.backend.llsupport.descr import get_call_descr
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
+    minimal_size_in_nursery = 0
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
         self.gcdescr = gcdescr
@@ -386,6 +387,7 @@ class GcLLDescr_framework(GcLLDescription):
         (self.array_basesize, _, self.array_length_ofs) = \
              symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
         self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()
+        self.minimal_size_in_nursery=self.GCClass.JIT_minimal_size_in_nursery()
 
         # make a malloc function, with three arguments
         def malloc_basic(size, tid):
@@ -468,6 +470,7 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_fixedsize_slowpath(size):
             if self.DEBUG:
                 random_usage_of_xmm_registers()
+            assert size >= self.minimal_size_in_nursery
             try:
                 gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                             0, size, True, False, False)

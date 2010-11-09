@@ -230,6 +230,10 @@ class SemiSpaceGC(MovingGCBase):
         while self.max_space_size > size:
             self.max_space_size >>= 1
 
+    @classmethod
+    def JIT_minimal_size_in_nursery(cls):
+        return cls.object_minimal_size
+
     def collect(self, gen=0):
         self.debug_check_consistency()
         self.semispace_collect()
