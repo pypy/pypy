@@ -144,7 +144,11 @@ class StructOrUnionMeta(_CDataMeta):
 
     def from_param(self, value):
         if isinstance(value, tuple):
-            value = self(*value)
+            try:
+                value = self(*value)
+            except Exception, e:
+                # XXX CPython does not even respect the exception type
+                raise RuntimeError("(%s) %s: %s" % (self.__name__, type(e), e))
         return _CDataMeta.from_param(self, value)
 
     def _CData_output(self, resarray, base=None, index=-1):
@@ -174,7 +178,7 @@ class StructOrUnion(_CData):
 
     def __init__(self, *args, **kwds):
         if len(args) > len(self._names):
-            raise TypeError("too many arguments")
+            raise TypeError("too many initializers")
         for name, arg in zip(self._names, args):
             if name in kwds:
                 raise TypeError("duplicate value for argument %r" % (

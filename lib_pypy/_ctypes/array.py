@@ -91,6 +91,9 @@ class ArrayMeta(_CDataMeta):
                 if len(value) > self._length_:
                     raise ValueError("Invalid length")
                 value = self(*value)
+            elif not isinstance(value, self):
+                raise TypeError("expected string or Unicode object, %s found"
+                                % (value.__class__.__name__,))
         else:
             if isinstance(value, tuple):
                 if len(value) > self._length_:
