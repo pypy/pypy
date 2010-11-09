@@ -3357,6 +3357,24 @@ class TestAnnotateTestCase:
         # not a constant: both __enter__ and __exit__ have been annotated
         assert not s.is_constant()
 
+    def test_make_sure_not_modified(self):
+        from pypy.rlib.debug import make_sure_not_modified
+
+        def pycode(consts):
+            make_sure_not_modified(consts)
+        def build1():
+            return pycode(consts=[1])
+        def build2():
+            return pycode(consts=[0])
+        def fn():
+            build1()
+            build2()
+
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.list_comprehension_operations = True
+        a.build_types(fn, [])
+        assert 0
+
 
 def g(n):
     return [0,1,2,n]
