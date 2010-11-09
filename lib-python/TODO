@@ -55,6 +55,8 @@ Medium tasks
 - add 'unicode' in ObjSpace.MethodTable + probably a default implementation that
   falls back to space.str().
 
+- socket module has a couple of changes (including AF_TIPC packet range)
+
 Longer tasks
 ------------
 
