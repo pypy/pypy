@@ -104,6 +104,12 @@ class AppTestBuiltinApp:
                 return 'a'    # not a list!
         raises(TypeError, eval, "dir()", {}, C())
 
+    def test_dir_broken_module(self):
+        import types
+        class Foo(types.ModuleType):
+            __dict__ = 8
+        raises(TypeError, dir, Foo("foo"))
+
     def test_format(self):
         assert format(4) == "4"
         assert format(10, "o") == "12"
