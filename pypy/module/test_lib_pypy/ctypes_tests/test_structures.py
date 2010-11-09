@@ -495,6 +495,24 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
         else:
             raise AssertionError, "AttributeError not raised"
 
+    def test_nonfinal_struct(self):
+        class X(Structure):
+            pass
+        assert sizeof(X) == 0
+        X._fields_ = [("a", c_int),]
+        raises(AttributeError, setattr, X, "_fields_", [])
+
+        class X(Structure):
+            pass
+        X()
+        raises(AttributeError, setattr, X, "_fields_", [])
+
+        class X(Structure):
+            pass
+        class Y(X):
+            pass
+        raises(AttributeError, setattr, X, "_fields_", [])
+        Y.__fields__ = []
 
 class TestPatologicalCases(BaseCTypesTestChecker):
     def test_structure_overloading_getattr(self):

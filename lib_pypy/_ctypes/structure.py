@@ -37,6 +37,8 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None,
         tp = f[1]
         if not isinstance(tp, _CDataMeta):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
+        if isinstance(tp, StructOrUnionMeta):
+            tp._make_final()
     import ctypes
     all_fields = _fields_[:]
     for cls in inspect.getmro(superclass):
@@ -113,6 +115,8 @@ class StructOrUnionMeta(_CDataMeta):
 
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
+        if isinstance(cls[0], StructOrUnionMeta):
+            cls[0]._make_final()
         if '_fields_' in typedict:
             if not hasattr(typedict.get('_anonymous_', []), '__iter__'):
                 raise TypeError("Anonymous field must be iterable")
@@ -125,6 +129,15 @@ class StructOrUnionMeta(_CDataMeta):
             _set_shape(res, rawfields, self._is_union)
 
         return res
+
+    def _make_final(self):
+        if self is StructOrUnion:
+            return
+        if '_fields_' not in self.__dict__:
+            self._fields_ = []
+            self._names = []
+            self._fieldtypes = {}
+            _set_shape(self, [], self._is_union)
 
     __getattr__ = struct_getattr
     __setattr__ = struct_setattr
@@ -170,13 +183,13 @@ class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
-        if not hasattr(cls, '_ffistruct'):
-            raise TypeError("Cannot instantiate structure, has no _fields_")
         self = super(_CData, cls).__new__(cls, *args, **kwds)
-        self.__dict__['_buffer'] = self._ffistruct(autofree=True)
+        if hasattr(cls, '_ffistruct'):
+            self.__dict__['_buffer'] = self._ffistruct(autofree=True)
         return self
 
     def __init__(self, *args, **kwds):
+        type(self)._make_final()
         if len(args) > len(self._names):
             raise TypeError("too many initializers")
         for name, arg in zip(self._names, args):
