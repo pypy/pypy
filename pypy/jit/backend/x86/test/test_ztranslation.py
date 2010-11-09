@@ -2,6 +2,7 @@ import py, os, sys
 from pypy.tool.udir import udir
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
+from pypy.rlib.jit import hint
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.support import CCompiledMixin
@@ -9,6 +10,7 @@ from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.translator.translator import TranslationContext
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from pypy.config.translationoption import DEFL_GC
+from pypy.rlib import rgc
 
 class TestTranslationX86(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -87,7 +89,7 @@ class TestTranslationX86(CCompiledMixin):
         def main(i, j):
             return f(i, j) + libffi_stuff(i, j)
         expected = f(40, -49)
-        res = self.meta_interp(f, [40, -49])
+        res = self.meta_interp(main, [40, -49])
         assert res == expected
 
     def test_direct_assembler_call_translates(self):
