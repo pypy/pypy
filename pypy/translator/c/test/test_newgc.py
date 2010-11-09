@@ -1066,7 +1066,9 @@ class TestUsingFramework(object):
 
     filename_dump = str(udir.join('test_dump_rpy_heap'))
     def define_dump_rpy_heap(self):
-        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        U = lltype.GcForwardReference()
+        U.become(lltype.GcStruct('U', ('next', lltype.Ptr(U)),
+                                 ('x', lltype.Signed)))
         S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
         A = lltype.GcArray(lltype.Ptr(S))
         filename = self.filename_dump
@@ -1074,11 +1076,16 @@ class TestUsingFramework(object):
         def fn():
             s = lltype.malloc(S)
             s.u = lltype.malloc(U)
+            s.u.next = lltype.malloc(U)
+            s.u.next.next = lltype.malloc(U)
             a = lltype.malloc(A, 1000)
             s2 = lltype.malloc(S)
             #
             fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
             rgc.dump_rpy_heap(fd)
+            keepalive_until_here(s2)
+            keepalive_until_here(s)
+            keepalive_until_here(a)
             os.close(fd)
             return 0
 
@@ -1087,8 +1094,7 @@ class TestUsingFramework(object):
     def test_dump_rpy_heap(self):
         self.run("dump_rpy_heap")
         assert os.path.exists(self.filename_dump)
-        assert os.path.getsize(self.filename_dump) > 0       # minimal test
-
+        assert os.path.getsize(self.filename_dump) > 64
 
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
