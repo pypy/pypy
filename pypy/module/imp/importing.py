@@ -91,8 +91,9 @@ def check_sys_modules(space, w_modulename):
 def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
-def importhook(space, modulename, w_globals=None,
+def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
+    modulename = name
     space.timer.start_name("importhook", modulename)
     if not modulename and level < 0: 
         raise OperationError(

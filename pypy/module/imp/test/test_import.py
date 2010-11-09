@@ -186,6 +186,9 @@ class AppTestImport:
         assert pkg == sys.modules.get('pkg')
         assert pkg.a == sys.modules.get('pkg.a')
 
+    def test_import_keywords(self):
+        __import__(name='sys', level=0)
+
     def test_import_badcase(self):
         def missing(name):
             try:
