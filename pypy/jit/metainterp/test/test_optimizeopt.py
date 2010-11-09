@@ -3994,6 +3994,15 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p0, p1, p3, p5, p7, p8, p14, 1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_inputargs_added_by_forcing_jumpargs(self):
+        # FXIME: Can this occur?
+        ops = """
+        [p0, p1, pinv]
+        i1 = getfield_gc(pinv, descr=valuedescr)
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, i1, descr=nextdescr)
+        """
         
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble=None):

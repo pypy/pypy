@@ -366,6 +366,10 @@ def _strgetitem(newoperations, strbox, indexbox, mode):
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
     enabled = True
+
+    def reconstruct_for_next_iteration(self):
+        self.enabled = True
+        return self
     
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
@@ -656,8 +660,6 @@ class OptString(optimizer.Optimization):
         else:
             self.emit_operation(op)
 
-    def force_at_end_of_preamble(self):
-        self.enabled = True
 
 optimize_ops = _findall(OptString, 'optimize_')
 

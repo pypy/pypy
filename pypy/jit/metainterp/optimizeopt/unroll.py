@@ -3,37 +3,51 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
 
-class OptUnroll(Optimization):
+# FXIME: Introduce some VirtualOptimizer super class instead
+
+def optimize_unroll(metainterp_sd, loop, optimizations):
+    opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
+    opt.propagate_all_forward()
+
+class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
     
-    def setup(self):
+    def __init__(self, metainterp_sd, loop, optimizations):
+        self.optimizer = Optimizer(metainterp_sd, loop, optimizations)
         self.cloned_operations = []
         for op in self.optimizer.loop.operations:
             self.cloned_operations.append(op.clone())
         
             
-    def propagate_forward(self, op):
+    def propagate_all_forward(self):
+        loop = self.optimizer.loop
+        jumpop = loop.operations[-1]
+        if jumpop.getopnum() == rop.JUMP:
+            loop.operations = loop.operations[:-1]
+        else:
+            loopop = None
 
-        if op.getopnum() == rop.JUMP:
-            self.optimizer.force_at_end_of_preamble()
-            loop = self.optimizer.loop
-            assert op.getdescr() is loop.token
+        self.optimizer.propagate_all_forward()
+
+
+        if jumpop:
+            assert jumpop.getdescr() is loop.token
             loop.preamble.operations = self.optimizer.newoperations
-            self.optimizer.newoperations = []
-            jump_args = op.getarglist()
-            op.initarglist([])
-            # Exceptions not caught in one iteration should not propagate to the next
-            self.optimizer.exception_might_have_happened = False
+
+            self.optimizer = self.optimizer.reconstruct_for_next_iteration()
+
+            jump_args = jumpop.getarglist()
+            jumpop.initarglist([])            
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
             jmp.setdescr(loop.token)
             loop.preamble.operations.append(jmp)
-        else:
-            self.emit_operation(op)
+
+            loop.operations = self.optimizer.newoperations
 
     def inline(self, loop_operations, loop_args, jump_args):
         self.argmap = argmap = {}
@@ -62,6 +76,7 @@ class OptUnroll(Optimization):
             else:
                 args = newop.getarglist()
             newop.initarglist([self.inline_arg(a) for a in args])
+            #print 'P:', newop
             
             if newop.result:
                 old_result = newop.result
@@ -71,8 +86,8 @@ class OptUnroll(Optimization):
             descr = newop.getdescr()
             if isinstance(descr, ResumeGuardDescr):
                 descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
-                
-            self.emit_operation(newop)
+
+            self.optimizer.first_optimization.propagate_forward(newop)
 
         # Remove jump to make sure forced code are placed before it
         newoperations = self.optimizer.newoperations
@@ -83,7 +98,7 @@ class OptUnroll(Optimization):
         boxes_created_this_iteration = {}
         jumpargs = jmp.getarglist()
 
-        # FIXME: Should also loop over operations added by forcing things in this loop 
+        # FIXME: Should also loop over operations added by forcing things in this loop
         for op in newoperations: 
             #print 'E: ', str(op)
             boxes_created_this_iteration[op.result] = True

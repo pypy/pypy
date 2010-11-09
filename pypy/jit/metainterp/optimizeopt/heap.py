@@ -23,6 +23,15 @@ class OptHeap(Optimization):
         self.lazy_setfields = {}
         self.lazy_setfields_descrs = []     # keys (at least) of previous dict
 
+    def reconstruct_for_next_iteration(self):
+        self.force_all_lazy_setfields()
+        assert not self.lazy_setfields_descrs
+        assert not self.lazy_setfields
+        new = OptHeap()
+        new.cached_fields = self.cached_fields
+        new.cached_arrayitems = self.cached_arrayitems
+        return new
+
     def clean_caches(self):
         self.cached_fields.clear()
         self.cached_arrayitems.clear()
@@ -148,9 +157,6 @@ class OptHeap(Optimization):
             self.force_all_lazy_setfields()
         self.clean_caches()
 
-
-    def force_at_end_of_preamble(self):
-        self.force_all_lazy_setfields()
 
     def turned_constant(self, value):
         assert value.is_constant()

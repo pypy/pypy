@@ -13,6 +13,10 @@ class OptIntBounds(Optimization):
         self.posponedop = None
         self.nextop = None
 
+    def reconstruct_for_next_iteration(self):
+        assert self.posponedop is None
+        return self 
+
     def propagate_forward(self, op):
         if op.is_ovf():
             self.posponedop = op

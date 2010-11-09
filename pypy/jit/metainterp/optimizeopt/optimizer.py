@@ -199,6 +199,11 @@ class Optimization(object):
     def turned_constant(self, value):
         pass
 
+    def reconstruct_for_next_iteration(self):
+        #return self.__class__()
+        raise NotImplementedError
+    
+
 class Optimizer(Optimization):
 
     def __init__(self, metainterp_sd, loop, optimizations=None):
@@ -214,6 +219,8 @@ class Optimizer(Optimization):
         self.producer = {}
         self.pendingfields = []
         self.posponedop = None
+        self.exception_might_have_happened = False
+        self.newoperations = []
 
         if optimizations:
             self.first_optimization = optimizations[0]
@@ -233,6 +240,28 @@ class Optimizer(Optimization):
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.metainterp_sd)
         for o in self.optimizations:
             o.force_at_end_of_preamble()
+            
+    def reconstruct_for_next_iteration(self):
+        optimizations = [o.reconstruct_for_next_iteration() for o in 
+                         self.optimizations]
+        optimizations = self.optimizations
+        new = Optimizer(self.metainterp_sd, self.loop, optimizations)
+        new.values = self.values
+        new.interned_refs = self.interned_refs
+        new.bool_boxes = self.bool_boxes
+        new.loop_invariant_results = self.loop_invariant_results
+        new.pure_operations = self.pure_operations
+        new.producer = self.producer
+        assert self.posponedop is None
+
+        # FIXME: HACK!! Add a reconstruct_for_next_iteration to
+        # the values instead and reconstruct them in the same manner.
+        # That should also give us a clean solution for enabling
+        # OptString in the preamble that forces it's virtuals before
+        # the loop
+        for v in new.values.values(): 
+            v.optimizer = new
+        return new
 
     def turned_constant(self, value):
         for o in self.optimizations:
@@ -322,8 +351,6 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def propagate_all_forward(self):
-        self.exception_might_have_happened = False
-        self.newoperations = []
         self.i = 0
         while self.i < len(self.loop.operations):
             op = self.loop.operations[self.i]

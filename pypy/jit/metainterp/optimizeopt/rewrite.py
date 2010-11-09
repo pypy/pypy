@@ -9,6 +9,9 @@ class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
        This includes already executed operations and constants.
     """
+
+    def reconstruct_for_next_iteration(self):
+        return self
     
     def propagate_forward(self, op):
         args = self.optimizer.make_args_key(op)
