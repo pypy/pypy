@@ -18,6 +18,13 @@ class AppTestWarnings:
         _warnings.warn("some message", DeprecationWarning)
         _warnings.warn("some message", Warning)
 
+    def test_lineno(self):
+        import warnings, _warnings, sys
+        with warnings.catch_warnings(record=True) as w:
+            _warnings.warn("some message", Warning)
+            lineno = sys._getframe().f_lineno - 1 # the line above
+            assert w[-1].lineno == lineno
+
     def test_warn_explicit(self):
         import _warnings
         _warnings.warn_explicit("some message", DeprecationWarning,

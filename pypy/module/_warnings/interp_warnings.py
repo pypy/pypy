@@ -77,7 +77,7 @@ def setup_context(space, stacklevel):
         stacklevel -= 1
     if frame:
         w_globals = frame.w_globals
-        lineno = frame.f_lineno
+        lineno = frame.get_last_lineno()
     else:
         w_globals = space.sys.w_dict
         lineno = 1
