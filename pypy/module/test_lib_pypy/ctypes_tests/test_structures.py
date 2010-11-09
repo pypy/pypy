@@ -57,7 +57,6 @@ class TestStructure(BaseCTypesTestChecker):
                "Q": c_ulonglong,
                "f": c_float,
                "d": c_double,
-               "g": c_longdouble,
                }
 
     def test_simple_structs(self):
@@ -66,7 +65,7 @@ class TestStructure(BaseCTypesTestChecker):
                 _fields_ = [("x", c_char),
                             ("y", tp)]
             assert (sizeof(X), code) == (
-                                 (calcsize("c%c0%c" % (code, code)), code))
+                                 (calcsize("c%c" % (code,)), code))
 
     def test_unions(self):
         for code, tp in self.formats.items():
