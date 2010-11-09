@@ -21,14 +21,16 @@ def run(filename, outputname):
     #
     outputpath = tmpdir.join(outputname)
     assert outputpath.check(exists=1)
-    d = {}
+    modname = os.path.splitext(outputname)[0]
     try:
         sys.path.insert(0, str(tmpdir2))
-        execfile(str(outputpath), d)
+        d = {}
+        exec "from ctypes_config_cache import %s" % modname in d
+        mod = d[modname]
     finally:
         sys.path[:] = path
         sys.modules.pop('ctypes_config_cache', None)
-    return d
+    return mod.__dict__
 
 
 def test_syslog():
