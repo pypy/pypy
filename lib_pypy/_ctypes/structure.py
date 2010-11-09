@@ -40,9 +40,10 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None,
         if isinstance(tp, StructOrUnionMeta):
             tp._make_final()
     import ctypes
-    all_fields = _fields_[:]
+    all_fields = []
     for cls in inspect.getmro(superclass):
         all_fields += getattr(cls, '_fields_', [])
+    all_fields += _fields_
     names = [f[0] for f in all_fields]
     rawfields = [(f[0], f[1]._ffishape)
                  for f in all_fields]
