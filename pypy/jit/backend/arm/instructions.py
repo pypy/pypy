@@ -104,8 +104,8 @@ block_data = {
     'LDMDB': {'op': 0x11},
     'STMIB': {'op': 0x18},
     'LDMIB': {'op': 0x19},
-    'STM':   {'op': 0x4},
-    'LDM':   {'op': 0x5},
+    #'STM':   {'op': 0x4},
+    #'LDM':   {'op': 0x5},
 }
 branch = {
     'B':     {'op': 0x20},

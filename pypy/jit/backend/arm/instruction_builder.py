@@ -255,8 +255,20 @@ def define_multiply_instructions(name, table):
 
     return f
 
-def define_long_mult_div_instructions(name, table):
-    pass
+def define_block_data_func(name, table):
+    n = (table['op'] & 0x3F) << 20
+    def f(self, rn, regs, w=0, cond=cond.AL):
+        # no R bit for now at bit 15
+        instr = (n
+                | cond << 28
+                | 0x1 << 27
+                | (w & 0x1) << 21
+                | (rn & 0xF) << 16)
+        instr = self._encode_reg_list(instr, regs)
+        self.write32(instr)
+
+    return f
+
 def imm_operation(rt, rn, imm):
     return ((rn & 0xFF) << 16
     | (rt & 0xFF) << 12
@@ -282,7 +294,8 @@ def define_instructions(target):
                 (instructions.data_proc_imm, define_data_proc_imm),
                 (instructions.supervisor_and_coproc, define_supervisor_and_coproc),
                 (instructions.multiply, define_multiply_instructions),
-                (instructions.data_proc_reg_shift_reg, define_data_proc_register_shifted)]
+                (instructions.data_proc_reg_shift_reg, define_data_proc_register_shifted),
+                (instructions.block_data, define_block_data_func)]
 
     for inss, gen in i_g_map:
         for key, val in inss.iteritems():

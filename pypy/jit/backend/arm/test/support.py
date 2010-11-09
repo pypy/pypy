@@ -32,3 +32,46 @@ def check_skip(inp, search='arm', msg='only for arm'):
     finally:
         if skip:
             py.test.skip(msg)
+
+# generators for asm tests
+
+def gen_test_function(name, asm, args, kwargs=None, asm_ext=None):
+    if kwargs is None:
+        kwargs = {}
+    if asm_ext is None:
+        asm_ext = ''
+    def f(self):
+        func = getattr(self.cb, name)
+        func(*args, **kwargs)
+        try:
+            f_name = name[:name.index('_')]
+        except ValueError, e:
+            f_name = name
+        self.assert_equal('%s%s %s' % (f_name, asm_ext, asm))
+    return f
+
+def define_test(cls, name, test_case, base_name=None):
+    import types
+    if base_name is None:
+        base_name = ''
+    templ = 'test_generated_%s_%s'
+    test_name = templ % (base_name, name)
+    if hasattr(cls, test_name):
+        i = 1
+        new_test_name = test_name
+        while hasattr(cls, new_test_name):
+            new_test_name = '%s_%d' % (test_name, i)
+            i += 1
+        test_name = new_test_name
+    if not isinstance(test_case, types.FunctionType):
+        asm, sig = test_case[0:2]
+        kw_args = None
+        asm_ext = None
+        if len(test_case) > 2:
+            kw_args = test_case[2]
+        if len(test_case) > 3:
+            asm_ext = test_case[3]
+        f = gen_test_function(name, asm, sig, kw_args, asm_ext)
+    else:
+        f = test_case
+    setattr(cls, test_name, f)

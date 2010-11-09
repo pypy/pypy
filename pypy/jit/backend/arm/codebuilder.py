@@ -49,11 +49,6 @@ class AbstractARMv7Builder(object):
         instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)
         self.write32(instr)
 
-    def LDM(self, rn, regs, w=0, cond=cond.AL):
-        instr = cond << 28 | 0x89 << 20 | w << 21 | (rn & 0xFF) << 16
-        instr = self._encode_reg_list(instr, regs)
-        self.write32(instr)
-
     def BKPT(self, cond=cond.AL):
         self.write32(cond << 28 | 0x1200070)
 

@@ -2,7 +2,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import codebuilder
 from pypy.jit.backend.arm import conditions
 from pypy.jit.backend.arm import instructions
-from pypy.jit.backend.arm.test.support import requires_arm_as
+from pypy.jit.backend.arm.test.support import (requires_arm_as, define_test, gen_test_function)
 from gen import assemble
 import py
 
@@ -91,18 +91,6 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.PUSH([reg.value for reg in [r.fp, r.ip, r.lr, r.pc]])
         self.assert_equal('PUSH {fp, ip, lr, pc}')
 
-    def test_ldm_one_reg(self):
-        self.cb.LDM(r.sp.value, [r.fp.value])
-        self.assert_equal('LDM sp, {fp}')
-
-    def test_ldm_multiple_reg(self):
-        self.cb.LDM(r.sp.value, [reg.value for reg in [r.fp, r.ip, r.lr]])
-        self.assert_equal('LDM sp, {fp, ip, lr}')
-
-    def test_ldm_multiple_reg2(self):
-        self.cb.LDM(r.sp.value, [reg.value for reg in [r.fp, r.sp, r.pc]])
-        self.assert_equal("LDM sp, {fp, sp, pc}")
-
     def test_sub_ri(self):
         self.cb.SUB_ri(r.r2.value, r.r4.value, 123)
         self.assert_equal('SUB r2, r4, #123')
@@ -149,24 +137,6 @@ class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
         self.cb = CodeBuilder()
 
-# XXX refactor this functions
-
-def build_test(builder, key, value, test_name):
-    test = builder(key, value)
-    setattr(TestInstrCodeBuilderForGeneratedInstr, test_name % key, test)
-
-def gen_test_function(name, asm, args, kwargs=None):
-    if kwargs is None:
-        kwargs = {}
-    def f(self):
-        func = getattr(self.cb, name)
-        func(*args, **kwargs)
-        try:
-            f_name = name[:name.index('_')]
-        except ValueError, e:
-            f_name = name
-        self.assert_equal(asm % f_name)
-    return f
 
 def gen_test_data_proc_imm_func(name, table):
     if table['result'] and table['base']:
@@ -175,112 +145,97 @@ def gen_test_data_proc_imm_func(name, table):
             func(r.r3.value, r.r7.value, 23)
             self.assert_equal('%s r3, r7, #23' % name[:name.index('_')])
             py.test.raises(ValueError, 'func(r.r3.value, r.r7.value, -12)')
+        return [f]
     else:
-        f = gen_test_function(name, '%s r3, #23', [r.r3.value, 23])
-    return f
+        return [('r3, #23', [r.r3.value, 23])]
 
-def gen_test_imm_func(name, table):
-    return gen_test_function(name, '%s r3, [r7, #23]', [r.r3.value, r.r7.value, 23])
-
-def gen_test_reg_func(name, table):
-    return gen_test_function(name, '%s r3, [r7, r12]', [r.r3.value, r.r7.value, r.r12.value])
+def gen_test_load_store_func(name, table):
+    if table['imm']:
+        return [('r3, [r7, #23]', [r.r3.value, r.r7.value, 23]),
+            ('r3, [r7, #-23]', [r.r3.value, r.r7.value, -23])
+            ]
+    else:
+        return [('r3, [r7, r12]', [r.r3.value, r.r7.value, r.r12.value])]
 
 def gen_test_extra_load_store_func(name, table):
     if name[-4] == 'D':
         if name[-2:] == 'rr':
-            f = gen_test_function(name, '%s r4, [r8, r12]', [r.r4.value, r.r5.value, r.r8.value, r.r12.value])
+            return [('r4, [r8, r12]', [r.r4.value, r.r5.value, r.r8.value, r.r12.value])]
         else:
-            f = gen_test_function(name, '%s r4, [r8, #223]', [r.r4.value, r.r5.value, r.r8.value, 223])
+            return [('r4, [r8, #223]', [r.r4.value, r.r5.value, r.r8.value, 223])]
     else:
         if name[-2:] == 'rr':
-            f = gen_test_function(name, '%s r4, [r5, r12]', [r.r4.value, r.r5.value, r.r12.value])
+            return [('r4, [r5, r12]', [r.r4.value, r.r5.value, r.r12.value])]
         else:
-            f = gen_test_function(name, '%s r4, [r5, #223]', [r.r4.value, r.r5.value, 223])
-    return f
-def gen_test_mul_func(name, table):
-    if 'acc' in table and table['acc']:
-        if 'update_flags' in table and table['update_flags']:
-            def f(self):
-                func = getattr(self.cb, name)
-                func(r.r3.value, r.r7.value, r.r12.value, r.r13.value)
-                func(r.r3.value, r.r7.value, r.r12.value, r.r13.value, s=1)
-                self.assert_equal("""
-    %(name)s r3, r7, r12, r13
-    %(name)sS r3, r7, r12, r13
-    """ % {'name':name})
-        else:
-            def f(self):
-                func = getattr(self.cb, name)
-                func(r.r3.value, r.r7.value, r.r12.value, r.r13.value)
-                self.assert_equal("""%(name)s r3, r7, r12, r13 """ % {'name':name})
-    elif 'long' in table and table['long']:
-        def f(self):
-            func = getattr(self.cb, name)
-            func(r.r3.value, r.r13.value, r.r7.value, r.r12.value)
-            self.assert_equal("""%(name)s r3, r13, r7, r12 """ % {'name':name})
-    else:
-        f = gen_test_function(name, '%s r3, r7, r12 ', [r.r3.value, r.r7.value, r.r12.value])
+            return [('r4, [r5, #223]', [r.r4.value, r.r5.value, 223])]
     return f
 
-def gen_test_data_reg_shift_reg_func(name, table):
+def gen_test_multiply_func(name, table):
+    if 'acc' in table and table['acc']:
+        if 'update_flags' in table and table['update_flags']:
+            return [
+            ('r3, r7, r12, r13', (r.r3.value, r.r7.value, r.r12.value, r.r13.value)),
+            ('r3, r7, r12, r13', (r.r3.value, r.r7.value, r.r12.value, r.r13.value), {'s':1}, 'S')
+            ]
+        else:
+            return [('r3, r7, r12, r13', (r.r3.value, r.r7.value, r.r12.value,
+            r.r13.value))]
+    elif 'long' in table and table['long']:
+        return [('r3, r13, r7, r12', (r.r3.value, r.r13.value, r.r7.value, r.r12.value))]
+    else:
+        return [('r3, r7, r12', (r.r3.value, r.r7.value, r.r12.value))]
+
+def gen_test_data_proc_reg_shift_reg_func(name, table):
     if name[-2:] == 'rr':
-        f = gen_test_function(name, '%s r3, r7, r12', [r.r3.value, r.r7.value, r.r12.value])
+        return [('r3, r7, r12', [r.r3.value, r.r7.value, r.r12.value])]
     else:
         result = 'result' not in table or table['result']
         if result:
-            f = gen_test_function(name, '%s r3, r7, r8, ASR r11',
-                                    [r.r3.value, r.r7.value, r.r8.value, r.r11.value], {'shifttype':0x2})
+            return [('r3, r7, r8, ASR r11', [r.r3.value, r.r7.value,
+                            r.r8.value, r.r11.value], {'shifttype':0x2})]
         else:
-            f = gen_test_function(name, '%s r3, r7, ASR r11',
-                                    [r.r3.value, r.r7.value, r.r11.value], {'shifttype':0x2})
-    return f
+            return [('r3, r7, ASR r11', [r.r3.value, r.r7.value,
+                            r.r11.value], {'shifttype':0x2})]
 
-def gen_test_data_reg_func(name, table):
+def gen_test_data_proc_func(name, table):
     op_name = name[:name.index('_')]
     if name[-2:] == 'ri':
-        def f(self):
-            func = getattr(self.cb, name)
-            func(r.r3.value, r.r7.value, 12)
-            func(r.r3.value, r.r7.value, 12, s=1)
-            self.assert_equal("""
-%(name)s r3, r7, #12
-%(name)sS r3, r7, #12""" % {'name': op_name})
-
+        return [('r3, r7, #12', (r.r3.value, r.r7.value, 12)),
+                ('r3, r7, #12', (r.r3.value, r.r7.value, 12), {'s':1}, 'S')]
     elif table['base'] and table['result']:
-        def f(self):
-            func = getattr(self.cb, name)
-            func(r.r3.value, r.r7.value, r.r12.value)
-            func(r.r3.value, r.r7.value, r.r12.value, s=1)
-            self.assert_equal("""%(name)s r3, r7, r12
-%(name)sS r3, r7, r12
-""" % {'name':op_name})
+        return [('r3, r7, r12', (r.r3.value, r.r7.value, r.r12.value)),
+                ('r3, r7, r12', (r.r3.value, r.r7.value, r.r12.value), {'s':1}, 'S')]
     else:
-        f = gen_test_function(name, '%s r3, r7', [r.r3.value, r.r7.value])
+        return [('r3, r7', [r.r3.value, r.r7.value])]
 
-    return f
+def gen_test_supervisor_and_coproc_func(name, table):
+    def f(self):
+        py.test.skip('not used at the moment')
+    return [f]
 
+def gen_test_branch_func(name, table):
+    def f(self):
+        py.test.skip('not used at the moment')
+    return [f]
+
+def gen_test_block_data_func(name, table):
+    tests = []
+    for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:
+        for regs in range(16):
+            asm = 'r3, {%s}' % ','.join(['r%d' % i for i in range(regs+1)])
+            tests.append((asm, (r.r3.value, range(regs+1))))
+    return tests
 def build_tests():
+    cls = TestInstrCodeBuilderForGeneratedInstr
     test_name = 'test_generated_%s'
-    for key, value in instructions.load_store.iteritems():
-        if value['imm']:
-            f = gen_test_imm_func
-        else:
-            f = gen_test_reg_func
-        build_test(f, key, value, test_name)
-
-    for key, value in instructions.extra_load_store.iteritems():
-        build_test(gen_test_extra_load_store_func, key, value, 'test_extra_load_store_%s' % test_name)
-
-    for key, value, in instructions.data_proc.iteritems():
-        build_test(gen_test_data_reg_func, key, value, test_name)
-
-    for key, value, in instructions.data_proc_reg_shift_reg.iteritems():
-        build_test(gen_test_data_reg_shift_reg_func, key, value, test_name)
-
-    for key, value, in instructions.data_proc_imm.iteritems():
-        build_test(gen_test_data_proc_imm_func, key, value, test_name)
-
-    for key, value, in instructions.multiply.iteritems():
-        build_test(gen_test_mul_func, key, value, test_name)
-
+    ins = [k for k in instructions.__dict__.keys() if not k.startswith('__')]
+    for name in ins:
+        try:
+            func = globals()['gen_test_%s_func' % name]
+        except KeyError:
+            print 'No test generator for %s instructions' % name
+            continue
+        for key, value in getattr(instructions, name).iteritems():
+            for test_case in func(key, value):
+                define_test(cls, key, test_case, name)
 build_tests()
