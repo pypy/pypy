@@ -208,11 +208,14 @@ def descr_set__module(space, w_type, w_value):
 
 def descr_get___abstractmethods__(space, w_type):
     w_type = _check(space, w_type)
-    try:
-        return w_type.dict_w["__abstractmethods__"]
-    except KeyError:
-        raise OperationError(space.w_AttributeError,
-                             space.wrap("__abstractmethods__"))
+    # type itself has an __abstractmethods__ descriptor (this). Don't return it
+    if not space.is_w(w_type, space.w_type):
+        try:
+            return w_type.dict_w["__abstractmethods__"]
+        except KeyError:
+            pass
+    raise OperationError(space.w_AttributeError,
+                         space.wrap("__abstractmethods__"))
 
 def descr_set___abstractmethods__(space, w_type, w_new):
     w_type = _check(space, w_type)

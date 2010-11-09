@@ -110,6 +110,7 @@ class AppTestTypeObject:
         raises(TypeError, X)
         del X.__abstractmethods__
         X()
+        raises(AttributeError, getattr, type, "__abstractmethods__")
 
     def test_call_type(self):
         assert type(42) is int
