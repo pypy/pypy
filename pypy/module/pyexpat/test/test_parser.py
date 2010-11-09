@@ -17,7 +17,8 @@ class AppTestPyexpat:
         raises(pyexpat.ExpatError, p.Parse, "3")
 
     def test_set_buffersize(self):
-        import pyexpat
+        import pyexpat, sys
         p = pyexpat.ParserCreate()
         p.buffer_size = 150
         assert p.buffer_size == 150
+        raises(TypeError, setattr, p, 'buffer_size', sys.maxint + 1)
