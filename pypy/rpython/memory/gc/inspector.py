@@ -101,7 +101,8 @@ def is_rpy_instance(gc, gcref):
 # ----------
 
 raw_os_write = rffi.llexternal(underscore_on_windows+'write',
-                               [rffi.INT, llmemory.Address, rffi.SIZE_T],
+                               [rffi.INT, rffi.CArrayPtr(lltype.Signed),
+                                rffi.SIZE_T],
                                rffi.SIZE_T,
                                sandboxsafe=True, _nowrapper=True)
 
@@ -130,7 +131,7 @@ class HeapDumper:
         if self.buf_count > 0:
             bytes = self.buf_count * rffi.sizeof(rffi.LONG)
             count = raw_os_write(self.fd,
-                                 rffi.cast(llmemory.Address, self.writebuffer),
+                                 self.writebuffer,
                                  rffi.cast(rffi.SIZE_T, bytes))
             if rffi.cast(lltype.Signed, count) != bytes:
                 raise OSError(rposix.get_errno(), "raw_os_write failed")
@@ -139,7 +140,7 @@ class HeapDumper:
 
     def write(self, value):
         x = self.buf_count
-        self.writebuffer[x] = value
+        self.writebuffer[x] = llmemory.raw_malloc_usage(value)
         x += 1
         self.buf_count = x
         if x == self.BUFSIZE:
@@ -179,9 +180,9 @@ class HeapDumper:
             _hd_add_root)
         self.gc._heap_dumper = None
         pendingroots = self.pending
+        self.pending = AddressStack()
         self.walk(pendingroots)
         pendingroots.delete()
-        self.pending = AddressStack()
         self.write_marker()
 
     def walk(self, pending):
