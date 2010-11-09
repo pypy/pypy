@@ -1861,14 +1861,6 @@ def PyInt_FromSize_t(space, ival):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.LONGLONG, error=-1)
-def PyInt_AsUnsignedLongLongMask(space, io):
-    """Will first attempt to cast the object to a PyIntObject or
-    PyLongObject, if it is not already one, and then return its value as
-    unsigned long long, without checking for overflow.
-    """
-    raise NotImplementedError
-
 @cpython_api([], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_GetMax(space, ):
     """
