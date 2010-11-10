@@ -1,12 +1,12 @@
-=======================
-PyPy 1.3: Self hosting
-=======================
+===============================
+PyPy 1.4: Ouroboros in practice
+===============================
 
 Hello.
 
 We're pleased to announce release of PyPy 1.4. This is a major breaktrhough
 in our long journey, since PyPy 1.4 is the first PyPy release that can translate
-itself faster than CPython. Since today, we're planning to be starting using
+itself faster than CPython. Since today, we plan to start using
 PyPy for our own development.
 
 Among other features, this release includes numerous performance improvements
@@ -17,4 +17,8 @@ to run in production.
 More highlights
 ===============
 
+Virtualenv support: now PyPy is fully compatible with virtualenv_: note that
+to use it, you need a recent version of virtualenv (>= 1.5).
+
+XXX write me: better regular expressions
 
