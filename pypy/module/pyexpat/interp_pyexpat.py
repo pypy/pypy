@@ -62,32 +62,37 @@ def expat_external(*a, **kw):
     kw['compilation_info'] = eci
     return rffi.llexternal(*a, **kw)
 
+INTERNED_CCHARP = "INTERNED"
+
 HANDLERS = dict(
-    StartElementHandler = [rffi.CCHARP, rffi.CCHARPP],
-    EndElementHandler = [rffi.CCHARP],
-    ProcessingInstructionHandler = [rffi.CCHARP, rffi.CCHARP],
+    StartElementHandler = [INTERNED_CCHARP, rffi.CCHARPP],
+    EndElementHandler = [INTERNED_CCHARP],
+    ProcessingInstructionHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
     CharacterDataHandler = [rffi.CCHARP, rffi.INT],
-    UnparsedEntityDeclHandler = [rffi.CCHARP] * 5,
-    NotationDeclHandler = [rffi.CCHARP] * 4,
-    StartNamespaceDeclHandler = [rffi.CCHARP, rffi.CCHARP],
-    EndNamespaceDeclHandler = [rffi.CCHARP],
+    UnparsedEntityDeclHandler = [INTERNED_CCHARP] * 5,
+    NotationDeclHandler = [INTERNED_CCHARP] * 4,
+    StartNamespaceDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
+    EndNamespaceDeclHandler = [INTERNED_CCHARP],
     CommentHandler = [rffi.CCHARP],
     StartCdataSectionHandler = [],
     EndCdataSectionHandler = [],
     DefaultHandler = [rffi.CCHARP, rffi.INT],
     DefaultHandlerExpand = [rffi.CCHARP, rffi.INT],
     NotStandaloneHandler = [],
-    ExternalEntityRefHandler = [rffi.CCHARP] * 4,
-    StartDoctypeDeclHandler = [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.INT],
+    ExternalEntityRefHandler = [rffi.CCHARP] + [INTERNED_CCHARP] * 3,
+    StartDoctypeDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
+                               INTERNED_CCHARP, rffi.INT],
     EndDoctypeDeclHandler = [],
-    EntityDeclHandler = [rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT,
-                         rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.CCHARP],
+    EntityDeclHandler = [INTERNED_CCHARP, rffi.INT, rffi.CCHARP, rffi.INT,
+                         INTERNED_CCHARP, INTERNED_CCHARP, INTERNED_CCHARP,
+                         INTERNED_CCHARP],
     XmlDeclHandler = [rffi.CCHARP, rffi.CCHARP, rffi.INT],
-    ElementDeclHandler = [rffi.CCHARP, lltype.Ptr(XML_Content)],
-    AttlistDeclHandler = [rffi.CCHARP] * 4 + [rffi.INT],
+    ElementDeclHandler = [INTERNED_CCHARP, lltype.Ptr(XML_Content)],
+    AttlistDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
+                          rffi.CCHARP, rffi.CCHARP, rffi.INT],
     )
 if XML_COMBINED_VERSION >= 19504:
-    HANDLERS['SkippedEntityHandler'] = [rffi.CCHARP, rffi.INT]
+    HANDLERS['SkippedEntityHandler'] = [INTERNED_CCHARP, rffi.INT]
 NB_HANDLERS = len(HANDLERS)
 
 class Storage:
@@ -128,6 +133,8 @@ for index, (name, params) in enumerate(HANDLERS.items()):
     warg_names = ['w_arg%d' % (i,) for i in range(len(params))]
 
     converters = []
+    real_params = []
+
     for i, ARG in enumerate(params):
         # Some custom argument conversions
         if name == "StartElementHandler" and i == 1:
@@ -146,6 +153,10 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         elif ARG == rffi.CCHARP:
             converters.append(
                 'w_arg%d = parser.w_convert_charp(space, arg%d)' % (i, i))
+        elif ARG == INTERNED_CCHARP:
+            converters.append(
+                'w_arg%d = parser.w_convert_interned(space, arg%d)' % (i, i))
+            ARG = rffi.CCHARP
         elif ARG == lltype.Ptr(XML_Content):
             converters.append(
                 'w_arg%d = parser.w_convert_model(space, arg%d)' % (i, i))
@@ -154,6 +165,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         else:
             converters.append(
                 'w_arg%d = space.wrap(arg%d)' % (i, i))
+        real_params.append(ARG)
     converters = '; '.join(converters)
 
     args = ', '.join(arg_names)
@@ -208,7 +220,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
 
     c_name = 'XML_Set' + name
     callback_type = lltype.Ptr(lltype.FuncType(
-        [rffi.VOIDP] + params, result_type))
+        [rffi.VOIDP] + real_params, result_type))
     func = expat_external(c_name,
                           [XML_Parser, callback_type], lltype.Void)
     SETTERS[name] = (index, func, callback)
@@ -339,6 +351,21 @@ getting the advantage of providing document type information to the parser.
             return self.w_convert(space, rffi.charp2str(data))
         else:
             return space.w_None
+
+    def w_convert_interned(self, space, data):
+        if not data:
+            return space.w_None
+        w_data = self.w_convert_charp(space, data)
+        if not self.w_intern:
+            return w_data
+
+        try:
+            return space.getitem(self.w_intern, w_data)
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+        space.setitem(self.w_intern, w_data, w_data)
+        return w_data
 
     def w_convert_charp_n(self, space, data, length):
         ll_length = rffi.cast(lltype.Signed, length)
@@ -471,7 +498,7 @@ information passed to the ExternalEntityRefHandler."""
         else:
             encoding = space.str_w(w_encoding)
 
-        parser = W_XMLParserType(encoding, 0, space.newdict(),
+        parser = W_XMLParserType(encoding, 0, self.w_intern,
                                  _from_external_entity=True)
         parser.itself = XML_ExternalEntityParserCreate(self.itself,
                                                        context, encoding)
@@ -548,7 +575,10 @@ information passed to the ExternalEntityRefHandler."""
             self.buffer_w = None
 
     def get_intern(space, self):
-        return self.w_intern
+        if self.w_intern:
+            return self.w_intern
+        else:
+            return space.w_None
 
 
 def bool_property(name, cls, doc=None):
@@ -626,8 +656,12 @@ Return a new XML parser object."""
             space.wrap('ParserCreate() argument 2 must be string or None,'
                        ' not %s' % (type_name,)))
 
+    # Explicitly passing None means no interning is desired.
+    # Not passing anything means that a new dictionary is used.
     if w_intern is None:
         w_intern = space.newdict()
+    elif space.is_w(w_intern, space.w_None):
+        w_intern = None
 
     parser = W_XMLParserType(encoding, namespace_separator, w_intern)
     if not parser.itself:
