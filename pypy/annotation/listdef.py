@@ -6,11 +6,16 @@ from pypy.annotation.model import unionof, TLS, UnionError, isdegenerated
 class TooLateForChange(Exception):
     pass
 
+class ListChangeUnallowed(Exception):
+    pass
+
 class ListItem(object):
     mutated = False    # True for lists mutated after creation
     resized = False    # True for lists resized after creation
     range_step = None  # the step -- only for lists only created by a range()
     dont_change_any_more = False   # set to True when too late for changes
+    must_not_mutate = False   # make_sure_not_modified()
+    must_not_resize = False   # make_sure_not_resized()
 
     # what to do if range_step is different in merge.
     # - if one is a list (range_step is None), unify to a list.
@@ -26,7 +31,6 @@ class ListItem(object):
         self.bookkeeper = bookkeeper
         self.itemof = {}  # set of all ListDefs using this ListItem
         self.read_locations = {}
-        self.dont_resize = False
         if bookkeeper is None:
             self.dont_change_any_more = True
 
@@ -34,12 +38,16 @@ class ListItem(object):
         if not self.mutated:
             if self.dont_change_any_more:
                 raise TooLateForChange
+            if self.must_not_mutate:
+                raise ListChangeUnallowed("mutating list")
             self.mutated = True
 
     def resize(self):
         if not self.resized:
-            if self.dont_change_any_more or self.dont_resize:
+            if self.dont_change_any_more:
                 raise TooLateForChange
+            if self.must_not_resize:
+                raise ListChangeUnallowed("resizing list")
             self.resized = True
 
     def setrangestep(self, step):
@@ -63,11 +71,16 @@ class ListItem(object):
                     # things more general
                     self, other = other, self
 
-            if other.dont_resize:
-                if self.resized:                    
-                    raise TooLateForChange()
-                self.dont_resize = True
-            if other.mutated: self.mutate()
+            if other.must_not_mutate:
+                if self.mutated:
+                    raise ListChangeUnallowed("list merge with a mutated")
+                self.must_not_mutate = True
+            if other.must_not_resize:
+                if self.resized:
+                    raise ListChangeUnallowed("list merge with a resized")
+                self.must_not_resize = True
+            if other.mutated:
+                self.mutate()
             if other.resized:
                 self.resize()
             if other.range_step != self.range_step:
@@ -189,13 +202,14 @@ class ListDef(object):
 
     def never_resize(self):
         if self.listitem.resized:
-            raise TooLateForChange()
-        self.listitem.dont_resize = True
+            raise ListChangeUnallowed("list already resized")
+        self.listitem.must_not_resize = True
 
     def never_mutate(self):
-        if self.listitem.resized or self.listitem.mutated:
-            raise TooLateForChange()
-        self.listitem.dont_change_any_more = True
+        self.never_resize()
+        if self.listitem.mutated:
+            raise ListChangeUnallowed("list already mutated")
+        self.listitem.must_not_mutate = True
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
 

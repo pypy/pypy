@@ -10,7 +10,7 @@ from pypy.annotation.annrpython import RPythonAnnotator as _RPythonAnnotator
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
 from pypy.annotation import specialize
-from pypy.annotation.listdef import ListDef, TooLateForChange
+from pypy.annotation.listdef import ListDef, ListChangeUnallowed
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
@@ -3206,7 +3206,7 @@ class TestAnnotateTestCase:
             l.append(4)
 
         a = self.RPythonAnnotator()
-        py.test.raises(TooLateForChange, a.build_types, g, [])
+        py.test.raises(ListChangeUnallowed, a.build_types, g, [])
         assert called
 
     def test_listitem_no_mutating2(self):
@@ -3229,7 +3229,7 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.translator.config.translation.list_comprehension_operations = True
-        py.test.raises(TooLateForChange, a.build_types, fn, [int])
+        py.test.raises(ListChangeUnallowed, a.build_types, fn, [int])
 
     def test_listitem_never_resize(self):
         from pypy.rlib.debug import check_annotation
@@ -3243,7 +3243,7 @@ class TestAnnotateTestCase:
             check_annotation(l, checker)
 
         a = self.RPythonAnnotator()
-        py.test.raises(TooLateForChange, a.build_types, f, [])
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [])
 
 
     def test_len_of_empty_list(self):
@@ -3373,7 +3373,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.translator.config.translation.list_comprehension_operations = True
         a.build_types(fn, [])
-        assert 0
+        # assert did not raise ListChangeUnallowed
 
 
 def g(n):
