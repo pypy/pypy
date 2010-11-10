@@ -4,7 +4,7 @@ PyPy 1.4: Ouroboros in practice
 
 Hello.
 
-We're pleased to announce release of PyPy 1.4. This is a major breaktrhough
+We're pleased to announce release of PyPy 1.4. This is a major breakthrough
 in our long journey, since PyPy 1.4 is the first PyPy release that can translate
 itself faster than CPython. Since today, we plan to start using
 PyPy for our own development.
