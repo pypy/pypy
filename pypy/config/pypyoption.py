@@ -31,7 +31,7 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect"]
+     "_bisect", "_ffi"]
 ))
 
 working_oo_modules = default_modules.copy()
