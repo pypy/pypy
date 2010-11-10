@@ -66,10 +66,10 @@ class OptValue(object):
         assert isinstance(constbox, Const)
         self.box = constbox
         self.level = LEVEL_CONSTANT
-        try:
-            val = self.box.getint()
+        if isinstance(constbox, ConstInt):
+            val = constbox.getint()
             self.intbound = IntBound(val, val)
-        except NotImplementedError:
+        else:
             self.intbound = IntUnbounded()
 
     def get_constant_class(self, cpu):
