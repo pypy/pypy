@@ -174,6 +174,9 @@ class HeapDumper:
 
     def add_roots(self):
         self.gc._heap_dumper = self
+        if not self.gc.prebuilt_gc_objects_are_static_roots:
+            self.gc.prebuilt_root_objects.foreach(self.gc._collect_obj,
+                                                  self.pending)
         self.gc.root_walker.walk_roots(
             _hd_add_root,
             _hd_add_root,
