@@ -3357,11 +3357,11 @@ class TestAnnotateTestCase:
         # not a constant: both __enter__ and __exit__ have been annotated
         assert not s.is_constant()
 
-    def test_make_sure_not_modified(self):
-        from pypy.rlib.debug import make_sure_not_modified
+    def test_make_sure_not_resized(self):
+        from pypy.rlib.debug import make_sure_not_resized
 
         def pycode(consts):
-            make_sure_not_modified(consts)
+            make_sure_not_resized(consts)
         def build1():
             return pycode(consts=[1])
         def build2():
@@ -3375,6 +3375,23 @@ class TestAnnotateTestCase:
         a.build_types(fn, [])
         # assert did not raise ListChangeUnallowed
 
+    def test_list_not_modified_any_more(self):
+        from pypy.rlib.debug import list_not_modified_any_more
+
+        def pycode(consts):
+            return list_not_modified_any_more(consts)
+        def build1():
+            return pycode(consts=[1])
+        def build2():
+            return pycode(consts=[0])
+        def fn():
+            build1()
+            build2()
+
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.list_comprehension_operations = True
+        a.build_types(fn, [])
+        # assert did not raise ListChangeUnallowed
 
 def g(n):
     return [0,1,2,n]

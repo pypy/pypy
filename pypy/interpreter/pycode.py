@@ -15,7 +15,7 @@ from pypy.interpreter.astcompiler.consts import (CO_OPTIMIZED,
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.debug import make_sure_not_resized, make_sure_not_modified
+from pypy.rlib.debug import make_sure_not_resized, list_not_modified_any_more
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import compute_hash
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
@@ -69,7 +69,7 @@ class PyCode(eval.Code):
         self.co_stacksize = stacksize
         self.co_flags = flags
         self.co_code = code
-        self.co_consts_w = make_sure_not_modified(consts)
+        self.co_consts_w = list_not_modified_any_more(consts)
         self.co_names_w = [space.new_interned_str(aname) for aname in names]
         self.co_varnames = varnames
         self.co_freevars = freevars

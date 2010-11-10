@@ -14,7 +14,7 @@ class ListItem(object):
     resized = False    # True for lists resized after creation
     range_step = None  # the step -- only for lists only created by a range()
     dont_change_any_more = False   # set to True when too late for changes
-    must_not_mutate = False   # make_sure_not_modified()
+    must_not_mutate = False   # list_not_modified_any_more()
     must_not_resize = False   # make_sure_not_resized()
 
     # what to do if range_step is different in merge.

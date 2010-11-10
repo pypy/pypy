@@ -226,14 +226,15 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
 
-def make_sure_not_modified(arg):
-    """ Function checking whether annotation of SomeList is never resized
-    and never modified, useful for debugging. Does nothing when run directly
+def list_not_modified_any_more(arg):
+    """ Returns an annotator-time copy of the list 'arg' which is
+    flagged as 'don't mutate me'.  Actually implemented as just
+    returning 'arg'.  This is useful for debugging only.
     """
     return arg
 
 class Entry(ExtRegistryEntry):
-    _about_ = make_sure_not_modified
+    _about_ = list_not_modified_any_more
 
     def compute_result_annotation(self, s_arg):
         from pypy.annotation.model import SomeList
@@ -241,10 +242,11 @@ class Entry(ExtRegistryEntry):
         # the logic behind it is that we try not to propagate
         # make_sure_not_resized, when list comprehension is not on
         if self.bookkeeper.annotator.translator.config.translation.list_comprehension_operations:
+            s_arg = s_arg.listdef.offspring()
             s_arg.listdef.never_mutate()
         else:
             from pypy.annotation.annrpython import log
-            log.WARNING('make_sure_not_modified called, but has no effect since list_comprehension is off')
+            log.WARNING('list_not_modified_any_more called, but has no effect since list_comprehension is off')
         return s_arg
     
     def specialize_call(self, hop):
