@@ -1210,7 +1210,7 @@ def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
 sizeofaddr = llmemory.sizeof(llmemory.Address)
 
 
-class BaseRootWalker:
+class BaseRootWalker(object):
     need_root_stack = False
 
     def __init__(self, gctransformer):
