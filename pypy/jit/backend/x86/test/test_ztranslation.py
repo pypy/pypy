@@ -84,11 +84,11 @@ class TestTranslationX86(CCompiledMixin):
                 argchain.arg(x)
                 res = func.call(argchain, rffi.DOUBLE)
                 i -= 1
-            return res
+            return int(res)
         #
         def main(i, j):
             return f(i, j) + libffi_stuff(i, j)
-        expected = f(40, -49)
+        expected = main(40, -49)
         res = self.meta_interp(main, [40, -49])
         assert res == expected
 
