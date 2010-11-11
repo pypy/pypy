@@ -31,3 +31,25 @@ class AppTestPyexpat:
         p.buffer_size = 150
         assert p.buffer_size == 150
         raises(TypeError, setattr, p, 'buffer_size', sys.maxint + 1)
+
+    def test_encoding(self):
+        # use one of the few encodings built-in in expat
+        xml = "<?xml version='1.0' encoding='iso-8859-1'?><s>caf\xe9</s>"
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        def gotText(text):
+            assert text == u"caf\xe9"
+        p.CharacterDataHandler = gotText
+        assert p.returns_unicode
+        p.Parse(xml)
+
+    def test_explicit_encoding(self):
+        xml = "<?xml version='1.0'?><s>caf\xe9</s>"
+        import pyexpat
+        p = pyexpat.ParserCreate(encoding='iso-8859-1')
+        def gotText(text):
+            assert text == u"caf\xe9"
+        p.CharacterDataHandler = gotText
+        assert p.returns_unicode
+        p.Parse(xml)
+

@@ -278,10 +278,7 @@ class W_XMLParserType(Wrappable):
 
     def __init__(self, encoding, namespace_separator, w_intern,
                  _from_external_entity=False):
-        if encoding:
-            self.encoding = encoding
-        else:
-            self.encoding = 'utf-8'
+        self.encoding = encoding
         self.namespace_separator = namespace_separator
 
         self.w_intern = w_intern
@@ -339,10 +336,9 @@ getting the advantage of providing document type information to the parser.
 
     def w_convert(self, space, s):
         if self.returns_unicode:
-            return space.call_function(
-                space.getattr(space.wrap(s), space.wrap("decode")),
-                space.wrap(self.encoding),
-                space.wrap("strict"))
+            from pypy.rlib.runicode import str_decode_utf_8
+            return space.wrap(str_decode_utf_8(
+                s, len(s), "strict")[0])
         else:
             return space.wrap(s)
 
