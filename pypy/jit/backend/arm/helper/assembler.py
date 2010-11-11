@@ -1,6 +1,6 @@
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
-from pypy.jit.metainterp.history import ConstInt, BoxInt, Box
+from pypy.jit.metainterp.history import ConstInt, BoxInt
 
 def gen_emit_op_unary_cmp(true_cond, false_cond):
     def f(self, op, regalloc, fcond):
@@ -58,7 +58,6 @@ def gen_emit_op_by_helper_call(opname):
 
 def gen_emit_cmp_op(condition, inverse=False):
     def f(self, op, regalloc, fcond):
-        assert fcond == c.AL
         if not inverse:
             arg0 = op.getarg(0)
             arg1 = op.getarg(1)
@@ -77,11 +76,11 @@ def gen_emit_cmp_op(condition, inverse=False):
             l0 = regalloc.make_sure_var_in_reg(arg0, imm_fine=False)
             l1 = regalloc.make_sure_var_in_reg(arg1, [l0], imm_fine=False)
             res = regalloc.force_allocate_reg(op.result)
-            self.mc.CMP_rr(l0.value, l1.value)
+            self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
 
         inv = c.get_opposite_of(condition)
         self.mc.MOV_ri(res.value, 1, cond=condition)
         self.mc.MOV_ri(res.value, 0, cond=inv)
         regalloc.possibly_free_vars_for_op(op)
-        return condition
+        return fcond
     return f

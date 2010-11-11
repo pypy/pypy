@@ -4,8 +4,8 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
-from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
-from pypy.jit.metainterp.history import (ConstInt, BoxInt, Box, BasicFailDescr,
+from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
+from pypy.jit.metainterp.history import (ConstInt, BoxInt, BasicFailDescr,
                                                 INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
@@ -135,7 +135,7 @@ class AssemblerARM(ResOpAssembler):
         \xFE = Empty arg
         """
 
-        box = Box()
+        box = TempBox()
         reg = regalloc.force_allocate_reg(box)
         # XXX free this memory
         # XXX allocate correct amount of memory
@@ -185,8 +185,7 @@ class AssemblerARM(ResOpAssembler):
         # guards going to be patched are allways conditional
         if fcond != c.AL:
             op.getdescr()._arm_guard_reg = reg
-        else:
-            regalloc.possibly_free_var(reg)
+        regalloc.possibly_free_var(box)
         return memaddr
 
     def align(self):
@@ -259,19 +258,19 @@ class AssemblerARM(ResOpAssembler):
         if regalloc.frame_manager.frame_depth == 1:
             return
         n = (regalloc.frame_manager.frame_depth)*WORD
-        self._adjust_sp(n, cb)
+        self._adjust_sp(n, regalloc, cb)
 
-    def _adjust_sp(self, n, cb=None, fcond=c.AL):
+    def _adjust_sp(self, n, regalloc, cb=None, fcond=c.AL):
         if cb is None:
             cb = self.mc
         if n <= 0xFF and fcond == c.AL:
             cb.SUB_ri(r.sp.value, r.sp.value, n)
         else:
-            b = Box()
+            b = TempBox()
             reg = regalloc.force_allocate_reg(b)
             cb.gen_load_int(reg.value, n, cond=fcond)
             cb.SUB_rr(r.sp.value, r.sp.value, reg.value, cond=fcond)
-            regalloc.possibly_free_var(reg)
+            regalloc.possibly_free_var(b)
 
     def assemble_bridge(self, faildescr, inputargs, operations):
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)

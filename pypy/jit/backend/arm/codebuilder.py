@@ -7,7 +7,7 @@ from pypy.jit.backend.arm.instruction_builder import define_instructions
 from pypy.rlib.rmmap import alloc, PTR
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
+from pypy.jit.metainterp.history import ConstInt, BoxInt, BasicFailDescr
 
 def binary_helper_call(name):
     signature = getattr(arch, 'arm_%s_sign' % name)

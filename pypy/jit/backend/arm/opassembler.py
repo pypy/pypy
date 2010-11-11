@@ -13,7 +13,7 @@ from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
-from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
+from pypy.jit.metainterp.history import ConstInt, BoxInt, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
