@@ -110,7 +110,8 @@ class CFuncPtr(_CData):
                 self.dll = ctypes.CDLL(self.dll)
             # we need to check dll anyway
             ptr = self._getfuncptr([], ctypes.c_int)
-            self._buffer = ptr.byptr()
+            #self._buffer = ptr.byptr()
+            self._buffer = None
 
         elif (sys.platform == 'win32' and
               len(args) >= 2 and isinstance(args[0], (int, long))):
@@ -140,6 +141,7 @@ class CFuncPtr(_CData):
     
     def __call__(self, *args):
         if self.callable is not None:
+            assert False, 'TODO'
             try:
                 res = self.callable(*args)
             except:
@@ -153,6 +155,7 @@ class CFuncPtr(_CData):
         argtypes = self._argtypes_
 
         if self._com_index:
+            assert False, 'TODO'
             from ctypes import cast, c_void_p, POINTER
             thisarg = cast(args[0], POINTER(POINTER(c_void_p))).contents
             argtypes = [c_void_p] + list(argtypes)
@@ -162,13 +165,29 @@ class CFuncPtr(_CData):
             thisarg = None
             
         if argtypes is None:
+            assert False, 'TODO'
             argtypes = self._guess_argtypes(args)
-        argtypes, argsandobjs = self._wrap_args(argtypes, args)
+
+        # XXX
+        #assert False, 'TODO'
+        #argtypes, argsandobjs = self._wrap_args(argtypes, args)
         
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
-        resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
-        return self._build_result(restype, resbuffer, argtypes, argsandobjs)
+        return funcptr(*args)
+        #return funcptr(args[0])
+        #resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
+        #return self._build_result(restype, resbuffer, argtypes, argsandobjs)
+
+    def _shape_to_ffi_type(self, shape):
+        from _ffi import types
+        if shape == 'l':
+            return types.slong
+        elif shape == 'd':
+            return types.double
+        else:
+            print 'unknown shape %s' % shape
+            assert False, 'TODO'
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and argtypes is self._argtypes_:
@@ -194,7 +213,11 @@ class CFuncPtr(_CData):
         
         cdll = self.dll._handle
         try:
-            return cdll.ptr(self.name, argshapes, resshape, self._flags_)
+            #return cdll.ptr(self.name, argshapes, resshape, self._flags_)
+            ffi_argtypes = [self._shape_to_ffi_type(shape) for shape in argshapes]
+            ffi_restype = self._shape_to_ffi_type(resshape)
+            self._ptr = cdll.getfunc(self.name, ffi_argtypes, ffi_restype)
+            return self._ptr
         except AttributeError:
             if self._flags_ & _rawffi.FUNCFLAG_CDECL:
                 raise

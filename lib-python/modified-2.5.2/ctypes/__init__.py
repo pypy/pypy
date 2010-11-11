@@ -345,9 +345,11 @@ class CDLL(object):
         _restype_ = c_int # default, can be overridden in instances
 
     def __init__(self, name, mode=DEFAULT_MODE, handle=None):
+        import _ffi
         self._name = name
         if handle is None:
-            self._handle = _dlopen(self._name, mode)
+            #self._handle = _dlopen(self._name, mode)
+            self._handle = _ffi.CDLL(name)
         else:
             self._handle = handle
 
