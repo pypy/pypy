@@ -95,9 +95,9 @@ class IntOpAsslember(object):
         reg2 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
         res = regalloc.force_allocate_reg(op.result, [a0, a1])
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
-        self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, s=31, cond=fcond)
+        self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, imm=31, cond=fcond)
         regalloc.possibly_free_vars_for_op(op)
-        return fcond
+        return 0xF # XXX Remove: hack to show that the prev operation was  a mul_ovf
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
     emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
@@ -176,9 +176,13 @@ class GuardOpAssembler(object):
         return self._emit_guard(op, regalloc, fcond)
 
     def emit_op_guard_no_overflow(self, op, regalloc, fcond):
+        if fcond == 0xF: # XXX: hack to check if the prev op was a mul_ovf
+            return self._emit_guard(op, regalloc, c.NE)
         return self._emit_guard(op, regalloc, c.VS)
 
     def emit_op_guard_overflow(self, op, regalloc, fcond):
+        if fcond == 0xF: # XXX: hack to check if the prev op was a mul_ovf
+            return self._emit_guard(op, regalloc, c.EQ)
         return self._emit_guard(op, regalloc, c.VC)
 
 class OpAssembler(object):
