@@ -95,6 +95,11 @@ class TestInteraction:
         child.expect('>>> ')
         child.sendline('__name__')
         child.expect("'__main__'")
+        child.expect('>>> ')
+        child.sendline('import sys')
+        child.expect('>>> ')
+        child.sendline("'' in sys.path")
+        child.expect("True")
 
     def test_run_script(self):
         child = self.spawn([demo_script])
@@ -487,9 +492,9 @@ class TestNonInteractive:
 
         with chdir_and_unset_pythonpath(tmpdir):
             data = self.run(cmdline2, python_flags='-S')
-
         assert data.startswith("some new text\n")
         assert repr(str(tmpdir.join('otherpath'))) in data
+        assert "''" not in data
 
 
 class AppTestAppMain:
