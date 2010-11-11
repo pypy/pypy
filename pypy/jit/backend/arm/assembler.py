@@ -11,19 +11,13 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
-from pypy.jit.backend.arm.opassembler import (GuardOpAssembler,
-                                                IntOpAsslember,
-                                                OpAssembler,
-                                                UnaryIntOpAssembler,
-                                                FieldOpAssembler,
-                                                ArrayOpAssember)
+from pypy.jit.backend.arm.opassembler import ResOpAssembler
+
 # XXX Move to llsupport
 from pypy.jit.backend.x86.support import values_array
 
 
-class AssemblerARM(GuardOpAssembler, IntOpAsslember,
-                    OpAssembler, UnaryIntOpAssembler,
-                    FieldOpAssembler, ArrayOpAssember):
+class AssemblerARM(ResOpAssembler):
 
     def __init__(self, cpu, failargs_limit=1000):
         self.mc = ARMv7Builder()

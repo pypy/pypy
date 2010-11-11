@@ -10,15 +10,17 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_ri, gen_emit_cmp_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
+from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 
 class IntOpAsslember(object):
+
     _mixin_ = True
 
     def emit_op_int_add(self, op, regalloc, fcond):
@@ -129,6 +131,9 @@ class IntOpAsslember(object):
 
 
 class UnaryIntOpAssembler(object):
+
+    _mixin_ = True
+
     emit_op_int_is_true = gen_emit_op_unary_cmp(c.NE, c.EQ)
     emit_op_int_is_zero = gen_emit_op_unary_cmp(c.EQ, c.NE)
 
@@ -152,6 +157,7 @@ class UnaryIntOpAssembler(object):
             return fcond
 
 class GuardOpAssembler(object):
+
     _mixin_ = True
 
     def _emit_guard(self, op, regalloc, fcond):
@@ -205,6 +211,7 @@ class GuardOpAssembler(object):
         return self._emit_guard(op, regalloc, c.VC)
 
 class OpAssembler(object):
+
     _mixin_ = True
 
     def emit_op_jump(self, op, regalloc, fcond):
@@ -251,6 +258,8 @@ class OpAssembler(object):
         regalloc.possibly_free_vars(locs)
 
 class FieldOpAssembler(object):
+
+    _mixin_ = True
 
     def emit_op_setfield_gc(self, op, regalloc, fcond):
         a0 = op.getarg(0)
@@ -305,6 +314,8 @@ class FieldOpAssembler(object):
         return ofs, size, ptr
 
 class ArrayOpAssember(object):
+
+    _mixin_ = True
 
     def emit_op_arraylen_gc(self, op, regalloc, fcond):
         arraydescr = op.getdescr()
@@ -377,3 +388,66 @@ class ArrayOpAssember(object):
             scale += 1
         assert (1 << scale) == size
         return scale, ofs, ofs_length, ptr
+
+class StrOpAssembler(object):
+    _mixin_ = True
+
+    def emit_op_strlen(self, op, regalloc, fcond):
+        l0 = regalloc.make_sure_var_in_reg(op.getarg(0))
+        regalloc.possibly_free_vars_for_op(op)
+        res = regalloc.force_allocate_reg(op.result)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                             self.cpu.translate_support_code)
+        l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length))
+        if l1.is_imm():
+            self.mc.LDR_ri(res.value, l0.value, l1.getint(), cond=fcond)
+        else:
+            self.mc.LDR_rr(res.value, l0.value, l1.value, cond=fcond)
+        return fcond
+
+    def emit_op_strgetitem(self, op, regalloc, fcond):
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=True)
+        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
+        t = TempBox()
+        temp = regalloc.force_allocate_reg(t)
+        res = regalloc.force_allocate_reg(op.result)
+        regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_var(t)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                             self.cpu.translate_support_code)
+        assert itemsize == 1
+        if ofs_loc.is_imm():
+            self.mc.ADD_ri(temp.value, base_loc.value, ofs_loc.getint(), cond=fcond)
+        else:
+            self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond)
+
+        self.mc.LDRB_ri(res.value, temp.value, basesize, cond=fcond)
+        return fcond
+
+    def emit_op_strsetitem(self, op, regalloc, fcond):
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=True)
+        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
+        value_loc = regalloc.make_sure_var_in_reg(op.getarg(2))
+        t = TempBox()
+        temp = regalloc.force_allocate_reg(t)
+        regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_var(t)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                             self.cpu.translate_support_code)
+        assert itemsize == 1
+        if ofs_loc.is_imm():
+            self.mc.ADD_ri(temp.value, base_loc.value, ofs_loc.getint(), cond=fcond)
+        else:
+            self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond)
+
+        self.mc.STRB_ri(value_loc.value, temp.value, basesize, cond=fcond)
+        return fcond
+
+class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
+                    OpAssembler, UnaryIntOpAssembler,
+                    FieldOpAssembler, ArrayOpAssember,
+                    StrOpAssembler):
+    pass
+
