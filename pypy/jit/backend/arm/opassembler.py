@@ -393,7 +393,7 @@ class StrOpAssembler(object):
     _mixin_ = True
 
     def emit_op_strlen(self, op, regalloc, fcond):
-        l0 = regalloc.make_sure_var_in_reg(op.getarg(0))
+        l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         regalloc.possibly_free_vars_for_op(op)
         res = regalloc.force_allocate_reg(op.result)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
@@ -406,7 +406,7 @@ class StrOpAssembler(object):
         return fcond
 
     def emit_op_strgetitem(self, op, regalloc, fcond):
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=True)
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
         t = TempBox()
         temp = regalloc.force_allocate_reg(t)
@@ -426,7 +426,7 @@ class StrOpAssembler(object):
         return fcond
 
     def emit_op_strsetitem(self, op, regalloc, fcond):
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=True)
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
         value_loc = regalloc.make_sure_var_in_reg(op.getarg(2))
         t = TempBox()
@@ -445,9 +445,72 @@ class StrOpAssembler(object):
         self.mc.STRB_ri(value_loc.value, temp.value, basesize, cond=fcond)
         return fcond
 
+class UnicodeOpAssembler(object):
+    _mixin_ = True
+
+    def emit_op_unicodelen(self, op, regalloc, fcond):
+        l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        regalloc.possibly_free_vars_for_op(op)
+        res = regalloc.force_allocate_reg(op.result)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                             self.cpu.translate_support_code)
+        l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length))
+        if l1.is_imm():
+            self.mc.LDR_ri(res.value, l0.value, l1.getint(), cond=fcond)
+        else:
+            self.mc.LDR_rr(res.value, l0.value, l1.value, cond=fcond)
+        return fcond
+
+    def emit_op_unicodegetitem(self, op, regalloc, fcond):
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
+        t = TempBox()
+        temp = regalloc.force_allocate_reg(t)
+        res = regalloc.force_allocate_reg(op.result)
+        regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_var(t)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                             self.cpu.translate_support_code)
+        scale = itemsize/2
+        if scale == 2:
+            f = self.mc.LDR_ri
+        elif scale == 1:
+            f = self.mc.LDRH_ri
+        else:
+            assert 0, itemsize
+        self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond,
+                                                imm=scale, shifttype=shift.LSL)
+        f(res.value, temp.value, basesize, cond=fcond)
+        return fcond
+
+    def emit_op_unicodesetitem(self, op, regalloc, fcond):
+        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
+        value_loc = regalloc.make_sure_var_in_reg(op.getarg(2))
+        t = TempBox()
+        temp = regalloc.force_allocate_reg(t)
+        regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_var(t)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                             self.cpu.translate_support_code)
+        scale = itemsize/2
+        if scale == 2:
+            f = self.mc.STR_ri
+        elif scale == 1:
+            f = self.mc.STRH_ri
+        else:
+            assert 0, itemsize
+
+        self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond,
+                                            imm=scale, shifttype=shift.LSL)
+        f(value_loc.value, temp.value, basesize, cond=fcond)
+        return fcond
+
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,
                     FieldOpAssembler, ArrayOpAssember,
-                    StrOpAssembler):
+                    StrOpAssembler, UnicodeOpAssembler):
     pass
 
