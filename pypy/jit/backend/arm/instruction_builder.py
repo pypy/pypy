@@ -101,7 +101,7 @@ def define_extra_load_store_func(name, table):
                         | (imm & 0xF))
     return f
 
-def define_data_proc_imm(name, table):
+def define_data_proc_imm_func(name, table):
     n = (0x1 << 25
         | (table['op'] & 0x1F) << 20)
     if table['result'] and table['base']:
@@ -129,7 +129,7 @@ def define_data_proc_imm(name, table):
                 | imm_operation(0, rn, imm))
     return imm_func
 
-def define_data_proc(name, table):
+def define_data_proc_func(name, table):
     n = ((table['op1'] & 0x1F) << 20
         | (table['op2'] & 0x1F) << 7
         | (table['op3'] & 0x3) << 5)
@@ -165,7 +165,7 @@ def define_data_proc(name, table):
                         | reg_operation(rd, rn, rm, imm, s, shifttype))
     return f
 
-def define_data_proc_register_shifted(name, table):
+def define_data_proc_reg_shift_reg_func(name, table):
     n = ((0x1 << 4) | (table['op1'] & 0x1F) << 20 | (table['op2'] & 0x3) << 5)
     if 'result' in table and not table['result']:
         result = False
@@ -201,7 +201,7 @@ def define_data_proc_register_shifted(name, table):
                         | (rn & 0xF))
     return f
 
-def define_supervisor_and_coproc(name, table):
+def define_supervisor_and_coproc_func(name, table):
     n = (0x3 << 26 | (table['op1'] & 0x3F) << 20 | (table['op'] & 0x1) << 4)
     def f(self, coproc, opc1, rt, crn, crm, opc2=0, cond=cond.AL):
         self.write32(n
@@ -214,7 +214,7 @@ def define_supervisor_and_coproc(name, table):
                     | (crm & 0xF))
     return f
 
-def define_multiply_instructions(name, table):
+def define_multiply_func(name, table):
     n = (table['op'] & 0xF) << 20 | 0x9 << 4
     if 'acc' in table and table['acc']:
         if 'update_flags' in table and table['update_flags']:
@@ -288,15 +288,14 @@ def define_instruction(builder, key, val, target):
         setattr(target, key, f)
 
 def define_instructions(target):
-    i_g_map = [(instructions.load_store, define_load_store_func),
-                (instructions.extra_load_store, define_extra_load_store_func),
-                (instructions.data_proc, define_data_proc),
-                (instructions.data_proc_imm, define_data_proc_imm),
-                (instructions.supervisor_and_coproc, define_supervisor_and_coproc),
-                (instructions.multiply, define_multiply_instructions),
-                (instructions.data_proc_reg_shift_reg, define_data_proc_register_shifted),
-                (instructions.block_data, define_block_data_func)]
-
-    for inss, gen in i_g_map:
-        for key, val in inss.iteritems():
-            define_instruction(gen, key, val, target)
+    inss = [k for k in instructions.__dict__.keys() if not k.startswith('__')]
+    for name in inss:
+        if name == 'branch':
+            continue
+        try:
+            func = globals()['define_%s_func' % name]
+        except KeyError:
+            print 'No instr generator for %s instructions' % name
+            continue
+        for key, value in getattr(instructions, name).iteritems():
+            define_instruction(func, key, value, target)
