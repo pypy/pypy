@@ -492,6 +492,9 @@ information passed to the ExternalEntityRefHandler."""
 
         xmlparser = XML_ExternalEntityParserCreate(
             self.itself, context, encoding)
+        if not xmlparser:
+            raise MemoryError
+
         parser = W_XMLParserType(space, xmlparser, self.w_intern)
 
         # copy handlers from self
@@ -657,11 +660,11 @@ Return a new XML parser object."""
     else:
         xmlparser = XML_ParserCreate(encoding)
 
-    parser = W_XMLParserType(space, xmlparser, w_intern)
-    if not parser.itself:
+    if not xmlparser:
         raise OperationError(space.w_RuntimeError,
                              space.wrap('XML_ParserCreate failed'))
 
+    parser = W_XMLParserType(space, xmlparser, w_intern)
     return space.wrap(parser)
 ParserCreate.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
