@@ -276,24 +276,14 @@ XML_ExternalEntityParserCreate = expat_external(
 
 class W_XMLParserType(Wrappable):
 
-    def __init__(self, encoding, namespace_separator, w_intern,
-                 _from_external_entity=False):
-        self.encoding = encoding
-        self.namespace_separator = namespace_separator
+    def __init__(self, space, parser, w_intern):
+        self.itself = parser
 
         self.w_intern = w_intern
 
         self.returns_unicode = True
         self.ordered_attributes = False
         self.specified_attributes = False
-
-        if not _from_external_entity:
-            if namespace_separator:
-                self.itself = XML_ParserCreateNS(
-                    self.encoding,
-                    rffi.cast(rffi.CHAR, namespace_separator))
-            else:
-                self.itself = XML_ParserCreate(self.encoding)
 
         self.handlers = [None] * NB_HANDLERS
 
@@ -303,6 +293,12 @@ class W_XMLParserType(Wrappable):
         self.w_character_data_handler = None
 
         self._exc_info = None
+
+        # Set user data for callback function
+        global_storage.get_nonmoving_id(
+            CallbackData(space, self),
+            id=rffi.cast(lltype.Signed, self.itself))
+        XML_SetUserData(self.itself, rffi.cast(rffi.VOIDP, self.itself))
 
     def __del__(self):
         if XML_ParserFree: # careful with CPython interpreter shutdown
@@ -494,14 +490,9 @@ information passed to the ExternalEntityRefHandler."""
         else:
             encoding = space.str_w(w_encoding)
 
-        parser = W_XMLParserType(encoding, 0, self.w_intern,
-                                 _from_external_entity=True)
-        parser.itself = XML_ExternalEntityParserCreate(self.itself,
-                                                       context, encoding)
-        global_storage.get_nonmoving_id(
-            CallbackData(space, parser),
-            id=rffi.cast(lltype.Signed, parser.itself))
-        XML_SetUserData(parser.itself, rffi.cast(rffi.VOIDP, parser.itself))
+        xmlparser = XML_ExternalEntityParserCreate(
+            self.itself, context, encoding)
+        parser = W_XMLParserType(space, xmlparser, self.w_intern)
 
         # copy handlers from self
         for i in range(NB_HANDLERS):
@@ -659,15 +650,17 @@ Return a new XML parser object."""
     elif space.is_w(w_intern, space.w_None):
         w_intern = None
 
-    parser = W_XMLParserType(encoding, namespace_separator, w_intern)
+    if namespace_separator:
+        xmlparser = XML_ParserCreateNS(
+            encoding,
+            rffi.cast(rffi.CHAR, namespace_separator))
+    else:
+        xmlparser = XML_ParserCreate(encoding)
+
+    parser = W_XMLParserType(space, xmlparser, w_intern)
     if not parser.itself:
         raise OperationError(space.w_RuntimeError,
                              space.wrap('XML_ParserCreate failed'))
-
-    global_storage.get_nonmoving_id(
-        CallbackData(space, parser),
-        id=rffi.cast(lltype.Signed, parser.itself))
-    XML_SetUserData(parser.itself, rffi.cast(rffi.VOIDP, parser.itself))
 
     return space.wrap(parser)
 ParserCreate.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
