@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter import support, heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo, _callinfo_for_oopspec
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.rlib import objectmodel
@@ -1084,7 +1084,8 @@ class Transformer(object):
         else:
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(op.args[0].value))
-            _callinfo_for_oopspec[oopspecindex] = calldescr, func
+            self.callcontrol.callinfocollection.add(oopspecindex,
+                                                    calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0], calldescr],
                                 args=args)
@@ -1095,7 +1096,7 @@ class Transformer(object):
     def _register_extra_helper(self, oopspecindex, oopspec_name,
                                argtypes, resulttype):
         # a bit hackish
-        if oopspecindex in _callinfo_for_oopspec:
+        if self.callcontrol.callinfocollection.has_oopspec(oopspecindex):
             return
         c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
                                                    oopspec_name, argtypes,
@@ -1109,7 +1110,7 @@ class Transformer(object):
         else:
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
-        _callinfo_for_oopspec[oopspecindex] = calldescr, func
+        self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)

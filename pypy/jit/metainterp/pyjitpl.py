@@ -1261,6 +1261,7 @@ class MetaInterpStaticData(object):
         #
         self.jitdrivers_sd = codewriter.callcontrol.jitdrivers_sd
         self.virtualref_info = codewriter.callcontrol.virtualref_info
+        self.callinfocollection = codewriter.callcontrol.callinfocollection
         self.setup_jitdrivers_sd(optimizer)
         #
         # store this information for fastpath of call_assembler

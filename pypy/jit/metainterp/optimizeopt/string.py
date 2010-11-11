@@ -9,7 +9,7 @@ from pypy.jit.metainterp.optimizeopt import optimizer, virtualize
 from pypy.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from pypy.jit.metainterp.optimizeopt.optimizer import llhelper
 from pypy.jit.metainterp.optimizeutil import _findall
-from pypy.jit.codewriter.effectinfo import EffectInfo, callinfo_for_oopspec
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize, we_are_translated
@@ -593,7 +593,8 @@ class OptString(optimizer.Optimization):
 
     def generate_modified_call(self, oopspecindex, args, result, mode):
         oopspecindex += mode.OS_offset
-        calldescr, func = callinfo_for_oopspec(oopspecindex)
+        cic = self.optimizer.metainterp_sd.callinfocollection
+        calldescr, func = cic.callinfo_for_oopspec(oopspecindex)
         op = ResOperation(rop.CALL, [ConstInt(func)] + args, result,
                           descr=calldescr)
         self.optimizer.newoperations.append(op)

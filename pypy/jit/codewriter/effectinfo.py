@@ -144,30 +144,44 @@ class VirtualizableAnalyzer(BoolGraphAnalyzer):
 
 # ____________________________________________________________
 
-_callinfo_for_oopspec = {} # {oopspecindex: (calldescr, func_as_int)}
+class CallInfoCollection(object):
+    def __init__(self):
+        # {oopspecindex: (calldescr, func_as_int)}
+        self._callinfo_for_oopspec = {}
 
-def callinfo_for_oopspec(oopspecindex):
-    """A function that returns the calldescr and the function
-    address (as an int) of one of the OS_XYZ functions defined above.
-    Don't use this if there might be several implementations of the same
-    OS_XYZ specialized by type, e.g. OS_ARRAYCOPY."""
-    try:
-        return _callinfo_for_oopspec[oopspecindex]
-    except KeyError:
-        return (None, 0)
+    def _freeze_(self):
+        return True
 
+    def add(self, oopspecindex, calldescr, func_as_int):
+        self._callinfo_for_oopspec[oopspecindex] = calldescr, func_as_int
 
-def _funcptr_for_oopspec_memo(oopspecindex):
-    from pypy.jit.codewriter import heaptracker
-    _, func_as_int = callinfo_for_oopspec(oopspecindex)
-    funcadr = heaptracker.int2adr(func_as_int)
-    return funcadr.ptr
-_funcptr_for_oopspec_memo._annspecialcase_ = 'specialize:memo'
+    def has_oopspec(self, oopspecindex):
+        return oopspecindex in self._callinfo_for_oopspec
 
-def funcptr_for_oopspec(oopspecindex):
-    """A memo function that returns a pointer to the function described
-    by OS_XYZ (as a real low-level function pointer)."""
-    funcptr = _funcptr_for_oopspec_memo(oopspecindex)
-    assert funcptr
-    return funcptr
-funcptr_for_oopspec._annspecialcase_ = 'specialize:arg(0)'
+    def all_function_addresses_as_int(self):
+        return [func for (_, func) in self._callinfo_for_oopspec.values()]
+
+    def callinfo_for_oopspec(self, oopspecindex):
+        """A function that returns the calldescr and the function
+        address (as an int) of one of the OS_XYZ functions defined above.
+        Don't use this if there might be several implementations of the same
+        OS_XYZ specialized by type, e.g. OS_ARRAYCOPY."""
+        try:
+            return self._callinfo_for_oopspec[oopspecindex]
+        except KeyError:
+            return (None, 0)
+
+    def _funcptr_for_oopspec_memo(self, oopspecindex):
+        from pypy.jit.codewriter import heaptracker
+        _, func_as_int = self.callinfo_for_oopspec(oopspecindex)
+        funcadr = heaptracker.int2adr(func_as_int)
+        return funcadr.ptr
+    _funcptr_for_oopspec_memo._annspecialcase_ = 'specialize:memo'
+
+    def funcptr_for_oopspec(self, oopspecindex):
+        """A memo function that returns a pointer to the function described
+        by OS_XYZ (as a real low-level function pointer)."""
+        funcptr = self._funcptr_for_oopspec_memo(oopspecindex)
+        assert funcptr
+        return funcptr
+    funcptr_for_oopspec._annspecialcase_ = 'specialize:arg(1)'

@@ -88,7 +88,11 @@ class VRefTests:
         cpu.get_latest_value_int = lambda i:guard_op.getfailargs()[i].getint()
         cpu.get_latest_value_ref = lambda i:guard_op.getfailargs()[i].getref_base()
         cpu.clear_latest_values = lambda count: None
-        resumereader = ResumeDataDirectReader(cpu, guard_op.getdescr())
+        class FakeMetaInterpSd:
+            callinfocollection = None
+        FakeMetaInterpSd.cpu = cpu
+        resumereader = ResumeDataDirectReader(FakeMetaInterpSd(),
+                                              guard_op.getdescr())
         vrefinfo = self.metainterp.staticdata.virtualref_info
         lst = []
         vrefinfo.continue_tracing = lambda vref, virtual: \
