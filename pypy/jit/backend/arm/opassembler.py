@@ -166,14 +166,33 @@ class GuardOpAssembler(object):
         return c.AL
 
     def emit_op_guard_true(self, op, regalloc, fcond):
-        assert fcond == c.LE
-        cond = c.get_opposite_of(fcond)
-        assert cond == c.GT
-        return self._emit_guard(op, regalloc, cond)
+        a0 = op.getarg(0)
+        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        self.mc.CMP_ri(l0.value, 0)
+        regalloc.possibly_free_var(l0)
+        return self._emit_guard(op, regalloc, c.EQ)
 
     def emit_op_guard_false(self, op, regalloc, fcond):
-        assert fcond == c.EQ
-        return self._emit_guard(op, regalloc, fcond)
+        a0 = op.getarg(0)
+        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        self.mc.CMP_ri(l0.value, 0)
+        regalloc.possibly_free_var(l0)
+        return self._emit_guard(op, regalloc, c.NE)
+
+    def emit_op_guard_value(self, op, regalloc, fcond):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        l1 = regalloc.make_sure_var_in_reg(a1)
+        if l1.is_imm():
+            self.mc.CMP_rr(l0.value, l1.getint())
+        else:
+            self.mc.CMP_rr(l0.value, l1.value)
+        regalloc.possibly_free_vars_for_op(op)
+        return self._emit_guard(op, regalloc, c.NE)
+
+    emit_op_guard_nonnull = emit_op_guard_true
+    emit_op_guard_isnull = emit_op_guard_false
 
     def emit_op_guard_no_overflow(self, op, regalloc, fcond):
         if fcond == 0xF: # XXX: hack to check if the prev op was a mul_ovf
