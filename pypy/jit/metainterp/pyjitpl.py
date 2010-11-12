@@ -1261,6 +1261,7 @@ class MetaInterpStaticData(object):
         #
         self.jitdrivers_sd = codewriter.callcontrol.jitdrivers_sd
         self.virtualref_info = codewriter.callcontrol.virtualref_info
+        self.callinfocollection = codewriter.callcontrol.callinfocollection
         self.setup_jitdrivers_sd(optimizer)
         #
         # store this information for fastpath of call_assembler
@@ -1624,7 +1625,7 @@ class MetaInterp(object):
         assert jitdriver_sd is self.jitdriver_sd
         self.create_empty_history()
         try:
-            original_boxes = self.initialize_original_boxes(jitdriver_sd,*args)
+            original_boxes = self.initialize_original_boxes(jitdriver_sd, *args)
             return self._compile_and_run_once(original_boxes)
         finally:
             self.staticdata.profiler.end_tracing()

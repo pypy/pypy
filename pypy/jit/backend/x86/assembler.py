@@ -1853,6 +1853,7 @@ class Assembler386(object):
 
     def malloc_cond_fixedsize(self, nursery_free_adr, nursery_top_adr,
                               size, tid):
+        size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
         self.mc.ensure_bytes_available(256)
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (eax.value, size))

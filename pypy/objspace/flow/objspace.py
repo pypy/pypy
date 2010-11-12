@@ -213,6 +213,11 @@ class FlowObjSpace(ObjSpace):
             check_class = self.unwrap(w_check_class)
         except UnwrapException:
             raise Exception, "non-constant except guard"
+        if check_class in (NotImplementedError, AssertionError):
+            # if we are in geninterp, we cannot catch these exceptions
+            if not self.config.translation.builtins_can_raise_exceptions:
+                raise error.FlowingError("Catching %s is not valid in RPython" %
+                                         check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)

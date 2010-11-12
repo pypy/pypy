@@ -77,7 +77,7 @@ class MiniMarkGC(MovingGCBase):
 
     # During a minor collection, the objects in the nursery that are
     # moved outside are changed in-place: their header is replaced with
-    # the value -1, and the following word is set to the address of
+    # the value -42, and the following word is set to the address of
     # where the object was moved.  This means that all objects in the
     # nursery need to be at least 2 words long, but objects outside the
     # nursery don't need to.
@@ -656,10 +656,13 @@ class MiniMarkGC(MovingGCBase):
     def is_forwarded(self, obj):
         """Returns True if the nursery obj is marked as forwarded.
         Implemented a bit obscurely by checking an unrelated flag
-        that can never be set on a young object -- except if tid == -1.
+        that can never be set on a young object -- except if tid == -42.
         """
         assert self.is_in_nursery(obj)
-        return self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING
+        result = (self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING != 0)
+        if result:
+            ll_assert(self.header(obj).tid == -42, "bogus header for young obj")
+        return result
 
     def get_forwarding_address(self, obj):
         return llmemory.cast_adr_to_ptr(obj, FORWARDSTUBPTR).forw
@@ -742,6 +745,10 @@ class MiniMarkGC(MovingGCBase):
     @classmethod
     def JIT_max_size_of_young_obj(cls):
         return cls.TRANSLATION_PARAMS['large_object']
+
+    @classmethod
+    def JIT_minimal_size_in_nursery(cls):
+        return cls.minimal_size_in_nursery
 
     def write_barrier(self, newvalue, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
@@ -1080,7 +1087,7 @@ class MiniMarkGC(MovingGCBase):
         llarena.arena_reset(obj - size_gc_header, totalsize, 0)
         llarena.arena_reserve(obj - size_gc_header,
                               size_gc_header + llmemory.sizeof(FORWARDSTUB))
-        self.header(obj).tid = -1
+        self.header(obj).tid = -42
         newobj = newhdr + size_gc_header
         llmemory.cast_adr_to_ptr(obj, FORWARDSTUBPTR).forw = newobj
         #
@@ -1280,6 +1287,11 @@ class MiniMarkGC(MovingGCBase):
         # the 'run_finalizers' objects also need to kept alive.
         self.run_finalizers.foreach(self._collect_obj,
                                     self.objects_to_trace)
+
+    def enumerate_all_roots(self, callback, arg):
+        self.prebuilt_root_objects.foreach(callback, arg)
+        MovingGCBase.enumerate_all_roots(self, callback, arg)
+    enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
     @staticmethod
     def _collect_obj(obj, objects_to_trace):

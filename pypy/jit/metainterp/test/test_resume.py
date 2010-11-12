@@ -51,6 +51,7 @@ def test_vinfo():
 
 class MyMetaInterp:
     _already_allocated_resume_virtuals = None
+    callinfocollection = None
 
     def __init__(self, cpu=None):
         if cpu is None:
@@ -156,12 +157,12 @@ def test_simple_read():
     storage.rd_numb = numb
     #
     cpu = MyCPU([42, gcref1, -66])
-    reader = ResumeDataDirectReader(cpu, storage)
+    metainterp = MyMetaInterp(cpu)
+    reader = ResumeDataDirectReader(metainterp, storage)
     _next_section(reader, 42, 111, gcrefnull, 42, gcref1)
     _next_section(reader, 222, 333)
     _next_section(reader, 42, gcref1, -66)
     #
-    metainterp = MyMetaInterp(cpu)
     reader = ResumeDataBoxReader(storage, metainterp)
     bi, br, bf = [None]*3, [None]*2, [None]*0
     info = MyBlackholeInterp([lltype.Signed, lltype.Signed,
@@ -193,7 +194,7 @@ def test_simple_read_tagged_ints():
     storage.rd_numb = numb
     #
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(cpu, storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
     _next_section(reader, 100)
 
 
@@ -211,7 +212,7 @@ def test_prepare_virtuals():
     class FakeMetainterp(object):
         _already_allocated_resume_virtuals = None
         cpu = None
-    reader = ResumeDataDirectReader(None, FakeStorage())
+    reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage())
     assert reader.force_all_virtuals() == ["allocated", reader.virtual_default]
 
 # ____________________________________________________________
@@ -925,7 +926,7 @@ def test_virtual_adder_int_constants():
     liveboxes = modifier.finish({})
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(cpu, storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
     _next_section(reader, sys.maxint, 2**16, -65)
     _next_section(reader, 2, 3)
     _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)

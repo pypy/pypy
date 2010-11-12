@@ -264,6 +264,8 @@ class BaseTestOptimizeOpt(BaseTest):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
+        if hasattr(self, 'callinfocollection'):
+            metainterp_sd.callinfocollection = self.callinfocollection
         optimize_loop_1(metainterp_sd, loop)
         #
         expected = self.parse(optops)
@@ -4180,22 +4182,20 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, spectext, optops):
         from pypy.jit.metainterp.optimizeopt import string
-        def my_callinfo_for_oopspec(oopspecindex):
-            calldescrtype = type(LLtypeMixin.strequaldescr)
-            for value in LLtypeMixin.__dict__.values():
-                if isinstance(value, calldescrtype):
-                    if (value.get_extra_info() and
-                        value.get_extra_info().oopspecindex == oopspecindex):
-                        # returns 0 for 'func' in this test
-                        return value, 0
-            raise AssertionError("not found: oopspecindex=%d" % oopspecindex)
+        class FakeCallInfoCollection:
+            def callinfo_for_oopspec(self, oopspecindex):
+                calldescrtype = type(LLtypeMixin.strequaldescr)
+                for value in LLtypeMixin.__dict__.values():
+                    if isinstance(value, calldescrtype):
+                        extra = value.get_extra_info()
+                        if extra and extra.oopspecindex == oopspecindex:
+                            # returns 0 for 'func' in this test
+                            return value, 0
+                raise AssertionError("not found: oopspecindex=%d" %
+                                     oopspecindex)
         #
-        saved = string.callinfo_for_oopspec
-        try:
-            string.callinfo_for_oopspec = my_callinfo_for_oopspec
-            self.optimize_strunicode_loop(ops, spectext, optops)
-        finally:
-            string.callinfo_for_oopspec = saved
+        self.callinfocollection = FakeCallInfoCollection()
+        self.optimize_strunicode_loop(ops, spectext, optops)
 
     def test_str_equal_noop1(self):
         ops = """

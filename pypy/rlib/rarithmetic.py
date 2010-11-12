@@ -614,6 +614,12 @@ class r_singlefloat(object):
     def __cmp__(self, other):
         raise TypeError("not supported on r_singlefloat instances")
 
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and self._bytes == other._bytes
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 class r_longfloat(object):
     """A value of the C type 'long double'.
 
@@ -632,6 +638,11 @@ class r_longfloat(object):
     def __cmp__(self, other):
         raise TypeError("not supported on r_longfloat instances")
 
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and self.value == other.value
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):

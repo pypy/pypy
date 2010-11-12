@@ -4,8 +4,7 @@ from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat
 from pypy.jit.metainterp.history import INT, REF, FLOAT, HOLE
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import jitprof
-from pypy.jit.codewriter.effectinfo import EffectInfo, callinfo_for_oopspec
-from pypy.jit.codewriter.effectinfo import funcptr_for_oopspec
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr
 from pypy.rlib import rarithmetic
 from pypy.rlib.objectmodel import we_are_translated, specialize
@@ -774,14 +773,16 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
                                            strbox, ConstInt(index), charbox)
 
     def concat_strings(self, str1num, str2num):
-        calldescr, func = callinfo_for_oopspec(EffectInfo.OS_STR_CONCAT)
+        cic = self.metainterp.staticdata.callinfocollection
+        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_STR_CONCAT)
         str1box = self.decode_box(str1num, REF)
         str2box = self.decode_box(str2num, REF)
         return self.metainterp.execute_and_record_varargs(
             rop.CALL, [ConstInt(func), str1box, str2box], calldescr)
 
     def slice_string(self, strnum, startnum, lengthnum):
-        calldescr, func = callinfo_for_oopspec(EffectInfo.OS_STR_SLICE)
+        cic = self.metainterp.staticdata.callinfocollection
+        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_STR_SLICE)
         strbox = self.decode_box(strnum, REF)
         startbox = self.decode_box(startnum, INT)
         lengthbox = self.decode_box(lengthnum, INT)
@@ -800,14 +801,16 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
                                            strbox, ConstInt(index), charbox)
 
     def concat_unicodes(self, str1num, str2num):
-        calldescr, func = callinfo_for_oopspec(EffectInfo.OS_UNI_CONCAT)
+        cic = self.metainterp.staticdata.callinfocollection
+        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_UNI_CONCAT)
         str1box = self.decode_box(str1num, REF)
         str2box = self.decode_box(str2num, REF)
         return self.metainterp.execute_and_record_varargs(
             rop.CALL, [ConstInt(func), str1box, str2box], calldescr)
 
     def slice_unicode(self, strnum, startnum, lengthnum):
-        calldescr, func = callinfo_for_oopspec(EffectInfo.OS_UNI_SLICE)
+        cic = self.metainterp.staticdata.callinfocollection
+        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_UNI_SLICE)
         strbox = self.decode_box(strnum, REF)
         startbox = self.decode_box(startnum, INT)
         lengthbox = self.decode_box(lengthnum, INT)
@@ -903,8 +906,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
 def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
                               all_virtuals=None):
-    resumereader = ResumeDataDirectReader(blackholeinterpbuilder.cpu, storage,
-                                          all_virtuals)
+    resumereader = ResumeDataDirectReader(blackholeinterpbuilder.metainterp_sd,
+                                          storage, all_virtuals)
     vinfo = jitdriver_sd.virtualizable_info
     ginfo = jitdriver_sd.greenfield_info
     vrefinfo = blackholeinterpbuilder.metainterp_sd.virtualref_info
@@ -939,7 +942,7 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
     return firstbh
 
 def force_from_resumedata(metainterp_sd, storage, vinfo, ginfo):
-    resumereader = ResumeDataDirectReader(metainterp_sd.cpu, storage)
+    resumereader = ResumeDataDirectReader(metainterp_sd, storage)
     resumereader.handling_async_forcing()
     vrefinfo = metainterp_sd.virtualref_info
     resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
@@ -953,8 +956,9 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     #             1: in handle_async_forcing
     #             2: resuming from the GUARD_NOT_FORCED
 
-    def __init__(self, cpu, storage, all_virtuals=None):
-        self._init(cpu, storage)
+    def __init__(self, metainterp_sd, storage, all_virtuals=None):
+        self._init(metainterp_sd.cpu, storage)
+        self.callinfocollection = metainterp_sd.callinfocollection
         if all_virtuals is None:        # common case
             self._prepare(storage)
         else:
@@ -1047,7 +1051,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         str2 = self.decode_ref(str2num)
         str1 = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), str1)
         str2 = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), str2)
-        funcptr = funcptr_for_oopspec(EffectInfo.OS_STR_CONCAT)
+        cic = self.callinfocollection
+        funcptr = cic.funcptr_for_oopspec(EffectInfo.OS_STR_CONCAT)
         result = funcptr(str1, str2)
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
@@ -1056,7 +1061,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         start = self.decode_int(startnum)
         length = self.decode_int(lengthnum)
         str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), str)
-        funcptr = funcptr_for_oopspec(EffectInfo.OS_STR_SLICE)
+        cic = self.callinfocollection
+        funcptr = cic.funcptr_for_oopspec(EffectInfo.OS_STR_SLICE)
         result = funcptr(str, start, start + length)
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
@@ -1072,7 +1078,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         str2 = self.decode_ref(str2num)
         str1 = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), str1)
         str2 = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), str2)
-        funcptr = funcptr_for_oopspec(EffectInfo.OS_UNI_CONCAT)
+        cic = self.callinfocollection
+        funcptr = cic.funcptr_for_oopspec(EffectInfo.OS_UNI_CONCAT)
         result = funcptr(str1, str2)
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
@@ -1081,7 +1088,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         start = self.decode_int(startnum)
         length = self.decode_int(lengthnum)
         str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), str)
-        funcptr = funcptr_for_oopspec(EffectInfo.OS_UNI_SLICE)
+        cic = self.callinfocollection
+        funcptr = cic.funcptr_for_oopspec(EffectInfo.OS_UNI_SLICE)
         result = funcptr(str, start, start + length)
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
