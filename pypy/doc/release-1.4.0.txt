@@ -21,3 +21,6 @@ Virtualenv support: now PyPy is fully compatible with virtualenv_: note that
 to use it, you need a recent version of virtualenv (>= 1.5).
 
 XXX write me: better regular expressions
+
+
+.. _virtualenv: http://pypi.python.org/pypi/virtualenv
