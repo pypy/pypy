@@ -1179,21 +1179,22 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
             b = 0
             c = 0
             for i in range(len(tb)):
-                if tb[i].count == 10:
+                if tb[i].count == 10:      # the type of S
                     a += 1
                     nr = i
             for i in range(len(tb)):
-                if tb[i].count == 3:
+                if tb[i].count == 3:       # the type GcArray(Ptr(S))
                     b += 1
                     c += tb[i].links[nr]
-            # we don't count b here since there can be more singletons,
+            # b can be 1 or 2 here since _heap_stats() is free to return or
+            # ignore the three GcStructs that point to the GcArray(Ptr(S)).
             # important one is c, a is for check
             return c * 100 + b * 10 + a
         return f
 
     def test_gc_heap_stats(self):
         res = self.run("gc_heap_stats")
-        assert res == 3011
+        assert res == 3011 or res == 3021
 
     def definestr_string_builder(cls):
         def fn(_):

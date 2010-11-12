@@ -1288,6 +1288,11 @@ class MiniMarkGC(MovingGCBase):
         self.run_finalizers.foreach(self._collect_obj,
                                     self.objects_to_trace)
 
+    def enumerate_all_roots(self, callback, arg):
+        self.prebuilt_root_objects.foreach(callback, arg)
+        MovingGCBase.enumerate_all_roots(self, callback, arg)
+    enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
     @staticmethod
     def _collect_obj(obj, objects_to_trace):
         objects_to_trace.append(obj)
