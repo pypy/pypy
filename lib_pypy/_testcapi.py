@@ -28,7 +28,8 @@ def compile_shared():
         # XXX libpypy-c.lib is currently not installed automatically
         library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
         libraries = [library, 'oleaut32']
-        extra_ldargs = ['/MANIFEST'] # needed for VC10
+        extra_ldargs = ['/MANIFEST',  # needed for VC10
+                        '/EXPORT:init_testcapi']
     else:
         output_filename = '_testcapi.so'
         libraries = []
