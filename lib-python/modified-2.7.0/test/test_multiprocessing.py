@@ -1585,6 +1585,10 @@ class _TestHeap(BaseTestCase):
             if len(blocks) > maxblocks:
                 i = random.randrange(maxblocks)
                 del blocks[i]
+            # XXX There should be a better way to release resources for a
+            # single block
+            if i % maxblocks == 0:
+                import gc; gc.collect()
 
         # get the heap object
         heap = multiprocessing.heap.BufferWrapper._heap
