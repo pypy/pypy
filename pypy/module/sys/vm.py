@@ -4,6 +4,7 @@ Implementation of interpreter-level 'sys' routines.
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
 from pypy.rlib.runicode import MAXUNICODE
+from pypy.rlib import jit
 import sys
 
 # ____________________________________________________________
@@ -136,6 +137,7 @@ def getwindowsversion(space):
                            space.wrap(info[3]),
                            space.wrap(info[4])])
 
+@jit.dont_look_inside
 def get_dllhandle(space):
     if not space.config.objspace.usemodules.cpyext:
         return space.wrap(0)
