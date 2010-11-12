@@ -67,6 +67,8 @@ if not _WIN32:
     c_dlerror = external('dlerror', [], rffi.CCHARP)
     c_dlsym = external('dlsym', [rffi.VOIDP, rffi.CCHARP], rffi.VOIDP)
 
+    DLLHANDLE = rffi.VOIDP
+
     RTLD_LOCAL = cConfig.RTLD_LOCAL
     RTLD_GLOBAL = cConfig.RTLD_GLOBAL
     RTLD_NOW = cConfig.RTLD_NOW
@@ -110,6 +112,8 @@ if not _WIN32:
         raise KeyError(index)
 
 if _WIN32:
+    DLLHANDLE = rwin32.HMODULE
+
     def dlopen(name):
         res = rwin32.LoadLibrary(name)
         if not res:

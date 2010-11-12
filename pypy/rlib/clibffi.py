@@ -8,7 +8,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
-from pypy.rlib.rdynload import DLOpenError
+from pypy.rlib.rdynload import DLOpenError, DLLHANDLE
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -32,7 +32,7 @@ if _WIN32:
     #include <stdio.h>
 
     /* Get the module where the "fopen" function resides in */
-    HANDLE get_libc_handle() {
+    HANDLE pypy_get_libc_handle() {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
         memset(&mi, 0, sizeof(mi));
@@ -102,7 +102,7 @@ else:
                                  libffidir.join('pypy_ffi.c'),
                                  ],
         export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
-                          'get_libc_handle'],
+                          'pypy_get_libc_handle'],
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
@@ -246,7 +246,7 @@ if _WIN32:
 
     LoadLibrary = rwin32.LoadLibrary
 
-    get_libc_handle = external('get_libc_handle', [], rwin32.HANDLE)
+    get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
@@ -555,20 +555,9 @@ class FuncPtr(AbstractFuncPtr):
             self.ll_result = lltype.nullptr(rffi.VOIDP.TO)
         AbstractFuncPtr.__del__(self)
 
-class CDLL(object):
-    def __init__(self, libname):
-        """Load the library, or raises DLOpenError."""
-        self.lib = lltype.nullptr(rffi.CCHARP.TO)
-        ll_libname = rffi.str2charp(libname)
-        try:
-            self.lib = dlopen(ll_libname)
-        finally:
-            lltype.free(ll_libname, flavor='raw')
-
-    def __del__(self):
-        if self.lib:
-            dlclose(self.lib)
-            self.lib = lltype.nullptr(rffi.CCHARP.TO)
+class RawCDLL(object):
+    def __init__(self, handle):
+        self.lib = handle
 
     def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         # these arguments are already casted to proper ffi
@@ -592,4 +581,21 @@ class CDLL(object):
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
+
+class CDLL(RawCDLL):
+    _default = rffi.cast(DLLHANDLE, -1)
+
+    def __init__(self, libname):
+        """Load the library, or raises DLOpenError."""
+        RawCDLL.__init__(self, self._default)
+        ll_libname = rffi.str2charp(libname)
+        try:
+            self.lib = dlopen(ll_libname)
+        finally:
+            lltype.free(ll_libname, flavor='raw')
+
+    def __del__(self):
+        if self.lib != self._default:
+            dlclose(self.lib)
+            self.lib = self._default
 

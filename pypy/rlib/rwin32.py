@@ -98,11 +98,11 @@ if WIN32:
     # is hidden by operations in ll2ctypes.  Call it now.
     GetLastError()
 
-    LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], rffi.VOIDP)
+    LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE)
     GetProcAddress = winexternal('GetProcAddress',
-                                 [rffi.VOIDP, rffi.CCHARP],
+                                 [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
-    FreeLibrary = winexternal('FreeLibrary', [rffi.VOIDP], BOOL)
+    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
     CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)

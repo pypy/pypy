@@ -662,6 +662,8 @@ def build_bridge(space):
     import ctypes
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
+    space.fromcache(State).install_dll(eci)
+
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext
@@ -841,6 +843,25 @@ def build_eci(building_bridge, export_symbols, code):
             structs.append('%s %s = NULL;' % (typ, name))
     struct_source = '\n'.join(structs)
 
+    separate_module_sources = [code, struct_source]
+
+    if sys.platform == 'win32':
+        get_pythonapi_source = '''
+        #include <windows.h>
+        HANDLE pypy_get_pythonapi_handle() {
+            MEMORY_BASIC_INFORMATION  mi;
+            memset(&mi, 0, sizeof(mi));
+
+            if( !VirtualQueryEx(GetCurrentProcess(), &pypy_get_pythonapi_handle,
+                                &mi, sizeof(mi)) )
+                return 0;
+
+            return (HMODULE)mi.AllocationBase;
+        }
+        '''
+        separate_module_sources.append(get_pythonapi_source)
+        export_symbols_eci.append('pypy_get_pythonapi_handle')
+
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         separate_module_files=[source_dir / "varargwrapper.c",
@@ -855,11 +876,12 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "cobject.c",
                                source_dir / "capsule.c",
                                ],
-        separate_module_sources = [code, struct_source],
+        separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
         compile_extra=compile_extra,
         **kwds
         )
+
     return eci
 
 
@@ -877,6 +899,8 @@ def setup_library(space):
     code = "#include <Python.h>\n" + "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code)
+
+    space.fromcache(State).install_dll(eci)
 
     run_bootstrap_functions(space)
     setup_va_functions(eci)

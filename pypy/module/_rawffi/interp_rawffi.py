@@ -136,12 +136,8 @@ def unpack_argshapes(space, w_argtypes):
             for w_arg in space.unpackiterable(w_argtypes)]
 
 class W_CDLL(Wrappable):
-    def __init__(self, space, name):
-        try:
-            self.cdll = CDLL(name)
-        except DLOpenError, e:
-            raise operationerrfmt(space.w_OSError, '%s: %s', name,
-                                  e.msg or 'unspecified error')
+    def __init__(self, space, name, cdll):
+        self.cdll = cdll
         self.name = name
         self.w_cache = space.newdict()
         self.space = space
@@ -211,9 +207,13 @@ class W_CDLL(Wrappable):
 
 def descr_new_cdll(space, w_type, name):
     try:
-        return space.wrap(W_CDLL(space, name))
+        cdll = CDLL(name)
+    except DLOpenError, e:
+        raise operationerrfmt(space.w_OSError, '%s: %s', name,
+                              e.msg or 'unspecified error')
     except OSError, e:
         raise wrap_oserror(space, e)
+    return space.wrap(W_CDLL(space, name, cdll))
 descr_new_cdll.unwrap_spec = [ObjSpace, W_Root, str]
 
 W_CDLL.typedef = TypeDef(
@@ -520,10 +520,12 @@ if _MS_WINDOWS:
     check_HRESULT.unwrap_spec = [ObjSpace, int]
 
 def get_libc(space):
+    name = get_libc_name()
     try:
-        return space.wrap(W_CDLL(space, get_libc_name()))
+        cdll = CDLL(name)
     except OSError, e:
         raise wrap_oserror(space, e)
+    return space.wrap(W_CDLL(space, name, cdll))
 
 def get_errno(space):
     return space.wrap(rposix.get_errno())

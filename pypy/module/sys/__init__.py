@@ -3,6 +3,8 @@ from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import we_are_translated
 import sys
 
+_WIN = sys.platform == 'win32'
+
 class Module(MixedModule):
     """Sys Builtin Module. """
     def __init__(self, space, w_name):
@@ -81,7 +83,6 @@ class Module(MixedModule):
         }
 
     if sys.platform == 'win32':
-        interpleveldefs['dllhandle'] = 'space.wrap(0)' # XXX for the moment
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
     
@@ -104,6 +105,12 @@ class Module(MixedModule):
         if space.config.translating and not we_are_translated():
             # don't get the filesystemencoding at translation time
             assert self.filesystemencoding is None
+
+        else:
+            if _WIN:
+                from pypy.module.sys import vm
+                w_handle = vm.get_dllhandle(space)
+                space.setattr(self, space.wrap("dllhandle"), w_handle)
 
     def getmodule(self, name):
         space = self.space

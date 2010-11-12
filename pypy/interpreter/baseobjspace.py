@@ -554,6 +554,9 @@ class ObjSpace(object):
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
+        if self.config.objspace.usemodules.cpyext:
+            from pypy.module.cpyext.state import State
+            self.fromcache(State).build_api(self)
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')

@@ -33,7 +33,7 @@ class TestApi:
 
 class AppTestApi:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
         from pypy.rlib.libffi import get_libc_name
         cls.w_libc = cls.space.wrap(get_libc_name())
 
@@ -41,6 +41,15 @@ class AppTestApi:
         import cpyext
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
         raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
+
+    def test_dllhandle(self):
+        import sys
+        assert sys.dllhandle
+        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
+        import ctypes # slow
+        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
+        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
+        assert PyUnicode_GetDefaultEncoding() == 'ascii'
 
 def compile_module(modname, **kwds):
     """
@@ -132,7 +141,7 @@ class LeakCheckingTest(object):
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts
