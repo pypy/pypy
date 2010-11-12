@@ -237,7 +237,7 @@ class OpAssembler(object):
         if op.numargs() > 5:
             stack_args = op.numargs() - 5
             n = stack_args*WORD
-            self._adjust_sp(n, fcond=fcond)
+            self._adjust_sp(n, regalloc, fcond=fcond)
             for i in range(5, op.numargs()):
                 reg = regalloc.make_sure_var_in_reg(op.getarg(i))
                 self.mc.STR_ri(reg.value, r.sp.value, (i-5)*WORD)
