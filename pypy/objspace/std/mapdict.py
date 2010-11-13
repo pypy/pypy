@@ -1,4 +1,5 @@
 from pypy.rlib import jit, objectmodel, debug
+from pypy.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
@@ -15,24 +16,70 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # we want to propagate knowledge that the result cannot be negative
 
 class AbstractAttribute(object):
-    _immutable_fields_ = ['w_cls']
+    _immutable_fields_ = ['terminator']
     cache_attrs = None
     _size_estimate = 0
 
-    def __init__(self, space, w_cls):
+    def __init__(self, space, terminator):
         self.space = space
-        self.w_cls = w_cls
+        assert isinstance(terminator, Terminator)
+        self.terminator = terminator
 
     def read(self, obj, selector):
-        raise NotImplementedError("abstract base class")
+        index = self.index(selector)
+        if index < 0:
+            return self.terminator._read_terminator(obj, selector)
+        return obj._mapdict_read_storage(index)
 
     def write(self, obj, selector, w_value):
-        raise NotImplementedError("abstract base class")
+        index = self.index(selector)
+        if index < 0:
+            return self.terminator._write_terminator(obj, selector, w_value)
+        obj._mapdict_write_storage(index, w_value)
+        return True
 
     def delete(self, obj, selector):
         return None
 
     def index(self, selector):
+        if (self.space.config.objspace.std.withmethodcache and 
+                not jit.we_are_jitted()):
+            return self._index_cache(selector)
+        else:
+            return self._index(selector)
+
+    @jit.dont_look_inside
+    def _index_cache(self, selector):
+        space = self.space
+        cache = space.fromcache(IndexCache)
+        SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
+        SHIFT1 = SHIFT2 - 5
+        attrs_as_int = objectmodel.current_object_addr_as_int(self)
+        # ^^^Note: see comment in typeobject.py for
+        # _pure_lookup_where_with_method_cache()
+        hash_selector = objectmodel.compute_hash(selector)
+        product = intmask(attrs_as_int * hash_selector)
+        index_hash = (r_uint(product) ^ (r_uint(product) << SHIFT1)) >> SHIFT2
+        # ^^^Note2: same comment too
+        cached_attr = cache.attrs[index_hash]
+        if cached_attr is self:
+            cached_selector = cache.selectors[index_hash]
+            if cached_selector == selector:
+                index = cache.indices[index_hash]
+                if space.config.objspace.std.withmethodcachecounter:
+                    name = selector[0]
+                    cache.hits[name] = cache.hits.get(name, 0) + 1
+                return index
+        index = self._index(selector)
+        cache.attrs[index_hash] = self
+        cache.selectors[index_hash] = selector
+        cache.indices[index_hash] = index
+        if space.config.objspace.std.withmethodcachecounter:
+            name = selector[0]
+            cache.misses[name] = cache.misses.get(name, 0) + 1
+        return index
+
+    def _index(self, selector):
         return -1
 
     def copy(self, obj):
@@ -42,7 +89,7 @@ class AbstractAttribute(object):
         raise NotImplementedError("abstract base class")
 
     def get_terminator(self):
-        raise NotImplementedError("abstract base class")
+        return self.terminator
 
     def set_terminator(self, obj, terminator):
         raise NotImplementedError("abstract base class")
@@ -95,15 +142,20 @@ class AbstractAttribute(object):
         raise NotImplementedError("abstract base class")
 
     def __repr__(self):
-        return "<%s w_cls=%s>" % (self.__class__.__name__, self.w_cls)
+        return "<%s>" % (self.__class__.__name__,)
 
 
 class Terminator(AbstractAttribute):
+    _immutable_fields_ = ['w_cls']
 
-    def read(self, obj, selector):
+    def __init__(self, space, w_cls):
+        AbstractAttribute.__init__(self, space, self)
+        self.w_cls = w_cls
+
+    def _read_terminator(self, obj, selector):
         return None
 
-    def write(self, obj, selector, w_value):
+    def _write_terminator(self, obj, selector, w_value):
         obj._get_mapdict_map().add_attr(obj, selector, w_value)
         return True
 
@@ -116,9 +168,6 @@ class Terminator(AbstractAttribute):
     def length(self):
         return 0
 
-    def get_terminator(self):
-        return self
-
     def set_terminator(self, obj, terminator):
         result = Object()
         result.space = self.space
@@ -127,6 +176,9 @@ class Terminator(AbstractAttribute):
 
     def remove_dict_entries(self, obj):
         return self.copy(obj)
+
+    def __repr__(self):
+        return "<%s w_cls=%s>" % (self.__class__.__name__, self.w_cls)
 
 class DictTerminator(Terminator):
     _immutable_fields_ = ['devolved_dict_terminator']
@@ -142,27 +194,27 @@ class DictTerminator(Terminator):
 
 
 class NoDictTerminator(Terminator):
-    def write(self, obj, selector, w_value):
+    def _write_terminator(self, obj, selector, w_value):
         if selector[1] == DICT:
             return False
-        return Terminator.write(self, obj, selector, w_value)
+        return Terminator._write_terminator(self, obj, selector, w_value)
 
 
 class DevolvedDictTerminator(Terminator):
-    def read(self, obj, selector):
+    def _read_terminator(self, obj, selector):
         if selector[1] == DICT:
             w_dict = obj.getdict()
             space = self.space
             return space.finditem_str(w_dict, selector[0])
-        return Terminator.read(self, obj, selector)
+        return Terminator._read_terminator(self, obj, selector)
 
-    def write(self, obj, selector, w_value):
+    def _write_terminator(self, obj, selector, w_value):
         if selector[1] == DICT:
             w_dict = obj.getdict()
             space = self.space
             space.setitem_str(w_dict, selector[0], w_value)
             return True
-        return Terminator.write(self, obj, selector, w_value)
+        return Terminator._write_terminator(self, obj, selector, w_value)
 
     def delete(self, obj, selector):
         from pypy.interpreter.error import OperationError
@@ -189,7 +241,7 @@ class DevolvedDictTerminator(Terminator):
 class PlainAttribute(AbstractAttribute):
     _immutable_fields_ = ['selector', 'position', 'back']
     def __init__(self, selector, back):
-        AbstractAttribute.__init__(self, back.space, back.w_cls)
+        AbstractAttribute.__init__(self, back.space, back.terminator)
         self.selector = selector
         self.position = back.length()
         self.back = back
@@ -198,17 +250,6 @@ class PlainAttribute(AbstractAttribute):
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
         new_obj._get_mapdict_map().add_attr(new_obj, self.selector, w_value)
-
-    def read(self, obj, selector):
-        if selector == self.selector:
-            return obj._mapdict_read_storage(self.position)
-        return self.back.read(obj, selector)
-
-    def write(self, obj, selector, w_value):
-        if selector == self.selector:
-            obj._mapdict_write_storage(self.position, w_value)
-            return True
-        return self.back.write(obj, selector, w_value)
 
     def delete(self, obj, selector):
         if selector == self.selector:
@@ -219,10 +260,10 @@ class PlainAttribute(AbstractAttribute):
             self._copy_attr(obj, new_obj)
         return new_obj
 
-    def index(self, selector):
+    def _index(self, selector):
         if selector == self.selector:
             return self.position
-        return self.back.index(selector)
+        return self.back._index(selector)
 
     def copy(self, obj):
         new_obj = self.back.copy(obj)
@@ -231,9 +272,6 @@ class PlainAttribute(AbstractAttribute):
 
     def length(self):
         return self.position + 1
-
-    def get_terminator(self):
-        return self.back.get_terminator()
 
     def set_terminator(self, obj, terminator):
         new_obj = self.back.set_terminator(obj, terminator)
@@ -267,6 +305,24 @@ def _become(w_obj, new_obj):
     # this is like the _become method, really, but we cannot use that due to
     # RPython reasons
     w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
+
+class IndexCache(object):
+    def __init__(self, space):
+        assert space.config.objspace.std.withmethodcache
+        SIZE = 1 << space.config.objspace.std.methodcachesizeexp
+        self.attrs = [None] * SIZE
+        self._empty_selector = (None, INVALID)
+        self.selectors = [self._empty_selector] * SIZE
+        self.indices = [0] * SIZE
+        if space.config.objspace.std.withmethodcachecounter:
+            self.hits = {}
+            self.misses = {}
+
+    def clear(self):
+        for i in range(len(self.attrs)):
+            self.attrs[i] = None
+        for i in range(len(self.selectors)):
+            self.selectors[i] = self._empty_selector
 
 # ____________________________________________________________
 # object implementation
@@ -328,7 +384,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         assert flag
 
     def getclass(self, space):
-        return self._get_mapdict_map().w_cls
+        return self._get_mapdict_map().terminator.w_cls
 
     def setclass(self, space, w_cls):
         new_obj = self._get_mapdict_map().set_terminator(self, w_cls.terminator)
@@ -373,6 +429,7 @@ class ObjectMixin(object):
         self.storage = make_sure_not_resized([None] * map.size_estimate())
 
     def _mapdict_read_storage(self, index):
+        assert index >= 0
         return self.storage[index]
     def _mapdict_write_storage(self, index, value):
         self.storage[index] = value
@@ -440,6 +497,7 @@ def _make_subclass_size_n(supercls, n):
             return rerased.unerase_fixedsizelist(erased, W_Root)
 
         def _mapdict_read_storage(self, index):
+            assert index >= 0
             for i in rangenmin1:
                 if index == i:
                     erased = getattr(self, "_value%s" % i)
@@ -604,30 +662,54 @@ class CacheEntry(object):
     map = None
     version_tag = None
     index = 0
+    w_method = None # for callmethod
     success_counter = 0
     failure_counter = 0
+
+    def is_valid_for_obj(self, w_obj):
+        map = w_obj._get_mapdict_map()
+        return self.is_valid_for_map(map)
+
+    def is_valid_for_map(self, map):
+        if map is self.map:
+            version_tag = map.terminator.w_cls.version_tag()
+            if version_tag is self.version_tag:
+                # everything matches, it's incredibly fast
+                if map.space.config.objspace.std.withmethodcachecounter:
+                    self.success_counter += 1
+                return True
+        return False
 
 INVALID_CACHE_ENTRY = CacheEntry()
 INVALID_CACHE_ENTRY.map = objectmodel.instantiate(AbstractAttribute)
                              # different from any real map ^^^
-INVALID_CACHE_ENTRY.map.w_cls = None
+INVALID_CACHE_ENTRY.map.terminator = None
+
 
 def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
+
+def _fill_cache(pycode, nameindex, map, version_tag, index, w_method=None):
+    entry = pycode._mapdict_caches[nameindex]
+    if entry is INVALID_CACHE_ENTRY:
+        entry = CacheEntry()
+        pycode._mapdict_caches[nameindex] = entry
+    entry.map = map
+    entry.version_tag = version_tag
+    entry.index = index
+    entry.w_method = w_method
+    if pycode.space.config.objspace.std.withmethodcachecounter:
+        entry.failure_counter += 1
 
 def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     # this whole mess is to make the interpreter quite a bit faster; it's not
     # used if we_are_jitted().
     entry = pycode._mapdict_caches[nameindex]
     map = w_obj._get_mapdict_map()
-    if map is entry.map:
-        version_tag = map.w_cls.version_tag()
-        if version_tag is entry.version_tag:
-            # everything matches, it's incredibly fast
-            if pycode.space.config.objspace.std.withmethodcachecounter:
-                entry.success_counter += 1
-            return w_obj._mapdict_read_storage(entry.index)
+    if entry.is_valid_for_map(map) and entry.w_method is None:
+        # everything matches, it's incredibly fast
+        return w_obj._mapdict_read_storage(entry.index)
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
 LOAD_ATTR_caching._always_inline_ = True
 
@@ -635,7 +717,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
     space = pycode.space
     w_name = pycode.co_names_w[nameindex]
     if map is not None:
-        w_type = map.w_cls
+        w_type = map.terminator.w_cls
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
             return space._handle_getattribute(w_descr, w_obj, w_name)
@@ -655,17 +737,30 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             if selector[1] != INVALID:
                 index = map.index(selector)
                 if index >= 0:
-                    entry = pycode._mapdict_caches[nameindex]
-                    if entry is INVALID_CACHE_ENTRY:
-                        entry = CacheEntry()
-                        pycode._mapdict_caches[nameindex] = entry
-                    entry.map = map
-                    entry.version_tag = version_tag
-                    entry.index = index
-                    if space.config.objspace.std.withmethodcachecounter:
-                        entry.failure_counter += 1
+                    _fill_cache(pycode, nameindex, map, version_tag, index)
                     return w_obj._mapdict_read_storage(index)
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)
 LOAD_ATTR_slowpath._dont_inline_ = True
+
+def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
+    space = f.space
+    pycode = f.getcode()
+    entry = pycode._mapdict_caches[nameindex]
+    if entry.is_valid_for_obj(w_obj):
+        w_method = entry.w_method
+        if w_method is not None:
+            f.pushvalue(w_method)
+            f.pushvalue(w_obj)
+            return True
+    return False
+
+def LOOKUP_METHOD_mapdict_fill_cache_method(pycode, nameindex, w_obj, w_type, w_method):
+    version_tag = w_type.version_tag()
+    if version_tag is None:
+        return
+    map = w_obj._get_mapdict_map()
+    if map is None:
+        return
+    _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
