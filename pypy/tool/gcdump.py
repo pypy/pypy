@@ -1,75 +1,96 @@
-#!/usr/bin/env python
-""" Usage: gcdump.py gcdump typeids [outfile]
+#! /usr/bin/env python
 """
+Prints a human-readable total out of a dumpfile produced
+by gc.dump_rpy_heap(), and optionally a typeids.txt.
 
-from __future__ import division
-import re
-import sys
+Syntax:  dump.py  <dumpfile>  [<typeids.txt>]
 
-class GcDump(object):
-    def __init__(self, count, size, links):
-        self.count  = count
-        self.size   = size
-        self.links  = links
+By default, typeids.txt is loaded from the same dir as dumpfile.
+"""
+import sys, array, struct, os
 
-def read_gcdump(f):
-    lines = f.readlines()
-    r = [None] * len(lines)
-    for i, line in enumerate(lines):
-        count, size, rest = line.split(" ")
-        r[i] = GcDump(int(count), int(size),
-                      [int(j) for j in rest.split(",")])
-    return r
 
-def read_typeids(f):
-    res = []
-    for line in f.readlines():
-        member, name = re.split("\s+", line, 1)
-        assert member == "member%d" % len(res)
-        res.append(name.strip("\n"))
-    return res
+class Stat(object):
+    summary = {}
+    typeids = {0: '<GCROOT>'}
 
-def getname(name, _cache = {}):
-    try:
-        return _cache[name]
-    except KeyError:
-        no = len(_cache)
-        _cache[name] = '(%d)' % len(_cache)
-        return '(%d) %s' % (no, name)
+    def summarize(self, filename):
+        a = self.load_dump_file(filename)
+        self.summary = {}     # {typenum: [count, totalsize]}
+        for obj in self.walk(a):
+            self.add_object_summary(obj[2], obj[3])
 
-def process(f, gcdump, typeids):
-    f.write("events: number B\n\n")
-    for tid, name in enumerate(typeids):
-        if not tid % 100:
-            sys.stderr.write("%d%%.." % (tid / len(typeids) * 100))
-        f.write("fn=%s\n" % getname(name))
-        f.write("0 %d %d\n" % (gcdump[tid].count, gcdump[tid].size))
-        for subtid, no in enumerate(gcdump[tid].links):
-            if no != 0:
-                f.write("cfn=%s\n" % getname(typeids[subtid]))
-                f.write("calls=0 %d\n" % no)
-                f.write("0 %d %d\n" % (gcdump[subtid].count,
-                                       gcdump[subtid].size))
-        f.write("\n")
-    sys.stderr.write("100%\n")
+    def load_typeids(self, filename):
+        self.typeids = Stat.typeids.copy()
+        for num, line in enumerate(open(filename)):
+            if num == 0:
+                continue
+            words = line.split()
+            if words[0].startswith('member'):
+                del words[0]
+            if words[0] == 'GcStruct':
+                del words[0]
+            self.typeids[num] = ' '.join(words)
 
-def main(gcdump_f, typeids_f, outfile):
-    gcdump = read_gcdump(gcdump_f)
-    gcdump_f.close()
-    typeids = read_typeids(typeids_f)
-    typeids_f.close()
-    process(outfile, gcdump, typeids)
+    def get_type_name(self, num):
+        return self.typeids.get(num, '<typenum %d>' % num)
+
+    def print_summary(self):
+        items = self.summary.items()
+        items.sort(key=lambda(typenum, stat): stat[1])    # sort by totalsize
+        totalsize = 0
+        for typenum, stat in items:
+            totalsize += stat[1]
+            print '%8d %8.2fM  %s' % (stat[0], stat[1] / (1024.0*1024.0),
+                                      self.get_type_name(typenum))
+        print 'total %.1fM' % (totalsize / (1024.0*1024.0),)
+
+    def load_dump_file(self, filename):
+        f = open(filename, 'rb')
+        f.seek(0, 2)
+        end = f.tell()
+        f.seek(0)
+        a = array.array('l')
+        a.fromfile(f, end / struct.calcsize('l'))
+        f.close()
+        return a
+
+    def add_object_summary(self, typenum, sizeobj):
+        try:
+            stat = self.summary[typenum]
+        except KeyError:
+            stat = self.summary[typenum] = [0, 0]
+        stat[0] += 1
+        stat[1] += sizeobj
+
+    def walk(self, a, start=0, stop=None):
+        assert a[-1] == -1, "invalid or truncated dump file (or 32/64-bit mix)"
+        assert a[-2] > 0,   "invalid or truncated dump file (or 32/64-bit mix)"
+        print >> sys.stderr, 'walking...',
+        i = start
+        if stop is None:
+            stop = len(a)
+        while i < stop:
+            j = i + 3
+            while a[j] != -1:
+                j += 1
+            yield (i, a[i], a[i+1], a[i+2], a[i+3:j])
+            i = j + 1
+        print >> sys.stderr, 'done'
+
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4:
-        outfile = open(sys.argv[3], "w")
-    elif len(sys.argv) == 3:
-        outfile = sys.stdout
+    if len(sys.argv) <= 1:
+        print >> sys.stderr, __doc__
+        sys.exit(2)
+    stat = Stat()
+    stat.summarize(sys.argv[1])
+    #
+    if len(sys.argv) > 2:
+        typeid_name = sys.argv[2]
     else:
-        print __doc__
-        sys.exit(1)
-    gcdump = open(sys.argv[1])
-    typeids = open(sys.argv[2])
-    main(gcdump, typeids, outfile)
-    if len(sys.argv) == 4:
-        outfile.close()
+        typeid_name = os.path.join(os.path.dirname(sys.argv[1]), 'typeids.txt')
+    if os.path.isfile(typeid_name):
+        stat.load_typeids(typeid_name)
+    #
+    stat.print_summary()
