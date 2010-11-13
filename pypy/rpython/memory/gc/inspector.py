@@ -4,7 +4,7 @@ Utility RPython functions to inspect objects in the GC.
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.module.ll_os import underscore_on_windows
-from pypy.rlib import rposix
+from pypy.rlib import rposix, rgc
 
 from pypy.rpython.memory.support import AddressDict, get_address_stack
 
@@ -187,3 +187,7 @@ def dump_rpy_heap(gc, fd):
     heapdumper.flush()
     heapdumper.delete()
     return True
+
+def get_typeids_z(gc):
+    srcaddress = gc.root_walker.gcdata.typeids_z
+    return llmemory.cast_adr_to_ptr(srcaddress, lltype.Ptr(rgc.ARRAY_OF_CHAR))

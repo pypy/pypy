@@ -1096,6 +1096,42 @@ class TestUsingFramework(object):
         assert os.path.exists(self.filename_dump)
         assert os.path.getsize(self.filename_dump) > 64
 
+    filename_dump_typeids_z = str(udir.join('test_typeids_z'))
+    def define_write_typeids_z(self):
+        U = lltype.GcForwardReference()
+        U.become(lltype.GcStruct('U', ('next', lltype.Ptr(U)),
+                                 ('x', lltype.Signed)))
+        S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
+        A = lltype.GcArray(lltype.Ptr(S))
+        filename = self.filename_dump_typeids_z
+
+        def fn():
+            s = lltype.malloc(S)
+            s.u = lltype.malloc(U)
+            s.u.next = lltype.malloc(U)
+            s.u.next.next = lltype.malloc(U)
+            a = lltype.malloc(A, 1000)
+            s2 = lltype.malloc(S)
+            #
+            p = rgc.get_typeids_z()
+            s = ''.join([p[i] for i in range(len(p))])
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
+            os.write(fd, s)
+            os.close(fd)
+            return 0
+
+        return fn
+
+    def test_write_typeids_z(self):
+        self.run("write_typeids_z")
+        f = open(self.filename_dump_typeids_z)
+        data_z = f.read()
+        f.close()
+        import zlib
+        data = zlib.decompress(data_z)
+        assert data.startswith('member0')
+        assert 'GcArray of * GcStruct S {' in data
+
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True

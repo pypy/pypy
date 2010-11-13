@@ -1016,7 +1016,7 @@ class MiniMarkGC(MovingGCBase):
             obj = oldlist.pop()
             #
             # Add the flag GCFLAG_NO_YOUNG_PTRS.  All live objects should have
-            # this flag after a nursery collection.
+            # this flag set after a nursery collection.
             self.header(obj).tid |= GCFLAG_NO_YOUNG_PTRS
             #
             # Trace the 'obj' to replace pointers to nursery with pointers
@@ -1079,7 +1079,7 @@ class MiniMarkGC(MovingGCBase):
         # nursery are kept unchanged in this step.
         llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
         #
-        # Set the old object's tid to -1 (containing all flags) and
+        # Set the old object's tid to -42 (containing all flags) and
         # replace the old object's content with the target address.
         # A bit of no-ops to convince llarena that we are changing
         # the layout, in non-translated versions.
@@ -1344,7 +1344,7 @@ class MiniMarkGC(MovingGCBase):
         if self.is_valid_gc_object(obj):
             if self.is_in_nursery(obj):
                 #
-                # The object not a tagged pointer, and is it still in the
+                # The object is not a tagged pointer, and it is still in the
                 # nursery.  Find or allocate a "shadow" object, which is
                 # where the object will be moved by the next minor
                 # collection
