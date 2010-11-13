@@ -61,3 +61,18 @@ class ArmCPU(AbstractLLCPU):
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return self.cast_adr_to_int(adr)
+
+    def force(self, addr_of_force_index):
+        TP = rffi.CArrayPtr(lltype.Signed)
+        fail_index = rffi.cast(TP, addr_of_force_index)[0]
+        assert fail_index >= 0, "already forced!"
+        faildescr = self.get_fail_descr_from_number(fail_index)
+        rffi.cast(TP, addr_of_force_index)[0] = -1
+        # start of "no gc operation!" block
+        fail_index_2 = self.assembler.failure_recovery_func(
+            faildescr._failure_recovery_code,
+            addr_of_force_index)
+        self.assembler.leave_jitted_hook()
+        # end of "no gc operation!" block
+        #assert fail_index == fail_index_2
+        return faildescr

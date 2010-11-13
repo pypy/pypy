@@ -35,23 +35,25 @@ class AssemblerARM(ResOpAssembler):
     def setup_failure_recovery(self):
 
         @rgc.no_collect
-        def failure_recovery_func(mem_loc, stackloc):
+        def failure_recovery_func(mem_loc, frame_loc):
             """mem_loc is a structure in memory describing where the values for
-            the failargs are stored. stacklock is the address of the stack
-            section where the registers were saved."""
-            enc = rffi.cast(rffi.CCHARP, mem_loc)
-            stack = rffi.cast(rffi.CCHARP, stackloc)
-            return self.decode_registers_and_descr(enc, stack)
+            the failargs are stored.
+            frame loc is the address of the frame pointer for the frame to be
+            decoded frame """
+            return self.decode_registers_and_descr(mem_loc, frame_loc)
 
         self.failure_recovery_func = failure_recovery_func
 
     @rgc.no_collect
-    def decode_registers_and_descr(self, enc, stack):
-        """Decode locations encoded in memory at enc and write the values to
+    def decode_registers_and_descr(self, mem_loc, frame_loc):
+        """Decode locations encoded in memory at mem_loc and write the values to
         the failboxes.
-        Registers are saved on the stack
-        XXX Rest to follow"""
+        Values for spilled vars and registers are stored on stack at frame_loc
+        """
+        enc = rffi.cast(rffi.CCHARP, mem_loc)
         frame_depth = self.decode32(enc, 0)
+        stack = rffi.cast(rffi.CCHARP, frame_loc - (frame_depth)*WORD)
+        regs = rffi.cast(rffi.CCHARP, frame_loc - (frame_depth + len(r.all_regs))*WORD)
         i = 3
         fail_index = -1
         while(True):
@@ -73,13 +75,11 @@ class AssemblerARM(ResOpAssembler):
                 i += 4
             elif res == '\xFC': # stack location
                 stack_loc = self.decode32(enc, i+1)
-                #XXX ffuu use propper calculation here
-                value = self.decode32(stack,
-                                    (len(r.all_regs)+frame_depth-stack_loc)*WORD)
+                value = self.decode32(stack, (frame_depth - stack_loc)*WORD)
                 i += 4
             else: # an int for now
                 reg = ord(enc[i])
-                value = self.decode32(stack, reg*WORD)
+                value = self.decode32(regs, reg*WORD)
 
             if group == '\xEF': # INT
                 self.fail_boxes_int.setitem(fail_index, value)
@@ -113,15 +113,17 @@ class AssemblerARM(ResOpAssembler):
         self.setup_failure_recovery()
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
         decode_registers_addr = llhelper(functype, self.failure_recovery_func)
+
         self.mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
         self.mc.MOV_rr(r.r0.value, r.lr.value)  # move mem block address, to r0 to pass as
                                     # parameter to next procedure call
-        self.mc.MOV_rr(r.r1.value, r.sp.value)  # pass the current stack pointer as second param
+        self.mc.MOV_rr(r.r1.value, r.fp.value)  # pass the current frame pointer as second param
 
         self.mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
         self.mc.MOV_rr(r.ip.value, r.r0.value)
         self.mc.POP([reg.value for reg in r.all_regs])
         self.mc.MOV_rr(r.r0.value, r.ip.value)
+        self.mc.ensure_can_fit(self.epilog_size)
         self.gen_func_epilog()
 
     def _gen_path_to_exit_path(self, op, args, regalloc, fcond=c.AL):
@@ -135,12 +137,15 @@ class AssemblerARM(ResOpAssembler):
         \xFE = Empty arg
         """
 
+        descr = op.getdescr()
         box = TempBox()
         reg = regalloc.force_allocate_reg(box)
         # XXX free this memory
         # XXX allocate correct amount of memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), (len(args)+5)*4, flavor='raw')
-        self.encode32(mem, 0, regalloc.frame_manager.frame_depth)
+        # Note, the actual frame depth is one less than the value stored in
+        # regalloc.frame_manager.frame_depth
+        self.encode32(mem, 0, regalloc.frame_manager.frame_depth - 1)
         i = 0
         j = 4
         while(i < len(args)):
@@ -175,8 +180,7 @@ class AssemblerARM(ResOpAssembler):
         mem[j] = chr(0xFF)
         memaddr = rffi.cast(lltype.Signed, mem)
 
-
-        n = self.cpu.get_fail_descr_number(op.getdescr())
+        n = self.cpu.get_fail_descr_number(descr)
         self.encode32(mem, j+1, n)
         self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond) # use lr to pass an argument
         self.mc.B(self._exit_code_addr, fcond, reg)
@@ -184,7 +188,7 @@ class AssemblerARM(ResOpAssembler):
         # This register is used for patching when assembling a bridge
         # guards going to be patched are allways conditional
         if fcond != c.AL:
-            op.getdescr()._arm_guard_reg = reg
+            descr._arm_guard_reg = reg
         regalloc.possibly_free_var(box)
         return memaddr
 
@@ -192,13 +196,16 @@ class AssemblerARM(ResOpAssembler):
         while(self.mc.curraddr() % FUNC_ALIGN != 0):
             self.mc.writechar(chr(0))
 
-    epilog_size = 2*WORD
+    epilog_size = 3*WORD
     def gen_func_epilog(self,cond=c.AL):
         self.mc.MOV_rr(r.sp.value, r.fp.value)
+        self.mc.POP([r.r4.value], cond=cond) # Pop value used as forcething
         self.mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
+        self.mc.MOV_ri(r.r4.value, 0xCC)
+        self.mc.PUSH([r.r4.value]) # Push some reg to use as force thing which is restored when popping from stack
         self.mc.MOV_rr(r.fp.value, r.sp.value)
 
     def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
@@ -232,12 +239,8 @@ class AssemblerARM(ResOpAssembler):
         loop_head=self.mc.curraddr()
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_loop_code = loop_head
-        fcond=c.AL
         print inputargs, operations
-        for op in operations:
-            # XXX consider merging ops with next one if it is an adecuate guard
-            opnum = op.getopnum()
-            fcond = self.operations[opnum](self, op, regalloc, fcond)
+        self._walk_operations(operations, regalloc)
 
         self._patch_sp_offset(sp_patch_location, regalloc)
 
@@ -255,22 +258,58 @@ class AssemblerARM(ResOpAssembler):
 
     def _patch_sp_offset(self, addr, regalloc):
         cb = ARMv7InMemoryBuilder(addr, ARMv7InMemoryBuilder.size_of_gen_load_int)
+        # Note: the frame_depth is one less than the value stored in the frame
+        # manager
         if regalloc.frame_manager.frame_depth == 1:
             return
-        n = (regalloc.frame_manager.frame_depth)*WORD
+        n = (regalloc.frame_manager.frame_depth-1)*WORD
         self._adjust_sp(n, regalloc, cb)
 
     def _adjust_sp(self, n, regalloc, cb=None, fcond=c.AL):
         if cb is None:
             cb = self.mc
+        if n < 0:
+            n = -n
+            rev = True
+        else:
+            rev = False
         if n <= 0xFF and fcond == c.AL:
-            cb.SUB_ri(r.sp.value, r.sp.value, n)
+            if rev:
+                op = cb.ADD_ri
+            else:
+                op = cb.SUB_ri
+            op(r.sp.value, r.sp.value, n)
         else:
             b = TempBox()
             reg = regalloc.force_allocate_reg(b)
             cb.gen_load_int(reg.value, n, cond=fcond)
-            cb.SUB_rr(r.sp.value, r.sp.value, reg.value, cond=fcond)
+            if rev:
+                op = cb.ADD_rr
+            else:
+                op = cb.SUB_rr
+            op(r.sp.value, r.sp.value, reg.value, cond=fcond)
             regalloc.possibly_free_var(b)
+
+    def _walk_operations(self, operations, regalloc):
+        fcond=c.AL
+        i = 0
+        while i < len(operations):
+            op = operations[i]
+            # XXX consider merging ops with next one if it is an adecuate guard
+            opnum = op.getopnum()
+            if self.can_merge_with_next_guard(op, i, operations):
+                fcond = self.operations_with_guard[opnum](self, op,
+                                            operations[i+1], regalloc, fcond)
+                i += 1
+            else:
+                fcond = self.operations[opnum](self, op, regalloc, fcond)
+            i += 1
+
+    def can_merge_with_next_guard(self, op, i, operations):
+        if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
+            assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
+            return True
+        return False
 
     def assemble_bridge(self, faildescr, inputargs, operations):
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
@@ -280,10 +319,7 @@ class AssemblerARM(ResOpAssembler):
         regalloc.update_bindings(enc, inputargs)
         bridge_head = self.mc.curraddr()
 
-        fcond = c.AL
-        for op in operations:
-            opnum = op.getopnum()
-            fcond = self.operations[opnum](self, op, regalloc, fcond)
+        self._walk_operations(operations, regalloc)
         self.gen_func_epilog()
         print 'Done building bridges'
         self.patch_trace(faildescr, bridge_head)
@@ -322,6 +358,9 @@ class AssemblerARM(ResOpAssembler):
             self.mc.MOV_rr(loc.value, prev_loc.value)
     mov_loc_loc = regalloc_mov
 
+    def leave_jitted_hook(self):
+        pass
+
 def make_operation_list():
     def notimplemented(self, op, regalloc, fcond):
         raise NotImplementedError, op
@@ -339,4 +378,19 @@ def make_operation_list():
         operations[value] = func
     return operations
 
+def make_guard_operation_list():
+    def notimplemented(self, op, guard_op, regalloc, fcond):
+        raise NotImplementedError, op
+    guard_operations = [notimplemented] * rop._LAST
+    for key, value in rop.__dict__.items():
+        key = key.lower()
+        if key.startswith('_'):
+            continue
+        methname = 'emit_guard_%s' % key
+        if hasattr(AssemblerARM, methname):
+            func = getattr(AssemblerARM, methname).im_func
+            guard_operations[value] = func
+    return guard_operations
+
 AssemblerARM.operations = make_operation_list()
+AssemblerARM.operations_with_guard = make_guard_operation_list()

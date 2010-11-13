@@ -230,7 +230,7 @@ class OpAssembler(object):
         self._gen_path_to_exit_path(op, op.getarglist(), regalloc, c.AL)
         return fcond
 
-    def emit_op_call(self, op, regalloc, fcond):
+    def emit_op_call(self, op, regalloc, fcond, save_all_regs=False):
         locs = []
         # all arguments past the 4th go on the stack
         # XXX support types other than int (one word types)
@@ -244,17 +244,23 @@ class OpAssembler(object):
                 regalloc.possibly_free_var(reg)
 
         adr = self.cpu.cast_adr_to_int(op.getarg(0).getint())
-        # XXX use PUSH here instead of spilling every reg for itself
-        regalloc.before_call()
 
         reg_args = min(op.numargs()-1, 4)
         for i in range(1, reg_args+1):
             l = regalloc.make_sure_var_in_reg(op.getarg(i),
                                             selected_reg=r.all_regs[i-1])
             locs.append(l)
-        self.mc.BL(adr)
+        # XXX use PUSH here instead of spilling every reg for itself
+        if save_all_regs:
+            regalloc.before_call(r.all_regs, save_all_regs)
+        else:
+            regalloc.before_call()
         regalloc.force_allocate_reg(op.result, selected_reg=r.r0)
+        self.mc.BL(adr)
         regalloc.after_call(op.result)
+        # readjust the sp in case we passed some args on the stack
+        if op.numargs() > 5:
+            self._adjust_sp(-n, regalloc, fcond=fcond)
         regalloc.possibly_free_vars(locs)
 
 class FieldOpAssembler(object):
@@ -508,9 +514,35 @@ class UnicodeOpAssembler(object):
         f(value_loc.value, temp.value, basesize, cond=fcond)
         return fcond
 
+class ForceOpAssembler(object):
+    def emit_op_force_token(self, op, regalloc, fcond):
+        res_loc = regalloc.force_allocate_reg(op.result)
+        self.mc.MOV_rr(res_loc.value, r.fp.value)
+        return fcond
+
+    def emit_guard_call_may_force(self, op, guard_op, regalloc, fcond):
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        t = TempBox()
+        l0 = regalloc.force_allocate_reg(t)
+        self.mc.gen_load_int(l0.value, fail_index)
+        self.mc.STR_ri(l0.value, r.fp.value)
+
+        # force all reg values to be spilled when calling
+        fcond = self.emit_op_call(op, regalloc, fcond, save_all_regs=True)
+
+        self.mc.LDR_ri(l0.value, r.fp.value)
+        self.mc.CMP_ri(l0.value, 0)
+
+        regalloc.possibly_free_var(t)
+
+        self._emit_guard(guard_op, regalloc, c.LT)
+        return fcond
+
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,
                     FieldOpAssembler, ArrayOpAssember,
-                    StrOpAssembler, UnicodeOpAssembler):
+                    StrOpAssembler, UnicodeOpAssembler,
+                    ForceOpAssembler):
     pass
 
