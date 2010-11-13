@@ -1,6 +1,7 @@
 import py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.translator.c.test import test_typed
+from pypy.tool.sourcetools import func_with_new_name
 
 
 class TestLowLevelType(test_typed.CompilationTestCase):
@@ -654,6 +655,45 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                 assert s == "85?!" + lastchar
             fn = self.getcompiled(llf)
             fn()
+
+    def test_prebuilt_raw_arrays(self):
+        from pypy.rpython.lltypesystem import rffi, ll2ctypes
+        #
+        def make_test_function(cast, haslength, length):
+            a = malloc(A, length, flavor='raw', immortal=True)
+            # two cases: a zero-terminated array if length == 6 or 1030,
+            # a non-zero-terminated array if length == 557 or 1031
+            for i in range(length):
+                a[i] = cast(256 - 5 + i)
+            def llf():
+                for i in range(length):
+                    if a[i] != cast(256 - 5 + i):
+                        return False
+                if haslength and len(a) != length:
+                    return False
+                return True
+            return func_with_new_name(llf, repr((A, haslength, length)))
+        #
+        testfns = []
+        records = []
+        for OF, cast in [(Void, lambda n: None),
+                         (Char, lambda n: chr(n & 0xFF)),
+                         (Signed, lambda n: n)]:
+            for A, haslength in [(rffi.CArray(OF), False),
+                                 (Array(OF), True)]:
+                for length in [0, 6, 557, 1030, 1031]:
+                    testfns.append(make_test_function(cast, haslength, length))
+                    records.append((A, haslength, length))
+        def llf():
+            i = 0
+            for fn in testfns:
+                if not fn():
+                    return i    # returns the index of the failing function
+                i += 1
+            return -42
+        fn = self.getcompiled(llf)
+        res = fn()
+        assert res == -42, "failing function: %r" % (records[res],)
 
     def test_prebuilt_ll2ctypes_array(self):
         from pypy.rpython.lltypesystem import rffi, ll2ctypes
