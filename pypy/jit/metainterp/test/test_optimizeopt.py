@@ -51,12 +51,12 @@ def test_store_final_boxes_in_guard():
     #
     opt.store_final_boxes_in_guard(op)
     if op.getfailargs() == [b0, b1]:
-        assert fdescr.rd_numb.nums      == [tag(1, TAGBOX)]
-        assert fdescr.rd_numb.prev.nums == [tag(0, TAGBOX)]
+        assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
     else:
         assert op.getfailargs() == [b1, b0]
-        assert fdescr.rd_numb.nums      == [tag(0, TAGBOX)]
-        assert fdescr.rd_numb.prev.nums == [tag(1, TAGBOX)]
+        assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
 

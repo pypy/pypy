@@ -1,4 +1,5 @@
 
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
@@ -14,6 +15,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.specnode import NotSpecNode, more_general_specnodes
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.resume import NUMBERING
 from pypy.jit.codewriter import heaptracker
 
 def giveup():
@@ -217,7 +219,7 @@ class ResumeGuardDescr(ResumeDescr):
     # this class also gets the following attributes stored by resume.py code
     rd_snapshot = None
     rd_frame_info_list = None
-    rd_numb = None
+    rd_numb = lltype.nullptr(NUMBERING)
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = None

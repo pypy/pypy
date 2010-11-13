@@ -65,12 +65,21 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
     snapshot = Snapshot(snapshot, boxes)
     storage.rd_snapshot = snapshot
 
-class Numbering(object):
-    __slots__ = ('prev', 'nums')
-
-    def __init__(self, prev, nums):
-        self.prev = prev
-        self.nums = nums
+#
+# The following is equivalent to the RPython-level declaration:
+#
+#     class Numbering: __slots__ = ['prev', 'nums']
+#
+# except that it is more compact in translated programs, because the
+# array 'nums' is inlined in the single NUMBERING object.  This is
+# important because this is often the biggest single consumer of memory
+# in a pypy-c-jit.
+#
+NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
+NUMBERING = lltype.GcStruct('Numbering',
+                            ('prev', NUMBERINGP),
+                            ('nums', lltype.Array(rffi.SHORT)))
+NUMBERINGP.TO.become(NUMBERING)
 
 TAGMASK = 3
 
@@ -162,7 +171,7 @@ class ResumeDataLoopMemo(object):
 
     def number(self, values, snapshot):
         if snapshot is None:
-            return None, {}, 0
+            return lltype.nullptr(NUMBERING), {}, 0
         if snapshot in self.numberings:
              numb, liveboxes, v = self.numberings[snapshot]
              return numb, liveboxes.copy(), v
@@ -171,7 +180,7 @@ class ResumeDataLoopMemo(object):
         n = len(liveboxes)-v
         boxes = snapshot.boxes
         length = len(boxes)
-        nums = [UNASSIGNED] * length
+        numb = lltype.malloc(NUMBERING, length)
         for i in range(length):
             box = boxes[i]
             value = values.get(box, None)
@@ -190,9 +199,9 @@ class ResumeDataLoopMemo(object):
                     tagged = tag(n, TAGBOX)
                     n += 1
                 liveboxes[box] = tagged
-            nums[i] = tagged
+            numb.nums[i] = tagged
         #
-        numb = Numbering(numb1, nums)
+        numb.prev = numb1
         self.numberings[snapshot] = numb, liveboxes, v
         return numb, liveboxes.copy(), v
 
@@ -297,7 +306,7 @@ class ResumeDataVirtualAdder(object):
         # compute the numbering
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
-        assert storage.rd_numb is None
+        assert not storage.rd_numb
         numb, liveboxes_from_env, v = self.memo.number(values,
                                                        storage.rd_snapshot)
         self.liveboxes_from_env = liveboxes_from_env
@@ -722,34 +731,36 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.boxes_f = boxes_f
         self._prepare_next_section(info)
 
-    def consume_virtualizable_boxes(self, vinfo, nums):
+    def consume_virtualizable_boxes(self, vinfo, numb):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], and use it to know how many
         # boxes of which type we have to return.  This does not write
         # anything into the virtualizable.
-        virtualizablebox = self.decode_ref(nums[-1])
+        index = len(numb.nums) - 1
+        virtualizablebox = self.decode_ref(numb.nums[index])
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
-        return vinfo.load_list_of_boxes(virtualizable, self, nums)
+        return vinfo.load_list_of_boxes(virtualizable, self, numb)
 
-    def consume_virtualref_boxes(self, nums, end):
+    def consume_virtualref_boxes(self, numb, end):
         # Returns a list of boxes, assumed to be all BoxPtrs.
         # We leave up to the caller to call vrefinfo.continue_tracing().
         assert (end & 1) == 0
-        return [self.decode_ref(nums[i]) for i in range(end)]
+        return [self.decode_ref(numb.nums[i]) for i in range(end)]
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
-        nums = self.cur_numb.nums
-        self.cur_numb = self.cur_numb.prev
+        numb = self.cur_numb
+        self.cur_numb = numb.prev
         if vinfo is not None:
-            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo, nums)
-            end = len(nums) - len(virtualizable_boxes)
+            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo, numb)
+            end = len(numb.nums) - len(virtualizable_boxes)
         elif ginfo is not None:
-            virtualizable_boxes = [self.decode_ref(nums[-1])]
-            end = len(nums) - 1
+            index = len(numb.nums) - 1
+            virtualizable_boxes = [self.decode_ref(numb.nums[index])]
+            end = len(numb.nums) - 1
         else:
             virtualizable_boxes = None
-            end = len(nums)
-        virtualref_boxes = self.consume_virtualref_boxes(nums, end)
+            end = len(numb.nums)
+        virtualref_boxes = self.consume_virtualref_boxes(numb, end)
         return virtualizable_boxes, virtualref_boxes
 
     def allocate_with_vtable(self, known_class):
@@ -977,23 +988,24 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         info = blackholeinterp.get_current_position_info()
         self._prepare_next_section(info)
 
-    def consume_virtualref_info(self, vrefinfo, nums, end):
+    def consume_virtualref_info(self, vrefinfo, numb, end):
         # we have to decode a list of references containing pairs
         # [..., virtual, vref, ...]  stopping at 'end'
         assert (end & 1) == 0
         for i in range(0, end, 2):
-            virtual = self.decode_ref(nums[i])
-            vref = self.decode_ref(nums[i+1])
+            virtual = self.decode_ref(numb.nums[i])
+            vref = self.decode_ref(numb.nums[i+1])
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
 
-    def consume_vable_info(self, vinfo, nums):
+    def consume_vable_info(self, vinfo, numb):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], load all other values
         # from the CPU stack, and copy them into the virtualizable
         if vinfo is None:
-            return len(nums)
-        virtualizable = self.decode_ref(nums[-1])
+            return len(numb.nums)
+        index = len(numb.nums) - 1
+        virtualizable = self.decode_ref(numb.nums[index])
         virtualizable = vinfo.cast_gcref_to_vtype(virtualizable)
         if self.resume_after_guard_not_forced == 1:
             # in the middle of handle_async_forcing()
@@ -1005,7 +1017,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             # is and stays 0.  Note the call to reset_vable_token() in
             # warmstate.py.
             assert not virtualizable.vable_token
-        return vinfo.write_from_resume_data_partial(virtualizable, self, nums)
+        return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
 
     def load_value_of_type(self, TYPE, tagged):
         from pypy.jit.metainterp.warmstate import specialize_value
@@ -1022,12 +1034,12 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
-        nums = self.cur_numb.nums
-        self.cur_numb = self.cur_numb.prev
+        numb = self.cur_numb
+        self.cur_numb = numb.prev
         if self.resume_after_guard_not_forced != 2:
-            end_vref = self.consume_vable_info(vinfo, nums)
+            end_vref = self.consume_vable_info(vinfo, numb)
             if ginfo is not None: end_vref -= 1
-            self.consume_virtualref_info(vrefinfo, nums, end_vref)
+            self.consume_virtualref_info(vrefinfo, numb, end_vref)
 
     def allocate_with_vtable(self, known_class):
         from pypy.jit.metainterp.executor import exec_new_with_vtable
@@ -1180,8 +1192,9 @@ def dump_storage(storage, liveboxes):
                         'at', compute_unique_id(frameinfo))
             frameinfo = frameinfo.prev
         numb = storage.rd_numb
-        while numb is not None:
-            debug_print('\tnumb', str([untag(i) for i in numb.nums]),
+        while numb:
+            debug_print('\tnumb', str([untag(numb.nums[i])
+                                       for i in range(len(numb.nums))]),
                         'at', compute_unique_id(numb))
             numb = numb.prev
         for const in storage.rd_consts:
