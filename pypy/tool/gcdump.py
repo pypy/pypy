@@ -65,7 +65,7 @@ class Stat(object):
 
     def walk(self, a, start=0, stop=None):
         assert a[-1] == -1, "invalid or truncated dump file (or 32/64-bit mix)"
-        assert a[-2] > 0,   "invalid or truncated dump file (or 32/64-bit mix)"
+        assert a[-2] != -1, "invalid or truncated dump file (or 32/64-bit mix)"
         print >> sys.stderr, 'walking...',
         i = start
         if stop is None:
