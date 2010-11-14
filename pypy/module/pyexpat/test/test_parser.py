@@ -50,6 +50,14 @@ class AppTestPyexpat:
         def gotText(text):
             assert text == u"caf\xe9"
         p.CharacterDataHandler = gotText
-        assert p.returns_unicode
         p.Parse(xml)
 
+    def test_python_encoding(self):
+        # This name is not knonwn by expat
+        xml = "<?xml version='1.0' encoding='latin1'?><s>caf\xe9</s>"
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        def gotText(text):
+            assert text == u"caf\xe9"
+        p.CharacterDataHandler = gotText
+        p.Parse(xml)
