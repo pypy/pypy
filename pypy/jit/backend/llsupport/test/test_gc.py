@@ -114,7 +114,7 @@ def test_GcRootMap_asmgcc():
         assert gcrootmap._gcmap[i*2+1] == expected_shapeaddr[i]
 
 
-class FakeLLOp:
+class FakeLLOp(object):
     def __init__(self):
         self.record = []
 
@@ -148,19 +148,19 @@ class FakeLLOp:
         return llhelper(FPTRTYPE, self._write_barrier_failing_case)
 
 
-class TestFramework:
+class TestFramework(object):
     gc = 'hybrid'
 
     def setup_method(self, meth):
-        class config_:
-            class translation:
+        class config_(object):
+            class translation(object):
                 gc = self.gc
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
-        class FakeTranslator:
+        class FakeTranslator(object):
             config = config_
-        class FakeCPU:
+        class FakeCPU(object):
             def cast_adr_to_int(self, adr):
                 ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
                 assert ptr._obj._callable == llop1._write_barrier_failing_case
@@ -278,11 +278,11 @@ class TestFramework:
 
     def test_rewrite_assembler_1(self):
         # check rewriting of ConstPtrs
-        class MyFakeCPU:
+        class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):
                 assert adr == "some fake address"
                 return 43
-        class MyFakeGCRefList:
+        class MyFakeGCRefList(object):
             def get_address_of_gcref(self, s_gcref1):
                 assert s_gcref1 == s_gcref
                 return "some fake address"
@@ -311,10 +311,10 @@ class TestFramework:
 
     def test_rewrite_assembler_1_cannot_move(self):
         # check rewriting of ConstPtrs
-        class MyFakeCPU:
+        class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):
                 xxx    # should not be called
-        class MyFakeGCRefList:
+        class MyFakeGCRefList(object):
             def get_address_of_gcref(self, s_gcref1):
                 seen.append(s_gcref1)
                 assert s_gcref1 == s_gcref
