@@ -143,6 +143,13 @@ class AbstractResOp(object):
     def can_raise(self):
         return rop._CANRAISE_FIRST <= self.getopnum() <= rop._CANRAISE_LAST
 
+    def can_malloc(self):
+        return (self.is_call() or
+                rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST)
+
+    def is_call(self):
+        return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
+
     def is_ovf(self):
         return rop._OVF_FIRST <= self.getopnum() <= rop._OVF_LAST
 
@@ -441,11 +448,13 @@ _oplist = [
     'GETARRAYITEM_RAW/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
+    '_MALLOC_FIRST',
     'NEW/0d',
     'NEW_WITH_VTABLE/1',
     'NEW_ARRAY/1d',
     'NEWSTR/1',
     'NEWUNICODE/1',
+    '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
@@ -465,6 +474,7 @@ _oplist = [
     'COPYUNICODECONTENT/5',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
+    '_CALL_FIRST',
     'CALL/*d',
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
@@ -473,6 +483,7 @@ _oplist = [
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
                              # CALL_PURE(result, func, arg_1,..,arg_n)
+    '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
     '_OVF_FIRST', # ----- start of is_ovf operations -----

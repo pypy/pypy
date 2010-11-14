@@ -61,3 +61,10 @@ def test_instantiate():
     assert op.getarglist() == ['a', 'b']
     assert op.result == 'c'
     assert op.getdescr() is mydescr
+
+def test_can_malloc():
+    mydescr = AbstractDescr()
+    assert rop.ResOperation(rop.rop.NEW, [], 'b').can_malloc()
+    call = rop.ResOperation(rop.rop.CALL, ['a', 'b'], 'c', descr=mydescr)
+    assert call.can_malloc()
+    assert not rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c').can_malloc()
