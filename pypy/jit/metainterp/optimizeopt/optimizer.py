@@ -25,14 +25,12 @@ MININT = -sys.maxint - 1
 
 class OptValue(object):
     __metaclass__ = extendabletype
-    _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound',
-               'fromstart')
+    _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound')
     last_guard_index = -1
 
     level = LEVEL_UNKNOWN
     known_class = None
     intbound = None
-    fromstart = False
 
     def __init__(self, box):
         self.box = box
