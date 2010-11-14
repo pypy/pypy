@@ -1087,9 +1087,15 @@ class ASTBuilder(object):
             encoding = self.compile_info.encoding
             flags = self.compile_info.flags
             unicode_literals = flags & consts.CO_FUTURE_UNICODE_LITERALS
-            sub_strings_w = [parsestring.parsestr(space, encoding, s.value,
-                                                  unicode_literals)
-                             for s in atom_node.children]
+            try:
+                sub_strings_w = [parsestring.parsestr(space, encoding, s.value,
+                                                      unicode_literals)
+                                 for s in atom_node.children]
+            except error.OperationError, e:
+                if not e.match(space, space.w_UnicodeError):
+                    raise
+                # UnicodeError in literal: turn into SyntaxError
+                self.error(e.errorstr(space), atom_node)
             # This implements implicit string concatenation.
             if len(sub_strings_w) > 1:
                 w_sub_strings = space.newlist(sub_strings_w)
