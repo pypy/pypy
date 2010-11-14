@@ -444,6 +444,8 @@ _oplist = [
     'NEW/0d',
     'NEW_WITH_VTABLE/1',
     'NEW_ARRAY/1d',
+    'NEWSTR/1',
+    'NEWUNICODE/1',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
@@ -452,10 +454,8 @@ _oplist = [
     'SETARRAYITEM_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
-    'NEWSTR/1',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
-    'NEWUNICODE/1',
     #'RUNTIMENEW/1',     # ootype operation    
     'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
     'DEBUG_MERGE_POINT/2',      # debugging only
