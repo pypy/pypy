@@ -51,6 +51,16 @@ class OptValue(object):
             boxes.append(self.force_box())
             already_seen[self.get_key_box()] = None
 
+    def get_reconstructed(self, optimizer, valuemap):
+        if self in valuemap:
+            return valuemap[self]
+        new = self.reconstruct_for_next_iteration(optimizer, valuemap)
+        valuemap[self] = new
+        return new
+
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        return self
+
     def get_args_for_fail(self, modifier):
         pass
 
@@ -197,7 +207,7 @@ class Optimization(object):
     def turned_constant(self, value):
         pass
 
-    def reconstruct_for_next_iteration(self):
+    def reconstruct_for_next_iteration(self, valuemap):
         #return self.__class__()
         raise NotImplementedError
     
@@ -240,25 +250,29 @@ class Optimizer(Optimization):
             o.force_at_end_of_preamble()
             
     def reconstruct_for_next_iteration(self):
-        optimizations = [o.reconstruct_for_next_iteration() for o in 
+        valuemap = {}
+        optimizations = [o.reconstruct_for_next_iteration(valuemap) for o in 
                          self.optimizations]
         optimizations = self.optimizations
         new = Optimizer(self.metainterp_sd, self.loop, optimizations)
-        new.values = self.values
+        new.values = {}
+        for box, value in self.values.items():
+            new.values[box] = value.get_reconstructed(new, valuemap)
         new.interned_refs = self.interned_refs
-        new.bool_boxes = self.bool_boxes
-        new.loop_invariant_results = self.loop_invariant_results
+        new.bool_boxes = {}
+        for value in new.bool_boxes.keys():
+            new.bool_boxes[value.get_reconstructed(new, valuemap)] = None
+
+        # FIXME: Move to rewrite.py
+        new.loop_invariant_results = {}
+        for key, value in self.loop_invariant_results.items():
+            new.loop_invariant_results[key] = \
+                                 value.get_reconstructed(new, valuemap)
+            
         new.pure_operations = self.pure_operations
         new.producer = self.producer
         assert self.posponedop is None
 
-        # FIXME: HACK!! Add a reconstruct_for_next_iteration to
-        # the values instead and reconstruct them in the same manner.
-        # That should also give us a clean solution for enabling
-        # OptString in the preamble that forces it's virtuals before
-        # the loop
-        for v in new.values.values(): 
-            v.optimizer = new
         return new
 
     def turned_constant(self, value):

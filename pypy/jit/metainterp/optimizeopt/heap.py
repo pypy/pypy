@@ -23,7 +23,7 @@ class OptHeap(Optimization):
         self.lazy_setfields = {}
         self.lazy_setfields_descrs = []     # keys (at least) of previous dict
 
-    def reconstruct_for_next_iteration(self):
+    def reconstruct_for_next_iteration(self, valuemap):
         self.force_all_lazy_setfields()
         assert not self.lazy_setfields_descrs
         assert not self.lazy_setfields

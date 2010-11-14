@@ -44,6 +44,9 @@ class AbstractVirtualValue(optimizer.OptValue):
     def _really_force(self):
         raise NotImplementedError("abstract base")
 
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        return optimizer.OptValue(self.force_box())
+
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
         result = descrlist_dict()
@@ -131,6 +134,15 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 self._fields[ofs].enum_forced_boxes(boxes, already_seen)
         else:
             boxes.append(self.box)
+
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        self.optimizer = optimizer
+        if self.box is None:
+            lst = self._get_field_descr_list()
+            for ofs in lst:
+                self._fields[ofs] = \
+                      self._fields[ofs].get_reconstructed(optimizer, valuemap)
+        return self
 
 
 class VirtualValue(AbstractVirtualStructValue):
@@ -224,11 +236,18 @@ class VArrayValue(AbstractVirtualValue):
         else:
             boxes.append(self.box)
 
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        self.optimizer = optimizer
+        if self.box is None:
+            for i in range(len(self._items)):
+                self._items[i] = self._items[i].get_reconstructed(optimizer,
+                                                                  valuemap)
+        return self
 
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self):
+    def reconstruct_for_next_iteration(self, valuemap):
         return self
 
     def make_virtual(self, known_class, box, source_op=None):

@@ -10,7 +10,7 @@ class OptRewrite(Optimization):
        This includes already executed operations and constants.
     """
 
-    def reconstruct_for_next_iteration(self):
+    def reconstruct_for_next_iteration(self, valuemap):
         return self
     
     def propagate_forward(self, op):
