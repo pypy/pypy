@@ -95,6 +95,9 @@ class BaseStringFormatTests:
         assert format(self.s("h"), "c<3") == self.s("hcc")
         raises(ValueError, format, self.s("blah"), "=12")
 
+    def test_precision(self):
+        assert format(self.s("abcdef"), ".3") == self.s("abc")
+
     def test_non_ascii_presentation(self):
         raises(ValueError, format, self.s(""), "\x234")
 

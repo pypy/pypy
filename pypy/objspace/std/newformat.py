@@ -443,8 +443,11 @@ class Formatter(BaseFormatter):
             msg = "'=' alignment not allowed in string format specifier"
             raise OperationError(space.w_ValueError, space.wrap(msg))
         length = len(string)
-        if self._precision != -1 and length >= self._precision:
-            length = self._precision
+        precision = self._precision
+        if precision != -1 and length >= precision:
+            assert precision >= 0
+            length = precision
+            string = string[:precision]
         if self._fill_char == "\0":
             self._fill_char = self._lit(" ")[0]
         self._calc_padding(string, length)
