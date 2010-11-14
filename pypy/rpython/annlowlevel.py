@@ -136,7 +136,7 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
         return funcdesc.cachedgraph(TYPE, alt_name=valid_identifier(alt_name))
 
 
-class MixLevelHelperAnnotator:
+class MixLevelHelperAnnotator(object):
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
