@@ -54,12 +54,16 @@ class OptValue(object):
     def get_reconstructed(self, optimizer, valuemap):
         if self in valuemap:
             return valuemap[self]
-        new = self.reconstruct_for_next_iteration(optimizer, valuemap)
+        new = self.reconstruct_for_next_iteration(optimizer)
         valuemap[self] = new
+        self.reconstruct_childs(new, valuemap)
         return new
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def reconstruct_for_next_iteration(self, optimizer):
         return self
+
+    def reconstruct_childs(self, new, valuemap):
+        pass
 
     def get_args_for_fail(self, modifier):
         pass
@@ -207,7 +211,7 @@ class Optimization(object):
     def turned_constant(self, value):
         pass
 
-    def reconstruct_for_next_iteration(self, valuemap):
+    def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
         #return self.__class__()
         raise NotImplementedError
     
@@ -230,6 +234,9 @@ class Optimizer(Optimization):
         self.exception_might_have_happened = False
         self.newoperations = []
 
+        self.set_optimizations(optimizations)
+
+    def set_optimizations(self, optimizations):
         if optimizations:
             self.first_optimization = optimizations[0]
             for i in range(1, len(optimizations)):
@@ -249,12 +256,15 @@ class Optimizer(Optimization):
         for o in self.optimizations:
             o.force_at_end_of_preamble()
             
-    def reconstruct_for_next_iteration(self):
+    def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
+        assert optimizer is None
+        assert valuemap is None
         valuemap = {}
-        optimizations = [o.reconstruct_for_next_iteration(valuemap) for o in 
+        new = Optimizer(self.metainterp_sd, self.loop)
+        optimizations = [o.reconstruct_for_next_iteration(new, valuemap) for o in 
                          self.optimizations]
-        optimizations = self.optimizations
-        new = Optimizer(self.metainterp_sd, self.loop, optimizations)
+        new.set_optimizations(optimizations)
+
         new.values = {}
         for box, value in self.values.items():
             new.values[box] = value.get_reconstructed(new, valuemap)

@@ -23,13 +23,35 @@ class OptHeap(Optimization):
         self.lazy_setfields = {}
         self.lazy_setfields_descrs = []     # keys (at least) of previous dict
 
-    def reconstruct_for_next_iteration(self, valuemap):
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
         self.force_all_lazy_setfields()
         assert not self.lazy_setfields_descrs
         assert not self.lazy_setfields
         new = OptHeap()
-        new.cached_fields = self.cached_fields
-        new.cached_arrayitems = self.cached_arrayitems
+        
+        for descr, d in self.cached_fields.items():
+            newd = {}
+            new.cached_fields[descr] = newd
+            for value, fieldvalue in d.items():
+                newd[value.get_reconstructed(optimizer, valuemap)] = \
+                                       fieldvalue.get_reconstructed(optimizer, valuemap)
+            
+        new.cached_arrayitems = {}
+        for descr, d in self.cached_arrayitems.items():
+            newd = {}
+            new.cached_arrayitems[descr] = newd
+            for value, cache in d.items():
+                newcache = CachedArrayItems()
+                newd[value.get_reconstructed(optimizer, valuemap)] = newcache
+                if cache.var_index_item:
+                    newcache.var_index_item = \
+                          cache.var_index_item.get_reconstructed(optimizer, valuemap)
+                if newcache.var_index_indexvalue:
+                    newcache.var_index_indexvalue = \
+                          cache.var_index_indexvalue.get_reconstructed(optimizer, valuemap)
+                for index, fieldvalue in cache.fixed_index_items.items():
+                    newcache.fixed_index_items[index] = \
+                           fieldvalue.get_reconstructed(optimizer, valuemap)
         return new
 
     def clean_caches(self):

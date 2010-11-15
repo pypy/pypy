@@ -44,7 +44,7 @@ class AbstractVirtualValue(optimizer.OptValue):
     def _really_force(self):
         raise NotImplementedError("abstract base")
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def reconstruct_for_next_iteration(self, _optimizer):
         return optimizer.OptValue(self.force_box())
 
 def get_fielddescrlist_cache(cpu):
@@ -135,15 +135,17 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         else:
             boxes.append(self.box)
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def reconstruct_for_next_iteration(self, optimizer):
         self.optimizer = optimizer
-        if self.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                self._fields[ofs] = \
-                      self._fields[ofs].get_reconstructed(optimizer, valuemap)
         return self
 
+    def reconstruct_childs(self, new, valuemap):
+        assert isinstance(new, AbstractVirtualStructValue)
+        if new.box is None:
+            lst = self._get_field_descr_list()
+            for ofs in lst:
+                new._fields[ofs] = \
+                      self._fields[ofs].get_reconstructed(new.optimizer, valuemap)
 
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
@@ -236,18 +238,21 @@ class VArrayValue(AbstractVirtualValue):
         else:
             boxes.append(self.box)
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def reconstruct_for_next_iteration(self, optimizer):
         self.optimizer = optimizer
-        if self.box is None:
-            for i in range(len(self._items)):
-                self._items[i] = self._items[i].get_reconstructed(optimizer,
-                                                                  valuemap)
         return self
+
+    def reconstruct_childs(self, new, valuemap):
+        assert isinstance(new, VArrayValue)
+        if new.box is None:
+            for i in range(len(self._items)):
+                new._items[i] = self._items[i].get_reconstructed(new.optimizer,
+                                                                 valuemap)
 
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self, valuemap):
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return self
 
     def make_virtual(self, known_class, box, source_op=None):
