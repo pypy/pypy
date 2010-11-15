@@ -10,8 +10,8 @@ itself faster than CPython. Starting today, we plan to start using PyPy for our
 own development.
 
 Among other features, this release includes numerous performance improvements
-(which made fast self-hosting possible), 64-bit JIT backend, as well as serious
-stabilization. As of now, we can consider 32-bit version of PyPy stable enough
+(which made fast self-hosting possible), a 64-bit JIT backend, as well as serious
+stabilization. As of now, we can consider the 32-bit version of PyPy stable enough
 to run in production.
 
 More highlights
