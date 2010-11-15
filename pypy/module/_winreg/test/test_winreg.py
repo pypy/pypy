@@ -81,6 +81,18 @@ class AppTestFfi:
         nkeys, nvalues, since_mod = QueryInfoKey(sub_key)
         assert nkeys == 0
 
+    def test_CreateKeyEx(self):
+        from _winreg import CreateKeyEx, QueryInfoKey
+        from _winreg import KEY_ALL_ACCESS, KEY_READ
+        key = CreateKeyEx(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
+        sub_key = CreateKeyEx(key, "sub_key", 0, KEY_READ)
+
+        nkeys, nvalues, since_mod = QueryInfoKey(key)
+        assert nkeys == 1
+
+        nkeys, nvalues, since_mod = QueryInfoKey(sub_key)
+        assert nkeys == 0
+
     def test_close(self):
         from _winreg import OpenKey, CloseKey, FlushKey, QueryInfoKey
         key = OpenKey(self.root_key, self.test_key_name)

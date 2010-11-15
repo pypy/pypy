@@ -486,6 +486,28 @@ If the function fails, an exception is raised."""
         return space.wrap(W_HKEY(rethkey[0]))
 CreateKey.unwrap_spec = [ObjSpace, W_Root, str]
 
+def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
+    """key = CreateKey(key, sub_key) - Creates or opens the specified key.
+
+key is an already open key, or one of the predefined HKEY_* constants
+sub_key is a string that names the key this method opens or creates.
+ If key is one of the predefined keys, sub_key may be None. In that case,
+ the handle returned is the same key handle passed in to the function.
+
+If the key already exists, this function opens the existing key
+
+The return value is the handle of the opened key.
+If the function fails, an exception is raised."""
+    hkey = hkey_w(w_hkey, space)
+    with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
+        ret = rwinreg.RegCreateKeyEx(hkey, subkey, res, None, 0,
+                                     sam, None, rethkey,
+                                     lltype.nullptr(rwin32.LPDWORD.TO))
+        if ret != 0:
+            raiseWindowsError(space, ret, 'CreateKeyEx')
+        return space.wrap(W_HKEY(rethkey[0]))
+CreateKeyEx.unwrap_spec = [ObjSpace, W_Root, str, int, rffi.r_uint]
+
 def DeleteKey(space, w_hkey, subkey):
     """DeleteKey(key, sub_key) - Deletes the specified key.
 

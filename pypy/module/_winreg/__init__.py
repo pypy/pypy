@@ -49,6 +49,7 @@ to see what constants are used, and where."""
         'QueryValue'     : 'interp_winreg.QueryValue',
         'QueryValueEx'   : 'interp_winreg.QueryValueEx',
         'CreateKey'      : 'interp_winreg.CreateKey',
+        'CreateKeyEx'    : 'interp_winreg.CreateKeyEx',
         'DeleteKey'      : 'interp_winreg.DeleteKey',
         'DeleteValue'    : 'interp_winreg.DeleteValue',
         'OpenKey'        : 'interp_winreg.OpenKey',
