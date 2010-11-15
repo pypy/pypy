@@ -1,3 +1,36 @@
+""" MiniMark GC.
+
+Environment variables can be used to fine-tune the following parameters:
+    
+ PYPY_GC_NURSERY        The nursery size.  Defaults to half the size of
+                        the L2 cache.  Try values like '1.2MB'.
+
+ PYPY_GC_MAJOR_COLLECT  Major collection memory factor.  Default is '1.82',
+                        which means trigger a major collection when the
+                        memory consumed equals 1.82 times the memory
+                        really used at the end of the previous major
+                        collection.
+
+ PYPY_GC_GROWTH         Major collection threshold's max growth rate.
+                        Default is '1.3'.  Useful to collect more often
+                        than normally on sudden memory growth, e.g. when
+                        there is a temporary peak in memory usage.
+
+ PYPY_GC_MAX            The max heap size.  If coming near this limit, it
+                        will first collect more often, then raise an
+                        RPython MemoryError, and if that is not enough,
+                        crash the program with a fatal error.  Try values
+                        like '1.6GB'.
+
+ PYPY_GC_MIN            Don't collect while the memory size is below this
+                        limit.  Useful to avoid spending all the time in
+                        the GC in very small programs.  Defaults to 8
+                        times the nursery.
+"""
+# XXX Should find a way to bound the major collection threshold by the
+# XXX total addressable size.  Maybe by keeping some minimarkpage arenas
+# XXX pre-reserved, enough for a few nursery collections?  What about
+# XXX raw-malloced memory?
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -87,13 +120,8 @@ class MiniMarkGC(MovingGCBase):
 
     TRANSLATION_PARAMS = {
         # Automatically adjust the size of the nursery and the
-        # 'major_collection_threshold' from the environment.  For
-        # 'nursery_size' it will look it up in the env var
-        # PYPY_GC_NURSERY and fall back to half the size of
-        # the L2 cache.  For 'major_collection_threshold' it will look
-        # it up in the env var PYPY_GC_MAJOR_COLLECT.  It also sets
-        # 'max_heap_size' to PYPY_GC_MAX.  Finally, PYPY_GC_MIN sets
-        # the minimal value of 'next_major_collection_threshold'.
+        # 'major_collection_threshold' from the environment.
+        # See docstring at the start of the file.
         "read_from_env": True,
 
         # The size of the nursery.  Note that this is only used as a
@@ -121,6 +149,13 @@ class MiniMarkGC(MovingGCBase):
         # we trigger the next major collection.
         "major_collection_threshold": 1.82,
 
+        # Threshold to avoid that the total heap size grows by a factor of
+        # major_collection_threshold at every collection: it can only
+        # grow at most by the following factor from one collection to the
+        # next.  Used e.g. when there is a sudden, temporary peak in memory
+        # usage; this avoids that the upper bound grows too fast.
+        "growth_rate_max": 1.3,
+
         # The number of array indices that are mapped to a single bit in
         # write_barrier_from_array().  Must be a power of two.  The default
         # value of 128 means that card pages are 512 bytes (1024 on 64-bits)
@@ -146,6 +181,7 @@ class MiniMarkGC(MovingGCBase):
                  arena_size=64*WORD,
                  small_request_threshold=5*WORD,
                  major_collection_threshold=2.5,
+                 growth_rate_max=2.5,   # for tests
                  card_page_indices=0,
                  large_object=8*WORD,
                  large_object_gcptrs=10*WORD,
@@ -157,6 +193,7 @@ class MiniMarkGC(MovingGCBase):
         self.nursery_size = nursery_size
         self.small_request_threshold = small_request_threshold
         self.major_collection_threshold = major_collection_threshold
+        self.growth_rate_max = growth_rate_max
         self.num_major_collects = 0
         self.min_heap_size = 0.0
         self.max_heap_size = 0.0
@@ -257,8 +294,12 @@ class MiniMarkGC(MovingGCBase):
             newsize = max(newsize, minsize)
             #
             major_coll = base.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
-            if major_coll >= 1.0:
+            if major_coll > 1.0:
                 self.major_collection_threshold = major_coll
+            #
+            growth = base.read_float_from_env('PYPY_GC_GROWTH')
+            if growth > 1.0:
+                self.growth_rate_max = growth
             #
             min_heap_size = base.read_uint_from_env('PYPY_GC_MIN')
             if min_heap_size > 0:
@@ -295,11 +336,19 @@ class MiniMarkGC(MovingGCBase):
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
                                               self.major_collection_threshold)
+        self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
         debug_stop("gc-set-nursery-size")
 
-    def set_major_threshold_from(self, threshold):
+
+    def set_major_threshold_from(self, threshold, reserving_size=0):
         # Set the next_major_collection_threshold.
+        threshold_max = (self.next_major_collection_threshold *
+                         self.growth_rate_max)
+        if threshold > threshold_max:
+            threshold = threshold_max
+        #
+        threshold += reserving_size
         if threshold < self.min_heap_size:
             threshold = self.min_heap_size
         #
@@ -1198,8 +1247,8 @@ class MiniMarkGC(MovingGCBase):
         # have allocated 'major_collection_threshold' times more than
         # we currently have.
         bounded = self.set_major_threshold_from(
-            (self.get_total_memory_used() * self.major_collection_threshold)
-            + reserving_size)
+            self.get_total_memory_used() * self.major_collection_threshold,
+            reserving_size)
         #
         # Max heap size: gives an upper bound on the threshold.  If we
         # already have at least this much allocated, raise MemoryError.
