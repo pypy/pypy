@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.gateway import interp2app, Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_windowserror
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import rwinreg, rwin32
 from pypy.rlib.rarithmetic import r_uint, intmask
@@ -254,13 +254,24 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
         subkey = space.str_w(w_subkey)
     with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
         ret = rwinreg.RegQueryValue(hkey, subkey, None, bufsize_p)
-        if ret != 0:
+        bufSize = intmask(bufsize_p[0])
+        if ret == rwinreg.ERROR_MORE_DATA:
+            bufSize = 256
+        elif ret != 0:
             raiseWindowsError(space, ret, 'RegQueryValue')
-        with lltype.scoped_alloc(rffi.CCHARP.TO, bufsize_p[0]) as buf:
-            ret = rwinreg.RegQueryValue(hkey, subkey, buf, bufsize_p)
-            if ret != 0:
-                raiseWindowsError(space, ret, 'RegQueryValue')
-            return space.wrap(rffi.charp2strn(buf, bufsize_p[0] - 1))
+
+        while True:
+            with lltype.scoped_alloc(rffi.CCHARP.TO, bufSize) as buf:
+                ret = rwinreg.RegQueryValue(hkey, subkey, buf, bufsize_p)
+                if ret == rwinreg.ERROR_MORE_DATA:
+                    # Resize and retry
+                    bufSize *= 2
+                    bufsize_p[0] = bufSize
+                    continue
+
+                if ret != 0:
+                    raiseWindowsError(space, ret, 'RegQueryValue')
+                return space.wrap(rffi.charp2strn(buf, bufsize_p[0] - 1))
 QueryValue.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def convert_to_regdata(space, w_value, typ):
@@ -537,24 +548,38 @@ data_type is an integer that identifies the type of the value data."""
             # include null terminators
             retValueSize[0] += 1
             retDataSize[0] += 1
+            bufDataSize = intmask(retDataSize[0])
+            bufValueSize = intmask(retValueSize[0])
 
             with lltype.scoped_alloc(rffi.CCHARP.TO,
                                      intmask(retValueSize[0])) as valuebuf:
-                with lltype.scoped_alloc(rffi.CCHARP.TO,
-                                         intmask(retDataSize[0])) as databuf:
-                    with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
-                        ret = rwinreg.RegEnumValue(
-                            hkey, index, valuebuf, retValueSize,
-                            null_dword, retType, databuf, retDataSize)
-                        if ret != 0:
-                            raiseWindowsError(space, ret, 'RegEnumValue')
+                while True:
+                    with lltype.scoped_alloc(rffi.CCHARP.TO,
+                                             bufDataSize) as databuf:
+                        with lltype.scoped_alloc(rwin32.LPDWORD.TO,
+                                                 1) as retType:
+                            ret = rwinreg.RegEnumValue(
+                                hkey, index, valuebuf, retValueSize,
+                                null_dword, retType, databuf, retDataSize)
+                            if ret == rwinreg.ERROR_MORE_DATA:
+                                # Resize and retry
+                                bufDataSize *= 2
+                                retDataSize[0] = rffi.cast(rwin32.DWORD,
+                                                           bufDataSize)
+                                retValueSize[0] = rffi.cast(rwin32.DWORD,
+                                                            bufValueSize)
+                                continue
 
-                        return space.newtuple([
-                            space.wrap(rffi.charp2str(valuebuf)),
-                            convert_from_regdata(space, databuf,
-                                                 retDataSize[0], retType[0]),
-                            space.wrap(retType[0]),
-                            ])
+                            if ret != 0:
+                                raiseWindowsError(space, ret, 'RegEnumValue')
+
+                            return space.newtuple([
+                                space.wrap(rffi.charp2str(valuebuf)),
+                                convert_from_regdata(space, databuf,
+                                                     retDataSize[0],
+                                                     retType[0]),
+                                space.wrap(retType[0]),
+                                ])
 
 EnumValue.unwrap_spec = [ObjSpace, W_Root, int]
 
