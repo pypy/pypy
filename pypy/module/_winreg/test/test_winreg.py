@@ -187,3 +187,9 @@ class AppTestFfi:
         r = ExpandEnvironmentStrings(u"%windir%\\test")
         assert isinstance(r, unicode)
         assert r == nt.environ["WINDIR"] + "\\test"
+
+    def test_dynamic_key(self):
+        from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
+        EnumValue(HKEY_PERFORMANCE_DATA, 0)
+        QueryValueEx(HKEY_PERFORMANCE_DATA, None)
+

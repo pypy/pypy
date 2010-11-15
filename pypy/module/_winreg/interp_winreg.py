@@ -423,34 +423,48 @@ the configuration registry.  This helps the registry perform efficiently."""
         raiseWindowsError(space, ret, 'RegSetValueEx')
 SetValueEx.unwrap_spec = [ObjSpace, W_Root, str, W_Root, int, W_Root]
 
-def QueryValueEx(space, w_hkey, subkey):
+def QueryValueEx(space, w_hkey, w_subkey):
     """value,type_id = QueryValueEx(key, value_name) - Retrieves the type and data for a specified value name associated with an open registry key.
 
 key is an already open key, or any one of the predefined HKEY_* constants.
 value_name is a string indicating the value to query"""
     hkey = hkey_w(w_hkey, space)
+    if space.is_w(w_subkey, space.w_None):
+        subkey = None
+    else:
+        subkey = space.str_w(w_subkey)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
         ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword, null_dword,
                                       None, retDataSize)
-        if ret != 0:
+        bufSize = intmask(retDataSize[0])
+        if ret == rwinreg.ERROR_MORE_DATA:
+            bufSize = 256
+        elif ret != 0:
             raiseWindowsError(space, ret, 'RegQueryValueEx')
 
-        with lltype.scoped_alloc(rffi.CCHARP.TO,
-                                 intmask(retDataSize[0])) as databuf:
-            with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
+        while True:
+            with lltype.scoped_alloc(rffi.CCHARP.TO, bufSize) as databuf:
+                with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
 
-                ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword,
-                                              retType, databuf, retDataSize)
-                if ret != 0:
-                    raiseWindowsError(space, ret, 'RegQueryValueEx')
-                return space.newtuple([
-                    convert_from_regdata(space, databuf,
-                                         retDataSize[0], retType[0]),
-                    space.wrap(retType[0]),
-                    ])
+                    ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword,
+                                                  retType, databuf, retDataSize)
+                    if ret == rwinreg.ERROR_MORE_DATA:
+                        # Resize and retry
+                        bufSize *= 2
+                        print "AFA CONTINUE", bufSize, retDataSize[0]
+                        retDataSize[0] = rffi.cast(rwin32.DWORD, bufSize)
+                        continue
+                    if ret != 0:
+                        raiseWindowsError(space, ret, 'RegQueryValueEx')
+                    print "AFA OK", bufSize, retDataSize[0]
+                    return space.newtuple([
+                        convert_from_regdata(space, databuf,
+                                             retDataSize[0], retType[0]),
+                        space.wrap(retType[0]),
+                        ])
 
-QueryValueEx.unwrap_spec = [ObjSpace, W_Root, str]
+QueryValueEx.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def CreateKey(space, w_hkey, subkey):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
