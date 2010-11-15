@@ -609,10 +609,15 @@ raised, indicating no more values are available."""
     hkey = hkey_w(w_hkey, space)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
 
-    # max key name length is 255
-    with lltype.scoped_alloc(rffi.CCHARP.TO, 256) as buf:
+    # The Windows docs claim that the max key name length is 255
+    # characters, plus a terminating nul character.  However,
+    # empirical testing demonstrates that it is possible to
+    # create a 256 character key that is missing the terminating
+    # nul.  RegEnumKeyEx requires a 257 character buffer to
+    # retrieve such a key name.
+    with lltype.scoped_alloc(rffi.CCHARP.TO, 257) as buf:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
-            retValueSize[0] = r_uint(256) # includes NULL terminator
+            retValueSize[0] = r_uint(257) # includes NULL terminator
             ret = rwinreg.RegEnumKeyEx(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
                                        lltype.nullptr(rwin32.PFILETIME.TO))

@@ -188,6 +188,22 @@ class AppTestFfi:
         assert isinstance(r, unicode)
         assert r == nt.environ["WINDIR"] + "\\test"
 
+    def test_long_key(self):
+        from _winreg import (
+            HKEY_CURRENT_USER, KEY_ALL_ACCESS, CreateKey, SetValue, EnumKey,
+            REG_SZ, QueryInfoKey, OpenKey, DeleteKey)
+        name = 'x'*256
+        try:
+            with CreateKey(HKEY_CURRENT_USER, self.test_key_name) as key:
+                SetValue(key, name, REG_SZ, 'x')
+                num_subkeys, num_values, t = QueryInfoKey(key)
+                EnumKey(key, 0)
+        finally:
+            with OpenKey(HKEY_CURRENT_USER, self.test_key_name, 0,
+                         KEY_ALL_ACCESS) as key:
+                DeleteKey(key, name)
+            DeleteKey(HKEY_CURRENT_USER, self.test_key_name)
+
     def test_dynamic_key(self):
         from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
         EnumValue(HKEY_PERFORMANCE_DATA, 0)
