@@ -175,6 +175,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=False,
                requires=[("objspace.usepycfiles", True)]),
 
+    StrOption("soabi",
+              "Tag to differentiate extension modules built for different Python interpreters",
+              cmdline="--soabi",
+              default=None),
+
     BoolOption("honor__builtins__",
                "Honor the __builtins__ key of a module dictionary",
                default=False),
