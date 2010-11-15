@@ -63,6 +63,11 @@ to see what constants are used, and where."""
         'ConnectRegistry': 'interp_winreg.ConnectRegistry',
 
         'ExpandEnvironmentStrings': 'interp_winreg.ExpandEnvironmentStrings',
+
+        'DisableReflectionKey': 'interp_winreg.DisableReflectionKey',
+        'EnableReflectionKey': 'interp_winreg.EnableReflectionKey',
+        'QueryReflectionKey': 'interp_winreg.QueryReflectionKey',
+        'DeleteKeyEx': 'interp_winreg.DeleteKeyEx',
     }
 
     for name, value in constants.iteritems():

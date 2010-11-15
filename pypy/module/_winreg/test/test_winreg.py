@@ -209,3 +209,17 @@ class AppTestFfi:
         EnumValue(HKEY_PERFORMANCE_DATA, 0)
         QueryValueEx(HKEY_PERFORMANCE_DATA, None)
 
+    def test_reflection_unsupported(self):
+        import sys
+        if sys.getwindowsversion() >= (5, 2):
+            skip("Requires Windows XP")
+        from _winreg import (
+            CreateKey, DisableReflectionKey, EnableReflectionKey,
+            QueryReflectionKey, DeleteKeyEx)
+        with CreateKey(self.root_key, self.test_key_name) as key:
+            raises(NotImplementedError, DisableReflectionKey, key)
+            raises(NotImplementedError, EnableReflectionKey, key)
+            raises(NotImplementedError, QueryReflectionKey, key)
+            raises(NotImplementedError, DeleteKeyEx, self.root_key,
+                   self.test_key_name)
+

@@ -688,3 +688,46 @@ def ExpandEnvironmentStrings(space, source):
     except WindowsError, e:
         raise wrap_windowserror(space, e)
 ExpandEnvironmentStrings.unwrap_spec = [ObjSpace, unicode]
+
+def DisableReflectionKey(space, w_key):
+    """Disables registry reflection for 32-bit processes running on a 64-bit
+    Operating System.  Will generally raise NotImplemented if executed on
+    a 32-bit Operating System.
+    If the key is not on the reflection list, the function succeeds but has no effect.
+    Disabling reflection for a key does not affect reflection of any subkeys."""
+    raise OperationError(space.w_NotImplementedError, space.wrap(
+        "not implemented on this platform"))
+DisableReflectionKey.unwrap_spec = [ObjSpace, W_Root]
+
+def EnableReflectionKey(space, w_key):
+    """Restores registry reflection for the specified disabled key.
+    Will generally raise NotImplemented if executed on a 32-bit Operating System.
+    Restoring reflection for a key does not affect reflection of any subkeys."""
+    raise OperationError(space.w_NotImplementedError, space.wrap(
+        "not implemented on this platform"))
+EnableReflectionKey.unwrap_spec = [ObjSpace, W_Root]
+
+def QueryReflectionKey(space, w_key):
+    """bool = QueryReflectionKey(hkey) - Determines the reflection state for the specified key.
+    Will generally raise NotImplemented if executed on a 32-bit Operating System."""
+    raise OperationError(space.w_NotImplementedError, space.wrap(
+        "not implemented on this platform"))
+QueryReflectionKey.unwrap_spec = [ObjSpace, W_Root]
+
+def DeleteKeyEx(space, w_key, subkey):
+    """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
+
+    key is an already open key, or any one of the predefined HKEY_* constants.
+    sub_key is a string that must be a subkey of the key identified by the key parameter.
+    res is a reserved integer, and must be zero.  Default is zero.
+    sam is an integer that specifies an access mask that describes the desired
+     This value must not be None, and the key may not have subkeys.
+
+    This method can not delete keys with subkeys.
+
+    If the method succeeds, the entire key, including all of its values,
+    is removed.  If the method fails, a WindowsError exception is raised.
+    On unsupported Windows versions, NotImplementedError is raised."""
+    raise OperationError(space.w_NotImplementedError, space.wrap(
+        "not implemented on this platform"))
+DeleteKeyEx.unwrap_spec = [ObjSpace, W_Root, str]
