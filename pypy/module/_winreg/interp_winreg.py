@@ -636,3 +636,11 @@ If the function fails, an EnvironmentError exception is raised."""
             raiseWindowsError(space, ret, 'RegConnectRegistry')
         return space.wrap(W_HKEY(rethkey[0]))
 ConnectRegistry.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+def ExpandEnvironmentStrings(space, source):
+    "string = ExpandEnvironmentStrings(string) - Expand environment vars."
+    try:
+        return space.wrap(rwinreg.ExpandEnvironmentStrings(source))
+    except WindowsError, e:
+        raise wrap_windowserror(space, e)
+ExpandEnvironmentStrings.unwrap_spec = [ObjSpace, unicode]

@@ -1,12 +1,13 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rwin32
 
 eci = ExternalCompilationInfo(
     includes = ['windows.h',
                 ],
-    libraries = ('Advapi32',)
+    libraries = ('Advapi32', 'kernel32')
     )
 class CConfig:
     _compilation_info_ = eci
@@ -132,3 +133,21 @@ RegConnectRegistry = external(
     'RegConnectRegistryA',
     [rffi.CCHARP, HKEY, PHKEY],
     rffi.LONG)
+
+_ExpandEnvironmentStringsW = external(
+    'ExpandEnvironmentStringsW',
+    [rffi.CWCHARP, rffi.CWCHARP, rwin32.DWORD],
+    rwin32.DWORD)
+
+def ExpandEnvironmentStrings(source):
+    with rffi.scoped_unicode2wcharp(source) as src_buf:
+        size = _ExpandEnvironmentStringsW(src_buf,
+                                          lltype.nullptr(rffi.CWCHARP.TO), 0)
+        if size == 0:
+            raise rwin32.lastWindowsError("ExpandEnvironmentStrings")
+        size = intmask(size)
+        with rffi.scoped_alloc_unicodebuffer(size) as dest_buf:
+            if _ExpandEnvironmentStringsW(src_buf,
+                                          dest_buf.raw, size) == 0:
+                raise rwin32.lastWindowsError("ExpandEnvironmentStrings")
+            return dest_buf.str(size - 1) # remove trailing \0

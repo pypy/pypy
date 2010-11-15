@@ -180,3 +180,10 @@ class AppTestFfi:
 
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         SaveKey(key, self.tmpfilename)
+
+    def test_expand_environment_string(self):
+        from _winreg import ExpandEnvironmentStrings
+        import nt
+        r = ExpandEnvironmentStrings(u"%windir%\\test")
+        assert isinstance(r, unicode)
+        assert r == nt.environ["WINDIR"] + "\\test"

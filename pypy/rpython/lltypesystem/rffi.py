@@ -945,6 +945,15 @@ class scoped_str2charp:
         free_charp(self.buf)
 
 
+class scoped_unicode2wcharp:
+    def __init__(self, value):
+        self.buf = unicode2wcharp(value)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        free_wcharp(self.buf)
+
+
 class scoped_nonmovingbuffer:
     def __init__(self, data):
         self.data = data
@@ -954,6 +963,15 @@ class scoped_nonmovingbuffer:
     def __exit__(self, *args):
         free_nonmovingbuffer(self.data, self.buf)
 
+
+class scoped_nonmoving_unicodebuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmoving_unicodebuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmoving_unicodebuffer(self.data, self.buf)
 
 class scoped_alloc_buffer:
     def __init__(self, size):
@@ -965,3 +983,14 @@ class scoped_alloc_buffer:
         keep_buffer_alive_until_here(self.raw, self.gc_buf)
     def str(self, length):
         return str_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+class scoped_alloc_unicodebuffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)

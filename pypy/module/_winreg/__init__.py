@@ -61,6 +61,8 @@ to see what constants are used, and where."""
         'LoadKey'        : 'interp_winreg.LoadKey',
         'SaveKey'        : 'interp_winreg.SaveKey',
         'ConnectRegistry': 'interp_winreg.ConnectRegistry',
+
+        'ExpandEnvironmentStrings': 'interp_winreg.ExpandEnvironmentStrings',
     }
 
     for name, value in constants.iteritems():
