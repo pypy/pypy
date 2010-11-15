@@ -58,6 +58,12 @@ class AppTestFfi:
         except WindowsError:
             pass
 
+    def test_constants(self):
+        from _winreg import (
+            HKEY_LOCAL_MACHINE, HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG,
+            HKEY_CURRENT_USER, HKEY_DYN_DATA, HKEY_LOCAL_MACHINE,
+            HKEY_PERFORMANCE_DATA, HKEY_USERS)
+
     def test_simple_write(self):
         from _winreg import SetValue, QueryValue, REG_SZ
         value = "Some Default value"
