@@ -97,6 +97,15 @@ class AppTestFfi:
         CloseKey(int_key)
         raises(EnvironmentError, QueryInfoKey, int_key) # now closed
 
+    def test_with(self):
+        from _winreg import OpenKey
+        with OpenKey(self.root_key, self.test_key_name) as key:
+            with OpenKey(key, "sub_key") as sub_key:
+                assert key.handle != 0
+                assert sub_key.handle != 0
+        assert key.handle == 0
+        assert sub_key.handle == 0
+
     def test_exception(self):
         from _winreg import QueryInfoKey
         import errno

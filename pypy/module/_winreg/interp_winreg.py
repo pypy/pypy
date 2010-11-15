@@ -1,12 +1,12 @@
 from __future__ import with_statement
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import interp2app, Arguments
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import rwinreg, rwin32
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)
@@ -29,6 +29,9 @@ class W_HKEY(Wrappable):
         return space.wrap(self.as_int() != 0)
     descr_nonzero.unwrap_spec = ['self', ObjSpace]
 
+    def descr_handle_get(space, self):
+        return space.wrap(self.as_int())
+
     def descr_repr(self, space):
         return space.wrap("<PyHKEY:0x%x>" % (self.as_int(),))
     descr_repr.unwrap_spec = ['self', ObjSpace]
@@ -36,6 +39,14 @@ class W_HKEY(Wrappable):
     def descr_int(self, space):
         return space.wrap(self.as_int())
     descr_int.unwrap_spec = ['self', ObjSpace]
+
+    def descr__enter__(self, space):
+        return self
+    descr__enter__.unwrap_spec = ['self', ObjSpace]
+
+    def descr__exit__(self, space, __args__):
+        CloseKey(space, self)
+    descr__exit__.unwrap_spec = ['self', ObjSpace, Arguments]
 
     def Close(self, space):
         """key.Close() - Closes the underlying Windows handle.
@@ -93,6 +104,9 @@ __cmp__ - Handle objects are compared using the handle value.""",
     __repr__ = interp2app(W_HKEY.descr_repr),
     __int__ = interp2app(W_HKEY.descr_int),
     __nonzero__ = interp2app(W_HKEY.descr_nonzero),
+    __enter__ = interp2app(W_HKEY.descr__enter__),
+    __exit__ = interp2app(W_HKEY.descr__exit__),
+    handle = GetSetProperty(W_HKEY.descr_handle_get),
     Close = interp2app(W_HKEY.Close),
     Detach = interp2app(W_HKEY.Detach),
     )
@@ -123,6 +137,8 @@ closed when the hkey object is destroyed by Python."""
         ret = rwinreg.RegCloseKey(hkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegCloseKey')
+    if isinstance(w_hkey, W_HKEY):
+        space.interp_w(W_HKEY, w_hkey).hkey = rwin32.NULL_HANDLE
 CloseKey.unwrap_spec = [ObjSpace, W_Root]
 
 def FlushKey(space, w_hkey):
@@ -409,7 +425,8 @@ value_name is a string indicating the value to query"""
         if ret != 0:
             raiseWindowsError(space, ret, 'RegQueryValueEx')
 
-        with lltype.scoped_alloc(rffi.CCHARP.TO, retDataSize[0]) as databuf:
+        with lltype.scoped_alloc(rffi.CCHARP.TO,
+                                 intmask(retDataSize[0])) as databuf:
             with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
 
                 ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword,
@@ -521,8 +538,10 @@ data_type is an integer that identifies the type of the value data."""
             retValueSize[0] += 1
             retDataSize[0] += 1
 
-            with lltype.scoped_alloc(rffi.CCHARP.TO, retValueSize[0]) as valuebuf:
-                with lltype.scoped_alloc(rffi.CCHARP.TO, retDataSize[0]) as databuf:
+            with lltype.scoped_alloc(rffi.CCHARP.TO,
+                                     intmask(retValueSize[0])) as valuebuf:
+                with lltype.scoped_alloc(rffi.CCHARP.TO,
+                                         intmask(retDataSize[0])) as databuf:
                     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
                         ret = rwinreg.RegEnumValue(
                             hkey, index, valuebuf, retValueSize,
