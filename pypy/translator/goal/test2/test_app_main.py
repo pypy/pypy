@@ -496,6 +496,9 @@ class TestNonInteractive:
         assert repr(str(tmpdir.join('otherpath'))) in data
         assert "''" not in data
 
+        data = self.run('-c "import sys; print sys.path"')
+        assert data.startswith("[''")
+
 
 class AppTestAppMain:
 

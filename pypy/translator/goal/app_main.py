@@ -362,6 +362,9 @@ def run_command_line(go_interactive,
     try:
         if run_command:
             # handle the "-c" command
+            # Put '' on sys.path
+            sys.path.insert(0, '')
+
             def run_it():
                 exec cmd in mainmodule.__dict__
             success = run_toplevel(run_it)
