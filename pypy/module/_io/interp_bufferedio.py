@@ -322,7 +322,6 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
         check_readable_w(space, w_raw)
-        space.call_method(w_raw, "_checkReadable")
 
         self.w_raw = w_raw
         self.buffer_size = buffer_size
@@ -549,7 +548,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
             self._deprecated_max_buffer_size(space)
 
         self.state = STATE_ZERO
-        space.call_method(w_raw, "_checkWritable")
+        check_writable_w(space, w_raw)
 
         self.w_raw = w_raw
         self.buffer_size = buffer_size

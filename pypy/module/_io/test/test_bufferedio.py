@@ -205,9 +205,17 @@ class AppTestBufferedRWPair:
         assert pair.write("abc") == 3
 
     def test_constructor_with_not_readable(self):
-        import _io, io
-        class NotReadable(io.BytesIO):
+        import _io
+        class NotReadable:
             def readable(self):
                 return False
 
         raises(IOError, _io.BufferedRWPair, NotReadable(), _io.BytesIO())
+
+    def test_constructor_with_not_writable(self):
+        import _io
+        class NotWritable:
+            def writable(self):
+                return False
+
+        raises(IOError, _io.BufferedRWPair, _io.BytesIO(), NotWritable())
