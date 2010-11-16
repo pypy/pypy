@@ -146,6 +146,21 @@ class BufferedMixin:
         self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("closed"))
 
+    @unwrap_spec('self', ObjSpace)
+    def readable_w(self, space):
+        self._check_init(space)
+        return space.call_method(self.w_raw, "readable")
+
+    @unwrap_spec('self', ObjSpace)
+    def writable_w(self, space):
+        self._check_init(space)
+        return space.call_method(self.w_raw, "writable")
+
+    @unwrap_spec('self', ObjSpace)
+    def seekable_w(self, space):
+        self._check_init(space)
+        return space.call_method(self.w_raw, "seekable")
+
     def _readahead(self):
         if self.readable and self.read_end != -1:
             return self.read_end - self.pos
@@ -559,6 +574,9 @@ W_BufferedReader.typedef = TypeDef(
     read1 = interp2app(W_BufferedReader.read1_w),
 
     # from the mixin class
+    readable = interp2app(W_BufferedReader.readable_w),
+    writable = interp2app(W_BufferedReader.writable_w),
+    seekable = interp2app(W_BufferedReader.seekable_w),
     seek = interp2app(W_BufferedReader.seek_w),
     tell = interp2app(W_BufferedReader.tell_w),
     close = interp2app(W_BufferedReader.close_w),
@@ -720,6 +738,9 @@ W_BufferedWriter.typedef = TypeDef(
     flush = interp2app(W_BufferedWriter.flush_w),
 
     # from the mixin class
+    readable = interp2app(W_BufferedWriter.readable_w),
+    writable = interp2app(W_BufferedWriter.writable_w),
+    seekable = interp2app(W_BufferedWriter.seekable_w),
     seek = interp2app(W_BufferedWriter.seek_w),
     tell = interp2app(W_BufferedWriter.tell_w),
     close = interp2app(W_BufferedWriter.close_w),
@@ -739,10 +760,11 @@ def make_forwarding_method(method, writer=False, reader=False):
     def method_w(self, space, __args__):
         if writer:
             w_meth = space.getattr(self.w_writer, space.wrap(method))
-            return space.call_args(w_meth, __args__)
+            w_result = space.call_args(w_meth, __args__)
         if reader:
             w_meth = space.getattr(self.w_reader, space.wrap(method))
-            return space.call_args(w_meth, __args__)
+            w_result = space.call_args(w_meth, __args__)
+        return w_result
     return method_w
 
 class W_BufferedRWPair(W_BufferedIOBase):

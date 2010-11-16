@@ -210,6 +210,8 @@ class AppTestBufferedRWPair:
         import _io
         pair = _io.BufferedRWPair(_io.BytesIO("abc"), _io.BytesIO())
         assert not pair.closed
+        assert pair.readable()
+        assert pair.writable()
         assert pair.read() == "abc"
         assert pair.write("abc") == 3
 
