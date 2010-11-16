@@ -37,10 +37,14 @@ def get_so_extension(space):
         soabi = space.config.objspace.soabi
     else:
         soabi = DEFAULT_SOABI
-    if soabi:
-        return '.' + soabi + SO
-    else:
+
+    if not soabi:
         return SO
+
+    if not space.config.translating:
+        soabi += 'i'
+
+    return '.' + soabi + SO
 
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
