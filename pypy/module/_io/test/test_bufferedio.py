@@ -32,6 +32,15 @@ class AppTestBufferedReader:
         assert f.read(3) == ""
         f.close()
 
+    def test_peek(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw)
+        assert f.read(2) == 'a\n'
+        assert f.peek().startswith('b\nc')
+        assert f.read(3) == 'b\nc'
+        assert f.peek() == ''
+
     def test_read1(self):
         import _io
         class RecordingFileIO(_io.FileIO):

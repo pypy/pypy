@@ -349,6 +349,34 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
         return space.wrap(res)
 
     @unwrap_spec('self', ObjSpace, int)
+    def peek_w(self, space, size=0):
+        self._check_init(space)
+        with self.lock:
+            if self.writable:
+                self._writer_flush_unlocked(space, restore_pos=True)
+            # Constraints:
+            # 1. we don't want to advance the file position.
+            # 2. we don't want to lose block alignment, so we can't shift the
+            #    buffer to make some place.
+            # Therefore, we either return `have` bytes (if > 0), or a full
+            # buffer.
+            have = self._readahead()
+            if have > 0:
+                data = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos),
+                                          have)
+                return space.wrap(data)
+
+            # Fill the buffer from the raw stream, and copy it to the result
+            self._reader_reset_buf()
+            try:
+                size = self._fill_buffer(space)
+            except BlockingIOError:
+                size = 0
+            self.pos = 0
+            data = rffi.charpsize2str(self.buffer, size)
+            return space.wrap(data)
+
+    @unwrap_spec('self', ObjSpace, int)
     def read1_w(self, space, size):
         self._check_init(space)
         self._check_closed(space, "read of closed file")
@@ -527,6 +555,7 @@ W_BufferedReader.typedef = TypeDef(
     __init__  = interp2app(W_BufferedReader.descr_init),
 
     read = interp2app(W_BufferedReader.read_w),
+    peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
 
     # from the mixin class
