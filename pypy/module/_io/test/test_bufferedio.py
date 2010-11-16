@@ -195,3 +195,19 @@ class AppTestBufferedWriter:
         assert b.seek(8) == 8
         assert b.truncate() == 8
         assert b.tell() == 8
+
+class AppTestBufferedRWPair:
+    def test_pair(self):
+        import _io
+        pair = _io.BufferedRWPair(_io.BytesIO("abc"), _io.BytesIO())
+        assert not pair.closed
+        assert pair.read() == "abc"
+        assert pair.write("abc") == 3
+
+    def test_constructor_with_not_readable(self):
+        import _io, io
+        class NotReadable(io.BytesIO):
+            def readable(self):
+                return False
+
+        raises(IOError, _io.BufferedRWPair, NotReadable(), _io.BytesIO())

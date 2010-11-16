@@ -11,6 +11,30 @@ def convert_size(space, w_size):
     else:
         return space.int_w(w_size)
 
+# May be called with any object
+@unwrap_spec(ObjSpace, W_Root)
+def check_readable_w(space, w_obj):
+    if not space.is_true(space.call_method(w_obj, 'readable')):
+        raise OperationError(
+            space.w_IOError,
+            space.wrap("file or stream is not readable"))
+
+# May be called with any object
+@unwrap_spec(ObjSpace, W_Root)
+def check_writable_w(space, w_obj):
+    if not space.is_true(space.call_method(w_obj, 'writable')):
+        raise OperationError(
+            space.w_IOError,
+            space.wrap("file or stream is not writable"))
+
+# May be called with any object
+@unwrap_spec(ObjSpace, W_Root)
+def check_seekable_w(space, w_obj):
+    if not space.is_true(space.call_method(w_obj, 'seekable')):
+        raise OperationError(
+            space.w_IOError,
+            space.wrap("file or stream is not seekable"))
+
 class W_IOBase(Wrappable):
     def __init__(self, space):
         # XXX: IOBase thinks it has to maintain its own internal state in
@@ -114,27 +138,6 @@ class W_IOBase(Wrappable):
     def seekable_w(self, space):
         return space.w_False
 
-    @unwrap_spec('self', ObjSpace)
-    def check_readable_w(self, space):
-        if not space.is_true(space.call_method(self, 'readable')):
-            raise OperationError(
-                space.w_IOError,
-                space.wrap("file or stream is not readable"))
-
-    @unwrap_spec('self', ObjSpace)
-    def check_writable_w(self, space):
-        if not space.is_true(space.call_method(self, 'writable')):
-            raise OperationError(
-                space.w_IOError,
-                space.wrap("file or stream is not writable"))
-
-    @unwrap_spec('self', ObjSpace)
-    def check_seekable_w(self, space):
-        if not space.is_true(space.call_method(self, 'seekable')):
-            raise OperationError(
-                space.w_IOError,
-                space.wrap("file or stream is not seekable"))
-
     # ______________________________________________________________
 
     @unwrap_spec('self', ObjSpace, W_Root)
@@ -234,9 +237,9 @@ W_IOBase.typedef = TypeDef(
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
     seekable = interp2app(W_IOBase.seekable_w),
-    _checkReadable = interp2app(W_IOBase.check_readable_w),
-    _checkWritable = interp2app(W_IOBase.check_writable_w),
-    _checkSeekable = interp2app(W_IOBase.check_seekable_w),
+    _checkReadable = interp2app(check_readable_w),
+    _checkWritable = interp2app(check_writable_w),
+    _checkSeekable = interp2app(check_seekable_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
 
     readline = interp2app(W_IOBase.readline_w),
