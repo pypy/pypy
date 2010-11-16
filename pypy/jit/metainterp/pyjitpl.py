@@ -14,7 +14,7 @@ from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
-from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE
+from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
@@ -1048,14 +1048,11 @@ class MIFrame(object):
         else:
             moreargs = list(extraargs)
         metainterp_sd = metainterp.staticdata
-        original_greenkey = metainterp.resumekey.original_greenkey
         if opnum == rop.GUARD_NOT_FORCED:
             resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
-                                                   original_greenkey,
                                                    metainterp.jitdriver_sd)
         else:
-            resumedescr = compile.ResumeGuardDescr(metainterp_sd,
-                                                   original_greenkey)
+            resumedescr = compile.ResumeGuardDescr(metainterp_sd)
         guard_op = metainterp.history.record(opnum, moreargs, None,
                                              descr=resumedescr)
         virtualizable_boxes = None
@@ -1636,9 +1633,8 @@ class MetaInterp(object):
         self.current_merge_points = [(original_boxes, 0)]
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
-        redkey = original_boxes[num_green_args:]
-        self.resumekey = compile.ResumeFromInterpDescr(original_greenkey,
-                                                       redkey)
+        self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
+        self.history.inputargs = original_boxes[num_green_args:]
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()
@@ -1660,11 +1656,7 @@ class MetaInterp(object):
             debug_stop('jit-tracing')
 
     def _handle_guard_failure(self, key):
-        original_greenkey = key.original_greenkey
-        # notice that here we just put the greenkey
-        # use -1 to mark that we will have to give up
-        # because we cannot reconstruct the beginning of the proper loop
-        self.current_merge_points = [(original_greenkey, -1)]
+        self.current_merge_points = []
         self.resumekey = key
         self.seen_loop_header_for_jdindex = -1
         try:
@@ -1728,7 +1720,7 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
-            assert len(original_boxes) == len(live_arg_boxes) or start < 0
+            assert len(original_boxes) == len(live_arg_boxes)
             for i in range(num_green_args):
                 box1 = original_boxes[i]
                 box2 = live_arg_boxes[i]
@@ -1737,10 +1729,6 @@ class MetaInterp(object):
                     break
             else:
                 # Found!  Compile it as a loop.
-                if start < 0:
-                    # we cannot reconstruct the beginning of the proper loop
-                    raise SwitchToBlackhole(ABORT_BRIDGE)
-
                 # raises in case it works -- which is the common case
                 self.compile(original_boxes, live_arg_boxes, start)
                 # creation of the loop was cancelled!
@@ -1805,8 +1793,7 @@ class MetaInterp(object):
         greenkey = original_boxes[:num_green_args]
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, old_loop_tokens,
-                                              greenkey, start)
+        loop_token = compile.compile_new_loop(self, old_loop_tokens, start)
         if loop_token is not None: # raise if it *worked* correctly
             raise GenerateMergePoint(live_arg_boxes, loop_token)
         self.history.operations.pop()     # remove the JUMP

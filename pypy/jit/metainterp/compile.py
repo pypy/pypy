@@ -50,13 +50,12 @@ def make_loop_token(nb_args, jitdriver_sd):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
+def compile_new_loop(metainterp, old_loop_tokens, start):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
     history = metainterp.history
     loop = create_empty_loop(metainterp)
-    loop.greenkey = greenkey
     loop.inputargs = history.inputargs
     for box in loop.inputargs:
         assert isinstance(box, Box)
@@ -209,8 +208,7 @@ def make_done_loop_tokens():
             }
 
 class ResumeDescr(AbstractFailDescr):
-    def __init__(self, original_greenkey):
-        self.original_greenkey = original_greenkey
+    pass
 
 class ResumeGuardDescr(ResumeDescr):
     _counter = 0        # if < 0, there is one counter per value;
@@ -229,8 +227,7 @@ class ResumeGuardDescr(ResumeDescr):
     CNT_FLOAT = -0x60000000
     CNT_MASK  =  0x1FFFFFFF
 
-    def __init__(self, metainterp_sd, original_greenkey):
-        ResumeDescr.__init__(self, original_greenkey)
+    def __init__(self, metainterp_sd):
         self.metainterp_sd = metainterp_sd
 
     def store_final_boxes(self, guard_op, boxes):
@@ -334,14 +331,14 @@ class ResumeGuardDescr(ResumeDescr):
         res.rd_pendingfields = self.rd_pendingfields
 
     def _clone_if_mutable(self):
-        res = ResumeGuardDescr(self.metainterp_sd, self.original_greenkey)
+        res = ResumeGuardDescr(self.metainterp_sd)
         self.copy_all_attrbutes_into(res)
         return res
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
-    def __init__(self, metainterp_sd, original_greenkey, jitdriver_sd):
-        ResumeGuardDescr.__init__(self, metainterp_sd, original_greenkey)
+    def __init__(self, metainterp_sd, jitdriver_sd):
+        ResumeGuardDescr.__init__(self, metainterp_sd)
         self.jitdriver_sd = jitdriver_sd
 
     def handle_fail(self, metainterp_sd, jitdriver_sd):
@@ -408,7 +405,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
 
     def _clone_if_mutable(self):
         res = ResumeGuardForcedDescr(self.metainterp_sd,
-                                     self.original_greenkey,
                                      self.jitdriver_sd)
         self.copy_all_attrbutes_into(res)
         return res
@@ -475,9 +471,8 @@ class ResumeGuardCountersFloat(AbstractResumeGuardCounters):
 
 
 class ResumeFromInterpDescr(ResumeDescr):
-    def __init__(self, original_greenkey, redkey):
-        ResumeDescr.__init__(self, original_greenkey)
-        self.redkey = redkey
+    def __init__(self, original_greenkey):
+        self.original_greenkey = original_greenkey
 
     def compile_and_attach(self, metainterp, new_loop):
         # We managed to create a bridge going from the interpreter
@@ -486,10 +481,8 @@ class ResumeFromInterpDescr(ResumeDescr):
         # with completely unoptimized arguments, as in the interpreter.
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
-        metainterp.history.inputargs = self.redkey
-        new_loop_token = make_loop_token(len(self.redkey), jitdriver_sd)
-        new_loop.greenkey = self.original_greenkey
-        new_loop.inputargs = self.redkey
+        redargs = new_loop.inputargs
+        new_loop_token = make_loop_token(len(redargs), jitdriver_sd)
         new_loop.token = new_loop_token
         send_loop_to_backend(metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
