@@ -13,7 +13,7 @@ from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
-from pypy.jit.metainterp.history import ConstInt, BoxInt, BasicFailDescr
+from pypy.jit.metainterp.history import Const, ConstInt, BoxInt, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
@@ -274,6 +274,17 @@ class OpAssembler(object):
         if op.numargs() > 5:
             self._adjust_sp(-n, regalloc, fcond=fcond)
         regalloc.possibly_free_vars(locs)
+
+    def emit_op_same_as(self, op, regalloc, fcond):
+        resloc = regalloc.force_allocate_reg(op.result)
+        arg = op.getarg(0)
+        imm_arg = isinstance(arg, ConstInt) and (arg.getint() <= 0xFF or -1 * arg.getint() <= 0xFF)
+        argloc = regalloc.make_sure_var_in_reg(arg, imm_fine=imm_arg)
+        if argloc.is_imm():
+            self.mc.MOV_ri(resloc.value, argloc.getint())
+        else:
+            self.mc.MOV_rr(resloc.value, argloc.value)
+        regalloc.possibly_free_vars_for_op(op)
 
 class FieldOpAssembler(object):
 

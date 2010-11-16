@@ -199,13 +199,12 @@ class AssemblerARM(ResOpAssembler):
     epilog_size = 3*WORD
     def gen_func_epilog(self,cond=c.AL):
         self.mc.MOV_rr(r.sp.value, r.fp.value)
-        self.mc.POP([r.r4.value], cond=cond) # Pop value used as forcething
+        self.mc.ADD_ri(r.sp.value, r.sp.value, WORD)
         self.mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
-        self.mc.MOV_ri(r.r4.value, 0xCC)
-        self.mc.PUSH([r.r4.value]) # Push some reg to use as force thing which is restored when popping from stack
+        self.mc.SUB_ri(r.sp.value, r.sp.value,  WORD)
         self.mc.MOV_rr(r.fp.value, r.sp.value)
 
     def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
