@@ -25,6 +25,7 @@ class AppTestBytesIO:
         f = _io.BytesIO("hello")
         assert f.read() == "hello"
         import gc; gc.collect()
+        assert f.read(8192) == ""
         f.close()
 
     def test_seek(self):

@@ -38,9 +38,9 @@ class W_BytesIO(W_BufferedIOBase):
         size = convert_size(space, w_size)
 
         # adjust invalid sizes
-        n = self.string_size - self.pos
-        if not 0 <= n <= size:
-            size = n
+        available = self.string_size - self.pos
+        if not 0 <= size <= available:
+            size = available
             if size < 0:
                 size = 0
 
