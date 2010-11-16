@@ -16,6 +16,7 @@ from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.metainterp.history import ConstInt, BoxInt, BasicFailDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 
@@ -255,8 +256,19 @@ class OpAssembler(object):
             regalloc.before_call(r.all_regs, save_all_regs)
         else:
             regalloc.before_call()
-        regalloc.force_allocate_reg(op.result, selected_reg=r.r0)
         self.mc.BL(adr)
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            descr = op.getdescr()
+            # XXX we need descr.get_result_sign here!!!!
+            size = descr.get_result_size(False)
+            # for now just check the size of the value
+            if size == 1: #unsigned char
+                self.mc.AND_ri(r.r0.value, r.r0.value, 255)
+            elif size == 2: # signed short
+                self.mc.LSL_ri(r.r0.value, r.r0.value, 16)
+                self.mc.ASR_ri(r.r0.value, r.r0.value, 16)
+
         regalloc.after_call(op.result)
         # readjust the sp in case we passed some args on the stack
         if op.numargs() > 5:
