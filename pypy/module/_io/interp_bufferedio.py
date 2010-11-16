@@ -78,6 +78,9 @@ class BufferedMixin:
         self.state = STATE_ZERO
 
         self.buffer = lltype.nullptr(rffi.CCHARP.TO)
+
+        self.abs_pos = 0    # Absolute position inside the raw stream (-1 if
+                            # unknown).
         self.pos = 0        # Current logical position in the buffer
         self.raw_pos = 0    # Position of the raw stream in the buffer.
 
@@ -282,11 +285,13 @@ class BufferedMixin:
                 if not e.match(space, space.gettypeobject(
                     W_BlockingIOError.typedef)):
                     raise
-                self.write_pos += e.written
+                w_exc = e.get_w_value(space)
+                assert isinstance(w_exc, W_BlockingIOError)
+                self.write_pos += w_exc.written
                 self.raw_pos = self.write_pos
-                written += e.written
+                written += w_exc.written
                 # re-raise the error
-                e.written = written
+                w_exc.written = written
                 raise
             self.write_pos += n
             self.raw_pos = self.write_pos
@@ -666,6 +671,8 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
                 if not e.match(space, space.gettypeobject(
                     W_BlockingIOError.typedef)):
                     raise
+                w_exc = space.get_w_value(space)
+                assert isinstance(w_exc, W_BlockingIOError)
                 if self.readable:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer
@@ -687,7 +694,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
                     self.buffer[self.write_end + i] = data[i]
                     self.write_end += available
                 # Raise previous exception
-                e.written = available
+                w_exc.written = available
                 raise
 
             # Adjust the raw stream position if it is away from the logical
@@ -709,8 +716,10 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
                     if not e.match(space, space.gettypeobject(
                         W_BlockingIOError.typedef)):
                         raise
-                    written += e.written
-                    remaining -= e.written
+                    w_exc = e.get_w_value(space)
+                    assert isinstance(w_exc, W_BlockingIOError)
+                    written += w_exc.written
+                    remaining -= w_exc.written
                     if remaining > self.buffer_size:
                         # Can't buffer everything, still buffer as much as
                         # possible
@@ -719,7 +728,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
                         self.raw_pos = 0
                         self._adjust_position(self.buffer_size)
                         self.write_end = self.buffer_size
-                        e.written = written + self.buffer_size
+                        w_exc.written = written + self.buffer_size
                         raise
                     break
                 written += n

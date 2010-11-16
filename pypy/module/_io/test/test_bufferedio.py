@@ -211,6 +211,69 @@ class AppTestBufferedWriter:
         assert b.truncate() == 8
         assert b.tell() == 8
 
+    def test_write_non_blocking(self):
+        import _io, io
+        class MockNonBlockWriterIO(io.RawIOBase):
+            def __init__(self):
+                self._write_stack = []
+                self._blocker_char = None
+
+            def writable(self):
+                return True
+            closed = False
+
+            def pop_written(self):
+                s = ''.join(self._write_stack)
+                self._write_stack[:] = []
+                return s
+
+            def block_on(self, char):
+                """Block when a given char is encountered."""
+                self._blocker_char = char
+
+            def write(self, b):
+                try:
+                    b = b.tobytes()
+                except AttributeError:
+                    pass
+                n = -1
+                if self._blocker_char:
+                    try:
+                        n = b.index(self._blocker_char)
+                    except ValueError:
+                        pass
+                    else:
+                        self._blocker_char = None
+                        self._write_stack.append(b[:n])
+                        raise _io.BlockingIOError(0, "test blocking", n)
+                self._write_stack.append(b)
+                return len(b)
+
+        raw = MockNonBlockWriterIO()
+        bufio = _io.BufferedWriter(raw, 8)
+
+        assert bufio.write("abcd") == 4
+        assert bufio.write("efghi") == 5
+        # 1 byte will be written, the rest will be buffered
+        raw.block_on(b"k")
+        assert bufio.write("jklmn") == 5
+
+        # 8 bytes will be written, 8 will be buffered and the rest will be lost
+        raw.block_on(b"0")
+        try:
+            bufio.write(b"opqrwxyz0123456789")
+        except _io.BlockingIOError as e:
+            written = e.characters_written
+        else:
+            self.fail("BlockingIOError should have been raised")
+        assert written == 16
+        assert raw.pop_written() == "abcdefghijklmnopqrwxyz"
+
+        assert bufio.write("ABCDEFGHI") == 9
+        s = raw.pop_written()
+        # Previously buffered bytes were flushed
+        assert s.startswith("01234567A")
+
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io
