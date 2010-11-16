@@ -4,6 +4,14 @@ class AppTestBytesIO:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_io'])
 
+    def test_capabilities(self):
+        import _io
+        f = _io.BytesIO()
+        assert f.readable()
+        assert f.writable()
+        assert f.seekable()
+        f.close()
+
     def test_write(self):
         import _io
         f = _io.BytesIO()

@@ -120,6 +120,18 @@ class W_BytesIO(W_BufferedIOBase):
             self.pos = 0
         return space.wrap(self.pos)
 
+    @unwrap_spec('self', ObjSpace)
+    def readable_w(self, space):
+        return space.w_True
+
+    @unwrap_spec('self', ObjSpace)
+    def writable_w(self, space):
+        return space.w_True
+
+    @unwrap_spec('self', ObjSpace)
+    def seekable_w(self, space):
+        return space.w_True
+
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BytesIO),
@@ -130,5 +142,8 @@ W_BytesIO.typedef = TypeDef(
     getvalue = interp2app(W_BytesIO.getvalue_w),
     seek = interp2app(W_BytesIO.seek_w),
     tell = interp2app(W_BytesIO.tell_w),
+    readable = interp2app(W_BytesIO.readable_w),
+    writable = interp2app(W_BytesIO.writable_w),
+    seekable = interp2app(W_BytesIO.seekable_w),
     )
 
