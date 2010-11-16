@@ -452,12 +452,10 @@ value_name is a string indicating the value to query"""
                     if ret == rwinreg.ERROR_MORE_DATA:
                         # Resize and retry
                         bufSize *= 2
-                        print "AFA CONTINUE", bufSize, retDataSize[0]
                         retDataSize[0] = rffi.cast(rwin32.DWORD, bufSize)
                         continue
                     if ret != 0:
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
-                    print "AFA OK", bufSize, retDataSize[0]
                     return space.newtuple([
                         convert_from_regdata(space, databuf,
                                              retDataSize[0], retType[0]),
