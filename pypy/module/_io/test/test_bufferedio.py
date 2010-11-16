@@ -299,3 +299,19 @@ class AppTestBufferedRWPair:
                 return False
 
         raises(IOError, _io.BufferedRWPair, _io.BytesIO(), NotWritable())
+
+class AppTestBufferedRandom:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['_io'])
+        tmpfile = udir.join('tmpfile')
+        tmpfile.write("a\nb\nc", mode='wb')
+        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
+
+    def test_simple_read(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'rb+')
+        f = _io.BufferedRandom(raw)
+        assert f.read(3) == 'a\nb'
+        f.write('xxxx')
+        f.seek(0)
+        assert f.read() == 'a\nbxxxx'
