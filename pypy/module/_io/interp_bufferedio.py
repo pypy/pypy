@@ -61,7 +61,7 @@ class W_BufferedIOBase(W_IOBase):
         return space.wrap(len(data))
 
 W_BufferedIOBase.typedef = TypeDef(
-    '_BufferedIOBase', W_IOBase.typedef,
+    '_io._BufferedIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_BufferedIOBase),
     read = interp2app(W_BufferedIOBase.read_w),
     read1 = interp2app(W_BufferedIOBase.read1_w),
@@ -146,6 +146,12 @@ class BufferedMixin:
         self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("closed"))
 
+    def name_get_w(space, self):
+        return space.getattr(self.w_raw, space.wrap("name"))
+
+    def mode_get_w(space, self):
+        return space.getattr(self.w_raw, space.wrap("mode"))
+
     @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         self._check_init(space)
@@ -160,6 +166,21 @@ class BufferedMixin:
     def seekable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_raw, "seekable")
+
+    @unwrap_spec('self', ObjSpace)
+    def repr_w(self, space):
+        typename = space.type(self).getname(space, '?')
+        try:
+            w_name = space.getattr(self, space.wrap("name"))
+        except OperationError, e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+            return space.wrap("<%s>" % (typename,))
+        else:
+            w_repr = space.repr(w_name)
+            return space.wrap("<%s name=%s>" % (typename, space.str_w(w_repr)))
+
+    # ______________________________________________
 
     def _readahead(self):
         if self.readable and self.read_end != -1:
@@ -565,7 +586,7 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
         return None
 
 W_BufferedReader.typedef = TypeDef(
-    'BufferedReader', W_BufferedIOBase.typedef,
+    '_io.BufferedReader', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedReader),
     __init__  = interp2app(W_BufferedReader.descr_init),
 
@@ -574,6 +595,7 @@ W_BufferedReader.typedef = TypeDef(
     read1 = interp2app(W_BufferedReader.read1_w),
 
     # from the mixin class
+    __repr__ = interp2app(W_BufferedReader.repr_w),
     readable = interp2app(W_BufferedReader.readable_w),
     writable = interp2app(W_BufferedReader.writable_w),
     seekable = interp2app(W_BufferedReader.seekable_w),
@@ -585,6 +607,8 @@ W_BufferedReader.typedef = TypeDef(
     truncate = interp2app(W_BufferedReader.truncate_w),
     fileno = interp2app(W_BufferedReader.fileno_w),
     closed = GetSetProperty(W_BufferedReader.closed_get_w),
+    name = GetSetProperty(W_BufferedReader.name_get_w),
+    mode = GetSetProperty(W_BufferedReader.mode_get_w),
     )
 
 class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
@@ -730,7 +754,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
                 self._reader_reset_buf()
 
 W_BufferedWriter.typedef = TypeDef(
-    'BufferedWriter', W_BufferedIOBase.typedef,
+    '_io.BufferedWriter', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedWriter),
     __init__  = interp2app(W_BufferedWriter.descr_init),
 
@@ -738,6 +762,7 @@ W_BufferedWriter.typedef = TypeDef(
     flush = interp2app(W_BufferedWriter.flush_w),
 
     # from the mixin class
+    __repr__ = interp2app(W_BufferedWriter.repr_w),
     readable = interp2app(W_BufferedWriter.readable_w),
     writable = interp2app(W_BufferedWriter.writable_w),
     seekable = interp2app(W_BufferedWriter.seekable_w),
@@ -748,6 +773,8 @@ W_BufferedWriter.typedef = TypeDef(
     detach = interp2app(W_BufferedWriter.detach_w),
     truncate = interp2app(W_BufferedWriter.truncate_w),
     closed = GetSetProperty(W_BufferedWriter.closed_get_w),
+    name = GetSetProperty(W_BufferedReader.name_get_w),
+    mode = GetSetProperty(W_BufferedReader.mode_get_w),
     )
 
 def _forward_call(space, w_obj, method, __args__):
@@ -821,7 +848,7 @@ methods = dict((method, interp2app(getattr(W_BufferedRWPair, method + '_w')))
                               'isatty'])
 
 W_BufferedRWPair.typedef = TypeDef(
-    'BufferedRWPair', W_BufferedIOBase.typedef,
+    '_io.BufferedRWPair', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRWPair),
     __init__  = interp2app(W_BufferedRWPair.descr_init),
     closed = GetSetProperty(W_BufferedRWPair.closed_get_w),
@@ -831,7 +858,7 @@ W_BufferedRWPair.typedef = TypeDef(
 class W_BufferedRandom(W_BufferedIOBase):
     pass
 W_BufferedRandom.typedef = TypeDef(
-    'BufferedRandom', W_BufferedIOBase.typedef,
+    '_io.BufferedRandom', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRandom),
     )
 

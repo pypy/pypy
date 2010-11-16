@@ -119,6 +119,12 @@ class AppTestBufferedReader:
         assert d1 + d2 == d3
         f.close()
 
+    def test_repr(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw)
+        assert repr(f) == '<_io.BufferedReader name=%r>' % (self.tmpfile,)
+
 class AppTestBufferedWriter:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_io'])
