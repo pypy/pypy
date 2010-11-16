@@ -671,7 +671,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
                 if not e.match(space, space.gettypeobject(
                     W_BlockingIOError.typedef)):
                     raise
-                w_exc = space.get_w_value(space)
+                w_exc = e.get_w_value(space)
                 assert isinstance(w_exc, W_BlockingIOError)
                 if self.readable:
                     self._reader_reset_buf()
