@@ -3,6 +3,7 @@ import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
 from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE, loop_invariant
 from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
+from pypy.rlib.jit import unroll_safe, current_trace_length
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import pyjitpl, history
@@ -1836,6 +1837,31 @@ class BasicTests:
         self.check_loops({'guard_true': 2,
                           'int_add': 1, 'int_mul': 1, 'int_sub': 2,
                           'int_gt': 2, 'jump': 2})
+
+    def test_current_trace_length(self):
+        myjitdriver = JitDriver(greens = ['g'], reds = ['x'])
+        @dont_look_inside
+        def residual():
+            print "hi there"
+        @unroll_safe
+        def loop(g):
+            y = 0
+            while y < g:
+                residual()
+                y += 1
+        def f(x, g):
+            n = 0
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, g=g)
+                myjitdriver.jit_merge_point(x=x, g=g)
+                loop(g)
+                x -= 1
+                n = current_trace_length()
+            return n
+        res = self.meta_interp(f, [5, 8])
+        assert 14 < res < 42
+        res = self.meta_interp(f, [5, 2])
+        assert 4 < res < 14
 
 
 class TestOOtype(BasicTests, OOJitMixin):

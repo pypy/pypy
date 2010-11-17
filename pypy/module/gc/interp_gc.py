@@ -10,6 +10,10 @@ def collect(space):
         from pypy.objspace.std.typeobject import MethodCache
         cache = space.fromcache(MethodCache)
         cache.clear()
+        if space.config.objspace.std.withmapdict:
+            from pypy.objspace.std.mapdict import IndexCache
+            cache = space.fromcache(IndexCache)
+            cache.clear()
     rgc.collect()
     return space.wrap(0)
     

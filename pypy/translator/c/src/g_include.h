@@ -39,10 +39,9 @@
 #include "src/instrument.h"
 
 /* optional assembler bits */
-// disabled: does not give any speed-up
-//#if defined(__GNUC__) && defined(__i386__)
-//#  include "src/asm_gcc_x86.h"
-//#endif
+#if defined(__GNUC__) && defined(__i386__)
+#  include "src/asm_gcc_x86.h"
+#endif
 
 #if defined(__GNUC__) && defined(__ppc__)
 #  include "src/asm_ppc.h"

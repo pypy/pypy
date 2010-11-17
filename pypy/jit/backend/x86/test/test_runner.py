@@ -346,7 +346,7 @@ class TestX86(LLtypeBackendTest):
                 return self.val
 
         operations = [
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello")], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello"), 0], None),
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
@@ -365,7 +365,7 @@ class TestX86(LLtypeBackendTest):
         bridge = [
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye")], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye"), 0], None),
             ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
         ]
         bridge[1].setfailargs([i1b])
@@ -497,7 +497,7 @@ class TestDebuggingAssembler(object):
     def test_debugger_on(self):
         loop = """
         [i0]
-        debug_merge_point('xyz')
+        debug_merge_point('xyz', 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
@@ -515,3 +515,20 @@ class TestDebuggingAssembler(object):
         self.cpu.finish_once()
         lines = py.path.local(self.logfile + ".count").readlines()
         assert lines[0] == '0:10\n'  # '10      xyz\n'
+
+    def test_debugger_checksum(self):
+        loop = """
+        [i0]
+        debug_merge_point('xyz', 0)
+        i1 = int_add(i0, 1)
+        i2 = int_ge(i1, 10)
+        guard_false(i2) []
+        jump(i1)
+        """
+        ops = parse(loop)
+        self.cpu.assembler.set_debug(True)
+        self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_token(ops.token)
+        assert ops.token._x86_debug_checksum == sum([op.getopnum()
+                                                     for op in ops.operations])

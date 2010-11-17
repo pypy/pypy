@@ -5,6 +5,7 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp import history
+import struct
 
 def test_get_size_descr():
     c0 = GcCache(False)
@@ -130,11 +131,13 @@ def test_get_array_descr():
     assert not descr3.is_array_of_floats()
     assert     descr4.is_array_of_floats()
     #
-    WORD = rffi.sizeof(lltype.Signed)
-    assert descr1.get_base_size(False) == WORD
-    assert descr2.get_base_size(False) == WORD
-    assert descr3.get_base_size(False) == WORD
-    assert descr4.get_base_size(False) == WORD
+    def get_alignment(code):
+        # Retrieve default alignment for the compiler/platform
+        return struct.calcsize('l' + code) - struct.calcsize(code)
+    assert descr1.get_base_size(False) == get_alignment('c')
+    assert descr2.get_base_size(False) == get_alignment('p')
+    assert descr3.get_base_size(False) == get_alignment('p')
+    assert descr4.get_base_size(False) == get_alignment('d')
     assert descr1.get_ofs_length(False) == 0
     assert descr2.get_ofs_length(False) == 0
     assert descr3.get_ofs_length(False) == 0

@@ -4,6 +4,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.nonconst import NonConstant
 
 def purefunction(func):
     """ Decorate a function as pure. Pure means precisely that:
@@ -144,6 +145,14 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
+
+def current_trace_length():
+    """During JIT tracing, returns the current trace length (as a constant).
+    If not tracing, returns -1."""
+    if NonConstant(False):
+        return 73
+    return -1
+current_trace_length.oopspec = 'jit.current_trace_length()'
 
 def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
                       arg3=-sys.maxint-1, arg4=-sys.maxint-1):

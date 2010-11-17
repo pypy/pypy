@@ -152,7 +152,7 @@ TYPES = {
     'unicodegetitem'  : (('ref', 'int'), 'int'),
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
-    'debug_merge_point': (('ref',), None),
+    'debug_merge_point': (('ref', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
     'guard_not_forced': ((), None),
@@ -568,7 +568,7 @@ class Frame(object):
         #
         return _op_default_implementation
 
-    def op_debug_merge_point(self, _, value):
+    def op_debug_merge_point(self, _, value, recdepth):
         from pypy.jit.metainterp.warmspot import get_stats
         loc = ConstPtr(value)._get_str()
         get_stats().add_merge_point_location(loc)

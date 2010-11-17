@@ -5,7 +5,7 @@ Run this to rebuild _syslog_cache.py.
 
 from ctypes_configure.configure import (configure,
     ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger)
-from ctypes_configure.dumpcache import dumpcache
+import dumpcache
 
 
 _CONSTANTS = (
@@ -72,4 +72,4 @@ for alias, key in _ALIAS:
 all_constants = config.keys()
 all_constants.sort()
 config['ALL_CONSTANTS'] = tuple(all_constants)
-dumpcache(__file__, '_syslog_cache.py', config)
+dumpcache.dumpcache2('syslog', config)

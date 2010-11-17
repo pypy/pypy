@@ -454,7 +454,8 @@ class State:
         self.w_environ = space.newdict()
         if _WIN:
             self.cryptProviderPtr = lltype.malloc(
-                rffi.CArray(HCRYPTPROV), 1, zero=True, flavor='raw')
+                rffi.CArray(HCRYPTPROV), 1, zero=True,
+                flavor='raw', immortal=True)
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):

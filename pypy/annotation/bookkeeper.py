@@ -87,13 +87,6 @@ class Stats(object):
         else:
             return obj.knowntype.__name__
 
-    def consider_tuple_iter(self, tup):
-        ctxt = "[%s]" % sys._getframe(4).f_code.co_name
-        if tup.is_constant():
-            return ctxt, tup.const
-        else:
-            return ctxt, tuple([self.typerepr(x) for x in tup.items])
-
     def consider_tuple_random_getitem(self, tup):
         return tuple([self.typerepr(x) for x in tup.items])
 

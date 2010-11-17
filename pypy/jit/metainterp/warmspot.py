@@ -98,8 +98,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         repeat -= 1
     return res
 
-def rpython_ll_meta_interp(function, args, backendopt=True,
-                           loops='not used right now', **kwds):
+def rpython_ll_meta_interp(function, args, backendopt=True, **kwds):
     return ll_meta_interp(function, args, backendopt=backendopt,
                           translate_support_code=True, **kwds)
 

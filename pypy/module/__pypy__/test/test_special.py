@@ -17,3 +17,7 @@ class AppTest(object):
         from __pypy__ import isfake
         import select
         assert isfake(select)
+
+    def test_cpumodel(self):
+        import __pypy__
+        assert hasattr(__pypy__, 'cpumodel')

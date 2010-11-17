@@ -6,6 +6,7 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
+from pypy.rlib.jit import current_trace_length
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, Arguments, W_Root
@@ -80,9 +81,22 @@ class __extend__(PyFrame):
 
     def jump_absolute(self, jumpto, _, ec=None):
         if we_are_jitted():
+            # Normally, the tick counter is decremented by 100 for every
+            # Python opcode.  Here, to better support JIT compilation of
+            # small loops, we decrement it by a possibly smaller constant.
+            # We get the maximum 100 when the (unoptimized) trace length
+            # is at least 3200 (a bit randomly).
+            trace_length = r_uint(current_trace_length())
+            decr_by = trace_length // 32
+            if decr_by < 1:
+                decr_by = 1
+            elif decr_by > 100:    # also if current_trace_length() returned -1
+                decr_by = 100
+            #
             self.last_instr = intmask(jumpto)
-            ec.bytecode_trace(self)
+            ec.bytecode_trace(self, intmask(decr_by))
             jumpto = r_uint(self.last_instr)
+        #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                     pycode=self.getcode())
         return jumpto

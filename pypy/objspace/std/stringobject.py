@@ -937,10 +937,17 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
 
     string = w_string._value
     chars = []
-    for char in string:
-        w_char = W_StringObject.PREBUILT[ord(char)]
-        if not space.is_true(space.contains(w_deletechars, w_char)):
-             chars.append(table[ord(char)])
+    deletechars = space.str_w(w_deletechars)
+    if len(deletechars) == 0:
+        for char in string:
+            chars.append(table[ord(char)])
+    else:
+        deletion_table = [False] * 256
+        for c in deletechars:
+            deletion_table[ord(c)] = True
+        for char in string:
+            if not deletion_table[ord(char)]:
+                chars.append(table[ord(char)])
     return W_StringObject(''.join(chars))
 
 def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):

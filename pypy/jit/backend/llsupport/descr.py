@@ -130,6 +130,7 @@ def get_field_descr(gccache, STRUCT, fieldname):
 # ArrayDescrs
 
 _A = lltype.GcArray(lltype.Signed)     # a random gcarray
+_AF = lltype.GcArray(lltype.Float)     # an array of C doubles
 
 
 class BaseArrayDescr(AbstractDescr):
@@ -171,16 +172,21 @@ class GcPtrArrayDescr(NonGcPtrArrayDescr):
     _clsname = 'GcPtrArrayDescr'
     _is_array_of_pointers = True
 
-_CA = rffi.CArray(lltype.Signed)
+class FloatArrayDescr(BaseArrayDescr):
+    _clsname = 'FloatArrayDescr'
+    _is_array_of_floats = True
+    def get_base_size(self, translate_support_code):
+        basesize, _, _ = symbolic.get_array_token(_AF, translate_support_code)
+        return basesize
+    def get_item_size(self, translate_support_code):
+        return symbolic.get_size(lltype.Float, translate_support_code)
 
 class BaseArrayNoLengthDescr(BaseArrayDescr):
     def get_base_size(self, translate_support_code):
-        basesize, _, _ = symbolic.get_array_token(_CA, translate_support_code)
-        return basesize
+        return 0
 
     def get_ofs_length(self, translate_support_code):
-        _, _, ofslength = symbolic.get_array_token(_CA, translate_support_code)
-        return ofslength
+        return -1
 
 class NonGcPtrArrayNoLengthDescr(BaseArrayNoLengthDescr):
     _clsname = 'NonGcPtrArrayNoLengthDescr'
@@ -192,6 +198,8 @@ class GcPtrArrayNoLengthDescr(NonGcPtrArrayNoLengthDescr):
     _is_array_of_pointers = True
 
 def getArrayDescrClass(ARRAY):
+    if ARRAY.OF is lltype.Float:
+        return FloatArrayDescr
     return getDescrClass(ARRAY.OF, BaseArrayDescr, GcPtrArrayDescr,
                          NonGcPtrArrayDescr, 'Array', 'get_item_size',
                          '_is_array_of_floats', '_is_item_signed')
@@ -219,7 +227,8 @@ def get_array_descr(gccache, ARRAY):
         basesize, itemsize, ofslength = symbolic.get_array_token(ARRAY, False)
         assert basesize == arraydescr.get_base_size(False)
         assert itemsize == arraydescr.get_item_size(False)
-        assert ofslength == arraydescr.get_ofs_length(False)
+        if not ARRAY._hints.get('nolength', False):
+            assert ofslength == arraydescr.get_ofs_length(False)
         if isinstance(ARRAY, lltype.GcArray):
             gccache.init_array_descr(ARRAY, arraydescr)
         cache[ARRAY] = arraydescr

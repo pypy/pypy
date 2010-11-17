@@ -386,6 +386,14 @@ def rtype_free(hop, i_flavor, i_track_allocation=None):
     hop.exception_cannot_occur()
     hop.genop('free', vlist)
 
+def rtype_render_immortal(hop, i_track_allocation=None):
+    vlist = [hop.inputarg(hop.args_r[0], arg=0)]
+    v_track_allocation = parse_kwds(hop,
+        (i_track_allocation, None))
+    hop.exception_cannot_occur()
+    if i_track_allocation is None or v_track_allocation.value:
+        hop.genop('track_alloc_stop', vlist)
+
 def rtype_const_result(hop):
     hop.exception_cannot_occur()
     return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -523,6 +531,7 @@ def rtype_runtime_type_info(hop):
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.free] = rtype_free
+BUILTIN_TYPER[lltype.render_immortal] = rtype_render_immortal
 BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_opaque_ptr] = rtype_cast_opaque_ptr

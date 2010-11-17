@@ -230,6 +230,10 @@ class SemiSpaceGC(MovingGCBase):
         while self.max_space_size > size:
             self.max_space_size >>= 1
 
+    @classmethod
+    def JIT_minimal_size_in_nursery(cls):
+        return cls.object_minimal_size
+
     def collect(self, gen=0):
         self.debug_check_consistency()
         self.semispace_collect()
@@ -262,10 +266,10 @@ class SemiSpaceGC(MovingGCBase):
         if self.run_finalizers.non_empty():
             self.update_run_finalizers()
         scan = self.scan_copied(scan)
-        if self.objects_with_finalizers.non_empty():
-            scan = self.deal_with_objects_with_finalizers(scan)
         if self.objects_with_weakrefs.non_empty():
             self.invalidate_weakrefs()
+        if self.objects_with_finalizers.non_empty():
+            scan = self.deal_with_objects_with_finalizers(scan)
         self.update_objects_with_id()
         self.finished_full_collect()
         self.debug_check_consistency()
@@ -689,15 +693,10 @@ class SemiSpaceGC(MovingGCBase):
         self._ll_typeid_map[idx].size += llmemory.raw_malloc_usage(totsize)
         self.trace(adr, self.track_heap_parent, adr)
 
-    def _track_heap_root(self, root):
-        self.track_heap(root.address[0])
+    @staticmethod
+    def _track_heap_root(obj, self):
+        self.track_heap(obj)
 
-    def heap_stats_walk_roots(self):
-        self.root_walker.walk_roots(
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root)
-        
     def heap_stats(self):
         self._tracked_dict = self.AddressDict()
         max_tid = self.root_walker.gcdata.max_type_id
@@ -710,7 +709,7 @@ class SemiSpaceGC(MovingGCBase):
         while i < max_tid:
             self._tracked_dict.add(llmemory.cast_ptr_to_adr(ll_typeid_map[i]))
             i += 1
-        self.heap_stats_walk_roots()
+        self.enumerate_all_roots(SemiSpaceGC._track_heap_root, self)
         self._ll_typeid_map = lltype.nullptr(ARRAY_TYPEID_MAP)
         self._tracked_dict.delete()
         return ll_typeid_map

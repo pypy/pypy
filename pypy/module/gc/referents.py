@@ -177,3 +177,9 @@ def _dump_rpy_heap(space, fd):
     if not ok:
         raise missing_operation(space)
 _dump_rpy_heap.unwrap_spec = [ObjSpace, int]
+
+def get_typeids_z(space):
+    a = rgc.get_typeids_z()
+    s = ''.join([a[i] for i in range(len(a))])
+    return space.wrap(s)
+get_typeids_z.unwrap_spec = [ObjSpace]

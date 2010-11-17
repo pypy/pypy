@@ -150,6 +150,9 @@ class PyPyTarget(object):
         if config.objspace.allworkingmodules:
             from pypy.config.pypyoption import enable_allworkingmodules
             enable_allworkingmodules(config)
+        if config.objspace.translationmodules:
+            from pypy.config.pypyoption import enable_translationmodules
+            enable_translationmodules(config)
 
         if config.translation.type_system == 'ootype':
             config.objspace.usemodules.suggest(rbench=True)

@@ -26,6 +26,100 @@ class FakeMetaInterpStaticData(object):
         self.options = Fake()
         self.globaldata = Fake()
 
+def test_store_final_boxes_in_guard():
+    from pypy.jit.metainterp.compile import ResumeGuardDescr
+    from pypy.jit.metainterp.resume import tag, TAGBOX
+    b0 = BoxInt()
+    b1 = BoxInt()
+    opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
+                                None)
+    fdescr = ResumeGuardDescr(None)
+    op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
+    # setup rd data
+    fi0 = resume.FrameInfo(None, "code0", 11)
+    fdescr.rd_frame_info_list = resume.FrameInfo(fi0, "code1", 33)
+    snapshot0 = resume.Snapshot(None, [b0])
+    fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
+    #
+    opt.store_final_boxes_in_guard(op)
+    if op.getfailargs() == [b0, b1]:
+        assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
+    else:
+        assert op.getfailargs() == [b1, b0]
+        assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
+    assert fdescr.rd_virtuals is None
+    assert fdescr.rd_consts == []
+
+def test_sharing_field_lists_of_virtual():
+    class FakeOptimizer(object):
+        class cpu(object):
+            pass
+    opt = FakeOptimizer()
+    virt1 = virtualize.AbstractVirtualStructValue(opt, None)
+    lst1 = virt1._get_field_descr_list()
+    assert lst1 == []
+    lst2 = virt1._get_field_descr_list()
+    assert lst1 is lst2
+    virt1.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
+    lst3 = virt1._get_field_descr_list()
+    assert lst3 == [LLtypeMixin.valuedescr]
+    lst4 = virt1._get_field_descr_list()
+    assert lst3 is lst4
+
+    virt2 = virtualize.AbstractVirtualStructValue(opt, None)
+    lst5 = virt2._get_field_descr_list()
+    assert lst5 is lst1
+    virt2.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
+    lst6 = virt1._get_field_descr_list()
+    assert lst6 is lst3
+
+def test_reuse_vinfo():
+    class FakeVInfo(object):
+        def set_content(self, fieldnums):
+            self.fieldnums = fieldnums
+        def equals(self, fieldnums):
+            return self.fieldnums == fieldnums
+    class FakeVirtualValue(virtualize.AbstractVirtualValue):
+        def _make_virtual(self, *args):
+            return FakeVInfo()
+    v1 = FakeVirtualValue(None, None, None)
+    vinfo1 = v1.make_virtual_info(None, [1, 2, 4])
+    vinfo2 = v1.make_virtual_info(None, [1, 2, 4])
+    assert vinfo1 is vinfo2
+    vinfo3 = v1.make_virtual_info(None, [1, 2, 6])
+    assert vinfo3 is not vinfo2
+    vinfo4 = v1.make_virtual_info(None, [1, 2, 6])
+    assert vinfo3 is vinfo4
+
+def test_descrlist_dict():
+    from pypy.jit.metainterp import optimizeutil
+    h1 = optimizeutil.descrlist_hash([])
+    h2 = optimizeutil.descrlist_hash([LLtypeMixin.valuedescr])
+    h3 = optimizeutil.descrlist_hash(
+            [LLtypeMixin.valuedescr, LLtypeMixin.nextdescr])
+    assert h1 != h2
+    assert h2 != h3
+    assert optimizeutil.descrlist_eq([], [])
+    assert not optimizeutil.descrlist_eq([], [LLtypeMixin.valuedescr])
+    assert optimizeutil.descrlist_eq([LLtypeMixin.valuedescr],
+                                     [LLtypeMixin.valuedescr])
+    assert not optimizeutil.descrlist_eq([LLtypeMixin.valuedescr],
+                                         [LLtypeMixin.nextdescr])
+    assert optimizeutil.descrlist_eq([LLtypeMixin.valuedescr, LLtypeMixin.nextdescr],
+                                     [LLtypeMixin.valuedescr, LLtypeMixin.nextdescr])
+    assert not optimizeutil.descrlist_eq([LLtypeMixin.nextdescr, LLtypeMixin.valuedescr],
+                                         [LLtypeMixin.valuedescr, LLtypeMixin.nextdescr])
+
+    # descrlist_eq should compare by identity of the descrs, not by the result
+    # of sort_key
+    class FakeDescr(object):
+        def sort_key(self):
+            return 1
+
+    assert not optimizeutil.descrlist_eq([FakeDescr()], [FakeDescr()])
+
 # ____________________________________________________________
 class Storage(compile.ResumeGuardDescr):
     "for tests."
@@ -76,6 +170,8 @@ class BaseTestOptimizeOpt(BaseTest):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
+        if hasattr(self, 'callinfocollection'):
+            metainterp_sd.callinfocollection = self.callinfocollection
         optimize_loop_1(metainterp_sd, loop)
         #
 
@@ -1430,7 +1526,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         ops = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
-        debug_merge_point(15)
+        debug_merge_point(15, 0)
         i2 = getfield_gc(p1, descr=valuedescr)
         escape(i1)
         escape(i2)
@@ -1439,7 +1535,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         expected = """
         [p1]
         i1 = getfield_gc(p1, descr=valuedescr)
-        debug_merge_point(15)
+        debug_merge_point(15, 0)
         escape(i1)
         escape(i1)
         jump(p1)
@@ -4288,22 +4384,20 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops, preamble=None):
         from pypy.jit.metainterp.optimizeopt import string
-        def my_callinfo_for_oopspec(oopspecindex):
-            calldescrtype = type(LLtypeMixin.strequaldescr)
-            for value in LLtypeMixin.__dict__.values():
-                if isinstance(value, calldescrtype):
-                    if (value.get_extra_info() and
-                        value.get_extra_info().oopspecindex == oopspecindex):
-                        # returns 0 for 'func' in this test
-                        return value, 0
-            raise AssertionError("not found: oopspecindex=%d" % oopspecindex)
+        class FakeCallInfoCollection:
+            def callinfo_for_oopspec(self, oopspecindex):
+                calldescrtype = type(LLtypeMixin.strequaldescr)
+                for value in LLtypeMixin.__dict__.values():
+                    if isinstance(value, calldescrtype):
+                        extra = value.get_extra_info()
+                        if extra and extra.oopspecindex == oopspecindex:
+                            # returns 0 for 'func' in this test
+                            return value, 0
+                raise AssertionError("not found: oopspecindex=%d" %
+                                     oopspecindex)
         #
-        saved = string.callinfo_for_oopspec
-        try:
-            string.callinfo_for_oopspec = my_callinfo_for_oopspec
-            self.optimize_strunicode_loop(ops, optops, preamble)
-        finally:
-            string.callinfo_for_oopspec = saved
+        self.callinfocollection = FakeCallInfoCollection()
+        self.optimize_strunicode_loop(ops, optops, preamble)
 
     def test_str_equal_noop1(self):
         ops = """

@@ -19,6 +19,7 @@ from pypy.jit.backend.llsupport.descr import get_call_descr
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
+    minimal_size_in_nursery = 0
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
         self.gcdescr = gcdescr
@@ -386,6 +387,7 @@ class GcLLDescr_framework(GcLLDescription):
         (self.array_basesize, _, self.array_length_ofs) = \
              symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
         self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()
+        self.minimal_size_in_nursery=self.GCClass.JIT_minimal_size_in_nursery()
 
         # make a malloc function, with three arguments
         def malloc_basic(size, tid):
@@ -468,6 +470,7 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_fixedsize_slowpath(size):
             if self.DEBUG:
                 random_usage_of_xmm_registers()
+            assert size >= self.minimal_size_in_nursery
             try:
                 gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                             0, size, True, False, False)
@@ -570,6 +573,9 @@ class GcLLDescr_framework(GcLLDescription):
         #   GETFIELD_RAW from the array 'gcrefs.list'.
         #
         newops = []
+        # we can only remember one malloc since the next malloc can possibly
+        # collect
+        last_malloc = None
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
@@ -587,22 +593,32 @@ class GcLLDescr_framework(GcLLDescription):
                                                    [ConstInt(addr)], box,
                                                    self.single_gcref_descr))
                         op.setarg(i, box)
+            if op.is_malloc():
+                last_malloc = op.result
+            elif op.can_malloc():
+                last_malloc = None
             # ---------- write barrier for SETFIELD_GC ----------
             if op.getopnum() == rop.SETFIELD_GC:
-                v = op.getarg(1)
-                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                             bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.getarg(0), v)
-                    op = op.copy_and_change(rop.SETFIELD_RAW)
+                val = op.getarg(0)
+                # no need for a write barrier in the case of previous malloc
+                if val is not last_malloc:
+                    v = op.getarg(1)
+                    if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                            bool(v.value)): # store a non-NULL
+                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        op = op.copy_and_change(rop.SETFIELD_RAW)
             # ---------- write barrier for SETARRAYITEM_GC ----------
             if op.getopnum() == rop.SETARRAYITEM_GC:
-                v = op.getarg(2)
-                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                             bool(v.value)): # store a non-NULL
-                    # XXX detect when we should produce a
-                    # write_barrier_from_array
-                    self._gen_write_barrier(newops, op.getarg(0), v)
-                    op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+                val = op.getarg(0)
+                # no need for a write barrier in the case of previous malloc
+                if val is not last_malloc:
+                    v = op.getarg(2)
+                    if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                            bool(v.value)): # store a non-NULL
+                        # XXX detect when we should produce a
+                        # write_barrier_from_array
+                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ----------
             newops.append(op)
         del operations[:]

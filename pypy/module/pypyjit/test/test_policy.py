@@ -12,7 +12,7 @@ def test_bigint():
 
 def test_rlocale():
     from pypy.rlib.rlocale import setlocale
-    assert not pypypolicy.look_inside_function(setlocale)    
+    assert not pypypolicy.look_inside_function(setlocale)
 
 def test_geninterp():
     d = {'_geninterp_': True}
@@ -28,6 +28,10 @@ def test_pyparser():
     from pypy.interpreter.pyparser import parser
     assert not pypypolicy.look_inside_function(parser.Grammar.__init__.im_func)
 
+def test_property():
+    from pypy.module.__builtin__.descriptor import W_Property
+    assert pypypolicy.look_inside_function(W_Property.get.im_func)
+
 def test_pypy_module():
     from pypy.module._random.interp_random import W_Random
     assert not pypypolicy.look_inside_function(W_Random.random)
@@ -35,6 +39,7 @@ def test_pypy_module():
     assert pypypolicy.look_inside_pypy_module('__builtin__.operation')
     assert pypypolicy.look_inside_pypy_module('__builtin__.abstractinst')
     assert pypypolicy.look_inside_pypy_module('__builtin__.functional')
+    assert pypypolicy.look_inside_pypy_module('__builtin__.descriptor')
     assert pypypolicy.look_inside_pypy_module('exceptions.interp_exceptions')
     for modname in 'pypyjit', 'signal', 'micronumpy', 'math', 'imp':
         assert pypypolicy.look_inside_pypy_module(modname)
@@ -42,4 +47,3 @@ def test_pypy_module():
 
 def test_see_jit_module():
     assert pypypolicy.look_inside_pypy_module('pypyjit.interp_jit')
-

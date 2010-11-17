@@ -424,7 +424,18 @@ def make_borrowed_ref(space, w_container, w_borrowed):
     state = space.fromcache(RefcountState)
     return state.make_borrowed(w_container, w_borrowed)
 
-class BorrowPair:
+class Reference:
+    def __init__(self, pyobj):
+        assert not isinstance(pyobj, W_Root)
+        self.pyobj = pyobj
+
+    def get_ref(self, space):
+        return self.pyobj
+
+    def get_wrapped(self, space):
+        return from_ref(space, self.pyobj)
+
+class BorrowPair(Reference):
     """
     Delays the creation of a borrowed reference.
     """
@@ -434,6 +445,9 @@ class BorrowPair:
 
     def get_ref(self, space):
         return make_borrowed_ref(space, self.w_container, self.w_borrowed)
+
+    def get_wrapped(self, space):
+        return self.w_borrowed
 
 def borrow_from(container, borrowed):
     return BorrowPair(container, borrowed)

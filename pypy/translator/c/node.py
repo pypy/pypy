@@ -714,7 +714,11 @@ class ArrayNode(ContainerNode):
                 s = ''.join([self.obj.getitem(i) for i in range(len(self.obj.items))])
             else:
                 s = ''.join(self.obj.items)
-            yield '\t%s%s' % (length, c_char_array_constant(s))
+            array_constant = c_char_array_constant(s)
+            if array_constant.startswith('{') and barebonearray(T):
+                assert array_constant.endswith('}')
+                array_constant = array_constant[1:-1].strip()
+            yield '\t%s%s' % (length, array_constant)
             yield '}'
         else:
             barebone = barebonearray(T)

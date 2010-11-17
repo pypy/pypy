@@ -8,10 +8,16 @@ import struct
 
 def get_suffixes(space):
     w = space.wrap
-    return space.newlist([
+    suffixes_w = []
+    if space.config.objspace.usemodules.cpyext:
+        suffixes_w.append(
+            space.newtuple([w(importing.get_so_extension(space)),
+                            w('rb'), w(importing.C_EXTENSION)]))
+    suffixes_w.extend([
         space.newtuple([w('.py'), w('U'), w(importing.PY_SOURCE)]),
         space.newtuple([w('.pyc'), w('rb'), w(importing.PY_COMPILED)]),
         ])
+    return space.newlist(suffixes_w)
 
 def get_magic(space):
     x = importing.get_pyc_magic(space)

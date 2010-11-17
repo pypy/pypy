@@ -64,7 +64,7 @@ class Signature(object):
         return not self == other
 
 
-    # make it look tuply for the annotator
+    # make it look tuply for its use in the annotator
 
     def __len__(self):
         return 3
@@ -103,10 +103,11 @@ class Arguments(object):
             make_sure_not_resized(self.keywords_w)
 
         make_sure_not_resized(self.arguments_w)
-        if ((w_stararg is not None and w_stararg) or
-            (w_starstararg is not None and w_starstararg)):
-            self._combine_wrapped(w_stararg, w_starstararg)
-            # if we have a call where * or ** args are used at the callsite
+        if w_stararg is not None and space.is_true(w_stararg):
+            self._combine_starargs_wrapped(w_stararg)
+        if w_starstararg is not None and space.is_true(w_starstararg):
+            self._combine_starstarargs_wrapped(w_starstararg)
+            # if we have a call where **args are used at the callsite
             # we shouldn't let the JIT see the argument matching
             self._dont_jit = True
         else:
@@ -142,42 +143,48 @@ class Arguments(object):
 
     def _combine_wrapped(self, w_stararg, w_starstararg):
         "unpack the *arg and **kwd into arguments_w and keywords_w"
-        # unpack the * arguments 
         if w_stararg is not None:
-            self.arguments_w = (self.arguments_w +
-                                self.space.fixedview(w_stararg))
-        # unpack the ** arguments
+            self._combine_starargs_wrapped(w_stararg)
         if w_starstararg is not None:
-            space = self.space
-            if not space.is_true(space.isinstance(w_starstararg, space.w_dict)):
+            self._combine_starstarargs_wrapped(w_starstararg)
+
+    def _combine_starargs_wrapped(self, w_stararg):
+        # unpack the * arguments 
+        self.arguments_w = (self.arguments_w +
+                            self.space.fixedview(w_stararg))
+
+    def _combine_starstarargs_wrapped(self, w_starstararg):
+        # unpack the ** arguments
+        space = self.space
+        if not space.is_true(space.isinstance(w_starstararg, space.w_dict)):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("argument after ** must be "
+                                            "a dictionary"))
+        keywords_w = [None] * space.int_w(space.len(w_starstararg))
+        keywords = [None] * space.int_w(space.len(w_starstararg))
+        i = 0
+        for w_key in space.unpackiterable(w_starstararg):
+            try:
+                key = space.str_w(w_key)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("argument after ** must be "
-                                                "a dictionary"))
-            keywords_w = [None] * space.int_w(space.len(w_starstararg))
-            keywords = [None] * space.int_w(space.len(w_starstararg))
-            i = 0
-            for w_key in space.unpackiterable(w_starstararg):
-                try:
-                    key = space.str_w(w_key)
-                except OperationError, e:
-                    if not e.match(space, space.w_TypeError):
-                        raise
-                    raise OperationError(space.w_TypeError,
-                                         space.wrap("keywords must be strings"))
-                if self.keywords and key in self.keywords:
-                    raise operationerrfmt(self.space.w_TypeError,
-                                          "got multiple values "
-                                          "for keyword argument "
-                                          "'%s'", key)
-                keywords[i] = key
-                keywords_w[i] = space.getitem(w_starstararg, w_key)
-                i += 1
-            if self.keywords is None:
-                self.keywords = keywords
-                self.keywords_w = keywords_w
-            else:
-                self.keywords = self.keywords + keywords
-                self.keywords_w = self.keywords_w + keywords_w
+                                     space.wrap("keywords must be strings"))
+            if self.keywords and key in self.keywords:
+                raise operationerrfmt(self.space.w_TypeError,
+                                      "got multiple values "
+                                      "for keyword argument "
+                                      "'%s'", key)
+            keywords[i] = key
+            keywords_w[i] = space.getitem(w_starstararg, w_key)
+            i += 1
+        if self.keywords is None:
+            self.keywords = keywords
+            self.keywords_w = keywords_w
+        else:
+            self.keywords = self.keywords + keywords
+            self.keywords_w = self.keywords_w + keywords_w
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
@@ -226,6 +233,10 @@ class Arguments(object):
         #   argnames = list of formal parameter names
         #   scope_w = resulting list of wrapped values
         #
+
+        # some comments about the JIT: it assumes that signature is a constant,
+        # so all values coming from there can be assumed constant. It assumes
+        # that the length of the defaults_w does not vary too much.
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
         has_vararg = signature.has_vararg()
         has_kwarg = signature.has_kwarg()
@@ -245,12 +256,6 @@ class Arguments(object):
         args_w = self.arguments_w
         num_args = len(args_w)
 
-        keywords = self.keywords
-        keywords_w = self.keywords_w
-        num_kwds = 0
-        if keywords is not None:
-            num_kwds = len(keywords)
-
         avail = num_args + upfront
 
         if input_argcount < co_argcount:
@@ -260,15 +265,24 @@ class Arguments(object):
             else:
                 take = num_args
 
+            # letting the JIT unroll this loop is safe, because take is always
+            # smaller than co_argcount
             for i in range(take):
                 scope_w[i + input_argcount] = args_w[i]
             input_argcount += take
 
+        keywords = self.keywords
+        keywords_w = self.keywords_w
+        num_kwds = 0
+        if keywords is not None:
+            num_kwds = len(keywords)
         # the code assumes that keywords can potentially be large, but that
         # argnames is typically not too large
         num_remainingkwds = num_kwds
         used_keywords = None
         if keywords:
+            # letting JIT unroll the loop is *only* safe if the callsite didn't
+            # use **args because num_kwds can be arbitrarily large otherwise.
             used_keywords = [False] * num_kwds
             for i in range(num_kwds):
                 name = keywords[i]
@@ -276,7 +290,7 @@ class Arguments(object):
                 if j < 0:
                     continue
                 elif j < input_argcount:
-                    # check that no keyword argument conflicts with these note
+                    # check that no keyword argument conflicts with these. note
                     # that for this purpose we ignore the first blindargs,
                     # which were put into place by prepend().  This way,
                     # keywords do not conflict with the hidden extra argument

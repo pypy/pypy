@@ -37,7 +37,7 @@ def machine_code_dump(data, originaddr, backend_name):
         'x86_64': 'x86-64',
         'i386': 'i386',
     }
-    objdump = ('objdump -M intel,%(backend)s -b binary -m i386 '
+    objdump = ('objdump -M %(backend)s -b binary -m i386 '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
     f = open(tmpfile, 'wb')

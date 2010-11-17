@@ -1868,6 +1868,13 @@ def free(p, flavor, track_allocation=True):
         leakfinder.remember_free(p._obj0)
     p._obj0._free()
 
+def render_immortal(p, track_allocation=True):
+    T = typeOf(p)
+    if not isinstance(T, Ptr) or p._togckind() != 'raw':
+        raise TypeError, "free(): only for pointers to non-gc containers"
+    if track_allocation:
+        leakfinder.remember_free(p._obj0)
+
 def _make_scoped_allocator(T):
     class ScopedAlloc:
         def __init__(self, n=None, zero=False):

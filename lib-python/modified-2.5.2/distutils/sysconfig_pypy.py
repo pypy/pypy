@@ -3,6 +3,7 @@
 
 import sys
 import os
+import imp
 
 from distutils.errors import DistutilsPlatformError
 
@@ -47,11 +48,17 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
 
 _config_vars = None
 
+def _get_so_extension():
+    for ext, mod, typ in imp.get_suffixes():
+        if typ == imp.C_EXTENSION:
+            return ext
+
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     g = {}
     g['EXE'] = ""
-    g['SO'] = ".so"
+    g['SO'] = _get_so_extension() or ".so"
+    g['SOABI'] = g['SO'].rsplit('.')[0]
 
     global _config_vars
     _config_vars = g
@@ -61,7 +68,8 @@ def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
     g['EXE'] = ".exe"
-    g['SO'] = ".pyd"
+    g['SO'] = _get_so_extension() or ".pyd"
+    g['SOABI'] = g['SO'].rsplit('.')[0]
 
     global _config_vars
     _config_vars = g

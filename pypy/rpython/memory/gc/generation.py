@@ -572,16 +572,10 @@ class GenerationGC(SemiSpaceGC):
     def _compute_current_nursery_hash(self, obj):
         return intmask(llmemory.cast_adr_to_int(obj) + self.nursery_hash_base)
 
-    def heap_stats_walk_roots(self):
-        self.last_generation_root_objects.foreach(
-            self._track_heap_ext, None)
-        self.root_walker.walk_roots(
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root)
-
-    def _track_heap_ext(self, adr, ignored):
-        self.trace(adr, self.track_heap_parent, adr)
+    def enumerate_all_roots(self, callback, arg):
+        self.last_generation_root_objects.foreach(callback, arg)
+        SemiSpaceGC.enumerate_all_roots(self, callback, arg)
+    enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
     def debug_check_object(self, obj):
         """Check the invariants about 'obj' that should be true
