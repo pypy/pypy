@@ -31,6 +31,7 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
                 g = PyTuple_GetItem(t, 0); // borrows reference again
                 printf("Refcnt4: %i\\n", f->ob_refcnt);
                 printf("COMPARE: %i\\n", f == g);
+                fflush(stdout);
                 Py_DECREF(t);
                 Py_RETURN_TRUE;
              """),

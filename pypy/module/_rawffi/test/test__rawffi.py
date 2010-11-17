@@ -296,6 +296,7 @@ class AppTestFfi:
         assert _rawffi.charp2string(res[0]) is None
         arg1.free()
         arg2.free()
+        a.free()
 
     def test_raw_callable(self):
         import _rawffi

@@ -908,8 +908,10 @@ def load_extension_module(space, path, name):
         from pypy.rlib import rdynload
         try:
             ll_libname = rffi.str2charp(path)
-            dll = rdynload.dlopen(ll_libname)
-            lltype.free(ll_libname, flavor='raw')
+            try:
+                dll = rdynload.dlopen(ll_libname)
+            finally:
+                lltype.free(ll_libname, flavor='raw')
         except rdynload.DLOpenError, e:
             raise operationerrfmt(
                 space.w_ImportError,

@@ -881,3 +881,17 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         assert res == -98765432
         res = fn(1)
         assert res == -9999999
+
+    def test_render_immortal(self):
+        A = FixedSizeArray(Signed, 1)
+        a1 = malloc(A, flavor='raw')
+        render_immortal(a1)
+        a1[0] = 42
+        def llf():
+            a2 = malloc(A, flavor='raw')
+            render_immortal(a2)
+            a2[0] = 3
+            return a1[0] + a2[0]
+        fn = self.getcompiled(llf)
+        assert fn() == 45
+
