@@ -1803,6 +1803,40 @@ class BasicTests:
         assert res == 8
         py.test.raises(AssertGreenFailed, self.interp_operations, f, [8, 0])
 
+    def test_mutiple_specialied_versions(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
+        class Base:
+            def __init__(self, val):
+                self.val = val
+        class A(Base):
+            def add(self, other):
+                return A(self.val + other.val)
+        class B(Base):
+            def add(self, other):
+                return B(self.val * other.val)
+        def f(x, y):
+            res = x
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, res=res)
+                res = res.add(x)
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            b1 = f(B(x), y)
+            b2 = f(B(x), y)
+            assert a1.val == a2.val
+            assert b1.val == b2.val
+            return a1.val + b1.val
+        res = self.meta_interp(g, [6, 7])
+        assert res == 6*8 + 6**8
+        self.check_loop_count(5)
+        self.check_loops({'guard_true': 2,
+                          'int_add': 2, 'int_sub': 2, 'int_gt': 2,
+                          'jump': 2})
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 
