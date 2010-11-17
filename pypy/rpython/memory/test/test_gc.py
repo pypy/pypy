@@ -281,11 +281,11 @@ class GCTest(object):
     def test_bug_1(self):
         import weakref
         class B(object):
-            def __del__(self):
-                pass
+            pass
         def g():
             b = B()
-            ref = weakref.ref(b)
+            llop.gc__collect(lltype.Void)    # force 'b' to be old
+            ref = weakref.ref(B())
             b.ref = ref
             return ref
         def f():
