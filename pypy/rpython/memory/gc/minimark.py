@@ -971,7 +971,7 @@ class MiniMarkGC(MovingGCBase):
         #
         # Now all live nursery objects should be out.  Update the
         # young weakrefs' targets.
-        if self.young_objects_with_weakrefs.length() > 0:
+        if self.young_objects_with_weakrefs.non_empty():
             self.invalidate_young_weakrefs()
         #
         # Clear this mapping.
