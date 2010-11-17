@@ -278,6 +278,61 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
+    def test_cycle_with_weakref_and_del(self):
+        import weakref, gc
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            def __del__(self):
+                # when __del__ is called, the weakref should have been cleared
+                if self.ref() is None:
+                    a.count += 1   # ok
+                else:
+                    a.count = 666  # not ok
+        class C(object):
+            pass
+        def g():
+            c = C()
+            c.b = B()
+            ref = weakref.ref(c)
+            c.b.ref = ref
+            return ref
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count == 1 and (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
+
+    def test_weakref_to_object_with_finalizer_ordering(self):
+        import weakref, gc
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            def __del__(self):
+                # when __del__ is called, the weakref should have been cleared
+                if self.ref() is None:
+                    a.count += 1   # ok
+                else:
+                    a.count = 666  # not ok
+        def g():
+            b = B()
+            ref = weakref.ref(b)
+            b.ref = ref
+            return ref
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count == 1 and (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
+
     def test_id(self):
         class A(object):
             pass
