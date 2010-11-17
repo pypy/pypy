@@ -35,3 +35,10 @@ class AppTestBytesIO:
         assert f.seek(-1, 2) == 4
         assert f.tell() == 4
         assert f.seek(0) == 0
+
+    def test_truncate(self):
+        import _io
+        f = _io.BytesIO("hello")
+        f.seek(3)
+        assert f.truncate() == 3
+        assert f.getvalue() == "hel"

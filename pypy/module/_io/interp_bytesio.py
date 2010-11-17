@@ -82,6 +82,25 @@ class W_BytesIO(W_BufferedIOBase):
 
         return space.wrap(length)
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def truncate_w(self, space, w_size=None):
+        self._check_closed(space)
+
+        if space.is_w(w_size, space.w_None):
+            size = self.pos
+        else:
+            size = space.r_longlong_w(w_size)
+
+        if size < 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "negative size value"))
+
+        if size < self.string_size:
+            self.string_size = size
+            del self.buf[size:]
+
+        return space.wrap(size)
+
     @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
         self._check_closed(space)
@@ -139,6 +158,7 @@ W_BytesIO.typedef = TypeDef(
 
     read = interp2app(W_BytesIO.read_w),
     write = interp2app(W_BytesIO.write_w),
+    truncate = interp2app(W_BytesIO.truncate_w),
     getvalue = interp2app(W_BytesIO.getvalue_w),
     seek = interp2app(W_BytesIO.seek_w),
     tell = interp2app(W_BytesIO.tell_w),
