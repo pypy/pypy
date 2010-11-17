@@ -52,6 +52,24 @@ class AppTestIoModule:
             assert e.strerror == "test blocking"
             assert e.characters_written == 123
 
+    def test_dict(self):
+        import _io
+        f = _io.BytesIO()
+        f.x = 42
+        assert f.x == 42
+        #
+        def write(data):
+            try:
+                data = data.tobytes().upper()
+            except AttributeError:
+                data = data.upper()
+            return _io.BytesIO.write(f, data)
+        f.write = write
+        bufio = _io.BufferedWriter(f)
+        bufio.write("abc")
+        bufio.flush()
+        assert f.getvalue() == "ABC"
+
     def test_destructor(self):
         import io
         io.IOBase()

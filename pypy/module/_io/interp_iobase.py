@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import (
-    TypeDef, GetSetProperty, generic_new_descr)
+    TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict)
 from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
@@ -41,7 +41,11 @@ class W_IOBase(Wrappable):
         # `__IOBase_closed` and call flush() by itself, but it is redundant
         # with whatever behaviour a non-trivial derived class will implement.
         self.space = space
+        self.w_dict = space.newdict()
         self.__IOBase_closed = False
+
+    def getdict(self):
+        return self.w_dict
 
     def _closed(self, space):
         # This gets the derived attribute, which is *not* __IOBase_closed
@@ -241,6 +245,7 @@ W_IOBase.typedef = TypeDef(
     _checkWritable = interp2app(check_writable_w),
     _checkSeekable = interp2app(check_seekable_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
+    __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=W_IOBase),
 
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),
