@@ -306,7 +306,7 @@ class GCTest(object):
             def __del__(self):
                 # when __del__ is called, the weakref should have been cleared
                 if self.ref() is None:
-                    a.count += 1   # ok
+                    a.count += 10  # ok
                 else:
                     a.count = 666  # not ok
         class C(object):
@@ -321,10 +321,10 @@ class GCTest(object):
             ref = g()
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
-            result = a.count == 1 and (ref() is None)
+            result = a.count + (ref() is None)
             return result
         res = self.interpret(f, [])
-        assert res
+        assert res == 11
 
     def test_weakref_to_object_with_finalizer_ordering(self):
         import weakref, gc
@@ -335,7 +335,7 @@ class GCTest(object):
             def __del__(self):
                 # when __del__ is called, the weakref should have been cleared
                 if self.ref() is None:
-                    a.count += 1   # ok
+                    a.count += 10  # ok
                 else:
                     a.count = 666  # not ok
         def g():
@@ -347,10 +347,10 @@ class GCTest(object):
             ref = g()
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
-            result = a.count == 1 and (ref() is None)
+            result = a.count + (ref() is None)
             return result
         res = self.interpret(f, [])
-        assert res
+        assert res == 11
 
     def test_id(self):
         class A(object):
@@ -729,6 +729,9 @@ class TestMarkCompactGC(TestSemiSpaceGC):
     GC_CAN_SHRINK_BIG_ARRAY = False
 
     def test_finalizer_order(self):
+        py.test.skip("Not implemented yet")
+
+    def test_weakref_to_object_with_finalizer_ordering(self):
         py.test.skip("Not implemented yet")
 
 class TestHybridGC(TestGenerationalGC):
