@@ -5,7 +5,8 @@ from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 
 class W_StringIO(W_TextIOBase):
-    def __init__(self):
+    def __init__(self, space):
+        W_TextIOBase.__init__(self, space)
         self.buf = []
         self.pos = 0
 
@@ -17,7 +18,7 @@ class W_StringIO(W_TextIOBase):
     @unwrap_spec(ObjSpace, W_Root)
     def descr_new(space, w_subtype):
         self = space.allocate_instance(W_StringIO, w_subtype)
-        W_StringIO.__init__(self)
+        W_StringIO.__init__(self, space)
         return space.wrap(self)
 
     def resize_buffer(self, newlength):
