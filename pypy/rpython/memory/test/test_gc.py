@@ -278,6 +278,25 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
+    def test_bug_1(self):
+        import weakref
+        class B(object):
+            def __del__(self):
+                pass
+        def g():
+            b = B()
+            ref = weakref.ref(b)
+            b.ref = ref
+            return ref
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
+
     def test_cycle_with_weakref_and_del(self):
         import weakref, gc
         class A(object):
