@@ -497,8 +497,8 @@ class BufferedMixin:
         data = self._raw_read(space, length)
         size = len(data)
         if size > 0:
-            for i in range(start, start + size):
-                self.buffer[i] = data[i]
+            for i in range(size):
+                self.buffer[start + i] = data[i]
             self.read_end = self.raw_pos = start + size
         return size
 

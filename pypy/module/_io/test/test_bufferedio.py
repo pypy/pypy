@@ -32,6 +32,20 @@ class AppTestBufferedReader:
         assert f.read(3) == ""
         f.close()
 
+    def test_slow_provider(self):
+        import _io
+        class MockIO(_io._IOBase):
+            def readable(self):
+                return True
+            def read(self, n=-1):    # PyPy uses read()
+                return "abc"
+            def readinto(self, buf): # CPython uses readinto()
+                buf[:3] = "abc"
+                return 3
+        bufio = _io.BufferedReader(MockIO())
+        r = bufio.read(5)
+        assert r == "abcab"
+
     def test_peek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
