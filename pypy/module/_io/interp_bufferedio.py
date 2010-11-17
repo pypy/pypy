@@ -4,9 +4,10 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.buffer import RWBuffer
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, convert_size,
@@ -70,6 +71,17 @@ W_BufferedIOBase.typedef = TypeDef(
     detach = interp2app(W_BufferedIOBase.detach_w),
     readinto = interp2app(W_BufferedIOBase.readinto_w),
     )
+
+class RawBuffer(RWBuffer):
+    def __init__(self, buf, length):
+        self.buf = buf
+        self.length = length
+
+    def getlength(self):
+        return self.length
+
+    def setitem(self, index, char):
+        self.buf[index] = char
 
 class BufferedMixin:
     _mixin_ = True
@@ -480,25 +492,24 @@ class BufferedMixin:
                 self.abs_pos += size
         return builder.build()
 
-    def _raw_read(self, space, n):
-        w_data = space.call_method(self.w_raw, "read", space.wrap(n))
-        if space.is_w(w_data, space.w_None):
+    def _raw_read(self, space, buffer, start, length):
+        length = intmask(length)
+        w_buf = space.wrap(RawBuffer(rffi.ptradd(buffer, start), length))
+        w_size = space.call_method(self.w_raw, "readinto", w_buf)
+        if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
-        data = space.str_w(w_data)
+        size = space.int_w(w_size)
         if self.abs_pos != -1:
-            self.abs_pos += len(data)
-        return data
+            self.abs_pos += size
+        return size
 
     def _fill_buffer(self, space):
         start = self.read_end
         if start == -1:
             start = 0
         length = self.buffer_size - start
-        data = self._raw_read(space, length)
-        size = len(data)
+        size = self._raw_read(space, self.buffer, start, length)
         if size > 0:
-            for i in range(size):
-                self.buffer[start + i] = data[i]
             self.read_end = self.raw_pos = start + size
         return size
 
@@ -509,70 +520,64 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        builder = StringBuilder(n)
-        remaining = n
-        written = 0
-        data = None
-        if current_size:
-            data = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos),
-                                      current_size)
-            builder.append(data)
-            remaining -= len(data)
-            written += len(data)
-        self._reader_reset_buf()
+        with rffi.scoped_alloc_buffer(n) as result_buffer:
+            remaining = n
+            written = 0
+            data = None
+            if current_size:
+                for i in range(current_size):
+                    result_buffer.raw[written + i] = self.buffer[self.pos + i]
+                remaining -= current_size
+                written += current_size
+            self._reader_reset_buf()
 
-        # XXX potential bug in CPython? The following is not enabled.
-        # We're going past the buffer's bounds, flush it
-        ## if self.writable:
-        ##     self._writer_flush_unlocked(space, restore_pos=True)
+            # XXX potential bug in CPython? The following is not enabled.
+            # We're going past the buffer's bounds, flush it
+            ## if self.writable:
+            ##     self._writer_flush_unlocked(space, restore_pos=True)
 
-        # Read whole blocks, and don't buffer them
-        while remaining > 0:
-            r = self.buffer_size * (remaining // self.buffer_size)
-            if r == 0:
-                break
-            try:
-                data = self._raw_read(space, r)
-            except BlockingIOError:
-                if written == 0:
-                    return None
-                data = ""
-            size = len(data)
-            if size == 0:
-                return builder.build()
-            builder.append(data)
-            remaining -= size
-            written += size
-
-        self.pos = 0
-        self.raw_pos = 0
-        self.read_end = 0
-
-        while remaining > 0 and self.read_end < self.buffer_size:
-            try:
-                size = self._fill_buffer(space)
-            except BlockingIOError:
-                # EOF or read() would block
-                if written == 0:
-                    return None
-                size = 0
-            if size == 0:
-                break
-
-            if remaining > 0:
-                if size > remaining:
-                    size = remaining
-                # XXX inefficient
-                l = []
-                for i in range(self.pos,self.pos + size):
-                    l.append(self.buffer[i])
-                data = ''.join(l)
-                builder.append(data)
-
-                written += size
-                self.pos += size
+            # Read whole blocks, and don't buffer them
+            while remaining > 0:
+                r = self.buffer_size * (remaining // self.buffer_size)
+                if r == 0:
+                    break
+                try:
+                    size = self._raw_read(space, result_buffer.raw, written, r)
+                except BlockingIOError:
+                    if written == 0:
+                        return None
+                    size = 0
+                if size == 0:
+                    return result_buffer.str(intmask(written))
                 remaining -= size
-        return builder.build()
+                written += size
+
+            self.pos = 0
+            self.raw_pos = 0
+            self.read_end = 0
+
+            while remaining > 0 and self.read_end < self.buffer_size:
+                try:
+                    size = self._fill_buffer(space)
+                except BlockingIOError:
+                    # EOF or read() would block
+                    if written == 0:
+                        return None
+                    size = 0
+                if size == 0:
+                    break
+
+                if remaining > 0:
+                    if size > remaining:
+                        size = remaining
+                    for i in range(size):
+                        result_buffer.raw[written + i] = self.buffer[self.pos + i]
+                    self.pos += size
+
+                    written += size
+                    remaining -= size
+
+            return result_buffer.str(intmask(written))
 
     def _read_fast(self, n):
         """Read n bytes from the buffer if it can, otherwise return None.

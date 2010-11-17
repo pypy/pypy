@@ -49,6 +49,20 @@ class W_BytesIO(W_BufferedIOBase):
         return space.wrap(output)
 
     @unwrap_spec('self', ObjSpace, W_Root)
+    def readinto_w(self, space, w_buffer):
+        rwbuffer = space.rwbuffer_w(w_buffer)
+        size = rwbuffer.getlength()
+
+        if self.pos + size > self.string_size:
+            size = self.string_size - self.pos
+
+        output = buffer2string(self.buf, self.pos, self.pos + size)
+        length = len(output)
+        rwbuffer.setslice(0, output)
+        self.pos += length
+        return space.wrap(length)
+
+    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._check_closed(space)
         buf = space.buffer_w(w_data)
@@ -157,6 +171,7 @@ W_BytesIO.typedef = TypeDef(
     __init__  = interp2app(W_BytesIO.descr_init),
 
     read = interp2app(W_BytesIO.read_w),
+    readinto = interp2app(W_BytesIO.readinto_w),
     write = interp2app(W_BytesIO.write_w),
     truncate = interp2app(W_BytesIO.truncate_w),
     getvalue = interp2app(W_BytesIO.getvalue_w),

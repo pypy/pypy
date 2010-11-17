@@ -37,14 +37,64 @@ class AppTestBufferedReader:
         class MockIO(_io._IOBase):
             def readable(self):
                 return True
-            def read(self, n=-1):    # PyPy uses read()
-                return "abc"
-            def readinto(self, buf): # CPython uses readinto()
+            def readinto(self, buf):
                 buf[:3] = "abc"
                 return 3
         bufio = _io.BufferedReader(MockIO())
         r = bufio.read(5)
         assert r == "abcab"
+
+    def test_read_past_eof(self):
+        import _io
+        class MockIO(_io._IOBase):
+            stack = ["abc", "d", "efg"]
+            def readable(self):
+                return True
+            def readinto(self, buf):
+                if self.stack:
+                    data = self.stack.pop(0)
+                    buf[:len(data)] = data
+                    return len(data)
+                else:
+                    return 0
+        bufio = _io.BufferedReader(MockIO())
+        assert bufio.read(9000) == "abcdefg"
+
+    def test_buffering(self):
+        import _io
+        data = b"abcdefghi"
+        dlen = len(data)
+        class MockFileIO(_io.BytesIO):
+            def __init__(self, data):
+                self.read_history = []
+                _io.BytesIO.__init__(self, data)
+
+            def read(self, n=None):
+                res = _io.BytesIO.read(self, n)
+                self.read_history.append(None if res is None else len(res))
+                return res
+
+            def readinto(self, b):
+                res = _io.BytesIO.readinto(self, b)
+                self.read_history.append(res)
+                return res
+
+
+        tests = [
+            [ 100, [ 3, 1, 4, 8 ], [ dlen, 0 ] ],
+            [ 100, [ 3, 3, 3],     [ dlen ]    ],
+            [   4, [ 1, 2, 4, 2 ], [ 4, 4, 1 ] ],
+        ]
+
+        for bufsize, buf_read_sizes, raw_read_sizes in tests:
+            rawio = MockFileIO(data)
+            bufio = _io.BufferedReader(rawio, buffer_size=bufsize)
+            pos = 0
+            for nbytes in buf_read_sizes:
+                assert bufio.read(nbytes) == data[pos:pos+nbytes]
+                pos += nbytes
+            # this is mildly implementation-dependent
+            assert rawio.read_history == raw_read_sizes
 
     def test_peek(self):
         import _io
