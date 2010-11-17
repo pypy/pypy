@@ -96,6 +96,13 @@ class AppTestIoModule:
                 return 42
         assert MyIO().tell() == 42
 
+    def test_weakref(self):
+        import _io
+        import weakref
+        f = _io.BytesIO()
+        ref = weakref.ref(f)
+        assert ref() is f
+
 class AppTestOpen:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile').ensure()

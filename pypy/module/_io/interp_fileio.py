@@ -1,6 +1,5 @@
 from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty,
-    make_weakref_descr)
+    TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
@@ -436,7 +435,6 @@ W_FileIO.typedef = TypeDef(
     __new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_FileIO.descr_init),
     __repr__ = interp2app(W_FileIO.repr_w),
-    __weakref__ = make_weakref_descr(W_FileIO),
 
     seek = interp2app(W_FileIO.seek_w),
     tell = interp2app(W_FileIO.tell_w),

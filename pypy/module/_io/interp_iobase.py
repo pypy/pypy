@@ -1,6 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import (
-    TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict)
+    TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
+    make_weakref_descr)
 from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
@@ -246,6 +247,7 @@ W_IOBase.typedef = TypeDef(
     _checkSeekable = interp2app(check_seekable_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=W_IOBase),
+    __weakref__ = make_weakref_descr(W_IOBase),
 
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),
