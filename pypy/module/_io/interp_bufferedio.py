@@ -883,7 +883,7 @@ class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
                    max_buffer_size = -234):
         if max_buffer_size != -234:
-            self._deprecated_buffer_size(space)
+            self._deprecated_max_buffer_size(space)
 
         self.state = STATE_ZERO
 
