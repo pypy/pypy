@@ -103,6 +103,16 @@ class AppTestIoModule:
         ref = weakref.ref(f)
         assert ref() is f
 
+    def test_rawio_read(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            stack = ['abc', 'de', '']
+            def readinto(self, buf):
+                data = self.stack.pop(0)
+                buf[:len(data)] = data
+                return len(data)
+        assert MockRawIO().read() == 'abcde'
+
 class AppTestOpen:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile').ensure()

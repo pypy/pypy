@@ -10,9 +10,9 @@ from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
-    W_IOBase, convert_size,
+    W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
-from pypy.module._io.interp_io import DEFAULT_BUFFER_SIZE, W_BlockingIOError
+from pypy.module._io.interp_io import W_BlockingIOError
 from pypy.module.thread.os_lock import Lock
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)

@@ -5,8 +5,6 @@ from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.module._io.interp_iobase import W_IOBase
 
-DEFAULT_BUFFER_SIZE = 8192
-
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):
         W_IOError.__init__(self, space)

@@ -6,6 +6,8 @@ from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
 
+DEFAULT_BUFFER_SIZE = 8192
+
 def convert_size(space, w_size):
     if space.is_w(w_size, space.w_None):
         return -1
@@ -271,9 +273,41 @@ W_IOBase.typedef = TypeDef(
     )
 
 class W_RawIOBase(W_IOBase):
-    pass
+    # ________________________________________________________________
+    # Abstract read methods, based on readinto()
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def read_w(self, space, w_size=None):
+        size = convert_size(space, w_size)
+        if size < 0:
+            return space.call_method(self, "readall")
+
+        w_buffer = space.call_function(space.w_bytearray, w_size)
+        w_length = space.call_method(self, "readinto", w_buffer)
+        space.delslice(w_buffer, w_length, space.len(w_buffer))
+        return space.str(w_buffer)
+
+    @unwrap_spec('self', ObjSpace)
+    def readall_w(self, space):
+        builder = StringBuilder()
+        while True:
+            w_data = space.call_method(self, "read",
+                                       space.wrap(DEFAULT_BUFFER_SIZE))
+
+            if not space.isinstance_w(w_data, space.w_str):
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "read() should return bytes"))
+            data = space.str_w(w_data)
+            if not data:
+                break
+            builder.append(data)
+        return space.wrap(builder.build())
+
 W_RawIOBase.typedef = TypeDef(
     '_RawIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_RawIOBase),
+
+    read = interp2app(W_RawIOBase.read_w),
+    readall = interp2app(W_RawIOBase.readall_w),
     )
 
