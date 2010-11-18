@@ -1,5 +1,6 @@
 from pypy.interpreter import gateway, typedef
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import (string_to_int, string_to_bigint,
@@ -62,6 +63,18 @@ def wrapint(space, x):
 
 # ____________________________________________________________
 
+def string_to_int_or_long(space, string, base=10):
+    w_longval = None
+    value = 0
+    try:
+        value = string_to_int(string, base)
+    except ParseStringError, e:
+        raise OperationError(space.w_ValueError,
+                             space.wrap(e.msg))
+    except ParseStringOverflowError, e:
+        w_longval = retry_to_w_long(space, e.parser)
+    return value, w_longval
+
 def retry_to_w_long(space, parser, base=0):
     parser.rewind()
     try:
@@ -78,31 +91,35 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
     if w_base is None:
+        ok = False
         # check for easy cases
         if type(w_value) is W_IntObject:
             value = w_value.intval
+            ok = True
         elif space.is_true(space.isinstance(w_value, space.w_str)):
-            try:
-                value = string_to_int(space.str_w(w_value))
-            except ParseStringError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(e.msg))
-            except ParseStringOverflowError, e:
-                 w_longval = retry_to_w_long(space, e.parser)
+            value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
+            ok = True
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
             else:
                 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             string = unicode_to_decimal_w(space, w_value)
-            try:
-                value = string_to_int(string)
-            except ParseStringError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(e.msg))
-            except ParseStringOverflowError, e:
-                 w_longval = retry_to_w_long(space, e.parser)
+            value, w_longval = string_to_int_or_long(space, string)
+            ok = True
         else:
+            # If object supports the buffer interface
+            try:
+                w_buffer = space.buffer(w_value)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+            else:
+                buf = space.interp_w(Buffer, w_buffer)
+                value, w_longval = string_to_int_or_long(space, buf.as_str())
+                ok = True
+
+        if not ok:
             # otherwise, use the __int__() then __trunc__() methods
             try:
                 w_obj = space.int(w_value)
@@ -139,13 +156,8 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("int() can't convert non-string "
                                                 "with explicit base"))
-        try:
-            value = string_to_int(s, base)
-        except ParseStringError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.msg))
-        except ParseStringOverflowError, e:
-            w_longval = retry_to_w_long(space, e.parser, base)
+
+        value, w_longval = string_to_int_or_long(space, s, base)
 
     if w_longval is not None:
         if not space.is_w(w_inttype, space.w_int):
