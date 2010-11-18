@@ -77,6 +77,16 @@ class AppTestFileIO:
         f.close()
         f2.close()
 
+    def test_writelines(self):
+        import _io
+        filename = self.tmpfile + '_w'
+        f = _io.FileIO(filename, 'wb')
+        f.writelines(["line1\n", "line2", "line3"])
+        f2 = _io.FileIO(filename, 'rb')
+        assert f2.read() == "line1\nline2line3"
+        f.close()
+        f2.close()
+
     def test_seek(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')

@@ -228,6 +228,21 @@ class W_IOBase(Wrappable):
 
         return space.newlist(lines_w)
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def writelines_w(self, space, w_lines):
+        self._check_closed(space)
+
+        w_iterator = space.iter(w_lines)
+
+        while True:
+            try:
+                w_line = space.next(w_iterator)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break  # done
+            space.call_method(self, "write", w_line)
+
 W_IOBase.typedef = TypeDef(
     '_IOBase',
     __new__ = generic_new_descr(W_IOBase),
@@ -251,6 +266,7 @@ W_IOBase.typedef = TypeDef(
 
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),
+    writelines = interp2app(W_IOBase.writelines_w),
     )
 
 class W_RawIOBase(W_IOBase):
