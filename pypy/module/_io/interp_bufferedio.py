@@ -499,6 +499,10 @@ class BufferedMixin:
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
         size = space.int_w(w_size)
+        if size < 0 or size > length:
+            raise OperationError(space.w_IOError, space.wrap(
+                "raw readinto() returned invalid length %d "
+                "(should have been between 0 and %d)" % (size, length)))
         if self.abs_pos != -1:
             self.abs_pos += size
         return size
@@ -843,7 +847,8 @@ class W_BufferedRWPair(W_BufferedIOBase):
             raise
 
     def __del__(self):
-        pass # no not close the files
+        self.clear_all_weakrefs()
+        # Don't call the base __del__: do not close the files!
 
     # forward to reader
     for method in ['read', 'peek', 'read1', 'readinto', 'readable']:

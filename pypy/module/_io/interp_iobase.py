@@ -57,6 +57,7 @@ class W_IOBase(Wrappable):
         return False
 
     def __del__(self):
+        self.clear_all_weakrefs()
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:
