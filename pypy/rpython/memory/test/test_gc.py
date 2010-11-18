@@ -352,6 +352,29 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res == 11
 
+    def test_weakref_bug_1(self):
+        import weakref
+        class A(object):
+            pass
+        class B(object):
+            def __del__(self):
+                self.wref().x += 1
+        def g(a):
+            b = B()
+            b.wref = weakref.ref(a)
+            # the only way to reach this weakref is via B, which is an
+            # object with finalizer (but the weakref itself points to
+            # a, which does not go away but will move during the next
+            # gc.collect)
+        def f():
+            a = A()
+            a.x = 10
+            g(a)
+            llop.gc__collect(lltype.Void)
+            return a.x
+        res = self.interpret(f, [])
+        assert res == 11
+
     def test_id(self):
         class A(object):
             pass
