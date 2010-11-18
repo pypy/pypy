@@ -39,6 +39,9 @@ class AbstractARMv7Builder(object):
     def ensure_can_fit(self, n):
         raise NotImplentedError
 
+    def NOP(self):
+        self.MOV_rr(0, 0)
+
     def PUSH(self, regs, cond=cond.AL):
         assert reg.sp.value not in regs
         instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
@@ -55,7 +58,7 @@ class AbstractARMv7Builder(object):
     def B(self, target, c=cond.AL, some_reg=None):
         if c == cond.AL:
             self.ensure_can_fit(2*WORD)
-            self.LDR_ri(reg.pc.value, reg.pc.value, -4)
+            self.LDR_ri(reg.pc.value, reg.pc.value, -arch.PC_OFFSET/2)
             self.write32(target)
         else:
             assert some_reg is not None
@@ -66,8 +69,8 @@ class AbstractARMv7Builder(object):
     def BL(self, target, c=cond.AL, some_reg=None):
         if c == cond.AL:
             self.ensure_can_fit(3*WORD)
-            self.ADD_ri(reg.lr.value, reg.pc.value, 4)
-            self.LDR_ri(reg.pc.value, reg.pc.value, imm=-4)
+            self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET/2)
+            self.LDR_ri(reg.pc.value, reg.pc.value, imm=-arch.PC_OFFSET/2)
             self.write32(target)
         else:
             assert some_reg is not None
@@ -107,6 +110,9 @@ class AbstractARMv7Builder(object):
 
     def curraddr(self):
         return self.baseaddr() + self._pos
+
+    def currpos(self):
+        return self._pos
 
     size_of_gen_load_int = 7 * WORD
     def gen_load_int(self, r, value, cond=cond.AL):

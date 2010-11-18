@@ -223,6 +223,38 @@ class AssemblerARM(ResOpAssembler):
             regs.append(reg)
             regalloc.possibly_free_var(reg)
         looptoken._arm_arglocs = regs
+        return regs
+
+    direct_bootstrap_code_size=100*WORD
+    def gen_direct_bootstrap_code(self, arglocs, loop_head, regalloc):
+        self.mc.ensure_can_fit(self.direct_bootstrap_code_size)
+        self.gen_func_prolog()
+        if len(arglocs) > 4:
+            reg_args = 4
+        else:
+            reg_args = len(arglocs)
+
+        stack_locs = len(arglocs) - reg_args
+
+        for i in range(reg_args):
+            loc = arglocs[i]
+            self.mc.MOV_rr(loc.value, i)
+
+        for i in range(stack_locs):
+            loc = arglocs[reg_args + i]
+            stack_position = (len(r.callee_saved_registers) + 1 +i)*WORD
+            if loc.is_reg():
+                self.mc.LDR_ri(loc.value, r.fp.value, stack_position)
+            elif loc.is_stack():
+                self.mc.PUSH([r.r0.value])
+                self.mc.LDR_ri(r.ip, r.fp.value, stack_position)
+                self.mov_loc_loc(r.ip, loc)
+                self.mc.POP([r.r0.value])
+            else:
+                assert 0, 'invalid location'
+        sp_patch_location = self._prepare_sp_patch_location()
+        self.mc.B(loop_head)
+        self._patch_sp_offset(sp_patch_location, regalloc)
 
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken):
@@ -232,9 +264,10 @@ class AssemblerARM(ResOpAssembler):
         loop_start=self.mc.curraddr()
         self.gen_func_prolog()
 
+
+        arglocs = self.gen_bootstrap_code(inputargs, regalloc, looptoken)
         sp_patch_location = self._prepare_sp_patch_location()
 
-        self.gen_bootstrap_code(inputargs, regalloc, looptoken)
         loop_head=self.mc.curraddr()
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_loop_code = loop_head
@@ -242,6 +275,11 @@ class AssemblerARM(ResOpAssembler):
         self._walk_operations(operations, regalloc)
 
         self._patch_sp_offset(sp_patch_location, regalloc)
+
+        self.align()
+
+        looptoken._arm_direct_bootstrap_code = self.mc.curraddr()
+        self.gen_direct_bootstrap_code(arglocs, loop_head, regalloc)
 
         if self._debug_asm:
             self._dump_trace('loop.asm')

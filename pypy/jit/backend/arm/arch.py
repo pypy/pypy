@@ -3,6 +3,8 @@ from pypy.rpython.lltypesystem import lltype
 
 FUNC_ALIGN=8
 WORD=4
+# The Address in the PC points two words befind the current instruction
+PC_OFFSET = 8
 
 arm_int_div_sign = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
 def arm_int_div(a, b):

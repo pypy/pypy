@@ -3,7 +3,8 @@ from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import shift
 from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
-                                        arm_int_div_sign, arm_int_mod_sign, arm_int_mod)
+                                        arm_int_div_sign, arm_int_mod_sign,
+                                        arm_int_mod, PC_OFFSET)
 
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
@@ -13,7 +14,8 @@ from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
-from pypy.jit.metainterp.history import Const, ConstInt, BoxInt, BasicFailDescr
+from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt,
+                                        BasicFailDescr, LoopToken, INT, REF)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
@@ -232,24 +234,44 @@ class OpAssembler(object):
         return fcond
 
     def emit_op_call(self, op, regalloc, fcond, save_all_regs=False):
+        adr = self.cpu.cast_adr_to_int(op.getarg(0).getint())
+        args = op.getarglist()[1:]
+        cond =  self._emit_call(adr, args, regalloc, fcond, save_all_regs, op.result)
+
+        descr = op.getdescr()
+        #XXX Hack, Hack, Hack
+        if not we_are_translated() and not isinstance(descr, LoopToken):
+            l = regalloc.loc(op.result)
+            # XXX we need descr.get_result_sign here!!!!
+            size = descr.get_result_size(False)
+            # for now just check the size of the value
+            if size == 1: #unsigned char
+                self.mc.AND_ri(l.value, l.value, 255)
+            elif size == 2: # signed short
+                self.mc.LSL_ri(l.value, l.value, 16)
+                self.mc.ASR_ri(l.value, l.value, 16)
+        return cond
+
+    def _emit_call(self, adr, args, regalloc, fcond=c.AL, save_all_regs=False, result=None):
         locs = []
         # all arguments past the 4th go on the stack
         # XXX support types other than int (one word types)
-        if op.numargs() > 5:
-            stack_args = op.numargs() - 5
+        n = 0
+        n_args = len(args)
+        if n_args > 4:
+            stack_args = n_args - 4
             n = stack_args*WORD
             self._adjust_sp(n, regalloc, fcond=fcond)
-            for i in range(5, op.numargs()):
-                reg = regalloc.make_sure_var_in_reg(op.getarg(i))
-                self.mc.STR_ri(reg.value, r.sp.value, (i-5)*WORD)
+            for i in range(4, n_args):
+                reg = regalloc.make_sure_var_in_reg(args[i])
+                self.mc.STR_ri(reg.value, r.sp.value, (i-4)*WORD)
                 regalloc.possibly_free_var(reg)
 
-        adr = self.cpu.cast_adr_to_int(op.getarg(0).getint())
 
-        reg_args = min(op.numargs()-1, 4)
-        for i in range(1, reg_args+1):
-            l = regalloc.make_sure_var_in_reg(op.getarg(i),
-                                            selected_reg=r.all_regs[i-1])
+        reg_args = min(n_args, 4)
+        for i in range(0, reg_args):
+            l = regalloc.make_sure_var_in_reg(args[i],
+                                            selected_reg=r.all_regs[i])
             locs.append(l)
         # XXX use PUSH here instead of spilling every reg for itself
         if save_all_regs:
@@ -257,23 +279,15 @@ class OpAssembler(object):
         else:
             regalloc.before_call()
         self.mc.BL(adr)
-        #XXX Hack, Hack, Hack
-        if not we_are_translated():
-            descr = op.getdescr()
-            # XXX we need descr.get_result_sign here!!!!
-            size = descr.get_result_size(False)
-            # for now just check the size of the value
-            if size == 1: #unsigned char
-                self.mc.AND_ri(r.r0.value, r.r0.value, 255)
-            elif size == 2: # signed short
-                self.mc.LSL_ri(r.r0.value, r.r0.value, 16)
-                self.mc.ASR_ri(r.r0.value, r.r0.value, 16)
 
-        regalloc.after_call(op.result)
+        if result:
+            regalloc.after_call(result)
         # readjust the sp in case we passed some args on the stack
-        if op.numargs() > 5:
+        if n_args > 4:
+            assert n > 0
             self._adjust_sp(-n, regalloc, fcond=fcond)
         regalloc.possibly_free_vars(locs)
+        return fcond
 
     def emit_op_same_as(self, op, regalloc, fcond):
         resloc = regalloc.force_allocate_reg(op.result)
@@ -401,6 +415,7 @@ class ArrayOpAssember(object):
         if scale > 0:
             self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
         f(res.value, base_loc.value, ofs_loc.value, cond=fcond)
+        return fcond
 
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
     emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
@@ -543,24 +558,131 @@ class ForceOpAssembler(object):
         self.mc.MOV_rr(res_loc.value, r.fp.value)
         return fcond
 
+    # from: ../x86/assembler.py:1668
+    def emit_guard_call_assembler(self, op, guard_op, regalloc, fcond):
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index, regalloc)
+
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+
+        resbox = TempBox()
+        self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(), regalloc, fcond, resbox)
+        #self.mc.ensure_bytes_available(256)
+        if op.result is None:
+            value = self.cpu.done_with_this_frame_void_v
+        else:
+            kind = op.result.type
+            if kind == INT:
+                value = self.cpu.done_with_this_frame_int_v
+            elif kind == REF:
+                value = self.cpu.done_with_this_frame_ref_v
+            elif kind == FLOAT:
+                value = self.cpu.done_with_this_frame_float_v
+            else:
+                raise AssertionError(kind)
+        assert value <= 0xff
+
+        # check value
+        t = TempBox()
+        resloc = regalloc.force_allocate_reg(resbox)
+        loc = regalloc.force_allocate_reg(t, [r.r0])
+        self.mc.gen_load_int(loc.value, value)
+        self.mc.CMP_rr(resloc.value, loc.value)
+        regalloc.possibly_free_var(resbox)
+
+        fast_jmp_pos = self.mc.currpos()
+        fast_jmp_location = self.mc.curraddr()
+        self.mc.NOP()
+
+        #if values are equal we take the fast pat
+        # Slow path, calling helper
+        # jump to merge point
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None
+        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
+        self._emit_call(asm_helper_adr, [t, op.getarg(0)], regalloc, fcond, False, op.result)
+        regalloc.possibly_free_var(t)
+
+        # jump to merge point
+        jmp_pos = self.mc.currpos()
+        jmp_location = self.mc.curraddr()
+        self.mc.NOP()
+
+        # Fast Path using result boxes
+        # patch the jump to the fast path
+        offset = self.mc.currpos() - fast_jmp_pos
+        pmc = ARMv7InMemoryBuilder(fast_jmp_location, WORD)
+        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
+
+        # Reset the vable token --- XXX really too much special logic here:-(
+        # XXX Enable and fix this once the stange errors procuded by its
+        # presence are fixed
+        #if jd.index_of_virtualizable >= 0:
+        #    from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+        #    size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
+        #    vable_index = jd.index_of_virtualizable
+        #    regalloc._sync_var(op.getarg(vable_index))
+        #    vable = regalloc.frame_manager.loc(op.getarg(vable_index))
+        #    fielddescr = jd.vable_token_descr
+        #    assert isinstance(fielddescr, BaseFieldDescr)
+        #    ofs = fielddescr.offset
+        #    self.mc.MOV(eax, arglocs[1])
+        #    self.mc.MOV_mi((eax.value, ofs), 0)
+        #    # in the line above, TOKEN_NONE = 0
+
+        if op.result is not None:
+            # load the return value from fail_boxes_xxx[0]
+            loc = regalloc.force_allocate_reg(t)
+            resloc = regalloc.force_allocate_reg(op.result, [t])
+            kind = op.result.type
+            if kind == INT:
+                adr = self.fail_boxes_int.get_addr_for_num(0)
+            elif kind == REF:
+                adr = self.fail_boxes_ptr.get_addr_for_num(0)
+            else:
+                raise AssertionError(kind)
+            self.mc.gen_load_int(loc.value, adr)
+            self.mc.LDR_ri(resloc.value, loc.value)
+            regalloc.possibly_free_var(t)
+
+        offset = self.mc.currpos() - jmp_pos
+        pmc = ARMv7InMemoryBuilder(jmp_location, WORD)
+        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
+        t = TempBox()
+        l0 = regalloc.force_allocate_reg(t)
+        self.mc.LDR_ri(l0.value, r.fp.value)
+        self.mc.CMP_ri(l0.value, 0)
+        regalloc.possibly_free_var(t)
+        regalloc.possibly_free_vars_for_op(op)
+
+        self._emit_guard(guard_op, regalloc, c.LT)
+        return fcond
+
     def emit_guard_call_may_force(self, op, guard_op, regalloc, fcond):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
-        t = TempBox()
-        l0 = regalloc.force_allocate_reg(t)
-        self.mc.gen_load_int(l0.value, fail_index)
-        self.mc.STR_ri(l0.value, r.fp.value)
+        self._write_fail_index(fail_index, regalloc)
 
         # force all reg values to be spilled when calling
         fcond = self.emit_op_call(op, regalloc, fcond, save_all_regs=True)
 
+        t = TempBox()
+        l0 = regalloc.force_allocate_reg(t)
         self.mc.LDR_ri(l0.value, r.fp.value)
         self.mc.CMP_ri(l0.value, 0)
-
         regalloc.possibly_free_var(t)
 
         self._emit_guard(guard_op, regalloc, c.LT)
         return fcond
+
+    def _write_fail_index(self, fail_index, regalloc):
+        t = TempBox()
+        l0 = regalloc.force_allocate_reg(t)
+        self.mc.gen_load_int(l0.value, fail_index)
+        self.mc.STR_ri(l0.value, r.fp.value)
+        regalloc.possibly_free_var(t)
 
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,
