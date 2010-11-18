@@ -186,3 +186,9 @@ class AppTestBytesArray:
         assert b == 'abcDefghi'
         buf[4:6] = 'EF'
         assert b == 'abcDEFghi'
+
+    def test_decode(self):
+        b = bytearray('abcdefghi')
+        u = b.decode('utf-8')
+        assert isinstance(u, unicode)
+        assert u == u'abcdefghi'
