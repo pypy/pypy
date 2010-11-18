@@ -240,7 +240,7 @@ class OpAssembler(object):
 
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
-        if not we_are_translated() and not isinstance(descr, LoopToken):
+        if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
             l = regalloc.loc(op.result)
             # XXX we need descr.get_result_sign here!!!!
             size = descr.get_result_size(False)
@@ -559,6 +559,7 @@ class ForceOpAssembler(object):
         return fcond
 
     # from: ../x86/assembler.py:1668
+    # XXX Split into some helper methods
     def emit_guard_call_assembler(self, op, guard_op, regalloc, fcond):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
