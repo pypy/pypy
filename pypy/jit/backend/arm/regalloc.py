@@ -14,18 +14,6 @@ class ARMRegisterManager(RegisterManager):
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
-    def update_bindings(self, enc, inputargs):
-        # first word contains frame depth
-        j = 4
-        for i in range(len(inputargs)):
-            # XXX decode imm and and stack locs and REFs
-            while enc[j] == '\xFE':
-                j += 1
-            assert enc[j] == '\xEF'
-            j += 1
-            self.force_allocate_reg(inputargs[i], selected_reg=r.all_regs[ord(enc[j])])
-            j += 1
-
     def convert_to_imm(self, c):
         if isinstance(c, ConstInt):
             return locations.ImmLocation(c.value)

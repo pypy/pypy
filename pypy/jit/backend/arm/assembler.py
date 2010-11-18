@@ -77,7 +77,7 @@ class AssemblerARM(ResOpAssembler):
                 stack_loc = self.decode32(enc, i+1)
                 value = self.decode32(stack, (frame_depth - stack_loc)*WORD)
                 i += 4
-            else: # an int for now
+            else: # an int in a reg location
                 reg = ord(enc[i])
                 value = self.decode32(regs, reg*WORD)
 
@@ -94,6 +94,31 @@ class AssemblerARM(ResOpAssembler):
         self.fail_boxes_count = fail_index
         return descr
 
+    def update_bridge_bindings(self, enc, inputargs, regalloc):
+        # first word contains frame depth
+        j = 4
+        for i in range(len(inputargs)):
+            res = enc[j]
+            if res == '\xFF':
+                assert 0, 'reached end of encoded area'
+            # XXX decode imm and and stack locs and REFs
+            while res == '\xFE':
+                j += 1
+                res = enc[j]
+
+            assert res == '\xEF' # only int location for now
+            j += 1
+            res = enc[j]
+            if res == '\xFD': # imm location
+                assert 0, 'fail'
+            elif res == '\xFC': # stack location
+                stack_loc = self.decode32(enc, j+1)
+                loc = regalloc.make_sure_var_in_reg(inputargs[i])
+                self.mc.LDR_ri(loc.value, r.fp.value, -stack_loc)
+                j += 4
+            else: # reg location
+                regalloc.force_allocate_reg(inputargs[i], selected_reg=r.all_regs[ord(res)])
+            j += 1
     def decode32(self, mem, index):
         highval = ord(mem[index+3])
         if highval >= 128:
@@ -271,7 +296,7 @@ class AssemblerARM(ResOpAssembler):
         loop_head=self.mc.curraddr()
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_loop_code = loop_head
-        print inputargs, operations
+        print 'Loop', inputargs, operations
         self._walk_operations(operations, regalloc)
 
         self._patch_sp_offset(sp_patch_location, regalloc)
@@ -353,11 +378,12 @@ class AssemblerARM(ResOpAssembler):
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
 
-        regalloc.update_bindings(enc, inputargs)
         bridge_head = self.mc.curraddr()
+        self.update_bridge_bindings(enc, inputargs, regalloc)
 
+        print 'Bridge', inputargs, operations
         self._walk_operations(operations, regalloc)
-        self.gen_func_epilog()
+
         print 'Done building bridges'
         self.patch_trace(faildescr, bridge_head)
         print 'Done patching trace'
