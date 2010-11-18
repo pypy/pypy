@@ -4,6 +4,7 @@ from pypy.jit.metainterp.history import ConstInt, BoxInt
 
 def gen_emit_op_unary_cmp(true_cond, false_cond):
     def f(self, op, regalloc, fcond):
+        assert fcond is not None
         a0 = op.getarg(0)
         reg = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         res = regalloc.force_allocate_reg(op.result, [a0])
@@ -16,6 +17,7 @@ def gen_emit_op_unary_cmp(true_cond, false_cond):
 
 def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
     def f(self, op, regalloc, fcond):
+        assert fcond is not None
         ri_op = getattr(self.mc, '%s_ri' % opname)
         rr_op = getattr(self.mc, '%s_rr' % opname)
 
@@ -44,20 +46,23 @@ def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
 
 def gen_emit_op_by_helper_call(opname):
     def f(self, op, regalloc, fcond):
+        assert fcond is not None
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         arg1 = regalloc.make_sure_var_in_reg(a0, selected_reg=r.r0, imm_fine=False)
         arg2 = regalloc.make_sure_var_in_reg(a1, [a0], selected_reg=r.r1, imm_fine=False)
         assert arg1 == r.r0
         assert arg2 == r.r1
-        res = regalloc.force_allocate_reg(op.result, selected_reg=r.r0)
+        regalloc.before_call()
         getattr(self.mc, opname)(fcond)
+        regalloc.after_call(op.result)
         regalloc.possibly_free_vars_for_op(op)
         return fcond
     return f
 
 def gen_emit_cmp_op(condition, inverse=False):
     def f(self, op, regalloc, fcond):
+        assert fcond is not None
         if not inverse:
             arg0 = op.getarg(0)
             arg1 = op.getarg(1)
