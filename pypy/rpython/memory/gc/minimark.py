@@ -1205,10 +1205,6 @@ class MiniMarkGC(MovingGCBase):
         self.collect_roots()
         self.visit_all_objects()
         #
-        # Weakref support: clear the weak pointers to dying objects
-        if self.old_objects_with_weakrefs.non_empty():
-            self.invalidate_old_weakrefs()
-        #
         # Finalizer support: adds the flag GCFLAG_VISITED to all objects
         # with a finalizer and all objects reachable from there (and also
         # moves some objects from 'objects_with_finalizers' to
@@ -1217,6 +1213,10 @@ class MiniMarkGC(MovingGCBase):
             self.deal_with_objects_with_finalizers()
         #
         self.objects_to_trace.delete()
+        #
+        # Weakref support: clear the weak pointers to dying objects
+        if self.old_objects_with_weakrefs.non_empty():
+            self.invalidate_old_weakrefs()
         #
         # Walk all rawmalloced objects and free the ones that don't
         # have the GCFLAG_VISITED flag.

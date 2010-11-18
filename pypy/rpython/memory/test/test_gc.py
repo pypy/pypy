@@ -304,7 +304,7 @@ class GCTest(object):
         a = A()
         class B(object):
             def __del__(self):
-                # when __del__ is called, the weakref should have been cleared
+                # when __del__ is called, the weakref to c should be dead
                 if self.ref() is None:
                     a.count += 10  # ok
                 else:
@@ -333,8 +333,10 @@ class GCTest(object):
         a = A()
         class B(object):
             def __del__(self):
-                # when __del__ is called, the weakref should have been cleared
-                if self.ref() is None:
+                # when __del__ is called, the weakref to myself is still valid
+                # in RPython (at least with most GCs; this test might be
+                # skipped for specific GCs)
+                if self.ref() is self:
                     a.count += 10  # ok
                 else:
                     a.count = 666  # not ok
@@ -732,6 +734,9 @@ class UnboxedObject(TaggedBase, UnboxedValue):
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
 
+    def test_weakref_to_object_with_finalizer_ordering(self):
+        py.test.skip("Does not work")
+
 class TestSemiSpaceGC(GCTest, snippet.SemiSpaceGCTests):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
     GC_CAN_MOVE = True
@@ -752,9 +757,6 @@ class TestMarkCompactGC(TestSemiSpaceGC):
     GC_CAN_SHRINK_BIG_ARRAY = False
 
     def test_finalizer_order(self):
-        py.test.skip("Not implemented yet")
-
-    def test_weakref_to_object_with_finalizer_ordering(self):
         py.test.skip("Not implemented yet")
 
 class TestHybridGC(TestGenerationalGC):
