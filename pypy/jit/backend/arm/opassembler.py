@@ -48,7 +48,6 @@ class IntOpAsslember(object):
             l1 = regalloc.make_sure_var_in_reg(a1, forbidden_vars=[a0], imm_fine=False)
             res = regalloc.force_allocate_reg(op.result, forbidden_vars=[a0, a1])
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
-
         regalloc.possibly_free_vars_for_op(op)
         return fcond
 
@@ -151,13 +150,13 @@ class UnaryIntOpAssembler(object):
 
     #XXX check for a better way of doing this
     def emit_op_int_neg(self, op, regalloc, fcond):
-            arg = op.getarg(0)
-            l0 = regalloc.make_sure_var_in_reg(arg, imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), [arg], imm_fine=False)
-            res = regalloc.force_allocate_reg(op.result, [arg])
-            self.mc.MUL(res.value, l0.value, l1.value)
-            regalloc.possibly_free_vars([l0, l1, res])
-            return fcond
+        arg = op.getarg(0)
+        l0 = regalloc.make_sure_var_in_reg(arg, imm_fine=False)
+        l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), [arg], imm_fine=False)
+        res = regalloc.force_allocate_reg(op.result, [arg])
+        self.mc.MUL(res.value, l0.value, l1.value)
+        regalloc.possibly_free_vars([l0, l1, res])
+        return fcond
 
 class GuardOpAssembler(object):
 
@@ -194,7 +193,7 @@ class GuardOpAssembler(object):
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         l1 = regalloc.make_sure_var_in_reg(a1)
         if l1.is_imm():
-            self.mc.CMP_rr(l0.value, l1.getint())
+            self.mc.CMP_ri(l0.value, l1.getint())
         else:
             self.mc.CMP_rr(l0.value, l1.value)
         regalloc.possibly_free_vars_for_op(op)
@@ -299,6 +298,7 @@ class OpAssembler(object):
         else:
             self.mc.MOV_rr(resloc.value, argloc.value)
         regalloc.possibly_free_vars_for_op(op)
+        return fcond
 
 class FieldOpAssembler(object):
 
