@@ -165,6 +165,7 @@ class AssemblerARM(ResOpAssembler):
         location:
         \xFC = stack location
         \xFD = imm location
+        emtpy = reg location
         \xFE = Empty arg
         """
 
@@ -173,7 +174,7 @@ class AssemblerARM(ResOpAssembler):
         reg = regalloc.force_allocate_reg(box)
         # XXX free this memory
         # XXX allocate correct amount of memory
-        mem = lltype.malloc(rffi.CArray(lltype.Char), (len(args)+5)*4, flavor='raw')
+        mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)*6+9, flavor='raw')
         # Note, the actual frame depth is one less than the value stored in
         # regalloc.frame_manager.frame_depth
         self.encode32(mem, 0, regalloc.frame_manager.frame_depth - 1)
@@ -377,6 +378,10 @@ class AssemblerARM(ResOpAssembler):
     def can_merge_with_next_guard(self, op, i, operations):
         if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
+            return True
+        if op.getopnum() == rop.INT_MUL_OVF:
+            opnum = operations[i + 1].getopnum()
+            assert opnum  == rop.GUARD_OVERFLOW or opnum == rop.GUARD_NO_OVERFLOW
             return True
         return False
 

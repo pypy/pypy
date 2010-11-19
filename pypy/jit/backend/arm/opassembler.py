@@ -92,7 +92,8 @@ class IntOpAsslember(object):
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
-    def emit_op_int_mul_ovf(self, op, regalloc, fcond):
+    f = False
+    def emit_guard_int_mul_ovf(self, op, guard, regalloc, fcond):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         reg1 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
@@ -101,7 +102,10 @@ class IntOpAsslember(object):
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, imm=31, cond=fcond)
         regalloc.possibly_free_vars_for_op(op)
-        return 0xF # XXX Remove: hack to show that the prev operation was  a mul_ovf
+        if guard.getopnum() == rop.GUARD_OVERFLOW:
+            return self._emit_guard(guard, regalloc, c.EQ)
+        else:
+            return self._emit_guard(guard, regalloc, c.NE)
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
     emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
@@ -165,6 +169,8 @@ class GuardOpAssembler(object):
     def _emit_guard(self, op, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, BasicFailDescr)
+        if hasattr(op, 'getfailargs'):
+            print 'Failargs: ', op.getfailargs()
         descr._arm_guard_code = self.mc.curraddr()
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc, fcond)
         descr._failure_recovery_code = memaddr
@@ -181,7 +187,6 @@ class GuardOpAssembler(object):
         return self._emit_guard(op, regalloc, c.EQ)
 
     def emit_op_guard_false(self, op, regalloc, fcond):
-        print 'Failargs: ', op.getfailargs()
         a0 = op.getarg(0)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         self.mc.CMP_ri(l0.value, 0)
@@ -204,13 +209,9 @@ class GuardOpAssembler(object):
     emit_op_guard_isnull = emit_op_guard_false
 
     def emit_op_guard_no_overflow(self, op, regalloc, fcond):
-        if fcond == 0xF: # XXX: hack to check if the prev op was a mul_ovf
-            return self._emit_guard(op, regalloc, c.NE)
         return self._emit_guard(op, regalloc, c.VS)
 
     def emit_op_guard_overflow(self, op, regalloc, fcond):
-        if fcond == 0xF: # XXX: hack to check if the prev op was a mul_ovf
-            return self._emit_guard(op, regalloc, c.EQ)
         return self._emit_guard(op, regalloc, c.VC)
 
 class OpAssembler(object):
