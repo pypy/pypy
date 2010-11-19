@@ -345,6 +345,7 @@ class AppTestBufferedRWPair:
         assert not pair.closed
         assert pair.readable()
         assert pair.writable()
+        assert not pair.isatty()
         assert pair.read() == "abc"
         assert pair.write("abc") == 3
 
