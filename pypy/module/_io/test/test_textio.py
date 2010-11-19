@@ -18,4 +18,13 @@ class AppTestTextIO:
         assert t.readline() == u"\xe9\n"
         raises(TypeError, t.__init__, b, newline=42)
         raises(ValueError, t.__init__, b, newline='xyzzy')
+        t = _io.TextIOWrapper(b)
+        assert t.encoding
 
+    def test_properties(self):
+        import _io
+        r = _io.BytesIO(b"\xc3\xa9\n\n")
+        b = _io.BufferedReader(r, 1000)
+        t = _io.TextIOWrapper(b)
+        assert t.readable()
+        assert t.seekable()
