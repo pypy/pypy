@@ -218,6 +218,7 @@ class W_TextIOWrapper(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
         self.state = STATE_ZERO
+        self.w_decoder = None
 
     @unwrap_spec('self', ObjSpace, W_Root, W_Root, W_Root, W_Root, int)
     def descr_init(self, space, w_buffer, w_encoding=None,
@@ -285,6 +286,10 @@ class W_TextIOWrapper(W_TextIOBase):
             raise OperationError(space.w_ValueError, space.wrap(
                 "underlying buffer has been detached"))
 
+    def _check_closed(self, space, message=None):
+        self._check_init(space)
+        W_TextIOBase._check_closed(self, space, message)
+
     @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         self._check_init(space)
@@ -302,7 +307,10 @@ class W_TextIOWrapper(W_TextIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
-        self._check_init(space)
+        self._check_closed(space)
+        if not self.w_decoder:
+            raise OperationError(space.w_IOError, space.wrap("not readable"))
+
         # XXX w_size?
         w_bytes = space.call_method(self.w_buffer, "read")
         return space.call_method(self.w_decoder, "decode", w_bytes)

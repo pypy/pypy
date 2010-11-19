@@ -29,6 +29,14 @@ class AppTestTextIO:
         assert t.readable()
         assert t.seekable()
 
+    def test_unreadable(self):
+        import _io
+        class UnReadable(_io.BytesIO):
+            def readable(self):
+                return False
+        txt = _io.TextIOWrapper(UnReadable())
+        raises(IOError, txt.read)
+
     def test_newlinetranslate(self):
         import _io
         r = _io.BytesIO(b"abc\r\ndef\rg")
