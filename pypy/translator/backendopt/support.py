@@ -21,8 +21,8 @@ def graph_operations(graph):
 def all_operations(graphs):
     for graph in graphs:
         for block in graph.iterblocks():
-            for op in block.operations: 
-                yield op
+            for i, op in enumerate(block.operations):
+                yield block, i, op
 
 def annotate(translator, func, result, args):
     args   = [arg.concretetype for arg in args]

@@ -373,9 +373,9 @@ class TestFlowObjSpace(Base):
         ops = x.startblock.operations
         assert len(ops) == 2
         assert ops[0].opname == 'simple_call'
-        assert ops[0].args == [Constant(IndexError)]
+        assert ops[0].args == (Constant(IndexError),)
         assert ops[1].opname == 'type'
-        assert ops[1].args == [ops[0].result]
+        assert ops[1].args == (ops[0].result,)
         assert x.startblock.exits[0].args == [ops[1].result, ops[0].result]
         assert x.startblock.exits[0].target is x.exceptblock
 

@@ -1,6 +1,7 @@
 
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.backendopt import removenoops
+from pypy.objspace.flow.model import SpaceOperation
 
 def has_side_effects(op):
     if op.opname == 'debug_assert':
@@ -22,13 +23,12 @@ def storesink_graph(graph):
     for block in graph.iterblocks():
         newops = []
         cache = {}
-        for op in block.operations:
+        for i, op in enumerate(block.operations):
             if op.opname == 'getfield':
                 tup = (op.args[0], op.args[1].value)
                 res = cache.get(tup, None)
                 if res is not None:
-                    op.opname = 'same_as'
-                    op.args = [res]
+                    op = SpaceOperation('same_as', [res], op.result, i)
                     added_some_same_as = True
                 else:
                     cache[tup] = op.result
