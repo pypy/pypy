@@ -44,6 +44,19 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(b)
         assert t.read() == u"abc\ndef\ng"
 
+    def test_one_by_one(self):
+        import _io
+        r = _io.BytesIO(b"abc\r\ndef\rg")
+        t = _io.TextIOWrapper(r)
+        reads = []
+        while True:
+            c = t.read(1)
+            assert len(c) <= 1
+            if not c:
+                break
+            reads.append(c)
+        assert u''.join(reads) == u"abc\ndef\ng"
+
 class AppTestIncrementalNewlineDecoder:
 
     def test_newline_decoder(self):

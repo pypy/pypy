@@ -7,6 +7,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import UnicodeBuilder
 from pypy.module._codecs import interp_codecs
+from pypy.module._io.interp_iobase import convert_size
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
@@ -220,6 +221,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self.state = STATE_ZERO
         self.w_decoder = None
 
+        self.decoded_chars = None   # buffer for text returned from decoder
+        self.decoded_chars_used = 0 # offset into _decoded_chars for read()
+        self.chunk_size = 8192
+
     @unwrap_spec('self', ObjSpace, W_Root, W_Root, W_Root, W_Root, int)
     def descr_init(self, space, w_buffer, w_encoding=None,
                    w_errors=None, w_newline=None, line_buffering=0):
@@ -305,15 +310,90 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         return space.call_method(self.w_buffer, "seekable")
 
+    # _____________________________________________________________
+
+    def _set_decoded_chars(self, chars):
+        self.decoded_chars = chars
+        self.decoded_chars_used = 0
+
+    def _get_decoded_chars(self, size):
+        if self.decoded_chars is None:
+            return u""
+
+        available = len(self.decoded_chars) - self.decoded_chars_used
+        if available < 0 or size > available:
+            size = available
+
+        if self.decoded_chars_used > 0 or size < available:
+            chars = self.decoded_chars[self.decoded_chars_used:
+                                       self.decoded_chars_used + size]
+        else:
+            chars = self.decoded_chars
+
+        self.decoded_chars_used += size
+        return chars
+
+    def _read_chunk(self, space):
+        """Read and decode the next chunk of data from the BufferedReader.
+        The return value is True unless EOF was reached.  The decoded string
+        is placed in self._decoded_chars (replacing its previous value).
+        The entire input chunk is sent to the decoder, though some of it may
+        remain buffered in the decoder, yet to be converted."""
+
+        if not self.w_decoder:
+            raise OperationError(space.w_IOError, space.wrap("not readable"))
+
+        # XXX
+        # if self.telling...
+
+        # Read a chunk, decode it, and put the result in self._decoded_chars
+        w_input = space.call_method(self.w_buffer, "read1",
+                                    space.wrap(self.chunk_size))
+        eof = space.int_w(space.len(w_input)) == 0
+        w_decoded = space.call_method(self.w_decoder, "decode",
+                                      w_input, space.wrap(eof))
+        self._set_decoded_chars(space.unicode_w(w_decoded))
+        if space.int_w(space.len(w_decoded)) > 0:
+            eof = False
+
+        # XXX
+        # if self.telling...
+
+        return not eof
+
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         if not self.w_decoder:
             raise OperationError(space.w_IOError, space.wrap("not readable"))
 
-        # XXX w_size?
-        w_bytes = space.call_method(self.w_buffer, "read")
-        return space.call_method(self.w_decoder, "decode", w_bytes)
+        size = convert_size(space, w_size)
+        if size < 0:
+            # Read everything
+            w_bytes = space.call_method(self.w_buffer, "read")
+            w_decoded = space.call_method(self.w_decoder, "decode", w_bytes)
+            w_result = space.wrap(self._get_decoded_chars(-1))
+            w_final = space.add(w_result, w_decoded)
+            self.snapshot = None
+            return w_final
+
+        remaining = size
+        builder = UnicodeBuilder(size)
+
+        # Keep reading chunks until we have n characters to return
+        while True:
+            data = self._get_decoded_chars(remaining)
+            builder.append(data)
+            remaining -= len(data)
+
+            if remaining <= 0: # Done
+                break
+
+            if not self._read_chunk(space):
+                # EOF
+                break
+
+        return space.wrap(builder.build())
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def readline_w(self, space, w_limit=None):
