@@ -181,6 +181,7 @@ class GuardOpAssembler(object):
         return self._emit_guard(op, regalloc, c.EQ)
 
     def emit_op_guard_false(self, op, regalloc, fcond):
+        print 'Failargs: ', op.getfailargs()
         a0 = op.getarg(0)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         self.mc.CMP_ri(l0.value, 0)
@@ -569,7 +570,8 @@ class ForceOpAssembler(object):
         assert isinstance(descr, LoopToken)
 
         resbox = TempBox()
-        self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(), regalloc, fcond, resbox)
+        self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
+                                                regalloc, fcond, result=resbox)
         #self.mc.ensure_bytes_available(256)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
