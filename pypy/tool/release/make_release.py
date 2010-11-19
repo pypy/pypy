@@ -4,7 +4,7 @@
 into release packages. Note: you must run apropriate buildbots first and
 make sure there are no failures. Use force-builds.py from the same directory.
 
-Usage: make_release.py release/<release name>
+Usage: make_release.py release/<release name> release_version
 """
 
 import autopath
@@ -76,7 +76,7 @@ def main(branch, release):
                 t.add('pypy-%s' % release)
                 alltars.append(name)
                 t.close()
-                shutil.rmtree(str(tmpdir.join('pypy-1.3')))
+                shutil.rmtree(str(tmpdir.join('pypy-' + release)))
         for name in alltars:
             print "Uploading %s" % name
             os.system('scp %s codespeak.net:/www/pypy.org/htdocs/download' % name)
@@ -84,8 +84,8 @@ def main(branch, release):
         os.chdir(olddir)
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3:
         print __doc__
         sys.exit(1)
-    main(sys.argv[1], release='1.3')
+    main(sys.argv[1], release=sys.argv[2])
     
