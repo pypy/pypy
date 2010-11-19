@@ -29,6 +29,13 @@ class AppTestTextIO:
         assert t.readable()
         assert t.seekable()
 
+    def test_newlinetranslate(self):
+        import _io
+        r = _io.BytesIO(b"abc\r\ndef\rg")
+        b = _io.BufferedReader(r, 1000)
+        t = _io.TextIOWrapper(b)
+        assert t.read() == u"abc\ndef\ng"
+
 class AppTestIncrementalNewlineDecoder:
 
     def test_newline_decoder(self):

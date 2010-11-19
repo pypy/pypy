@@ -6,6 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import UnicodeBuilder
+from pypy.module._codecs import interp_codecs
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
@@ -246,6 +247,9 @@ class W_TextIOWrapper(W_TextIOBase):
             raise OperationError(space.w_IOError, space.wrap(
                 "could not determine default encoding"))
 
+        if space.is_w(w_errors, space.w_None):
+            w_errors = space.wrap("strict")
+
         if space.is_w(w_newline, space.w_None):
             newline = None
         else:
@@ -255,6 +259,21 @@ class W_TextIOWrapper(W_TextIOBase):
                 "illegal newline value: %s" % (newline,)))
 
         self.line_buffering = line_buffering
+
+        # XXX self.writenl
+        readuniversal = not newline # null or empty
+        readtranslate = newline is None
+
+        # build the decoder object
+        if space.is_true(space.call_method(w_buffer, "readable")):
+            w_codec = interp_codecs.lookup_codec(space,
+                                                 space.str_w(self.w_encoding))
+            self.w_decoder = space.call_method(w_codec,
+                                               "incrementaldecoder", w_errors)
+            if readuniversal:
+                self.w_decoder = space.call_function(
+                    space.gettypeobject(W_IncrementalNewlineDecoder.typedef),
+                    self.w_decoder, space.wrap(readtranslate))
 
         self.state = STATE_OK
 
@@ -283,15 +302,17 @@ class W_TextIOWrapper(W_TextIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
+        self._check_init(space)
         # XXX w_size?
         w_bytes = space.call_method(self.w_buffer, "read")
-        return space.call_method(w_bytes, "decode", self.w_encoding)
+        return space.call_method(self.w_decoder, "decode", w_bytes)
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def readline_w(self, space, w_limit=None):
+        self._check_init(space)
         # XXX w_limit?
         w_bytes = space.call_method(self.w_buffer, "readline")
-        return space.call_method(w_bytes, "decode", self.w_encoding)
+        return space.call_method(self.w_decoder, "decode", w_bytes)
 
 W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
