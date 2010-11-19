@@ -20,7 +20,19 @@ class W_IncrementalNewlineDecoder(Wrappable):
     w_decoder = None
 
     def __init__(self, space):
-        pass
+        self.w_newlines_dict = {
+            SEEN_CR: space.wrap("\r"),
+            SEEN_LF: space.wrap("\n"),
+            SEEN_CRLF: space.wrap("\r\n"),
+            SEEN_CR | SEEN_LF: space.newtuple(
+                [space.wrap("\r"), space.wrap("\n")]),
+            SEEN_CR | SEEN_CRLF: space.newtuple(
+                [space.wrap("\r"), space.wrap("\r\n")]),
+            SEEN_LF | SEEN_CRLF: space.newtuple(
+                [space.wrap("\n"), space.wrap("\r\n")]),
+            SEEN_CR | SEEN_LF | SEEN_CRLF: space.newtuple(
+                [space.wrap("\r"), space.wrap("\n"), space.wrap("\r\n")]),
+            }
 
     @unwrap_spec('self', ObjSpace, W_Root, int, W_Root)
     def descr_init(self, space, w_decoder, translate, w_errors=None):
@@ -35,15 +47,7 @@ class W_IncrementalNewlineDecoder(Wrappable):
         pendingcr = False
 
     def newlines_get_w(space, self):
-        return {
-            SEEN_CR: space.wrap("\r"),
-            SEEN_LF: space.wrap("\n"),
-            SEEN_CRLF: space.wrap("\r\n"),
-            SEEN_CR | SEEN_LF: space.wrap(("\r", "\n")),
-            SEEN_CR | SEEN_CRLF: space.wrap(("\r", "\r\n")),
-            SEEN_LF | SEEN_CRLF: space.wrap(("\n", "\r\n")),
-            SEEN_CR | SEEN_LF | SEEN_CRLF: space.wrap(("\r", "\n", "\r\n")),
-            }.get(self.seennl)
+        return self.w_newlines_dict.get(self.seennl, space.w_None)
 
     @unwrap_spec('self', ObjSpace, W_Root, int)
     def decode_w(self, space, w_input, final=False):
@@ -231,7 +235,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                                     "getpreferredencoding")
             except OperationError, e:
                 # getpreferredencoding() may also raise ImportError
-                if not space.match(space, space.w_ImportError):
+                if not e.match(space, space.w_ImportError):
                     raise
                 self.w_encoding = space.wrap("ascii")
         if self.w_encoding:
