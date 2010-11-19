@@ -24,7 +24,7 @@ class Module(MixedModule):
         'TextIOWrapper': 'interp_textio.W_TextIOWrapper',
 
         'open': 'interp_io.open',
-        'IncrementalNewlineDecoder': 'space.w_None',
+        'IncrementalNewlineDecoder': 'interp_textio.W_IncrementalNewlineDecoder',
         }
 
     def init(self, space):
