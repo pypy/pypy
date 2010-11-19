@@ -207,11 +207,21 @@ class W_TextIOBase(W_IOBase):
     def readline_w(self, space, w_limit=None):
         self._unsupportedoperation(space, "readline")
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def write_w(self, space, w_data):
+        self._unsupportedoperation(space, "write")
+
+    @unwrap_spec('self', ObjSpace)
+    def detach_w(self, space):
+        self._unsupportedoperation(space, "detach")
+
 W_TextIOBase.typedef = TypeDef(
     '_TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
 
     read = interp2app(W_TextIOBase.read_w),
+    readline = interp2app(W_TextIOBase.readline_w),
+    detach = interp2app(W_TextIOBase.detach_w),
     encoding = interp_attrproperty_w("w_encoding", W_TextIOBase)
     )
 
@@ -310,6 +320,25 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         return space.call_method(self.w_buffer, "seekable")
 
+    @unwrap_spec('self', ObjSpace)
+    def fileno_w(self, space):
+        self._check_init(space)
+        return space.call_method(self.w_buffer, "fileno")
+
+    @unwrap_spec('self', ObjSpace)
+    def flush_w(self, space):
+        self._check_closed(space)
+        # XXX self.telling = self.seekable
+        # XXX self._writeflush(space)
+        space.call_method(self.w_buffer, "flush")
+
+    @unwrap_spec('self', ObjSpace)
+    def close_w(self, space):
+        self._check_init(space)
+        if not self._closed(space):
+            return space.call_method(self, "flush")
+            return space.call_method(self.w_buffer, "close")
+
     # _____________________________________________________________
 
     def _set_decoded_chars(self, chars):
@@ -402,6 +431,15 @@ class W_TextIOWrapper(W_TextIOBase):
         w_bytes = space.call_method(self.w_buffer, "readline")
         return space.call_method(self.w_decoder, "decode", w_bytes)
 
+    @unwrap_spec('self', ObjSpace)
+    def detach_w(self, space):
+        self._check_init(space)
+        space.call_method(self, "flush")
+        w_buffer = self.w_buffer
+        self.w_buffer = None
+        self.state = STATE_DETACHED
+        return w_buffer
+
 W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
@@ -409,9 +447,13 @@ W_TextIOWrapper.typedef = TypeDef(
 
     read = interp2app(W_TextIOWrapper.read_w),
     readline = interp2app(W_TextIOWrapper.readline_w),
+    detach = interp2app(W_TextIOWrapper.detach_w),
+    flush = interp2app(W_TextIOWrapper.flush_w),
+    close = interp2app(W_TextIOWrapper.close_w),
 
     line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper),
     readable = interp2app(W_TextIOWrapper.readable_w),
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),
+    fileno = interp2app(W_TextIOWrapper.fileno_w),
     )

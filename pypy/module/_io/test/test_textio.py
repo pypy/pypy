@@ -37,6 +37,18 @@ class AppTestTextIO:
         txt = _io.TextIOWrapper(UnReadable())
         raises(IOError, txt.read)
 
+    def test_detach(self):
+        import _io
+        b = _io.BytesIO()
+        f = _io.TextIOWrapper(b)
+        assert f.detach() is b
+        raises(ValueError, f.fileno)
+        raises(ValueError, f.close)
+        raises(ValueError, f.detach)
+        raises(ValueError, f.flush)
+        assert not b.closed
+        b.close()
+
     def test_newlinetranslate(self):
         import _io
         r = _io.BytesIO(b"abc\r\ndef\rg")
