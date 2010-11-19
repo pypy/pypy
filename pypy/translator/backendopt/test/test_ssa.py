@@ -75,7 +75,7 @@ def test_SSA_to_SSI():
     assert len(b2.inputargs) == 2
     assert len(b3.inputargs) == 2
 
-    assert b2.inputargs == list(b2.operations[0].args)
+    assert b2.inputargs == b2.operations[0].args
     assert len(b1.exits[0].args) == 2
     assert b1.exits[0].args[1] is c
     assert len(b2.exits[0].args) == 2

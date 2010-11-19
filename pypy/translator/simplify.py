@@ -146,9 +146,8 @@ def transform_ovfcheck(graph):
                 del block.operations[i]
                 block.renamevariables({op.result: op1.result})
             elif op.args[0] == covfls:
-                block.operations[i] = SpaceOperation('lshift_ovf',
-                                                     op.args[1:], op.result,
-                                                     i)
+                op.opname = 'lshift_ovf'
+                del op.args[0]
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions
@@ -294,13 +293,14 @@ def join_blocks(graph):
             def rename(v):
                 return renaming.get(v, v)
             def rename_op(op):
-                opname = op.opname
                 args = [rename(a) for a in op.args]
-                if (opname == 'indirect_call' and
-                    isinstance(args[0], Constant)):
-                    opname = 'direct_call'
-                    del args[-1]
-                op = SpaceOperation(opname, args, rename(op.result), op.offset)
+                op = SpaceOperation(op.opname, args, rename(op.result), op.offset)
+                # special case...
+                if op.opname == 'indirect_call':
+                    if isinstance(op.args[0], Constant):
+                        assert isinstance(op.args[-1], Constant)
+                        del op.args[-1]
+                        op.opname = 'direct_call'
                 return op
             for op in link.target.operations:
                 link.prevblock.operations.append(rename_op(op))

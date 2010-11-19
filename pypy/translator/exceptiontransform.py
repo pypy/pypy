@@ -234,39 +234,33 @@ class BaseExceptionTransformer(object):
 
     def replace_stack_unwind(self, block):
         for i in range(len(block.operations)):
-            op = block.operations[i]
-            if op.opname == 'stack_unwind':
+            if block.operations[i].opname == 'stack_unwind':
                 # if there are stack_unwind ops left,
                 # the graph was not stackless-transformed
                 # so we need to raise a StackOverflow in any
                 # case
-                args = [self.rpyexc_raise_stack_overflow_ptr]
-                block.operations[i] = SpaceOperation('direct_call',
-                                                     args, op.result, i)
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args = [self.rpyexc_raise_stack_overflow_ptr]
 
     def replace_fetch_restore_operations(self, block):
         # the gctransformer will create these operations.  It looks as if the
         # order of transformations is important - but the gctransformer will
         # put them in a new graph, so all transformations will run again.
         for i in range(len(block.operations)):
-            op = block.operations[i]
-            opname = op.opname
+            opname = block.operations[i].opname
             if opname == 'gc_fetch_exception':
-                args = [self.rpyexc_fetch_exception_ptr]
-                block.operations[i] = SpaceOperation('direct_call', args,
-                                                     op.result, i)
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args = [self.rpyexc_fetch_exception_ptr]
+
             elif opname == 'gc_restore_exception':
-                args = (self.rpyexc_restore_exception_ptr,) + op.args
-                block.operations[i] = SpaceOperation('direct_call', args,
-                                                     op.result, i)
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args.insert(0, self.rpyexc_restore_exception_ptr)
             elif opname == 'get_exception_addr':    # only for lltype
-                args = (self.rpyexc_get_exception_addr_ptr,) + op.args
-                block.operations[i] = SpaceOperation('direct_call', args,
-                                                     op.result, i)
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args.insert(0, self.rpyexc_get_exception_addr_ptr)
             elif opname == 'get_exc_value_addr':    # only for lltype
-                args = (self.rpyexc_get_exc_value_addr_ptr,) + op.args
-                block.operations[i] = SpaceOperation('direct_call', args,
-                                                     op.result, i)
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args.insert(0, self.rpyexc_get_exc_value_addr_ptr)
 
     def transform_block(self, graph, block):
         need_exc_matching = False

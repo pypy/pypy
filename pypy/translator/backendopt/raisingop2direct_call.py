@@ -1,6 +1,5 @@
 from pypy.translator.backendopt.support import log, all_operations, annotate
 import pypy.rpython.raisingops.raisingops
-from pypy.objspace.flow.model import SpaceOperation
 log = log.raisingop2directcall
 
 def is_raisingop(op):
@@ -27,7 +26,7 @@ def raisingop2direct_call(translator, graphs=None):
 
     log('starting')
     seen = {}
-    for block, i, op in all_operations(graphs):
+    for op in all_operations(graphs):
         if not is_raisingop(op):
             continue
         func = getattr(pypy.rpython.raisingops.raisingops, op.opname, None)
@@ -37,10 +36,8 @@ def raisingop2direct_call(translator, graphs=None):
         if op.opname not in seen:
             seen[op.opname] = 0
         seen[op.opname] += 1
-        arg = annotate(translator, func, op.result, op.args)
-        block.operations[i] = SpaceOperation('direct_call',
-                                             (arg,) + op.args,
-                                             op.result, i)
+        op.args.insert(0, annotate(translator, func, op.result, op.args))
+        op.opname = 'direct_call'
 
     #statistics...
     for k, v in seen.iteritems():
@@ -58,7 +55,7 @@ def raisingop2direct_call(translator, graphs=None):
     #       op.opname += '_' 
 
     #selfdiagnostics... assert that there are no more raisingops
-    for block, i, op in all_operations(graphs):
+    for op in all_operations(graphs):
         if is_raisingop(op):
             log.warning("%s not transformed" % op.opname)
 

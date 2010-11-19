@@ -220,11 +220,11 @@ def test_symmetric():
                 if isinstance(name2, str):
                     name2 = name2, name2
                 if isinstance(v1, Constant) and isinstance(v2, Variable):
-                    assert op1.args == (v2, v1)
+                    assert op1.args == [v2, v1]
                     assert op1.result == v3
                     assert op1.opname == name2[1]
                 else:
-                    assert op1.args == (v1, v2)
+                    assert op1.args == [v1, v2]
                     assert op1.result == v3
                     assert op1.opname == name2[0]
 
@@ -237,13 +237,13 @@ def test_symmetric_int_add_ovf():
             op0, op1 = oplist
             assert op0.opname == 'int_add_ovf'
             if isinstance(v1, Constant) and isinstance(v2, Variable):
-                assert op0.args == (v2, v1)
+                assert op0.args == [v2, v1]
                 assert op0.result == v3
             else:
-                assert op0.args == (v1, v2)
+                assert op0.args == [v1, v2]
                 assert op0.result == v3
             assert op1.opname == '-live-'
-            assert op1.args == ()
+            assert op1.args == []
             assert op1.result is None
 
 def test_calls():
@@ -296,7 +296,7 @@ def residual_call_test(argtypes, restype, expectedkind):
         kind = getkind(v.concretetype)
         assert kind == 'void' or kind[0] in expectedkind
     assert op1.opname == '-live-'
-    assert op1.args == ()
+    assert op1.args == []
 
 def direct_call_test(argtypes, restype, expectedkind):
     op = get_direct_call_op(argtypes, restype)
@@ -317,16 +317,15 @@ def direct_call_test(argtypes, restype, expectedkind):
         kind = getkind(v.concretetype)
         assert kind == 'void' or kind[0] in expectedkind
     assert op1.opname == '-live-'
-    assert op1.args == ()
+    assert op1.args == []
 
 def indirect_residual_call_test(argtypes, restype, expectedkind):
     # an indirect call that is residual in all cases is very similar to
     # a residual direct call
     op = get_direct_call_op(argtypes, restype)
-    op = SpaceOperation('indirect_call', (varoftype(op.args[0].concretetype),)
-                        + op.args[1:] + (Constant(['somegraph1', 'somegraph2'],
-                                                  lltype.Void),),
-                        op.result)
+    op.opname = 'indirect_call'
+    op.args[0] = varoftype(op.args[0].concretetype)
+    op.args.append(Constant(['somegraph1', 'somegraph2'], lltype.Void))
     tr = Transformer(FakeCPU(), FakeResidualIndirectCallControl())
     tr.graph = 'someinitialgraph'
     oplist = tr.rewrite_operation(op)
@@ -345,25 +344,24 @@ def indirect_residual_call_test(argtypes, restype, expectedkind):
         kind = getkind(v.concretetype)
         assert kind == 'void' or kind[0] in expectedkind
     assert op1.opname == '-live-'
-    assert op1.args == ()
+    assert op1.args == []
 
 def indirect_regular_call_test(argtypes, restype, expectedkind):
     # a regular indirect call is preceded by a guard_value on the
     # function address, so that pyjitpl can know which jitcode to follow
     from pypy.jit.codewriter.flatten import IndirectCallTargets
     op = get_direct_call_op(argtypes, restype)
-    op = SpaceOperation('indirect_call', (varoftype(op.args[0].concretetype),)
-                        + op.args[1:] + (Constant(['somegraph1', 'somegraph2'],
-                                                  lltype.Void),),
-                        op.result)
+    op.opname = 'indirect_call'
+    op.args[0] = varoftype(op.args[0].concretetype)
+    op.args.append(Constant(['somegraph1', 'somegraph2'], lltype.Void))
     tr = Transformer(FakeCPU(), FakeRegularIndirectCallControl())
     tr.graph = 'someinitialgraph'
     oplist = tr.rewrite_operation(op)
     op0gv, op1gv, op0, op1 = oplist
     assert op0gv.opname == '-live-'
-    assert op0gv.args == ()
+    assert op0gv.args == []
     assert op1gv.opname == 'int_guard_value'
-    assert op1gv.args == (op.args[0],)
+    assert op1gv.args == [op.args[0]]
     assert op1gv.result is None
     #
     reskind = getkind(restype)[0]
@@ -385,7 +383,7 @@ def indirect_regular_call_test(argtypes, restype, expectedkind):
     # False, because this 'residual_call' will likely call further jitcodes
     # which can do e.g. guard_class or other stuff requiring anyway a -live-.
     assert op1.opname == '-live-'
-    assert op1.args == ()
+    assert op1.args == []
 
 def test_getfield():
     # XXX a more compact encoding would be possible, something along
@@ -414,7 +412,7 @@ def test_getfield():
         op1 = Transformer(FakeCPU()).rewrite_operation(op)
         assert op1.opname == 'getfield_gc_' + suffix
         fielddescr = ('fielddescr', S, name)
-        assert op1.args == (v_parent, fielddescr)
+        assert op1.args == [v_parent, fielddescr]
         assert op1.result == v_result
 
 def test_getfield_typeptr():
@@ -425,9 +423,9 @@ def test_getfield_typeptr():
     oplist = Transformer(FakeCPU()).rewrite_operation(op)
     op0, op1 = oplist
     assert op0.opname == '-live-'
-    assert op0.args == ()
+    assert op0.args == []
     assert op1.opname == 'guard_class'
-    assert op1.args == (v_parent,)
+    assert op1.args == [v_parent]
     assert op1.result == v_result
 
 def test_setfield():
@@ -456,7 +454,7 @@ def test_setfield():
         op1 = Transformer(FakeCPU()).rewrite_operation(op)
         assert op1.opname == 'setfield_gc_' + suffix
         fielddescr = ('fielddescr', S, name)
-        assert op1.args == (v_parent, fielddescr, v_newvalue)
+        assert op1.args == [v_parent, fielddescr, v_newvalue]
         assert op1.result is None
 
 def test_malloc_new():
@@ -466,7 +464,7 @@ def test_malloc_new():
                                    Constant({'flavor': 'gc'}, lltype.Void)], v)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new'
-    assert op1.args == (('sizedescr', S),)
+    assert op1.args == [('sizedescr', S)]
 
 def test_malloc_new_with_vtable():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -478,7 +476,7 @@ def test_malloc_new_with_vtable():
     cpu = FakeCPU()
     op1 = Transformer(cpu).rewrite_operation(op)
     assert op1.opname == 'new_with_vtable'
-    assert op1.args == (('sizedescr', S),)
+    assert op1.args == [('sizedescr', S)]
     #assert heaptracker.descr2vtable(cpu, op1.args[0]) == vtable [type check]
     vtable_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtable))
     assert heaptracker.vtable2descr(cpu, vtable_int) == op1.args[0]
@@ -500,7 +498,7 @@ def test_malloc_new_with_destructor():
     assert op0.args[0].value == 'alloc_with_del'    # pseudo-function as a str
     assert list(op0.args[2]) == []
     assert op1.opname == '-live-'
-    assert op1.args == ()
+    assert op1.args == []
 
 def test_rename_on_links():
     v1 = Variable()
@@ -527,17 +525,17 @@ def test_int_eq():
         op = SpaceOperation(opname, [v1, v2], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == opname
-        assert op1.args == (v1, v2)
+        assert op1.args == [v1, v2]
         #
         op = SpaceOperation(opname, [v1, c0], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
-        assert op1.args == (v1,)
+        assert op1.args == [v1]
         #
         op = SpaceOperation(opname, [c0, v2], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
-        assert op1.args == (v2,)
+        assert op1.args == [v2]
 
 def test_ptr_eq():
     v1 = varoftype(rclass.OBJECTPTR)
@@ -550,17 +548,17 @@ def test_ptr_eq():
         op = SpaceOperation(opname, [v1, v2], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == opname
-        assert op1.args == (v1, v2)
+        assert op1.args == [v1, v2]
         #
         op = SpaceOperation(opname, [v1, c0], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
-        assert op1.args == (v1,)
+        assert op1.args == [v1]
         #
         op = SpaceOperation(opname, [c0, v2], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
-        assert op1.args == (v2,)
+        assert op1.args == [v2]
 
 def test_nongc_ptr_eq():
     v1 = varoftype(rclass.NONGCOBJECTPTR)
@@ -573,27 +571,27 @@ def test_nongc_ptr_eq():
         op = SpaceOperation(opname, [v1, v2], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == opname.replace('ptr_', 'int_')
-        assert op1.args == (v1, v2)
+        assert op1.args == [v1, v2]
         #
         op = SpaceOperation(opname, [v1, c0], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
-        assert op1.args == (v1,)
+        assert op1.args == [v1]
         #
         op = SpaceOperation(opname, [c0, v2], v3)
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
-        assert op1.args == (v2,)
+        assert op1.args == [v2]
     #
     op = SpaceOperation('ptr_iszero', [v1], v3)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'int_is_zero'
-    assert op1.args == (v1,)
+    assert op1.args == [v1]
     #
     op = SpaceOperation('ptr_nonzero', [v1], v3)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'int_is_true'
-    assert op1.args == (v1,)
+    assert op1.args == [v1]
 
 def test_str_getinteriorarraysize():
     v = varoftype(lltype.Ptr(rstr.STR))
@@ -603,7 +601,7 @@ def test_str_getinteriorarraysize():
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'strlen'
-    assert op1.args == (v,)
+    assert op1.args == [v]
     assert op1.result == v_result
 
 def test_unicode_getinteriorarraysize():
@@ -614,7 +612,7 @@ def test_unicode_getinteriorarraysize():
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'unicodelen'
-    assert op1.args == (v,)
+    assert op1.args == [v]
     assert op1.result == v_result
 
 def test_str_getinteriorfield():
@@ -626,7 +624,7 @@ def test_str_getinteriorfield():
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'strgetitem'
-    assert op1.args == (v, v_index,)
+    assert op1.args == [v, v_index]
     assert op1.result == v_result
 
 def test_unicode_getinteriorfield():
@@ -638,7 +636,7 @@ def test_unicode_getinteriorfield():
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'unicodegetitem'
-    assert op1.args == (v, v_index,)
+    assert op1.args == [v, v_index]
     assert op1.result == v_result
 
 def test_str_setinteriorfield():
@@ -651,7 +649,7 @@ def test_str_setinteriorfield():
                         v_void)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'strsetitem'
-    assert op1.args == (v, v_index, v_newchr,)
+    assert op1.args == [v, v_index, v_newchr]
     assert op1.result == v_void
 
 def test_unicode_setinteriorfield():
@@ -664,7 +662,7 @@ def test_unicode_setinteriorfield():
                         v_void)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'unicodesetitem'
-    assert op1.args == (v, v_index, v_newchr,)
+    assert op1.args == [v, v_index, v_newchr]
     assert op1.result == v_void
 
 def test_promote_1():
@@ -676,9 +674,9 @@ def test_promote_1():
     oplist = Transformer().rewrite_operation(op)
     op0, op1, op2 = oplist
     assert op0.opname == '-live-'
-    assert op0.args == ()
+    assert op0.args == []
     assert op1.opname == 'int_guard_value'
-    assert op1.args == (v1,)
+    assert op1.args == [v1]
     assert op1.result is None
     assert op2 is None
 
@@ -696,9 +694,9 @@ def test_promote_2():
     Transformer().optimize_block(block)
     assert len(block.operations) == 2
     assert block.operations[0].opname == '-live-'
-    assert block.operations[0].args == ()
+    assert block.operations[0].args == []
     assert block.operations[1].opname == 'int_guard_value'
-    assert block.operations[1].args == (v1,)
+    assert block.operations[1].args == [v1]
     assert block.operations[1].result is None
     assert block.exits[0].args == [v1]
 
@@ -727,10 +725,10 @@ def test_jit_merge_point_1():
     assert len(oplist) == 6
     assert oplist[0].opname == '-live-'
     assert oplist[1].opname == 'int_guard_value'
-    assert oplist[1].args   == (v1,)
+    assert oplist[1].args   == [v1]
     assert oplist[2].opname == '-live-'
     assert oplist[3].opname == 'int_guard_value'
-    assert oplist[3].args   == (v2,)
+    assert oplist[3].args   == [v2]
     assert oplist[4].opname == 'jit_merge_point'
     assert oplist[4].args[0].value == 42
     assert list(oplist[4].args[1]) == [v1, v2]
@@ -744,7 +742,7 @@ def test_getfield_gc():
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getfield_gc_i'
-    assert op1.args == (v1, ('fielddescr', S, 'x'),)
+    assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
 
 def test_getfield_gc_pure():
@@ -755,7 +753,7 @@ def test_getfield_gc_pure():
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getfield_gc_i_pure'
-    assert op1.args == (v1, ('fielddescr', S, 'x'),)
+    assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
 
 def test_getfield_gc_greenfield():
@@ -773,7 +771,7 @@ def test_getfield_gc_greenfield():
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
     op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
     assert op1.opname == 'getfield_gc_i_greenfield'
-    assert op1.args == (v1, ('fielddescr', S, 'x'),)
+    assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
 
 def test_int_abs():
@@ -794,7 +792,7 @@ def test_str_newstr():
     op = SpaceOperation('malloc_varsize', [c_STR, c_flavor, v1], v2)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'newstr'
-    assert op1.args == (v1,)
+    assert op1.args == [v1]
     assert op1.result == v2
 
 def test_str_concat():

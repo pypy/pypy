@@ -226,7 +226,7 @@ class Block(object):
             assert isinstance(a, Variable), a
         self.inputargs = [mapping.get(a, a) for a in self.inputargs]
         for op in self.operations:
-            op.args = tuple([mapping.get(a, a) for a in op.args])
+            op.args = [mapping.get(a, a) for a in op.args]
             op.result = mapping.get(op.result, op.result)
         self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
         for link in self.exits:
@@ -329,17 +329,13 @@ class WrapException(Exception):
     """Attempted wrapping of a type that cannot sanely appear in flow graph or
     during its construction"""
 
+
 class SpaceOperation(object):
     __slots__ = "opname args result offset".split()
-    def __new__(cls, opname, args, result, offset=-1):
-        if opname == 'direct_call':
-            assert isinstance(args[0], Constant)
-        cls = globals().get('SpaceOperation' + str(len(args)), SpaceOperationN)
-        return object.__new__(cls, opname, args, result, offset)
 
     def __init__(self, opname, args, result, offset=-1):
         self.opname = intern(opname)      # operation name
-        self.args   = tuple(args) # mixed list of var/const
+        self.args   = list(args)  # mixed list of var/const
         self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string
 
@@ -358,58 +354,6 @@ class SpaceOperation(object):
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname,
                                 ", ".join(map(repr, self.args)))
-
-    def getargs(self):
-        raise NotImplementedError
-    def setargs(self, args):
-        raise NotImplementedError
-    args = property(getargs, setargs)
-
-class SpaceOperation0(SpaceOperation):
-    __slots__ = "opname result offset".split()
-
-    def getargs(self):
-        return ()
-    def setargs(self, args):
-        assert not args
-    args = property(getargs, setargs)
-
-class SpaceOperation1(SpaceOperation):
-    __slots__ = "opname result offset arg0".split()
-
-    def getargs(self):
-        return (self.arg0,)
-    def setargs(self, args):
-        self.arg0, = args
-    args = property(getargs, setargs)
-
-class SpaceOperation2(SpaceOperation):
-    __slots__ = "opname result offset arg0 arg1".split()
-
-    def getargs(self):
-        return (self.arg0, self.arg1)
-    def setargs(self, args):
-        self.arg0, self.arg1 = args
-    args = property(getargs, setargs)
-
-class SpaceOperation3(SpaceOperation):
-    __slots__ = "opname result offset arg0 arg1 arg2".split()
-
-    def getargs(self):
-        return (self.arg0, self.arg1, self.arg2)
-    def setargs(self, args):
-        self.arg0, self.arg1, self.arg2 = args
-    args = property(getargs, setargs)
-
-class SpaceOperationN(SpaceOperation):
-    __slots__ = "opname result offset _args".split()
-
-    def getargs(self):
-        return self._args
-    def setargs(self, args):
-        assert isinstance(args, tuple)
-        self._args = args
-    args = property(getargs, setargs)
 
 class Atom(object):
     def __init__(self, name):

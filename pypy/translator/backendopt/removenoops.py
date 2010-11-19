@@ -23,7 +23,7 @@ def remove_unaryops(graph, opnames):
             if op is not None:
                 for i in range(len(op.args)):
                     if op.args[i] == op_result:
-                        op.args = op.args[:i] + (op_arg,) + op.args[i + 1:]
+                        op.args[i] = op_arg
                 if (op.opname == "indirect_call"
                     and isinstance(op.args[0], Constant)):
                     op.opname = "direct_call"

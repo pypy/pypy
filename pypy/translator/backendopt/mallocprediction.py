@@ -80,7 +80,7 @@ def find_calls_where_creps_go(interesting_creps, graph, adi,
                 graphvars = [None] * len(op.args)
             else:
                 graphvars = called_graph.getargs() + [called_graph.getreturnvar()]
-            for var, graphvar in zip(op.args[1:] + (op.result,), graphvars):
+            for var, graphvar in zip(op.args[1:] + [op.result], graphvars):
                 varstate = adi.getstate(var)
                 if varstate is None:
                     #print "no varstate"

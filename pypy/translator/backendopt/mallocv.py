@@ -980,7 +980,7 @@ class BlockSpecializer(object):
     def handle_op_indirect_call(self, op):
         v_func = self.rename_nonvirtual(op.args[0], op)
         if isinstance(v_func, Constant):
-            op = SpaceOperation('direct_call', (v_func,) + op.args[1:-1],
+            op = SpaceOperation('direct_call', [v_func] + op.args[1:-1],
                                 op.result)
             return self.handle_op_direct_call(op)
         else:
