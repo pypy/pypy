@@ -56,6 +56,8 @@ class AssemblerARM(ResOpAssembler):
         regs = rffi.cast(rffi.CCHARP, frame_loc - (frame_depth + len(r.all_regs))*WORD)
         i = 3
         fail_index = -1
+        if self.debug:
+            import pdb; pdb.set_trace()
         while(True):
             i += 1
             fail_index += 1
@@ -94,8 +96,10 @@ class AssemblerARM(ResOpAssembler):
         self.fail_boxes_count = fail_index
         return descr
 
-    def update_bridge_bindings(self, enc, inputargs, regalloc):
+    def decode_inputargs_and_frame_depth(self, enc, inputargs, regalloc):
+        locs = []
         # first word contains frame depth
+        frame_depth = self.decode32(enc, 0) + 1
         j = 4
         for i in range(len(inputargs)):
             res = enc[j]
@@ -113,12 +117,14 @@ class AssemblerARM(ResOpAssembler):
                 assert 0, 'fail'
             elif res == '\xFC': # stack location
                 stack_loc = self.decode32(enc, j+1)
-                loc = regalloc.make_sure_var_in_reg(inputargs[i])
-                self.mc.LDR_ri(loc.value, r.fp.value, -stack_loc)
+                loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
                 j += 4
             else: # reg location
-                regalloc.force_allocate_reg(inputargs[i], selected_reg=r.all_regs[ord(res)])
+                loc = r.all_regs[ord(res)]
             j += 1
+            locs.append(loc)
+        return frame_depth, locs
+
     def decode32(self, mem, index):
         highval = ord(mem[index+3])
         if highval >= 128:
@@ -283,6 +289,7 @@ class AssemblerARM(ResOpAssembler):
 
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken):
+        self.debug = False
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
         self.align()
@@ -374,12 +381,14 @@ class AssemblerARM(ResOpAssembler):
         return False
 
     def assemble_bridge(self, faildescr, inputargs, operations):
+        self.debug = False
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
 
         bridge_head = self.mc.curraddr()
-        self.update_bridge_bindings(enc, inputargs, regalloc)
+        frame_depth, locs = self.decode_inputargs_and_frame_depth(enc, inputargs, regalloc)
+        regalloc.update_bindings(locs, frame_depth, inputargs)
 
         print 'Bridge', inputargs, operations
         self._walk_operations(operations, regalloc)

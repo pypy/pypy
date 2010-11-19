@@ -23,6 +23,28 @@ class ARMRegisterManager(RegisterManager):
     def call_result_location(self, v):
         return r.r0
 
+    def update_bindings(self, locs, frame_depth, inputargs):
+        used = {}
+        i = 0
+        self.frame_manager.frame_depth = frame_depth
+        for loc in locs:
+            arg = inputargs[i]
+            i += 1
+            if loc.is_reg():
+                self.reg_bindings[arg] = loc
+            else:
+                self.frame_manager.frame_bindings[arg] = loc
+            used[loc] = None
+
+        # XXX combine with x86 code and move to llsupport
+        self.free_regs = []
+        for reg in self.all_regs:
+            if reg not in used:
+                self.free_regs.append(reg)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
+
 class ARMFrameManager(FrameManager):
     def __init__(self):
         FrameManager.__init__(self)
