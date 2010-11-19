@@ -87,17 +87,19 @@ class Transformer(object):
 
     def _do_renaming(self, rename, op):
         op = SpaceOperation(op.opname, op.args[:], op.result)
+        args = list(op.args)
         for i, v in enumerate(op.args):
             if isinstance(v, Variable):
                 if v in rename:
-                    op.args[i] = rename[v]
+                    args[i] = rename[v]
             elif isinstance(v, ListOfKind):
                 newlst = []
                 for x in v:
                     if x in rename:
                         x = rename[x]
                     newlst.append(x)
-                op.args[i] = ListOfKind(v.kind, newlst)
+                args[i] = ListOfKind(v.kind, newlst)
+        op.args = tuple(args)
         return op
 
     def _do_renaming_on_link(self, rename, link):
@@ -203,7 +205,7 @@ class Transformer(object):
                            'float_ge': 'float_le',
                            }.get(op.opname, op.opname)
             return SpaceOperation(reversename,
-                                  [op.args[1], op.args[0]] + op.args[2:],
+                                  (op.args[1], op.args[0],) + op.args[2:],
                                   op.result)
         else:
             return op
@@ -377,7 +379,7 @@ class Transformer(object):
         c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
                                                    oopspec_name, argtypes,
                                                    resulttype, extra, extrakey)
-        return SpaceOperation('direct_call', [c_func] + args, op.result)
+        return SpaceOperation('direct_call', (c_func,) + args, op.result)
 
     def _do_builtin_call(self, op, oopspec_name=None, args=None,
                          extra=None, extrakey=None):
@@ -419,25 +421,25 @@ class Transformer(object):
         if op.args[1].value['flavor'] == 'raw':
             ARRAY = op.args[0].value
             return self._do_builtin_call(op, 'raw_malloc',
-                                         [op.args[2]],
+                                         (op.args[2],),
                                          extra = (ARRAY,),
                                          extrakey = ARRAY)
         if op.args[0].value == rstr.STR:
-            return SpaceOperation('newstr', [op.args[2]], op.result)
+            return SpaceOperation('newstr', (op.args[2],), op.result)
         elif op.args[0].value == rstr.UNICODE:
-            return SpaceOperation('newunicode', [op.args[2]], op.result)
+            return SpaceOperation('newunicode', (op.args[2],), op.result)
         else:
             # XXX only strings or simple arrays for now
             ARRAY = op.args[0].value
             arraydescr = self.cpu.arraydescrof(ARRAY)
-            return SpaceOperation('new_array', [arraydescr, op.args[2]],
+            return SpaceOperation('new_array', (arraydescr, op.args[2]),
                                   op.result)
 
     def rewrite_op_free(self, op):
         flags = op.args[1].value
         assert flags['flavor'] == 'raw'
         ARRAY = op.args[0].concretetype.TO
-        return self._do_builtin_call(op, 'raw_free', [op.args[0]],
+        return self._do_builtin_call(op, 'raw_free', (op.args[0],),
                                      extra = (ARRAY,), extrakey = ARRAY)
 
     def rewrite_op_getarrayitem(self, op):
@@ -626,7 +628,7 @@ class Transformer(object):
                 if hasattr(rtti._obj, 'destructor_funcptr'):
                     RESULT = lltype.Ptr(STRUCT)
                     assert RESULT == op.result.concretetype
-                    return self._do_builtin_call(op, 'alloc_with_del', [],
+                    return self._do_builtin_call(op, 'alloc_with_del', (),
                                                  extra = (RESULT, vtable),
                                                  extrakey = STRUCT)
             heaptracker.register_known_gctype(self.cpu, vtable, STRUCT)
