@@ -12,6 +12,8 @@ def gen_emit_op_unary_cmp(true_cond, false_cond):
         self.mc.MOV_ri(res.value, 1, true_cond)
         self.mc.MOV_ri(res.value, 0, false_cond)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
     return f
 
@@ -41,6 +43,8 @@ def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
             res = regalloc.force_allocate_reg(op.result, [arg0, arg1])
             rr_op(res.value, l0.value, l1.value)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
     return f
 
@@ -56,7 +60,10 @@ def gen_emit_op_by_helper_call(opname):
         regalloc.before_call()
         getattr(self.mc, opname)(fcond)
         regalloc.after_call(op.result)
+
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
     return f
 
@@ -87,5 +94,7 @@ def gen_emit_cmp_op(condition, inverse=False):
         self.mc.MOV_ri(res.value, 1, cond=condition)
         self.mc.MOV_ri(res.value, 0, cond=inv)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
     return f

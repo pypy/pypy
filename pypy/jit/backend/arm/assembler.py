@@ -170,8 +170,7 @@ class AssemblerARM(ResOpAssembler):
         """
 
         descr = op.getdescr()
-        box = TempBox()
-        reg = regalloc.force_allocate_reg(box)
+        reg = r.lr
         # XXX free this memory
         # XXX allocate correct amount of memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)*6+9, flavor='raw')
@@ -214,14 +213,10 @@ class AssemblerARM(ResOpAssembler):
 
         n = self.cpu.get_fail_descr_number(descr)
         self.encode32(mem, j+1, n)
+        self.mc.ensure_can_fit(self.mc.size_of_gen_load_int)
         self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond) # use lr to pass an argument
-        self.mc.B(self._exit_code_addr, fcond, reg)
+        self.mc.B(self._exit_code_addr)
 
-        # This register is used for patching when assembling a bridge
-        # guards going to be patched are allways conditional
-        if fcond != c.AL:
-            descr._arm_guard_reg = reg
-        regalloc.possibly_free_var(box)
         return memaddr
 
     def align(self):
@@ -367,7 +362,6 @@ class AssemblerARM(ResOpAssembler):
         i = 0
         while i < len(operations):
             op = operations[i]
-            # XXX consider merging ops with next one if it is an adecuate guard
             opnum = op.getopnum()
             if self.can_merge_with_next_guard(op, i, operations):
                 fcond = self.operations_with_guard[opnum](self, op,
@@ -401,7 +395,7 @@ class AssemblerARM(ResOpAssembler):
         self._walk_operations(operations, regalloc)
 
         print 'Done building bridges'
-        self.patch_trace(faildescr, bridge_head)
+        self.patch_trace(faildescr, bridge_head, regalloc)
         print 'Done patching trace'
         if self._debug_asm:
             self._dump_trace('bridge.asm')
@@ -418,11 +412,12 @@ class AssemblerARM(ResOpAssembler):
         #XXX check ranges for different operations
         return isinstance(arg, ConstInt) and arg.getint() <= size and lower_bound
 
-    def patch_trace(self, faildescr, bridge_addr):
-        # XXX make sure there is enough space at patch target
-        fcond = faildescr._arm_guard_cond
-        b = ARMv7InMemoryBuilder(faildescr._arm_guard_code, faildescr._arm_guard_size)
-        b.B(bridge_addr, fcond, some_reg=faildescr._arm_guard_reg)
+    def patch_trace(self, faildescr, bridge_addr, regalloc):
+        # The first instruction (word) is not overwritten, because it is the
+        # one that actually checks the condition
+        b = ARMv7InMemoryBuilder(faildescr._arm_guard_code,
+                                        self.guard_size-WORD)
+        b.B(bridge_addr, some_reg=r.lr)
 
     # regalloc support
     def regalloc_mov(self, prev_loc, loc):

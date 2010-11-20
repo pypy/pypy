@@ -49,6 +49,8 @@ class IntOpAsslember(object):
             res = regalloc.force_allocate_reg(op.result, forbidden_vars=[a0, a1])
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_int_sub(self, op, regalloc, fcond):
@@ -79,6 +81,8 @@ class IntOpAsslember(object):
             self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
 
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_int_mul(self, op, regalloc, fcond):
@@ -89,6 +93,7 @@ class IntOpAsslember(object):
         res = regalloc.force_allocate_reg(op.result, [a0, a1])
         self.mc.MUL(res.value, reg1.value, reg2.value)
         regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_var(op.result)
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
@@ -102,10 +107,12 @@ class IntOpAsslember(object):
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, imm=31, cond=fcond)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         if guard.getopnum() == rop.GUARD_OVERFLOW:
-            return self._emit_guard(guard, regalloc, c.EQ)
-        else:
             return self._emit_guard(guard, regalloc, c.NE)
+        else:
+            return self._emit_guard(guard, regalloc, c.EQ)
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
     emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
@@ -150,6 +157,8 @@ class UnaryIntOpAssembler(object):
 
         self.mc.MVN_rr(res.value, reg.value)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
 
     #XXX check for a better way of doing this
@@ -166,17 +175,19 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
+    guard_size = ARMv7Builder.size_of_gen_load_int + 2*WORD
     def _emit_guard(self, op, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, BasicFailDescr)
         if hasattr(op, 'getfailargs'):
             print 'Failargs: ', op.getfailargs()
+        self.mc.ensure_can_fit(self.guard_size)
+        self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size, cond=fcond)
         descr._arm_guard_code = self.mc.curraddr()
-        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc, fcond)
+        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc)
         descr._failure_recovery_code = memaddr
-        descr._arm_guard_cond = fcond
-        descr._arm_guard_size = self.mc.curraddr() - descr._arm_guard_code
         regalloc.possibly_free_vars_for_op(op)
+        self.mc.NOP()
         return c.AL
 
     def emit_op_guard_true(self, op, regalloc, fcond):
@@ -184,14 +195,14 @@ class GuardOpAssembler(object):
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         self.mc.CMP_ri(l0.value, 0)
         regalloc.possibly_free_var(l0)
-        return self._emit_guard(op, regalloc, c.EQ)
+        return self._emit_guard(op, regalloc, c.NE)
 
     def emit_op_guard_false(self, op, regalloc, fcond):
         a0 = op.getarg(0)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         self.mc.CMP_ri(l0.value, 0)
         regalloc.possibly_free_var(l0)
-        return self._emit_guard(op, regalloc, c.NE)
+        return self._emit_guard(op, regalloc, c.EQ)
 
     def emit_op_guard_value(self, op, regalloc, fcond):
         a0 = op.getarg(0)
@@ -204,16 +215,16 @@ class GuardOpAssembler(object):
         else:
             self.mc.CMP_rr(l0.value, l1.value)
         regalloc.possibly_free_vars_for_op(op)
-        return self._emit_guard(op, regalloc, c.NE)
+        return self._emit_guard(op, regalloc, c.EQ)
 
     emit_op_guard_nonnull = emit_op_guard_true
     emit_op_guard_isnull = emit_op_guard_false
 
     def emit_op_guard_no_overflow(self, op, regalloc, fcond):
-        return self._emit_guard(op, regalloc, c.VS)
+        return self._emit_guard(op, regalloc, c.VC)
 
     def emit_op_guard_overflow(self, op, regalloc, fcond):
-        return self._emit_guard(op, regalloc, c.VC)
+        return self._emit_guard(op, regalloc, c.VS)
 
 class OpAssembler(object):
 
@@ -301,6 +312,8 @@ class OpAssembler(object):
         else:
             self.mc.MOV_rr(resloc.value, argloc.value)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         return fcond
 
 class FieldOpAssembler(object):
@@ -373,6 +386,8 @@ class ArrayOpAssember(object):
 
         self.mc.LDR_ri(res.value, base_loc.value, ofs)
         regalloc.possibly_free_var(op.getarg(0))
+        if op.result:
+            regalloc.possibly_free_var(op.result)
 
     def emit_op_setarrayitem_gc(self, op, regalloc, fcond):
         a0 = op.getarg(0)
@@ -443,6 +458,8 @@ class StrOpAssembler(object):
         l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         regalloc.possibly_free_vars_for_op(op)
         res = regalloc.force_allocate_reg(op.result)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
         l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length))
@@ -460,6 +477,8 @@ class StrOpAssembler(object):
         res = regalloc.force_allocate_reg(op.result)
         regalloc.possibly_free_vars_for_op(op)
         regalloc.possibly_free_var(t)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
@@ -480,6 +499,8 @@ class StrOpAssembler(object):
         temp = regalloc.force_allocate_reg(t)
         regalloc.possibly_free_vars_for_op(op)
         regalloc.possibly_free_var(t)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
@@ -499,6 +520,8 @@ class UnicodeOpAssembler(object):
         l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         regalloc.possibly_free_vars_for_op(op)
         res = regalloc.force_allocate_reg(op.result)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length))
@@ -516,6 +539,8 @@ class UnicodeOpAssembler(object):
         res = regalloc.force_allocate_reg(op.result)
         regalloc.possibly_free_vars_for_op(op)
         regalloc.possibly_free_var(t)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
@@ -539,6 +564,8 @@ class UnicodeOpAssembler(object):
         temp = regalloc.force_allocate_reg(t)
         regalloc.possibly_free_vars_for_op(op)
         regalloc.possibly_free_var(t)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
@@ -661,8 +688,10 @@ class ForceOpAssembler(object):
         self.mc.CMP_ri(l0.value, 0)
         regalloc.possibly_free_var(t)
         regalloc.possibly_free_vars_for_op(op)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
 
-        self._emit_guard(guard_op, regalloc, c.LT)
+        self._emit_guard(guard_op, regalloc, c.GE)
         return fcond
 
     def emit_guard_call_may_force(self, op, guard_op, regalloc, fcond):
@@ -679,7 +708,7 @@ class ForceOpAssembler(object):
         self.mc.CMP_ri(l0.value, 0)
         regalloc.possibly_free_var(t)
 
-        self._emit_guard(guard_op, regalloc, c.LT)
+        self._emit_guard(guard_op, regalloc, c.GE)
         return fcond
 
     def _write_fail_index(self, fail_index, regalloc):
