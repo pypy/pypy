@@ -321,8 +321,10 @@ class AssemblerARM(ResOpAssembler):
     def _prepare_sp_patch_location(self):
         """Generate NOPs as placeholder to patch the instruction(s) to update the
         sp according to the number of spilled variables"""
+        size = (self.mc.size_of_gen_load_int+WORD)
+        self.mc.ensure_can_fit(size)
         l = self.mc.curraddr()
-        for _ in range((self.mc.size_of_gen_load_int+WORD)//WORD):
+        for _ in range(size//WORD):
             self.mc.MOV_rr(r.r0.value, r.r0.value)
         return l
 
