@@ -196,8 +196,9 @@ class GuardOpAssembler(object):
     def emit_op_guard_value(self, op, regalloc, fcond):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
+        imm_a1 = self._check_imm_arg(a1)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-        l1 = regalloc.make_sure_var_in_reg(a1)
+        l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=imm_a1)
         if l1.is_imm():
             self.mc.CMP_ri(l0.value, l1.getint())
         else:
