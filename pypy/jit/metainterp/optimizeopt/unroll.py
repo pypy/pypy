@@ -209,7 +209,7 @@ class UnrollOptimizer(Optimization):
                 preamble_i += 1
 
         if loop_i < len(loop)-1: 
-            print "Loop contains ops not in preamble???"
+            #print "Loop contains ops not in preamble???"
             return None
         while preamble_i < len(preamble)-1:
             short_preamble.append(preamble[preamble_i])
@@ -231,7 +231,7 @@ class UnrollOptimizer(Optimization):
         
         for a in jumpargs:
             if a is None:
-                print "Unable to find all input arguments???"
+                #print "Unable to find all input arguments???"
                 return None
 
         jmp = ResOperation(rop.JUMP, jumpargs[:], None)
@@ -259,7 +259,7 @@ class UnrollOptimizer(Optimization):
         for op in short_preamble:
             for box in op.getarglist():
                 if box not in seen:
-                    print "Op arguments not produced???"
+                    #print "Op arguments not produced???"
                     return None
             if op.result:
                 seen[op.result] = True
