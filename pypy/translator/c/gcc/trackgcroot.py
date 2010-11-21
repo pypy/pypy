@@ -1405,6 +1405,7 @@ class DarwinAssemblerParser(AssemblerParser):
                      'const_data'
                      ]
     r_sectionstart = re.compile(r"\t\.("+'|'.join(OTHERSECTIONS)+").*$")
+    sections_doesnt_end_function = {'cstring': True, 'const': True}
 
     def find_functions(self, iterlines):
         functionlines = []
@@ -1414,6 +1415,12 @@ class DarwinAssemblerParser(AssemblerParser):
             if self.r_textstart.match(line):
                 in_text = True
             elif self.r_sectionstart.match(line):
+                sectionname = self.r_sectionstart.match(line).group(1)
+                if (in_function and
+                    sectionname not in self.sections_doesnt_end_function):
+                    yield in_function, functionlines
+                    functionlines = []
+                    in_function = False
                 in_text = False
             elif in_text and self.FunctionGcRootTracker.r_functionstart.match(line):
                 yield in_function, functionlines
