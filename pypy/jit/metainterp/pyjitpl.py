@@ -94,6 +94,18 @@ class MIFrame(object):
             else: raise AssertionError(argcode)
             outvalue[startindex+i] = reg
 
+    def _put_back_list_of_boxes(self, outvalue, startindex, position):
+        code = self.bytecode
+        length = ord(code[position])
+        position += 1
+        for i in range(length):
+            index = ord(code[position+i])
+            box = outvalue[startindex+i]
+            if   box.type == history.INT:   self.registers_i[index] = box
+            elif box.type == history.REF:   self.registers_r[index] = box
+            elif box.type == history.FLOAT: self.registers_f[index] = box
+            else: raise AssertionError(box.type)
+
     def get_current_position_info(self):
         return self.jitcode.get_live_vars_info(self.pc)
 
@@ -814,8 +826,9 @@ class MIFrame(object):
         for i in range(num_green_args):
             assert isinstance(varargs[i], Const)
 
-    @arguments("orgpc", "int", "boxes3", "boxes3")
-    def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes, redboxes):
+    @arguments("orgpc", "int", "boxes3", "jitcode_position", "boxes3")
+    def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes,
+                               jcposition, redboxes):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
@@ -843,6 +856,10 @@ class MIFrame(object):
             self.pc = orgpc
             self.metainterp.reached_loop_header(greenboxes, redboxes)
             self.pc = saved_pc
+            # no exception, which means that the jit_merge_point did not
+            # close the loop.  We have to put the possibly-modified list
+            # 'redboxes' back into the registers where it comes from.
+            put_back_list_of_boxes3(self, jcposition, redboxes)
         else:
             # warning! careful here.  We have to return from the current
             # frame containing the jit_merge_point, and then use
@@ -2293,6 +2310,8 @@ def _get_opimpl_method(name, argcodes):
                 else:
                     raise AssertionError("bad argcode")
                 position += 1
+            elif argtype == "jitcode_position":
+                value = position
             else:
                 raise AssertionError("bad argtype: %r" % (argtype,))
             args += (value,)
@@ -2337,3 +2356,15 @@ def _get_opimpl_method(name, argcodes):
     argtypes = unrolling_iterable(unboundmethod.argtypes)
     handler.func_name = 'handler_' + name
     return handler
+
+def put_back_list_of_boxes3(frame, position, newvalue):
+    code = frame.bytecode
+    length1 = ord(code[position])
+    position2 = position + 1 + length1
+    length2 = ord(code[position2])
+    position3 = position2 + 1 + length2
+    length3 = ord(code[position3])
+    assert len(newvalue) == length1 + length2 + length3
+    frame._put_back_list_of_boxes(newvalue, 0, position)
+    frame._put_back_list_of_boxes(newvalue, length1, position2)
+    frame._put_back_list_of_boxes(newvalue, length1 + length2, position3)
