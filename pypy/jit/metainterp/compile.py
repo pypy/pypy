@@ -541,7 +541,8 @@ def prepare_last_operation(new_loop, target_loop_token):
     op = new_loop.operations[-1]
     if not isinstance(target_loop_token, TerminatingLoopToken):
         # normal case
-        op.setdescr(target_loop_token)     # patch the jump target
+        #op.setdescr(target_loop_token)     # patch the jump target
+        pass
     else:
         # The target_loop_token is a pseudo loop token,
         # e.g. loop_tokens_done_with_this_frame_void[0]

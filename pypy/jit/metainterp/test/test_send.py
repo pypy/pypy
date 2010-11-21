@@ -162,6 +162,7 @@ class SendTests:
                 y -= 1
             return 42
         policy = StopAtXPolicy(externfn)
+
         for j in range(69, 75):
             res = self.meta_interp(f, [j], policy=policy)
             assert res == 42
@@ -169,8 +170,8 @@ class SendTests:
                 self.check_enter_count(3)
                 self.check_loop_count(3)
             else:
-                self.check_enter_count(5)
-                self.check_loop_count(5)
+                self.check_enter_count_at_most(5)
+                self.check_loop_count_at_most(5)
 
     def test_oosend_guard_failure(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])

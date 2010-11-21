@@ -37,6 +37,7 @@ def _optimize_bridge(metainterp_sd, old_loop_tokens, bridge):
         bridge.operations[-1].setdescr(old_loop_token)   # patch jump target
         optimize_bridge_1(metainterp_sd, bridge)
         return old_loop_tokens[0]
+        #return bridge.operations[-1].getdescr()
     return None
 
 # ____________________________________________________________

@@ -1804,6 +1804,8 @@ class MetaInterp(object):
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
         if len(old_loop_tokens) == 0:
             return
+        #if self.resumekey.guard_opnum == rop.GUARD_CLASS:
+        #    return # Kepp tracing for another iteration
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         target_loop_token = compile.compile_new_bridge(self, old_loop_tokens,
                                                        self.resumekey)

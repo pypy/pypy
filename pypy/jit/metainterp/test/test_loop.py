@@ -87,7 +87,10 @@ class LoopTest(object):
             return res * 2
         res = self.meta_interp(f, [6, 33], policy=StopAtXPolicy(l))
         assert res == f(6, 33)
-        self.check_loop_count(2)
+        if self.optimizer == OPTIMIZER_FULL:
+            self.check_loop_count(3)
+        else:
+            self.check_loop_count(2)
 
     def test_alternating_loops(self):
         myjitdriver = JitDriver(greens = [], reds = ['pattern'])
@@ -101,8 +104,11 @@ class LoopTest(object):
                     pass
                 pattern >>= 1
             return 42
-        self.meta_interp(f, [0xF0F0])
-        self.check_loop_count(2)
+        self.meta_interp(f, [0xF0F0F0])
+        if self.optimizer == OPTIMIZER_FULL:
+            self.check_loop_count(3)
+        else:
+            self.check_loop_count(2)
 
     def test_interp_simple(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])

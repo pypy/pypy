@@ -7,7 +7,8 @@ import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
-from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, TreeLoop
+from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
+from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
@@ -167,6 +168,7 @@ class BaseTestOptimizeOpt(BaseTest):
         self.loop = loop
         loop.preamble = TreeLoop('preamble')
         loop.preamble.inputargs = loop.inputargs
+        loop.preamble.token = LoopToken()
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo

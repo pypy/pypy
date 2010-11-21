@@ -5,19 +5,21 @@ from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.string import OptString
-from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll
+from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 
 def optimize_loop_1(metainterp_sd, loop, unroll=True):
     """Optimize loop.operations to remove internal overheadish operations. 
     """
     opt_str = OptString()
-    optimizations = [OptIntBounds(),
+    optimizations = [OptInlineShortPreamble(),
+                     OptIntBounds(),
                      OptRewrite(),
                      OptVirtualize(),
                      opt_str,
                      OptHeap(),
                      OptFfiCall(),
                     ]
+
     if unroll:
         opt_str.enabled = False # FIXME: Workaround to disable string optimisation
                                 # during preamble but to keep it during the loop

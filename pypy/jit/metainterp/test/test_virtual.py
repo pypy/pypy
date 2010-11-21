@@ -164,7 +164,7 @@ class VirtualTests:
                                 getfield_gc=0, setfield_gc=0)
 
     def test_two_loops_with_virtual(self):
-        py.test.skip("We don't know how to virtualize across bridges right now")
+        #py.test.skip("We don't know how to virtualize across bridges right now")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def f(n):
             node = self._new()

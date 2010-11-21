@@ -2,6 +2,7 @@ from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
+from pypy.jit.metainterp.history import TreeLoop, LoopToken
 
 # FXIME: Introduce some VirtualOptimizer super class instead
 
@@ -17,9 +18,11 @@ class UnrollOptimizer(Optimization):
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = Optimizer(metainterp_sd, loop, optimizations)
         self.cloned_operations = []
+        self.originalop = {}
         for op in self.optimizer.loop.operations:
-            self.cloned_operations.append(op.clone())
-        
+            newop = op.clone()
+            self.cloned_operations.append(newop)
+            self.originalop[newop] = op
             
     def propagate_all_forward(self):
         loop = self.optimizer.loop
@@ -49,6 +52,52 @@ class UnrollOptimizer(Optimization):
 
             loop.operations = self.optimizer.newoperations
 
+            short = self.create_short_preamble(loop.preamble.operations,
+                                               loop.preamble.inputargs,
+                                               loop.operations,
+                                               loop.inputargs,
+                                               loop.token)
+            if short:
+                if False:
+                    # FIXME: This should save some memory but requires
+                    # a lot of tests to be fixed...
+                    loop.preamble.operations = short
+                    short_loop = loop.preamble
+                else:
+                    short_loop = TreeLoop('short preamble')
+                    short_loop.inputargs = loop.preamble.inputargs[:]
+                    short_loop.operations = short
+
+                assert isinstance(loop.preamble.token, LoopToken)
+                loop.preamble.token.short_preamble = short_loop
+
+                # Clone ops and boxes to get private versions and forget the
+                # values to allow them to be freed
+                boxmap = {}
+                for i in range(len(short_loop.inputargs)):
+                    box = short_loop.inputargs[i]
+                    newbox = box.clonebox()
+                    boxmap[box] = newbox
+                    newbox.forget_value()
+                    short_loop.inputargs[i] = newbox
+                for i in range(len(short)):
+                    oldop = short[i]
+                    op = oldop.clone()
+                    args = []
+                    for a in op.getarglist():
+                        if not isinstance(a, Const):
+                            a = boxmap[a]
+                        args.append(a)
+                    op.initarglist(args)
+                    box = op.result
+                    if box:
+                        newbox = box.clonebox()
+                        boxmap[box] = newbox
+                        newbox.forget_value()
+                        op.result = newbox
+                    short[i] = op
+                
+
     def inline(self, loop_operations, loop_args, jump_args):
         self.argmap = argmap = {}
         assert len(loop_args) == len(jump_args)
@@ -71,17 +120,18 @@ class UnrollOptimizer(Optimization):
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
         for newop in loop_operations:
+            #print 'N:', newop
             if newop.getopnum() == rop.JUMP:
                 args = inputargs
             else:
                 args = newop.getarglist()
             newop.initarglist([self.inline_arg(a) for a in args])
-            #print 'P:', newop
             
             if newop.result:
                 old_result = newop.result
                 newop.result = newop.result.clonebox()
                 argmap[old_result] = newop.result
+            #print 'P:', newop
 
             descr = newop.getdescr()
             if isinstance(descr, ResumeGuardDescr):
@@ -131,3 +181,127 @@ class UnrollOptimizer(Optimization):
         new_snapshot = Snapshot(self.inline_snapshot(snapshot.prev), boxes)
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
+
+    def sameop(self, preambleop, loopop):
+        #if preambleop.getopnum() != loopop.getopnum():
+        #    return False
+        #pargs = preambleop.getarglist()
+        #largs = loopop.getarglist()
+        #if len(pargs) != len(largs):
+        #    return False
+        try:
+            return self.originalop[loopop] is preambleop
+        except KeyError:
+            return False
+
+    def create_short_preamble(self, preamble, preambleargs,
+                              loop, inputargs, token):
+        #return None # Dissable
+        
+        short_preamble = []
+        loop_i = preamble_i = 0
+        while loop_i < len(loop)-1 and preamble_i < len(preamble)-1:
+            if self.sameop(preamble[preamble_i], loop[loop_i]):
+                loop_i += 1
+                preamble_i += 1
+            else:
+                short_preamble.append(preamble[preamble_i])
+                preamble_i += 1
+
+        if loop_i < len(loop)-1: 
+            print "Loop contains ops not in preamble???"
+            return None
+        while preamble_i < len(preamble)-1:
+            short_preamble.append(preamble[preamble_i])
+            preamble_i += 1
+
+        jumpargs = [None] * len(inputargs)
+        allboxes = preambleargs[:]
+        for op in short_preamble:
+            if op.result:
+                allboxes.append(op.result)
+            
+        for result in allboxes:
+            box = self.inline_arg(result)
+            for i in range(len(inputargs)):
+                b = inputargs[i]
+                if self.optimizer.getvalue(box) is self.optimizer.getvalue(b):
+                    jumpargs[i] = result
+                    break
+        
+        for a in jumpargs:
+            if a is None:
+                print "Unable to find all input arguments???"
+                return None
+
+        jmp = ResOperation(rop.JUMP, jumpargs[:], None)
+        jmp.setdescr(token)
+        short_preamble.append(jmp)
+
+        # Make sure it is safe to move the instrucions in short_preamble
+        # to the top making short_preamble followed by loop equvivalent
+        # to preamble
+        for op in short_preamble:
+            opnum = op.getopnum()
+            if (op.is_always_pure() or
+                opnum == rop.GETFIELD_GC or
+                opnum == rop.GETARRAYITEM_GC or
+                opnum == rop.JUMP):
+                continue
+            return None
+        # FIXME: Turn guards into conditional jumps to the preamble
+
+        # Check that boxes used as arguemts are produced. Might not be
+        # needed, but let's play it safe.
+        seen = {}
+        for box in preambleargs:
+            seen[box] = True
+        for op in short_preamble:
+            for box in op.getarglist():
+                if box not in seen:
+                    print "Op arguments not produced???"
+                    return None
+            if op.result:
+                seen[op.result] = True
+        
+
+        return short_preamble
+
+class OptInlineShortPreamble(Optimization):
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        return self
+    
+    def propagate_forward(self, op):
+        if op.getopnum() == rop.JUMP:
+            descr = op.getdescr()
+            assert isinstance(descr, LoopToken)
+            short = descr.short_preamble
+            if short:
+                self.inline(short.operations, short.inputargs, op.getarglist())
+                return
+        self.emit_operation(op)
+                
+        
+        
+    def inline(self, loop_operations, loop_args, jump_args):
+        self.argmap = argmap = {}
+        assert len(loop_args) == len(jump_args)
+        for i in range(len(loop_args)):
+           argmap[loop_args[i]] = jump_args[i]
+
+        for op in loop_operations:
+            newop = op.clone()
+            args = newop.getarglist()
+            newop.initarglist([self.inline_arg(a) for a in args])
+            
+            if newop.result:
+                old_result = newop.result
+                newop.result = newop.result.clonebox()
+                argmap[old_result] = newop.result
+
+            self.emit_operation(newop)
+
+    def inline_arg(self, arg):
+        if isinstance(arg, Const):
+            return arg
+        return self.argmap[arg]
