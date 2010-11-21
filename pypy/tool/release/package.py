@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 """ A sample script that packages PyPy, provided that it's already built.
-Usage:
+It uses 'pypy/translator/goal/pypy-c' and parts of the rest of the working
+copy.  Usage:
 
-package.py pypydir [name-of-archive] [name-of-pypy-c]
+    package.py root-pypy-dir [name-of-archive] [name-of-pypy-c]
+
+Usually you would do:   package.py ../../.. pypy-VER-PLATFORM.
+The output is found in the directory /tmp/usession-YOURNAME/build/.
 """
 
 import autopath
