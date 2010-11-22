@@ -77,6 +77,14 @@ class AppTestTextIO:
         reads += t.read()
         assert reads == u"abc\ndef\n"
 
+    def test_read_some_then_readline(self):
+        import _io
+        r = _io.BytesIO("abc\ndef\n")
+        t = _io.TextIOWrapper(r)
+        reads = t.read(4)
+        reads += t.readline()
+        assert reads == u"abc\ndef\n"
+
 class AppTestIncrementalNewlineDecoder:
 
     def test_newline_decoder(self):
