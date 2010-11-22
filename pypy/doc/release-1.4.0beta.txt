@@ -11,6 +11,8 @@ announce 1.4 beta release.
 This release contains all major features from upcoming 1.4, the only thing
 missing being improved memory footprint.
 
+However, this is a beta release and might still contain some issues.
+
 Highlights:
 
 * x86_64 JIT backend
