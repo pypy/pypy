@@ -2,6 +2,7 @@
 Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
+import re
 from pypy.translator.platform import platform
 
 #XXX # the release serial 42 is not in range(16)
@@ -18,6 +19,13 @@ REV = """$LastChangedRevision$"""[22:-2]
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
+elif platform.cc == 'gcc':
+    out = platform.execute(platform.cc, '--version').out
+    match = re.search(' (\d+\.\d+(\.\d+)*)', out)
+    if match:
+        COMPILER_INFO = "GCC " + match.group(1)
+    else:
+        COMPILER_INFO = "GCC"
 else:
     COMPILER_INFO = ""
 
