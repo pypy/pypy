@@ -30,7 +30,8 @@ def browse_nightly(branch,
     else:
         xml = override_xml
     dom = minidom.parseString(xml)
-    refs = [node.getAttribute('href') for node in dom.getElementsByTagName('a')]
+    refs = [node.getAttribute('href') for node in dom.getElementsByTagName('a')
+            if 'pypy' in node.getAttribute('href')]
     # all refs are of form: pypy-{type}-{revision}-{platform}.tar.bz2
     r = re.compile('pypy-c-([\w\d]+)-(\d+)-([\w\d]+).tar.bz2$')
     d = {}
