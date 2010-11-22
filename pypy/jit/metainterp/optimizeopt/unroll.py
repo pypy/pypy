@@ -197,22 +197,31 @@ class UnrollOptimizer(Optimization):
     def create_short_preamble(self, preamble, preambleargs,
                               loop, inputargs, token):
         #return None # Dissable
-        
+
+        state = ExeState()
         short_preamble = []
         loop_i = preamble_i = 0
         while loop_i < len(loop)-1 and preamble_i < len(preamble)-1:
             if self.sameop(preamble[preamble_i], loop[loop_i]):
                 loop_i += 1
-                preamble_i += 1
             else:
+                if not state.safe_to_move(preamble[preamble_i]):
+                    #print "Unsafe heap operation."
+                    return None
                 short_preamble.append(preamble[preamble_i])
-                preamble_i += 1
+            state.update(preamble[preamble_i])
+            preamble_i += 1
+
 
         if loop_i < len(loop)-1: 
             #print "Loop contains ops not in preamble???"
             return None
         while preamble_i < len(preamble)-1:
+            if not state.safe_to_move(preamble[preamble_i]):
+                #print "Unsafe heap operation."
+                return None
             short_preamble.append(preamble[preamble_i])
+            state.update(preamble[preamble_i])
             preamble_i += 1
 
         jumpargs = [None] * len(inputargs)
@@ -238,17 +247,6 @@ class UnrollOptimizer(Optimization):
         jmp.setdescr(token)
         short_preamble.append(jmp)
 
-        # Make sure it is safe to move the instrucions in short_preamble
-        # to the top making short_preamble followed by loop equvivalent
-        # to preamble
-        for op in short_preamble:
-            opnum = op.getopnum()
-            if (op.is_always_pure() or
-                opnum == rop.GETFIELD_GC or
-                opnum == rop.GETARRAYITEM_GC or
-                opnum == rop.JUMP):
-                continue
-            return None
         # FIXME: Turn guards into conditional jumps to the preamble
 
         # Check that boxes used as arguemts are produced. Might not be
@@ -266,6 +264,43 @@ class UnrollOptimizer(Optimization):
         
 
         return short_preamble
+
+class ExeState(object):
+    def __init__(self):
+        self.heap_dirty = False
+        self.unsafe_getitem = {}
+
+    # Make sure it is safe to move the instrucions in short_preamble
+    # to the top making short_preamble followed by loop equvivalent
+    # to preamble
+    def safe_to_move(self, op):
+        opnum = op.getopnum()
+        if op.is_always_pure():
+            return True
+        elif opnum == rop.JUMP:
+            return True
+        elif (opnum == rop.GETFIELD_GC or
+              opnum == rop.GETFIELD_RAW):
+            if self.heap_dirty:
+                return False
+            descr = op.getdescr()
+            if descr in self.unsafe_getitem:
+                return False
+            return True
+        return False
+    
+    def update(self, op):
+        if (op.has_no_side_effect() or
+            op.is_ovf() or
+            op.is_guard()): 
+            return
+        opnum = op.getopnum()
+        if (opnum == rop.SETFIELD_GC or
+            opnum == rop.SETFIELD_RAW):
+            descr = op.getdescr()
+            self.unsafe_getitem[descr] = True
+            return
+        self.heap_dirty = True
 
 class OptInlineShortPreamble(Optimization):
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
