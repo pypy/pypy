@@ -350,7 +350,7 @@ class W_TextIOWrapper(W_TextIOBase):
             return u""
 
         available = len(self.decoded_chars) - self.decoded_chars_used
-        if available < 0 or size > available:
+        if size < 0 or size > available:
             size = available
 
         if self.decoded_chars_used > 0 or size < available:
