@@ -44,6 +44,12 @@ dict_iterkeys   = SMM('iterkeys',      1,
                       doc='D.iterkeys() -> an iterator over the keys of D')
 dict_itervalues = SMM('itervalues',    1,
                       doc='D.itervalues() -> an iterator over the values of D')
+dict_viewkeys   = SMM('viewkeys',      1,
+                      doc="D.viewkeys() -> a set-like object providing a view on D's keys")
+dict_viewitems  = SMM('viewitems',     1,
+                      doc="D.viewitems() -> a set-like object providing a view on D's items")
+dict_viewvalues = SMM('viewvalues',    1,
+                      doc="D.viewvalues() -> an object providing a view on D's values")
 dict_reversed   = SMM('__reversed__',      1)
 
 def dict_reversed__ANY(space, w_dict):
@@ -159,4 +165,30 @@ def descr_dictiter__reduce__(w_self, space):
 dictiter_typedef = StdTypeDef("dictionaryiterator",
     __reduce__ = gateway.interp2app(descr_dictiter__reduce__,
                            unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
+    )
+
+# ____________________________________________________________
+# Dict views
+
+
+@gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root, gateway.W_Root)
+def descr_view__new__(space, w_viewtype, w_dict):
+    from pypy.objspace.std.dictmultiobject import W_DictView
+    w_obj = space.allocate_instance(W_DictView, w_viewtype)
+    w_obj.__init__(space, w_dict)
+    return w_obj
+
+dict_keys_typedef = StdTypeDef(
+    "dict_keys",
+    __new__ = descr_view__new__,
+    )
+
+dict_items_typedef = StdTypeDef(
+    "dict_items",
+    __new__ = descr_view__new__,
+    )
+
+dict_values_typedef = StdTypeDef(
+    "dict_values",
+    __new__ = descr_view__new__,
     )

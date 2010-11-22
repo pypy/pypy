@@ -756,6 +756,15 @@ def dict_iterkeys__DictMulti(space, w_self):
 def dict_itervalues__DictMulti(space, w_self):
     return W_DictMultiIterObject(space, w_self.iter(), VALUESITER)
 
+def dict_viewitems__DictMulti(space, w_self):
+    return W_DictMultiViewItemsObject(space, w_self)
+
+def dict_viewkeys__DictMulti(space, w_self):
+    return W_DictMultiViewKeysObject(space, w_self)
+
+def dict_viewvalues__DictMulti(space, w_self):
+    return W_DictMultiViewValuesObject(space, w_self)
+
 def dict_clear__DictMulti(space, w_self):
     w_self.clear()
 
@@ -872,6 +881,29 @@ def next__DictMultiIterObject(space, w_dictiter):
         else:
             assert 0, "should be unreachable"
     raise OperationError(space.w_StopIteration, space.w_None)
+
+# ____________________________________________________________
+# Views
+
+class W_DictViewObject(W_Object):
+    def __init__(w_self, space, w_dict):
+        w_self.w_dict = w_dict
+
+class W_DictMultiViewKeysObject(W_DictViewObject):
+    from pypy.objspace.std.dicttype import dict_keys_typedef as typedef
+registerimplementation(W_DictMultiViewKeysObject)
+
+class W_DictMultiViewItemsObject(W_DictViewObject):
+    from pypy.objspace.std.dicttype import dict_items_typedef as typedef
+registerimplementation(W_DictMultiViewItemsObject)
+
+class W_DictMultiViewValuesObject(W_DictViewObject):
+    from pypy.objspace.std.dicttype import dict_values_typedef as typedef
+registerimplementation(W_DictMultiViewValuesObject)
+
+def len__DictMultiViewKeys(space, w_dictview):
+    return space.len(w_dictview.w_dict)
+len__DictMultiViewItems = len__DictMultiViewValues = len__DictMultiViewKeys
 
 # ____________________________________________________________
 

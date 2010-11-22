@@ -500,6 +500,12 @@ class AppTest_DictObject:
         iterable = {}
         raises(TypeError, len, iter(iterable))
 
+    def test_dictview(self):
+        d = {1: 2, 3: 4}
+        assert len(d.viewkeys()) == 2
+        assert len(d.viewitems()) == 2
+        assert len(d.viewvalues()) == 2
+
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
