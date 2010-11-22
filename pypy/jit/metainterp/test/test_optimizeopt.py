@@ -789,8 +789,12 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)       # the exception is considered lost when we loop back
         """
+        # note that 'guard_no_exception' at the very start must be kept
+        # around: bridges may start with one.  (In case of loops we could
+        # remove it, but we probably don't care.)
         expected = """
         [i]
+        guard_no_exception() []
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
