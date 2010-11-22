@@ -402,9 +402,10 @@ class Arguments(object):
         space = self.space
         w_args = space.newtuple(self.arguments_w)
         w_kwds = space.newdict()
-        for i in range(len(self.keywords)):
-            space.setitem(w_kwds, space.wrap(self.keywords[i]),
-                                  self.keywords_w[i])
+        if self.keywords is not None:
+            for i in range(len(self.keywords)):
+                space.setitem(w_kwds, space.wrap(self.keywords[i]),
+                                      self.keywords_w[i])
         return w_args, w_kwds
 
 class ArgumentsForTranslation(Arguments):
