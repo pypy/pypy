@@ -28,7 +28,7 @@ Highlights:
 
 * improvements all across the board (for example faster map calls)
 
-* virtualenv support (virtualenv 0.5 or later)
+* virtualenv support (virtualenv 1.5 or later)
 
 Cheers,
 The PyPy team
