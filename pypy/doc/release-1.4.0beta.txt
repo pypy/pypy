@@ -1,0 +1,25 @@
+====================================
+PyPy 1.4beta - towards 1.4.0 release
+====================================
+
+Hello.
+
+As we head towards 1.4 release, which should be considered the very first PyPy
+release ready to substitute CPython for at least some of us, we're pleased to
+announce 1.4 beta release.
+
+This release contains all major features from upcoming 1.4, the only thing
+missing being improved memory footprint.
+
+Highlights:
+
+* x86_64 JIT backend
+
+* rewritten fast and jitted regular expressions
+
+* improvements all across the board (for example faster map calls)
+
+* virtualenv support (virtualenv 0.5 or later)
+
+Cheers,
+The PyPy team
