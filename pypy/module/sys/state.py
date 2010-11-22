@@ -58,10 +58,9 @@ def getinitialpath(prefix):
     if platform != 'win32':
         importlist.append(os.path.join(python_std_lib, 'plat-'+platform))
     if platform == 'darwin':
-        importlist.append(os.path.join(python_std_lib, 'plat-mac'))
-        importlist.append(os.path.join(python_std_lib,
-                                       'plat-mac',
-                                       'lib-scriptpackages'))
+        platmac = os.path.join(python_std_lib, 'plat-mac')
+        importlist.append(platmac)
+        importlist.append(os.path.join(platmac, 'lib-scriptpackages'))
     #
     return importlist
 
