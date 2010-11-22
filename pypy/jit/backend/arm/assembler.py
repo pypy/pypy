@@ -235,7 +235,6 @@ class AssemblerARM(ResOpAssembler):
         self.mc.MOV_rr(r.fp.value, r.sp.value)
 
     def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
-        regs = []
         for i in range(len(inputargs)):
             loc = inputargs[i]
             reg = regalloc.force_allocate_reg(loc)
@@ -247,10 +246,10 @@ class AssemblerARM(ResOpAssembler):
                 raise ValueError
             self.mc.gen_load_int(reg.value, addr)
             self.mc.LDR_ri(reg.value, reg.value)
-            regs.append(reg)
             regalloc.possibly_free_var(reg)
-        looptoken._arm_arglocs = regs
-        return regs
+        arglocs = [regalloc.loc(arg) for arg in inputargs]
+        looptoken._arm_arglocs = arglocs
+        return arglocs
 
     direct_bootstrap_code_size=100*WORD
     def gen_direct_bootstrap_code(self, arglocs, loop_head, regalloc):
@@ -265,7 +264,7 @@ class AssemblerARM(ResOpAssembler):
 
         for i in range(reg_args):
             loc = arglocs[i]
-            self.mc.MOV_rr(loc.value, i)
+            self.mov_loc_loc(r.all_regs[i], loc)
 
         for i in range(stack_locs):
             loc = arglocs[reg_args + i]
@@ -273,10 +272,8 @@ class AssemblerARM(ResOpAssembler):
             if loc.is_reg():
                 self.mc.LDR_ri(loc.value, r.fp.value, stack_position)
             elif loc.is_stack():
-                self.mc.PUSH([r.r0.value])
-                self.mc.LDR_ri(r.ip, r.fp.value, stack_position)
+                self.mc.LDR_ri(r.ip.value, r.fp.value, stack_position)
                 self.mov_loc_loc(r.ip, loc)
-                self.mc.POP([r.r0.value])
             else:
                 assert 0, 'invalid location'
         sp_patch_location = self._prepare_sp_patch_location()
@@ -431,6 +428,24 @@ class AssemblerARM(ResOpAssembler):
         else:
             self.mc.MOV_rr(loc.value, prev_loc.value)
     mov_loc_loc = regalloc_mov
+
+    def regalloc_push(self, loc):
+        if loc.is_stack():
+            self.mc.LDR_ri(r.ip.value, r.fp.value, loc.position*-WORD)
+            self.mc.PUSH([r.ip.value])
+        elif loc.is_reg():
+            self.mc.PUSH([loc.value])
+        else:
+            assert 0, 'ffuu'
+
+    def regalloc_pop(self, loc):
+        if loc.is_stack():
+            self.mc.POP([r.ip.value])
+            self.mc.STR_ri(r.ip.value, r.fp.value, loc.position*-WORD)
+        elif loc.is_reg():
+            self.mc.POP([loc.value])
+        else:
+            assert 0, 'ffuu'
 
     def leave_jitted_hook(self):
         pass

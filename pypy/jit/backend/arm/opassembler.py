@@ -10,6 +10,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
                                                     gen_emit_op_ri, gen_emit_cmp_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
+from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
@@ -231,12 +232,9 @@ class OpAssembler(object):
     _mixin_ = True
 
     def emit_op_jump(self, op, regalloc, fcond):
-        registers = op.getdescr()._arm_arglocs
-        for i in range(op.numargs()):
-            # avoid moving stuff twice
-            loc = registers[i]
-            prev_loc = regalloc.loc(op.getarg(i))
-            self.mov_loc_loc(prev_loc, loc)
+        destlocs = op.getdescr()._arm_arglocs
+        srclocs  = [regalloc.loc(op.getarg(i)) for i in range(op.numargs())]
+        remap_frame_layout(self, srclocs, destlocs, r.ip)
 
         loop_code = op.getdescr()._arm_loop_code
         self.mc.B(loop_code, fcond)

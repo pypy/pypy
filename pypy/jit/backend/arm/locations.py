@@ -1,7 +1,8 @@
 from pypy.jit.metainterp.history import INT
 from pypy.jit.backend.arm.arch import WORD
 class AssemblerLocation(object):
-    pass
+    _immutable_ = True
+
     def is_imm(self):
         return False
 
@@ -11,7 +12,11 @@ class AssemblerLocation(object):
     def is_reg(self):
         return False
 
+    def as_key(self):
+        raise NotImplementedError
+
 class RegisterLocation(AssemblerLocation):
+    _immutable_ = True
 
     def __init__(self, value):
         self.value = value
@@ -22,8 +27,12 @@ class RegisterLocation(AssemblerLocation):
     def is_reg(self):
         return True
 
+    def as_key(self):
+        return self.value
+
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
+
     def __init__(self, value):
         self.value = value
 
@@ -36,8 +45,12 @@ class ImmLocation(AssemblerLocation):
     def is_imm(self):
         return True
 
+    def as_key(self):
+        return self.value + 20
+
 class StackLocation(AssemblerLocation):
     _immutable_ = True
+
     def __init__(self, position, num_words=1, type=INT):
         self.position = position
         self.width = num_words * WORD
@@ -50,7 +63,7 @@ class StackLocation(AssemblerLocation):
         return self.width // WORD
 
     def __repr__(self):
-        return 'SP+%d' % (self.position,)
+        return 'FP+%d' % (self.position,)
 
     def location_code(self):
         return 'b'
@@ -60,3 +73,6 @@ class StackLocation(AssemblerLocation):
 
     def is_stack(self):
         return True
+
+    def as_key(self):
+        return -self.position
