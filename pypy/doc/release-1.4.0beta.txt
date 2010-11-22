@@ -11,7 +11,9 @@ announce 1.4 beta release.
 This release contains all major features from upcoming 1.4, the only thing
 missing being improved memory footprint.
 
-However, this is a beta release and might still contain some issues.
+However, this is a beta release and might still contain some issues. One of
+those issues is that, like on nightly builds, pypy might print some debugging
+output at the end of your program run.
 
 Highlights:
 
