@@ -3,6 +3,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
 # FXIME: Introduce some VirtualOptimizer super class instead
 
@@ -201,28 +202,26 @@ class UnrollOptimizer(Optimization):
         state = ExeState()
         short_preamble = []
         loop_i = preamble_i = 0
-        while loop_i < len(loop)-1 and preamble_i < len(preamble)-1:
-            if self.sameop(preamble[preamble_i], loop[loop_i]):
+        while preamble_i < len(preamble)-1:
+            if self.sameop(preamble[preamble_i], loop[loop_i]) \
+               and loop_i < len(loop)-1:
                 loop_i += 1
             else:
                 if not state.safe_to_move(preamble[preamble_i]):
-                    #print "Unsafe heap operation."
+                    debug_print("create_short_preamble failed due to",
+                                "unsafe op:", preamble[preamble_i].getopnum(),
+                                "at position: ", preamble_i)
                     return None
                 short_preamble.append(preamble[preamble_i])
             state.update(preamble[preamble_i])
             preamble_i += 1
 
 
-        if loop_i < len(loop)-1: 
-            #print "Loop contains ops not in preamble???"
+        if loop_i < len(loop)-1:
+            debug_print("create_short_preamble failed due to",
+                        "loop contaning ops not in preamble"
+                        "at position", loop_i)
             return None
-        while preamble_i < len(preamble)-1:
-            if not state.safe_to_move(preamble[preamble_i]):
-                #print "Unsafe heap operation."
-                return None
-            short_preamble.append(preamble[preamble_i])
-            state.update(preamble[preamble_i])
-            preamble_i += 1
 
         jumpargs = [None] * len(inputargs)
         allboxes = preambleargs[:]
@@ -240,7 +239,8 @@ class UnrollOptimizer(Optimization):
         
         for a in jumpargs:
             if a is None:
-                #print "Unable to find all input arguments???"
+                debug_print("create_short_preamble failed due to",
+                            "input arguments not located")
                 return None
 
         jmp = ResOperation(rop.JUMP, jumpargs[:], None)
@@ -257,7 +257,8 @@ class UnrollOptimizer(Optimization):
         for op in short_preamble:
             for box in op.getarglist():
                 if box not in seen:
-                    #print "Op arguments not produced???"
+                    debug_print("create_short_preamble failed due to",
+                                "op arguments not produced")
                     return None
             if op.result:
                 seen[op.result] = True
