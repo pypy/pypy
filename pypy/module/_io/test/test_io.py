@@ -113,6 +113,29 @@ class AppTestIoModule:
                 return len(data)
         assert MockRawIO().read() == 'abcde'
 
+    def test_rawio_read_pieces(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            stack = ['abc', 'de', None, 'fg', '']
+            def readinto(self, buf):
+                data = self.stack.pop(0)
+                if data is None:
+                    return None
+                if len(data) <= len(buf):
+                    buf[:len(data)] = data
+                    return len(data)
+                else:
+                    buf[:] = data[:len(buf)]
+                    self.stack.insert(0, data[len(buf):])
+                    return len(buf)
+        r = MockRawIO()
+        assert r.read(2) == 'ab'
+        assert r.read(2) == 'c'
+        assert r.read(2) == 'de'
+        assert r.read(2) == None
+        assert r.read(2) == 'fg'
+        assert r.read(2) == ''
+
 class AppTestOpen:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile').ensure()

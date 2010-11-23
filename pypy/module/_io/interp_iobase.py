@@ -284,6 +284,8 @@ class W_RawIOBase(W_IOBase):
 
         w_buffer = space.call_function(space.w_bytearray, w_size)
         w_length = space.call_method(self, "readinto", w_buffer)
+        if space.is_w(w_length, space.w_None):
+            return w_length
         space.delslice(w_buffer, w_length, space.len(w_buffer))
         return space.str(w_buffer)
 

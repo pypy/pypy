@@ -14,6 +14,7 @@ class AppTestBufferedReader:
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         assert f.read() == "a\nb\nc"
+        raises(ValueError, f.read, -2)
         f.close()
         #
         raw = _io.FileIO(self.tmpfile)

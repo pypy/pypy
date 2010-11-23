@@ -384,15 +384,18 @@ class BufferedMixin:
         self._check_closed(space, "read of closed file")
         size = convert_size(space, w_size)
 
-        if size < 0:
+        if size == -1:
             # read until the end of stream
             with self.lock:
                 res = self._read_all(space)
-        else:
+        elif size >= 0:
             res = self._read_fast(size)
             if res is None:
                 with self.lock:
                     res = self._read_generic(space, size)
+        else:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "read length must be positive or -1"))
         return space.wrap(res)
 
     @unwrap_spec('self', ObjSpace, int)
