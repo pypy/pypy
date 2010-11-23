@@ -28,7 +28,6 @@ class TestARM(LLtypeBackendTest):
         cpu = self.cpu
         inp = [BoxInt(i) for i in range(1, 15)]
         out = [BoxInt(i) for i in range(1, 15)]
-        #out.reverse()
         looptoken = LoopToken()
         operations = [
             ResOperation(rop.INT_ADD, [inp[0] , inp[1]], out[0]),

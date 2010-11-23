@@ -89,7 +89,7 @@ class IntOpAsslember(object):
     def emit_op_int_mul(self, op, regalloc, fcond):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        reg1 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        reg1 = regalloc.make_sure_var_in_reg(a0, [a1], imm_fine=False)
         reg2 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
         res = regalloc.force_allocate_reg(op.result, [a0, a1])
         self.mc.MUL(res.value, reg1.value, reg2.value)
@@ -98,11 +98,10 @@ class IntOpAsslember(object):
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
-    f = False
     def emit_guard_int_mul_ovf(self, op, guard, regalloc, fcond):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        reg1 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        reg1 = regalloc.make_sure_var_in_reg(a0, [a1], imm_fine=False)
         reg2 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
         res = regalloc.force_allocate_reg(op.result, [a0, a1])
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
