@@ -71,7 +71,7 @@ class CPPMethod(object):
         self.executor = executor.get_executor(self.space, result_type)
         self.arg_converters = None
         # <hack>
-        self.hack_call = arg_types == ['int'] and result_type == 'int'
+        self.hack_call = False #arg_types == ['int'] and result_type == 'int'
         # </hack>
 
     def call(self, cppthis, args_w):
