@@ -3,6 +3,7 @@ import py, os, sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 from pypy.config.config import ConfigError
+from pypy.config.support import detect_number_of_processors
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -171,7 +172,7 @@ translation_optiondescription = OptionDescription(
                default=False, negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
-              cmdline="--make-jobs", default=1),
+              cmdline="--make-jobs", default=detect_number_of_processors()),
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),
