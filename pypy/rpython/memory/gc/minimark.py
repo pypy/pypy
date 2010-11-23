@@ -12,7 +12,7 @@ Environment variables can be used to fine-tune the following parameters:
                         collection.
 
  PYPY_GC_GROWTH         Major collection threshold's max growth rate.
-                        Default is '1.3'.  Useful to collect more often
+                        Default is '1.4'.  Useful to collect more often
                         than normally on sudden memory growth, e.g. when
                         there is a temporary peak in memory usage.
 
@@ -21,6 +21,12 @@ Environment variables can be used to fine-tune the following parameters:
                         RPython MemoryError, and if that is not enough,
                         crash the program with a fatal error.  Try values
                         like '1.6GB'.
+
+ PYPY_GC_MAX_DELTA      The major collection threshold will never be set
+                        to more than PYPY_GC_MAX_DELTA the amount really
+                        used after a collection.  Defaults to 1/8th of the
+                        total RAM size (or at most 4GB on 32-bit systems).
+                        Try values like '200MB'.
 
  PYPY_GC_MIN            Don't collect while the memory size is below this
                         limit.  Useful to avoid spending all the time in
@@ -36,7 +42,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
-from pypy.rpython.memory.gc import minimarkpage, base, generation
+from pypy.rpython.memory.gc import minimarkpage, base, env
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -154,7 +160,7 @@ class MiniMarkGC(MovingGCBase):
         # grow at most by the following factor from one collection to the
         # next.  Used e.g. when there is a sudden, temporary peak in memory
         # usage; this avoids that the upper bound grows too fast.
-        "growth_rate_max": 1.3,
+        "growth_rate_max": 1.4,
 
         # The number of array indices that are mapped to a single bit in
         # write_barrier_from_array().  Must be a power of two.  The default
@@ -198,6 +204,7 @@ class MiniMarkGC(MovingGCBase):
         self.min_heap_size = 0.0
         self.max_heap_size = 0.0
         self.max_heap_size_already_raised = False
+        self.max_delta = 0.0
         #
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
@@ -288,7 +295,7 @@ class MiniMarkGC(MovingGCBase):
             # handling of the write barrier.
             self.debug_always_do_minor_collect = newsize == 1
             if newsize <= 0:
-                newsize = generation.estimate_best_nursery_size()
+                newsize = env.estimate_best_nursery_size()
                 if newsize <= 0:
                     newsize = defaultsize
             newsize = max(newsize, minsize)
@@ -311,6 +318,12 @@ class MiniMarkGC(MovingGCBase):
             max_heap_size = base.read_uint_from_env('PYPY_GC_MAX')
             if max_heap_size > 0:
                 self.max_heap_size = float(max_heap_size)
+            #
+            max_delta = base.read_uint_from_env('PYPY_GC_MAX_DELTA')
+            if max_delta > 0:
+                self.max_delta = float(max_delta)
+            else:
+                self.max_delta = 0.125 * env.get_total_memory()
             #
             self.minor_collection()    # to empty the nursery
             llarena.arena_free(self.nursery)
@@ -345,6 +358,9 @@ class MiniMarkGC(MovingGCBase):
         # Set the next_major_collection_threshold.
         threshold_max = (self.next_major_collection_threshold *
                          self.growth_rate_max)
+        if self.max_delta > 0.0:
+            threshold_max = min(threshold_max,
+                         self.next_major_collection_threshold + self.max_delta)
         if threshold > threshold_max:
             threshold = threshold_max
         #
