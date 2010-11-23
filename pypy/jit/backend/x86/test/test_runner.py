@@ -495,6 +495,9 @@ class TestDebuggingAssembler(object):
             os.environ['PYPYLOG'] = self.pypylog
 
     def test_debugger_on(self):
+        from pypy.tool.logparser import parse_log_file, extract_category
+        from pypy.rlib import debug
+        
         loop = """
         [i0]
         debug_merge_point('xyz', 0)
@@ -504,17 +507,21 @@ class TestDebuggingAssembler(object):
         jump(i1)
         """
         ops = parse(loop)
-        self.cpu.assembler.set_debug(True)
-        self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(ops.token)
-        # check debugging info
-        name, struct = self.cpu.assembler.loop_run_counters[0]
-        assert name == 0       # 'xyz'
-        assert struct.i == 10
-        self.cpu.finish_once()
-        lines = py.path.local(self.logfile + ".count").readlines()
-        assert lines[0] == '0:10\n'  # '10      xyz\n'
+        debug._log = dlog = debug.DebugLog()
+        try:
+            self.cpu.assembler.set_debug(True)
+            self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
+            self.cpu.set_future_value_int(0, 0)
+            self.cpu.execute_token(ops.token)
+            # check debugging info
+            name, struct = self.cpu.assembler.loop_run_counters[0]
+            assert name == 0       # 'xyz'
+            assert struct.i == 10
+            self.cpu.finish_once()
+        finally:
+            debug._log = None
+        assert dlog[1] == ('jit-backend-counts', [('debug_print', '0:10')])
+            
 
     def test_debugger_checksum(self):
         loop = """

@@ -30,7 +30,7 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.support import values_array
-from pypy.rlib.debug import debug_print
+from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.rlib.streamio import open_file_as_stream
@@ -231,7 +231,6 @@ class Assembler386(object):
                 if s.find(':') != -1:
                     s = s.split(':')[-1]
                 self.set_debug(True)
-                self._output_loop_log = s + ".count"
             # Intialize here instead of __init__ to prevent
             # pending_guard_tokens from being considered a prebuilt object,
             # which sometimes causes memory leaks since the prebuilt list is
@@ -241,13 +240,11 @@ class Assembler386(object):
 
     def finish_once(self):
         if self._debug:
-            output_log = self._output_loop_log
-            assert output_log is not None
-            f = open_file_as_stream(output_log, "w")
+            debug_start('jit-backend-counts')
             for i in range(len(self.loop_run_counters)):
                 name, struct = self.loop_run_counters[i]
-                f.write(str(name) + ":" +  str(struct.i) + "\n")
-            f.close()
+                debug_print(str(name) + ':' + str(struct.i))
+            debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
         # 44 bytes: 32 bytes for the data, and up to 12 bytes for alignment
