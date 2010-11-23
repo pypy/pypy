@@ -24,21 +24,17 @@ from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
 from pypy.jit.codewriter import support, codewriter
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
 
 # ____________________________________________________________
 # Bootstrapping
 
-def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
-              inline=False,
-              **kwds):
+def apply_jit(translator, backend_name="auto", inline=False, **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
-    if debug_level > DEBUG_OFF:
-        ProfilerClass = Profiler
-    else:
-        ProfilerClass = EmptyProfiler
+    ProfilerClass = Profiler
+    # Always use Profiler here, which should have a very low impact.
+    # Otherwise you can try with ProfilerClass = EmptyProfiler.
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
@@ -47,7 +43,6 @@ def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
-        jd.warmstate.set_param_debug(debug_level)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
@@ -66,7 +61,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
-                    debug_level=DEBUG_STEPS, inline=False, **kwds):
+                    inline=False, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -83,7 +78,6 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
-        jd.warmstate.set_param_debug(debug_level)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):

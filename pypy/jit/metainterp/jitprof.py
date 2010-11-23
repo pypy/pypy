@@ -2,9 +2,9 @@
 """ A small helper module for profiling JIT
 """
 
-import os
 import time
-from pypy.rlib.debug import debug_print
+from pypy.rlib.debug import debug_print, debug_start, debug_stop
+from pypy.rlib.debug import have_debug_prints
 from pypy.jit.metainterp.jitexc import JitException
 
 counters="""
@@ -48,9 +48,6 @@ class EmptyProfiler(BaseProfiler):
     def finish(self):
         pass
 
-    def set_printing(self, printing):
-        pass
-
     def start_tracing(self):
         pass
 
@@ -90,7 +87,6 @@ class Profiler(BaseProfiler):
     counters = None
     calls = 0
     current = None
-    printing = True
 
     def start(self):
         self.starttime = self.timer()
@@ -102,11 +98,7 @@ class Profiler(BaseProfiler):
 
     def finish(self):
         self.tk = self.timer()
-        if self.printing:
-            self.print_stats()
-
-    def set_printing(self, printing):
-        self.printing = printing
+        self.print_stats()
 
     def _start(self, event):
         t0 = self.t1
@@ -154,6 +146,12 @@ class Profiler(BaseProfiler):
             self.calls += 1
 
     def print_stats(self):
+        debug_start("jit-summary")
+        if have_debug_prints():
+            self._print_stats()
+        debug_stop("jit-summary")
+
+    def _print_stats(self):
         cnt = self.counters
         tim = self.times
         calls = self.calls
@@ -161,8 +159,8 @@ class Profiler(BaseProfiler):
         self._print_line_time("Backend", cnt[BACKEND],   tim[BACKEND])
         self._print_intline("Running asm", cnt[RUNNING])
         self._print_intline("Blackhole", cnt[BLACKHOLE])
-        line = "TOTAL:      \t\t%f\n" % (self.tk - self.starttime, )
-        os.write(2, line)
+        line = "TOTAL:      \t\t%f" % (self.tk - self.starttime, )
+        debug_print(line)
         self._print_intline("ops", cnt[OPS])
         self._print_intline("recorded ops", cnt[RECORDED_OPS])
         self._print_intline("  calls", calls)
@@ -178,15 +176,14 @@ class Profiler(BaseProfiler):
         self._print_intline("nvreused", cnt[NVREUSED])
 
     def _print_line_time(self, string, i, tim):
-        final = "%s:%s\t%d\t%f\n" % (string, " " * max(0, 13-len(string)), i, tim)
-        os.write(2, final)
+        final = "%s:%s\t%d\t%f" % (string, " " * max(0, 13-len(string)), i, tim)
+        debug_print(final)
 
     def _print_intline(self, string, i):
         final = string + ':' + " " * max(0, 16-len(string))
-        final += '\t' + str(i) + '\n'
-        os.write(2, final)
-        
-        
+        final += '\t' + str(i)
+        debug_print(final)
+
 
 class BrokenProfilerData(JitException):
     pass

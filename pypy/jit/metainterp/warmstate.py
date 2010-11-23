@@ -9,7 +9,6 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import (PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL,
                            OPTIMIZER_NO_PERFECTSPEC)
-from pypy.rlib.jit import DEBUG_PROFILE
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp import history
@@ -208,11 +207,6 @@ class WarmEnterState(object):
             self.optimize_bridge = optimize.optimize_bridge
         else:
             raise ValueError("unknown optimizer")
-
-    def set_param_debug(self, value):
-        self.debug_level = value
-        if self.profiler is not None:
-            self.profiler.set_printing(value >= DEBUG_PROFILE)
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)

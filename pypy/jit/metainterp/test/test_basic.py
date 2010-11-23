@@ -35,7 +35,6 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
         optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
 
         trace_limit = sys.maxint
-        debug_level = 2
 
     func._jit_unroll_safe_ = True
     rtyper = support.annotate(func, values, type_system=type_system)
