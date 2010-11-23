@@ -36,7 +36,8 @@ def autodetect_main_model():
                 'i86pc': 'x86',    # Solaris/Intel
                 'x86':   'x86',    # Apple
                 'Power Macintosh': 'ppc',
-                'x86_64': 'x86_64', 
+                'x86_64': 'x86_64',
+                'armv7l': 'arm',
                 }[mach]
     except KeyError:
         raise ProcessorAutodetectError, "unsupported processor '%s'" % mach
@@ -62,6 +63,8 @@ def getcpuclassname(backend_name="auto"):
         return "pypy.jit.backend.cli.runner", "CliCPU"
     elif backend_name == 'llvm':
         return "pypy.jit.backend.llvm.runner", "LLVMCPU"
+    elif backend_name == 'arm':
+        return "pypy.jit.backend.arm.runner", "ArmCPU"
     else:
         raise ProcessorAutodetectError, (
             "we have no JIT backend for this cpu: '%s'" % backend_name)
