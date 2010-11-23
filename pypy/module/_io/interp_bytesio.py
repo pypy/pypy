@@ -1,5 +1,5 @@
 from pypy.interpreter.typedef import (
-    TypeDef, generic_new_descr)
+    TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -20,17 +20,24 @@ class W_BytesIO(W_BufferedIOBase):
         W_BufferedIOBase.__init__(self, space)
         self.pos = 0
         self.string_size = 0
-        self.buf = []
+        self.buf = None
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def descr_init(self, space, w_initvalue=None):
         # In case __init__ is called multiple times
+        self.buf = []
         self.string_size = 0
         self.pos = 0
 
         if not space.is_w(w_initvalue, space.w_None):
             self.write_w(space, w_initvalue)
             self.pos = 0
+
+    def _check_closed(self, space, message=None):
+        if self.buf is None:
+            if message is None:
+                message = "I/O operation on closed file"
+            raise OperationError(space.w_ValueError, space.wrap(message))
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
@@ -169,6 +176,13 @@ class W_BytesIO(W_BufferedIOBase):
     def seekable_w(self, space):
         return space.w_True
 
+    @unwrap_spec('self', ObjSpace)
+    def close_w(self, space):
+        self.buf = None
+
+    def closed_get_w(space, self):
+        return space.wrap(self.buf is None)
+
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BytesIO),
@@ -185,5 +199,7 @@ W_BytesIO.typedef = TypeDef(
     readable = interp2app(W_BytesIO.readable_w),
     writable = interp2app(W_BytesIO.writable_w),
     seekable = interp2app(W_BytesIO.seekable_w),
+    close = interp2app(W_BytesIO.close_w),
+    closed = GetSetProperty(W_BytesIO.closed_get_w),
     )
 

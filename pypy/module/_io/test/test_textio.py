@@ -106,6 +106,20 @@ class AppTestTextIO:
             assert f.read() == data * 2
             assert buf.getvalue() == (data * 2).encode(encoding)
 
+    def test_destructor(self):
+        import _io
+        l = []
+        class MyBytesIO(_io.BytesIO):
+            def close(self):
+                l.append(self.getvalue())
+                _io.BytesIO.close(self)
+        b = MyBytesIO()
+        t = _io.TextIOWrapper(b, encoding="ascii")
+        t.write(u"abc")
+        del t
+        import gc; gc.collect()
+        assert l == ["abc"]
+
 class AppTestIncrementalNewlineDecoder:
 
     def test_newline_decoder(self):

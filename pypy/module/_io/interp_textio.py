@@ -361,6 +361,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         return space.call_method(self.w_buffer, "fileno")
 
+    def closed_get_w(space, self):
+        self._check_init(space)
+        return space.getattr(self.w_buffer, space.wrap("closed"))
+
     @unwrap_spec('self', ObjSpace)
     def flush_w(self, space):
         self._check_closed(space)
@@ -371,8 +375,9 @@ class W_TextIOWrapper(W_TextIOBase):
     @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         self._check_init(space)
-        if not self._closed(space):
-            return space.call_method(self, "flush")
+        if not space.is_true(space.getattr(self.w_buffer,
+                                           space.wrap("closed"))):
+            space.call_method(self, "flush")
             return space.call_method(self.w_buffer, "close")
 
     # _____________________________________________________________
@@ -813,4 +818,5 @@ W_TextIOWrapper.typedef = TypeDef(
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),
     fileno = interp2app(W_TextIOWrapper.fileno_w),
+    closed = GetSetProperty(W_TextIOWrapper.closed_get_w),
     )
