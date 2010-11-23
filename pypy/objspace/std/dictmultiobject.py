@@ -947,6 +947,30 @@ def repr__DictViewKeys(space, w_dictview):
 repr__DictViewItems  = repr__DictViewKeys
 repr__DictViewValues = repr__DictViewKeys
 
+def and__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    w_set = space.call_function(space.w_set, w_dictview)
+    space.call_method(w_set, "intersection_update", w_otherview)
+    return w_set
+and__DictViewKeys_settypedef = and__DictViewKeys_DictViewKeys
+and__DictViewItems_DictViewItems = and__DictViewKeys_DictViewKeys
+and__DictViewItems_settypedef = and__DictViewKeys_DictViewKeys
+
+def or__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    w_set = space.call_function(space.w_set, w_dictview)
+    space.call_method(w_set, "update", w_otherview)
+    return w_set
+or__DictViewKeys_settypedef = or__DictViewKeys_DictViewKeys
+or__DictViewItems_DictViewItems = or__DictViewKeys_DictViewKeys
+or__DictViewItems_settypedef = or__DictViewKeys_DictViewKeys
+
+def xor__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    w_set = space.call_function(space.w_set, w_dictview)
+    space.call_method(w_set, "symmetric_difference_update", w_otherview)
+    return w_set
+xor__DictViewKeys_settypedef = xor__DictViewKeys_DictViewKeys
+xor__DictViewItems_DictViewItems = xor__DictViewKeys_DictViewKeys
+xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
+
 # ____________________________________________________________
 
 from pypy.objspace.std import dicttype
