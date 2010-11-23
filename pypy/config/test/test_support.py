@@ -1,6 +1,7 @@
 
 from cStringIO import StringIO
 from pypy.config.support import detect_number_of_processors
+import os, sys, py
 
 cpuinfo = """
 processor	: 0
@@ -31,6 +32,22 @@ physical id	: 0
 siblings	: 4
 """
 
+class FakeEnviron:
+    def __init__(self, value):
+        self._value = value
+    def get(self, varname):
+        assert varname == 'MAKEFLAGS'
+        return self._value
+
 def test_cpuinfo():
-    assert detect_number_of_processors(StringIO(cpuinfo)) == 4
-    assert detect_number_of_processors('random crap that does not exist') == 1
+    if sys.platform != 'linux2':
+        py.test.skip("linux only")
+    saved = os.environ
+    try:
+        os.environ = FakeEnviron(None)
+        assert detect_number_of_processors(StringIO(cpuinfo)) == 4
+        assert detect_number_of_processors('random crap that does not exist') == 1
+        os.environ = FakeEnviron('-j2')
+        assert detect_number_of_processors(StringIO(cpuinfo)) == 1
+    finally:
+        os.environ = saved

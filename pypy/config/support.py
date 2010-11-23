@@ -2,9 +2,13 @@
 """ Some support code
 """
 
-import re
+import re, sys, os
 
 def detect_number_of_processors(filename_or_file='/proc/cpuinfo'):
+    if sys.platform != 'linux2':
+        return 1    # implement me
+    if os.environ.get('MAKEFLAGS'):
+        return 1    # don't override MAKEFLAGS.  This will call 'make' without any '-j' option
     try:
         if isinstance(filename_or_file, str):
             f = open(filename_or_file, "r")
