@@ -115,7 +115,7 @@ translation_optiondescription = OptionDescription(
                  default="auto", cmdline="--jit-backend"),
     ChoiceOption("jit_debug", "the amount of debugging dumps made by the JIT",
                  ["off", "profile", "steps", "detailed"],
-                 default="profile",      # XXX for now
+                 default="off",
                  cmdline="--jit-debug"),
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
