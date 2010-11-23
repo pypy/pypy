@@ -35,5 +35,6 @@ def apply_jit(interp, graph, CPUClass):
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
                              listops=True, CPUClass=CPUClass,
                              backendopt=True, inline=True,
+                             write_jitcodes_directory=True,
                              optimizer=OPTIMIZER_FULL)
 

@@ -148,7 +148,8 @@ class ContinueRunningNormallyBase(JitException):
 class WarmRunnerDesc(object):
 
     def __init__(self, translator, policy=None, backendopt=True, CPUClass=None,
-                 optimizer=None, ProfilerClass=EmptyProfiler, **kwds):
+                 optimizer=None, ProfilerClass=EmptyProfiler,
+                 write_jitcodes_directory=False, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         self.set_translator(translator)
         self.build_cpu(CPUClass, **kwds)
@@ -177,6 +178,8 @@ class WarmRunnerDesc(object):
         self.rewrite_jit_merge_points(policy)
 
         verbose = not self.cpu.translate_support_code
+        if write_jitcodes_directory:
+            verbose = False
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
         self.rewrite_set_param()
