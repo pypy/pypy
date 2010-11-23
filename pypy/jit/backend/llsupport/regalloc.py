@@ -1,4 +1,4 @@
-
+import os
 from pypy.jit.metainterp.history import Const, Box
 from pypy.rlib.objectmodel import we_are_translated
 
