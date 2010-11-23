@@ -4,6 +4,8 @@ Utilities to get environ variables and platform-specific memory-related values.
 import os, sys
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
 
 # ____________________________________________________________
 # Reading env vars.  Supports returning ints, uints or floats,
