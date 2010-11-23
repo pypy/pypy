@@ -365,7 +365,7 @@ def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
 
 def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
-    w_bytearray.data += [c for c in space.str_w(w_other)]
+    w_bytearray.data += [c for c in space.bufferstr_w(w_other)]
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)

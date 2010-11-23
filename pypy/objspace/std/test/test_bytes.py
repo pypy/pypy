@@ -154,6 +154,8 @@ class AppTestBytesArray:
         b.extend(bytearray('def'))
         b.extend('ghi')
         assert b == 'abcdefghi'
+        b.extend(buffer('jkl'))
+        assert b == 'abcdefghijkl'
 
     def test_delslice(self):
         b = bytearray('abcdefghi')
