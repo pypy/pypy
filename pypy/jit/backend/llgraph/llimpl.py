@@ -365,6 +365,13 @@ def compile_add_jump_target(loop, loop_target):
     else:
         log.info("compiling new bridge")
 
+def compile_add_guard_jump_target(loop, loop_target):
+    loop = _from_opaque(loop)
+    loop_target = _from_opaque(loop_target)
+    op = loop.operations[-1]
+    assert op.is_guard()
+    op.jump_target = loop_target
+
 def compile_add_fail(loop, fail_index):
     loop = _from_opaque(loop)
     index = len(loop.operations)-1

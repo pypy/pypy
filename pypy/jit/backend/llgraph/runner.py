@@ -191,6 +191,12 @@ class BaseCPU(model.AbstractCPU):
                         llimpl.compile_add_fail_arg(c, var2index[box])
                     else:
                         llimpl.compile_add_fail_arg(c, -1)
+                token = op.getjumptarget()
+                if token:
+                    assert isinstance(token, history.LoopToken)
+                    compiled_version = token._llgraph_compiled_version
+                    llimpl.compile_add_guard_jump_target(c, compiled_version)
+                        
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):
