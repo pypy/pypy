@@ -170,25 +170,14 @@ dictiter_typedef = StdTypeDef("dictionaryiterator",
 # ____________________________________________________________
 # Dict views
 
-
-@gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root, gateway.W_Root)
-def descr_view__new__(space, w_viewtype, w_dict):
-    from pypy.objspace.std.dictmultiobject import W_DictView
-    w_obj = space.allocate_instance(W_DictView, w_viewtype)
-    w_obj.__init__(space, w_dict)
-    return w_obj
-
 dict_keys_typedef = StdTypeDef(
     "dict_keys",
-    __new__ = descr_view__new__,
     )
 
 dict_items_typedef = StdTypeDef(
     "dict_items",
-    __new__ = descr_view__new__,
     )
 
 dict_values_typedef = StdTypeDef(
     "dict_values",
-    __new__ = descr_view__new__,
     )

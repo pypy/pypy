@@ -7,6 +7,7 @@ from pypy.interpreter.argument import Signature
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
+from pypy.objspace.std.settype import set_typedef as settypedef
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -757,13 +758,13 @@ def dict_itervalues__DictMulti(space, w_self):
     return W_DictMultiIterObject(space, w_self.iter(), VALUESITER)
 
 def dict_viewitems__DictMulti(space, w_self):
-    return W_DictMultiViewItemsObject(space, w_self)
+    return W_DictViewItemsObject(space, w_self)
 
 def dict_viewkeys__DictMulti(space, w_self):
-    return W_DictMultiViewKeysObject(space, w_self)
+    return W_DictViewKeysObject(space, w_self)
 
 def dict_viewvalues__DictMulti(space, w_self):
-    return W_DictMultiViewValuesObject(space, w_self)
+    return W_DictViewValuesObject(space, w_self)
 
 def dict_clear__DictMulti(space, w_self):
     w_self.clear()
@@ -889,21 +890,62 @@ class W_DictViewObject(W_Object):
     def __init__(w_self, space, w_dict):
         w_self.w_dict = w_dict
 
-class W_DictMultiViewKeysObject(W_DictViewObject):
+class W_DictViewKeysObject(W_DictViewObject):
     from pypy.objspace.std.dicttype import dict_keys_typedef as typedef
-registerimplementation(W_DictMultiViewKeysObject)
+registerimplementation(W_DictViewKeysObject)
 
-class W_DictMultiViewItemsObject(W_DictViewObject):
+class W_DictViewItemsObject(W_DictViewObject):
     from pypy.objspace.std.dicttype import dict_items_typedef as typedef
-registerimplementation(W_DictMultiViewItemsObject)
+registerimplementation(W_DictViewItemsObject)
 
-class W_DictMultiViewValuesObject(W_DictViewObject):
+class W_DictViewValuesObject(W_DictViewObject):
     from pypy.objspace.std.dicttype import dict_values_typedef as typedef
-registerimplementation(W_DictMultiViewValuesObject)
+registerimplementation(W_DictViewValuesObject)
 
-def len__DictMultiViewKeys(space, w_dictview):
+def len__DictViewKeys(space, w_dictview):
     return space.len(w_dictview.w_dict)
-len__DictMultiViewItems = len__DictMultiViewValues = len__DictMultiViewKeys
+len__DictViewItems = len__DictViewValues = len__DictViewKeys
+
+def iter__DictViewKeys(space, w_dictview):
+    return dict_iterkeys__DictMulti(space, w_dictview.w_dict)
+def iter__DictViewItems(space, w_dictview):
+    return dict_iteritems__DictMulti(space, w_dictview.w_dict)
+def iter__DictViewValues(space, w_dictview):
+    return dict_itervalues__DictMulti(space, w_dictview.w_dict)
+
+def all_contained_in(space, w_dictview, w_otherview):
+    w_iter = space.iter(w_dictview)
+    assert isinstance(w_iter, W_DictMultiIterObject)
+
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if not space.is_true(space.contains(w_otherview, w_item)):
+            return space.w_False
+
+    return space.w_True
+
+def eq__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    if space.eq_w(space.len(w_dictview), space.len(w_otherview)):
+        return all_contained_in(space, w_dictview, w_otherview)
+    return space.w_False
+eq__DictViewKeys_settypedef = eq__DictViewKeys_DictViewKeys
+
+eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
+eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
+eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
+
+def repr__DictViewKeys(space, w_dictview):
+    w_seq = space.call_function(space.w_list, w_dictview)
+    w_repr = space.repr(w_seq)
+    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space, "?"),
+                                  space.str_w(w_repr)))
+repr__DictViewItems  = repr__DictViewKeys
+repr__DictViewValues = repr__DictViewKeys
 
 # ____________________________________________________________
 

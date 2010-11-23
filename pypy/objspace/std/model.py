@@ -122,9 +122,9 @@ class StdTypeModel:
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
             dictproxyobject.W_DictProxyObject: [],
-            dictmultiobject.W_DictMultiViewKeysObject: [],
-            dictmultiobject.W_DictMultiViewItemsObject: [],
-            dictmultiobject.W_DictMultiViewValuesObject: [],
+            dictmultiobject.W_DictViewKeysObject: [],
+            dictmultiobject.W_DictViewItemsObject: [],
+            dictmultiobject.W_DictViewValuesObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
