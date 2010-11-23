@@ -7,9 +7,8 @@ dirpath = py.path.local(__file__).dirpath().dirpath()
 
 def run(filename, outputname):
     filepath = dirpath.join(filename)
-    tmpdir2 = udir.ensure('testcache-' + filename, dir=True)
-    tmpdir = tmpdir2.ensure('ctypes_config_cache', dir=True)
-    tmpdir.join('__init__.py').write('\n')
+    tmpdir = udir.ensure('testcache-' + os.path.splitext(filename)[0],
+                         dir=True)
     tmpdir.join('dumpcache.py').write(dirpath.join('dumpcache.py').read())
     path = sys.path[:]
     try:
@@ -23,14 +22,12 @@ def run(filename, outputname):
     assert outputpath.check(exists=1)
     modname = os.path.splitext(outputname)[0]
     try:
-        sys.path.insert(0, str(tmpdir2))
+        sys.path.insert(0, str(tmpdir))
         d = {}
-        exec "from ctypes_config_cache import %s" % modname in d
-        mod = d[modname]
+        execfile(str(outputpath), d)
     finally:
         sys.path[:] = path
-        sys.modules.pop('ctypes_config_cache', None)
-    return mod.__dict__
+    return d
 
 
 def test_syslog():

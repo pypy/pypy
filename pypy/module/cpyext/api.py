@@ -226,7 +226,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
             def unwrapper(space, *args):
                 from pypy.module.cpyext.pyobject import Py_DecRef
                 from pypy.module.cpyext.pyobject import make_ref, from_ref
-                from pypy.module.cpyext.pyobject import BorrowPair
+                from pypy.module.cpyext.pyobject import Reference
                 newargs = ()
                 to_decref = []
                 assert len(args) == len(api_function.argtypes)
@@ -270,8 +270,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             return api_function.error_value
                     if res is None:
                         return None
-                    elif isinstance(res, BorrowPair):
-                        return res.w_borrowed
+                    elif isinstance(res, Reference):
+                        return res.get_wrapped(space)
                     else:
                         return res
                 finally:
@@ -473,7 +473,7 @@ def make_wrapper(space, callable):
     @specialize.ll()
     def wrapper(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
-        from pypy.module.cpyext.pyobject import BorrowPair
+        from pypy.module.cpyext.pyobject import Reference
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -525,7 +525,7 @@ def make_wrapper(space, callable):
             elif is_PyObject(callable.api_func.restype):
                 if result is None:
                     retval = make_ref(space, None)
-                elif isinstance(result, BorrowPair):
+                elif isinstance(result, Reference):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
                     retval = rffi.cast(callable.api_func.restype,
@@ -908,8 +908,10 @@ def load_extension_module(space, path, name):
         from pypy.rlib import rdynload
         try:
             ll_libname = rffi.str2charp(path)
-            dll = rdynload.dlopen(ll_libname)
-            lltype.free(ll_libname, flavor='raw')
+            try:
+                dll = rdynload.dlopen(ll_libname)
+            finally:
+                lltype.free(ll_libname, flavor='raw')
         except rdynload.DLOpenError, e:
             raise operationerrfmt(
                 space.w_ImportError,

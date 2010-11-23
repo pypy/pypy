@@ -912,6 +912,9 @@ class LLFrame(object):
     def op_gc_dump_rpy_heap(self):
         raise NotImplementedError("gc_dump_rpy_heap")
 
+    def op_gc_typeids_z(self):
+        raise NotImplementedError("gc_typeids_z")
+
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
 

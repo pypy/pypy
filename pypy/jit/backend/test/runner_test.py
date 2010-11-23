@@ -2168,12 +2168,14 @@ class LLtypeBackendTest(BaseBackendTest):
             # Tested with a function that intentionally does not cast the
             # result to RESTYPE, but makes sure that we return the whole
             # value in eax or rax.
-            eci = ExternalCompilationInfo(separate_module_sources=["""
+            eci = ExternalCompilationInfo(
+                separate_module_sources=["""
                 long fn_test_result_of_call(long x)
                 {
                     return x + 1;
                 }
-            """])
+                """],
+                export_symbols=['fn_test_result_of_call'])
             f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
                                 RESTYPE, compilation_info=eci, _nowrapper=True)
             value = intmask(0xFFEEDDCCBBAA9988)
@@ -2199,12 +2201,14 @@ class LLtypeBackendTest(BaseBackendTest):
             # Tested with a function that intentionally does not cast the
             # result to RESTYPE, but makes sure that we return the whole
             # value in eax or rax.
-            eci = ExternalCompilationInfo(separate_module_sources=["""
+            eci = ExternalCompilationInfo(
+                separate_module_sources=["""
                 long fn_test_result_of_call(long x)
                 {
                     return x + 1;
                 }
-            """])
+                """],
+                export_symbols=['fn_test_result_of_call'])
             f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
                                 RESTYPE, compilation_info=eci, _nowrapper=True)
             value = intmask(0xFFEEDDCCBBAA9988)

@@ -326,10 +326,6 @@ def run_command_line(go_interactive,
         except:
             print >> sys.stderr, "'import site' failed"
 
-    # update sys.path *after* loading site.py, in case there is a
-    # "site.py" file in the script's directory.
-    sys.path.insert(0, '')
-
     if warnoptions:
         sys.warnoptions.append(warnoptions)
         from warnings import _processoptions
@@ -366,6 +362,9 @@ def run_command_line(go_interactive,
     try:
         if run_command:
             # handle the "-c" command
+            # Put '' on sys.path
+            sys.path.insert(0, '')
+
             def run_it():
                 exec cmd in mainmodule.__dict__
             success = run_toplevel(run_it)
@@ -378,6 +377,13 @@ def run_command_line(go_interactive,
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
+
+            # update sys.path *after* loading site.py, in case there is a
+            # "site.py" file in the script's directory. Only run this if we're
+            # executing the interactive prompt, if we're running a script we
+            # put it's directory on sys.path
+            sys.path.insert(0, '')
+
             if go_interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print
                 # a banner and run $PYTHONSTARTUP.

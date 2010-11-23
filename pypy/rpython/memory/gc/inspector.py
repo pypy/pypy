@@ -4,25 +4,22 @@ Utility RPython functions to inspect objects in the GC.
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.module.ll_os import underscore_on_windows
-from pypy.rlib import rposix
+from pypy.rlib import rposix, rgc
 
 from pypy.rpython.memory.support import AddressDict, get_address_stack
 
 
 # ---------- implementation of pypy.rlib.rgc.get_rpy_roots() ----------
 
-def _counting_rpy_root(gc, root):
+def _counting_rpy_root(obj, gc):
     gc._count_rpy += 1
 
 def _do_count_rpy_roots(gc):
     gc._count_rpy = 0
-    gc.root_walker.walk_roots(
-        _counting_rpy_root,
-        _counting_rpy_root,
-        _counting_rpy_root)
+    gc.enumerate_all_roots(_counting_rpy_root, gc)
     return gc._count_rpy
 
-def _append_rpy_root(gc, root):
+def _append_rpy_root(obj, gc):
     # Can use the gc list, but should not allocate!
     # It is essential that the list is not resizable!
     lst = gc._list_rpy
@@ -30,15 +27,12 @@ def _append_rpy_root(gc, root):
     if index >= len(lst):
         raise ValueError
     gc._count_rpy = index + 1
-    lst[index] = llmemory.cast_adr_to_ptr(root.address[0], llmemory.GCREF)
+    lst[index] = llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 def _do_append_rpy_roots(gc, lst):
     gc._count_rpy = 0
     gc._list_rpy = lst
-    gc.root_walker.walk_roots(
-        _append_rpy_root,
-        _append_rpy_root,
-        _append_rpy_root)
+    gc.enumerate_all_roots(_append_rpy_root, gc)
     gc._list_rpy = None
 
 def get_rpy_roots(gc):
@@ -101,8 +95,7 @@ def is_rpy_instance(gc, gcref):
 # ----------
 
 raw_os_write = rffi.llexternal(underscore_on_windows+'write',
-                               [rffi.INT, rffi.CArrayPtr(lltype.Signed),
-                                rffi.SIZE_T],
+                               [rffi.INT, llmemory.Address, rffi.SIZE_T],
                                rffi.SIZE_T,
                                sandboxsafe=True, _nowrapper=True)
 
@@ -131,7 +124,7 @@ class HeapDumper:
         if self.buf_count > 0:
             bytes = self.buf_count * rffi.sizeof(rffi.LONG)
             count = raw_os_write(self.fd,
-                                 self.writebuffer,
+                                 rffi.cast(llmemory.Address, self.writebuffer),
                                  rffi.cast(rffi.SIZE_T, bytes))
             if rffi.cast(lltype.Signed, count) != bytes:
                 raise OSError(rposix.get_errno(), "raw_os_write failed")
@@ -140,7 +133,7 @@ class HeapDumper:
 
     def write(self, value):
         x = self.buf_count
-        self.writebuffer[x] = llmemory.raw_malloc_usage(value)
+        self.writebuffer[x] = value
         x += 1
         self.buf_count = x
         if x == self.BUFSIZE:
@@ -173,12 +166,7 @@ class HeapDumper:
             self.pending.append(obj)
 
     def add_roots(self):
-        self.gc._heap_dumper = self
-        self.gc.root_walker.walk_roots(
-            _hd_add_root,
-            _hd_add_root,
-            _hd_add_root)
-        self.gc._heap_dumper = None
+        self.gc.enumerate_all_roots(_hd_add_root, self)
         pendingroots = self.pending
         self.pending = AddressStack()
         self.walk(pendingroots)
@@ -189,8 +177,8 @@ class HeapDumper:
         while pending.non_empty():
             self.writeobj(pending.pop())
 
-def _hd_add_root(gc, root):
-    gc._heap_dumper.add(root.address[0])
+def _hd_add_root(obj, heap_dumper):
+    heap_dumper.add(obj)
 
 def dump_rpy_heap(gc, fd):
     heapdumper = HeapDumper(gc, fd)
@@ -199,3 +187,7 @@ def dump_rpy_heap(gc, fd):
     heapdumper.flush()
     heapdumper.delete()
     return True
+
+def get_typeids_z(gc):
+    srcaddress = gc.root_walker.gcdata.typeids_z
+    return llmemory.cast_adr_to_ptr(srcaddress, lltype.Ptr(rgc.ARRAY_OF_CHAR))

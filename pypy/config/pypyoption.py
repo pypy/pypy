@@ -34,6 +34,11 @@ working_modules.update(dict.fromkeys(
      "_bisect", "_ffi"]
 ))
 
+translation_modules = default_modules.copy()
+translation_modules.update(dict.fromkeys(
+    ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
+     "struct", "md5", "cStringIO", "array"]))
+
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
     ["md5", "sha", "cStringIO", "itertools"]
@@ -149,6 +154,12 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--allworkingmodules",
                negation=True),
 
+    BoolOption("translationmodules",
+          "use only those modules that are needed to run translate.py on pypy",
+               default=False,
+               cmdline="--translationmodules",
+               suggests=[("objspace.allworkingmodules", False)]),
+
     BoolOption("geninterp", "specify whether geninterp should be used",
                cmdline=None,
                default=True),
@@ -163,6 +174,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     BoolOption("lonepycfiles", "Import pyc files with no matching py file",
                default=False,
                requires=[("objspace.usepycfiles", True)]),
+
+    StrOption("soabi",
+              "Tag to differentiate extension modules built for different Python interpreters",
+              cmdline="--soabi",
+              default=None),
 
     BoolOption("honor__builtins__",
                "Honor the __builtins__ key of a module dictionary",
@@ -366,6 +382,11 @@ def enable_allworkingmodules(config):
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
+    modules = [name for name in modules if name not in essential_modules]
+    config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
+
+def enable_translationmodules(config):
+    modules = translation_modules
     modules = [name for name in modules if name not in essential_modules]
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
 

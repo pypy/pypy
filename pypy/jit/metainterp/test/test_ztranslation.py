@@ -79,7 +79,7 @@ class TranslationTest:
         res = ll_meta_interp(main, [40, 5], CPUClass=self.CPUClass,
                              type_system=self.type_system)
         assert res == main(40, 5)
-        res = rpython_ll_meta_interp(main, [40, 5], loops=2,
+        res = rpython_ll_meta_interp(main, [40, 5],
                                      CPUClass=self.CPUClass,
                                      type_system=self.type_system,
                                      optimizer=OPTIMIZER_FULL,
@@ -120,7 +120,7 @@ class TranslationTest:
         res = ll_meta_interp(main, [40], CPUClass=self.CPUClass,
                              type_system=self.type_system)
         assert res == main(40)
-        res = rpython_ll_meta_interp(main, [40], loops=2, CPUClass=self.CPUClass,
+        res = rpython_ll_meta_interp(main, [40], CPUClass=self.CPUClass,
                                      type_system=self.type_system,
                                      optimizer=OPTIMIZER_FULL,
                                      ProfilerClass=Profiler)

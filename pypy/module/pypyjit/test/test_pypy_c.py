@@ -377,10 +377,75 @@ class PyPyCJITTests(object):
                     ([1000], 49500),
                     ([10000], 495000),
                     ([100000], 4950000))
-        assert len(self.loops) == 2
+        assert len(self.loops) == 3
         op, = self.get_by_bytecode("CALL_FUNCTION_KW")
         # XXX a bit too many guards, but better than before
-        assert len(op.get_opnames("guard")) <= 10
+        assert len(op.get_opnames("guard")) <= 12
+
+    def test_stararg_virtual(self):
+        self.run_source('''
+            d = {}
+
+            def g(*args):
+                return len(args)
+            def h(a, b, c):
+                return c
+
+            def main(x):
+                s = 0
+                for i in range(x):
+                    l = [i, x, 2]
+                    s += g(*l)
+                    s += h(*l)
+                    s += g(i, x, 2)
+                for i in range(x):
+                    l = [x, 2]
+                    s += g(i, *l)
+                    s += h(i, *l)
+                return s
+        ''', 100000, ([100], 1300),
+                    ([1000], 13000),
+                    ([10000], 130000),
+                    ([100000], 1300000))
+        assert len(self.loops) == 2
+        ops = self.get_by_bytecode("CALL_FUNCTION_VAR")
+        assert len(ops) == 4
+        for op in ops:
+            assert len(op.get_opnames("new")) == 0
+            assert len(op.get_opnames("call_may_force")) == 0
+
+        ops = self.get_by_bytecode("CALL_FUNCTION")
+        for op in ops:
+            assert len(op.get_opnames("new")) == 0
+            assert len(op.get_opnames("call_may_force")) == 0
+
+    def test_stararg(self):
+        self.run_source('''
+            d = {}
+
+            def g(*args):
+                return args[-1]
+            def h(*args):
+                return len(args)
+
+            def main(x):
+                s = 0
+                l = []
+                i = 0
+                while i < x:
+                    l.append(1)
+                    s += g(*l)
+                    i = h(*l)
+                return s
+        ''', 100000, ([100], 100),
+                     ([1000], 1000),
+                     ([2000], 2000),
+                     ([4000], 4000))
+        assert len(self.loops) == 1
+        ops = self.get_by_bytecode("CALL_FUNCTION_VAR")
+        for op in ops:
+            assert len(op.get_opnames("new_with_vtable")) == 0
+            assert len(op.get_opnames("call_may_force")) == 0
 
     def test_virtual_instance(self):
         self.run_source('''

@@ -83,8 +83,12 @@ namespace pypy.test
                 return Double.NegativeInfinity;
             else if (s == "nan")
                 return Double.NaN;
-            else
-                return System.Convert.ToDouble(s);
+            else {
+                System.Globalization.NumberFormatInfo formatter;
+                formatter = new System.Globalization.NumberFormatInfo();
+                formatter.NumberDecimalSeparator = ".";
+                return System.Convert.ToDouble(s, formatter);
+            }
         }
     }
 

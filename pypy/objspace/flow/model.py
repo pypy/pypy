@@ -355,7 +355,7 @@ class SpaceOperation(object):
         return "%r = %s(%s)" % (self.result, self.opname,
                                 ", ".join(map(repr, self.args)))
 
-class Atom:
+class Atom(object):
     def __init__(self, name):
         self.__name__ = name # make save_global happy
     def __repr__(self):

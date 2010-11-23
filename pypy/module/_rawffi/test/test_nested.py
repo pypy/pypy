@@ -107,7 +107,6 @@ class AppTestNested:
         assert S.fieldoffset('x') == 0
         assert S.fieldoffset('ar') == A5alignment
         s = S()
-        s = S()
         s.x = 'G'
         raises(TypeError, 's.ar')
         assert s.fieldaddress('ar') == s.buffer + S.fieldoffset('ar')

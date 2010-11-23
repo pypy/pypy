@@ -379,6 +379,11 @@ def dump_rpy_heap(fd):
     "NOT_RPYTHON"
     raise NotImplementedError
 
+def get_typeids_z():
+    "NOT_RPYTHON"
+    raise NotImplementedError
+
+ARRAY_OF_CHAR = lltype.Array(lltype.Char)
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
 class _GcRef(object):
@@ -530,3 +535,12 @@ class Entry(ExtRegistryEntry):
         vlist = hop.inputargs(lltype.Signed)
         hop.exception_is_here()
         return hop.genop('gc_dump_rpy_heap', vlist, resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_typeids_z
+    def compute_result_annotation(self):
+        from pypy.annotation.model import SomePtr
+        return SomePtr(lltype.Ptr(ARRAY_OF_CHAR))
+    def specialize_call(self, hop):
+        hop.exception_is_here()
+        return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)

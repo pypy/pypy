@@ -30,6 +30,7 @@ class CFuncPtrType(_CDataMeta):
 
     from_address = cdata_from_address
 
+
 class CFuncPtr(_CData):
     __metaclass__ = CFuncPtrType
 
@@ -174,8 +175,8 @@ class CFuncPtr(_CData):
         
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
-        return funcptr(*args)
-        #return funcptr(args[0])
+        #return funcptr(*args)
+        return funcptr(args[0])
         #resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
         #return self._build_result(restype, resbuffer, argtypes, argsandobjs)
 
@@ -217,6 +218,8 @@ class CFuncPtr(_CData):
             ffi_argtypes = [self._shape_to_ffi_type(shape) for shape in argshapes]
             ffi_restype = self._shape_to_ffi_type(resshape)
             self._ptr = cdll.getfunc(self.name, ffi_argtypes, ffi_restype)
+            if len(ffi_argtypes) == 1:
+                self.__class__ = _FuncPtr_1_arg # black magic
             return self._ptr
         except AttributeError:
             if self._flags_ & _rawffi.FUNCFLAG_CDECL:
@@ -393,3 +396,26 @@ class CFuncPtr(_CData):
                 self._ptr.free()
                 self._ptr = None
             self._needs_free = False
+
+
+# hack hack
+
+#import ctypes
+class _FuncPtr_1_arg(CFuncPtr):
+
+    def _rollback(self, *args):
+        self.__class__ = CFuncPtr
+        return self(*args)
+
+    def __call__(self, arg0):
+        if self.callable is not None or self._com_index:
+            return self._rollback(arg0)
+
+        #argtypes, argsandobjs = self._wrap_args(argtypes, args)
+
+        argtypes = self._argtypes_
+        restype = self._restype_
+        thisarg = None
+        funcptr = self._getfuncptr(argtypes, restype, thisarg)
+        return funcptr(arg0)
+

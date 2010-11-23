@@ -12,7 +12,7 @@ from pypy.interpreter.eval import Code
 from pypy.rlib import streamio, jit
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 
 SEARCH_ERROR = 0
 PY_SOURCE = 1
@@ -25,10 +25,26 @@ PY_FROZEN = 7
 # PY_CODERESOURCE = 8
 IMP_HOOK = 9
 
-if sys.platform.startswith('win'):
-    so_extension = ".pyd"
+if sys.platform == 'win32':
+    SO = ".pyd"
 else:
-    so_extension = ".so"
+    SO = ".so"
+DEFAULT_SOABI = 'pypy-14'
+
+@specialize.memo()
+def get_so_extension(space):
+    if space.config.objspace.soabi is not None:
+        soabi = space.config.objspace.soabi
+    else:
+        soabi = DEFAULT_SOABI
+
+    if not soabi:
+        return SO
+
+    if not space.config.translating:
+        soabi += 'i'
+
+    return '.' + soabi + SO
 
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
@@ -53,6 +69,7 @@ def find_modtype(space, filepart):
             return PY_COMPILED, ".pyc", "rb"
 
     if space.config.objspace.usemodules.cpyext:
+        so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
         if os.path.exists(pydfile) and case_ok(pydfile):
             return C_EXTENSION, so_extension, "rb"

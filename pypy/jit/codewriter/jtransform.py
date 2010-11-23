@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter import support, heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo, _callinfo_for_oopspec
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.rlib import objectmodel
@@ -843,9 +843,16 @@ class Transformer(object):
             "general mix-up of jitdrivers?")
         ops = self.promote_greens(op.args[2:], jitdriver)
         num_green_args = len(jitdriver.greens)
+        redlists = self.make_three_lists(op.args[2+num_green_args:])
+        for redlist in redlists:
+            for v in redlist:
+                assert isinstance(v, Variable), (
+                    "Constant specified red in jit_merge_point()")
+            assert len(dict.fromkeys(redlist)) == len(list(redlist)), (
+                "duplicate red variable on jit_merge_point()")
         args = ([Constant(self.portal_jd.index, lltype.Signed)] +
                 self.make_three_lists(op.args[2:2+num_green_args]) +
-                self.make_three_lists(op.args[2+num_green_args:]))
+                redlists)
         op1 = SpaceOperation('jit_merge_point', args, None)
         op2 = SpaceOperation('-live-', [], None)
         # ^^^ we need a -live- for the case of do_recursive_call()
@@ -1084,7 +1091,8 @@ class Transformer(object):
         else:
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(op.args[0].value))
-            _callinfo_for_oopspec[oopspecindex] = calldescr, func
+            self.callcontrol.callinfocollection.add(oopspecindex,
+                                                    calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0], calldescr],
                                 args=args)
@@ -1095,7 +1103,7 @@ class Transformer(object):
     def _register_extra_helper(self, oopspecindex, oopspec_name,
                                argtypes, resulttype):
         # a bit hackish
-        if oopspecindex in _callinfo_for_oopspec:
+        if self.callcontrol.callinfocollection.has_oopspec(oopspecindex):
             return
         c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
                                                    oopspec_name, argtypes,
@@ -1109,7 +1117,7 @@ class Transformer(object):
         else:
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
-        _callinfo_for_oopspec[oopspecindex] = calldescr, func
+        self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
