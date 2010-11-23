@@ -71,18 +71,18 @@ class CPPMethod(object):
         self.executor = executor.get_executor(self.space, result_type)
         self.arg_converters = None
         # <hack>
-        self.hack_call = False #arg_types == ['int'] and result_type == 'int'
+        #self.hack_call = arg_types == ['int'] and result_type == 'int'
         # </hack>
 
     def call(self, cppthis, args_w):
         if self.executor is None:
             raise OperationError(self.space.w_TypeError, self.space.wrap("return type not handled"))
 
-        if self.hack_call:
-            try:
-                return self.do_hack_call(cppthis, args_w)
-            except NotImplementedError:
-                pass
+        #if self.hack_call:
+        #    try:
+        #        return self.do_hack_call(cppthis, args_w)
+        #    except NotImplementedError:
+        #        pass
 
         args = self.prepare_arguments(args_w)
         try:
