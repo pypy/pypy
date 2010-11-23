@@ -42,7 +42,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
-from pypy.rpython.memory.gc import minimarkpage, base, env
+from pypy.rpython.memory.gc import minimarkpage, env
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -289,7 +289,7 @@ class MiniMarkGC(MovingGCBase):
             #
             # From there on, the GC is fully initialized and the code
             # below can use it
-            newsize = base.read_from_env('PYPY_GC_NURSERY')
+            newsize = env.read_from_env('PYPY_GC_NURSERY')
             # PYPY_GC_NURSERY=1 forces a minor collect for every malloc.
             # Useful to debug external factors, like trackgcroot or the
             # handling of the write barrier.
@@ -300,26 +300,26 @@ class MiniMarkGC(MovingGCBase):
                     newsize = defaultsize
             newsize = max(newsize, minsize)
             #
-            major_coll = base.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
+            major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
             if major_coll > 1.0:
                 self.major_collection_threshold = major_coll
             #
-            growth = base.read_float_from_env('PYPY_GC_GROWTH')
+            growth = env.read_float_from_env('PYPY_GC_GROWTH')
             if growth > 1.0:
                 self.growth_rate_max = growth
             #
-            min_heap_size = base.read_uint_from_env('PYPY_GC_MIN')
+            min_heap_size = env.read_uint_from_env('PYPY_GC_MIN')
             if min_heap_size > 0:
                 self.min_heap_size = float(min_heap_size)
             else:
                 # defaults to 8 times the nursery
                 self.min_heap_size = newsize * 8
             #
-            max_heap_size = base.read_uint_from_env('PYPY_GC_MAX')
+            max_heap_size = env.read_uint_from_env('PYPY_GC_MAX')
             if max_heap_size > 0:
                 self.max_heap_size = float(max_heap_size)
             #
-            max_delta = base.read_uint_from_env('PYPY_GC_MAX_DELTA')
+            max_delta = env.read_uint_from_env('PYPY_GC_MAX_DELTA')
             if max_delta > 0:
                 self.max_delta = float(max_delta)
             else:
