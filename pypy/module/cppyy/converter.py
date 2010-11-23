@@ -44,6 +44,7 @@ class TypeConverter(object):
 
 
 class ArrayTypeConverter(TypeConverter):
+    _immutable_ = True
     def __init__(self, space, array_size):
         if array_size <= 0:
             self.size = sys.maxint
@@ -208,6 +209,7 @@ class ShortPtrConverter(ArrayTypeConverter):
 #        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
 
 class ShortArrayConverter(ShortPtrConverter):
+    _immutable_ = True
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
         fieldptr = self._get_fieldptr(space, w_obj, offset)
@@ -236,6 +238,7 @@ class LongPtrConverter(ArrayTypeConverter):
 #        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
 
 class LongArrayConverter(LongPtrConverter):
+    _immutable_ = True
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
         fieldptr = self._get_fieldptr(space, w_obj, offset)
