@@ -25,8 +25,8 @@ Environment variables can be used to fine-tune the following parameters:
  PYPY_GC_MAX_DELTA      The major collection threshold will never be set
                         to more than PYPY_GC_MAX_DELTA the amount really
                         used after a collection.  Defaults to 1/8th of the
-                        total RAM size (or at most 4GB on 32-bit systems).
-                        Try values like '200MB'.
+                        total RAM size (which is constrained to be at most
+                        4GB on 32-bit systems).  Try values like '200MB'.
 
  PYPY_GC_MIN            Don't collect while the memory size is below this
                         limit.  Useful to avoid spending all the time in

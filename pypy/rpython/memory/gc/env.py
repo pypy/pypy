@@ -87,6 +87,8 @@ def get_total_memory_linux2(filename):
         result = addressable_size
     else:
         debug_print("memtotal =", result)
+        if result > addressable_size:
+            result = addressable_size
     debug_stop("gc-hardware")
     return result
 

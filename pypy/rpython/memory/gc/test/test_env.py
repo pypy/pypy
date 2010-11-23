@@ -84,6 +84,24 @@ etc.
     result = env.get_total_memory_linux2(str(filepath))
     assert result == 1976804 * 1024
 
+def test_get_total_memory_linux2_32bit_limit():
+    filepath = udir.join('get_total_memory_linux2')
+    filepath.write("""\
+MemTotal:        3145728 kB
+etc.
+""")
+    saved = env.addressable_size
+    try:
+        env.addressable_size = float(2**31)
+        result = env.get_total_memory_linux2(str(filepath))
+        check_equal(result, float(2**31))    # limit hit
+        #
+        env.addressable_size = float(2**32)
+        result = env.get_total_memory_linux2(str(filepath))
+        check_equal(result, float(3145728 * 1024))    # limit not hit
+    finally:
+        env.addressable_size = saved
+
 def test_estimate_best_nursery_size_linux2():
     filepath = udir.join('estimate_best_nursery_size_linux2')
     filepath.write("""\
