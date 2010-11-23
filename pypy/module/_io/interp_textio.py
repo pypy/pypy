@@ -488,7 +488,7 @@ class W_TextIOWrapper(W_TextIOBase):
             while True:
                 # Fast path for non-control chars. The loop always ends
                 # since the Py_UNICODE storage is NUL-terminated.
-                while line[start + i] > '\r':
+                while i < size and line[start + i] > '\r':
                     i += 1
                 if i >= size:
                     return -1, size
@@ -507,11 +507,9 @@ class W_TextIOWrapper(W_TextIOBase):
             if pos >= 0:
                 return pos - start + len(self.readnl), 0
             else:
-                restart = end - len(self.readnl)
-                if restart >= 0:
-                    pos = line.find(self.readnl[0], restart, end)
-                    if pos >= 0:
-                        return -1, pos - start
+                pos = line.find(self.readnl[0], start, end)
+                if pos >= 0:
+                    return -1, pos - start
                 return -1, size
 
     @unwrap_spec('self', ObjSpace, W_Root)

@@ -120,6 +120,44 @@ class AppTestTextIO:
         import gc; gc.collect()
         assert l == ["abc"]
 
+    def test_newlines(self):
+        import _io
+        input_lines = [ "unix\n", "windows\r\n", "os9\r", "last\n", "nonl" ]
+
+        tests = [
+            [ None, [ 'unix\n', 'windows\n', 'os9\n', 'last\n', 'nonl' ] ],
+            [ '', input_lines ],
+            [ '\n', [ "unix\n", "windows\r\n", "os9\rlast\n", "nonl" ] ],
+            [ '\r\n', [ "unix\nwindows\r\n", "os9\rlast\nnonl" ] ],
+            [ '\r', [ "unix\nwindows\r", "\nos9\r", "last\nnonl" ] ],
+        ]
+
+        # Try a range of buffer sizes to test the case where \r is the last
+        # character in TextIOWrapper._pending_line.
+        encoding = "ascii"
+        # XXX: str.encode() should return bytes
+        data = bytes(''.join(input_lines).encode(encoding))
+        for do_reads in (False, True):
+            for bufsize in range(1, 10):
+                for newline, exp_lines in tests:
+                    bufio = _io.BufferedReader(_io.BytesIO(data), bufsize)
+                    textio = _io.TextIOWrapper(bufio, newline=newline,
+                                              encoding=encoding)
+                    if do_reads:
+                        got_lines = []
+                        while True:
+                            c2 = textio.read(2)
+                            if c2 == '':
+                                break
+                            len(c2) == 2
+                            got_lines.append(c2 + textio.readline())
+                    else:
+                        got_lines = list(textio)
+
+                    for got_line, exp_line in zip(got_lines, exp_lines):
+                        assert got_line == exp_line
+                    assert len(got_lines) == len(exp_lines)
+
 class AppTestIncrementalNewlineDecoder:
 
     def test_newline_decoder(self):
