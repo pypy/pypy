@@ -106,6 +106,14 @@ class AppTestTextIO:
             assert f.read() == data * 2
             assert buf.getvalue() == (data * 2).encode(encoding)
 
+    def test_tell(self):
+        import _io
+        r = _io.BytesIO("abc\ndef\n")
+        t = _io.TextIOWrapper(r)
+        assert t.tell() == 0
+        t.read(4)
+        assert t.tell() == 4
+
     def test_destructor(self):
         import _io
         l = []

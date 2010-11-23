@@ -230,7 +230,30 @@ W_TextIOBase.typedef = TypeDef(
     )
 
 class PositionCookie:
-    pass
+    def __init__(self, bigint):
+        self.start_pos = bigint.ulonglongmask()
+        bigint = bigint.rshift(r_ulonglong.BITS)
+        self.dec_flags = 0
+        self.bytes_to_feed = 0
+        self.chars_to_skip = 0
+        self.need_eof = 0
+
+    def pack(self):
+        # The meaning of a tell() cookie is: seek to position, set the
+        # decoder flags to dec_flags, read bytes_to_feed bytes, feed them
+        # into the decoder with need_eof as the EOF flag, then skip
+        # chars_to_skip characters of the decoded result.  For most simple
+        # decoders, tell() will often just give a byte offset in the file.
+        return (self.start_pos |
+                (self.dec_flags<<64) |
+                (self.bytes_to_feed<<128) |
+                (self.chars_to_skip<<192) |
+                bool(self.need_eof)<<256)
+
+class PositionSnapshot:
+    def __init__(self, flags, input):
+        self.flags = flags
+        self.input = input
 
 class W_TextIOWrapper(W_TextIOBase):
     def __init__(self, space):
@@ -251,6 +274,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self.encodefunc = None # Specialized encoding func (see below)
         self.encoding_start_of_stream = False # Whether or not it's the start
                                               # of the stream
+        self.snapshot = None
 
     @unwrap_spec('self', ObjSpace, W_Root, W_Root, W_Root, W_Root, int)
     def descr_init(self, space, w_buffer, w_encoding=None,
@@ -418,8 +442,18 @@ class W_TextIOWrapper(W_TextIOBase):
         if not self.w_decoder:
             raise OperationError(space.w_IOError, space.wrap("not readable"))
 
-        # XXX
-        # if self.telling...
+        if self.telling:
+            # To prepare for tell(), we need to snapshot a point in the file
+            # where the decoder's input buffer is empty.
+            w_state = space.call_method(self.w_decoder, "getstate")
+            # Given this, we know there was a valid snapshot point
+            # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
+            w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
+            dec_buffer = space.str_w(w_dec_buffer)
+            dec_flags = space.int_w(w_dec_flags)
+        else:
+            dec_buffer = None
+            dec_flags = 0
 
         # Read a chunk, decode it, and put the result in self._decoded_chars
         w_input = space.call_method(self.w_buffer, "read1",
@@ -431,8 +465,11 @@ class W_TextIOWrapper(W_TextIOBase):
         if space.int_w(space.len(w_decoded)) > 0:
             eof = False
 
-        # XXX
-        # if self.telling...
+        if self.telling:
+            # At the snapshot point, len(dec_buffer) bytes before the read,
+            # the next input to be decoded is dec_buffer + input_chunk.
+            next_input = dec_buffer + space.str_w(w_input)
+            self.snapshot = PositionSnapshot(dec_flags, next_input)
 
         return not eof
 
@@ -675,26 +712,6 @@ class W_TextIOWrapper(W_TextIOBase):
     # _____________________________________________________________
     # seek/tell
 
-    def _pack_cookie(self, start_pos, dec_flags=0,
-                           bytes_to_feed=0, need_eof=0, chars_to_skip=0):
-        # The meaning of a tell() cookie is: seek to position, set the
-        # decoder flags to dec_flags, read bytes_to_feed bytes, feed them
-        # into the decoder with need_eof as the EOF flag, then skip
-        # chars_to_skip characters of the decoded result.  For most simple
-        # decoders, tell() will often just give a byte offset in the file.
-        return (start_pos | (dec_flags<<64) | (bytes_to_feed<<128) |
-               (chars_to_skip<<192) | bool(need_eof)<<256)
-
-    def _unpack_cookie(self, bigint):
-        cookie = PositionCookie()
-        cookie.start_pos = bigint.ulonglongmask()
-        bigint = bigint.rshift(r_ulonglong.BITS)
-        cookie.dec_flags = 0
-        cookie.bytes_to_feed = 0
-        cookie.chars_to_skip = 0
-        cookie.need_eof = 0
-        return cookie
-
     def _decoder_setstate(self, space, cookie):
         # When seeking to the start of the stream, we call decoder.reset()
         # rather than decoder.getstate().
@@ -760,7 +777,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # The strategy of seek() is to go back to the safe start point and
         # replay the effect of read(chars_to_skip) from there.
-        cookie = self._unpack_cookie(space.bigint_w(w_pos))
+        cookie = PositionCookie(space.bigint_w(w_pos))
 
         # Seek back to the safe start point
         space.call_method(self.w_buffer, "seek", space.wrap(cookie.start_pos))
@@ -775,8 +792,9 @@ class W_TextIOWrapper(W_TextIOBase):
         if cookie.chars_to_skip:
             # Just like _read_chunk, feed the decoder and save a snapshot.
             w_chunk = space.call_method(self.w_buffer, "read",
-                                        space.wrap(cookie.chars_to_feed))
-            # XXX self.snapshot = cookie.dec_flags, w_chunk
+                                        space.wrap(cookie.bytes_to_feed))
+            self.snapshot = PositionSnapshot(cookie.dec_flags,
+                                             space.str_w(w_chunk))
 
             w_decoded = space.call_method(self.w_decoder, "decode",
                                           w_chunk, space.wrap(cookie.need_eof))
@@ -788,8 +806,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     "can't restore logical file position"))
             self.decoded_chars_used = cookie.chars_to_skip
         else:
-            # XXX self.snapshot = cookie.dec_flags, space.wrap(u"")
-            pass
+            self.snapshot = PositionSnapshot(cookie.dec_flags, "")
 
         # Finally, reset the encoder (merely useful for proper BOM handling)
         if self.w_encoder:
@@ -797,6 +814,95 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return w_pos
 
+    @unwrap_spec('self', ObjSpace)
+    def tell_w(self, space):
+        self._check_closed(space)
+
+        if not self.seekable:
+            raise OperationError(space.w_IOError, space.wrap(
+                "underlying stream is not seekable"))
+
+        if not self.telling:
+            raise OperationError(space.w_IOError, space.wrap(
+                "telling position disabled by next() call"))
+
+        self._writeflush(space)
+        space.call_method(self, "flush")
+
+        w_pos = space.call_method(self.w_buffer, "tell")
+
+        if self.w_decoder is None or self.snapshot is None:
+            assert not self.decoded_chars
+            return w_pos
+
+        cookie = PositionCookie(space.bigint_w(w_pos))
+
+        # Skip backward to the snapshot point (see _read_chunk)
+        cookie.dec_flags = self.snapshot.flags
+        input = self.snapshot.input
+        cookie.start_pos -= len(input)
+
+        # How many decoded characters have been used up since the snapshot?
+        if not self.decoded_chars_used:
+            # We haven't moved from the snapshot point.
+            return space.wrap(cookie.pack())
+
+        chars_to_skip = self.decoded_chars_used
+
+        # Starting from the snapshot position, we will walk the decoder
+        # forward until it gives us enough decoded characters.
+        w_saved_state = space.call_method(self.w_decoder, "getstate")
+
+        try:
+            # Note our initial start point
+            self._decoder_setstate(space, cookie)
+
+            # Feed the decoder one byte at a time.  As we go, note the nearest
+            # "safe start point" before the current location (a point where
+            # the decoder has nothing buffered, so seek() can safely start
+            # from there and advance to this location).
+
+            chars_decoded = 0
+            i = 0
+            while i < len(input):
+                w_decoded = space.call_method(self.w_decoder, "decode",
+                                              space.wrap(input[i]))
+                chars_decoded += len(space.unicode_w(w_decoded))
+
+                cookie.bytes_to_feed += 1
+
+                w_state = space.call_method(self.w_decoder, "getstate")
+                w_dec_buffer, w_flags = space.unpackiterable(w_state, 2)
+                dec_buffer_len = len(space.str_w(w_dec_buffer))
+
+                if dec_buffer_len == 0 and chars_decoded <= chars_to_skip:
+                    # Decoder buffer is empty, so this is a safe start point.
+                    cookie.start_pos += cookie.bytes_to_feed
+                    chars_to_skip -= chars_decoded
+                    assert chars_to_skip >= 0
+                    cookie.dec_flags = space.int_w(w_flags)
+                    cookie.bytes_to_feed = 0
+                    chars_decoded = 0
+                if chars_decoded >= chars_to_skip:
+                    break
+                i += 1
+            else:
+                # We didn't get enough decoded data; signal EOF to get more.
+                w_decoded = space.call_method(self.w_decoder, "decode",
+                                              space.wrap(""),
+                                              space.wrap(1)) # final=1
+                chars_decoded += len(space.unicode_w(w_decoded))
+                cookie.need_eof = 1
+
+                if chars_decoded < chars_to_skip:
+                    raise OperationError(space.w_IOError, space.wrap(
+                        "can't reconstruct logical file position"))
+        finally:
+            space.call_method(self.w_decoder, "setstate", w_saved_state)
+
+        # The returned cookie corresponds to the last safe start point.
+        cookie.chars_to_skip = chars_to_skip
+        return space.wrap(cookie.pack())
 
 W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
@@ -807,6 +913,7 @@ W_TextIOWrapper.typedef = TypeDef(
     readline = interp2app(W_TextIOWrapper.readline_w),
     write = interp2app(W_TextIOWrapper.write_w),
     seek = interp2app(W_TextIOWrapper.seek_w),
+    tell = interp2app(W_TextIOWrapper.tell_w),
     detach = interp2app(W_TextIOWrapper.detach_w),
     flush = interp2app(W_TextIOWrapper.flush_w),
     close = interp2app(W_TextIOWrapper.close_w),
