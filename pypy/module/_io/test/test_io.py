@@ -153,3 +153,10 @@ class AppTestOpen:
         f = io.open(self.tmpfile, "w+b")
         f.close()
 
+    def test_array_write(self):
+        import _io, array
+        a = array.array(b'i', range(10))
+        n = len(a.tostring())
+        with _io.open(self.tmpfile, "wb", 0) as f:
+            assert f.write(a) == n
+
