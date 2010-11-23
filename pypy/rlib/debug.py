@@ -87,13 +87,15 @@ else:
     _stop_colors = ""
 
 def debug_start(category):
-    print >> sys.stderr, '%s[%s] {%s%s' % (_start_colors_1, time.clock(),
+    c = int(time.clock() * 100)
+    print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_start(category)
 
 def debug_stop(category):
-    print >> sys.stderr, '%s[%s] %s}%s' % (_start_colors_2, time.clock(),
+    c = int(time.clock() * 100)
+    print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_stop(category)
