@@ -1549,6 +1549,8 @@ class LLtypeBackendTest(BaseBackendTest):
         assert values == [1, 10]
 
     def test_force_operations_returning_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         values = []
         def maybe_force(token, flag):
             if flag:
@@ -1797,6 +1799,7 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse(ops)
         looptoken = LoopToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
@@ -1822,7 +1825,23 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_latest_value_int(0) == 13
         assert called
 
+        # test the fast path, which should not call assembler_helper()
+        del called[:]
+        self.cpu.done_with_this_frame_int_v = done_number
+        try:
+            othertoken = LoopToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+            for i in range(10):
+                self.cpu.set_future_value_int(i, i+1)
+            res = self.cpu.execute_token(othertoken)
+            assert self.cpu.get_latest_value_int(0) == 97
+            assert not called
+        finally:
+            del self.cpu.done_with_this_frame_int_v
+
     def test_assembler_call_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         called = []
         def assembler_helper(failindex, virtualizable):
             assert self.cpu.get_latest_value_float(0) == 1.2 + 3.2
@@ -1909,6 +1928,8 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(a, flavor='raw')
 
     def test_redirect_call_assembler(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         called = []
         def assembler_helper(failindex, virtualizable):
             assert self.cpu.get_latest_value_float(0) == 1.25 + 3.25
