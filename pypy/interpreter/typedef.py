@@ -133,6 +133,13 @@ def _getusercls(config, cls, wants_dict, wants_slots, wants_del, weakrefable):
     typedef = cls.typedef
     if wants_dict and typedef.hasdict:
         wants_dict = False
+    if config.objspace.std.withmapdict and not typedef.hasdict:
+        # mapdict only works if the type does not already have a dict
+        if wants_del:
+            parentcls = get_unique_interplevel_subclass(config, cls, True, True,
+                                                        False, True)
+            return _usersubclswithfeature(config, parentcls, "del")
+        return _usersubclswithfeature(config, cls, "user", "dict", "weakref", "slots")
     # Forest of if's - see the comment above.
     if wants_del:
         if wants_dict:
@@ -186,10 +193,21 @@ def _builduserclswithfeature(config, supercls, *features):
 
     def add(Proto):
         for key, value in Proto.__dict__.items():
-            if not key.startswith('__') or key == '__del__':
+            if (not key.startswith('__') and not key.startswith('_mixin_') 
+                    or key == '__del__'):
+                if hasattr(value, "func_name"):
+                    value = func_with_new_name(value, value.func_name)
                 body[key] = value
 
+    if (config.objspace.std.withmapdict and "dict" in features):
+        from pypy.objspace.std.mapdict import BaseMapdictObject, ObjectMixin
+        add(BaseMapdictObject)
+        add(ObjectMixin)
+        body["user_overridden_class"] = True
+        features = ()
+
     if "user" in features:     # generic feature needed by all subcls
+
         class Proto(object):
             user_overridden_class = True
 
@@ -245,16 +263,10 @@ def _builduserclswithfeature(config, supercls, *features):
                 return self.slots_w[index]
         add(Proto)
 
-    wantdict = "dict" in features
-    if wantdict and config.objspace.std.withinlineddict:
-        from pypy.objspace.std.objectobject import W_ObjectObject
-        from pypy.objspace.std.inlinedict import make_mixin
-        if supercls is W_ObjectObject:
-            Mixin = make_mixin(config)
-            add(Mixin)
-            wantdict = False
-
-    if wantdict:
+    if "dict" in features:
+        base_user_setup = supercls.user_setup.im_func
+        if "user_setup" in body:
+            base_user_setup = body["user_setup"]
         class Proto(object):
             def getdict(self):
                 return self.w__dict__
@@ -263,24 +275,13 @@ def _builduserclswithfeature(config, supercls, *features):
                 self.w__dict__ = check_new_dictionary(space, w_dict)
             
             def user_setup(self, space, w_subtype):
-                self.space = space
-                self.w__class__ = w_subtype
                 self.w__dict__ = space.newdict(
                     instance=True, classofinstance=w_subtype)
-                self.user_setup_slots(w_subtype.nslots)
+                base_user_setup(self, space, w_subtype)
 
             def setclass(self, space, w_subtype):
                 # only used by descr_set___class__
                 self.w__class__ = w_subtype
-                if space.config.objspace.std.withshadowtracking:
-                    self.w__dict__.set_shadows_anything()
-
-            def getdictvalue_attr_is_in_class(self, space, name):
-                w_dict = self.w__dict__
-                if space.config.objspace.std.withshadowtracking:
-                    if not w_dict.shadows_anything():
-                        return None
-                return space.finditem_str(w_dict, name)
 
         add(Proto)
 

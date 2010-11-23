@@ -1,10 +1,11 @@
+from __future__ import with_statement
 import new
 import py
 from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
 from pypy.objspace.flow.model import flatten, mkentrymap, c_last_exception
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
-from pypy.objspace.flow.objspace import FlowObjSpace 
+from pypy.objspace.flow.objspace import FlowObjSpace, error
 from pypy.objspace.flow import objspace, flowcontext
 from pypy import conftest
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -828,6 +829,25 @@ class TestFlowObjSpace(Base):
         simplify_graph(graph)
         assert self.all_operations(graph) == {'getitem': 1}
 
+    def test_context_manager(self):
+        def f(c, x):
+            with x:
+                pass
+        graph = self.codetest(f)
+        # 2 method calls: x.__enter__() and x.__exit__(None, None, None)
+        assert self.all_operations(graph) == {'getattr': 2,
+                                              'simple_call': 2}
+        #
+        def g(): pass
+        def f(c, x):
+            with x:
+                g()
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {
+            'getattr': 2,     # __enter__ and __exit__
+            'simple_call': 4, # __enter__, g and 2 possible calls to __exit__
+            'is_true': 1}     # check the result of __exit__()
+
     def monkey_patch_code(self, code, stacksize, flags, codestring, names, varnames):
         c = code
         return new.code(c.co_argcount, c.co_nlocals, stacksize, flags,
@@ -933,6 +953,22 @@ class TestFlowObjSpace(Base):
                 assert op.args[0] == Constant(g)
 
 
+    def test_cannot_catch_special_exceptions(self):
+        def f():
+            try:
+                f()
+            except NotImplementedError:
+                pass
+        py.test.raises(error.FlowingError, "self.codetest(f)")
+        #
+        def f():
+            try:
+                f()
+            except AssertionError:
+                pass
+        py.test.raises(error.FlowingError, "self.codetest(f)")
+
+
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):
         cls.space = FlowObjSpace()
@@ -992,6 +1028,15 @@ class TestGenInterpStyle(Base):
         expected = [Exception, TypeError]
         expected.sort()
         assert excfound == expected
+
+    def test_can_catch_special_exceptions(self):
+        def f():
+            try:
+                f()
+            except NotImplementedError:
+                pass
+        graph = self.codetest(f)
+        # assert did not crash
 
 
 DATA = {'x': 5,

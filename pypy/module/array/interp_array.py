@@ -27,7 +27,7 @@ def w_array(space, w_cls, typecode, w_args=None):
     typecode = typecode[0]
 
     if space.is_w(w_cls, space.gettypeobject(W_ArrayBase.typedef)):
-        if len(w_args.keywords_w) > 0:
+        if w_args.keywords: # XXX this might be forbidden fishing
             msg = 'array.array() does not take keyword arguments'
             raise OperationError(space.w_TypeError, space.wrap(msg))
         
@@ -192,32 +192,30 @@ def make_array(mytype):
                           mytype.bytes
                     raise OperationError(space.w_OverflowError,
                                          space.wrap(msg))
-            elif mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+                return rffi.cast(mytype.itemtype, item)
+            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
                 if len(item) != 1:
                     msg = 'array item must be char'
                     raise OperationError(space.w_TypeError, space.wrap(msg))
                 item = item[0]
-
+                return rffi.cast(mytype.itemtype, item)
+            #
+            # "regular" case: it fits in an rpython integer (lltype.Signed)
+            result = rffi.cast(mytype.itemtype, item)
             if mytype.canoverflow:
-                msg = None
-                if mytype.signed:
-                    if item < -1 << (mytype.bytes * 8 - 1):
+                if rffi.cast(lltype.Signed, result) != item:
+                    # overflow.  build the correct message
+                    if item < 0:
                         msg = ('signed %d-byte integer is less than minimum' %
                                mytype.bytes)
-                    elif item > (1 << (mytype.bytes * 8 - 1)) - 1:
+                    else:
                         msg = ('signed %d-byte integer is greater than maximum'
                                % mytype.bytes)
-                else:
-                    if item < 0:
-                        msg = ('unsigned %d-byte integer is less than minimum'
-                               % mytype.bytes)
-                    elif item > (1 << (mytype.bytes * 8)) - 1:
-                        msg = ('unsigned %d-byte integer is greater'
-                               ' than maximum' % mytype.bytes)
-                if msg is not None:
+                    if not mytype.signed:
+                        msg = 'un' + msg      # 'signed' => 'unsigned'
                     raise OperationError(space.w_OverflowError,
                                          space.wrap(msg))
-            return rffi.cast(mytype.itemtype, item)
+            return result
 
         def __del__(self):
             self.setlen(0)

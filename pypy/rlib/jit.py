@@ -4,6 +4,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.nonconst import NonConstant
 
 def purefunction(func):
     """ Decorate a function as pure. Pure means precisely that:
@@ -77,6 +78,12 @@ def purefunction_promote(promote_args='all'):
         return result
     return decorator
 
+def oopspec(spec):
+    def decorator(func):
+        func.oopspec = spec
+        return func
+    return decorator
+
 class Entry(ExtRegistryEntry):
     _about_ = hint
 
@@ -137,6 +144,32 @@ class Entry(ExtRegistryEntry):
         from pypy.rpython.lltypesystem import lltype
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, _we_are_jitted)
+
+
+def current_trace_length():
+    """During JIT tracing, returns the current trace length (as a constant).
+    If not tracing, returns -1."""
+    if NonConstant(False):
+        return 73
+    return -1
+current_trace_length.oopspec = 'jit.current_trace_length()'
+
+def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
+                      arg3=-sys.maxint-1, arg4=-sys.maxint-1):
+    """When JITted, cause an extra operation DEBUG_MERGE_POINT to appear in
+    the graphs.  Should not be left after debugging."""
+    keepalive_until_here(string) # otherwise the whole function call is removed
+jit_debug.oopspec = 'jit.debug(string, arg1, arg2, arg3, arg4)'
+
+def assert_green(value):
+    """Very strong assert: checks that 'value' is a green
+    (a JIT compile-time constant)."""
+    keepalive_until_here(value)
+assert_green._annspecialcase_ = 'specialize:argtype(0)'
+assert_green.oopspec = 'jit.assert_green(value)'
+
+class AssertGreenFailed(Exception):
+    pass
 
 
 ##def force_virtualizable(virtualizable):
@@ -250,8 +283,9 @@ class JitDriver:
     several independent JITting interpreters in it.
     """
 
+    active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
-    
+
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
@@ -266,7 +300,8 @@ class JitDriver:
             self.virtualizables = virtualizables
         for v in self.virtualizables:
             assert v in self.reds
-        self._alllivevars = dict.fromkeys(self.greens + self.reds)
+        self._alllivevars = dict.fromkeys(
+            [name for name in self.greens + self.reds if '.' not in name])
         self._make_extregistryentries()
         self.get_jitcell_at = get_jitcell_at
         self.set_jitcell_at = set_jitcell_at
@@ -355,10 +390,16 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
 
     def compute_result_annotation(self, **kwds_s):
         from pypy.annotation import model as annmodel
+
+        if self.instance.__name__ == 'jit_merge_point':
+            if not self.annotate_hooks(**kwds_s):
+                return None      # wrong order, try again later
+
         driver = self.instance.im_self
         keys = kwds_s.keys()
         keys.sort()
-        expected = ['s_' + name for name in driver.greens + driver.reds]
+        expected = ['s_' + name for name in driver.greens + driver.reds
+                                if '.' not in name]
         expected.sort()
         if keys != expected:
             raise JitHintError("%s expects the following keyword "
@@ -382,30 +423,35 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                    key[2:])
             cache[key] = s_value
 
-        if self.instance.__name__ == 'jit_merge_point':
-            self.annotate_hooks(**kwds_s)
-            
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
         driver = self.instance.im_self
         s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
-        self.annotate_hook(driver.get_jitcell_at, driver.greens, **kwds_s)
-        self.annotate_hook(driver.set_jitcell_at, driver.greens, [s_jitcell],
-                           **kwds_s)
-        self.annotate_hook(driver.get_printable_location, driver.greens, **kwds_s)
+        h = self.annotate_hook
+        return (h(driver.get_jitcell_at, driver.greens, **kwds_s)
+            and h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
+            and h(driver.get_printable_location, driver.greens, **kwds_s))
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
-            return
+            return True
         bk = self.bookkeeper
         s_func = bk.immutablevalue(func)
         uniquekey = 'jitdriver.%s' % func.func_name
         args_s = args_s[:]
         for name in variables:
-            s_arg = kwds_s['s_' + name]
+            if '.' not in name:
+                s_arg = kwds_s['s_' + name]
+            else:
+                objname, fieldname = name.split('.')
+                s_instance = kwds_s['s_' + objname]
+                s_arg = s_instance.classdef.about_attribute(fieldname)
+                if s_arg is None:
+                    return False     # wrong order, try again later
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
+        return True
 
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
@@ -416,9 +462,42 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         greens_v = []
         reds_v = []
         for name in driver.greens:
-            i = kwds_i['i_' + name]
-            r_green = hop.args_r[i]
-            v_green = hop.inputarg(r_green, arg=i)
+            if '.' not in name:
+                i = kwds_i['i_' + name]
+                r_green = hop.args_r[i]
+                v_green = hop.inputarg(r_green, arg=i)
+            else:
+                if hop.rtyper.type_system.name == 'ootypesystem':
+                    py.test.skip("lltype only")
+                objname, fieldname = name.split('.')   # see test_green_field
+                assert objname in driver.reds
+                i = kwds_i['i_' + objname]
+                s_red = hop.args_s[i]
+                r_red = hop.args_r[i]
+                while True:
+                    try:
+                        mangled_name, r_field = r_red._get_field(fieldname)
+                        break
+                    except KeyError:
+                        pass
+                    assert r_red.rbase is not None, (
+                        "field %r not found in %r" % (name,
+                                                      r_red.lowleveltype.TO))
+                    r_red = r_red.rbase
+                GTYPE = r_red.lowleveltype.TO
+                assert GTYPE._immutable_field(mangled_name), (
+                    "field %r must be declared as immutable" % name)
+                if not hasattr(driver, 'll_greenfields'):
+                    driver.ll_greenfields = {}
+                driver.ll_greenfields[name] = GTYPE, mangled_name
+                #
+                v_red = hop.inputarg(r_red, arg=i)
+                c_llname = hop.inputconst(lltype.Void, mangled_name)
+                v_green = hop.genop('getfield', [v_red, c_llname],
+                                    resulttype = r_field)
+                s_green = s_red.classdef.about_attribute(fieldname)
+                assert s_green is not None
+                hop.rtyper.annotator.setbinding(v_green, s_green)
             greens_v.append(v_green)
         for name in driver.reds:
             i = kwds_i['i_' + name]

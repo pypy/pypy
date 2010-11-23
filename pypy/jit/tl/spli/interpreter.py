@@ -1,12 +1,14 @@
 import os
-from pypy.tool import stdlib_opcode as opcode
+from pypy.tool import stdlib_opcode
 from pypy.jit.tl.spli import objects, pycode
-from pypy.tool.stdlib_opcode import unrolling_opcode_descs
-from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.objectmodel import we_are_translated
 
+opcode_method_names = stdlib_opcode.host_bytecode_spec.method_names
+unrolling_opcode_descs = unrolling_iterable(
+    stdlib_opcode.host_bytecode_spec.ordered_opdescs)
+HAVE_ARGUMENT = stdlib_opcode.host_HAVE_ARGUMENT
 
 compare_ops = [
     "cmp_lt",   # "<"
@@ -79,7 +81,7 @@ class SPLIFrame(object):
             self.stack_depth = hint(self.stack_depth, promote=True)
             op = ord(code[instr_index])
             instr_index += 1
-            if op >= opcode.HAVE_ARGUMENT:
+            if op >= HAVE_ARGUMENT:
                 low = ord(code[instr_index])
                 hi = ord(code[instr_index + 1])
                 oparg = (hi << 8) | low
@@ -181,6 +183,12 @@ class SPLIFrame(object):
         w_cond = self.peek()
         if not w_cond.is_true():
             next_instr += arg
+        return next_instr
+
+    def POP_JUMP_IF_FALSE(self, arg, next_instr, code):
+        w_cond = self.pop()
+        if not w_cond.is_true():
+            next_instr = arg
         return next_instr
 
     def JUMP_FORWARD(self, arg, next_instr, code):

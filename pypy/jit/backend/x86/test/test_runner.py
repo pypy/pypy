@@ -10,7 +10,7 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.tool.udir import udir
 import ctypes
 import sys
@@ -346,7 +346,7 @@ class TestX86(LLtypeBackendTest):
                 return self.val
 
         operations = [
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello")], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello"), 0], None),
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
@@ -365,7 +365,7 @@ class TestX86(LLtypeBackendTest):
         bridge = [
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye")], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye"), 0], None),
             ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
         ]
         bridge[1].setfailargs([i1b])
@@ -478,6 +478,10 @@ class TestX86OverflowMC(TestX86):
             # whether the test segfaults.
             assert self.cpu.get_latest_value_int(0) == finished.value
 
+    def test_overflow_guard_exception(self):
+        for i in range(50):
+            self.test_exceptions()
+
 
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):
@@ -493,7 +497,7 @@ class TestDebuggingAssembler(object):
     def test_debugger_on(self):
         loop = """
         [i0]
-        debug_merge_point('xyz')
+        debug_merge_point('xyz', 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
@@ -506,8 +510,25 @@ class TestDebuggingAssembler(object):
         self.cpu.execute_token(ops.token)
         # check debugging info
         name, struct = self.cpu.assembler.loop_run_counters[0]
-        assert name == 'xyz'
+        assert name == 0       # 'xyz'
         assert struct.i == 10
         self.cpu.finish_once()
         lines = py.path.local(self.logfile + ".count").readlines()
-        assert lines[0] == '10      xyz\n'
+        assert lines[0] == '0:10\n'  # '10      xyz\n'
+
+    def test_debugger_checksum(self):
+        loop = """
+        [i0]
+        debug_merge_point('xyz', 0)
+        i1 = int_add(i0, 1)
+        i2 = int_ge(i1, 10)
+        guard_false(i2) []
+        jump(i1)
+        """
+        ops = parse(loop)
+        self.cpu.assembler.set_debug(True)
+        self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.execute_token(ops.token)
+        assert ops.token._x86_debug_checksum == sum([op.getopnum()
+                                                     for op in ops.operations])

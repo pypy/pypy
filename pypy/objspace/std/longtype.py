@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
+from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject
@@ -9,10 +9,10 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     if w_base is None:
         # check for easy cases
         if type(w_value) is W_LongObject:
-            pass
+            bigint = w_value.num
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:
-                w_value = string_to_w_long(space, space.str_w(w_value))
+                bigint = string_to_bigint(space.str_w(w_value))
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
@@ -22,7 +22,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                     from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
                 else:
                     from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-                w_value = string_to_w_long(space, unicode_to_decimal_w(space, w_value))
+                bigint = string_to_bigint(unicode_to_decimal_w(space, w_value))
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
@@ -35,10 +35,11 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             if space.is_true(space.isinstance(w_obj, space.w_long)):
                 assert isinstance(w_obj, W_LongObject)  # XXX this could fail!
                 # XXX find a way to do that even if w_obj is not a W_LongObject
-                w_value = w_obj
+                bigint = w_obj.num
             elif space.is_true(space.isinstance(w_obj, space.w_int)):
+                from pypy.rlib.rbigint import rbigint
                 intval = space.int_w(w_obj)
-                w_value = W_LongObject.fromint(space, intval)
+                bigint = rbigint.fromint(intval)
             else:
                 raise OperationError(space.w_ValueError,
                                     space.wrap("value can't be converted to long"))
@@ -56,13 +57,13 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                                      space.wrap("long() can't convert non-string "
                                                 "with explicit base"))
         try:
-            w_value = string_to_w_long(space, s, base)
+            bigint = string_to_bigint(s, base)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
 
     w_obj = space.allocate_instance(W_LongObject, w_longtype)
-    W_LongObject.__init__(w_obj, w_value.num)
+    W_LongObject.__init__(w_obj, bigint)
     return w_obj
 
 # ____________________________________________________________

@@ -421,7 +421,7 @@ class RPythonTyper(object):
             assert noexclink.exitcase is None
             if pos == "removed":
                 # the exception cannot actually occur at all.
-                # See for example rspecialcase.rtype_call_specialcase().
+                # This is set by calling exception_cannot_occur().
                 # We just remove all exception links.
                 block.exitswitch = None
                 block.exits = block.exits[:1]
@@ -1019,7 +1019,7 @@ from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rrange
 from pypy.rpython import rstr, rdict, rlist
-from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
+from pypy.rpython import rclass, rbuiltin, rpbc
 from pypy.rpython import rexternalobj
 from pypy.rpython import rptr
 from pypy.rpython import rgeneric

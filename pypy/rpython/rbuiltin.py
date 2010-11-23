@@ -345,17 +345,22 @@ else:
 BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types
 
-def rtype_malloc(hop, i_flavor=None, i_zero=None):
+def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
-    v_flavor, v_zero = parse_kwds(hop, (i_flavor, lltype.Void), (i_zero, None))
+    v_flavor, v_zero, v_track_allocation = parse_kwds(hop,
+        (i_flavor, lltype.Void),
+        (i_zero, None),
+        (i_track_allocation, None))
 
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
     if i_zero is not None:
         flags['zero'] = v_zero.value
+    if i_track_allocation is not None:
+        flags['track_allocation'] = v_track_allocation.value
     vlist.append(hop.inputconst(lltype.Void, flags))
         
     if hop.nb_args == 2:
@@ -366,11 +371,28 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None):
     hop.exception_is_here()
     return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
-def rtype_free(hop, i_flavor):
-    assert i_flavor == 1
+def rtype_free(hop, i_flavor, i_track_allocation=None):
+    vlist = [hop.inputarg(hop.args_r[0], arg=0)]
+    v_flavor, v_track_allocation = parse_kwds(hop,
+        (i_flavor, lltype.Void),
+        (i_track_allocation, None))
+    #
+    assert v_flavor is not None and v_flavor.value == 'raw'
+    flags = {'flavor': 'raw'}
+    if i_track_allocation is not None:
+        flags['track_allocation'] = v_track_allocation.value
+    vlist.append(hop.inputconst(lltype.Void, flags))
+    #
     hop.exception_cannot_occur()
-    vlist = hop.inputargs(hop.args_r[0], lltype.Void)
     hop.genop('free', vlist)
+
+def rtype_render_immortal(hop, i_track_allocation=None):
+    vlist = [hop.inputarg(hop.args_r[0], arg=0)]
+    v_track_allocation = parse_kwds(hop,
+        (i_track_allocation, None))
+    hop.exception_cannot_occur()
+    if i_track_allocation is None or v_track_allocation.value:
+        hop.genop('track_alloc_stop', vlist)
 
 def rtype_const_result(hop):
     hop.exception_cannot_occur()
@@ -509,6 +531,7 @@ def rtype_runtime_type_info(hop):
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.free] = rtype_free
+BUILTIN_TYPER[lltype.render_immortal] = rtype_render_immortal
 BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_opaque_ptr] = rtype_cast_opaque_ptr
@@ -584,8 +607,9 @@ def rtype_free_non_gc_object(hop):
     vinst, = hop.inputargs(hop.args_r[0])
     flavor = hop.args_r[0].gcflavor
     assert flavor != 'gc'
-    cflavor = hop.inputconst(lltype.Void, flavor)
-    return hop.genop('free', [vinst, cflavor])
+    flags = {'flavor': flavor}
+    cflags = hop.inputconst(lltype.Void, flags)
+    return hop.genop('free', [vinst, cflags])
     
 BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 

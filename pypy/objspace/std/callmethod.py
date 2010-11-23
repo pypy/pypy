@@ -13,6 +13,9 @@ like: (on the left, without the new bytecodes; on the right, with them)
 from pypy.interpreter import function
 from pypy.objspace.descroperation import object_getattribute
 from pypy.rlib import jit, rstack # for resume points
+from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
+    LOOKUP_METHOD_mapdict_fill_cache_method
+
 
 # This module exports two extra methods for StdObjSpaceFrame implementing
 # the LOOKUP_METHOD and CALL_METHOD opcodes in an efficient way, as well
@@ -30,6 +33,13 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     #
     space = f.space
     w_obj = f.popvalue()
+
+    if space.config.objspace.std.withmapdict and not jit.we_are_jitted():
+        # mapdict has an extra-fast version of this function
+        from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict
+        if LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
+            return
+
     w_name = f.getname_w(nameindex)
     w_value = None
 
@@ -44,12 +54,17 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
         else:
             typ = type(w_descr)
             if typ is function.Function or typ is function.FunctionWithFixedCode:
-                w_value = w_obj.getdictvalue_attr_is_in_class(space, name)
+                w_value = w_obj.getdictvalue(space, name)
                 if w_value is None:
                     # fast method path: a function object in the class,
                     # nothing in the instance
                     f.pushvalue(w_descr)
                     f.pushvalue(w_obj)
+                    if (space.config.objspace.std.withmapdict and
+                            not jit.we_are_jitted()):
+                        # let mapdict cache stuff
+                        LOOKUP_METHOD_mapdict_fill_cache_method(
+                            f.getcode(), nameindex, w_obj, w_type, w_descr)
                     return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)
@@ -103,7 +118,7 @@ def call_method_opt(space, w_obj, methname, *arg_w):
         w_descr = space.lookup(w_obj, methname)
         typ = type(w_descr)
         if typ is function.Function or typ is function.FunctionWithFixedCode:
-            w_value = w_obj.getdictvalue_attr_is_in_class(space, methname)
+            w_value = w_obj.getdictvalue(space, methname)
             if w_value is None:
                 # fast method path: a function object in the class,
                 # nothing in the instance

@@ -30,7 +30,8 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 # we zero-initialize the chunks to make the translation
                 # backends happy, but we don't need to do it at run-time.
                 zero = not we_are_translated()
-                return lltype.malloc(CHUNK, flavor="raw", zero=zero)
+                return lltype.malloc(CHUNK, flavor="raw", zero=zero,
+                                     track_allocation=False)
                 
             result = self.free_list
             self.free_list = result.next
@@ -44,7 +45,7 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 # Don't cache the old chunks but free them immediately.
                 # Helps debugging, and avoids that old chunks full of
                 # addresses left behind by a test end up in genc...
-                lltype.free(chunk, flavor="raw")
+                lltype.free(chunk, flavor="raw", track_allocation=False)
 
     unused_chunks = FreeList()
     cache[chunk_size] = unused_chunks, null_chunk
@@ -111,7 +112,7 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 cur = next
             free_non_gc_object(self)
 
-        def length(self):
+        def _length_estimate(self):
             chunk = self.chunk
             count = self.used_in_last_chunk
             while chunk:
@@ -134,7 +135,7 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
         foreach._annspecialcase_ = 'specialize:arg(1)'
 
         def stack2dict(self):
-            result = AddressDict(self.length())
+            result = AddressDict(self._length_estimate())
             self.foreach(_add_in_dict, result)
             return result
 

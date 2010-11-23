@@ -92,6 +92,9 @@ pass"""
         exc = py.test.raises(IndentationError, parse, input).value
         assert exc.msg == "unindent does not match any outer indentation level"
 
+    def test_mac_newline(self):
+        self.parse("this_is\ra_mac\rfile")
+
     def test_mode(self):
         assert self.parse("x = 43*54").type == syms.file_input
         tree = self.parse("43**54", "eval")

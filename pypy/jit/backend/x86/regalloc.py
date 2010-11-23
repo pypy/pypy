@@ -2,6 +2,7 @@
 """ Register allocation scheme.
 """
 
+import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr,
                                          LoopToken, INT, REF, FLOAT)
@@ -40,12 +41,10 @@ class X86RegisterManager(RegisterManager):
             return imm(c.value)
         elif isinstance(c, ConstPtr):
             if we_are_translated() and c.value and rgc.can_move(c.value):
-                print "convert_to_imm: ConstPtr needs special care"
-                raise AssertionError
+                not_implemented("convert_to_imm: ConstPtr needs special care")
             return imm(rffi.cast(lltype.Signed, c.value))
         else:
-            print "convert_to_imm: got a %s" % c
-            raise AssertionError
+            not_implemented("convert_to_imm: got a %s" % c)
 
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
@@ -70,8 +69,9 @@ class FloatConstants(object):
 
     def _get_new_array(self):
         n = self.BASE_CONSTANT_SIZE
+        # known to leak
         self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n,
-                                       flavor='raw')
+                                       flavor='raw', track_allocation=False)
         self.cur_array_free = n
     _get_new_array._dont_inline_ = True
 
@@ -349,8 +349,8 @@ class RegAlloc(object):
             if op.is_ovf():
                 if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
                     operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    print "int_xxx_ovf not followed by guard_(no)_overflow"
-                    raise AssertionError
+                    not_implemented("int_xxx_ovf not followed by "
+                                    "guard_(no)_overflow")
                 return True
             return False
         if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
@@ -624,7 +624,13 @@ class RegAlloc(object):
         assert isinstance(calldescr, BaseCallDescr)
         assert len(calldescr.arg_classes) == op.numargs() - 1
         size = calldescr.get_result_size(self.translate_support_code)
-        self._call(op, [imm(size)] + [self.loc(op.getarg(i)) for i in range(op.numargs())],
+        sign = calldescr.is_result_signed()
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self._call(op, [imm(size), sign_loc] +
+                       [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
@@ -645,7 +651,7 @@ class RegAlloc(object):
             self.rm._sync_var(op.getarg(vable_index))
             vable = self.fm.loc(op.getarg(vable_index))
         else:
-            vable = imm(0)
+            vable = imm0
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
@@ -653,9 +659,13 @@ class RegAlloc(object):
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
+        loc_newvalue = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
+        # because it will be needed anyway by the following setfield_gc.
+        # It avoids loading it twice from the memory.
         loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args,
                                                 imm_fine=False)
-        arglocs = [loc_base]
+        arglocs = [loc_base, loc_newvalue]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these
         # registers really need to be saved (a bit of a hack).  Moreover,
@@ -731,15 +741,11 @@ class RegAlloc(object):
             loc = self.loc(op.getarg(0))
             return self._call(op, [loc])
         # boehm GC (XXX kill the following code at some point)
-        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.UNICODE, self.translate_support_code)
-        if itemsize == 4:
-            return self._malloc_varsize(ofs_items, ofs, 2, op.getarg(0),
-                                        op.result)
-        elif itemsize == 2:
-            return self._malloc_varsize(ofs_items, ofs, 1, op.getarg(0),
-                                        op.result)
-        else:
-            assert False, itemsize
+        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
+                                                   self.translate_support_code)
+        scale = self._get_unicode_item_scale()
+        return self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
+                                    op.result)
 
     def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v):
         # XXX kill this function at some point
@@ -771,8 +777,9 @@ class RegAlloc(object):
             arglocs.append(self.loc(op.getarg(0)))
             return self._call(op, arglocs)
         # boehm GC (XXX kill the following code at some point)
-        scale_of_field, basesize, ofs_length, _ = (
+        itemsize, basesize, ofs_length, _, _ = (
             self._unpack_arraydescr(op.getdescr()))
+        scale_of_field = _get_scale(itemsize)
         return self._malloc_varsize(basesize, ofs_length, scale_of_field,
                                     op.getarg(0), op.result)
 
@@ -782,21 +789,19 @@ class RegAlloc(object):
         ofs = arraydescr.get_base_size(self.translate_support_code)
         size = arraydescr.get_item_size(self.translate_support_code)
         ptr = arraydescr.is_array_of_pointers()
-        scale = 0
-        while (1 << scale) < size:
-            scale += 1
-        assert (1 << scale) == size
-        return scale, ofs, ofs_length, ptr
+        sign = arraydescr.is_item_signed()
+        return size, ofs, ofs_length, ptr, sign
 
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
         ofs = fielddescr.offset
         size = fielddescr.get_field_size(self.translate_support_code)
         ptr = fielddescr.is_pointer_field()
-        return imm(ofs), imm(size), ptr
+        sign = fielddescr.is_field_signed()
+        return imm(ofs), imm(size), ptr, sign
 
     def consider_setfield_gc(self, op):
-        ofs_loc, size_loc, ptr = self._unpack_fielddescr(op.getdescr())
+        ofs_loc, size_loc, _, _ = self._unpack_fielddescr(op.getdescr())
         assert isinstance(size_loc, ImmedLoc)
         if size_loc.value == 1:
             need_lower_byte = True
@@ -823,10 +828,10 @@ class RegAlloc(object):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op):
-        scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, _, _, _ = self._unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        if scale == 0:
+        if itemsize == 1:
             need_lower_byte = True
         else:
             need_lower_byte = False
@@ -835,30 +840,39 @@ class RegAlloc(object):
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.possibly_free_vars(args)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(scale), imm(ofs)])
+                                 imm(itemsize), imm(ofs)])
 
     consider_setarrayitem_raw = consider_setarrayitem_gc
 
     def consider_getfield_gc(self, op):
-        ofs_loc, size_loc, _ = self._unpack_fielddescr(op.getdescr())
+        ofs_loc, size_loc, _, sign = self._unpack_fielddescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.rm.possibly_free_vars(args)
         result_loc = self.force_allocate_reg(op.result)
-        self.Perform(op, [base_loc, ofs_loc, size_loc], result_loc)
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self.Perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
     consider_getfield_raw = consider_getfield_gc
     consider_getfield_raw_pure = consider_getfield_gc
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op):
-        scale, ofs, _, _ = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, _, _, sign = self._unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.rm.possibly_free_vars_for_op(op)
         result_loc = self.force_allocate_reg(op.result)
-        self.Perform(op, [base_loc, ofs_loc, imm(scale), imm(ofs)], result_loc)
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self.Perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
+                          sign_loc], result_loc)
 
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
@@ -912,40 +926,84 @@ class RegAlloc(object):
     consider_unicodegetitem = consider_strgetitem
 
     def consider_copystrcontent(self, op):
+        self._consider_copystrcontent(op, is_unicode=False)
+
+    def consider_copyunicodecontent(self, op):
+        self._consider_copystrcontent(op, is_unicode=True)
+
+    def _consider_copystrcontent(self, op, is_unicode):
         # compute the source address
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(args[0], args)
         ofs_loc = self.rm.make_sure_var_in_reg(args[2], args)
+        assert args[0] is not args[1]    # forbidden case of aliasing
         self.rm.possibly_free_var(args[0])
-        self.rm.possibly_free_var(args[2])
+        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
+            self.rm.possibly_free_var(args[2])     # it if ==args[3] or args[4]
         srcaddr_box = TempBox()
-        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box)
-        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc)
+        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
+        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
+        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
+                                        is_unicode=is_unicode)
         # compute the destination address
-        base_loc = self.rm.make_sure_var_in_reg(args[1], args)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[3], args)
+        base_loc = self.rm.make_sure_var_in_reg(args[1], forbidden_vars)
+        ofs_loc = self.rm.make_sure_var_in_reg(args[3], forbidden_vars)
         self.rm.possibly_free_var(args[1])
-        self.rm.possibly_free_var(args[3])
+        if args[3] is not args[4]:     # more of the MESS described above
+            self.rm.possibly_free_var(args[3])
+        forbidden_vars = [args[4], srcaddr_box]
         dstaddr_box = TempBox()
-        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box)
-        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc)
+        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
+        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
+                                        is_unicode=is_unicode)
+        # compute the length in bytes
+        length_box = args[4]
+        length_loc = self.loc(length_box)
+        if is_unicode:
+            self.rm.possibly_free_var(length_box)
+            forbidden_vars = [srcaddr_box, dstaddr_box]
+            bytes_box = TempBox()
+            bytes_loc = self.rm.force_allocate_reg(bytes_box, forbidden_vars)
+            scale = self._get_unicode_item_scale()
+            if not (isinstance(length_loc, ImmedLoc) or
+                    isinstance(length_loc, RegLoc)):
+                self.assembler.mov(length_loc, bytes_loc)
+                length_loc = bytes_loc
+            self.assembler.load_effective_addr(length_loc, 0, scale, bytes_loc)
+            length_box = bytes_box
+            length_loc = bytes_loc
         # call memcpy()
-        length_loc = self.loc(args[4])
         self.rm.before_call()
         self.xrm.before_call()
         self.assembler._emit_call(imm(self.assembler.memcpy_addr),
                                   [dstaddr_loc, srcaddr_loc, length_loc])
-        self.rm.possibly_free_var(args[4])
+        self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
         self.rm.possibly_free_var(srcaddr_box)
 
-    def _gen_address_inside_string(self, baseloc, ofsloc, resloc):
+    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
         cpu = self.assembler.cpu
-        ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
+        if is_unicode:
+            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
                                                   self.translate_support_code)
-        assert itemsize == 1
-        self.assembler.load_effective_addr(ofsloc, ofs_items, 0,
+            scale = self._get_unicode_item_scale()
+        else:
+            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                                  self.translate_support_code)
+            assert itemsize == 1
+            scale = 0
+        self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
                                            resloc, baseloc)
+
+    def _get_unicode_item_scale(self):
+        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                                  self.translate_support_code)
+        if itemsize == 4:
+            return 2
+        elif itemsize == 2:
+            return 1
+        else:
+            raise AssertionError("bad unicode item size")
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -981,6 +1039,9 @@ class RegAlloc(object):
     def consider_debug_merge_point(self, op):
         pass
 
+    def consider_jit_debug(self, op):
+        pass
+
     def get_mark_gc_roots(self, gcrootmap):
         shape = gcrootmap.get_basic_shape(IS_X86_64)
         for v, val in self.fm.frame_bindings.items():
@@ -1000,15 +1061,11 @@ class RegAlloc(object):
         self.Perform(op, [], loc)
 
     def not_implemented_op(self, op):
-        msg = "[regalloc] Not implemented operation: %s" % op.getopname()
-        print msg
-        raise NotImplementedError(msg)
+        not_implemented("not implemented operation: %s" % op.getopname())
 
     def not_implemented_op_with_guard(self, op, guard_op):
-        msg = "[regalloc] Not implemented operation with guard: %s" % (
-            op.getopname(),)
-        print msg
-        raise NotImplementedError(msg)
+        not_implemented("not implemented operation with guard: %s" % (
+            op.getopname(),))
 
 oplist = [RegAlloc.not_implemented_op] * rop._LAST
 oplist_with_guard = [RegAlloc.not_implemented_op_with_guard] * rop._LAST
@@ -1042,3 +1099,14 @@ def get_ebp_ofs(position):
     # Returns (ebp-20), (ebp-24), (ebp-28)...
     # i.e. the n'th word beyond the fixed frame size.
     return -WORD * (FRAME_FIXED_SIZE + position)
+
+def _get_scale(size):
+    assert size == 1 or size == 2 or size == 4 or size == 8
+    if size < 4:
+        return size - 1         # 1, 2 => 0, 1
+    else:
+        return (size >> 2) + 1  # 4, 8 => 2, 3
+
+def not_implemented(msg):
+    os.write(2, '[x86/regalloc] %s\n' % msg)
+    raise NotImplementedError(msg)

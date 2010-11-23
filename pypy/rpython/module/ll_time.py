@@ -108,7 +108,7 @@ class RegisterTime(BaseLazyRegistering):
 
                 errcode = -1
                 if self.GETTIMEOFDAY_NO_TZ:
-                    errcode = g_gettimeofday(t)
+                    errcode = c_gettimeofday(t)
                 else:
                     errcode = c_gettimeofday(t, void)
 

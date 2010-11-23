@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
 from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
-from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.support import AddressDict
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi, llgroup
@@ -59,11 +58,11 @@ class SemiSpaceGC(MovingGCBase):
     # translating to a real backend.
     TRANSLATION_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
 
-    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096,
-                 max_space_size=sys.maxint//2+1):
+    def __init__(self, config, space_size=4096, max_space_size=sys.maxint//2+1,
+                 **kwds):
         self.param_space_size = space_size
         self.param_max_space_size = max_space_size
-        MovingGCBase.__init__(self, config, chunk_size)
+        MovingGCBase.__init__(self, config, **kwds)
 
     def setup(self):
         #self.total_collection_time = 0.0
@@ -230,6 +229,10 @@ class SemiSpaceGC(MovingGCBase):
         self.max_space_size = sys.maxint//2+1
         while self.max_space_size > size:
             self.max_space_size >>= 1
+
+    @classmethod
+    def JIT_minimal_size_in_nursery(cls):
+        return cls.object_minimal_size
 
     def collect(self, gen=0):
         self.debug_check_consistency()
@@ -690,15 +693,10 @@ class SemiSpaceGC(MovingGCBase):
         self._ll_typeid_map[idx].size += llmemory.raw_malloc_usage(totsize)
         self.trace(adr, self.track_heap_parent, adr)
 
-    def _track_heap_root(self, root):
-        self.track_heap(root.address[0])
+    @staticmethod
+    def _track_heap_root(obj, self):
+        self.track_heap(obj)
 
-    def heap_stats_walk_roots(self):
-        self.root_walker.walk_roots(
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root)
-        
     def heap_stats(self):
         self._tracked_dict = self.AddressDict()
         max_tid = self.root_walker.gcdata.max_type_id
@@ -711,7 +709,7 @@ class SemiSpaceGC(MovingGCBase):
         while i < max_tid:
             self._tracked_dict.add(llmemory.cast_ptr_to_adr(ll_typeid_map[i]))
             i += 1
-        self.heap_stats_walk_roots()
+        self.enumerate_all_roots(SemiSpaceGC._track_heap_root, self)
         self._ll_typeid_map = lltype.nullptr(ARRAY_TYPEID_MAP)
         self._tracked_dict.delete()
         return ll_typeid_map

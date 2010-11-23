@@ -6,7 +6,7 @@ from pypy.annotation.model import unionof, TLS, UnionError, isdegenerated
 class TooLateForChange(Exception):
     pass
 
-class ListItem:
+class ListItem(object):
     mutated = False    # True for lists mutated after creation
     resized = False    # True for lists resized after creation
     range_step = None  # the step -- only for lists only created by a range()
@@ -117,7 +117,7 @@ class ListItem:
         return updated
 
 
-class ListDef:
+class ListDef(object):
     """A list definition remembers how general the items in that particular
     list have to be.  Every list creation makes a new ListDef, and the union
     of two lists merges the ListItems that each ListDef stores."""

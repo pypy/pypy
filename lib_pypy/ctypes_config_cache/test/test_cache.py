@@ -7,19 +7,26 @@ dirpath = py.path.local(__file__).dirpath().dirpath()
 
 def run(filename, outputname):
     filepath = dirpath.join(filename)
-    tmpdir = udir.ensure('testcache-' + filename, dir=True)
-    outputpath = tmpdir.join(outputname)
-    d = {'__file__': str(outputpath)}
+    tmpdir = udir.ensure('testcache-' + os.path.splitext(filename)[0],
+                         dir=True)
+    tmpdir.join('dumpcache.py').write(dirpath.join('dumpcache.py').read())
     path = sys.path[:]
     try:
-        sys.path.insert(0, str(dirpath))
-        execfile(str(filepath), d)
+        sys.path.insert(0, str(tmpdir))
+        execfile(str(filepath), {})
     finally:
         sys.path[:] = path
+        sys.modules.pop('dumpcache', None)
     #
+    outputpath = tmpdir.join(outputname)
     assert outputpath.check(exists=1)
-    d = {}
-    execfile(str(outputpath), d)
+    modname = os.path.splitext(outputname)[0]
+    try:
+        sys.path.insert(0, str(tmpdir))
+        d = {}
+        execfile(str(outputpath), d)
+    finally:
+        sys.path[:] = path
     return d
 
 

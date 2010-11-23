@@ -70,7 +70,7 @@ class AppTestFfi:
            return s[num];
         }
 
-        char *char_check(char x, char y)
+        const char *char_check(char x, char y)
         {
            if (y == static_str[0])
               return static_str;
@@ -185,13 +185,14 @@ class AppTestFfi:
                      sum_x_y
                      give perturb get_s2a check_s2a
                      AAA_first_ordinal_function
+                     ret_un_func
                   """.split()
         eci = ExternalCompilationInfo(export_symbols=symbols)
         return str(platform.compile([c_file], eci, 'x', standalone=False))
     prepare_c_example = staticmethod(prepare_c_example)
     
     def setup_class(cls):
-        from pypy.rlib.libffi import get_libc_name
+        from pypy.rlib.clibffi import get_libc_name
         space = gettestobjspace(usemodules=('_rawffi', 'struct'))
         cls.space = space
         cls.w_lib_name = space.wrap(cls.prepare_c_example())
@@ -295,6 +296,7 @@ class AppTestFfi:
         assert _rawffi.charp2string(res[0]) is None
         arg1.free()
         arg2.free()
+        a.free()
 
     def test_raw_callable(self):
         import _rawffi
@@ -945,14 +947,15 @@ class AppTestFfi:
         assert a[4] == 't'
 
     def test_union(self):
-        skip("segfaulting")
         import _rawffi
         longsize = _rawffi.sizeof('l')
-        S = _rawffi.Structure((longsize, longsize))
+        S = _rawffi.Structure([('x', 'h'), ('y', 'l')], union=True)
         s = S(autofree=False)
+        s.x = 12345
         lib = _rawffi.CDLL(self.lib_name)
         f = lib.ptr('ret_un_func', [(S, 1)], (S, 1))
         ret = f(s)
+        assert ret.y == 1234500, "ret.y == %d" % (ret.y,)
         s.free()
 
 class AppTestAutoFree:

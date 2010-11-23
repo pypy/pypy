@@ -325,6 +325,15 @@ def test_r_singlefloat():
     assert float(x) != 2.1
     assert abs(float(x) - 2.1) < 1E-6
 
+def test_r_singlefloat_eq():
+    x = r_singlefloat(2.5)       # exact number
+    y = r_singlefloat(2.5)
+    assert x == y
+    assert not x != y
+    assert not x == 2.5
+    assert x != 2.5
+    py.test.raises(TypeError, "x>y")
+
 class BaseTestRarithmetic(BaseRtypingTest):
     def test_formatd(self):
         from pypy.rlib.rarithmetic import formatd
@@ -358,7 +367,17 @@ class BaseTestRarithmetic(BaseRtypingTest):
         assert res == 1.0
 
         res = self.interpret(f, [1])
-        assert res == 1e-100                 
+        assert res == 1e-100
+
+    def test_compare_singlefloat_crashes(self):
+        from pypy.rlib.rarithmetic import r_singlefloat
+        from pypy.rpython.error import MissingRTypeOperation
+        def f(x):
+            a = r_singlefloat(x)
+            b = r_singlefloat(x+1)
+            return a == b
+        py.test.raises(MissingRTypeOperation, "self.interpret(f, [42.0])")
+
 
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass

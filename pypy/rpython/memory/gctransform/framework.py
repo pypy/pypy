@@ -172,6 +172,7 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.static_root_nongcend = a_random_address   # patched in finish()
         gcdata.static_root_end = a_random_address        # patched in finish()
         gcdata.max_type_id = 13                          # patched in finish()
+        gcdata.typeids_z = a_random_address              # patched in finish()
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
@@ -212,6 +213,9 @@ class FrameworkGCTransformer(GCTransformer):
         data_classdef.generalize_attr(
             'max_type_id',
             annmodel.SomeInteger())
+        data_classdef.generalize_attr(
+            'typeids_z',
+            annmodel.SomeAddress())
 
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
@@ -415,6 +419,11 @@ class FrameworkGCTransformer(GCTransformer):
                                        [s_gc, annmodel.SomeInteger()],
                                        annmodel.s_Bool,
                                        minimal_transform=False)
+        self.get_typeids_z_ptr = getfn(inspector.get_typeids_z,
+                                       [s_gc],
+                                       annmodel.SomePtr(
+                                           lltype.Ptr(rgc.ARRAY_OF_CHAR)),
+                                       minimal_transform=False)
 
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
                                            [s_gc,
@@ -426,6 +435,7 @@ class FrameworkGCTransformer(GCTransformer):
         if GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
                                            [s_gc,
+                                            annmodel.SomeAddress(),
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
@@ -434,12 +444,14 @@ class FrameworkGCTransformer(GCTransformer):
                 # func should not be a bound method, but a real function
                 assert isinstance(func, types.FunctionType)
                 self.write_barrier_failing_case_ptr = getfn(func,
-                                               [annmodel.SomeAddress()],
+                                               [annmodel.SomeAddress(),
+                                                annmodel.SomeAddress()],
                                                annmodel.s_None)
             func = getattr(GCClass, 'write_barrier_from_array', None)
             if func is not None:
                 self.write_barrier_from_array_ptr = getfn(func.im_func,
                                            [s_gc,
+                                            annmodel.SomeAddress(),
                                             annmodel.SomeAddress(),
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
@@ -569,7 +581,14 @@ class FrameworkGCTransformer(GCTransformer):
         newgcdependencies = []
         newgcdependencies.append(ll_static_roots_inside)
         ll_instance.inst_max_type_id = len(group.members)
-        self.write_typeid_list()
+        typeids_z = self.write_typeid_list()
+        ll_typeids_z = lltype.malloc(rgc.ARRAY_OF_CHAR,
+                                     len(typeids_z),
+                                     immortal=True)
+        for i in range(len(typeids_z)):
+            ll_typeids_z[i] = typeids_z[i]
+        ll_instance.inst_typeids_z = llmemory.cast_ptr_to_adr(ll_typeids_z)
+        newgcdependencies.append(ll_typeids_z)
         return newgcdependencies
 
     def get_finish_tables(self):
@@ -596,6 +615,11 @@ class FrameworkGCTransformer(GCTransformer):
         for index in range(len(self.layoutbuilder.type_info_group.members)):
             f.write("member%-4d %s\n" % (index, all_ids.get(index, '?')))
         f.close()
+        try:
+            import zlib
+            return zlib.compress(udir.join("typeids.txt").read(), 9)
+        except ImportError:
+            return ''
 
     def transform_graph(self, graph):
         func = getattr(graph, 'func', None)
@@ -985,6 +1009,13 @@ class FrameworkGCTransformer(GCTransformer):
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 
+    def gct_gc_typeids_z(self, hop):
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call",
+                  [self.get_typeids_z_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
     def gct_malloc_nonmovable_varsize(self, hop):
         TYPE = hop.spaceop.result.concretetype
         if self.gcdata.gc.can_malloc_nonmovable():
@@ -1021,6 +1052,8 @@ class FrameworkGCTransformer(GCTransformer):
             and not isinstance(v_newvalue, Constant)
             and v_struct.concretetype.TO._gckind == "gc"
             and hop.spaceop not in self.clean_sets):
+            v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
+                                   resulttype = llmemory.Address)
             v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
                                      resulttype = llmemory.Address)
             if (self.write_barrier_from_array_ptr is not None and
@@ -1030,12 +1063,14 @@ class FrameworkGCTransformer(GCTransformer):
                 assert v_index.concretetype == lltype.Signed
                 hop.genop("direct_call", [self.write_barrier_from_array_ptr,
                                           self.c_const_gc,
+                                          v_newvalue,
                                           v_structaddr,
                                           v_index])
             else:
                 self.write_barrier_calls += 1
                 hop.genop("direct_call", [self.write_barrier_ptr,
                                           self.c_const_gc,
+                                          v_newvalue,
                                           v_structaddr])
         hop.rename('bare_' + opname)
 
@@ -1203,7 +1238,7 @@ def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
 sizeofaddr = llmemory.sizeof(llmemory.Address)
 
 
-class BaseRootWalker:
+class BaseRootWalker(object):
     need_root_stack = False
 
     def __init__(self, gctransformer):

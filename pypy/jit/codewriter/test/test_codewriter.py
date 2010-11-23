@@ -45,6 +45,7 @@ class FakeJitDriverSD:
         self.portal_graph = portal_graph
         self.portal_runner_ptr = "???"
         self.virtualizable_info = None
+        self.greenfield_info = None
 
 
 def test_loop():

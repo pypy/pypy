@@ -11,14 +11,14 @@ from pypy.rpython.error import TyperError, MissingRTypeOperation
 
 # initialization states for Repr instances 
 
-class setupstate: 
+class setupstate(object): 
     NOTINITIALIZED = 0 
     INPROGRESS = 1
     BROKEN = 2 
     FINISHED = 3
     DELAYED = 4
 
-class Repr:
+class Repr(object):
     """ An instance of Repr is associated with each instance of SomeXxx.
     It defines the chosen representation for the SomeXxx.  The Repr subclasses
     generally follows the SomeXxx subclass hierarchy, but there are numerous

@@ -434,6 +434,9 @@ class __extend__(SomeDict):
     def method_clear(dct):
         pass
 
+    def method_popitem(dct):
+        return dct.getanyitem('items')
+
     def _can_only_throw(dic, *ignore):
         if dic1.dictdef.dictkey.custom_eq_hash:
             return None    # r_dict: can throw anything

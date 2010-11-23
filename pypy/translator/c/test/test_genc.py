@@ -426,6 +426,7 @@ def test_exportstruct():
     if py.test.config.option.view:
         t.view()
     assert ' BarStruct ' in t.driver.cbuilder.c_source_filename.read()
+    free(foo, flavor="raw")
 
 def test_recursive_llhelper():
     from pypy.rpython.annlowlevel import llhelper
@@ -473,7 +474,27 @@ def test_recursive_llhelper():
         return f(s)
     a_f = A(f, "f")
     a_g = A(g, "g")
-    t = lltype.malloc(STRUCT, flavor="raw")
+    t = lltype.malloc(STRUCT, flavor="raw", immortal=True)
     t.bar = llhelper(FTPTR, a_f.make_func())
     fn = compile(chooser, [bool])
     assert fn(True)
+
+def test_inhibit_tail_call():
+    from pypy.rpython.lltypesystem import lltype
+    def foobar_fn(n):
+        return 42
+    foobar_fn._dont_inline_ = True
+    def main(n):
+        return foobar_fn(n)
+    #
+    t = Translation(main, [int], backend="c")
+    t.rtype()
+    t.context._graphof(foobar_fn).inhibit_tail_call = True
+    t.source_c()
+    lines = t.driver.cbuilder.c_source_filename.readlines()
+    for i, line in enumerate(lines):
+        if '= pypy_g_foobar_fn' in line:
+            break
+    else:
+        assert 0, "the call was not found in the C source"
+    assert 'PYPY_INHIBIT_TAIL_CALL();' in lines[i+1]

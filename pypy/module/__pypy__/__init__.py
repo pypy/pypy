@@ -23,5 +23,12 @@ class Module(MixedModule):
                                  'interp_magic.method_cache_counter')
             self.extra_interpdef('reset_method_cache_counter',
                                  'interp_magic.reset_method_cache_counter')
+            if self.space.config.objspace.std.withmapdict:
+                self.extra_interpdef('mapdict_cache_counter',
+                                     'interp_magic.mapdict_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
+        #
+        from pypy.jit.backend import detect_cpu
+        model = detect_cpu.autodetect_main_model_and_size()
+        self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)

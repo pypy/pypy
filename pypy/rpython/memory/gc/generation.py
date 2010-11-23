@@ -5,7 +5,6 @@ from pypy.rpython.memory.gc.semispace import GC_HASH_TAKEN_ADDR
 from pypy.rpython.memory.gc.base import read_from_env
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
-from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
@@ -49,15 +48,17 @@ class GenerationGC(SemiSpaceGC):
 
     nursery_hash_base = -1
 
-    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
+    def __init__(self, config,
                  nursery_size=32*WORD,
                  min_nursery_size=32*WORD,
                  auto_nursery_size=False,
                  space_size=1024*WORD,
-                 max_space_size=sys.maxint//2+1):
-        SemiSpaceGC.__init__(self, config, chunk_size = chunk_size,
+                 max_space_size=sys.maxint//2+1,
+                 **kwds):
+        SemiSpaceGC.__init__(self, config,
                              space_size = space_size,
-                             max_space_size = max_space_size)
+                             max_space_size = max_space_size,
+                             **kwds)
         assert min_nursery_size <= nursery_size <= space_size // 2
         self.initial_nursery_size = nursery_size
         self.auto_nursery_size = auto_nursery_size
@@ -155,6 +156,14 @@ class GenerationGC(SemiSpaceGC):
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
                   "odd-valued (i.e. tagged) pointer unexpected here")
+        return self.nursery <= addr < self.nursery_top
+
+    def appears_to_be_in_nursery(self, addr):
+        # same as is_in_nursery(), but may return True accidentally if
+        # 'addr' is a tagged pointer with just the wrong value.
+        if not self.translated_to_c:
+            if not self.is_valid_gc_object(addr):
+                return False
         return self.nursery <= addr < self.nursery_top
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
@@ -326,7 +335,7 @@ class GenerationGC(SemiSpaceGC):
         addr = pointer.address[0]
         newaddr = self.copy(addr)
         pointer.address[0] = newaddr
-        self.write_into_last_generation_obj(obj)
+        self.write_into_last_generation_obj(obj, newaddr)
 
     # ____________________________________________________________
     # Implementation of nursery-only collections
@@ -457,9 +466,9 @@ class GenerationGC(SemiSpaceGC):
     #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
     JIT_WB_IF_FLAG = GCFLAG_NO_YOUNG_PTRS
 
-    def write_barrier(self, addr_struct):
-        if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
-            self.remember_young_pointer(addr_struct)
+    def write_barrier(self, newvalue, addr_struct):
+         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
+            self.remember_young_pointer(addr_struct, newvalue)
 
     def _setup_wb(self):
         DEBUG = self.DEBUG
@@ -470,23 +479,33 @@ class GenerationGC(SemiSpaceGC):
         # For x86, there is also an extra requirement: when the JIT calls
         # remember_young_pointer(), it assumes that it will not touch the SSE
         # registers, so it does not save and restore them (that's a *hack*!).
-        def remember_young_pointer(addr_struct):
+        def remember_young_pointer(addr_struct, addr):
             #llop.debug_print(lltype.Void, "\tremember_young_pointer",
             #                 addr_struct, "<-", addr)
             if DEBUG:
                 ll_assert(not self.is_in_nursery(addr_struct),
                           "nursery object with GCFLAG_NO_YOUNG_PTRS")
-            self.old_objects_pointing_to_young.append(addr_struct)
-            self.header(addr_struct).tid &= ~GCFLAG_NO_YOUNG_PTRS
-            self.write_into_last_generation_obj(addr_struct)
+            #
+            # What is important in this function is that it *must*
+            # clear the flag GCFLAG_NO_YOUNG_PTRS from 'addr_struct'
+            # if 'addr' is in the nursery.  It is ok if, accidentally,
+            # it also clears the flag in some more rare cases, like
+            # 'addr' being a tagged pointer whose value happens to be
+            # a large integer that fools is_in_nursery().
+            if self.appears_to_be_in_nursery(addr):
+                self.old_objects_pointing_to_young.append(addr_struct)
+                self.header(addr_struct).tid &= ~GCFLAG_NO_YOUNG_PTRS
+            self.write_into_last_generation_obj(addr_struct, addr)
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
 
-    def write_into_last_generation_obj(self, addr_struct):
+    def write_into_last_generation_obj(self, addr_struct, addr):
         objhdr = self.header(addr_struct)
         if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-            objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-            self.last_generation_root_objects.append(addr_struct)
+            if (self.is_valid_gc_object(addr) and
+                    not self.is_last_generation(addr)):
+                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                self.last_generation_root_objects.append(addr_struct)
     write_into_last_generation_obj._always_inline_ = True
 
     def assume_young_pointers(self, addr_struct):
@@ -553,16 +572,10 @@ class GenerationGC(SemiSpaceGC):
     def _compute_current_nursery_hash(self, obj):
         return intmask(llmemory.cast_adr_to_int(obj) + self.nursery_hash_base)
 
-    def heap_stats_walk_roots(self):
-        self.last_generation_root_objects.foreach(
-            self._track_heap_ext, None)
-        self.root_walker.walk_roots(
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root)
-
-    def _track_heap_ext(self, adr, ignored):
-        self.trace(adr, self.track_heap_parent, adr)
+    def enumerate_all_roots(self, callback, arg):
+        self.last_generation_root_objects.foreach(callback, arg)
+        SemiSpaceGC.enumerate_all_roots(self, callback, arg)
+    enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
     def debug_check_object(self, obj):
         """Check the invariants about 'obj' that should be true

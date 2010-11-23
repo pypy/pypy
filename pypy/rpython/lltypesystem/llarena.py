@@ -441,6 +441,7 @@ elif os.name == 'posix':
                                    rffi.INT,
                                    sandboxsafe=True, _nowrapper=True)
     _dev_zero = rffi.str2charp('/dev/zero')   # prebuilt
+    lltype.render_immortal(_dev_zero)
 
     def clear_large_memory_chunk(baseaddr, size):
         # on some Unixy platforms, reading from /dev/zero is the fastest way

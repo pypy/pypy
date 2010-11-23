@@ -82,12 +82,16 @@ class BaseFieldDescr(AbstractDescr):
 
     _is_pointer_field = False   # unless overridden by GcPtrFieldDescr
     _is_float_field = False     # unless overridden by FloatFieldDescr
+    _is_field_signed = False    # unless overridden by XxxFieldDescr
 
     def is_pointer_field(self):
         return self._is_pointer_field
 
     def is_float_field(self):
         return self._is_float_field
+
+    def is_field_signed(self):
+        return self._is_field_signed
 
     def repr_of_descr(self):
         return '<%s %s %s>' % (self._clsname, self.name, self.offset)
@@ -105,7 +109,7 @@ class GcPtrFieldDescr(NonGcPtrFieldDescr):
 def getFieldDescrClass(TYPE):
     return getDescrClass(TYPE, BaseFieldDescr, GcPtrFieldDescr,
                          NonGcPtrFieldDescr, 'Field', 'get_field_size',
-                         '_is_float_field')
+                         '_is_float_field', '_is_field_signed')
 
 def get_field_descr(gccache, STRUCT, fieldname):
     cache = gccache._cache_field
@@ -126,6 +130,7 @@ def get_field_descr(gccache, STRUCT, fieldname):
 # ArrayDescrs
 
 _A = lltype.GcArray(lltype.Signed)     # a random gcarray
+_AF = lltype.GcArray(lltype.Float)     # an array of C doubles
 
 
 class BaseArrayDescr(AbstractDescr):
@@ -144,12 +149,16 @@ class BaseArrayDescr(AbstractDescr):
 
     _is_array_of_pointers = False      # unless overridden by GcPtrArrayDescr
     _is_array_of_floats   = False      # unless overridden by FloatArrayDescr
+    _is_item_signed       = False      # unless overridden by XxxArrayDescr
 
     def is_array_of_pointers(self):
         return self._is_array_of_pointers
 
     def is_array_of_floats(self):
         return self._is_array_of_floats
+
+    def is_item_signed(self):
+        return self._is_item_signed
 
     def repr_of_descr(self):
         return '<%s>' % self._clsname
@@ -163,16 +172,21 @@ class GcPtrArrayDescr(NonGcPtrArrayDescr):
     _clsname = 'GcPtrArrayDescr'
     _is_array_of_pointers = True
 
-_CA = rffi.CArray(lltype.Signed)
+class FloatArrayDescr(BaseArrayDescr):
+    _clsname = 'FloatArrayDescr'
+    _is_array_of_floats = True
+    def get_base_size(self, translate_support_code):
+        basesize, _, _ = symbolic.get_array_token(_AF, translate_support_code)
+        return basesize
+    def get_item_size(self, translate_support_code):
+        return symbolic.get_size(lltype.Float, translate_support_code)
 
 class BaseArrayNoLengthDescr(BaseArrayDescr):
     def get_base_size(self, translate_support_code):
-        basesize, _, _ = symbolic.get_array_token(_CA, translate_support_code)
-        return basesize
+        return 0
 
     def get_ofs_length(self, translate_support_code):
-        _, _, ofslength = symbolic.get_array_token(_CA, translate_support_code)
-        return ofslength
+        return -1
 
 class NonGcPtrArrayNoLengthDescr(BaseArrayNoLengthDescr):
     _clsname = 'NonGcPtrArrayNoLengthDescr'
@@ -184,14 +198,16 @@ class GcPtrArrayNoLengthDescr(NonGcPtrArrayNoLengthDescr):
     _is_array_of_pointers = True
 
 def getArrayDescrClass(ARRAY):
+    if ARRAY.OF is lltype.Float:
+        return FloatArrayDescr
     return getDescrClass(ARRAY.OF, BaseArrayDescr, GcPtrArrayDescr,
                          NonGcPtrArrayDescr, 'Array', 'get_item_size',
-                         '_is_array_of_floats')
+                         '_is_array_of_floats', '_is_item_signed')
 
 def getArrayNoLengthDescrClass(ARRAY):
     return getDescrClass(ARRAY.OF, BaseArrayNoLengthDescr, GcPtrArrayNoLengthDescr,
                          NonGcPtrArrayNoLengthDescr, 'ArrayNoLength', 'get_item_size',
-                         '_is_array_of_floats')
+                         '_is_array_of_floats', '_is_item_signed')
 
 def get_array_descr(gccache, ARRAY):
     cache = gccache._cache_array
@@ -211,7 +227,8 @@ def get_array_descr(gccache, ARRAY):
         basesize, itemsize, ofslength = symbolic.get_array_token(ARRAY, False)
         assert basesize == arraydescr.get_base_size(False)
         assert itemsize == arraydescr.get_item_size(False)
-        assert ofslength == arraydescr.get_ofs_length(False)
+        if not ARRAY._hints.get('nolength', False):
+            assert ofslength == arraydescr.get_ofs_length(False)
         if isinstance(ARRAY, lltype.GcArray):
             gccache.init_array_descr(ARRAY, arraydescr)
         cache[ARRAY] = arraydescr
@@ -241,6 +258,9 @@ class BaseCallDescr(AbstractDescr):
 
     def get_result_size(self, translate_support_code):
         raise NotImplementedError
+
+    def is_result_signed(self):
+        return False    # unless overridden
 
     def create_call_stub(self, rtyper, RESULT):
         def process(c):
@@ -307,6 +327,30 @@ class BaseIntCallDescr(BaseCallDescr):
     _return_type = history.INT
     call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0)
 
+    _is_result_signed = False      # can be overridden in XxxCallDescr
+    def is_result_signed(self):
+        return self._is_result_signed
+
+class DynamicIntCallDescr(BaseIntCallDescr):
+    """
+    calldescr that works for every integer type, by explicitly passing it the
+    size of the result. Used only by get_call_descr_dynamic
+    """
+    _clsname = 'DynamicIntCallDescr'
+
+    def __init__(self, arg_classes, result_size, result_sign, extrainfo=None):
+        BaseIntCallDescr.__init__(self, arg_classes, extrainfo)
+        assert isinstance(result_sign, bool)
+        self._result_size = chr(result_size)
+        self._result_sign = result_sign
+
+    def get_result_size(self, translate_support_code):
+        return ord(self._result_size)
+
+    def is_result_signed(self):
+        return self._result_sign
+
+
 class NonGcPtrCallDescr(BaseIntCallDescr):
     _clsname = 'NonGcPtrCallDescr'
     def get_result_size(self, translate_support_code):
@@ -341,7 +385,8 @@ def getCallDescrClass(RESULT):
         return FloatCallDescr
     return getDescrClass(RESULT, BaseIntCallDescr, GcPtrCallDescr,
                          NonGcPtrCallDescr, 'Call', 'get_result_size',
-                         Ellipsis)  # <= floatattrname should not be used here
+                         Ellipsis,  # <= floatattrname should not be used here
+                         '_is_result_signed')
 
 def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = []
@@ -368,7 +413,8 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
 # ____________________________________________________________
 
 def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
-                  nameprefix, methodname, floatattrname, _cache={}):
+                  nameprefix, methodname, floatattrname, signedattrname,
+                  _cache={}):
     if isinstance(TYPE, lltype.Ptr):
         if TYPE.TO._gckind == 'gc':
             return GcPtrDescr
@@ -388,6 +434,8 @@ def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
         #
         if TYPE is lltype.Float:
             setattr(Descr, floatattrname, True)
+        elif TYPE is not lltype.Bool and rffi.cast(TYPE, -1) == -1:
+            setattr(Descr, signedattrname, True)
         #
         _cache[nameprefix, TYPE] = Descr
         return Descr

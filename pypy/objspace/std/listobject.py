@@ -283,7 +283,7 @@ def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
         elif start >= 0:
             del items[start:start+delta]
         else:
-            assert delta==0
+            assert delta==0   # start<0 is only possible with slicelength==0
     elif len2 != slicelength:  # No resize for extended slices
         raise operationerrfmt(space.w_ValueError, "attempt to "
               "assign sequence of size %d to extended slice of size %d",

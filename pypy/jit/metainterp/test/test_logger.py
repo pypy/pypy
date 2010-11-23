@@ -1,6 +1,6 @@
 import sys
 from pypy.rlib import debug
-from pypy.jit.metainterp.test.oparser import pure_parse
+from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
@@ -97,7 +97,7 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point("info")
+        debug_merge_point("info", 0)
         '''
         loop, oloop = self.reparse(inp, check_equal=False)
         assert loop.operations[0].getarg(0)._get_str() == 'info'

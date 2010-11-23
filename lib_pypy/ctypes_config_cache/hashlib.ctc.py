@@ -4,7 +4,8 @@ Run this to rebuild _hashlib_cache.py.
 """
 
 from ctypes import *
-from ctypes_configure import configure, dumpcache
+from ctypes_configure import configure
+import dumpcache
 
 
 class CConfig:
@@ -17,4 +18,4 @@ class CConfig:
                                   [('digest', c_void_p)])
 
 config = configure.configure(CConfig)
-dumpcache.dumpcache(__file__, '_hashlib_cache.py', config)
+dumpcache.dumpcache2('hashlib', config)

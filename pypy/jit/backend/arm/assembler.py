@@ -173,7 +173,8 @@ class AssemblerARM(ResOpAssembler):
         reg = r.lr
         # XXX free this memory
         # XXX allocate correct amount of memory
-        mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)*6+9, flavor='raw')
+        mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)*6+9,
+                                    flavor='raw', track_allocation=False)
         # Note, the actual frame depth is one less than the value stored in
         # regalloc.frame_manager.frame_depth
         self.encode32(mem, 0, regalloc.frame_manager.frame_depth - 1)

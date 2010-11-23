@@ -49,11 +49,13 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler.finish_once()
         self.profile_agent.shutdown()
 
-    def compile_loop(self, inputargs, operations, looptoken):
-        self.assembler.assemble_loop(inputargs, operations, looptoken)
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
+        self.assembler.assemble_loop(inputargs, operations, looptoken,
+                                     log=log)
 
-    def compile_bridge(self, faildescr, inputargs, operations):
-        self.assembler.assemble_bridge(faildescr, inputargs, operations)
+    def compile_bridge(self, faildescr, inputargs, operations, log=True):
+        self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                       log=log)
 
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)
@@ -87,7 +89,9 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def execute_token(self, executable_token):
         addr = executable_token._x86_bootstrap_code
+        #llop.debug_print(lltype.Void, ">>>> Entering", addr)
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
+        #llop.debug_print(lltype.Void, "<<<< Back")
         fail_index = self._execute_call(func)
         return self.get_fail_descr_from_number(fail_index)
 
@@ -99,10 +103,7 @@ class AbstractX86CPU(AbstractLLCPU):
             LLInterpreter.current_interpreter = self.debug_ll_interpreter
         res = 0
         try:
-            #llop.debug_print(lltype.Void, ">>>> Entering",
-            #                 rffi.cast(lltype.Signed, func))
             res = func()
-            #llop.debug_print(lltype.Void, "<<<< Back")
         finally:
             if not self.translate_support_code:
                 LLInterpreter.current_interpreter = prev_interpreter
@@ -114,7 +115,8 @@ class AbstractX86CPU(AbstractLLCPU):
         return CPU386.cast_adr_to_int(adr)
 
     all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
-                                       flavor='raw', zero=True)
+                                       flavor='raw', zero=True,
+                                       immortal=True)
 
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)

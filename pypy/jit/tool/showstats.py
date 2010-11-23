@@ -4,15 +4,16 @@ from __future__ import division
 import autopath
 import sys, py
 from pypy.tool import logparser
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 def main(argv):
     log = logparser.parse_log_file(argv[0])
+    log_count_lines = open(argv[0] + '.count').readlines()
     parts = logparser.extract_category(log, "jit-log-opt-")
     for i, oplist in enumerate(parts):
-        loop = parse(oplist, no_namespace=True)
+        loop = parse(oplist, no_namespace=True, nonstrict=True)
         num_ops = 0
         num_dmp = 0
         num_guards = 0
@@ -23,7 +24,11 @@ def main(argv):
                 num_ops += 1
             if op.is_guard():
                 num_guards += 1
-        print "Loop #%d, length: %d, opcodes: %d, guards: %d, %f" % (i, num_ops, num_dmp, num_guards, num_ops/num_dmp)
-
+        if num_dmp == 0:
+            print "Loop #%d, length: %d, opcodes: %d, guards: %d" % (i, num_ops, num_dmp, num_guards)
+        else:
+            print "Loop #%d, length: %d, opcodes: %d, guards: %d, %f" % (i, num_ops, num_dmp, num_guards, num_ops/num_dmp)
+        print loop.comment, "run", log_count_lines[i].split(":")[1].strip(), "times"
+        
 if __name__ == '__main__':
     main(sys.argv[1:])

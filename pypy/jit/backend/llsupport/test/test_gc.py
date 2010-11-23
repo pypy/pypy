@@ -6,7 +6,9 @@ from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport.gc import *
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.gc import get_description
-
+from pypy.jit.tool.oparser import parse
+from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
 
 def test_boehm():
     gc_ll_descr = GcLLDescr_boehm(None, None, None)
@@ -114,7 +116,7 @@ def test_GcRootMap_asmgcc():
         assert gcrootmap._gcmap[i*2+1] == expected_shapeaddr[i]
 
 
-class FakeLLOp:
+class FakeLLOp(object):
     def __init__(self):
         self.record = []
 
@@ -141,26 +143,26 @@ class FakeLLOp:
                             repr(offset_to_length), p))
         return p
 
-    def _write_barrier_failing_case(self, adr_struct):
-        self.record.append(('barrier', adr_struct))
+    def _write_barrier_failing_case(self, adr_struct, adr_newptr):
+        self.record.append(('barrier', adr_struct, adr_newptr))
 
     def get_write_barrier_failing_case(self, FPTRTYPE):
         return llhelper(FPTRTYPE, self._write_barrier_failing_case)
 
 
-class TestFramework:
+class TestFramework(object):
     gc = 'hybrid'
 
     def setup_method(self, meth):
-        class config_:
-            class translation:
+        class config_(object):
+            class translation(object):
                 gc = self.gc
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
-        class FakeTranslator:
+        class FakeTranslator(object):
             config = config_
-        class FakeCPU:
+        class FakeCPU(object):
             def cast_adr_to_int(self, adr):
                 ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
                 assert ptr._obj._callable == llop1._write_barrier_failing_case
@@ -239,6 +241,7 @@ class TestFramework:
         s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
         r_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, r)
         s_adr = llmemory.cast_ptr_to_adr(s)
+        r_adr = llmemory.cast_ptr_to_adr(r)
         #
         s_hdr.tid &= ~gc_ll_descr.GCClass.JIT_WB_IF_FLAG
         gc_ll_descr.do_write_barrier(s_gcref, r_gcref)
@@ -246,7 +249,7 @@ class TestFramework:
         #
         s_hdr.tid |= gc_ll_descr.GCClass.JIT_WB_IF_FLAG
         gc_ll_descr.do_write_barrier(s_gcref, r_gcref)
-        assert self.llop1.record == [('barrier', s_adr)]
+        assert self.llop1.record == [('barrier', s_adr, r_adr)]
 
     def test_gen_write_barrier(self):
         gc_ll_descr = self.gc_ll_descr
@@ -254,11 +257,13 @@ class TestFramework:
         #
         newops = []
         v_base = BoxPtr()
-        gc_ll_descr._gen_write_barrier(newops, v_base)
+        v_value = BoxPtr()
+        gc_ll_descr._gen_write_barrier(newops, v_base, v_value)
         assert llop1.record == []
         assert len(newops) == 1
         assert newops[0].getopnum() == rop.COND_CALL_GC_WB
         assert newops[0].getarg(0) == v_base
+        assert newops[0].getarg(1) == v_value
         assert newops[0].result is None
         wbdescr = newops[0].getdescr()
         assert isinstance(wbdescr.jit_wb_if_flag, int)
@@ -267,7 +272,7 @@ class TestFramework:
 
     def test_get_rid_of_debug_merge_point(self):
         operations = [
-            ResOperation(rop.DEBUG_MERGE_POINT, ['dummy'], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, ['dummy', 2], None),
             ]
         gc_ll_descr = self.gc_ll_descr
         gc_ll_descr.rewrite_assembler(None, operations)
@@ -275,11 +280,11 @@ class TestFramework:
 
     def test_rewrite_assembler_1(self):
         # check rewriting of ConstPtrs
-        class MyFakeCPU:
+        class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):
                 assert adr == "some fake address"
                 return 43
-        class MyFakeGCRefList:
+        class MyFakeGCRefList(object):
             def get_address_of_gcref(self, s_gcref1):
                 assert s_gcref1 == s_gcref
                 return "some fake address"
@@ -308,10 +313,10 @@ class TestFramework:
 
     def test_rewrite_assembler_1_cannot_move(self):
         # check rewriting of ConstPtrs
-        class MyFakeCPU:
+        class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):
                 xxx    # should not be called
-        class MyFakeGCRefList:
+        class MyFakeGCRefList(object):
             def get_address_of_gcref(self, s_gcref1):
                 seen.append(s_gcref1)
                 assert s_gcref1 == s_gcref
@@ -358,6 +363,7 @@ class TestFramework:
         #
         assert operations[0].getopnum() == rop.COND_CALL_GC_WB
         assert operations[0].getarg(0) == v_base
+        assert operations[0].getarg(1) == v_value
         assert operations[0].result is None
         #
         assert operations[1].getopnum() == rop.SETFIELD_RAW
@@ -381,6 +387,7 @@ class TestFramework:
         #
         assert operations[0].getopnum() == rop.COND_CALL_GC_WB
         assert operations[0].getarg(0) == v_base
+        assert operations[0].getarg(1) == v_value
         assert operations[0].result is None
         #
         assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
@@ -389,6 +396,68 @@ class TestFramework:
         assert operations[1].getarg(2) == v_value
         assert operations[1].getdescr() == array_descr
 
+    def test_rewrite_assembler_initialization_store(self):
+        S = lltype.GcStruct('S', ('parent', OBJECT),
+                            ('x', lltype.Signed))
+        s_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+        xdescr = get_field_descr(self.gc_ll_descr, S, 'x')
+        ops = parse("""
+        [p1]
+        p0 = new_with_vtable(ConstClass(s_vtable))
+        setfield_gc(p0, p1, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p1]
+        p0 = new_with_vtable(ConstClass(s_vtable))
+        # no write barrier
+        setfield_gc(p0, p1, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_initialization_store_2(self):
+        S = lltype.GcStruct('S', ('parent', OBJECT),
+                            ('x', lltype.Signed))
+        s_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+        wbdescr = self.gc_ll_descr.write_barrier_descr
+        xdescr = get_field_descr(self.gc_ll_descr, S, 'x')
+        ops = parse("""
+        [p1]
+        p0 = new_with_vtable(ConstClass(s_vtable))
+        p3 = new_with_vtable(ConstClass(s_vtable))
+        setfield_gc(p0, p1, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p1]
+        p0 = new_with_vtable(ConstClass(s_vtable))
+        p3 = new_with_vtable(ConstClass(s_vtable))
+        cond_call_gc_wb(p0, p1, descr=wbdescr)
+        setfield_raw(p0, p1, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_initialization_store_3(self):
+        A = lltype.GcArray(lltype.Ptr(lltype.GcStruct('S')))
+        arraydescr = get_array_descr(self.gc_ll_descr, A)
+        ops = parse("""
+        [p1]
+        p0 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p0, 0, p1, descr=arraydescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p1]
+        p0 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p0, 0, p1, descr=arraydescr)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
 
 class TestFrameworkMiniMark(TestFramework):
     gc = 'minimark'

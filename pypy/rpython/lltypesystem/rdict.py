@@ -306,6 +306,13 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_clear, v_dict)
 
+    def rtype_method_popitem(self, hop):
+        v_dict, = hop.inputargs(self)
+        r_tuple = hop.r_result
+        cTUPLE = hop.inputconst(lltype.Void, r_tuple.lowleveltype)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
+
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -465,6 +472,10 @@ def ll_dict_delitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
     if not d.entries.valid(i):
         raise KeyError
+    _ll_dict_del(d, i)
+ll_dict_delitem.oopspec = 'dict.delitem(d, key)'
+
+def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
     d.num_items -= 1
     # clear the key and the value if they are GC pointers
@@ -481,7 +492,6 @@ def ll_dict_delitem(d, key):
     num_entries = len(d.entries)
     if num_entries > DICT_INITSIZE and d.num_items < num_entries / 4:
         ll_dict_resize(d)
-ll_dict_delitem.oopspec = 'dict.delitem(d, key)'
 
 def ll_dict_resize(d):
     old_entries = d.entries
@@ -810,3 +820,26 @@ def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
     return d.entries.valid(i)
 ll_contains.oopspec = 'dict.contains(d, key)'
+
+POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
+global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
+
+def ll_popitem(ELEM, dic):
+    entries = dic.entries
+    dmask = len(entries) - 1
+    base = global_popitem_index.nextindex
+    counter = 0
+    while counter <= dmask:
+        i = (base + counter) & dmask
+        counter += 1
+        if entries.valid(i):
+            break
+    else:
+        raise KeyError
+    global_popitem_index.nextindex += counter
+    entry = entries[i]
+    r = lltype.malloc(ELEM.TO)
+    r.item0 = recast(ELEM.TO.item0, entry.key)
+    r.item1 = recast(ELEM.TO.item1, entry.value)
+    _ll_dict_del(dic, i)
+    return r

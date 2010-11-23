@@ -100,48 +100,48 @@ class VirtualizableInfo:
                     i = i + 1
             assert len(boxes) == i + 1
         #
-        def write_from_resume_data_partial(virtualizable, reader, nums):
+        def write_from_resume_data_partial(virtualizable, reader, numb):
             # Load values from the reader (see resume.py) described by
             # the list of numbers 'nums', and write them in their proper
             # place in the 'virtualizable'.  This works from the end of
             # the list and returns the index in 'nums' of the start of
             # the virtualizable data found, allowing the caller to do
             # further processing with the start of the list.
-            i = len(nums) - 1
+            i = len(numb.nums) - 1
             assert i >= 0
             for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
                 lst = getattr(virtualizable, fieldname)
                 for j in range(getlength(lst)-1, -1, -1):
                     i -= 1
                     assert i >= 0
-                    x = reader.load_value_of_type(ARRAYITEMTYPE, nums[i])
+                    x = reader.load_value_of_type(ARRAYITEMTYPE, numb.nums[i])
                     setarrayitem(lst, j, x)
             for FIELDTYPE, fieldname in unroll_static_fields_rev:
                 i -= 1
                 assert i >= 0
-                x = reader.load_value_of_type(FIELDTYPE, nums[i])
+                x = reader.load_value_of_type(FIELDTYPE, numb.nums[i])
                 setattr(virtualizable, fieldname, x)
             return i
         #
-        def load_list_of_boxes(virtualizable, reader, nums):
+        def load_list_of_boxes(virtualizable, reader, numb):
             # Uses 'virtualizable' only to know the length of the arrays;
             # does not write anything into it.  The returned list is in
             # the format expected of virtualizable_boxes, so it ends in
             # the virtualizable itself.
-            i = len(nums) - 1
+            i = len(numb.nums) - 1
             assert i >= 0
-            boxes = [reader.decode_box_of_type(self.VTYPEPTR, nums[i])]
+            boxes = [reader.decode_box_of_type(self.VTYPEPTR, numb.nums[i])]
             for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
                 lst = getattr(virtualizable, fieldname)
                 for j in range(getlength(lst)-1, -1, -1):
                     i -= 1
                     assert i >= 0
-                    box = reader.decode_box_of_type(ARRAYITEMTYPE, nums[i])
+                    box = reader.decode_box_of_type(ARRAYITEMTYPE,numb.nums[i])
                     boxes.append(box)
             for FIELDTYPE, fieldname in unroll_static_fields_rev:
                 i -= 1
                 assert i >= 0
-                box = reader.decode_box_of_type(FIELDTYPE, nums[i])
+                box = reader.decode_box_of_type(FIELDTYPE, numb.nums[i])
                 boxes.append(box)
             boxes.reverse()
             return boxes

@@ -100,7 +100,7 @@ def getuniquenondirectgraph(desc):
 # ____________________________________________________________________________
 # specializations
 
-class MemoTable:
+class MemoTable(object):
     def __init__(self, funcdesc, args, value):
         self.funcdesc = funcdesc
         self.table = {args: value}

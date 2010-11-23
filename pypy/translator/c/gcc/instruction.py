@@ -82,6 +82,11 @@ class Insn(object):
     def all_sources_of(self, localvar):
         return [localvar]
 
+class InsnCondJump(Insn):     # only for debugging; not used internally
+    _args_ = ['label']
+    def __init__(self, label):
+        self.label = label
+
 class Label(Insn):
     _args_ = ['label', 'lineno']
     def __init__(self, label, lineno):
@@ -170,9 +175,12 @@ class InsnCannotFollowEsp(InsnStackAdjust):
         self.delta = -7     # use an odd value as marker
 
 class InsnStop(Insn):
-    pass
+    _args_ = ['reason']
+    def __init__(self, reason='?'):
+        self.reason = reason
 
 class InsnRet(InsnStop):
+    _args_ = []
     framesize = 0
     def __init__(self, registers):
         self.registers = registers

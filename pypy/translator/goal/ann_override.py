@@ -27,21 +27,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         pol.pypytypes = {}
         pol.single_space = single_space
 
-    #def override__wrap_exception_cls(pol, space, x):
-    #    import pypy.objspace.std.typeobject as typeobject
-    #    clsdef = getbookkeeper().getuniqueclassdef(typeobject.W_TypeObject)
-    #    return annmodel.SomeInstance(clsdef, can_be_None=True)
-    #
-    #def override__fake_object(pol, space, x):
-    #    from pypy.interpreter import typedef
-    #    clsdef = getbookkeeper().getuniqueclassdef(typedef.W_Root)
-    #    return annmodel.SomeInstance(clsdef)    
-    #
-    #def override__cpy_compile(pol, self, source, filename, mode, flags):
-    #    from pypy.interpreter import pycode
-    #    clsdef = getbookkeeper().getuniqueclassdef(pycode.PyCode)
-    #    return annmodel.SomeInstance(clsdef)    
-
     def specialize__wrap(pol,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import Wrappable
         from pypy.annotation.classdef import ClassDef

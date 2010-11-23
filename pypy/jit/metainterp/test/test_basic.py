@@ -2,6 +2,8 @@ import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
 from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE, loop_invariant
+from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
+from pypy.rlib.jit import unroll_safe, current_trace_length
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import pyjitpl, history
@@ -44,6 +46,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
         num_green_args = 0
         portal_graph = graphs[0]
         virtualizable_info = None
+        greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
 
@@ -1644,6 +1647,58 @@ class BasicTests:
         res = self.interp_operations(f, [10, 3.5])
         assert res == 3.5
 
+    def test_jit_debug(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x'])
+        class A:
+            pass
+        def f(x):
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x)
+                myjitdriver.jit_merge_point(x=x)
+                jit_debug("hi there:", x)
+                jit_debug("foobar")
+                x -= 1
+            return x
+        res = self.meta_interp(f, [8])
+        assert res == 0
+        self.check_loops(jit_debug=2)
+
+    def test_assert_green(self):
+        def f(x, promote):
+            if promote:
+                x = hint(x, promote=True)
+            assert_green(x)
+            return x
+        res = self.interp_operations(f, [8, 1])
+        assert res == 8
+        py.test.raises(AssertGreenFailed, self.interp_operations, f, [8, 0])
+
+    def test_current_trace_length(self):
+        myjitdriver = JitDriver(greens = ['g'], reds = ['x'])
+        @dont_look_inside
+        def residual():
+            print "hi there"
+        @unroll_safe
+        def loop(g):
+            y = 0
+            while y < g:
+                residual()
+                y += 1
+        def f(x, g):
+            n = 0
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, g=g)
+                myjitdriver.jit_merge_point(x=x, g=g)
+                loop(g)
+                x -= 1
+                n = current_trace_length()
+            return n
+        res = self.meta_interp(f, [5, 8])
+        assert 14 < res < 42
+        res = self.meta_interp(f, [5, 2])
+        assert 4 < res < 14
+
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
@@ -1751,7 +1806,7 @@ class BaseLLtypeTests(BasicTests):
             c = bool(p1)
             d = not bool(p2)
             return 1000*a + 100*b + 10*c + d
-        prebuilt = [lltype.malloc(TP, flavor='raw')] * 2
+        prebuilt = [lltype.malloc(TP, flavor='raw', immortal=True)] * 2
         expected = f(0, 1)
         assert self.interp_operations(f, [0, 1]) == expected
 

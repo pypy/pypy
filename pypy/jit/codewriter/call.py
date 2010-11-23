@@ -7,7 +7,7 @@ from pypy.jit.codewriter import support
 from pypy.jit.codewriter.jitcode import JitCode
 from pypy.jit.codewriter.effectinfo import VirtualizableAnalyzer
 from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
-from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.codewriter.effectinfo import EffectInfo, CallInfoCollection
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
@@ -23,6 +23,7 @@ class CallControl(object):
         self.jitdrivers_sd = jitdrivers_sd
         self.jitcodes = {}             # map {graph: jitcode}
         self.unfinished_graphs = []    # list of graphs with pending jitcodes
+        self.callinfocollection = CallInfoCollection()
         if hasattr(cpu, 'rtyper'):     # for tests
             self.rtyper = cpu.rtyper
             translator = self.rtyper.annotator.translator
@@ -237,6 +238,8 @@ class CallControl(object):
                                     effectinfo)
 
     def _canraise(self, op):
+        if op.opname == 'pseudo_call_cannot_raise':
+            return False
         try:
             return self.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:
@@ -277,3 +280,11 @@ class CallControl(object):
             return seen.pop()
         else:
             return None
+
+    def could_be_green_field(self, GTYPE, fieldname):
+        GTYPE_fieldname = (GTYPE, fieldname)
+        for jd in self.jitdrivers_sd:
+            if jd.greenfield_info is not None:
+                if GTYPE_fieldname in jd.greenfield_info.green_fields:
+                    return True
+        return False

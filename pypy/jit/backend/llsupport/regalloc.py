@@ -365,8 +365,9 @@ def compute_vars_longevity(inputargs, operations):
             arg = op.getarg(j)
             if isinstance(arg, Box):
                 if arg not in start_live:
-                    print "Bogus arg in operation %d at %d" % (op.getopnum(), i)
-                    raise AssertionError
+                    not_implemented("Bogus arg in operation %d at %d" %
+                                    (op.getopnum(), i))
+
                 longevity[arg] = (start_live[arg], i)
         if op.is_guard():
             for arg in op.getfailargs():
@@ -374,8 +375,8 @@ def compute_vars_longevity(inputargs, operations):
                     continue
                 assert isinstance(arg, Box)
                 if arg not in start_live:
-                    print "Bogus arg in guard %d at %d" % (op.getopnum(), i)
-                    raise AssertionError
+                    not_implemented("Bogus arg in guard %d at %d" %
+                                    (op.getopnum(), i))
                 longevity[arg] = (start_live[arg], i)
     for arg in inputargs:
         if arg not in longevity:
@@ -394,3 +395,6 @@ def compute_loop_consts(inputargs, jump, looptoken):
                 loop_consts[inputargs[i]] = i
     return loop_consts
 
+def not_implemented(msg):
+    os.write(2, '[llsupport/regalloc] %s\n' % msg)
+    raise NotImplementedError(msg)

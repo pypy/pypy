@@ -16,10 +16,15 @@ from pypy.conftest import option
 class StandaloneTests(object):
     config = None
 
-    def compile(self, entry_point, debug=True, shared=False):
+    def compile(self, entry_point, debug=True, shared=False,
+                stackcheck=False):
         t = TranslationContext(self.config)
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
+
+        if stackcheck:
+            from pypy.translator.transform import insert_ll_stackcheck
+            insert_ll_stackcheck(t)
 
         t.config.translation.shared = shared
 
@@ -363,12 +368,27 @@ class TestStandalone(StandaloneTests):
         assert not err
         assert path.check(file=1)
         data = path.read()
-        assert 'toplevel' in path.read()
-        assert 'mycat' not in path.read()
-        assert 'foo 2 bar 3' not in path.read()
+        assert 'toplevel' in data
+        assert 'mycat' not in data
+        assert 'foo 2 bar 3' not in data
         assert 'cat2' in data
         assert 'baz' in data
         assert 'bok' not in data
+        # check with PYPYLOG=myc,cat2:somefilename   (includes mycat and cat2)
+        path = udir.join('test_debug_xxx_myc_cat2.log')
+        out, err = cbuilder.cmdexec("", err=True,
+                                    env={'PYPYLOG': 'myc,cat2:%s' % path})
+        assert out.strip() == 'got:bcda.'
+        assert not err
+        assert path.check(file=1)
+        data = path.read()
+        assert 'toplevel' in data
+        assert '{mycat' in data
+        assert 'mycat}' in data
+        assert 'foo 2 bar 3' in data
+        assert 'cat2' in data
+        assert 'baz' in data
+        assert 'bok' in data
         #
         # finally, check compiling with logging disabled
         from pypy.config.pypyoption import get_pypy_config
@@ -630,6 +650,22 @@ class TestStandalone(StandaloneTests):
             else:
                 os.environ['CC'] = old_cc
 
+    def test_inhibit_tail_call(self):
+        # the point is to check that the f()->f() recursion stops
+        from pypy.rlib.rstackovf import StackOverflow
+        def f(n):
+            if n <= 0:
+                return 42
+            return f(n+1)
+        def entry_point(argv):
+            try:
+                return f(1)
+            except StackOverflow:
+                print 'hi!'
+                return 0
+        t, cbuilder = self.compile(entry_point, stackcheck=True)
+        out = cbuilder.cmdexec("")
+        assert out.strip() == "hi!"
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

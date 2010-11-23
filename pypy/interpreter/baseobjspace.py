@@ -36,13 +36,10 @@ class W_Root(object):
             return space.finditem_str(w_dict, attr)
         return None
 
-    def getdictvalue_attr_is_in_class(self, space, attr):
-        return self.getdictvalue(space, attr)
-
-    def setdictvalue(self, space, attr, w_value, shadows_type=True):
+    def setdictvalue(self, space, attr, w_value):
         w_dict = self.getdict()
         if w_dict is not None:
-            space.setitem_str(w_dict, attr, w_value, shadows_type)
+            space.setitem_str(w_dict, attr, w_value)
             return True
         return False
 
@@ -168,6 +165,20 @@ class W_Root(object):
     def _call_builtin_destructor(self):
         pass     # method overridden in typedef.py
 
+    # hooks that the mapdict implementations needs:
+    def _get_mapdict_map(self):
+        return None
+    def _set_mapdict_map(self, map):
+        raise NotImplementedError
+    def _mapdict_read_storage(self, index):
+        raise NotImplementedError
+    def _mapdict_write_storage(self, index, value):
+        raise NotImplementedError
+    def _mapdict_storage_length(self):
+        raise NotImplementedError
+    def _set_mapdict_storage_and_map(self, storage, map):
+        raise NotImplementedError
+
 
 class Wrappable(W_Root):
     """A subclass of Wrappable is an internal, interpreter-level class
@@ -247,10 +258,9 @@ class ObjSpace(object):
 
         self.interned_strings = {}
         self.actionflag = ActionFlag()    # changed by the signal module
+        self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self.frame_trace_action = FrameTraceAction(self)
-        self.actionflag.register_action(self.user_del_action)
-        self.actionflag.register_action(self.frame_trace_action)
 
         from pypy.interpreter.pycode import cpython_magic, default_magic
         self.our_magic = default_magic
@@ -643,7 +653,7 @@ class ObjSpace(object):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
 
-    def setitem_str(self, w_obj, key, w_value, shadows_type=True):
+    def setitem_str(self, w_obj, key, w_value):
         return self.setitem(w_obj, self.wrap(key), w_value)
 
     def finditem_str(self, w_obj, key):
@@ -725,7 +735,7 @@ class ObjSpace(object):
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
-        Raise a real (subclass of) ValueError if the length is wrong."""
+        Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         items = []
         while True:

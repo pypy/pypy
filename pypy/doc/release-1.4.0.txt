@@ -1,0 +1,28 @@
+===============================
+PyPy 1.4: Ouroboros in practice
+===============================
+
+Hello.
+
+We're pleased to announce the 1.4 release of PyPy. This is a major breakthrough
+in our long journey, as PyPy 1.4 is the first PyPy release that can translate
+itself faster than CPython. Starting today, we plan to start using PyPy for our
+own development.
+
+Among other features, this release includes numerous performance improvements
+(which made fast self-hosting possible), a 64-bit JIT backend, as well
+as serious stabilization. As of now, we can consider the 32-bit and 64-bit
+linux versions of PyPy stable enoughto run in production.
+
+More highlights
+===============
+
+* Virtualenv support: now PyPy is fully compatible with virtualenv_: note that
+  to use it, you need a recent version of virtualenv (>= 1.5).
+
+* Faster (and JITted) regular expressions - huge boost in speeding up
+  sre module.
+
+* Faster (and JITted) calls to functions like map().
+
+.. _virtualenv: http://pypi.python.org/pypi/virtualenv

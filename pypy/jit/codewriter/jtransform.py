@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter import support, heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo, _callinfo_for_oopspec
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.rlib import objectmodel
@@ -172,6 +172,7 @@ class Transformer(object):
 
     def rewrite_op_same_as(self, op): pass
     def rewrite_op_cast_pointer(self, op): pass
+    def rewrite_op_cast_opaque_ptr(self, op): pass   # rlib.rerased
     def rewrite_op_cast_primitive(self, op): pass
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
@@ -316,8 +317,14 @@ class Transformer(object):
             prepare = self._handle_list_call
         elif oopspec_name.startswith('stroruni.'):
             prepare = self._handle_stroruni_call
+        elif oopspec_name == 'str.str2unicode':
+            prepare = self._handle_str2unicode_call
         elif oopspec_name.startswith('virtual_ref'):
             prepare = self._handle_virtual_ref_call
+        elif oopspec_name.startswith('jit.'):
+            prepare = self._handle_jit_call
+        elif oopspec_name.startswith('libffi_'):
+            prepare = self._handle_libffi_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -427,7 +434,8 @@ class Transformer(object):
                                   op.result)
 
     def rewrite_op_free(self, op):
-        assert op.args[1].value == 'raw'
+        flags = op.args[1].value
+        assert flags['flavor'] == 'raw'
         ARRAY = op.args[0].concretetype.TO
         return self._do_builtin_call(op, 'raw_free', [op.args[0]],
                                      extra = (ARRAY,), extrakey = ARRAY)
@@ -519,7 +527,12 @@ class Transformer(object):
         # check for deepfrozen structures that force constant-folding
         immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
         if immut:
-            pure = '_pure'
+            if (self.callcontrol is not None and
+                self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
+                                                      c_fieldname.value)):
+                pure = '_greenfield'
+            else:
+                pure = '_pure'
             if immut == "[*]":
                 self.immutable_arrays[op.result] = True
         else:
@@ -819,6 +832,8 @@ class Transformer(object):
     def rewrite_op_jit_marker(self, op):
         key = op.args[0].value
         jitdriver = op.args[1].value
+        if not jitdriver.active:
+            return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
@@ -828,9 +843,16 @@ class Transformer(object):
             "general mix-up of jitdrivers?")
         ops = self.promote_greens(op.args[2:], jitdriver)
         num_green_args = len(jitdriver.greens)
+        redlists = self.make_three_lists(op.args[2+num_green_args:])
+        for redlist in redlists:
+            for v in redlist:
+                assert isinstance(v, Variable), (
+                    "Constant specified red in jit_merge_point()")
+            assert len(dict.fromkeys(redlist)) == len(list(redlist)), (
+                "duplicate red variable on jit_merge_point()")
         args = ([Constant(self.portal_jd.index, lltype.Signed)] +
                 self.make_three_lists(op.args[2:2+num_green_args]) +
-                self.make_three_lists(op.args[2+num_green_args:]))
+                redlists)
         op1 = SpaceOperation('jit_merge_point', args, None)
         op2 = SpaceOperation('-live-', [], None)
         # ^^^ we need a -live- for the case of do_recursive_call()
@@ -852,6 +874,17 @@ class Transformer(object):
                     (self.graph,))
         return []
 
+    def _handle_jit_call(self, op, oopspec_name, args):
+        if oopspec_name == 'jit.debug':
+            return SpaceOperation('jit_debug', args, None)
+        elif oopspec_name == 'jit.assert_green':
+            kind = getkind(args[0].concretetype)
+            return SpaceOperation('%s_assert_green' % kind, args, None)
+        elif oopspec_name == 'jit.current_trace_length':
+            return SpaceOperation('current_trace_length', [], op.result)
+        else:
+            raise AssertionError("missing support for %r" % oopspec_name)
+
     # ----------
     # Lists.
 
@@ -870,17 +903,21 @@ class Transformer(object):
             prefix = 'do_resizable_'
             ARRAY = LIST.items.TO
             if self._array_of_voids(ARRAY):
-                raise NotSupported("resizable lists of voids")
-            descrs = (self.cpu.arraydescrof(ARRAY),
-                      self.cpu.fielddescrof(LIST, 'length'),
-                      self.cpu.fielddescrof(LIST, 'items'),
-                      self.cpu.sizeof(LIST))
+                prefix += 'void_'
+                descrs = ()
+            else:
+                descrs = (self.cpu.arraydescrof(ARRAY),
+                          self.cpu.fielddescrof(LIST, 'length'),
+                          self.cpu.fielddescrof(LIST, 'items'),
+                          self.cpu.sizeof(LIST))
         else:
             prefix = 'do_fixed_'
             if self._array_of_voids(LIST):
-                raise NotSupported("fixed lists of voids")
-            arraydescr = self.cpu.arraydescrof(LIST)
-            descrs = (arraydescr,)
+                prefix += 'void_'
+                descrs = ()
+            else:
+                arraydescr = self.cpu.arraydescrof(LIST)
+                descrs = (arraydescr,)
         #
         try:
             meth = getattr(self, prefix + oopspec_name.replace('.', '_'))
@@ -918,6 +955,11 @@ class Transformer(object):
             op1 = SpaceOperation(checkname, [args[0],
                                              descr, args[1]], v_posindex)
             return v_posindex, [op0, op1]
+
+    def _prepare_void_list_getset(self, op):
+        non_negative, can_raise = self._get_list_nonneg_canraise_flags(op)
+        if can_raise:
+            raise NotSupported("list operation can raise")
 
     def _get_initial_newlist_length(self, op, args):
         # normalize number of arguments to the 'newlist' function
@@ -990,6 +1032,12 @@ class Transformer(object):
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
 
+    def do_fixed_void_list_getitem(self, op, args):
+        self._prepare_void_list_getset(op)
+        return []
+    do_fixed_void_list_getitem_foldable = do_fixed_void_list_getitem
+    do_fixed_void_list_setitem = do_fixed_void_list_getitem
+
     # ---------- resizable lists ----------
 
     def do_resizable_newlist(self, op, args, arraydescr, lengthdescr,
@@ -1025,17 +1073,26 @@ class Transformer(object):
         return SpaceOperation('getfield_gc_i',
                               [args[0], lengthdescr], op.result)
 
+    def do_resizable_void_list_getitem(self, op, args):
+        self._prepare_void_list_getset(op)
+        return []
+    do_resizable_void_list_getitem_foldable = do_resizable_void_list_getitem
+    do_resizable_void_list_setitem = do_resizable_void_list_getitem
+
     # ----------
     # Strings and Unicodes.
 
-    def _handle_oopspec_call(self, op, args, oopspecindex):
+    def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
+        if extraeffect:
+            calldescr.get_extra_info().extraeffect = extraeffect
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(op.args[0].value))
-            _callinfo_for_oopspec[oopspecindex] = calldescr, func
+            self.callcontrol.callinfocollection.add(oopspecindex,
+                                                    calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0], calldescr],
                                 args=args)
@@ -1046,37 +1103,41 @@ class Transformer(object):
     def _register_extra_helper(self, oopspecindex, oopspec_name,
                                argtypes, resulttype):
         # a bit hackish
-        if oopspecindex in _callinfo_for_oopspec:
+        if self.callcontrol.callinfocollection.has_oopspec(oopspecindex):
             return
         c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
                                                    oopspec_name, argtypes,
                                                    resulttype)
-        op = SpaceOperation('pseudo_call',
+        op = SpaceOperation('pseudo_call_cannot_raise',
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
-        func = heaptracker.adr2int(
-            llmemory.cast_ptr_to_adr(c_func.value))
-        _callinfo_for_oopspec[oopspecindex] = calldescr, func
+        if isinstance(c_func.value, str):    # in tests only
+            func = c_func.value
+        else:
+            func = heaptracker.adr2int(
+                llmemory.cast_ptr_to_adr(c_func.value))
+        self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
-        if args[0].concretetype.TO == rstr.STR:
+        SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
+        if SoU.TO == rstr.STR:
             dict = {"stroruni.concat": EffectInfo.OS_STR_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_STR_SLICE,
                     "stroruni.equal":  EffectInfo.OS_STR_EQUAL,
                     }
-        elif args[0].concretetype.TO == rstr.UNICODE:
+            CHR = lltype.Char
+        elif SoU.TO == rstr.UNICODE:
             dict = {"stroruni.concat": EffectInfo.OS_UNI_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_UNI_SLICE,
                     "stroruni.equal":  EffectInfo.OS_UNI_EQUAL,
                     }
+            CHR = lltype.UniChar
         else:
             assert 0, "args[0].concretetype must be STR or UNICODE"
         #
         if oopspec_name == "stroruni.equal":
-            SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
             for otherindex, othername, argtypes, resulttype in [
-
                 (EffectInfo.OS_STREQ_SLICE_CHECKNULL,
                      "str.eq_slice_checknull",
                      [SoU, lltype.Signed, lltype.Signed, SoU],
@@ -1087,7 +1148,7 @@ class Transformer(object):
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_SLICE_CHAR,
                      "str.eq_slice_char",
-                     [SoU, lltype.Signed, lltype.Signed, lltype.Char],
+                     [SoU, lltype.Signed, lltype.Signed, CHR],
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_NONNULL,
                      "str.eq_nonnull",
@@ -1095,21 +1156,26 @@ class Transformer(object):
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_NONNULL_CHAR,
                      "str.eq_nonnull_char",
-                     [SoU, lltype.Char],
+                     [SoU, CHR],
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_CHECKNULL_CHAR,
                      "str.eq_checknull_char",
-                     [SoU, lltype.Char],
+                     [SoU, CHR],
                      lltype.Signed),
                 (EffectInfo.OS_STREQ_LENGTHOK,
                      "str.eq_lengthok",
                      [SoU, SoU],
                      lltype.Signed),
                 ]:
+                if args[0].concretetype.TO == rstr.UNICODE:
+                    otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
                                             argtypes, resulttype)
         #
         return self._handle_oopspec_call(op, args, dict[oopspec_name])
+
+    def _handle_str2unicode_call(self, op, oopspec_name, args):
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
 
     # ----------
     # VirtualRefs.
@@ -1120,6 +1186,23 @@ class Transformer(object):
                                           vrefinfo.jit_virtual_ref_vtable,
                                           vrefinfo.JIT_VIRTUAL_REF)
         return SpaceOperation(oopspec_name, list(args), op.result)
+
+    # -----------
+    # rlib.libffi
+
+    def _handle_libffi_call(self, op, oopspec_name, args):
+        if oopspec_name == 'libffi_prepare_call':
+            oopspecindex = EffectInfo.OS_LIBFFI_PREPARE
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        elif oopspec_name.startswith('libffi_push_'):
+            oopspecindex = EffectInfo.OS_LIBFFI_PUSH_ARG
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        elif oopspec_name.startswith('libffi_call_'):
+            oopspecindex = EffectInfo.OS_LIBFFI_CALL
+            extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+        else:
+            assert False, 'unsupported oopspec: %s' % oopspec_name
+        return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
 
     def rewrite_op_jit_force_virtual(self, op):
         return self._do_builtin_call(op)

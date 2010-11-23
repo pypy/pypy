@@ -20,12 +20,15 @@ class GCBase(object):
     prebuilt_gc_objects_are_static_roots = True
     object_minimal_size = 0
 
-    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE):
+    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
+                 translated_to_c=True):
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         self.AddressStack = get_address_stack(chunk_size)
         self.AddressDeque = get_address_deque(chunk_size)
         self.AddressDict = AddressDict
         self.config = config
+        assert isinstance(translated_to_c, bool)
+        self.translated_to_c = translated_to_c
 
     def setup(self):
         # all runtime mutable values' setup should happen here
@@ -79,7 +82,7 @@ class GCBase(object):
     def set_root_walker(self, root_walker):
         self.root_walker = root_walker
 
-    def write_barrier(self, addr_struct):
+    def write_barrier(self, newvalue, addr_struct):
         pass
 
     def statistics(self, index):
@@ -244,6 +247,21 @@ class GCBase(object):
                 (not self.config.taggedpointers or
                  llmemory.cast_adr_to_int(addr) & 1 == 0))
 
+    def enumerate_all_roots(self, callback, arg):
+        """For each root object, invoke callback(obj, arg).
+        'callback' should not be a bound method.
+        Note that this method is not suitable for actually doing the
+        collection in a moving GC, because you cannot write back a
+        modified address.  It is there only for inspection.
+        """
+        # overridden in some subclasses, for GCs which have an additional
+        # list of last generation roots
+        callback2, attrname = _convert_callback_formats(callback)    # :-/
+        setattr(self, attrname, arg)
+        self.root_walker.walk_roots(callback2, callback2, callback2)
+        self.run_finalizers.foreach(callback, arg)
+    enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
     def debug_check_consistency(self):
         """To use after a collection.  If self.DEBUG is set, this
         enumerates all roots and traces all objects to check if we didn't
@@ -257,8 +275,7 @@ class GCBase(object):
             self._debug_pending = self.AddressStack()
             if not we_are_translated():
                 self.root_walker._walk_prebuilt_gc(self._debug_record)
-            callback = GCBase._debug_callback
-            self.root_walker.walk_roots(callback, callback, callback)
+            self.enumerate_all_roots(GCBase._debug_callback, self)
             pending = self._debug_pending
             while pending.non_empty():
                 obj = pending.pop()
@@ -272,9 +289,8 @@ class GCBase(object):
             seen.add(obj)
             self.debug_check_object(obj)
             self._debug_pending.append(obj)
-    def _debug_callback(self, root):
-        obj = root.address[0]
-        ll_assert(bool(obj), "NULL address from walk_roots()")
+    @staticmethod
+    def _debug_callback(obj, self):
         self._debug_record(obj)
     def _debug_callback2(self, pointer, ignored):
         obj = pointer.address[0]
@@ -429,3 +445,17 @@ def read_float_from_env(varname):
     if factor != 1:
         return 0.0
     return value
+
+def _convert_callback_formats(callback):
+    callback = getattr(callback, 'im_func', callback)
+    if callback not in _converted_callback_formats:
+        def callback2(gc, root):
+            obj = root.address[0]
+            ll_assert(bool(obj), "NULL address from walk_roots()")
+            callback(obj, getattr(gc, attrname))
+        attrname = '_callback2_arg%d' % len(_converted_callback_formats)
+        _converted_callback_formats[callback] = callback2, attrname
+    return _converted_callback_formats[callback]
+
+_convert_callback_formats._annspecialcase_ = 'specialize:memo'
+_converted_callback_formats = {}

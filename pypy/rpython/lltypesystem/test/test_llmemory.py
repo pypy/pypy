@@ -324,12 +324,14 @@ def test_raw_malloc_access():
     p_t = lltype.malloc(T)
     assert p_t.s == lltype.nullptr(S)
     # raw malloc does not
-    p_raw_t = lltype.malloc(T, flavor="raw")
-    py.test.raises(lltype.UninitializedMemoryAccess, "p_raw_t.s")
+    U = lltype.Struct("U", ('x', lltype.Signed))
+    p_raw_t = lltype.malloc(U, flavor="raw")
+    py.test.raises(lltype.UninitializedMemoryAccess, "p_raw_t.x")
+    lltype.free(p_raw_t, flavor="raw")
     # this sort of raw_malloc too
-    p_raw_t = cast_adr_to_ptr(raw_malloc(sizeof(T)), lltype.Ptr(T))
-    py.test.raises(lltype.UninitializedMemoryAccess, "p_raw_t.s")
-    
+    p_raw_t = cast_adr_to_ptr(raw_malloc(sizeof(U)), lltype.Ptr(U))
+    py.test.raises(lltype.UninitializedMemoryAccess, "p_raw_t.x")
+
 
 def test_raw_malloc_signed_bunch():
     adr = raw_malloc(sizeof(lltype.Signed) * 50)
@@ -601,7 +603,8 @@ def test_raw_memclear_on_empty_array():
     a = lltype.malloc(A, flavor='raw')
     src = cast_ptr_to_adr(a) + itemoffsetof(A, 0)
     raw_memclear(src, sizeof(lltype.Signed) * 0)
-    
+    lltype.free(a, flavor="raw")
+
 def test_nonneg():
     S1 = lltype.GcStruct('S1', ('x', lltype.Float))
     A1 = lltype.GcArray(lltype.Float)

@@ -1,7 +1,7 @@
 
 from pypy.rpython.lltypesystem import lltype, llmemory
 
-from pypy.jit.metainterp.test.oparser import parse
+from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken,\
      BoxFloat
@@ -141,10 +141,10 @@ def test_floats():
 def test_debug_merge_point():
     x = '''
     []
-    debug_merge_point("info")
-    debug_merge_point('info')
-    debug_merge_point('<some ('other,')> info')
-    debug_merge_point('(stuff) #1')
+    debug_merge_point("info", 0)
+    debug_merge_point('info', 1)
+    debug_merge_point('<some ('other,')> info', 1)
+    debug_merge_point('(stuff) #1', 1)
     '''
     loop = parse(x)
     assert loop.operations[0].getarg(0)._get_str() == 'info'
@@ -168,7 +168,7 @@ i4 = int_add(i0, 2)
 i6 = int_sub(i1, 1)
 i8 = int_gt(i6, 3)
 guard_true(i8, descr=<Guard15>) [i4, i6]
-debug_merge_point('(no jitdriver.get_printable_location!)')
+debug_merge_point('(no jitdriver.get_printable_location!)', 0)
 jump(i6, i4, descr=<Loop0>)
 '''
 

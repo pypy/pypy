@@ -103,3 +103,49 @@ class AppTestGcDumpHeap(object):
         import gc
         gc.dump_heap_stats(self.fname)
 
+
+class AppTestGcMethodCache(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True})
+
+    def test_clear_method_cache(self):
+        import gc, weakref
+        rlist = []
+        def f():
+            class C(object):
+                def f(self):
+                    pass
+            C().f()    # Fill the method cache
+            rlist.append(weakref.ref(C))
+        for i in range(10):
+            f()
+        gc.collect()    # the classes C should all go away here
+        # the last class won't go in mapdict, as long as the code object of f
+        # is around
+        rlist.pop()
+        for r in rlist:
+            assert r() is None
+
+class AppTestGcMapDictIndexCache(AppTestGcMethodCache):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True,
+                                       "objspace.std.withmapdict": True})
+
+
+    def test_clear_index_cache(self):
+        import gc, weakref
+        rlist = []
+        def f():
+            class C(object):
+                def f(self):
+                    pass
+            c = C()
+            c.x = 1
+            getattr(c, "x") # fill the index cache without using the local cache
+            getattr(c, "x")
+            rlist.append(weakref.ref(C))
+        for i in range(5):
+            f()
+        gc.collect()    # the classes C should all go away here
+        for r in rlist:
+            assert r() is None

@@ -460,7 +460,22 @@ class FlowSpaceFrame(pyframe.PyFrame):
         else:
             v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
-    
+
+    # `with` statement
+
+    def SETUP_WITH(self, offsettoend, next_instr):
+        # A simpler version than the 'real' 2.7 one:
+        # directly call manager.__enter__(), don't use special lookup functions
+        # which don't make sense on the RPython type system.
+        from pypy.interpreter.pyopcode import WithBlock
+        w_manager = self.peekvalue()
+        w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
+        self.settopvalue(w_exit)
+        w_result = self.space.call_method(w_manager, "__enter__")
+        block = WithBlock(self, next_instr + offsettoend)
+        self.append_block(block)
+        self.pushvalue(w_result)
+
     # XXX Unimplemented 2.7 opcodes ----------------
 
     # Set literals, set comprehensions
@@ -476,12 +491,6 @@ class FlowSpaceFrame(pyframe.PyFrame):
     def MAP_ADD(self, oparg, next_instr):
         raise NotImplementedError("MAP_ADD")
 
-    # `with` statement
-
-    def SETUP_WITH(self, oparg, next_instr):
-        raise NotImplementedError("SETUP_WITH")
-
-    
     def make_arguments(self, nargs):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
     def argument_factory(self, *args):
@@ -493,3 +502,12 @@ class FlowSpaceFrame(pyframe.PyFrame):
             raise operr
         return pyframe.PyFrame.handle_operation_error(self, ec, operr,
                                                       *args, **kwds)
+
+    def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
+        if w_typ is not self.space.w_None:
+            # The annotator won't allow to merge exception types with None.
+            # Replace it with an object which will break translation when used
+            # (except maybe with 'exc_typ is None')
+            w_typ = self.space.wrap(self.space)
+        return self.space.call_function(w_func, w_typ, w_val, w_tb)
+

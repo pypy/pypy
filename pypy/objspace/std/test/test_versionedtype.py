@@ -12,10 +12,12 @@ class TestVersionedType(test_typeobject.TestTypeObject):
                 def f(self): pass
             class B(A):
                 pass
-            class metatype(type):
+            class X:
                 pass
-            class C(object):
-                __metaclass__ = metatype
+            class Y(object):
+                pass
+            class C(Y, X):
+                pass
             return A, B, C
         """)
         return space.unpackiterable(w_types)

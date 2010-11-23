@@ -111,7 +111,7 @@ class Lock(object):
             c_thread_releaselock(self._lock)
 
     def __del__(self):
-        lltype.free(self._lock, flavor='raw')
+        lltype.free(self._lock, flavor='raw', track_allocation=False)
 
 # ____________________________________________________________
 #
@@ -128,10 +128,13 @@ set_stacksize = llexternal('RPyThreadSetStackSize', [lltype.Signed],
 null_ll_lock = lltype.nullptr(TLOCKP.TO)
 
 def allocate_ll_lock():
-    ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
+    # track_allocation=False here; be careful to lltype.free() it.  The
+    # reason it is set to False is that we get it from all app-level
+    # lock objects, as well as from the GIL, which exists at shutdown.
+    ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw', track_allocation=False)
     res = c_thread_lock_init(ll_lock)
     if res == -1:
-        lltype.free(ll_lock, flavor='raw')
+        lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
     return ll_lock
 

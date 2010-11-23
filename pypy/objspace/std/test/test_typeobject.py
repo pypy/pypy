@@ -1085,4 +1085,12 @@ class AppTestNewShortcut:
 
         assert b == 1
 
-        
+    def test_slots_with_method_in_class(self):
+        # this works in cpython...
+        class A(object):
+            __slots__ = ["f"]
+            def f(self, x):
+                return x + 1
+        a = A()
+        assert a.f(1) == 2
+

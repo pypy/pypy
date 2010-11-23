@@ -1,4 +1,4 @@
-
+import py
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem.rbuilder import *
 from pypy.rpython.annlowlevel import llstr, hlstr
@@ -55,8 +55,29 @@ class BaseTestStringBuilder(BaseRtypingTest):
         assert res == 'aabcabcdefbuuuu'
         assert isinstance(res, unicode)
 
+    def test_string_getlength(self):
+        def func():
+            s = StringBuilder()
+            s.append("a")
+            s.append("abc")
+            return s.getlength()
+        res = self.interpret(func, [])
+        assert res == 4
+
+    def test_unicode_getlength(self):
+        def func():
+            s = UnicodeBuilder()
+            s.append(u"a")
+            s.append(u"abc")
+            return s.getlength()
+        res = self.interpret(func, [])
+        assert res == 4
+
 class TestLLtype(BaseTestStringBuilder, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestStringBuilder, OORtypeMixin):
-    pass
+    def test_string_getlength(self):
+        py.test.skip("getlength(): not implemented on ootype")
+    def test_unicode_getlength(self):
+        py.test.skip("getlength(): not implemented on ootype")

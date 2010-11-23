@@ -19,6 +19,7 @@ from pypy.jit.backend.llsupport.descr import get_call_descr
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
+    minimal_size_in_nursery = 0
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
         self.gcdescr = gcdescr
@@ -158,7 +159,7 @@ class GcRefList:
         # used to avoid too many duplications in the GCREF_LISTs.
         self.hashtable = lltype.malloc(self.HASHTABLE,
                                        self.HASHTABLE_SIZE+1,
-                                       flavor='raw')
+                                       flavor='raw', track_allocation=False)
         dummy = lltype.direct_ptradd(lltype.direct_arrayitems(self.hashtable),
                                      self.HASHTABLE_SIZE)
         dummy = llmemory.cast_ptr_to_adr(dummy)
@@ -252,14 +253,15 @@ class GcRootMap_asmgcc:
 
     def _enlarge_gcmap(self):
         newlength = 250 + self._gcmap_maxlength * 2
-        newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw')
+        newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw',
+                                 track_allocation=False)
         oldgcmap = self._gcmap
         for i in range(self._gcmap_curlength):
             newgcmap[i] = oldgcmap[i]
         self._gcmap = newgcmap
         self._gcmap_maxlength = newlength
         if oldgcmap:
-            lltype.free(oldgcmap, flavor='raw')
+            lltype.free(oldgcmap, flavor='raw', track_allocation=False)
 
     def get_basic_shape(self, is_64_bit=False):
         # XXX: Should this code even really know about stack frame layout of
@@ -308,7 +310,8 @@ class GcRootMap_asmgcc:
         # them inside bigger arrays) and we never try to share them.
         length = len(shape)
         compressed = lltype.malloc(self.CALLSHAPE_ARRAY, length,
-                                   flavor='raw')
+                                   flavor='raw',
+                                   track_allocation=False)   # memory leak
         for i in range(length):
             compressed[length-1-i] = rffi.cast(rffi.UCHAR, shape[i])
         return llmemory.cast_ptr_to_adr(compressed)
@@ -384,6 +387,7 @@ class GcLLDescr_framework(GcLLDescription):
         (self.array_basesize, _, self.array_length_ofs) = \
              symbolic.get_array_token(lltype.GcArray(lltype.Signed), True)
         self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()
+        self.minimal_size_in_nursery=self.GCClass.JIT_minimal_size_in_nursery()
 
         # make a malloc function, with three arguments
         def malloc_basic(size, tid):
@@ -404,7 +408,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(
             [lltype.Signed, lltype.Signed], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address], lltype.Void))
+            [llmemory.Address, llmemory.Address], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
         #
         def malloc_array(itemsize, tid, num_elem):
@@ -466,6 +470,7 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_fixedsize_slowpath(size):
             if self.DEBUG:
                 random_usage_of_xmm_registers()
+            assert size >= self.minimal_size_in_nursery
             try:
                 gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                             0, size, True, False, False)
@@ -550,7 +555,8 @@ class GcLLDescr_framework(GcLLDescription):
             # the GC, and call it immediately
             llop1 = self.llop1
             funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
+            funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
+                    llmemory.cast_ptr_to_adr(gcref_newptr))
 
     def rewrite_assembler(self, cpu, operations):
         # Perform two kinds of rewrites in parallel:
@@ -567,6 +573,9 @@ class GcLLDescr_framework(GcLLDescription):
         #   GETFIELD_RAW from the array 'gcrefs.list'.
         #
         newops = []
+        # we can only remember one malloc since the next malloc can possibly
+        # collect
+        last_malloc = None
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
@@ -584,29 +593,39 @@ class GcLLDescr_framework(GcLLDescription):
                                                    [ConstInt(addr)], box,
                                                    self.single_gcref_descr))
                         op.setarg(i, box)
+            if op.is_malloc():
+                last_malloc = op.result
+            elif op.can_malloc():
+                last_malloc = None
             # ---------- write barrier for SETFIELD_GC ----------
             if op.getopnum() == rop.SETFIELD_GC:
-                v = op.getarg(1)
-                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                             bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.getarg(0))
-                    op = op.copy_and_change(rop.SETFIELD_RAW)
+                val = op.getarg(0)
+                # no need for a write barrier in the case of previous malloc
+                if val is not last_malloc:
+                    v = op.getarg(1)
+                    if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                            bool(v.value)): # store a non-NULL
+                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        op = op.copy_and_change(rop.SETFIELD_RAW)
             # ---------- write barrier for SETARRAYITEM_GC ----------
             if op.getopnum() == rop.SETARRAYITEM_GC:
-                v = op.getarg(2)
-                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                             bool(v.value)): # store a non-NULL
-                    # XXX detect when we should produce a
-                    # write_barrier_from_array
-                    self._gen_write_barrier(newops, op.getarg(0))
-                    op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+                val = op.getarg(0)
+                # no need for a write barrier in the case of previous malloc
+                if val is not last_malloc:
+                    v = op.getarg(2)
+                    if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                            bool(v.value)): # store a non-NULL
+                        # XXX detect when we should produce a
+                        # write_barrier_from_array
+                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ----------
             newops.append(op)
         del operations[:]
         operations.extend(newops)
 
-    def _gen_write_barrier(self, newops, v_base):
-        args = [v_base]
+    def _gen_write_barrier(self, newops, v_base, v_value):
+        args = [v_base, v_value]
         newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                    descr=self.write_barrier_descr))
 

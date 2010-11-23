@@ -45,9 +45,9 @@ class ModuleDictImplementation(W_DictMultiObject):
         if space.is_w(space.type(w_key), space.w_str):
             self.impl_setitem_str(self.space.str_w(w_key), w_value)
         else:
-            self._as_rdict().setitem(w_key, w_value)
+            self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
-    def impl_setitem_str(self, name, w_value, shadows_type=True):
+    def impl_setitem_str(self, name, w_value):
         self.getcell(name, True).w_value = w_value
 
     def impl_delitem(self, w_key):
@@ -66,7 +66,7 @@ class ModuleDictImplementation(W_DictMultiObject):
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().delitem(w_key)
+            self._as_rdict().impl_fallback_delitem(w_key)
         
     def impl_length(self):
         # inefficient, but do we care?
@@ -85,7 +85,7 @@ class ModuleDictImplementation(W_DictMultiObject):
         elif _is_sane_hash(space, w_lookup_type):
             return None
         else:
-            return self._as_rdict().getitem(w_lookup)
+            return self._as_rdict().impl_fallback_getitem(w_lookup)
 
     def impl_getitem_str(self, lookup):
         res = self.getcell(lookup, False)

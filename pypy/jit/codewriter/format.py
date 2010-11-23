@@ -80,7 +80,8 @@ def format_assembler(ssarepr):
 
 def assert_format(ssarepr, expected):
     asm = format_assembler(ssarepr)
-    expected = str(py.code.Source(expected)).strip() + '\n'
+    if expected != '':
+        expected = str(py.code.Source(expected)).strip() + '\n'
     asmlines = asm.split("\n")
     explines = expected.split("\n")
     for asm, exp in zip(asmlines, explines):
