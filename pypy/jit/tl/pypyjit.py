@@ -42,6 +42,7 @@ config.objspace.usemodules._weakref = True
 config.objspace.usemodules._sre = False
 #
 config.objspace.usemodules._ffi = True
+config.objspace.usemodules.cppyy = True
 #
 set_pypy_opt_level(config, level='jit')
 
