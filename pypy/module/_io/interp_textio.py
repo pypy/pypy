@@ -6,8 +6,10 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import UnicodeBuilder
+from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.module._codecs import interp_codecs
 from pypy.module._io.interp_iobase import convert_size
+import sys
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
@@ -15,6 +17,8 @@ SEEN_CR   = 1
 SEEN_LF   = 2
 SEEN_CRLF = 4
 SEEN_ALL  = SEEN_CR | SEEN_LF | SEEN_CRLF
+
+_WINDOWS = sys.platform == 'win32'
 
 class W_IncrementalNewlineDecoder(Wrappable):
     seennl = 0
@@ -225,6 +229,9 @@ W_TextIOBase.typedef = TypeDef(
     encoding = interp_attrproperty_w("w_encoding", W_TextIOBase)
     )
 
+class PositionCookie:
+    pass
+
 class W_TextIOWrapper(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
@@ -233,11 +240,17 @@ class W_TextIOWrapper(W_TextIOBase):
 
         self.decoded_chars = None   # buffer for text returned from decoder
         self.decoded_chars_used = 0 # offset into _decoded_chars for read()
+        self.pending_bytes = None   # list of bytes objects waiting to be
+                                    # written, or NULL
         self.chunk_size = 8192
 
         self.readuniversal = False
         self.readtranslate = False
         self.readnl = None
+
+        self.encodefunc = None # Specialized encoding func (see below)
+        self.encoding_start_of_stream = False # Whether or not it's the start
+                                              # of the stream
 
     @unwrap_spec('self', ObjSpace, W_Root, W_Root, W_Root, W_Root, int)
     def descr_init(self, space, w_buffer, w_encoding=None,
@@ -284,7 +297,14 @@ class W_TextIOWrapper(W_TextIOBase):
         self.readuniversal = not newline # null or empty
         self.readtranslate = newline is None
         self.readnl = newline
-        # XXX self.writenl
+
+        self.writetranslate = (newline != u'')
+        if not self.readuniversal:
+            self.writenl = self.readnl
+            if self.writenl == u'\n':
+                self.writenl = None
+        elif _WINDOWS:
+            self.writenl = u"\r\n"
 
         # build the decoder object
         if space.is_true(space.call_method(w_buffer, "readable")):
@@ -296,6 +316,16 @@ class W_TextIOWrapper(W_TextIOBase):
                 self.w_decoder = space.call_function(
                     space.gettypeobject(W_IncrementalNewlineDecoder.typedef),
                     self.w_decoder, space.wrap(self.readtranslate))
+
+        # build the encoder object
+        if space.is_true(space.call_method(w_buffer, "writable")):
+            w_codec = interp_codecs.lookup_codec(space,
+                                                 space.str_w(self.w_encoding))
+            self.w_encoder = space.call_method(w_codec,
+                                               "incrementalencoder", w_errors)
+
+        self.seekable = space.is_true(space.call_method(w_buffer, "seekable"))
+        self.telling = self.seekable
 
         self.state = STATE_OK
 
@@ -334,8 +364,8 @@ class W_TextIOWrapper(W_TextIOBase):
     @unwrap_spec('self', ObjSpace)
     def flush_w(self, space):
         self._check_closed(space)
-        # XXX self.telling = self.seekable
-        # XXX self._writeflush(space)
+        self.telling = self.seekable
+        self._writeflush(space)
         space.call_method(self.w_buffer, "flush")
 
     @unwrap_spec('self', ObjSpace)
@@ -346,6 +376,7 @@ class W_TextIOWrapper(W_TextIOBase):
             return space.call_method(self.w_buffer, "close")
 
     # _____________________________________________________________
+    # read methods
 
     def _set_decoded_chars(self, chars):
         self.decoded_chars = chars
@@ -481,7 +512,7 @@ class W_TextIOWrapper(W_TextIOBase):
     @unwrap_spec('self', ObjSpace, W_Root)
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
-        # XXX self._writeflush(space)
+        self._writeflush(space)
 
         limit = convert_size(space, w_limit)
         chunked = 0
@@ -566,6 +597,69 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             return space.wrap(u'')
 
+    # _____________________________________________________________
+    # write methods
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def write_w(self, space, w_text):
+        self._check_init(space)
+        self._check_closed(space)
+
+        if not self.w_encoder:
+            raise OperationError(space.w_IOError, space.wrap("not writable"))
+
+        text = space.unicode_w(w_text)
+        textlen = len(text)
+
+        haslf = False
+        if (self.writetranslate and self.writenl) or self.line_buffering:
+            if text.find(u'\n') >= 0:
+                haslf = True
+        if haslf and self.writetranslate and self.writenl:
+            w_text = space.call_method(w_text, "replace", space.wrap(u'\n'),
+                                       space.wrap(self.writenl))
+            text = space.unicode_w(w_text)
+
+        needflush = False
+        if self.line_buffering and (haslf or text.find(u'\r') >= 0):
+            needflush = True
+
+        # XXX What if we were just reading?
+        if self.encodefunc:
+            w_bytes = self.encodefunc(space, w_text, self.errors)
+            self.encoding_start_of_stream = False
+        else:
+            w_bytes = space.call_method(self.w_encoder, "encode", w_text)
+
+        b = space.str_w(w_bytes)
+        if not self.pending_bytes:
+            self.pending_bytes = []
+            self.pending_bytes_count = 0
+        self.pending_bytes.append(b)
+        self.pending_bytes_count += len(b)
+
+        if self.pending_bytes_count > self.chunk_size or needflush:
+            self._writeflush(space)
+
+        if needflush:
+            space.call_method(self.w_buffer, "flush")
+
+        self.snapshot = None
+
+        if self.w_decoder:
+            space.call_method(self.w_decoder, "reset")
+
+        return space.wrap(textlen)
+
+    def _writeflush(self, space):
+        if not self.pending_bytes:
+            return
+
+        pending_bytes = ''.join(self.pending_bytes)
+        self.pending_bytes = None
+
+        space.call_method(self.w_buffer, "write", space.wrap(pending_bytes))
+
     @unwrap_spec('self', ObjSpace)
     def detach_w(self, space):
         self._check_init(space)
@@ -575,6 +669,132 @@ class W_TextIOWrapper(W_TextIOBase):
         self.state = STATE_DETACHED
         return w_buffer
 
+    # _____________________________________________________________
+    # seek/tell
+
+    def _pack_cookie(self, start_pos, dec_flags=0,
+                           bytes_to_feed=0, need_eof=0, chars_to_skip=0):
+        # The meaning of a tell() cookie is: seek to position, set the
+        # decoder flags to dec_flags, read bytes_to_feed bytes, feed them
+        # into the decoder with need_eof as the EOF flag, then skip
+        # chars_to_skip characters of the decoded result.  For most simple
+        # decoders, tell() will often just give a byte offset in the file.
+        return (start_pos | (dec_flags<<64) | (bytes_to_feed<<128) |
+               (chars_to_skip<<192) | bool(need_eof)<<256)
+
+    def _unpack_cookie(self, bigint):
+        cookie = PositionCookie()
+        cookie.start_pos = bigint.ulonglongmask()
+        bigint = bigint.rshift(r_ulonglong.BITS)
+        cookie.dec_flags = 0
+        cookie.bytes_to_feed = 0
+        cookie.chars_to_skip = 0
+        cookie.need_eof = 0
+        return cookie
+
+    def _decoder_setstate(self, space, cookie):
+        # When seeking to the start of the stream, we call decoder.reset()
+        # rather than decoder.getstate().
+        # This is for a few decoders such as utf-16 for which the state value
+        # at start is not (b"", 0) but e.g. (b"", 2) (meaning, in the case of
+        # utf-16, that we are expecting a BOM).
+        if cookie.start_pos == 0 and cookie.dec_flags == 0:
+            space.call_method(self.w_decoder, "reset")
+            self.encoding_start_of_stream = True
+        else:
+            space.call_method(self.w_encoder, "setstate",
+                              space.newtuple([space.wrap(""),
+                                              space.wrap(cookie.dec_flags)]))
+
+    def _encoder_setstate(self, space, cookie):
+        if cookie.start_pos == 0 and cookie.dec_flags == 0:
+            space.call_method(self.w_encoder, "reset")
+            self.encoding_start_of_stream = True
+        else:
+            space.call_method(self.w_encoder, "setstate", space.wrap(0))
+            self.encoding_start_of_stream = False
+
+    @unwrap_spec('self', ObjSpace, W_Root, int)
+    def seek_w(self, space, w_pos, whence=0):
+        self._check_closed(space)
+
+        if not self.seekable:
+            raise OperationError(space.w_IOError, space.wrap(
+                "underlying stream is not seekable"))
+
+        if whence == 1:
+            # seek relative to current position
+            if not space.is_true(space.eq(w_pos, space.wrap(0))):
+                raise OperationError(space.w_IOError, space.wrap(
+                    "can't do nonzero cur-relative seeks"))
+            # Seeking to the current position should attempt to sync the
+            # underlying buffer with the current position.
+            w_pos = space.call_method(self, "tell")
+
+        elif whence == 2:
+            # seek relative to end of file
+            if not space.is_true(space.eq(w_pos, space.wrap(0))):
+                raise OperationError(space.w_IOError, space.wrap(
+                    "can't do nonzero end-relative seeks"))
+            space.call_method(self, "flush")
+            self._set_decoded_chars(None)
+            self.snapshot = None
+            if self.w_decoder:
+                space.call_method(self.w_decoder, "reset")
+            return space.call_method(self.w_buffer, "seek",
+                                     w_pos, space.wrap(whence))
+
+        elif whence != 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "invalid whence (%d, should be 0, 1 or 2)" % (whence,)))
+
+        if space.is_true(space.lt(w_pos, space.wrap(0))):
+            r = space.str_w(space.repr(w_pos))
+            raise OperationError(space.w_ValueError, space.wrap(
+                "negative seek position %s" % (r,)))
+
+        space.call_method(self, "flush")
+
+        # The strategy of seek() is to go back to the safe start point and
+        # replay the effect of read(chars_to_skip) from there.
+        cookie = self._unpack_cookie(space.bigint_w(w_pos))
+
+        # Seek back to the safe start point
+        space.call_method(self.w_buffer, "seek", space.wrap(cookie.start_pos))
+
+        self._set_decoded_chars(None)
+        self.snapshot = None
+
+        # Restore the decoder to its state from the safe start point.
+        if self.w_decoder:
+            self._decoder_setstate(space, cookie)
+
+        if cookie.chars_to_skip:
+            # Just like _read_chunk, feed the decoder and save a snapshot.
+            w_chunk = space.call_method(self.w_buffer, "read",
+                                        space.wrap(cookie.chars_to_feed))
+            # XXX self.snapshot = cookie.dec_flags, w_chunk
+
+            w_decoded = space.call_method(self.w_decoder, "decode",
+                                          w_chunk, space.wrap(cookie.need_eof))
+            self._set_decoded_chars(space.unicode_w(w_decoded))
+
+            # Skip chars_to_skip of the decoded characters
+            if len(self.decoded_chars) < cookie.chars_to_skip:
+                raise OperationError(space.w_IOError, space.wrap(
+                    "can't restore logical file position"))
+            self.decoded_chars_used = cookie.chars_to_skip
+        else:
+            # XXX self.snapshot = cookie.dec_flags, space.wrap(u"")
+            pass
+
+        # Finally, reset the encoder (merely useful for proper BOM handling)
+        if self.w_encoder:
+            self._encoder_setstate(space, cookie)
+
+        return w_pos
+
+
 W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
@@ -582,6 +802,8 @@ W_TextIOWrapper.typedef = TypeDef(
 
     read = interp2app(W_TextIOWrapper.read_w),
     readline = interp2app(W_TextIOWrapper.readline_w),
+    write = interp2app(W_TextIOWrapper.write_w),
+    seek = interp2app(W_TextIOWrapper.seek_w),
     detach = interp2app(W_TextIOWrapper.detach_w),
     flush = interp2app(W_TextIOWrapper.flush_w),
     close = interp2app(W_TextIOWrapper.close_w),

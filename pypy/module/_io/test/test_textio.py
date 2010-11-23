@@ -85,6 +85,27 @@ class AppTestTextIO:
         reads += t.readline()
         assert reads == u"abc\ndef\n"
 
+    def test_encoded_writes(self):
+        import _io
+        data = u"1234567890"
+        tests = ("utf-16",
+                 "utf-16-le",
+                 "utf-16-be",
+                 "utf-32",
+                 "utf-32-le",
+                 "utf-32-be")
+        for encoding in tests:
+            buf = _io.BytesIO()
+            f = _io.TextIOWrapper(buf, encoding=encoding)
+            # Check if the BOM is written only once (see issue1753).
+            f.write(data)
+            f.write(data)
+            f.seek(0)
+            assert f.read() == data * 2
+            f.seek(0)
+            assert f.read() == data * 2
+            assert buf.getvalue() == (data * 2).encode(encoding)
+
 class AppTestIncrementalNewlineDecoder:
 
     def test_newline_decoder(self):
