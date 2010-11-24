@@ -65,9 +65,9 @@ def test_tasks_rows():
     assert rows[2] == (0x8000-0x1000,    1, 'rtype_lltype')
 
 
-def test_memusage_rows():
+def test_vmrss_rows():
     lines = ['100', '200', '300']
-    rows = list(log2gnumeric.memusage_rows_impl(lines, 2000))
+    rows = list(log2gnumeric.vmrss_rows_impl(lines, 2000))
     assert len(rows) == 4
     assert rows[0] == ('inferred clock', 'VmRSS')
     assert rows[1] == (0, 100)

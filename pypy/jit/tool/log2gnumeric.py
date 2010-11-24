@@ -29,7 +29,8 @@ def main():
     xml = replace_sheet(xml, 'translation-task', tasks_rows(time0, data))
     xml = replace_sheet(xml, 'gc-collect', gc_collect_rows(time0, data))
     xml = replace_sheet(xml, 'loops', loops_rows(time0, data))
-    xml = replace_sheet(xml, 'vmrss', memusage_rows(logname + '.vmrss', maxtime))
+    xml = replace_sheet(xml, 'vmrss', vmrss_rows(logname + '.vmrss', maxtime))
+    xml = replace_sheet(xml, 'cpython-vmrss', vmrss_rows('cpython.vmrss', maxtime))
     #
     out = gzip.open(outname, 'wb')
     out.write(xml)
@@ -141,16 +142,16 @@ def loops_rows(time0, data):
         yield clock, loops+bridges, loops, bridges
 
 
-def memusage_rows(filename, maxtime):
+def vmrss_rows(filename, maxtime):
     try:
         lines = open(filename).readlines()
     except IOError:
-        print 'Warning: cannot find file %s, skipping the memusage sheet'
+        print 'Warning: cannot find file %s, skipping this sheet'
         lines = []
-    for row in memusage_rows_impl(lines, maxtime):
+    for row in vmrss_rows_impl(lines, maxtime):
         yield row
 
-def memusage_rows_impl(lines, maxtime):
+def vmrss_rows_impl(lines, maxtime):
     yield 'inferred clock', 'VmRSS'
     numlines = len(lines)
     for i, line in enumerate(lines):
