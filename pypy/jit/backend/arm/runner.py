@@ -42,7 +42,7 @@ class ArmCPU(AbstractLLCPU):
 
     def execute_token(self, executable_token):
         i = [self.get_latest_value_int(x) for x in range(10)]
-        print 'Inputargs: ', i
+        print 'Inputargs: %r for token %r' % (i, executable_token)
         addr = executable_token._arm_bootstrap_code
         assert addr % 8 == 0
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)

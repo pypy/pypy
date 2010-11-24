@@ -309,7 +309,7 @@ class AssemblerARM(ResOpAssembler):
 
         if self._debug_asm:
             self._dump_trace('loop.asm')
-        print 'Done assembling'
+        print 'Done assembling loop with token %r' % looptoken
 
     def _prepare_sp_patch_location(self):
         """Generate NOPs as placeholder to patch the instruction(s) to update the
@@ -409,6 +409,27 @@ class AssemblerARM(ResOpAssembler):
             lower_bound = arg.getint() > 0
         #XXX check ranges for different operations
         return isinstance(arg, ConstInt) and arg.getint() <= size and lower_bound
+
+
+    def _ensure_result_bit_extension(self, resloc, size, signed, regalloc):
+        if size == 4:
+            return
+        if size == 1:
+            if not signed: #unsigned char
+                self.mc.AND_ri(resloc.value, resloc.value, 0xFF)
+            else:
+                self.mc.LSL_ri(resloc.value, resloc.value, 24)
+                self.mc.ASR_ri(resloc.value, resloc.value, 24)
+        elif size == 2:
+            if not signed:
+                t = TempBox()
+                loc = regalloc.force_allocate_reg(t)
+                self.mc.gen_load_int(loc.value, 0xFFFF)
+                self.mc.AND_rr(resloc.value, resloc.value, loc.value)
+                regalloc.possibly_free_var(t)
+            else:
+                self.mc.LSL_ri(resloc.value, resloc.value, 16)
+                self.mc.ASR_ri(resloc.value, resloc.value, 16)
 
     def patch_trace(self, faildescr, bridge_addr, regalloc):
         # The first instruction (word) is not overwritten, because it is the

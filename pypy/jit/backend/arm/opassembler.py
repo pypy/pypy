@@ -251,15 +251,10 @@ class OpAssembler(object):
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
-            l = regalloc.loc(op.result)
-            # XXX we need descr.get_result_sign here!!!!
+            loc = regalloc.loc(op.result)
             size = descr.get_result_size(False)
-            # for now just check the size of the value
-            if size == 1: #unsigned char
-                self.mc.AND_ri(l.value, l.value, 255)
-            elif size == 2: # signed short
-                self.mc.LSL_ri(l.value, l.value, 16)
-                self.mc.ASR_ri(l.value, l.value, 16)
+            signed = descr.is_result_signed()
+            self._ensure_result_bit_extension(loc, size, signed, regalloc)
         return cond
 
     def _emit_call(self, adr, args, regalloc, fcond=c.AL, save_all_regs=False, result=None):
@@ -353,6 +348,11 @@ class FieldOpAssembler(object):
         else:
             assert 0
         f(res.value, base_loc.value, ofs)
+
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            signed = op.getdescr().is_field_signed()
+            self._ensure_result_bit_extension(res, size, signed, regalloc)
         return fcond
 
     emit_op_getfield_raw = emit_op_getfield_gc
@@ -397,11 +397,14 @@ class ArrayOpAssember(object):
         #XXX check if imm would be fine here
         value_loc = regalloc.make_sure_var_in_reg(a2, imm_fine=False)
 
-        if scale == 2:
-            self.mc.STR_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond,
-                            imm=scale, shifttype=shift.LSL)
-        elif scale == 1:
+        if scale > 0:
             self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
+        if ofs > 0:
+            self.mc.ADD_ri(ofs_loc.value, ofs_loc.value, ofs)
+
+        if scale == 2:
+            self.mc.STR_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
+        elif scale == 1:
             self.mc.STRH_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
         elif scale == 0:
             self.mc.STRB_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
@@ -419,6 +422,12 @@ class ArrayOpAssember(object):
         base_loc  = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         ofs_loc = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
         res = regalloc.force_allocate_reg(op.result)
+
+        if scale > 0:
+            self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
+        if ofs > 0:
+            self.mc.ADD_ri(ofs_loc.value, ofs_loc.value, imm=ofs)
+
         if scale == 2:
             f = self.mc.LDR_rr
         elif scale == 1:
@@ -427,9 +436,14 @@ class ArrayOpAssember(object):
             f = self.mc.LDRB_rr
         else:
             assert 0
-        if scale > 0:
-            self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
+
         f(res.value, base_loc.value, ofs_loc.value, cond=fcond)
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            descr = op.getdescr()
+            size =  descr.get_item_size(False)
+            signed = descr.is_item_signed()
+            self._ensure_result_bit_extension(res, size, signed, regalloc)
         return fcond
 
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
