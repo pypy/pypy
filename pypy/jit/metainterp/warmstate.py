@@ -202,7 +202,7 @@ class WarmEnterState(object):
             meth(default_value)
 
     def set_param_threshold(self, threshold):
-        if threshold < 0:
+        if threshold <= 0:
             self.increment_threshold = 0   # never reach the THRESHOLD_LIMIT
             return
         if threshold < 2:
