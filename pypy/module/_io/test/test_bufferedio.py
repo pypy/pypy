@@ -339,6 +339,48 @@ class AppTestBufferedWriter:
         # Previously buffered bytes were flushed
         assert s.startswith("01234567A")
 
+    def test_read_non_blocking(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self, read_stack=()):
+                self._read_stack = list(read_stack)
+            def readable(self):
+                return True
+            def readinto(self, buf):
+                max_len = len(buf)
+                try:
+                    data = self._read_stack[0]
+                except IndexError:
+                    self._extraneous_reads += 1
+                    return 0
+                if data is None:
+                    del self._read_stack[0]
+                    return None
+                n = len(data)
+                if len(data) <= max_len:
+                    del self._read_stack[0]
+                    buf[:n] = data
+                    return n
+                else:
+                    buf[:] = data[:max_len]
+                    self._read_stack[0] = data[max_len:]
+                    return max_len
+            def read(self, n=None):
+                try:
+                    return self._read_stack.pop(0)
+                except IndexError:
+                    return ""
+        # Inject some None's in there to simulate EWOULDBLOCK
+        rawio = MockRawIO((b"abc", b"d", None, b"efg", None, None, None))
+        bufio = _io.BufferedReader(rawio)
+
+        assert bufio.read(6) == "abcd"
+        assert bufio.read(1) == "e"
+        assert bufio.read() == "fg"
+        assert bufio.peek(1) == ""
+        assert bufio.read() is None
+        assert bufio.read() == ""
+
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io

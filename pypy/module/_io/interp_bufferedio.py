@@ -281,7 +281,7 @@ class BufferedMixin:
             space.call_method(self.w_raw, "close")
 
     @unwrap_spec('self', ObjSpace)
-    def flush_w(self, space):
+    def simple_flush_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_raw, "flush")
 
@@ -387,7 +387,7 @@ class BufferedMixin:
         if size == -1:
             # read until the end of stream
             with self.lock:
-                res = self._read_all(space)
+                return self._read_all(space)
         elif size >= 0:
             res = self._read_fast(size)
             if res is None:
@@ -484,6 +484,8 @@ class BufferedMixin:
             # Read until EOF or until read() would block
             w_data = space.call_method(self.w_raw, "read")
             if space.is_w(w_data, space.w_None):
+                if current_size == 0:
+                    return w_data
                 break
             data = space.str_w(w_data)
             size = len(data)
@@ -493,7 +495,7 @@ class BufferedMixin:
             current_size += size
             if self.abs_pos != -1:
                 self.abs_pos += size
-        return builder.build()
+        return space.wrap(builder.build())
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
@@ -759,7 +761,7 @@ W_BufferedReader.typedef = TypeDef(
     seek = interp2app(W_BufferedReader.seek_w),
     tell = interp2app(W_BufferedReader.tell_w),
     close = interp2app(W_BufferedReader.close_w),
-    flush = interp2app(W_BufferedReader.flush_w),
+    flush = interp2app(W_BufferedReader.simple_flush_w), # Not flush_w!
     detach = interp2app(W_BufferedReader.detach_w),
     truncate = interp2app(W_BufferedReader.truncate_w),
     fileno = interp2app(W_BufferedReader.fileno_w),
