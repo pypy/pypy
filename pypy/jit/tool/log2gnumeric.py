@@ -28,7 +28,8 @@ def main():
     xml = gzip.open('log-template.gnumeric').read()
     xml = replace_sheet(xml, 'translation-task', tasks_rows(time0, data))
     xml = replace_sheet(xml, 'gc-collect', gc_collect_rows(time0, data))
-    xml = replace_sheet(xml, 'memusage', memusage_rows(logname + '.memusage', maxtime))
+    xml = replace_sheet(xml, 'loops', loops_rows(time0, data))
+    xml = replace_sheet(xml, 'vmrss', memusage_rows(logname + '.vmrss', maxtime))
     #
     out = gzip.open(outname, 'wb')
     out.write(xml)
@@ -114,6 +115,31 @@ starting ([\w-]+)
     for a,b in r.findall(data):
         clock = int(a, 16) - time0
         yield clock, 1, b
+
+
+def loops_rows(time0, data):
+    s = r"""
+\[([0-9a-f]+)\] \{jit-mem-looptoken-(alloc|free)
+(.*?)\[
+"""
+    #
+    r = re.compile(s.replace('\n', ''))
+    yield 'clock', 'total', 'loops', 'bridges'
+    loops = 0
+    bridges = 0
+    for clock, action, text in r.findall(data):
+        clock = int(clock, 16) - time0
+        if text.startswith('allocating Loop #'):
+            loops += 1
+        elif text.startswith('allocating Bridge #'):
+            bridges += 1
+        elif text.startswith('freeing Loop #'):
+            match = re.match('freeing Loop # .* with ([0-9]*) attached bridges', text)
+            loops -=1
+            bridges -= int(match.group(1))
+        total = loops+bridges
+        yield clock, loops+bridges, loops, bridges
+
 
 def memusage_rows(filename, maxtime):
     try:

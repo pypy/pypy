@@ -73,4 +73,27 @@ def test_memusage_rows():
     assert rows[1] == (0, 100)
     assert rows[2] == (1000, 200)
     assert rows[3] == (2000, 300)
-    
+
+def test_loops_rows():
+    log = """\
+[1000] {jit-mem-looptoken-alloc
+allocating Loop # 0
+[1001] jit-mem-looptoken-alloc}
+[2000] {jit-mem-looptoken-alloc
+allocating Loop # 1
+[2001] jit-mem-looptoken-alloc}
+[3000] {jit-mem-looptoken-alloc
+allocating Bridge # 1 of Loop # 0
+[3001] jit-mem-looptoken-alloc}
+[4000] {jit-mem-looptoken-free
+freeing Loop # 0 with 1 attached bridges
+[4001]
+"""
+    log = log.replace('\n', '')
+    rows = list(log2gnumeric.loops_rows(0x1000, log))
+    assert len(rows) == 5
+    assert rows[0] == ('clock', 'total', 'loops', 'bridges')
+    assert rows[1] == (    0x0,       1,       1,         0)
+    assert rows[2] == ( 0x1000,       2,       2,         0)
+    assert rows[3] == ( 0x2000,       3,       2,         1)
+    assert rows[4] == ( 0x3000,       1,       1,         0)
