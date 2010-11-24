@@ -10,6 +10,7 @@
 
 #ifdef MS_WINDOWS
 #include <process.h>
+#include <io.h>
 #endif
 
 #include <signal.h>
