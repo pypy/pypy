@@ -521,8 +521,7 @@ class TestDebuggingAssembler(object):
             self.cpu.finish_once()
         finally:
             debug._log = None
-        assert dlog[1] == ('jit-backend-counts', [('debug_print', '0:10')])
-            
+        assert ('jit-backend-counts', [('debug_print', '0:10')]) in dlog
 
     def test_debugger_checksum(self):
         loop = """
