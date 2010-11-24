@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
+from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, X86RegisterManager,
                                            X86XMMRegisterManager, get_ebp_ofs,
                                            _get_scale)
@@ -33,7 +34,6 @@ from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.rlib.streamio import open_file_as_stream
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
@@ -302,6 +302,8 @@ class Assembler386(object):
                _x86_arglocs
                _x86_debug_checksum
         """
+        looptoken.compiled_loop_token = CompiledLoopToken(self.cpu,
+                                                          looptoken.number)
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -406,8 +408,9 @@ class Assembler386(object):
 
     def _register_counter(self):
         if self._debug:
+            # YYY leak -- just put it in self.mc instead
             struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                                   track_allocation=False)   # known to leak
+                                   track_allocation=False)
             struct.i = 0
             self.loop_run_counters.append((len(self.loop_run_counters), struct))
         

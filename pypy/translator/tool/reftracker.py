@@ -3,7 +3,7 @@ General-purpose reference tracker.
 Usage: call track(obj).
 """
 
-import autopath, sys, os
+import autopath, sys, os, types
 import gc
 from pypy.translator.tool.graphpage import GraphPage, DotGen
 from pypy.tool.uid import uid
@@ -39,7 +39,7 @@ class BaseRefTrackerPage(GraphPage):
                 if o2 is None:
                     continue
                 addedge(objectlist[i], o2)
-                id2typename[uid(o2)] = type(o2).__name__
+                id2typename[uid(o2)] = self.shortrepr(o2)
                 del o2
             for o2 in self.get_referrers(objectlist[i]):
                 if o2 is None:
@@ -47,7 +47,7 @@ class BaseRefTrackerPage(GraphPage):
                 if type(o2) is list and o2 and o2[0] is MARKER:
                     continue
                 addedge(o2, objectlist[i])
-                id2typename[uid(o2)] = type(o2).__name__
+                id2typename[uid(o2)] = self.shortrepr(o2)
                 del o2
 
         for ids, label in edges.items():
@@ -82,13 +82,23 @@ class BaseRefTrackerPage(GraphPage):
         return self.newpage(objectlist)
 
     def formatobject(self, o):
+        header = self.shortrepr(o, compact=False)
+        secondline = repr(o.__class__)
+        return header, secondline, repr(o)
+
+    def shortrepr(self, o, compact=True):
+        t = type(o)
+        if t is types.FrameType:
+            if compact:
+                return 'frame %r' % (o.f_code.co_name,)
+            else:
+                return 'frame %r' % (o.f_code,)
         s = repr(o)
         if len(s) > 50:
-            linktext = s
             s = s[:20] + ' ... ' + s[-20:]
-        else:
-            linktext = ''
-        return type(o).__name__, s, linktext
+        if s.startswith('<') and s.endswith('>'):
+            s = s[1:-1]
+        return s
 
     def edgelabel(self, o1, o2):
         return ''

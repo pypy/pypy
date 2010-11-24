@@ -63,6 +63,10 @@ abort: vable escape:    12
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
+Total # of loops:       100
+Total # of bridges:     300
+Freed # of loops:       99
+Freed # of bridges:     299
 '''
 
 def test_parse():

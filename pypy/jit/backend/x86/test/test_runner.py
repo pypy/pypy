@@ -338,6 +338,7 @@ class TestX86(LLtypeBackendTest):
         faildescr1 = BasicFailDescr(1)
         faildescr2 = BasicFailDescr(2)
         looptoken = LoopToken()
+        looptoken.number = 17
         class FakeString(object):
             def __init__(self, val):
                 self.val = val
@@ -356,7 +357,7 @@ class TestX86(LLtypeBackendTest):
         operations[3].setfailargs([i1])
         self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
-        assert name == "Loop # 0: hello"
+        assert name == "Loop # 17: hello"
         assert loopaddress <= looptoken._x86_loop_code
         assert loopsize >= 40 # randomish number
 
@@ -370,7 +371,7 @@ class TestX86(LLtypeBackendTest):
         ]
         bridge[1].setfailargs([i1b])
 
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
         name, address, size = agent.functions[1]
         assert name == "Bridge # 0: bye"
         # Would be exactly ==, but there are some guard failure recovery

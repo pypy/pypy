@@ -174,6 +174,8 @@ class BaseBackendTest(Runner):
         assert not wr_i1() and not wr_guard()
 
     def test_compile_bridge(self):
+        self.cpu.total_compiled_loops = 0
+        self.cpu.total_compiled_bridges = 0
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
@@ -199,13 +201,16 @@ class BaseBackendTest(Runner):
         ]
         bridge[1].setfailargs([i1b])
 
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
 
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
+
+        assert self.cpu.total_compiled_loops == 1
+        assert self.cpu.total_compiled_bridges == 1
 
     def test_compile_bridge_with_holes(self):
         i0 = BoxInt()
@@ -233,7 +238,7 @@ class BaseBackendTest(Runner):
         ]
         bridge[1].setfailargs([i1b])
 
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
 
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
@@ -1050,7 +1055,7 @@ class BaseBackendTest(Runner):
             ResOperation(rop.JUMP, [f3] + fboxes2[1:], None, descr=looptoken),
         ]
 
-        self.cpu.compile_bridge(faildescr1, fboxes2, bridge)
+        self.cpu.compile_bridge(faildescr1, fboxes2, bridge, looptoken)
 
         for i in range(len(fboxes)):
             self.cpu.set_future_value_float(i, 13.5 + 6.73 * i)

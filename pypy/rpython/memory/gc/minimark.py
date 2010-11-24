@@ -26,7 +26,7 @@ Environment variables can be used to fine-tune the following parameters:
                         to more than PYPY_GC_MAX_DELTA the amount really
                         used after a collection.  Defaults to 1/8th of the
                         total RAM size (which is constrained to be at most
-                        4GB on 32-bit systems).  Try values like '200MB'.
+                        2/3/4GB on 32-bit systems).  Try values like '200MB'.
 
  PYPY_GC_MIN            Don't collect while the memory size is below this
                         limit.  Useful to avoid spending all the time in
@@ -102,6 +102,7 @@ class MiniMarkGC(MovingGCBase):
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx experiment with False
+    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains

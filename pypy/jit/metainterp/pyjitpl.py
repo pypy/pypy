@@ -14,7 +14,7 @@ from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
-from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
+from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
@@ -1068,7 +1068,7 @@ class MIFrame(object):
             resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
                                                    metainterp.jitdriver_sd)
         else:
-            resumedescr = compile.ResumeGuardDescr(metainterp_sd)
+            resumedescr = compile.ResumeGuardDescr()
         guard_op = metainterp.history.record(opnum, moreargs, None,
                                              descr=resumedescr)
         virtualizable_boxes = None
@@ -1222,6 +1222,7 @@ class MetaInterpStaticData(object):
         self.logger_ops = Logger(self, guard_number=True)
 
         self.profiler = ProfilerClass()
+        self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc
 
         backendmodule = self.cpu.__module__
@@ -1339,6 +1340,11 @@ class MetaInterpStaticData(object):
                 if jitcode.fnaddr == fnaddress:
                     return jitcode
             return None
+
+    def try_to_free_some_loops(self):
+        # Increase here the generation recorded by the memory manager.
+        if self.warmrunnerdesc is not None:       # for tests
+            self.warmrunnerdesc.memory_manager.next_generation()
 
     # ---------------- logging ------------------------
 
@@ -1636,6 +1642,7 @@ class MetaInterp(object):
         self.staticdata._setup_once()
         self.staticdata.profiler.start_tracing()
         assert jitdriver_sd is self.jitdriver_sd
+        self.staticdata.try_to_free_some_loops()
         self.create_empty_history()
         try:
             original_boxes = self.initialize_original_boxes(jitdriver_sd, *args)
@@ -1664,10 +1671,15 @@ class MetaInterp(object):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
         assert isinstance(key, compile.ResumeGuardDescr)
+        # store the resumekey.wref_original_loop_token() on 'self' to make
+        # sure that it stays alive as long as this MetaInterp
+        self.resumekey_original_loop_token = key.wref_original_loop_token()
+        self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key)
         try:
             return self._handle_guard_failure(key)
         finally:
+            self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
@@ -1677,6 +1689,8 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         try:
             self.prepare_resume_from_failure(key.guard_opnum)
+            if self.resumekey_original_loop_token is None:   # very rare case
+                raise SwitchToBlackhole(ABORT_BRIDGE)
             self.interpret()
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
@@ -1798,10 +1812,15 @@ class MetaInterp(object):
             raise NotImplementedError(opname[opnum])
 
     def get_compiled_merge_points(self, greenkey):
+        """Get the list of looptokens corresponding to the greenkey.
+        Turns the (internal) list of weakrefs into regular refs.
+        """
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        if cell.compiled_merge_points is None:
-            cell.compiled_merge_points = []
-        return cell.compiled_merge_points
+        return cell.get_compiled_merge_points()
+
+    def set_compiled_merge_points(self, greenkey, looptokens):
+        cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
+        cell.set_compiled_merge_points(looptokens)
 
     def compile(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -1811,6 +1830,7 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop_token = compile.compile_new_loop(self, old_loop_tokens, start)
         if loop_token is not None: # raise if it *worked* correctly
+            self.set_compiled_merge_points(greenkey, old_loop_tokens)
             raise GenerateMergePoint(live_arg_boxes, loop_token)
         self.history.operations.pop()     # remove the JUMP
 

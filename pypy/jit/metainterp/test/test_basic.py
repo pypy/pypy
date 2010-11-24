@@ -19,7 +19,11 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
     from pypy.jit.metainterp import simple_optimize
 
     class FakeJitCell:
-        compiled_merge_points = None
+        __compiled_merge_points = []
+        def get_compiled_merge_points(self):
+            return self.__compiled_merge_points[:]
+        def set_compiled_merge_points(self, lst):
+            self.__compiled_merge_points = lst
 
     class FakeWarmRunnerState:
         def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):

@@ -12,11 +12,12 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.debug import debug_print, fatalerror
+from pypy.rlib.debug import debug_start, debug_stop
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.unsimplify import call_final_function
 
-from pypy.jit.metainterp import history, pyjitpl, gc
+from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
@@ -61,7 +62,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
-                    inline=False, **kwds):
+                    inline=False, loop_longevity=0, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -78,6 +79,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
+        jd.warmstate.set_param_loop_longevity(loop_longevity)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
@@ -145,6 +147,7 @@ class WarmRunnerDesc(object):
                  optimizer=None, ProfilerClass=EmptyProfiler, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         self.set_translator(translator)
+        self.memory_manager = memmgr.MemoryManager()
         self.build_cpu(CPUClass, **kwds)
         self.find_portals()
         self.codewriter = codewriter.CodeWriter(self.cpu, self.jitdrivers_sd)
@@ -707,7 +710,7 @@ class WarmRunnerDesc(object):
                     loop_token = fail_descr.handle_fail(self.metainterp_sd, jd)
                 except JitException, e:
                     return handle_jitexception(e)
-                fail_descr = self.cpu.execute_token(loop_token)
+                fail_descr = self.execute_token(loop_token)
 
         jd._assembler_call_helper = assembler_call_helper # for debugging
         jd._assembler_helper_ptr = self.helper_func(
@@ -801,3 +804,10 @@ class WarmRunnerDesc(object):
             py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
         vrefinfo.replace_force_virtual_with_call(all_graphs)
+
+    # ____________________________________________________________
+
+    def execute_token(self, loop_token):
+        fail_descr = self.cpu.execute_token(loop_token)
+        self.memory_manager.keep_loop_alive(loop_token)
+        return fail_descr

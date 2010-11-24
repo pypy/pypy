@@ -293,23 +293,30 @@ class TestWarmspotDirect(object):
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable
 
-        class FakeFailDescr(object):
+        class FakeLoopToken:
             def __init__(self, no):
                 self.no = no
+                self.generation = 0
+
+        class FakeFailDescr(object):
+            def __init__(self, looptoken):
+                assert isinstance(looptoken, FakeLoopToken)
+                self.looptoken = looptoken
             
             def handle_fail(self, metainterp_sd, jitdrivers_sd):
-                if self.no == 0:
+                no = self.looptoken.no
+                if no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
-                if self.no == 1:
+                if no == 1:
                     raise metainterp_sd.warmrunnerdesc.ContinueRunningNormally(
                         [0], [], [], [1], [], [])
-                if self.no == 3:
+                if no == 3:
                     exc = lltype.malloc(OBJECT)
                     exc.typeptr = exc_vtable
                     raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
                         metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
-                return self.no
+                return self.looptoken
 
         class FakeDescr:
             def as_vtable_size_descr(self):
@@ -334,11 +341,11 @@ class TestWarmspotDirect(object):
             sizeof       = nodescr
 
             def get_fail_descr_from_number(self, no):
-                return FakeFailDescr(no)
+                return FakeFailDescr(FakeLoopToken(no))
 
             def execute_token(self, token):
-                assert token == 2
-                return FakeFailDescr(1)
+                assert token.no == 2
+                return FakeFailDescr(FakeLoopToken(1))
 
         driver = JitDriver(reds = ['red'], greens = ['green'])
         

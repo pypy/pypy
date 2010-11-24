@@ -265,6 +265,7 @@ PARAMETERS = {'threshold': 1000,
               'trace_limit': 10000,
               'inlining': False,
               'optimizer': OPTIMIZER_FULL,
+              'loop_longevity': 1000,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 

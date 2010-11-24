@@ -53,13 +53,11 @@ class DebugLog(list):
 
 _log = None       # patched from tests to be an object of class DebugLog
                   # or compatible
-_stderr = sys.stderr   # alternatively, this is patched from tests
-                       # (redirects debug_print(), but not debug_start/stop)
 
 def debug_print(*args):
     for arg in args:
-        print >> _stderr, arg,
-    print >> _stderr
+        print >> sys.stderr, arg,
+    print >> sys.stderr
     if _log is not None:
         _log.debug_print(*args)
 

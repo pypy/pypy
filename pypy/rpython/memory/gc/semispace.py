@@ -42,6 +42,7 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc_varsize = True
     malloc_zero_filled = True
     first_unused_gcflag = first_gcflag << 5
+    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
