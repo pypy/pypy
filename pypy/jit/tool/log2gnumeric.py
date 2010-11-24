@@ -121,11 +121,15 @@ def memusage_rows(filename, maxtime):
     except IOError:
         print 'Warning: cannot find file %s, skipping the memusage sheet'
         lines = []
+    for row in memusage_rows_impl(lines, maxtime):
+        yield row
+
+def memusage_rows_impl(lines, maxtime):
     yield 'inferred clock', 'VmRSS'
     numlines = len(lines)
     for i, line in enumerate(lines):
         mem = int(line)
-        clock = maxtime * i // numlines
+        clock = maxtime * i // (numlines-1)
         yield clock, mem
 
 
