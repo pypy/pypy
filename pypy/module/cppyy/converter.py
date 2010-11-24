@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.buffer import Buffer
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib import jit
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array
@@ -22,6 +23,7 @@ class TypeConverter(object):
     def __init__(self, space, array_size):
         pass
 
+    @jit.dont_look_inside
     def _get_fieldptr(self, space, w_obj, offset):
         rawobject = get_rawobject(space, w_obj)
         return lltype.direct_ptradd(rawobject, offset)
