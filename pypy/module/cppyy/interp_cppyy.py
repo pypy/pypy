@@ -105,7 +105,9 @@ class CPPMethod(object):
         if not methgetter:
             raise HackCallNotPossible
         funcptr = methgetter(cppthis)
+
         funcptr = rffi.cast(self.INT_2_INT_FNPTR, funcptr)
+        funcptr = jit.hint(funcptr, promote=True)
         result = funcptr(cppthis, arg)
         return space.wrap(rffi.cast(lltype.Signed, result))
 
