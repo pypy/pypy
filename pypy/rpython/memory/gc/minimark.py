@@ -204,7 +204,7 @@ class MiniMarkGC(MovingGCBase):
         self.min_heap_size = 0.0
         self.max_heap_size = 0.0
         self.max_heap_size_already_raised = False
-        self.max_delta = 0.0
+        self.max_delta = float(r_uint(-1))
         #
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
@@ -358,9 +358,6 @@ class MiniMarkGC(MovingGCBase):
         # Set the next_major_collection_threshold.
         threshold_max = (self.next_major_collection_threshold *
                          self.growth_rate_max)
-        if self.max_delta > 0.0:
-            threshold_max = min(threshold_max,
-                         self.next_major_collection_threshold + self.max_delta)
         if threshold > threshold_max:
             threshold = threshold_max
         #
@@ -1261,9 +1258,12 @@ class MiniMarkGC(MovingGCBase):
         #
         # Set the threshold for the next major collection to be when we
         # have allocated 'major_collection_threshold' times more than
+        # we currently have -- but no more than 'max_delta' more than
         # we currently have.
+        total_memory_used = float(self.get_total_memory_used())
         bounded = self.set_major_threshold_from(
-            self.get_total_memory_used() * self.major_collection_threshold,
+            min(total_memory_used * self.major_collection_threshold,
+                total_memory_used + self.max_delta),
             reserving_size)
         #
         # Max heap size: gives an upper bound on the threshold.  If we
