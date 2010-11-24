@@ -4,7 +4,7 @@ Utility RPython functions to inspect objects in the GC.
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.module.ll_os import underscore_on_windows
-from pypy.rlib import rposix
+from pypy.rlib import rposix, rgc
 
 from pypy.rpython.memory.support import AddressDict, get_address_stack
 
@@ -107,15 +107,18 @@ class HeapDumper:
 
     def __init__(self, gc, fd):
         self.gc = gc
+        self.gcflag = gc.gcflag_extra
         self.fd = rffi.cast(rffi.INT, fd)
         self.writebuffer = lltype.malloc(rffi.LONGP.TO, self.BUFSIZE,
                                          flavor='raw')
         self.buf_count = 0
-        self.seen = AddressDict()
+        if self.gcflag == 0:
+            self.seen = AddressDict()
         self.pending = AddressStack()
 
     def delete(self):
-        self.seen.delete()
+        if self.gcflag == 0:
+            self.seen.delete()
         self.pending.delete()
         lltype.free(self.writebuffer, flavor='raw')
         free_non_gc_object(self)
@@ -140,6 +143,8 @@ class HeapDumper:
             self.flush()
     write._always_inline_ = True
 
+    # ----------
+
     def write_marker(self):
         self.write(0)
         self.write(0)
@@ -161,9 +166,15 @@ class HeapDumper:
         self.add(obj)
 
     def add(self, obj):
-        if not self.seen.contains(obj):
-            self.seen.setitem(obj, obj)
-            self.pending.append(obj)
+        if self.gcflag == 0:
+            if not self.seen.contains(obj):
+                self.seen.setitem(obj, obj)
+                self.pending.append(obj)
+        else:
+            hdr = self.gc.header(obj)
+            if (hdr.tid & self.gcflag) == 0:
+                hdr.tid |= self.gcflag
+                self.pending.append(obj)
 
     def add_roots(self):
         self.gc.enumerate_all_roots(_hd_add_root, self)
@@ -177,13 +188,53 @@ class HeapDumper:
         while pending.non_empty():
             self.writeobj(pending.pop())
 
+    # ----------
+    # A simplified copy of the above, to make sure we walk again all the
+    # objects to clear the 'gcflag'.
+
+    def unwriteobj(self, obj):
+        gc = self.gc
+        gc.trace(obj, self._unwriteref, None)
+
+    def _unwriteref(self, pointer, _):
+        obj = pointer.address[0]
+        self.unadd(obj)
+
+    def unadd(self, obj):
+        assert self.gcflag != 0
+        hdr = self.gc.header(obj)
+        if (hdr.tid & self.gcflag) != 0:
+            hdr.tid &= ~self.gcflag
+            self.pending.append(obj)
+
+    def clear_gcflag_again(self):
+        self.gc.enumerate_all_roots(_hd_unadd_root, self)
+        pendingroots = self.pending
+        self.pending = AddressStack()
+        self.unwalk(pendingroots)
+        pendingroots.delete()
+
+    def unwalk(self, pending):
+        while pending.non_empty():
+            self.unwriteobj(pending.pop())
+
 def _hd_add_root(obj, heap_dumper):
     heap_dumper.add(obj)
+
+def _hd_unadd_root(obj, heap_dumper):
+    heap_dumper.unadd(obj)
 
 def dump_rpy_heap(gc, fd):
     heapdumper = HeapDumper(gc, fd)
     heapdumper.add_roots()
     heapdumper.walk(heapdumper.pending)
     heapdumper.flush()
+    if heapdumper.gcflag != 0:
+        heapdumper.clear_gcflag_again()
+        heapdumper.unwalk(heapdumper.pending)
     heapdumper.delete()
     return True
+
+def get_typeids_z(gc):
+    srcaddress = gc.root_walker.gcdata.typeids_z
+    return llmemory.cast_adr_to_ptr(srcaddress, lltype.Ptr(rgc.ARRAY_OF_CHAR))

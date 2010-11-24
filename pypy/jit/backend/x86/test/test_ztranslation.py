@@ -87,8 +87,13 @@ class TestTranslationX86(CCompiledMixin):
             return int(res)
         #
         def main(i, j):
-            return f(i, j) + libffi_stuff(i, j)
-        expected = main(40, -49)
+            res = f(i, j) + libffi_stuff(i, j)
+            fd = os.open('/tmp/x', os.O_WRONLY | os.O_CREAT, 0666)
+            rgc.dump_rpy_heap(fd)
+            os.close(fd)
+            return res
+        #expected = main(40, -49)
+        expected = 3
         res = self.meta_interp(main, [40, -49])
         assert res == expected
 

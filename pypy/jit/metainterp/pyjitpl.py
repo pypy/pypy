@@ -18,7 +18,6 @@ from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.jit import DEBUG_OFF, DEBUG_PROFILE, DEBUG_STEPS, DEBUG_DETAILED
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker
 
@@ -93,6 +92,18 @@ class MIFrame(object):
             elif argcode == 'F': reg = self.registers_f[index]
             else: raise AssertionError(argcode)
             outvalue[startindex+i] = reg
+
+    def _put_back_list_of_boxes(self, outvalue, startindex, position):
+        code = self.bytecode
+        length = ord(code[position])
+        position += 1
+        for i in range(length):
+            index = ord(code[position+i])
+            box = outvalue[startindex+i]
+            if   box.type == history.INT:   self.registers_i[index] = box
+            elif box.type == history.REF:   self.registers_r[index] = box
+            elif box.type == history.FLOAT: self.registers_f[index] = box
+            else: raise AssertionError(box.type)
 
     def get_current_position_info(self):
         return self.jitcode.get_live_vars_info(self.pc)
@@ -814,8 +825,9 @@ class MIFrame(object):
         for i in range(num_green_args):
             assert isinstance(varargs[i], Const)
 
-    @arguments("orgpc", "int", "boxes3", "boxes3")
-    def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes, redboxes):
+    @arguments("orgpc", "int", "boxes3", "jitcode_position", "boxes3")
+    def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes,
+                               jcposition, redboxes):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
@@ -843,6 +855,10 @@ class MIFrame(object):
             self.pc = orgpc
             self.metainterp.reached_loop_header(greenboxes, redboxes)
             self.pc = saved_pc
+            # no exception, which means that the jit_merge_point did not
+            # close the loop.  We have to put the possibly-modified list
+            # 'redboxes' back into the registers where it comes from.
+            put_back_list_of_boxes3(self, jcposition, redboxes)
         else:
             # warning! careful here.  We have to return from the current
             # frame containing the jit_merge_point, and then use
@@ -1048,14 +1064,11 @@ class MIFrame(object):
         else:
             moreargs = list(extraargs)
         metainterp_sd = metainterp.staticdata
-        original_greenkey = metainterp.resumekey.original_greenkey
         if opnum == rop.GUARD_NOT_FORCED:
             resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
-                                                   original_greenkey,
                                                    metainterp.jitdriver_sd)
         else:
-            resumedescr = compile.ResumeGuardDescr(metainterp_sd,
-                                                   original_greenkey)
+            resumedescr = compile.ResumeGuardDescr()
         guard_op = metainterp.history.record(opnum, moreargs, None,
                                              descr=resumedescr)
         virtualizable_boxes = None
@@ -1209,6 +1222,7 @@ class MetaInterpStaticData(object):
         self.logger_ops = Logger(self, guard_number=True)
 
         self.profiler = ProfilerClass()
+        self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc
 
         backendmodule = self.cpu.__module__
@@ -1326,6 +1340,11 @@ class MetaInterpStaticData(object):
                 if jitcode.fnaddr == fnaddress:
                     return jitcode
             return None
+
+    def try_to_free_some_loops(self):
+        # Increase here the generation recorded by the memory manager.
+        if self.warmrunnerdesc is not None:       # for tests
+            self.warmrunnerdesc.memory_manager.next_generation()
 
     # ---------------- logging ------------------------
 
@@ -1623,6 +1642,7 @@ class MetaInterp(object):
         self.staticdata._setup_once()
         self.staticdata.profiler.start_tracing()
         assert jitdriver_sd is self.jitdriver_sd
+        self.staticdata.try_to_free_some_loops()
         self.create_empty_history()
         try:
             original_boxes = self.initialize_original_boxes(jitdriver_sd, *args)
@@ -1636,9 +1656,8 @@ class MetaInterp(object):
         self.current_merge_points = [(original_boxes, 0)]
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
-        redkey = original_boxes[num_green_args:]
-        self.resumekey = compile.ResumeFromInterpDescr(original_greenkey,
-                                                       redkey)
+        self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
+        self.history.inputargs = original_boxes[num_green_args:]
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()
@@ -1652,23 +1671,26 @@ class MetaInterp(object):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
         assert isinstance(key, compile.ResumeGuardDescr)
+        # store the resumekey.wref_original_loop_token() on 'self' to make
+        # sure that it stays alive as long as this MetaInterp
+        self.resumekey_original_loop_token = key.wref_original_loop_token()
+        self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key)
         try:
             return self._handle_guard_failure(key)
         finally:
+            self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
     def _handle_guard_failure(self, key):
-        original_greenkey = key.original_greenkey
-        # notice that here we just put the greenkey
-        # use -1 to mark that we will have to give up
-        # because we cannot reconstruct the beginning of the proper loop
-        self.current_merge_points = [(original_greenkey, -1)]
+        self.current_merge_points = []
         self.resumekey = key
         self.seen_loop_header_for_jdindex = -1
         try:
             self.prepare_resume_from_failure(key.guard_opnum)
+            if self.resumekey_original_loop_token is None:   # very rare case
+                raise SwitchToBlackhole(ABORT_BRIDGE)
             self.interpret()
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
@@ -1728,7 +1750,7 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
-            assert len(original_boxes) == len(live_arg_boxes) or start < 0
+            assert len(original_boxes) == len(live_arg_boxes)
             for i in range(num_green_args):
                 box1 = original_boxes[i]
                 box2 = live_arg_boxes[i]
@@ -1737,10 +1759,6 @@ class MetaInterp(object):
                     break
             else:
                 # Found!  Compile it as a loop.
-                if start < 0:
-                    # we cannot reconstruct the beginning of the proper loop
-                    raise SwitchToBlackhole(ABORT_BRIDGE)
-
                 # raises in case it works -- which is the common case
                 self.compile(original_boxes, live_arg_boxes, start)
                 # creation of the loop was cancelled!
@@ -1794,10 +1812,15 @@ class MetaInterp(object):
             raise NotImplementedError(opname[opnum])
 
     def get_compiled_merge_points(self, greenkey):
+        """Get the list of looptokens corresponding to the greenkey.
+        Turns the (internal) list of weakrefs into regular refs.
+        """
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        if cell.compiled_merge_points is None:
-            cell.compiled_merge_points = []
-        return cell.compiled_merge_points
+        return cell.get_compiled_merge_points()
+
+    def set_compiled_merge_points(self, greenkey, looptokens):
+        cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
+        cell.set_compiled_merge_points(looptokens)
 
     def compile(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -1805,9 +1828,9 @@ class MetaInterp(object):
         greenkey = original_boxes[:num_green_args]
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, old_loop_tokens,
-                                              greenkey, start)
+        loop_token = compile.compile_new_loop(self, old_loop_tokens, start)
         if loop_token is not None: # raise if it *worked* correctly
+            self.set_compiled_merge_points(greenkey, old_loop_tokens)
             raise GenerateMergePoint(live_arg_boxes, loop_token)
         self.history.operations.pop()     # remove the JUMP
 
@@ -2306,6 +2329,8 @@ def _get_opimpl_method(name, argcodes):
                 else:
                     raise AssertionError("bad argcode")
                 position += 1
+            elif argtype == "jitcode_position":
+                value = position
             else:
                 raise AssertionError("bad argtype: %r" % (argtype,))
             args += (value,)
@@ -2350,3 +2375,15 @@ def _get_opimpl_method(name, argcodes):
     argtypes = unrolling_iterable(unboundmethod.argtypes)
     handler.func_name = 'handler_' + name
     return handler
+
+def put_back_list_of_boxes3(frame, position, newvalue):
+    code = frame.bytecode
+    length1 = ord(code[position])
+    position2 = position + 1 + length1
+    length2 = ord(code[position2])
+    position3 = position2 + 1 + length2
+    length3 = ord(code[position3])
+    assert len(newvalue) == length1 + length2 + length3
+    frame._put_back_list_of_boxes(newvalue, 0, position)
+    frame._put_back_list_of_boxes(newvalue, length1, position2)
+    frame._put_back_list_of_boxes(newvalue, length1 + length2, position3)

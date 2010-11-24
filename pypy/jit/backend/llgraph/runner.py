@@ -102,7 +102,6 @@ class BaseCPU(model.AbstractCPU):
         llimpl._llinterp = LLInterpreter(self.rtyper)
         self._future_values = []
         self._descrs = {}
-        self._redirected_call_assembler = {}
 
     def _freeze_(self):
         assert self.translate_support_code
@@ -118,21 +117,33 @@ class BaseCPU(model.AbstractCPU):
             self._descrs[key] = descr
             return descr
 
-    def compile_bridge(self, faildescr, inputargs, operations, log=True):
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True):
         c = llimpl.compile_start()
+        clt = original_loop_token.compiled_loop_token
+        clt.loop_and_bridges.append(c)
+        clt.compiling_a_bridge()
         self._compile_loop_or_bridge(c, inputargs, operations)
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, loopdescr, log=True):
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
         c = llimpl.compile_start()
-        loopdescr._llgraph_compiled_version = c
+        clt = model.CompiledLoopToken(self, looptoken.number)
+        clt.loop_and_bridges = [c]
+        clt.compiled_version = c
+        looptoken.compiled_loop_token = clt
         self._compile_loop_or_bridge(c, inputargs, operations)
+
+    def free_loop_and_bridges(self, compiled_loop_token):
+        for c in compiled_loop_token.loop_and_bridges:
+            llimpl.mark_as_free(c)
+        model.AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
 
     def _compile_loop_or_bridge(self, c, inputargs, operations):
         var2index = {}
@@ -207,7 +218,7 @@ class BaseCPU(model.AbstractCPU):
         if op.getopnum() == rop.JUMP:
             targettoken = op.getdescr()
             assert isinstance(targettoken, history.LoopToken)
-            compiled_version = targettoken._llgraph_compiled_version
+            compiled_version = targettoken.compiled_loop_token.compiled_version
             llimpl.compile_add_jump_target(c, compiled_version)
         elif op.getopnum() == rop.FINISH:
             faildescr = op.getdescr()
@@ -217,7 +228,7 @@ class BaseCPU(model.AbstractCPU):
             assert False, "unknown operation"
 
     def _execute_token(self, loop_token):
-        compiled_version = loop_token._llgraph_compiled_version
+        compiled_version = loop_token.compiled_loop_token.compiled_version
         frame = llimpl.new_frame(self.is_oo, self)
         # setup the frame
         llimpl.frame_clear(frame, compiled_version)

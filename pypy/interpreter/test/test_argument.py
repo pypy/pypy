@@ -52,12 +52,17 @@ class TestSignature(object):
         assert y == "d"
         assert z == "e"
 
+class dummy_wrapped_dict(dict):
+    def __nonzero__(self):
+        raise NotImplementedError
 
 class DummySpace(object):
     def newtuple(self, items):
         return tuple(items)
 
     def is_true(self, obj):
+        if isinstance(obj, dummy_wrapped_dict):
+            return bool(dict(obj))
         return bool(obj)
 
     def fixedview(self, it):
@@ -244,7 +249,7 @@ class TestArgumentsNormal(object):
             kwds_w = dict(kwds[:i])
             keywords = kwds_w.keys()
             keywords_w = kwds_w.values()
-            w_kwds = dict(kwds[i:])
+            w_kwds = dummy_wrapped_dict(kwds[i:])
             if i == 2:
                 w_kwds = None
             assert len(keywords) == len(keywords_w)
@@ -280,7 +285,7 @@ class TestArgumentsNormal(object):
             kwds_w = dict(kwds[:i])
             keywords = kwds_w.keys()
             keywords_w = kwds_w.values()
-            w_kwds = dict(kwds[i:])
+            w_kwds = dummy_wrapped_dict(kwds[i:])
             if i == 3:
                 w_kwds = None
             args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
@@ -463,7 +468,11 @@ class TestArgumentsNormal(object):
         assert set(args.keywords) == set(['a', 'b'])
         assert args.keywords_w[args.keywords.index('a')] == 2
         assert args.keywords_w[args.keywords.index('b')] == 3        
-                                 
+
+        args = Arguments(space, [1])
+        w_args, w_kwds = args.topacked()
+        assert w_args == (1, )
+        assert not w_kwds
 
 class TestErrorHandling(object):
     def test_missing_args(self):

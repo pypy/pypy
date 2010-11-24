@@ -766,8 +766,10 @@ class _gctransformed_wref(lltype._container):
         return '<%s>' % (self,)
     def __str__(self):
         return 'gctransformed_wref(%s)' % (self._ptr,)
-    def _normalizedcontainer(self):
-        return self._ptr._obj
+    def _normalizedcontainer(self, check=True):
+        return self._ptr._getobj(check=check)._normalizedcontainer(check=check)
+    def _was_freed(self):
+        return self._ptr._was_freed()
 
 # ____________________________________________________________
 

@@ -14,11 +14,25 @@ def dump_rpy_heap(file):
     and [addr1]..[addrn] are addresses of other objects that this object
     points to.  The full dump is a list of such objects, with a marker
     [0][0][0][-1] inserted after all GC roots, before all non-roots.
+
+    If the argument is a filename and the 'zlib' module is available,
+    we also write a 'typeids.txt' in the same directory, if none exists.
     """
     if isinstance(file, str):
         f = open(file, 'wb')
         gc._dump_rpy_heap(f.fileno())
         f.close()
+        try:
+            import zlib, os
+        except ImportError:
+            pass
+        else:
+            filename2 = os.path.join(os.path.dirname(file), 'typeids.txt')
+            if not os.path.exists(filename2):
+                data = zlib.decompress(gc.get_typeids_z())
+                f = open(filename2, 'wb')
+                f.write(data)
+                f.close()
     else:
         if isinstance(file, int):
             fd = file

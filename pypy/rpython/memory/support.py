@@ -112,7 +112,7 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 cur = next
             free_non_gc_object(self)
 
-        def length(self):
+        def _length_estimate(self):
             chunk = self.chunk
             count = self.used_in_last_chunk
             while chunk:
@@ -135,7 +135,7 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
         foreach._annspecialcase_ = 'specialize:arg(1)'
 
         def stack2dict(self):
-            result = AddressDict(self.length())
+            result = AddressDict(self._length_estimate())
             self.foreach(_add_in_dict, result)
             return result
 

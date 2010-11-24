@@ -172,6 +172,7 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.static_root_nongcend = a_random_address   # patched in finish()
         gcdata.static_root_end = a_random_address        # patched in finish()
         gcdata.max_type_id = 13                          # patched in finish()
+        gcdata.typeids_z = a_random_address              # patched in finish()
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
@@ -212,6 +213,9 @@ class FrameworkGCTransformer(GCTransformer):
         data_classdef.generalize_attr(
             'max_type_id',
             annmodel.SomeInteger())
+        data_classdef.generalize_attr(
+            'typeids_z',
+            annmodel.SomeAddress())
 
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
@@ -415,6 +419,11 @@ class FrameworkGCTransformer(GCTransformer):
                                        [s_gc, annmodel.SomeInteger()],
                                        annmodel.s_Bool,
                                        minimal_transform=False)
+        self.get_typeids_z_ptr = getfn(inspector.get_typeids_z,
+                                       [s_gc],
+                                       annmodel.SomePtr(
+                                           lltype.Ptr(rgc.ARRAY_OF_CHAR)),
+                                       minimal_transform=False)
 
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
                                            [s_gc,
@@ -572,7 +581,14 @@ class FrameworkGCTransformer(GCTransformer):
         newgcdependencies = []
         newgcdependencies.append(ll_static_roots_inside)
         ll_instance.inst_max_type_id = len(group.members)
-        self.write_typeid_list()
+        typeids_z = self.write_typeid_list()
+        ll_typeids_z = lltype.malloc(rgc.ARRAY_OF_CHAR,
+                                     len(typeids_z),
+                                     immortal=True)
+        for i in range(len(typeids_z)):
+            ll_typeids_z[i] = typeids_z[i]
+        ll_instance.inst_typeids_z = llmemory.cast_ptr_to_adr(ll_typeids_z)
+        newgcdependencies.append(ll_typeids_z)
         return newgcdependencies
 
     def get_finish_tables(self):
@@ -599,6 +615,11 @@ class FrameworkGCTransformer(GCTransformer):
         for index in range(len(self.layoutbuilder.type_info_group.members)):
             f.write("member%-4d %s\n" % (index, all_ids.get(index, '?')))
         f.close()
+        try:
+            import zlib
+            return zlib.compress(udir.join("typeids.txt").read(), 9)
+        except ImportError:
+            return ''
 
     def transform_graph(self, graph):
         func = getattr(graph, 'func', None)
@@ -985,6 +1006,13 @@ class FrameworkGCTransformer(GCTransformer):
         [v_fd] = hop.spaceop.args
         hop.genop("direct_call",
                   [self.dump_rpy_heap_ptr, self.c_const_gc, v_fd],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_typeids_z(self, hop):
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call",
+                  [self.get_typeids_z_ptr, self.c_const_gc],
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 

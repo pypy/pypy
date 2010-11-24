@@ -41,7 +41,7 @@ def test_store_final_boxes_in_guard():
     b1 = BoxInt()
     opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
                                 None)
-    fdescr = ResumeGuardDescr(None, None)
+    fdescr = ResumeGuardDescr()
     op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
     # setup rd data
     fi0 = resume.FrameInfo(None, "code0", 11)
@@ -51,12 +51,12 @@ def test_store_final_boxes_in_guard():
     #
     opt.store_final_boxes_in_guard(op)
     if op.getfailargs() == [b0, b1]:
-        assert fdescr.rd_numb.nums      == [tag(1, TAGBOX)]
-        assert fdescr.rd_numb.prev.nums == [tag(0, TAGBOX)]
+        assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
     else:
         assert op.getfailargs() == [b1, b0]
-        assert fdescr.rd_numb.nums      == [tag(0, TAGBOX)]
-        assert fdescr.rd_numb.prev.nums == [tag(1, TAGBOX)]
+        assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
 
@@ -789,8 +789,12 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)       # the exception is considered lost when we loop back
         """
+        # note that 'guard_no_exception' at the very start must be kept
+        # around: bridges may start with one.  (In case of loops we could
+        # remove it, but we probably don't care.)
         expected = """
         [i]
+        guard_no_exception() []
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]

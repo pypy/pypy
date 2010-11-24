@@ -254,7 +254,7 @@ class GcRootMap_asmgcc:
     def _enlarge_gcmap(self):
         newlength = 250 + self._gcmap_maxlength * 2
         newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw',
-                                 track_allocation=False)
+                                 track_allocation=False)   # YYY leak
         oldgcmap = self._gcmap
         for i in range(self._gcmap_curlength):
             newgcmap[i] = oldgcmap[i]
@@ -311,7 +311,7 @@ class GcRootMap_asmgcc:
         length = len(shape)
         compressed = lltype.malloc(self.CALLSHAPE_ARRAY, length,
                                    flavor='raw',
-                                   track_allocation=False)   # memory leak
+                                   track_allocation=False)   # YYY leak
         for i in range(length):
             compressed[length-1-i] = rffi.cast(rffi.UCHAR, shape[i])
         return llmemory.cast_ptr_to_adr(compressed)
@@ -573,6 +573,9 @@ class GcLLDescr_framework(GcLLDescription):
         #   GETFIELD_RAW from the array 'gcrefs.list'.
         #
         newops = []
+        # we can only remember one malloc since the next malloc can possibly
+        # collect
+        last_malloc = None
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
@@ -590,22 +593,32 @@ class GcLLDescr_framework(GcLLDescription):
                                                    [ConstInt(addr)], box,
                                                    self.single_gcref_descr))
                         op.setarg(i, box)
+            if op.is_malloc():
+                last_malloc = op.result
+            elif op.can_malloc():
+                last_malloc = None
             # ---------- write barrier for SETFIELD_GC ----------
             if op.getopnum() == rop.SETFIELD_GC:
-                v = op.getarg(1)
-                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                             bool(v.value)): # store a non-NULL
-                    self._gen_write_barrier(newops, op.getarg(0), v)
-                    op = op.copy_and_change(rop.SETFIELD_RAW)
+                val = op.getarg(0)
+                # no need for a write barrier in the case of previous malloc
+                if val is not last_malloc:
+                    v = op.getarg(1)
+                    if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                            bool(v.value)): # store a non-NULL
+                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        op = op.copy_and_change(rop.SETFIELD_RAW)
             # ---------- write barrier for SETARRAYITEM_GC ----------
             if op.getopnum() == rop.SETARRAYITEM_GC:
-                v = op.getarg(2)
-                if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                             bool(v.value)): # store a non-NULL
-                    # XXX detect when we should produce a
-                    # write_barrier_from_array
-                    self._gen_write_barrier(newops, op.getarg(0), v)
-                    op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+                val = op.getarg(0)
+                # no need for a write barrier in the case of previous malloc
+                if val is not last_malloc:
+                    v = op.getarg(2)
+                    if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                            bool(v.value)): # store a non-NULL
+                        # XXX detect when we should produce a
+                        # write_barrier_from_array
+                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ----------
             newops.append(op)
         del operations[:]

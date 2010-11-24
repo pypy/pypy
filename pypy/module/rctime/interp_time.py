@@ -152,7 +152,7 @@ if _POSIX:
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 clock_t = cConfig.clock_t
 tm = cConfig.tm
-glob_buf = lltype.malloc(tm, flavor='raw', zero=True)
+glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
 if cConfig.has_gettimeofday:
     c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)

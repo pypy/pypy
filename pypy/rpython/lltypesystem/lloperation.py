@@ -478,6 +478,7 @@ LL_OPERATIONS = {
     'gc_get_rpy_type_index': LLOp(),
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
+    'gc_typeids_z'        : LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
     

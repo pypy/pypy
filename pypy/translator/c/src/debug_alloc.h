@@ -1,5 +1,5 @@
 /**************************************************************/
- /***  tracking raw mallocs and frees for debugging          ***/
+/***  tracking raw mallocs and frees for debugging          ***/
 
 #ifndef RPY_ASSERT
 

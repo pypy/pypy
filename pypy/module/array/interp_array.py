@@ -28,7 +28,7 @@ def w_array(space, w_cls, typecode, w_args=None):
     typecode = typecode[0]
 
     if space.is_w(w_cls, space.gettypeobject(W_ArrayBase.typedef)):
-        if len(w_args.keywords_w) > 0:
+        if w_args.keywords: # XXX this might be forbidden fishing
             msg = 'array.array() does not take keyword arguments'
             raise OperationError(space.w_TypeError, space.wrap(msg))
         

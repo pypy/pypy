@@ -21,6 +21,8 @@ from distutils import sysconfig
 
 from pypy.conftest import gettestobjspace
 from pypy.module.cpyext.api import build_bridge
+from pypy.module.imp.importing import get_so_extension
+
 usemodules = ['cpyext', 'thread']
 if sys.platform == 'win32':
     usemodules.append('_winreg') # necessary in distutils
@@ -35,6 +37,7 @@ def get_python_inc(plat_specific=0, prefix=None):
 
 def patch_distutils():
     sysconfig.get_python_inc = get_python_inc
+    sysconfig.get_config_vars()['SO'] = get_so_extension(space)
 
 patch_distutils()
 

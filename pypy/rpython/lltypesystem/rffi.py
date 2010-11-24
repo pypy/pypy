@@ -609,15 +609,6 @@ def make_string_mappings(strtype):
         return array
     str2charp._annenforceargs_ = [strtype]
 
-    def str2charp_immortal(s):
-        "NOT_RPYTHON"
-        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw',
-                              immortal=True)
-        for i in range(len(s)):
-            array[i] = s[i]
-        array[len(s)] = lastchar
-        return array
-
     def free_charp(cp):
         lltype.free(cp, flavor='raw')
 
@@ -736,19 +727,19 @@ def make_string_mappings(strtype):
         l = [cp[i] for i in range(size)]
         return emptystr.join(l)
 
-    return (str2charp, str2charp_immortal, free_charp, charp2str,
+    return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
             charp2strn, charpsize2str,
             )
 
-(str2charp, str2charp_immortal, free_charp, charp2str,
+(str2charp, free_charp, charp2str,
  get_nonmovingbuffer, free_nonmovingbuffer,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str,
  ) = make_string_mappings(str)
 
-(unicode2wcharp, unicode2wcharp_immortal, free_wcharp, wcharp2unicode,
+(unicode2wcharp, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode,

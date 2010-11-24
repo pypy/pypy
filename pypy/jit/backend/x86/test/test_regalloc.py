@@ -166,7 +166,8 @@ class BaseTestRegalloc(object):
         assert ([box.type for box in bridge.inputargs] ==
                 [box.type for box in guard_op.getfailargs()])
         faildescr = guard_op.getdescr()
-        self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations)
+        self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations,
+                                loop.token)
         return bridge
 
     def run(self, loop):

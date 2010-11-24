@@ -297,6 +297,7 @@ class AppTestFfi:
         assert _rawffi.charp2string(res[0]) is None
         arg1.free()
         arg2.free()
+        a.free()
 
     def test_returning_unicode(self):
         import _rawffi

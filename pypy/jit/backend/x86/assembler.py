@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
+from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, X86RegisterManager,
                                            X86XMMRegisterManager, get_ebp_ofs,
                                            _get_scale)
@@ -30,10 +31,9 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.support import values_array
-from pypy.rlib.debug import debug_print
+from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.rlib.streamio import open_file_as_stream
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
@@ -231,7 +231,6 @@ class Assembler386(object):
                 if s.find(':') != -1:
                     s = s.split(':')[-1]
                 self.set_debug(True)
-                self._output_loop_log = s + ".count"
             # Intialize here instead of __init__ to prevent
             # pending_guard_tokens from being considered a prebuilt object,
             # which sometimes causes memory leaks since the prebuilt list is
@@ -241,13 +240,11 @@ class Assembler386(object):
 
     def finish_once(self):
         if self._debug:
-            output_log = self._output_loop_log
-            assert output_log is not None
-            f = open_file_as_stream(output_log, "w")
+            debug_start('jit-backend-counts')
             for i in range(len(self.loop_run_counters)):
                 name, struct = self.loop_run_counters[i]
-                f.write(str(name) + ":" +  str(struct.i) + "\n")
-            f.close()
+                debug_print(str(name) + ':' + str(struct.i))
+            debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
         # 44 bytes: 32 bytes for the data, and up to 12 bytes for alignment
@@ -305,6 +302,8 @@ class Assembler386(object):
                _x86_arglocs
                _x86_debug_checksum
         """
+        looptoken.compiled_loop_token = CompiledLoopToken(self.cpu,
+                                                          looptoken.number)
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -409,8 +408,9 @@ class Assembler386(object):
 
     def _register_counter(self):
         if self._debug:
+            # YYY leak -- just put it in self.mc instead
             struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                                   track_allocation=False)   # known to leak
+                                   track_allocation=False)
             struct.i = 0
             self.loop_run_counters.append((len(self.loop_run_counters), struct))
         
@@ -1773,13 +1773,18 @@ class Assembler386(object):
         self.implement_guard(guard_token, 'L')
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
-        # use 'mc._mc' directly instead of 'mc', to avoid
-        # bad surprizes if the code buffer is mostly full
+        # Write code equivalent to write_barrier() in the GC: it checks
+        # a flag in the object at arglocs[0], and if set, it calls the
+        # function remember_young_pointer() from the GC.  The two arguments
+        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
+        # registers that need to be saved and restored across the call.
         descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         loc_base = arglocs[0]
+        # ensure that enough bytes are available to write the whole
+        # following piece of code atomically (for the JZ)
         self.mc.ensure_bytes_available(256)
         self.mc.TEST8_mi((loc_base.value, descr.jit_wb_if_flag_byteofs),
                 descr.jit_wb_if_flag_singlebyte)
@@ -1787,36 +1792,39 @@ class Assembler386(object):
         jz_location = self.mc.get_relative_pos()
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
-        # XXX improve a bit, particularly for IS_X86_64.
-        for i in range(len(arglocs)-1, -1, -1):
+        if IS_X86_32:
+            limit = -1      # push all arglocs on the stack
+        elif IS_X86_64:
+            limit = 1       # push only arglocs[2:] on the stack
+        for i in range(len(arglocs)-1, limit, -1):
             loc = arglocs[i]
             if isinstance(loc, RegLoc):
                 self.mc.PUSH_r(loc.value)
             else:
-                if IS_X86_64:
-                    self.mc.MOV_ri(X86_64_SCRATCH_REG.value, loc.getint())
-                    self.mc.PUSH_r(X86_64_SCRATCH_REG.value)
-                else:
-                    self.mc.PUSH_i32(loc.getint())
-        
+                assert not IS_X86_64 # there should only be regs in arglocs[2:]
+                self.mc.PUSH_i32(loc.getint())
         if IS_X86_64:
             # We clobber these registers to pass the arguments, but that's
             # okay, because consider_cond_call_gc_wb makes sure that any
-            # caller-save registers with values in them are present in arglocs,
-            # so they are saved on the stack above and restored below 
-            self.mc.MOV_rs(edi.value, 0)
-            self.mc.MOV_rs(esi.value, 8)
+            # caller-save registers with values in them are present in
+            # arglocs[2:] too, so they are saved on the stack above and
+            # restored below.
+            remap_frame_layout(self, arglocs[:2], [edi, esi],
+                               X86_64_SCRATCH_REG)
 
         # misaligned stack in the call, but it's ok because the write barrier
         # is not going to call anything more.  Also, this assumes that the
-        # write barrier does not touch the xmm registers.
+        # write barrier does not touch the xmm registers.  (Slightly delicate
+        # assumption, given that the write barrier can end up calling the
+        # platform's malloc() from AddressStack.append().  XXX may need to
+        # be done properly)
         self.mc.CALL(imm(descr.get_write_barrier_fn(self.cpu)))
-        for i in range(len(arglocs)):
+        if IS_X86_32:
+            self.mc.ADD_ri(esp.value, 2*WORD)
+        for i in range(2, len(arglocs)):
             loc = arglocs[i]
-            if isinstance(loc, RegLoc):
-                self.mc.POP_r(loc.value)
-            else:
-                self.mc.ADD_ri(esp.value, WORD)   # ignore the pushed constant
+            assert isinstance(loc, RegLoc)
+            self.mc.POP_r(loc.value)
         # patch the JZ above
         offset = self.mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127

@@ -53,13 +53,11 @@ class DebugLog(list):
 
 _log = None       # patched from tests to be an object of class DebugLog
                   # or compatible
-_stderr = sys.stderr   # alternatively, this is patched from tests
-                       # (redirects debug_print(), but not debug_start/stop)
 
 def debug_print(*args):
     for arg in args:
-        print >> _stderr, arg,
-    print >> _stderr
+        print >> sys.stderr, arg,
+    print >> sys.stderr
     if _log is not None:
         _log.debug_print(*args)
 
@@ -87,13 +85,15 @@ else:
     _stop_colors = ""
 
 def debug_start(category):
-    print >> sys.stderr, '%s[%s] {%s%s' % (_start_colors_1, time.clock(),
+    c = int(time.clock() * 100)
+    print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_start(category)
 
 def debug_stop(category):
-    print >> sys.stderr, '%s[%s] %s}%s' % (_start_colors_2, time.clock(),
+    c = int(time.clock() * 100)
+    print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_stop(category)

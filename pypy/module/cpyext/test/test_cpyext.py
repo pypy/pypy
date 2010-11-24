@@ -51,7 +51,7 @@ class AppTestApi:
         PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
         assert PyUnicode_GetDefaultEncoding() == 'ascii'
 
-def compile_module(modname, **kwds):
+def compile_module(space, modname, **kwds):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -74,10 +74,8 @@ def compile_module(modname, **kwds):
         [], eci,
         outputfilename=str(dirname/modname),
         standalone=False)
-    if sys.platform == 'win32':
-        pydname = soname.new(purebasename=modname, ext='.pyd')
-    else:
-        pydname = soname.new(purebasename=modname, ext='.so')
+    from pypy.module.imp.importing import get_so_extension
+    pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
     return str(pydname)
 
@@ -162,7 +160,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             kwds["link_files"] = [str(api_library + '.so')]
             if sys.platform == 'linux2':
                 kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
-        return compile_module(name, **kwds)
+        return compile_module(self.space, name, **kwds)
 
 
     def import_module(self, name, init=None, body='', load_it=True, filename=None):

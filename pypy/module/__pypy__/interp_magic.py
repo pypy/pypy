@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
+from pypy.objspace.std.mapdict import IndexCache
 
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
@@ -36,4 +37,17 @@ def reset_method_cache_counter(space):
     cache = space.fromcache(MethodCache)
     cache.misses = {}
     cache.hits = {}
+    if space.config.objspace.std.withmapdict:
+        cache = space.fromcache(IndexCache)
+        cache.misses = {}
+        cache.hits = {}
 
+def mapdict_cache_counter(space, name):
+    """Return a tuple (index_cache_hits, index_cache_misses) for lookups
+    in the mapdict cache with the given attribute name."""
+    assert space.config.objspace.std.withmethodcachecounter
+    assert space.config.objspace.std.withmapdict
+    cache = space.fromcache(IndexCache)
+    return space.newtuple([space.newint(cache.hits.get(name, 0)),
+                           space.newint(cache.misses.get(name, 0))])
+mapdict_cache_counter.unwrap_spec = [ObjSpace, str]
