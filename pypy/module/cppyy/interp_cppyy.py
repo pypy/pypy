@@ -12,6 +12,8 @@ from pypy.rlib import jit, debug
 
 from pypy.module.cppyy import converter, executor
 
+class HackCallNotPossible(Exception):
+    pass
 
 NULL_VOIDP = lltype.nullptr(rffi.VOIDP.TO)
 
@@ -71,18 +73,18 @@ class CPPMethod(object):
         self.executor = executor.get_executor(self.space, result_type)
         self.arg_converters = None
         # <hack>
-        #self.hack_call = arg_types == ['int'] and result_type == 'int'
+        self.hack_call = arg_types == ['int'] and result_type == 'int'
         # </hack>
 
     def call(self, cppthis, args_w):
         if self.executor is None:
             raise OperationError(self.space.w_TypeError, self.space.wrap("return type not handled"))
 
-        #if self.hack_call:
-        #    try:
-        #        return self.do_hack_call(cppthis, args_w)
-        #    except NotImplementedError:
-        #        pass
+        if self.hack_call:
+            try:
+                return self.do_hack_call(cppthis, args_w)
+            except HackCallNotPossible:
+                pass
 
         args = self.prepare_arguments(args_w)
         try:
@@ -101,7 +103,7 @@ class CPPMethod(object):
         methgetter = get_methptr_getter(self.cpptype.handle,
                                         self.method_index)
         if not methgetter:
-            raise NotImplementedError
+            raise HackCallNotPossible
         funcptr = methgetter(cppthis)
         funcptr = rffi.cast(self.INT_2_INT_FNPTR, funcptr)
         result = funcptr(cppthis, arg)
