@@ -187,6 +187,7 @@ class Assembler386(object):
         self.setup_failure_recovery()
         self._debug = False
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+        self.fail_boxes_count = 0
 
     def leave_jitted_hook(self):
         ptrs = self.fail_boxes_ptr.ar
