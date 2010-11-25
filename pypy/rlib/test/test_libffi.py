@@ -262,3 +262,9 @@ class TestLibffiCall(BaseFfiTest):
         #
         res = self.call(get_dummy, [], rffi.LONG)
         assert res == initval+1
+
+    def test_wrong_number_of_arguments(self):
+        libfoo = self.get_libfoo() 
+        func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
+        py.test.raises(TypeError, "self.call(func, [38], rffi.LONG)") # one less
+        py.test.raises(TypeError, "self.call(func, [38, 12.3, 42], rffi.LONG)") # one more
