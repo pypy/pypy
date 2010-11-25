@@ -31,7 +31,8 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.support import values_array
-from pypy.rlib.debug import debug_print, debug_start, debug_stop
+from pypy.rlib.debug import debug_print, debug_start, debug_stop,\
+     have_debug_prints
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.history import ConstInt, BoxInt
@@ -228,11 +229,9 @@ class Assembler386(object):
                 self._build_float_constants()
             if hasattr(gc_ll_descr, 'get_malloc_fixedsize_slowpath_addr'):
                 self._build_malloc_fixedsize_slowpath()
-            s = os.environ.get('PYPYLOG')
-            if s:
-                if s.find(':') != -1:
-                    s = s.split(':')[-1]
-                self.set_debug(True)
+            debug_start('jit-backend-counts')
+            self.set_debug(have_debug_prints())
+            debug_stop('jit-backend-counts')
             # Intialize here instead of __init__ to prevent
             # pending_guard_tokens from being considered a prebuilt object,
             # which sometimes causes memory leaks since the prebuilt list is
