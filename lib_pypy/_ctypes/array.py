@@ -172,9 +172,10 @@ class Array(_CData):
             self._slice_setitem(index, value)
             return
         index = self._fix_index(index)
-        if ensure_objects(value) is not None:
-            store_reference(self, index, value._objects)
-        arg = self._type_._CData_value(value)
+        cobj = self._type_.from_param(value)
+        if ensure_objects(cobj) is not None:
+            store_reference(self, index, cobj._objects)
+        arg = cobj._get_buffer_value()
         if self._type_._fficompositesize is None:
             self._buffer[index] = arg
             # something more sophisticated, cannot set field directly
@@ -193,7 +194,7 @@ class Array(_CData):
         return self._length_
 
     def _get_buffer_for_param(self):
-        return CArgObject(self._buffer.byptr())
+        return CArgObject(self, self._buffer.byptr())
 
     def _get_buffer_value(self):
         return self._buffer.buffer

@@ -92,12 +92,16 @@ class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing
     it afterwards
     """
-    def __init__(self, buffer):
+    def __init__(self, obj, buffer):
+        self._obj = obj
         self._buffer = buffer
 
     def __del__(self):
         self._buffer.free()
         self._buffer = None
+
+    def __repr__(self):
+        return repr(self._obj)
 
 class _CData(object):
     """ The most basic object for all ctypes types
@@ -128,7 +132,7 @@ class _CData(object):
         return buffer(self._buffer)
 
     def _get_b_base(self):
-        return self._objects
+        return self._base
     _b_base_ = property(_get_b_base)
     _b_needsfree_ = False
 

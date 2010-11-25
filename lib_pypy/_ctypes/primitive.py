@@ -134,8 +134,8 @@ class SimpleType(_CDataMeta):
                                              ConvMode.errors)
                     #self._objects = value
                     array = _rawffi.Array('c')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -156,8 +156,8 @@ class SimpleType(_CDataMeta):
                                              ConvMode.errors)
                     #self._objects = value
                     array = _rawffi.Array('u')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -175,8 +175,8 @@ class SimpleType(_CDataMeta):
             def _setvalue(self, value):
                 if isinstance(value, str):
                     array = _rawffi.Array('c')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
