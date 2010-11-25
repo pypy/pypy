@@ -49,9 +49,10 @@ class IntOpAsslember(object):
             l1 = regalloc.make_sure_var_in_reg(a1, forbidden_vars=[a0], imm_fine=False)
             res = regalloc.force_allocate_reg(op.result, forbidden_vars=[a0, a1])
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+
+        regalloc.possibly_free_var(a0)
+        regalloc.possibly_free_var(a1)
+        regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_int_sub(self, op, regalloc, fcond):
@@ -81,9 +82,9 @@ class IntOpAsslember(object):
         else:
             self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
 
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_var(a0)
+        regalloc.possibly_free_var(a1)
+        regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_int_mul(self, op, regalloc, fcond):
@@ -291,21 +292,20 @@ class OpAssembler(object):
         if n_args > 4:
             assert n > 0
             self._adjust_sp(-n, regalloc, fcond=fcond)
-        regalloc.possibly_free_vars(locs)
+        regalloc.possibly_free_vars(args)
         return fcond
 
     def emit_op_same_as(self, op, regalloc, fcond):
         resloc = regalloc.force_allocate_reg(op.result)
         arg = op.getarg(0)
-        imm_arg = isinstance(arg, ConstInt) and (arg.getint() <= 0xFF or -1 * arg.getint() <= 0xFF)
-        argloc = regalloc.make_sure_var_in_reg(arg, imm_fine=imm_arg)
+        imm_arg = self._check_imm_arg(arg)
+        argloc = regalloc.make_sure_var_in_reg(arg, [op.result], imm_fine=imm_arg)
         if argloc.is_imm():
             self.mc.MOV_ri(resloc.value, argloc.getint())
         else:
             self.mc.MOV_rr(resloc.value, argloc.value)
         regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_var(op.result)
         return fcond
 
 class FieldOpAssembler(object):
@@ -488,8 +488,7 @@ class StrOpAssembler(object):
         res = regalloc.force_allocate_reg(op.result)
         regalloc.possibly_free_vars_for_op(op)
         regalloc.possibly_free_var(t)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
@@ -531,8 +530,7 @@ class UnicodeOpAssembler(object):
         l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         regalloc.possibly_free_vars_for_op(op)
         res = regalloc.force_allocate_reg(op.result)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_var(op.result)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length))
@@ -693,7 +691,7 @@ class ForceOpAssembler(object):
         offset = self.mc.currpos() - jmp_pos
         pmc = ARMv7InMemoryBuilder(jmp_location, WORD)
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
-        t = TempBox()
+
         l0 = regalloc.force_allocate_reg(t)
         self.mc.LDR_ri(l0.value, r.fp.value)
         self.mc.CMP_ri(l0.value, 0)
