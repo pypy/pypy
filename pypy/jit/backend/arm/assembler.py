@@ -35,26 +35,26 @@ class AssemblerARM(ResOpAssembler):
     def setup_failure_recovery(self):
 
         @rgc.no_collect
-        def failure_recovery_func(mem_loc, frame_loc):
+        def failure_recovery_func(mem_loc, frame_pointer, stack_pointer):
             """mem_loc is a structure in memory describing where the values for
             the failargs are stored.
             frame loc is the address of the frame pointer for the frame to be
             decoded frame """
-            return self.decode_registers_and_descr(mem_loc, frame_loc)
+            return self.decode_registers_and_descr(mem_loc, frame_pointer, stack_pointer)
 
         self.failure_recovery_func = failure_recovery_func
 
     @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, frame_loc):
+    def decode_registers_and_descr(self, mem_loc, frame_loc, regs_loc):
         """Decode locations encoded in memory at mem_loc and write the values to
         the failboxes.
         Values for spilled vars and registers are stored on stack at frame_loc
         """
         enc = rffi.cast(rffi.CCHARP, mem_loc)
-        frame_depth = self.decode32(enc, 0)
-        stack = rffi.cast(rffi.CCHARP, frame_loc - (frame_depth)*WORD)
-        regs = rffi.cast(rffi.CCHARP, frame_loc - (frame_depth + len(r.all_regs))*WORD)
-        i = 3
+        frame_depth = frame_loc - (regs_loc + len(r.all_regs)*WORD)
+        stack = rffi.cast(rffi.CCHARP, frame_loc - frame_depth)
+        regs = rffi.cast(rffi.CCHARP, regs_loc)
+        i = -1
         fail_index = -1
         if self.debug:
             import pdb; pdb.set_trace()
@@ -77,7 +77,7 @@ class AssemblerARM(ResOpAssembler):
                 i += 4
             elif res == '\xFC': # stack location
                 stack_loc = self.decode32(enc, i+1)
-                value = self.decode32(stack, (frame_depth - stack_loc)*WORD)
+                value = self.decode32(stack, frame_depth - stack_loc*WORD)
                 i += 4
             else: # an int in a reg location
                 reg = ord(enc[i])
@@ -96,11 +96,9 @@ class AssemblerARM(ResOpAssembler):
         self.fail_boxes_count = fail_index
         return descr
 
-    def decode_inputargs_and_frame_depth(self, enc, inputargs, regalloc):
+    def decode_inputargs(self, enc, inputargs, regalloc):
         locs = []
-        # first word contains frame depth
-        frame_depth = self.decode32(enc, 0) + 1
-        j = 4
+        j = 0
         for i in range(len(inputargs)):
             res = enc[j]
             if res == '\xFF':
@@ -123,7 +121,7 @@ class AssemblerARM(ResOpAssembler):
                 loc = r.all_regs[ord(res)]
             j += 1
             locs.append(loc)
-        return frame_depth, locs
+        return locs
 
     def decode32(self, mem, index):
         highval = ord(mem[index+3])
@@ -142,13 +140,13 @@ class AssemblerARM(ResOpAssembler):
 
     def _gen_exit_path(self):
         self.setup_failure_recovery()
-        functype = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
+        functype = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed, lltype.Signed], lltype.Signed))
         decode_registers_addr = llhelper(functype, self.failure_recovery_func)
 
         self.mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
-        self.mc.MOV_rr(r.r0.value, r.lr.value)  # move mem block address, to r0 to pass as
-                                    # parameter to next procedure call
-        self.mc.MOV_rr(r.r1.value, r.fp.value)  # pass the current frame pointer as second param
+        self.mc.MOV_rr(r.r0.value, r.lr.value) # move mem block address, to r0 to pass as
+        self.mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
+        self.mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
 
         self.mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
         self.mc.MOV_rr(r.ip.value, r.r0.value)
@@ -170,16 +168,15 @@ class AssemblerARM(ResOpAssembler):
         """
 
         descr = op.getdescr()
+        if op.getopnum() != rop.FINISH:
+            descr._arm_frame_depth = regalloc.frame_manager.frame_depth
         reg = r.lr
         # XXX free this memory
         # XXX allocate correct amount of memory
-        mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)*6+9,
+        mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)*6+5,
                                     flavor='raw', track_allocation=False)
-        # Note, the actual frame depth is one less than the value stored in
-        # regalloc.frame_manager.frame_depth
-        self.encode32(mem, 0, regalloc.frame_manager.frame_depth - 1)
         i = 0
-        j = 4
+        j = 0
         while(i < len(args)):
             if args[i]:
                 loc = regalloc.loc(args[i])
@@ -328,9 +325,9 @@ class AssemblerARM(ResOpAssembler):
         if regalloc.frame_manager.frame_depth == 1:
             return
         n = (regalloc.frame_manager.frame_depth-1)*WORD
-        self._adjust_sp(n, regalloc, cb)
+        self._adjust_sp(n, regalloc, cb, base_reg=r.fp)
 
-    def _adjust_sp(self, n, regalloc, cb=None, fcond=c.AL):
+    def _adjust_sp(self, n, regalloc, cb=None, fcond=c.AL, base_reg=r.sp):
         if cb is None:
             cb = self.mc
         if n < 0:
@@ -343,7 +340,7 @@ class AssemblerARM(ResOpAssembler):
                 op = cb.ADD_ri
             else:
                 op = cb.SUB_ri
-            op(r.sp.value, r.sp.value, n)
+            op(r.sp.value, base_reg.value, n)
         else:
             b = TempBox()
             reg = regalloc.force_allocate_reg(b)
@@ -352,7 +349,7 @@ class AssemblerARM(ResOpAssembler):
                 op = cb.ADD_rr
             else:
                 op = cb.SUB_rr
-            op(r.sp.value, r.sp.value, reg.value, cond=fcond)
+            op(r.sp.value, base_reg.value, reg.value, cond=fcond)
             regalloc.possibly_free_var(b)
 
     def _walk_operations(self, operations, regalloc):
@@ -386,11 +383,15 @@ class AssemblerARM(ResOpAssembler):
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
 
         bridge_head = self.mc.curraddr()
-        frame_depth, locs = self.decode_inputargs_and_frame_depth(enc, inputargs, regalloc)
+        frame_depth = faildescr._arm_frame_depth
+        locs = self.decode_inputargs(enc, inputargs, regalloc)
         regalloc.update_bindings(locs, frame_depth, inputargs)
+        sp_patch_location = self._prepare_sp_patch_location()
 
         print 'Bridge', inputargs, operations
         self._walk_operations(operations, regalloc)
+
+        self._patch_sp_offset(sp_patch_location, regalloc)
 
         print 'Done building bridges'
         self.patch_trace(faildescr, bridge_head, regalloc)

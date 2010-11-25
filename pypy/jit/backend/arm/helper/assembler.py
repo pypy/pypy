@@ -11,9 +11,8 @@ def gen_emit_op_unary_cmp(true_cond, false_cond):
         self.mc.CMP_ri(reg.value, 0)
         self.mc.MOV_ri(res.value, 1, true_cond)
         self.mc.MOV_ri(res.value, 0, false_cond)
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_var(a0)
+        regalloc.possibly_free_var(op.result)
         return fcond
     return f
 
@@ -42,9 +41,7 @@ def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
             l1 = regalloc.make_sure_var_in_reg(arg1, [arg0], imm_fine=False)
             res = regalloc.force_allocate_reg(op.result, [arg0, arg1])
             rr_op(res.value, l0.value, l1.value)
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_vars([arg0, arg1, op.result])
         return fcond
     return f
 
@@ -53,7 +50,7 @@ def gen_emit_op_by_helper_call(opname):
         assert fcond is not None
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        arg1 = regalloc.make_sure_var_in_reg(a0, selected_reg=r.r0, imm_fine=False)
+        arg1 = regalloc.make_sure_var_in_reg(a0, [a1], selected_reg=r.r0, imm_fine=False)
         arg2 = regalloc.make_sure_var_in_reg(a1, [a0], selected_reg=r.r1, imm_fine=False)
         assert arg1 == r.r0
         assert arg2 == r.r1
@@ -61,7 +58,8 @@ def gen_emit_op_by_helper_call(opname):
         getattr(self.mc, opname)(fcond)
         regalloc.after_call(op.result)
 
-        regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_var(a0)
+        regalloc.possibly_free_var(a1)
         if op.result:
             regalloc.possibly_free_var(op.result)
         return fcond
@@ -93,8 +91,6 @@ def gen_emit_cmp_op(condition, inverse=False):
         inv = c.get_opposite_of(condition)
         self.mc.MOV_ri(res.value, 1, cond=condition)
         self.mc.MOV_ri(res.value, 0, cond=inv)
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_vars([arg0, arg1, op.result])
         return fcond
     return f
