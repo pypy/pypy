@@ -103,6 +103,9 @@ class CArgObject(object):
     def __repr__(self):
         return repr(self._obj)
 
+    def __eq__(self, other):
+        return self._obj == other
+
 class _CData(object):
     """ The most basic object for all ctypes types
     """
