@@ -271,7 +271,9 @@ class SimpleType(_CDataMeta):
 
     def _CData_output(self, resbuffer, base=None, index=-1):
         output = super(SimpleType, self)._CData_output(resbuffer, base, index)
-        return output.value
+        if self.__bases__[0] is _SimpleCData:
+            return output.value
+        return output
     
     def _sizeofinstances(self):
         return _rawffi.sizeof(self._type_)
