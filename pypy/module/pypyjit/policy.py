@@ -17,8 +17,6 @@ class PyPyJitPolicy(JitPolicy):
         return False
 
     def look_inside_function(self, func):
-        # this function should never actually return True directly
-        # but instead call the base implementation
         mod = func.__module__ or '?'
 
         if mod.startswith('pypy.objspace.'):
