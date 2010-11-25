@@ -14,9 +14,10 @@ create a new file replacing the 'translation-task' and 'gc-collect' sheets.
 
 import re, sys
 import gzip
+import optparse
 
 
-def main():
+def main(logname, options):
     logname = sys.argv[1]
     outname = logname + '.gnumeric'
     data = open(logname).read()
@@ -30,7 +31,7 @@ def main():
     xml = replace_sheet(xml, 'gc-collect', gc_collect_rows(time0, data))
     xml = replace_sheet(xml, 'loops', loops_rows(time0, data))
     xml = replace_sheet(xml, 'vmrss', vmrss_rows(logname + '.vmrss', maxtime))
-    xml = replace_sheet(xml, 'cpython-vmrss', vmrss_rows('cpython.vmrss', maxtime))
+    xml = replace_sheet(xml, 'cpython-vmrss', vmrss_rows(options.cpython_vmrss, maxtime))
     #
     out = gzip.open(outname, 'wb')
     out.write(xml)
@@ -143,11 +144,12 @@ def loops_rows(time0, data):
 
 
 def vmrss_rows(filename, maxtime):
-    try:
-        lines = open(filename).readlines()
-    except IOError:
-        print 'Warning: cannot find file %s, skipping this sheet'
-        lines = []
+    lines = []
+    if options.cpython_vmrss:
+        try:
+            lines = open(filename).readlines()
+        except IOError:
+            print 'Warning: cannot find file %s, skipping this sheet'
     for row in vmrss_rows_impl(lines, maxtime):
         yield row
 
@@ -161,4 +163,11 @@ def vmrss_rows_impl(lines, maxtime):
 
 
 if __name__ == '__main__':
-    main()
+    parser = optparse.OptionParser(usage="%prog logfile [options]")
+    parser.add_option('-c', '--cpython-vmrss', dest='cpython_vmrss', default=None, metavar='FILE', type=str,
+                      help='the .vmrss file produced by CPython')
+    options, args = parser.parse_args()
+    if len(args) != 1:
+        parser.print_help()
+        sys.exit(2)
+    main(args[0], options)
