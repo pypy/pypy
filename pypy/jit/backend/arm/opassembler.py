@@ -142,6 +142,9 @@ class IntOpAsslember(object):
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
 
+    emit_op_ptr_eq = emit_op_int_eq
+    emit_op_ptr_ne = emit_op_int_ne
+
 
 
 class UnaryIntOpAssembler(object):

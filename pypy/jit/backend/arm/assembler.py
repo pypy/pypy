@@ -404,12 +404,13 @@ class AssemblerARM(ResOpAssembler):
         self.mc._dump_trace(name)
 
     def _check_imm_arg(self, arg, size=0xFF, allow_zero=True):
-        if allow_zero:
-            lower_bound = arg.getint() >= 0
-        else:
-            lower_bound = arg.getint() > 0
-        #XXX check ranges for different operations
-        return isinstance(arg, ConstInt) and arg.getint() <= size and lower_bound
+        if isinstance(arg, ConstInt):
+            if allow_zero:
+                lower_bound = arg.getint() >= 0
+            else:
+                lower_bound = arg.getint() > 0
+            return arg.getint() <= size and lower_bound
+        return False
 
 
     def _ensure_result_bit_extension(self, resloc, size, signed, regalloc):
