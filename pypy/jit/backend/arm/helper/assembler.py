@@ -68,6 +68,7 @@ def gen_emit_op_by_helper_call(opname):
 def gen_emit_cmp_op(condition, inverse=False):
     def f(self, op, regalloc, fcond):
         assert fcond is not None
+        args = op.getarglist()
         if not inverse:
             arg0 = op.getarg(0)
             arg1 = op.getarg(1)
@@ -78,13 +79,13 @@ def gen_emit_cmp_op(condition, inverse=False):
         imm_a0 = self._check_imm_arg(arg0)
         imm_a1 = self._check_imm_arg(arg1)
         if imm_a1 and not imm_a0:
-            l0 = regalloc.make_sure_var_in_reg(arg0, [arg1], imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(arg1, [arg0])
+            l0 = regalloc.make_sure_var_in_reg(arg0, args, imm_fine=False)
+            l1 = regalloc.make_sure_var_in_reg(arg1, args)
             res = regalloc.force_allocate_reg(op.result)
             self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
         else:
-            l0 = regalloc.make_sure_var_in_reg(arg0, [arg1], imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(arg1, [arg0], imm_fine=False)
+            l0 = regalloc.make_sure_var_in_reg(arg0, args, imm_fine=False)
+            l1 = regalloc.make_sure_var_in_reg(arg1, args, imm_fine=False)
             res = regalloc.force_allocate_reg(op.result)
             self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
 
