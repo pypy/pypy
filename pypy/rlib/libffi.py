@@ -64,6 +64,8 @@ class types(object):
         ## elif ffi_type is types.uint64:  return 'u'
         raise KeyError
 
+    NULL = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+
 types._import()
 
 @specialize.arg(0)
@@ -149,7 +151,7 @@ class Func(AbstractFuncPtr):
 
     _immutable_fields_ = ['funcsym']
     argtypes = []
-    restype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    restype = types.NULL
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
@@ -178,6 +180,7 @@ class Func(AbstractFuncPtr):
         # the optimizer will fail to recognize the pattern and won't turn it
         # into a fast CALL.  Note that "arg = arg.next" is optimized away,
         # assuming that archain is completely virtual.
+        self = jit.hint(self, promote=True)
         ll_args = self._prepare()
         i = 0
         arg = argchain.first

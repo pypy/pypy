@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rlib import libffi
 
 from pypy.module.cppyy import helper, capi
 
@@ -7,19 +8,29 @@ _executors = {}
 
 class FunctionExecutor(object):
     _immutable_ = True
+    libffitype = libffi.types.NULL
+
     def __init__(self, space, cpptype):
         pass
 
     def execute(self, space, func, cppthis, num_args, args):
         raise NotImplementedError
 
+    def execute_libffi(self, space, libffifunc, argchain):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
+
 
 class VoidExecutor(FunctionExecutor):
     _immutable_ = True
+
     def execute(self, space, func, cppthis, num_args, args):
         capi.c_call_v(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.w_None
 
+    def execute_libffi(self, space, libffifunc, argchain):
+        libffifunc.call(argchain, lltype.Void)
+        return space.w_None
 
 class BoolExecutor(FunctionExecutor):
     _immutable_ = True
@@ -29,33 +40,47 @@ class BoolExecutor(FunctionExecutor):
 
 class CharExecutor(FunctionExecutor):
     _immutable_ = True
+
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_c(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
 
 class ShortExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.sshort
+
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_h(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
 
 class LongExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.slong
+
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
 
+    def execute_libffi(self, space, libffifunc, argchain):
+        return space.wrap(libffifunc.call(argchain, lltype.Signed))
+
 class FloatExecutor(FunctionExecutor):
     _immutable_ = True
+
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_f(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
 
 class DoubleExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.double
+
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_d(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        return space.wrap(libffifunc.call(argchain, rffi.DOUBLE))
 
 class CStringExecutor(FunctionExecutor):
     _immutable_ = True

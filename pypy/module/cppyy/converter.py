@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.buffer import Buffer
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
-from pypy.rlib import jit
+from pypy.rlib import jit, libffi
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array
@@ -20,6 +20,8 @@ def get_rawobject(space, w_obj):
 
 
 class TypeConverter(object):
+    libffitype = libffi.types.NULL
+
     def __init__(self, space, array_size):
         pass
 
@@ -34,6 +36,10 @@ class TypeConverter(object):
 
     def convert_argument(self, space, w_obj):
         self._is_abstract()
+
+    def convert_argument_libffi(self, space, w_obj, argchain):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
 
     def from_memory(self, space, w_obj, offset):
         self._is_abstract()
@@ -55,6 +61,8 @@ class ArrayTypeConverter(TypeConverter):
 
 
 class VoidConverter(TypeConverter):
+    libffitype = libffi.types.void
+
     def __init__(self, space, name):
         self.name = name
 
@@ -91,6 +99,8 @@ class BoolConverter(TypeConverter):
            fieldptr[0] = '\x00'
 
 class CharConverter(TypeConverter):
+    libffitype = libffi.types.schar
+
     def _from_space(self, space, w_value):
         # allow int to pass to char and make sure that str is of length 1
         if space.isinstance_w(w_value, space.w_int):
@@ -122,11 +132,19 @@ class CharConverter(TypeConverter):
         fieldptr[0] = self._from_space(space, w_value)
 
 class LongConverter(TypeConverter):
+    libffitype = libffi.types.slong
+
+    def _unwrap_object(self, space, w_obj):
+        return space.c_int_w(w_obj)
+
     def convert_argument(self, space, w_obj):
-        arg = space.c_int_w(w_obj)
+        arg = self._unwrap_object(space, w_obj)
         x = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
         x[0] = arg
         return rffi.cast(rffi.VOIDP, x)
+
+    def convert_argument_libffi(self, space, w_obj, argchain):
+        argchain.arg(self._unwrap_object(space, w_obj))
 
     def from_memory(self, space, w_obj, offset):
         fieldptr = self._get_fieldptr(space, w_obj, offset)
@@ -139,6 +157,8 @@ class LongConverter(TypeConverter):
         longptr[0] = space.c_int_w(w_value)
 
 class ShortConverter(LongConverter):
+    libffitype = libffi.types.sshort
+
     def from_memory(self, space, w_obj, offset):
         fieldptr = self._get_fieldptr(space, w_obj, offset)
         shortptr = rffi.cast(rffi.SHORTP, fieldptr)
@@ -150,11 +170,13 @@ class ShortConverter(LongConverter):
         shortptr[0] = rffi.cast(rffi.SHORT, space.c_int_w(w_value))
 
 class FloatConverter(TypeConverter):
+    def _unwrap_object(self, space, w_obj):
+        return r_singlefloat(space.float_w(w_obj))
+
     def convert_argument(self, space, w_obj):
-        arg = space.float_w(w_obj)
         x = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw')
-        x[0] = r_singlefloat(arg)
-        return rffi.cast(rffi.VOIDP, x)        
+        x[0] = self._unwrap_object(space, w_obj)
+        return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
         fieldptr = self._get_fieldptr(space, w_obj, offset)
@@ -167,11 +189,18 @@ class FloatConverter(TypeConverter):
         floatptr[0] = r_singlefloat(space.float_w(w_value))
 
 class DoubleConverter(TypeConverter):
+    libffitype = libffi.types.double
+
+    def _unwrap_object(self, space, w_obj):
+        return space.float_w(w_obj)
+
     def convert_argument(self, space, w_obj):
-        arg = space.float_w(w_obj)
         x = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
-        x[0] = arg
-        return rffi.cast(rffi.VOIDP, x)        
+        x[0] = self._unwrap_object(space, w_obj)
+        return rffi.cast(rffi.VOIDP, x)
+
+    def convert_argument_libffi(self, space, w_obj, argchain):
+        argchain.arg(self._unwrap_object(space, w_obj))
 
     def from_memory(self, space, w_obj, offset):
         fieldptr = self._get_fieldptr(space, w_obj, offset)

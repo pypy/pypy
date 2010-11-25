@@ -7,18 +7,18 @@ from pypy.interpreter.baseobjspace import Wrappable
 
 from pypy.rpython.lltypesystem import rffi, lltype
 
-from pypy.rlib.libffi import CDLL
+from pypy.rlib import libffi
 from pypy.rlib import jit, debug
 
 from pypy.module.cppyy import converter, executor
 
-class HackCallNotPossible(Exception):
+class FastCallNotPossible(Exception):
     pass
 
 NULL_VOIDP = lltype.nullptr(rffi.VOIDP.TO)
 
 def load_lib(space, name):
-    cdll = CDLL(name)
+    cdll = libffi.CDLL(name)
     return W_CPPLibrary(space, cdll)
 load_lib.unwrap_spec = [ObjSpace, str]
 
@@ -72,18 +72,21 @@ class CPPMethod(object):
         self.arg_types = arg_types
         self.executor = executor.get_executor(self.space, result_type)
         self.arg_converters = None
-        # <hack>
-        self.hack_call = arg_types == ['int'] and result_type == 'int'
-        # </hack>
+        methgetter = get_methptr_getter(self.cpptype.handle,
+                                        self.method_index)
+        self.methgetter = methgetter
+        self._libffifunc_cache = {}
 
     def call(self, cppthis, args_w):
         if self.executor is None:
             raise OperationError(self.space.w_TypeError, self.space.wrap("return type not handled"))
 
-        if self.hack_call:
+        if self.methgetter and cppthis: # only for methods
             try:
-                return self.do_hack_call(cppthis, args_w)
-            except HackCallNotPossible:
+                print "trying fast call"
+                return self.do_fast_call(cppthis, args_w)
+            except FastCallNotPossible:
+                print "failed"
                 pass
 
         args = self.prepare_arguments(args_w)
@@ -92,24 +95,44 @@ class CPPMethod(object):
         finally:
             self.free_arguments(args)
 
-    INT_2_INT_FNPTR = lltype.Ptr(lltype.FuncType([rffi.VOIDP, rffi.INT],
-                                                 rffi.INT))
-    def do_hack_call(self, cppthis, args_w):
-        # hack: only for methods 'int m(int)'
+    @jit.unroll_safe
+    def do_fast_call(self, cppthis, args_w):
         space = self.space
-        if len(args_w) != 1:
+        # XXX factor out
+        if len(args_w) != len(self.arg_types):
             raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
-        arg = space.c_int_w(args_w[0])
-        methgetter = get_methptr_getter(self.cpptype.handle,
-                                        self.method_index)
-        if not methgetter:
-            raise HackCallNotPossible
-        funcptr = methgetter(cppthis)
+        if self.arg_converters is None:
+            self._build_converters()
+        funcptr = jit.hint(self.methgetter, promote=True)(cppthis)
+        libffi_func = self._get_libffi_func(jit.hint(funcptr, promote=True))
+        if not libffi_func:
+            raise FastCallNotPossible
 
-        funcptr = rffi.cast(self.INT_2_INT_FNPTR, funcptr)
-        funcptr = jit.hint(funcptr, promote=True)
-        result = funcptr(cppthis, arg)
-        return space.wrap(rffi.cast(lltype.Signed, result))
+        argchain = libffi.ArgChain()
+        argchain.arg(cppthis)
+        for i in range(len(args_w)):
+            conv = self.arg_converters[i]
+            w_arg = args_w[i]
+            conv.convert_argument_libffi(space, w_arg, argchain)
+        return self.executor.execute_libffi(space, libffi_func, argchain)
+
+    @jit.purefunction
+    def _get_libffi_func(self, funcptr):
+        key = rffi.cast(rffi.LONG, funcptr)
+        if key in self._libffifunc_cache:
+            return self._libffifunc_cache[key]
+        argtypes_libffi = [conv.libffitype for conv in self.arg_converters
+                              if conv.libffitype]
+        if (len(argtypes_libffi) == len(self.arg_converters) and
+                self.executor.libffitype):
+            # add c++ this to the arguments
+            libffifunc = libffi.Func("XXX",
+                                     [libffi.types.pointer] + argtypes_libffi,
+                                     self.executor.libffitype, funcptr)
+        else:
+            libffifunc = None
+        self._libffifunc_cache[key] = libffifunc
+        return libffifunc
 
     def _build_converters(self):
         self.arg_converters = [converter.get_converter(self.space, arg_type)
@@ -127,7 +150,7 @@ class CPPMethod(object):
             conv = self.arg_converters[i]
             w_arg = args_w[i]
             try:
-                 arg = conv.convert_argument(space, w_arg)
+                arg = conv.convert_argument(space, w_arg)
             except:
                 # fun :-(
                 for j in range(i):
@@ -147,6 +170,9 @@ class CPPMethod(object):
     def __repr__(self):
         return "CPPFunction(%s, %s, %r, %s)" % (
             self.cpptype, self.method_index, self.executor, self.arg_types)
+
+    def _freeze_(self):
+        assert 0, "you should never have a pre-built instance of this!"
 
 
 class CPPFunction(CPPMethod):
