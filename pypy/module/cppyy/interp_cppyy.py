@@ -83,10 +83,8 @@ class CPPMethod(object):
 
         if self.methgetter and cppthis: # only for methods
             try:
-                print "trying fast call"
                 return self.do_fast_call(cppthis, args_w)
             except FastCallNotPossible:
-                print "failed"
                 pass
 
         args = self.prepare_arguments(args_w)
