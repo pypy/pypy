@@ -81,10 +81,15 @@ def gen_cells(data):
 # functions to extract various data from the logs
 # ========================================================================
 
+CLOCK_FACTOR = 1
+def read_clock(x):
+    timestamp = int(x, 16)
+    return timestamp / CLOCK_FACTOR
+
 def get_clock_range(data):
     s = r"\[([0-9a-f]+)\] "
     r = re.compile(s)
-    clocks = [int(x, 16) for x in r.findall(data)]
+    clocks = [read_clock(x) for x in r.findall(data)]
     return min(clocks), max(clocks)
 
 def gc_collect_rows(time0, data):
@@ -103,7 +108,7 @@ def gc_collect_rows(time0, data):
     r = re.compile(s.replace('\n', ''))
     yield 'clock', 'gc-before', 'gc-after'
     for a,b,c,d,e,f in r.findall(data):
-        clock = int(f, 16) - time0
+        clock = read_clock(f) - time0
         yield clock, int(a)+int(b), int(c)+int(d)
 
 def tasks_rows(time0, data):
@@ -115,7 +120,7 @@ starting ([\w-]+)
     r = re.compile(s.replace('\n', ''))
     yield 'clock', None, 'task'
     for a,b in r.findall(data):
-        clock = int(a, 16) - time0
+        clock = read_clock(a) - time0
         yield clock, 1, b
 
 
@@ -129,8 +134,9 @@ def loops_rows(time0, data):
     yield 'clock', 'total', 'loops', 'bridges'
     loops = 0
     bridges = 0
+    fake_total = 0
     for clock, action, text in r.findall(data):
-        clock = int(clock, 16) - time0
+        clock = read_clock(clock) - time0
         if text.startswith('allocating Loop #'):
             loops += 1
         elif text.startswith('allocating Bridge #'):
@@ -163,6 +169,7 @@ def vmrss_rows_impl(lines, maxtime):
 
 
 if __name__ == '__main__':
+    CLOCK_FACTOR = 1000000000.0 # report GigaTicks instead of Ticks
     parser = optparse.OptionParser(usage="%prog logfile [options]")
     parser.add_option('-c', '--cpython-vmrss', dest='cpython_vmrss', default=None, metavar='FILE', type=str,
                       help='the .vmrss file produced by CPython')
