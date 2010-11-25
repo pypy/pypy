@@ -154,6 +154,7 @@ class CFuncPtr(_CData):
     
     def __call__(self, *args):
         if self.callable is not None:
+            args = args[:len(self._argtypes_)]
             try:
                 res = self.callable(*args)
             except:
