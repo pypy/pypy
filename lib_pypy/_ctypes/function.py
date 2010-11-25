@@ -35,6 +35,7 @@ class CFuncPtr(_CData):
 
     _argtypes_ = None
     _restype_ = None
+    _errcheck_ = None
     _flags_ = 0
     _ffiargshape = 'P'
     _ffishape = 'P'
@@ -71,6 +72,19 @@ class CFuncPtr(_CData):
         self._ptr = None
         del self._restype_
     restype = property(_getrestype, _setrestype, _delrestype)
+
+    def _geterrcheck(self):
+        return getattr(self, '_errcheck_', None)
+    def _seterrcheck(self, errcheck):
+        if not callable(errcheck):
+            raise TypeError("The errcheck attribute must be callable")
+        self._errcheck_ = errcheck
+    def _delerrcheck(self):
+        try:
+            del self._errcheck_
+        except AttributeError:
+            pass
+    errcheck = property(_geterrcheck, _seterrcheck, _delerrcheck)
 
     def _ffishapes(self, args, restype):
         argtypes = [arg._ffiargshape for arg in args]
@@ -168,7 +182,21 @@ class CFuncPtr(_CData):
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
         resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
-        return self._build_result(restype, resbuffer, argtypes, argsandobjs)
+        result = self._build_result(restype, resbuffer, argtypes, argsandobjs)
+
+        # The 'errcheck' protocol
+        if self._errcheck_:
+            v = self._errcheck_(result, self, args)
+            # If the errcheck funtion failed, let it throw
+            # If the errcheck function returned callargs unchanged,
+            # continue normal processing.
+            # If the errcheck function returned something else,
+            # use that as result.
+            if v is not args:
+                result = v
+
+        return result
+
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and argtypes is self._argtypes_:
