@@ -19,10 +19,6 @@ class PyPyJitPolicy(JitPolicy):
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
 
-        if mod.startswith('pypy.objspace.'):
-            # gc_id operation
-            if func.__name__ == 'id__ANY':
-                return False
         if mod == 'pypy.rlib.rbigint' or mod == 'pypy.rlib.rlocale':
             return False
         if '_geninterp_' in func.func_globals: # skip all geninterped stuff

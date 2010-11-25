@@ -398,6 +398,7 @@ class Transformer(object):
     rewrite_op_int_lshift_ovf  = _do_builtin_call
     rewrite_op_int_abs         = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
+    rewrite_op_gc_id           = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.

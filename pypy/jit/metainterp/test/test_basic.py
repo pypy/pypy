@@ -1701,6 +1701,29 @@ class BasicTests:
         res = self.meta_interp(f, [5, 2])
         assert 4 < res < 14
 
+    def test_compute_identity_hash(self):
+        from pypy.rlib.objectmodel import compute_identity_hash
+        class A(object):
+            pass
+        def f():
+            a = A()
+            return compute_identity_hash(a) == compute_identity_hash(a)
+        res = self.interp_operations(f, [])
+        assert res
+        # a "did not crash" kind of test
+
+    def test_compute_unique_id(self):
+        from pypy.rlib.objectmodel import compute_unique_id
+        class A(object):
+            pass
+        def f():
+            a1 = A()
+            a2 = A()
+            return (compute_unique_id(a1) == compute_unique_id(a1) and
+                    compute_unique_id(a1) != compute_unique_id(a2))
+        res = self.interp_operations(f, [])
+        assert res
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 
