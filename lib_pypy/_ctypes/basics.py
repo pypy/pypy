@@ -46,15 +46,6 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
-    def _CData_input(self, value):
-        """Used when data enters into ctypes from user code.  'value' is
-        some user-specified Python object, which is converted into a _rawffi
-        array of length 1 containing the same value according to the
-        type 'self'.
-        """
-        cobj = self.from_param(value)
-        return cobj, cobj._get_buffer_for_param()
-
     def _CData_value(self, value):
         cobj = self.from_param(value)
         # we don't care here if this stuff will live afterwards, as we're
