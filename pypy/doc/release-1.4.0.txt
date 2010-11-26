@@ -55,5 +55,5 @@ More highlights
 
 Cheers,
 
-    Carl Friedrich Bolz, Antonio Cuni, Maciej Fijalkowski,
-    Amaury Forgeot d'Arc, Armin Rigo and the PyPy team
+Carl Friedrich Bolz, Antonio Cuni, Maciej Fijalkowski,
+Amaury Forgeot d'Arc, Armin Rigo and the PyPy team
