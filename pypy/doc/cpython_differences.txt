@@ -20,16 +20,21 @@ List of extension modules that we support:
 
     __builtin__
     `__pypy__`_
+    _ast
+    _bisect
     _codecs
     _lsprof
     `_minimal_curses`_
     _random
     `_rawffi`_
+    _ssl
     _socket
     _sre
     _weakref
+    array
     bz2
     cStringIO
+    cpyext
     crypt
     errno
     exceptions
@@ -72,7 +77,7 @@ List of extension modules that we support:
 
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
-  support this way: ``ctypes``, ``array``, ``cPickle``,
+  support this way: ``ctypes``, ``cPickle``,
   ``cStringIO``, ``cmath``, ``dbm`` (?), ``datetime``, ``binascii``...  
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
