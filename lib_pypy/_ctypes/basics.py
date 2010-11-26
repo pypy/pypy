@@ -46,12 +46,6 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
-    def _CData_value(self, value):
-        cobj = self.from_param(value)
-        # we don't care here if this stuff will live afterwards, as we're
-        # interested only in value anyway
-        return cobj._get_buffer_value()
-
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.

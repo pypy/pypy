@@ -11,7 +11,8 @@ _memset_addr = _rawffi.get_libc().getaddressindll('memset')
 def _string_at_addr(addr, lgt):
     # address here can be almost anything
     import ctypes
-    arg = ctypes.c_void_p._CData_value(addr)
+    cobj = ctypes.c_void_p.from_param(addr)
+    arg = cobj._get_buffer_value()
     return _rawffi.charp2rawstring(arg, lgt)
 
 def set_conversion_mode(encoding, errors):
@@ -22,5 +23,6 @@ def set_conversion_mode(encoding, errors):
 
 def _wstring_at_addr(addr, lgt):
     import ctypes
-    arg = ctypes.c_void_p._CData_value(addr)
+    cobj = ctypes.c_void_p.from_param(addr)
+    arg = cobj._get_buffer_value()
     return _rawffi.wcharp2rawunicode(arg, lgt)
