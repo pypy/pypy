@@ -34,7 +34,7 @@ List of extension modules that we support:
     array
     bz2
     cStringIO
-    cpyext
+    `cpyext`_
     crypt
     errno
     exceptions
@@ -85,11 +85,13 @@ List of extension modules that we support:
 
 The extension modules (i.e. modules written in C, in the standard CPython)
 that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
+(You may have a chance to use them anyway with `cpyext`_.)
 
 .. the nonstandard modules are listed below...
 .. _`__pypy__`: __pypy__-module.html
 .. _`_rawffi`: ctypes-implementation.html
 .. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
+.. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
 .. _Stackless: stackless.html
 
 
