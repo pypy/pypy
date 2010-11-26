@@ -134,7 +134,7 @@ def array_slice_setitem(self, index, value):
     if slicelength != len(value):
         raise ValueError("Can only assign slices of the same length")
     for i, j in enumerate(range(start, stop, step)):
-        self[j] = value[j]
+        self[j] = value[i]
 
 def array_slice_getitem(self, index):
     start, stop, step = self._get_slice_params(index)
