@@ -117,6 +117,8 @@ class StructOrUnionMeta(_CDataMeta):
 
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
+        if "_abstract_" in typedict:
+            return res
         if isinstance(cls[0], StructOrUnionMeta):
             cls[0]._make_final()
         if '_fields_' in typedict:
@@ -186,6 +188,8 @@ class StructOrUnion(_CData):
 
     def __new__(cls, *args, **kwds):
         self = super(_CData, cls).__new__(cls, *args, **kwds)
+        if '_abstract_' in cls.__dict__:
+            raise TypeError("abstract class")
         if hasattr(cls, '_ffistruct'):
             self.__dict__['_buffer'] = self._ffistruct(autofree=True)
         return self
