@@ -12,12 +12,14 @@ class Darwin(posix.BasePosix):
 
     so_ext = 'so'
     
+    default_cc = 'gcc'
+
     def __init__(self, cc=None):
         if cc is None:
             try:
                 cc = os.environ['CC']
             except KeyError:
-                cc = 'gcc'
+                cc = default_cc
         self.cc = cc
 
     def _args_for_shared(self, args):
@@ -85,3 +87,4 @@ class Darwin_x86_64(Darwin):
     link_flags = ('-arch', 'x86_64', '-mmacosx-version-min=10.4')
     cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer',
               '-mmacosx-version-min=10.4')
+    default_cc = 'gcc-4.0'
