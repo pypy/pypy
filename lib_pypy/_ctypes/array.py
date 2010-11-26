@@ -102,33 +102,43 @@ class ArrayMeta(_CDataMeta):
         return _CDataMeta.from_param(self, value)
 
 def array_get_slice_params(self, index):
-    if index.step is not None:
-        raise TypeError("3 arg slices not supported (for no reason)")
-    check_bounds = hasattr(self, '_length_')
-    if index.start is not None:
+    if hasattr(self, '_length_'):
+        start, stop, step = index.indices(self._length_)
+    else:
+        step = index.step
+        if step is None:
+            step = 1
         start = index.start
-        if check_bounds and start < 0:
-            start = 0
-    else:
-        start = 0
-    if index.stop is not None:
         stop = index.stop
-        if check_bounds and stop > self._length_:
-            stop = self._length_
-    else:
-        stop = self._length_
-    return start, stop
+        if start is None:
+            if step > 0:
+                start = 0
+            else:
+                raise ValueError("slice start is required for step < 0")
+        if stop is None:
+            raise ValueError("slice stop is required")
+
+    return start, stop, step
 
 def array_slice_setitem(self, index, value):
-    start, stop = self._get_slice_params(index)
-    if stop - start != len(value):
+    start, stop, step = self._get_slice_params(index)
+
+    if ((step < 0 and stop >= start) or
+        (step > 0 and start >= stop)):
+        slicelength = 0
+    elif step < 0:
+        slicelength = (stop - start + 1) / step + 1
+    else:
+        slicelength = (stop - start - 1) / step + 1;
+
+    if slicelength != len(value):
         raise ValueError("Can only assign slices of the same length")
-    for i in range(start, stop):
-        self[i] = value[i - start]
+    for i, j in enumerate(range(start, stop, step)):
+        self[j] = value[j]
 
 def array_slice_getitem(self, index):
-    start, stop = self._get_slice_params(index)
-    l = [self[i] for i in range(start, stop)]
+    start, stop, step = self._get_slice_params(index)
+    l = [self[i] for i in range(start, stop, step)]
     letter = getattr(self._type_, '_type_', None)
     if letter == 'c':
         return "".join(l)
