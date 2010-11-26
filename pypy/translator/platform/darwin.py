@@ -19,7 +19,7 @@ class Darwin(posix.BasePosix):
             try:
                 cc = os.environ['CC']
             except KeyError:
-                cc = default_cc
+                cc = self.default_cc
         self.cc = cc
 
     def _args_for_shared(self, args):
