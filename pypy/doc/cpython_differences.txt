@@ -134,12 +134,10 @@ module.  More information is available on the blog `[1]`__ `[2]`__.
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
 
-The built-in function ``id()`` returns numbers that are not addresses
-for most of PyPy's garbage collectors.
-This is most visible in the default repr: a typical PyPy object can
-pretend to be located ``at 0x00000009``.  This is just its ``id()``, not
-its real address (because an object can move around in some GCs). Calling
-``id`` a lot can lead to performance problem.
+Using the default GC called ``minimark``, the built-in function ``id()``
+works like it does in CPython.  With other GCs it returns numbers that
+are not real addresses (because an object can move around several times)
+and calling it a lot can lead to performance problem.
 
 Note that if you have a long chain of objects, each with a reference to
 the next one, and each with a __del__, PyPy's GC will perform badly.  On
