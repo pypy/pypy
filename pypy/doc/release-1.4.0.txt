@@ -48,5 +48,6 @@ More highlights
 .. _`pypy 1.4 and cpython 2.6`_: http://speed.pypy.org/comparison/?exe=2%2B35,1%2B172&ben=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20&env=1&hor=false&bas=2%2B35&chart=normal+bars
 
 Cheers,
-Maciej Fijalkowski, Amaury Forgeot d'Arc, Armin Rigo and the PyPy team
+Carl Friedrich Bolz, Antonio Cuni, Maciej Fijalkowski, Amaury Forgeot d'Arc,
+Armin Rigo and the PyPy team
 
