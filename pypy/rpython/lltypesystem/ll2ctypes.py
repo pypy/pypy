@@ -442,6 +442,9 @@ class _parentable_mixin(object):
                             "not allocated from RPython at all")
         self._storage = None
 
+    def _getid(self):
+        return self._addressof_storage()
+
     def __eq__(self, other):
         if isinstance(other, _llgcopaque):
             addressof_other = other.intval
