@@ -89,6 +89,8 @@ class CFuncPtr(_CData):
     def _ffishapes(self, args, restype):
         argtypes = [arg._ffiargshape for arg in args]
         if restype is not None:
+            if not isinstance(restype, _CDataMeta):
+                raise TypeError("invalid result type for callback function")
             restype = restype._ffiargshape
         else:
             restype = 'O' # void
