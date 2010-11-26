@@ -9,7 +9,7 @@ our every-day development.  So may you :) You can download it here:
 
     http://pypy.org/download.html
 
-Among other features, this release includes numerous performance improvements
+Among its new features, this release includes numerous performance improvements
 (which made fast self-hosting possible), a 64-bit JIT backend, as well
 as serious stabilization. As of now, we can consider the 32-bit and 64-bit
 linux versions of PyPy stable enough to run `in production`_.
@@ -21,13 +21,24 @@ are available on benchmark website. For impatient: yes, we got a lot faster!
 More highlights
 ===============
 
+* PyPy's built-in Just-in-Time compiler is fully transparent and
+  automatically generated; it now also has very reasonable memory
+  requirements.  The total memory used by a very complex and
+  long-running process (translating PyPy itself) is within 1.5x to
+  at most 2x the memory needed by CPython, for a speed-up of 2x.
+
+* More compact instances.  All instances are as compact as if
+  they had ``__slots__``.  This can give programs a big gain in
+  memory.  (In the example of translation above, we already have
+  carefully placed ``__slots__``, so there is no extra win.)
+
 * `Virtualenv support`_: now PyPy is fully compatible with virtualenv_: note that
   to use it, you need a recent version of virtualenv (>= 1.5).
 
 * Faster (and JITted) regular expressions - huge boost in speeding up
-  sre module.
+  the `re` module.
 
-* Faster (and JITted) calls to functions like map().
+* Other speed improvements, like JITted calls to functions like map().
 
 .. _virtualenv: http://pypi.python.org/pypi/virtualenv
 .. _`Virtualenv support`: http://morepypy.blogspot.com/2010/08/using-virtualenv-with-pypy.html
