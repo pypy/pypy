@@ -70,7 +70,7 @@ class FloatConstants(object):
     def _get_new_array(self):
         n = self.BASE_CONSTANT_SIZE
         # known to leak
-        self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n,
+        self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n, # YYY leak
                                        flavor='raw', track_allocation=False)
         self.cur_array_free = n
     _get_new_array._dont_inline_ = True
@@ -320,11 +320,22 @@ class RegAlloc(object):
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
 
+    def get_current_depth(self):
+        # return (self.fm.frame_depth, self.param_depth), but trying to share
+        # the resulting tuple among several calls
+        arg0 = self.fm.frame_depth
+        arg1 = self.param_depth
+        result = self.assembler._current_depths_cache
+        if result[0] != arg0 or result[1] != arg1:
+            result = (arg0, arg1)
+            self.assembler._current_depths_cache = result
+        return result
+
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
         self.rm.position += 1
         self.xrm.position += 1
-        current_depths = (self.fm.frame_depth, self.param_depth)
+        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
                                                    arglocs, result_loc,
                                                    current_depths)
@@ -340,7 +351,7 @@ class RegAlloc(object):
                                                       arglocs))
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
-        current_depths = (self.fm.frame_depth, self.param_depth)                
+        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)

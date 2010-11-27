@@ -1083,7 +1083,7 @@ def appdef(source, applevel=ApplevelClass, filename=None):
             # these decorators are known to return the same function
             # object, we may ignore them
             assert '\n' in source
-            source = source[source.find('\n') + 1:]
+            source = source[source.find('\n') + 1:].lstrip()
         assert source.startswith("def "), "can only transform functions" 
         source = source[4:]
     p = source.find('(')

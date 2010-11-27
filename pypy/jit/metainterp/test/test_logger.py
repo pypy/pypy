@@ -14,11 +14,20 @@ class Descr(AbstractDescr):
 
 def capturing(func, *args, **kwds):
     log_stream = StringIO()
-    debug._stderr = log_stream
+    class MyDebugLog:
+        def debug_print(self, *args):
+            for arg in args:
+                print >> log_stream, arg,
+            print >> log_stream
+        def debug_start(self, *args):
+            pass
+        def debug_stop(self, *args):
+            pass
     try:
+        debug._log = MyDebugLog()
         func(*args, **kwds)
     finally:
-        debug._stderr = sys.stderr
+        debug._log = None
     return log_stream.getvalue()
 
 class Logger(logger.Logger):
@@ -112,7 +121,8 @@ class TestLogger(object):
         equaloplists(loop.operations, oloop.operations)
 
     def test_jump(self):
-        namespace = {'target': LoopToken(3)}
+        namespace = {'target': LoopToken()}
+        namespace['target'].number = 3
         inp = '''
         [i0]
         jump(i0, descr=target)

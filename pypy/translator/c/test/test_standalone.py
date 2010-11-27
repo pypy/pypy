@@ -272,7 +272,7 @@ class TestStandalone(StandaloneTests):
             x = "got:"
             debug_start  ("mycat")
             if have_debug_prints(): x += "b"
-            debug_print    ("foo", 2, "bar", 3)
+            debug_print    ("foo", r_longlong(2), "bar", 3)
             debug_start      ("cat2")
             if have_debug_prints(): x += "c"
             debug_print        ("baz")
@@ -368,12 +368,27 @@ class TestStandalone(StandaloneTests):
         assert not err
         assert path.check(file=1)
         data = path.read()
-        assert 'toplevel' in path.read()
-        assert 'mycat' not in path.read()
-        assert 'foo 2 bar 3' not in path.read()
+        assert 'toplevel' in data
+        assert 'mycat' not in data
+        assert 'foo 2 bar 3' not in data
         assert 'cat2' in data
         assert 'baz' in data
         assert 'bok' not in data
+        # check with PYPYLOG=myc,cat2:somefilename   (includes mycat and cat2)
+        path = udir.join('test_debug_xxx_myc_cat2.log')
+        out, err = cbuilder.cmdexec("", err=True,
+                                    env={'PYPYLOG': 'myc,cat2:%s' % path})
+        assert out.strip() == 'got:bcda.'
+        assert not err
+        assert path.check(file=1)
+        data = path.read()
+        assert 'toplevel' in data
+        assert '{mycat' in data
+        assert 'mycat}' in data
+        assert 'foo 2 bar 3' in data
+        assert 'cat2' in data
+        assert 'baz' in data
+        assert 'bok' in data
         #
         # finally, check compiling with logging disabled
         from pypy.config.pypyoption import get_pypy_config
@@ -387,6 +402,20 @@ class TestStandalone(StandaloneTests):
         assert out.strip() == 'got:.'
         assert not err
         assert path.check(file=0)
+
+    def test_debug_print_start_stop_nonconst(self):
+        def entry_point(argv):
+            debug_start(argv[1])
+            debug_print(argv[2])
+            debug_stop(argv[1])
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        out, err = cbuilder.cmdexec("foo bar", err=True, env={'PYPYLOG': ':-'})
+        lines = err.splitlines()
+        assert '{foo' in lines[0]
+        assert 'bar' == lines[1]
+        assert 'foo}' in lines[2]
+
 
     def test_fatal_error(self):
         def g(x):

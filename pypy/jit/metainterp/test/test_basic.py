@@ -19,7 +19,11 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
     from pypy.jit.metainterp import simple_optimize
 
     class FakeJitCell:
-        compiled_merge_points = None
+        __compiled_merge_points = []
+        def get_compiled_merge_points(self):
+            return self.__compiled_merge_points[:]
+        def set_compiled_merge_points(self, lst):
+            self.__compiled_merge_points = lst
 
     class FakeWarmRunnerState:
         def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
@@ -35,7 +39,6 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
         optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
 
         trace_limit = sys.maxint
-        debug_level = 2
 
     func._jit_unroll_safe_ = True
     rtyper = support.annotate(func, values, type_system=type_system)
@@ -1865,6 +1868,29 @@ class BasicTests:
         assert 14 < res < 42
         res = self.meta_interp(f, [5, 2])
         assert 4 < res < 14
+
+    def test_compute_identity_hash(self):
+        from pypy.rlib.objectmodel import compute_identity_hash
+        class A(object):
+            pass
+        def f():
+            a = A()
+            return compute_identity_hash(a) == compute_identity_hash(a)
+        res = self.interp_operations(f, [])
+        assert res
+        # a "did not crash" kind of test
+
+    def test_compute_unique_id(self):
+        from pypy.rlib.objectmodel import compute_unique_id
+        class A(object):
+            pass
+        def f():
+            a1 = A()
+            a2 = A()
+            return (compute_unique_id(a1) == compute_unique_id(a1) and
+                    compute_unique_id(a1) != compute_unique_id(a2))
+        res = self.interp_operations(f, [])
+        assert res
 
 
 class TestOOtype(BasicTests, OOJitMixin):
