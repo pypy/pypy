@@ -4,6 +4,7 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
 
 # FXIME: Introduce some VirtualOptimizer super class instead
 
@@ -218,7 +219,7 @@ class UnrollOptimizer(Optimization):
                and loop_i < len(loop)-1:
                 loop_i += 1
             else:
-                if not state.safe_to_move(op):
+                if not state.safe_to_move(op):                    
                     debug_print("create_short_preamble failed due to",
                                 "unsafe op:", op.getopnum(),
                                 "at position: ", preamble_i)
@@ -264,6 +265,8 @@ class UnrollOptimizer(Optimization):
             seen[box] = True
         for op in short_preamble:
             for box in op.getarglist():
+                if isinstance(box, Const):
+                    continue
                 if box not in seen:
                     debug_print("create_short_preamble failed due to",
                                 "op arguments not produced")
@@ -312,6 +315,8 @@ class ExeState(object):
             op.is_guard()): 
             return
         opnum = op.getopnum()
+        if (opnum == rop.DEBUG_MERGE_POINT):
+            return
         if (opnum == rop.SETFIELD_GC or
             opnum == rop.SETFIELD_RAW):
             descr = op.getdescr()
@@ -355,7 +360,11 @@ class OptInlineShortPreamble(Optimization):
                 newop.result = newop.result.clonebox()
                 argmap[old_result] = newop.result
 
-            self.emit_operation(newop)
+            try:
+                self.emit_operation(newop)
+            except InvalidLoop:
+                raise RetraceLoop
+                
 
     def inline_arg(self, arg):
         if isinstance(arg, Const):

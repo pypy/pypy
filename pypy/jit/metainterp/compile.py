@@ -48,7 +48,8 @@ def make_loop_token(nb_args, jitdriver_sd):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
+def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
+                     full_preamble_needed=True):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
@@ -82,9 +83,10 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start):
     if loop.preamble.operations is not None:
         send_loop_to_backend(metainterp_sd, loop, "loop")
         send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
-        insert_loop_token(old_loop_tokens, loop.preamble.token)
-        jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
-            greenkey, loop.preamble.token)
+        if full_preamble_needed or not loop.preamble.token.short_preamble:
+            insert_loop_token(old_loop_tokens, loop.preamble.token)
+            jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
+                greenkey, loop.preamble.token)
         return loop.preamble.token
     else:
         send_loop_to_backend(metainterp_sd, loop, "loop")

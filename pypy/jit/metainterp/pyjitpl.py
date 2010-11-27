@@ -21,6 +21,7 @@ from pypy.rlib.objectmodel import specialize
 from pypy.rlib.jit import DEBUG_OFF, DEBUG_PROFILE, DEBUG_STEPS, DEBUG_DETAILED
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker
+from pypy.jit.metainterp.optimizeutil import RetraceLoop
 
 # ____________________________________________________________
 
@@ -1354,6 +1355,11 @@ class MetaInterpGlobalData(object):
 
 # ____________________________________________________________
 
+class RetraceState(object):
+    def __init__(self, metainterp, live_arg_boxes):
+        self.merge_point = len(metainterp.current_merge_points) - 1
+        self.live_arg_boxes = live_arg_boxes
+
 class MetaInterp(object):
     in_recursion = 0
 
@@ -1367,6 +1373,7 @@ class MetaInterp(object):
         self.portal_trace_positions = []
         self.free_frames_list = []
         self.last_exc_value_box = None
+        self.retracing_loop_from = None
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1709,7 +1716,15 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
-        self.compile_bridge(live_arg_boxes)
+        if not self.retracing_loop_from:
+            try:
+                self.compile_bridge(live_arg_boxes)
+            except RetraceLoop:
+                start = len(self.history.operations)
+                self.current_merge_points.append((live_arg_boxes, start))
+                self.retracing_loop_from = RetraceState(self, live_arg_boxes)
+                return
+
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
 
@@ -1730,7 +1745,14 @@ class MetaInterp(object):
             else:
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
-                self.compile(original_boxes, live_arg_boxes, start)
+                if self.retracing_loop_from and \
+                   self.retracing_loop_from.merge_point == j:
+                    bridge_arg_boxes = self.retracing_loop_from.live_arg_boxes
+                    self.compile_bridge_and_loop(original_boxes, \
+                                                 live_arg_boxes, start,
+                                                 bridge_arg_boxes)
+                else:
+                    self.compile(original_boxes, live_arg_boxes, start)
                 # creation of the loop was cancelled!
                 self.staticdata.log('cancelled, tracing more...')
 
@@ -1797,6 +1819,7 @@ class MetaInterp(object):
         if loop_token is not None: # raise if it *worked* correctly
             raise GenerateMergePoint(live_arg_boxes, loop_token)
         self.history.operations.pop()     # remove the JUMP
+        # FIXME: Why is self.history.inputargs not restored?
 
     def compile_bridge(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -1807,11 +1830,43 @@ class MetaInterp(object):
         #if self.resumekey.guard_opnum == rop.GUARD_CLASS:
         #    return # Kepp tracing for another iteration
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        target_loop_token = compile.compile_new_bridge(self, old_loop_tokens,
-                                                       self.resumekey)
-        if target_loop_token is not None:   # raise if it *worked* correctly
-            raise GenerateMergePoint(live_arg_boxes, target_loop_token)
+        try:
+            target_loop_token = compile.compile_new_bridge(self,
+                                                           old_loop_tokens,
+                                                           self.resumekey)
+            if target_loop_token is not None: # raise if it *worked* correctly
+                raise GenerateMergePoint(live_arg_boxes, target_loop_token)
+        finally:
+            self.history.operations.pop()     # remove the JUMP
+
+    def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
+                                bridge_arg_boxes):
+        num_green_args = self.jitdriver_sd.num_green_args
+        original_inputargs = self.history.inputargs
+        original_operations = self.history.operations
+        self.history.inputargs = original_boxes[num_green_args:]
+        greenkey = original_boxes[:num_green_args]
+        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+        loop_token = compile.compile_new_loop(self, [], greenkey, start, False)
         self.history.operations.pop()     # remove the JUMP
+        if loop_token is None:
+            return
+
+        self.history.inputargs = original_inputargs
+        self.history.operations = self.history.operations[:start]
+        live_arg_boxes = bridge_arg_boxes
+        
+        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+        try:
+            target_loop_token = compile.compile_new_bridge(self,
+                                                           [loop_token],
+                                                           self.resumekey)
+        except RetraceLoop:
+            assert False
+        assert target_loop_token is not None
+
+        self.history.operations = original_operations
+        raise GenerateMergePoint(live_arg_boxes, target_loop_token)
 
     def compile_done_with_this_frame(self, exitbox):
         self.gen_store_back_in_virtualizable()
