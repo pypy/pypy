@@ -555,6 +555,7 @@ def compile_known_target_bridges(metainterp, bridge):
                 jmp = ResOperation(rop.JUMP, mini.inputargs[:], None, target)
                 mini.operations = [jmp]
                 descr = op.getdescr()
+                assert isinstance(descr, ResumeGuardDescr)                
                 
                 #descr.compile_and_attach(metainterp, mini)
                 if not we_are_translated():
