@@ -1843,6 +1843,8 @@ class MetaInterp(object):
                                 bridge_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
         original_inputargs = self.history.inputargs
+        greenkey = original_boxes[:num_green_args]
+        old_loop_tokens = self.get_compiled_merge_points(greenkey)
         original_operations = self.history.operations
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
@@ -1866,7 +1868,7 @@ class MetaInterp(object):
         assert target_loop_token is not None
 
         self.history.operations = original_operations
-        raise GenerateMergePoint(live_arg_boxes, target_loop_token)
+        raise GenerateMergePoint(live_arg_boxes, old_loop_tokens[0])
 
     def compile_done_with_this_frame(self, exitbox):
         self.gen_store_back_in_virtualizable()
