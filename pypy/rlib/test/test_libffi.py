@@ -262,24 +262,3 @@ class TestLibffiCall(BaseFfiTest):
         #
         res = self.call(get_dummy, [], rffi.LONG)
         assert res == initval+1
-
-    def test_wrong_number_of_arguments(self):
-        from pypy.rpython.llinterp import LLException
-        libfoo = self.get_libfoo() 
-        func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
-
-        glob = globals()
-        loc = locals()
-        def my_raises(s):
-            try:
-                exec s in glob, loc
-            except TypeError:
-                pass
-            except LLException, e:
-                if str(e) != "<LLException 'TypeError'>":
-                    raise
-            else:
-                assert False, 'Did not raise'
-
-        my_raises("self.call(func, [38], rffi.LONG)") # one less
-        my_raises("self.call(func, [38, 12.3, 42], rffi.LONG)") # one more

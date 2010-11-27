@@ -578,11 +578,6 @@ class TestGateway:
         w_res = space.call_args(w_g, args)
         assert space.eq_w(w_res, space.wrap((-1, 0)))
 
-class AppTestPyTestMark:
-    @py.test.mark.unlikely_to_exist
-    def test_anything(self):
-        pass
-
 
 class TestPassThroughArguments:
     

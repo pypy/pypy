@@ -8,7 +8,7 @@ nonsense, isn't it?  `more...`_
 Getting into PyPy ... 
 =============================================
 
-* `Release 1.4`_: the latest official release
+* `Release 1.3`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
@@ -56,4 +56,4 @@ on the `development mailing list`_.
 .. _`Documentation`: docindex.html 
 .. _`Getting Started`: getting-started.html
 .. _papers: extradoc.html
-.. _`Release 1.4`: http://pypy.org/download.html
+.. _`Release 1.3`: http://pypy.org/download.html

@@ -34,7 +34,7 @@ def test_store_final_boxes_in_guard():
     b1 = BoxInt()
     opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
                                 None)
-    fdescr = ResumeGuardDescr()
+    fdescr = ResumeGuardDescr(None)
     op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
     # setup rd data
     fi0 = resume.FrameInfo(None, "code0", 11)
@@ -846,12 +846,8 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)       # the exception is considered lost when we loop back
         """
-        # note that 'guard_no_exception' at the very start must be kept
-        # around: bridges may start with one.  (In case of loops we could
-        # remove it, but we probably don't care.)
         expected = """
         [i]
-        guard_no_exception() []
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]

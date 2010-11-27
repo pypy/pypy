@@ -15,5 +15,6 @@ class Module(MixedModule):
         # add the 'defaults' attribute
         from pypy.rlib.jit import PARAMETERS
         space = self.space
+        # XXX this is not really the default compiled into a pypy-c-jit XXX
         w_obj = space.wrap(PARAMETERS)
         space.setattr(space.wrap(self), space.wrap('defaults'), w_obj)

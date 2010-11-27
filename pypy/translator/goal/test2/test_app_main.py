@@ -534,8 +534,7 @@ class AppTestAppMain:
             newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
             assert newpath == sys.path
             newpath = app_main.get_library_path(self.fake_exe)
-            # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
-            assert newpath[:len(self.expected_path)] == self.expected_path
+            assert newpath == self.expected_path
         finally:
             sys.path.pop()
 
@@ -548,9 +547,7 @@ class AppTestAppMain:
             app_main.os = os
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
             newpath = app_main.get_library_path(pypy_c)
-            # we get at least lib_pypy, lib-python/modified-X.Y.Z,
-            # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
-            assert len(newpath) >= 3
+            assert len(newpath) == 3
             for p in newpath:
                 assert p.startswith(self.trunkdir)
         finally:

@@ -161,6 +161,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                suggests=[("objspace.allworkingmodules", False)]),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
+               cmdline=None,
                default=True),
 
     BoolOption("logbytecodes",

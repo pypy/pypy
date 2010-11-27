@@ -12,7 +12,7 @@ Environment variables can be used to fine-tune the following parameters:
                         collection.
 
  PYPY_GC_GROWTH         Major collection threshold's max growth rate.
-                        Default is '1.4'.  Useful to collect more often
+                        Default is '1.3'.  Useful to collect more often
                         than normally on sudden memory growth, e.g. when
                         there is a temporary peak in memory usage.
 
@@ -21,12 +21,6 @@ Environment variables can be used to fine-tune the following parameters:
                         RPython MemoryError, and if that is not enough,
                         crash the program with a fatal error.  Try values
                         like '1.6GB'.
-
- PYPY_GC_MAX_DELTA      The major collection threshold will never be set
-                        to more than PYPY_GC_MAX_DELTA the amount really
-                        used after a collection.  Defaults to 1/8th of the
-                        total RAM size (which is constrained to be at most
-                        2/3/4GB on 32-bit systems).  Try values like '200MB'.
 
  PYPY_GC_MIN            Don't collect while the memory size is below this
                         limit.  Useful to avoid spending all the time in
@@ -42,7 +36,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
-from pypy.rpython.memory.gc import minimarkpage, env
+from pypy.rpython.memory.gc import minimarkpage, base, generation
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -102,7 +96,6 @@ class MiniMarkGC(MovingGCBase):
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx experiment with False
-    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains
@@ -161,7 +154,7 @@ class MiniMarkGC(MovingGCBase):
         # grow at most by the following factor from one collection to the
         # next.  Used e.g. when there is a sudden, temporary peak in memory
         # usage; this avoids that the upper bound grows too fast.
-        "growth_rate_max": 1.4,
+        "growth_rate_max": 1.3,
 
         # The number of array indices that are mapped to a single bit in
         # write_barrier_from_array().  Must be a power of two.  The default
@@ -205,7 +198,6 @@ class MiniMarkGC(MovingGCBase):
         self.min_heap_size = 0.0
         self.max_heap_size = 0.0
         self.max_heap_size_already_raised = False
-        self.max_delta = float(r_uint(-1))
         #
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
@@ -290,41 +282,35 @@ class MiniMarkGC(MovingGCBase):
             #
             # From there on, the GC is fully initialized and the code
             # below can use it
-            newsize = env.read_from_env('PYPY_GC_NURSERY')
+            newsize = base.read_from_env('PYPY_GC_NURSERY')
             # PYPY_GC_NURSERY=1 forces a minor collect for every malloc.
             # Useful to debug external factors, like trackgcroot or the
             # handling of the write barrier.
             self.debug_always_do_minor_collect = newsize == 1
             if newsize <= 0:
-                newsize = env.estimate_best_nursery_size()
+                newsize = generation.estimate_best_nursery_size()
                 if newsize <= 0:
                     newsize = defaultsize
             newsize = max(newsize, minsize)
             #
-            major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
+            major_coll = base.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
             if major_coll > 1.0:
                 self.major_collection_threshold = major_coll
             #
-            growth = env.read_float_from_env('PYPY_GC_GROWTH')
+            growth = base.read_float_from_env('PYPY_GC_GROWTH')
             if growth > 1.0:
                 self.growth_rate_max = growth
             #
-            min_heap_size = env.read_uint_from_env('PYPY_GC_MIN')
+            min_heap_size = base.read_uint_from_env('PYPY_GC_MIN')
             if min_heap_size > 0:
                 self.min_heap_size = float(min_heap_size)
             else:
                 # defaults to 8 times the nursery
                 self.min_heap_size = newsize * 8
             #
-            max_heap_size = env.read_uint_from_env('PYPY_GC_MAX')
+            max_heap_size = base.read_uint_from_env('PYPY_GC_MAX')
             if max_heap_size > 0:
                 self.max_heap_size = float(max_heap_size)
-            #
-            max_delta = env.read_uint_from_env('PYPY_GC_MAX_DELTA')
-            if max_delta > 0:
-                self.max_delta = float(max_delta)
-            else:
-                self.max_delta = 0.125 * env.get_total_memory()
             #
             self.minor_collection()    # to empty the nursery
             llarena.arena_free(self.nursery)
@@ -1219,6 +1205,10 @@ class MiniMarkGC(MovingGCBase):
         self.collect_roots()
         self.visit_all_objects()
         #
+        # Weakref support: clear the weak pointers to dying objects
+        if self.old_objects_with_weakrefs.non_empty():
+            self.invalidate_old_weakrefs()
+        #
         # Finalizer support: adds the flag GCFLAG_VISITED to all objects
         # with a finalizer and all objects reachable from there (and also
         # moves some objects from 'objects_with_finalizers' to
@@ -1227,10 +1217,6 @@ class MiniMarkGC(MovingGCBase):
             self.deal_with_objects_with_finalizers()
         #
         self.objects_to_trace.delete()
-        #
-        # Weakref support: clear the weak pointers to dying objects
-        if self.old_objects_with_weakrefs.non_empty():
-            self.invalidate_old_weakrefs()
         #
         # Walk all rawmalloced objects and free the ones that don't
         # have the GCFLAG_VISITED flag.
@@ -1259,12 +1245,9 @@ class MiniMarkGC(MovingGCBase):
         #
         # Set the threshold for the next major collection to be when we
         # have allocated 'major_collection_threshold' times more than
-        # we currently have -- but no more than 'max_delta' more than
         # we currently have.
-        total_memory_used = float(self.get_total_memory_used())
         bounded = self.set_major_threshold_from(
-            min(total_memory_used * self.major_collection_threshold,
-                total_memory_used + self.max_delta),
+            self.get_total_memory_used() * self.major_collection_threshold,
             reserving_size)
         #
         # Max heap size: gives an upper bound on the threshold.  If we

@@ -398,7 +398,6 @@ class Transformer(object):
     rewrite_op_int_lshift_ovf  = _do_builtin_call
     rewrite_op_int_abs         = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
-    rewrite_op_gc_id           = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.
@@ -844,16 +843,9 @@ class Transformer(object):
             "general mix-up of jitdrivers?")
         ops = self.promote_greens(op.args[2:], jitdriver)
         num_green_args = len(jitdriver.greens)
-        redlists = self.make_three_lists(op.args[2+num_green_args:])
-        for redlist in redlists:
-            for v in redlist:
-                assert isinstance(v, Variable), (
-                    "Constant specified red in jit_merge_point()")
-            assert len(dict.fromkeys(redlist)) == len(list(redlist)), (
-                "duplicate red variable on jit_merge_point()")
         args = ([Constant(self.portal_jd.index, lltype.Signed)] +
                 self.make_three_lists(op.args[2:2+num_green_args]) +
-                redlists)
+                self.make_three_lists(op.args[2+num_green_args:]))
         op1 = SpaceOperation('jit_merge_point', args, None)
         op2 = SpaceOperation('-live-', [], None)
         # ^^^ we need a -live- for the case of do_recursive_call()

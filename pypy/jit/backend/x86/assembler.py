@@ -7,7 +7,6 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.uid import fixid
-from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, X86RegisterManager,
                                            X86XMMRegisterManager, get_ebp_ofs,
                                            _get_scale)
@@ -31,10 +30,10 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.support import values_array
-from pypy.rlib.debug import debug_print, debug_start, debug_stop,\
-     have_debug_prints
+from pypy.rlib.debug import debug_print
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
+from pypy.rlib.streamio import open_file_as_stream
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
@@ -188,8 +187,6 @@ class Assembler386(object):
         self.setup_failure_recovery()
         self._debug = False
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
-        self.fail_boxes_count = 0
-        self._current_depths_cache = (0, 0)
 
     def leave_jitted_hook(self):
         ptrs = self.fail_boxes_ptr.ar
@@ -229,9 +226,12 @@ class Assembler386(object):
                 self._build_float_constants()
             if hasattr(gc_ll_descr, 'get_malloc_fixedsize_slowpath_addr'):
                 self._build_malloc_fixedsize_slowpath()
-            debug_start('jit-backend-counts')
-            self.set_debug(have_debug_prints())
-            debug_stop('jit-backend-counts')
+            s = os.environ.get('PYPYLOG')
+            if s:
+                if s.find(':') != -1:
+                    s = s.split(':')[-1]
+                self.set_debug(True)
+                self._output_loop_log = s + ".count"
             # Intialize here instead of __init__ to prevent
             # pending_guard_tokens from being considered a prebuilt object,
             # which sometimes causes memory leaks since the prebuilt list is
@@ -241,11 +241,13 @@ class Assembler386(object):
 
     def finish_once(self):
         if self._debug:
-            debug_start('jit-backend-counts')
+            output_log = self._output_loop_log
+            assert output_log is not None
+            f = open_file_as_stream(output_log, "w")
             for i in range(len(self.loop_run_counters)):
                 name, struct = self.loop_run_counters[i]
-                debug_print(str(name) + ':' + str(struct.i))
-            debug_stop('jit-backend-counts')
+                f.write(str(name) + ":" +  str(struct.i) + "\n")
+            f.close()
 
     def _build_float_constants(self):
         # 44 bytes: 32 bytes for the data, and up to 12 bytes for alignment
@@ -303,8 +305,6 @@ class Assembler386(object):
                _x86_arglocs
                _x86_debug_checksum
         """
-        looptoken.compiled_loop_token = CompiledLoopToken(self.cpu,
-                                                          looptoken.number)
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -409,9 +409,8 @@ class Assembler386(object):
 
     def _register_counter(self):
         if self._debug:
-            # YYY leak -- just put it in self.mc instead
             struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                                   track_allocation=False)
+                                   track_allocation=False)   # known to leak
             struct.i = 0
             self.loop_run_counters.append((len(self.loop_run_counters), struct))
         

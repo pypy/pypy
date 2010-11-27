@@ -132,6 +132,91 @@ class WarmspotTests(object):
         assert state.optimize_loop is optimize.optimize_loop
         assert state.optimize_bridge is optimize.optimize_bridge
 
+    def test_static_debug_level(self, capfd):
+        py.test.skip("debug_level is being deprecated")
+        from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
+        from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
+        
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                n -= 1
+            return n
+
+        capfd.readouterr()
+        self.meta_interp(f, [10], debug_level=DEBUG_OFF,
+                                  ProfilerClass=Profiler)
+        out, err = capfd.readouterr()
+        assert not 'ENTER' in err
+        assert not 'LEAVE' in err
+        assert not "Running asm" in err
+        self.meta_interp(f, [10], debug_level=DEBUG_PROFILE,
+                                  ProfilerClass=Profiler)
+        out, err = capfd.readouterr()
+        assert not 'ENTER' in err
+        assert not 'LEAVE' in err
+        assert not 'compiled new' in err
+        assert "Running asm" in err
+
+        self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
+                                  ProfilerClass=Profiler)
+        out, err = capfd.readouterr()
+        assert 'ENTER' in err
+        assert 'LEAVE' in err
+        assert "Running asm" in err
+
+        self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
+                                  ProfilerClass=EmptyProfiler)
+        out, err = capfd.readouterr()
+        assert 'ENTER' in err
+        assert 'LEAVE' in err
+        assert not "Running asm" in err
+
+    def test_set_param_debug(self):
+        py.test.skip("debug_level is being deprecated")
+        from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
+        from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
+        
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                n -= 1
+            return n
+
+        def main(n, debug):
+            myjitdriver.set_param("debug", debug)
+            print f(n)
+
+        outerr = py.io.StdCaptureFD()
+        self.meta_interp(main, [10, DEBUG_OFF], debug_level=DEBUG_STEPS,
+                                                ProfilerClass=Profiler)
+        out, errf = outerr.done()
+        err = errf.read()
+        assert not 'ENTER' in err
+        assert not 'LEAVE' in err
+        assert not "Running asm" in err
+        outerr = py.io.StdCaptureFD()
+        self.meta_interp(main, [10, DEBUG_PROFILE], debug_level=DEBUG_STEPS,
+                                                    ProfilerClass=Profiler)
+        out, errf = outerr.done()
+        err = errf.read()
+        assert not 'ENTER' in err
+        assert not 'LEAVE' in err
+        assert not 'compiled new' in err
+        assert "Running asm" in err
+        outerr = py.io.StdCaptureFD()
+        self.meta_interp(main, [10, DEBUG_STEPS], debug_level=DEBUG_OFF,
+                                                  ProfilerClass=Profiler)
+        out, errf = outerr.done()
+        err = errf.read()
+        assert 'ENTER' in err
+        assert 'LEAVE' in err
+        assert "Running asm" in err
+
     def test_unwanted_loops(self):
         mydriver = JitDriver(reds = ['n', 'total', 'm'], greens = [])
 
@@ -293,30 +378,23 @@ class TestWarmspotDirect(object):
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable
 
-        class FakeLoopToken:
+        class FakeFailDescr(object):
             def __init__(self, no):
                 self.no = no
-                self.generation = 0
-
-        class FakeFailDescr(object):
-            def __init__(self, looptoken):
-                assert isinstance(looptoken, FakeLoopToken)
-                self.looptoken = looptoken
             
             def handle_fail(self, metainterp_sd, jitdrivers_sd):
-                no = self.looptoken.no
-                if no == 0:
+                if self.no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
-                if no == 1:
+                if self.no == 1:
                     raise metainterp_sd.warmrunnerdesc.ContinueRunningNormally(
                         [0], [], [], [1], [], [])
-                if no == 3:
+                if self.no == 3:
                     exc = lltype.malloc(OBJECT)
                     exc.typeptr = exc_vtable
                     raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
                         metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
-                return self.looptoken
+                return self.no
 
         class FakeDescr:
             def as_vtable_size_descr(self):
@@ -341,11 +419,11 @@ class TestWarmspotDirect(object):
             sizeof       = nodescr
 
             def get_fail_descr_from_number(self, no):
-                return FakeFailDescr(FakeLoopToken(no))
+                return FakeFailDescr(no)
 
             def execute_token(self, token):
-                assert token.no == 2
-                return FakeFailDescr(FakeLoopToken(1))
+                assert token == 2
+                return FakeFailDescr(1)
 
         driver = JitDriver(reds = ['red'], greens = ['green'])
         

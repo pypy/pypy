@@ -1,5 +1,5 @@
 /**************************************************************/
-/***  tracking raw mallocs and frees for debugging          ***/
+ /***  tracking raw mallocs and frees for debugging          ***/
 
 #ifndef RPY_ASSERT
 
@@ -62,8 +62,8 @@ void pypy_debug_alloc_results(void)
     count++;
   if (count > 0)
     {
-      char *env = getenv("PYPY_ALLOC");
       fprintf(stderr, "debug_alloc.h: %ld mallocs left", count);
+      char *env = getenv("PYPY_ALLOC");
       if (env && *env)
         {
           fprintf(stderr, " (most recent first):\n");

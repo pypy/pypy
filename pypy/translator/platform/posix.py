@@ -104,10 +104,12 @@ class BasePosix(Platform):
         else:
             target_name = exe_name.basename
 
-        if shared:
-            cflags = self.cflags + self.shared_only
-        else:
-            cflags = self.cflags + self.standalone_only
+        cflags = self.cflags
+        if sys.maxint > 2147483647:   # XXX XXX XXX sort this out
+            if shared:
+                cflags = self.cflags + self.shared_only
+            else:
+                cflags = self.cflags + self.standalone_only
 
         m = GnuMakefile(path)
         m.exe_name = exe_name

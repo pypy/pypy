@@ -4,7 +4,7 @@
 into release packages. Note: you must run apropriate buildbots first and
 make sure there are no failures. Use force-builds.py from the same directory.
 
-Usage: make_release.py release/<release name> release_version
+Usage: make_release.py release/<release name>
 """
 
 import autopath
@@ -30,8 +30,7 @@ def browse_nightly(branch,
     else:
         xml = override_xml
     dom = minidom.parseString(xml)
-    refs = [node.getAttribute('href') for node in dom.getElementsByTagName('a')
-            if 'pypy' in node.getAttribute('href')]
+    refs = [node.getAttribute('href') for node in dom.getElementsByTagName('a')]
     # all refs are of form: pypy-{type}-{revision}-{platform}.tar.bz2
     r = re.compile('pypy-c-([\w\d]+)-(\d+)-([\w\d]+).tar.bz2$')
     d = {}
@@ -77,7 +76,7 @@ def main(branch, release):
                 t.add('pypy-%s' % release)
                 alltars.append(name)
                 t.close()
-                shutil.rmtree(str(tmpdir.join('pypy-' + release)))
+                shutil.rmtree(str(tmpdir.join('pypy-1.3')))
         for name in alltars:
             print "Uploading %s" % name
             os.system('scp %s codespeak.net:/www/pypy.org/htdocs/download' % name)
@@ -85,8 +84,8 @@ def main(branch, release):
         os.chdir(olddir)
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print __doc__
         sys.exit(1)
-    main(sys.argv[1], release=sys.argv[2])
+    main(sys.argv[1], release='1.3')
     

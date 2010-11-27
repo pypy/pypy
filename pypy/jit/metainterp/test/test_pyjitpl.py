@@ -17,7 +17,6 @@ def test_portal_trace_positions():
     portal.setup(None)
     class FakeStaticData:
         cpu = None
-        warmrunnerdesc = None
 
     metainterp = pyjitpl.MetaInterp(FakeStaticData(), None)
     metainterp.framestack = []
@@ -54,7 +53,6 @@ def test_portal_trace_positions():
 def test_remove_consts_and_duplicates():
     class FakeStaticData:
         cpu = None
-        warmrunnerdesc = None
     def is_another_box_like(box, referencebox):
         assert box is not referencebox
         assert isinstance(box, referencebox.clonebox().__class__)

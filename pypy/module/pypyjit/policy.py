@@ -12,13 +12,19 @@ class PyPyJitPolicy(JitPolicy):
         if '.' in modname:
             modname, _ = modname.split('.', 1)
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
-                       'imp', 'sys', 'array', '_ffi', 'itertools', 'operator']:
+                       'imp', 'sys', 'array', '_ffi']:
             return True
         return False
 
     def look_inside_function(self, func):
+        # this function should never actually return True directly
+        # but instead call the base implementation
         mod = func.__module__ or '?'
 
+        if mod.startswith('pypy.objspace.'):
+            # gc_id operation
+            if func.__name__ == 'id__ANY':
+                return False
         if mod == 'pypy.rlib.rbigint' or mod == 'pypy.rlib.rlocale':
             return False
         if '_geninterp_' in func.func_globals: # skip all geninterped stuff

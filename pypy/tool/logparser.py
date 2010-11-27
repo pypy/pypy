@@ -12,6 +12,14 @@ from pypy.rlib.debug import DebugLog
 from pypy.tool import progressbar
 
 def parse_log_file(filename, verbose=True):
+    r_start = re.compile(r"\[([0-9a-fA-F]+)\] \{([\w-]+)$")
+    r_stop  = re.compile(r"\[([0-9a-fA-F]+)\] ([\w-]+)\}$")
+    lasttime = 0
+    log = DebugLog()
+    time_decrase = False
+    performance_log = True
+    nested = 0
+    #
     f = open(filename, 'r')
     if f.read(2) == 'BZ':
         f.close()
@@ -22,33 +30,19 @@ def parse_log_file(filename, verbose=True):
     lines = f.readlines()
     f.close()
     #
-    return parse_log(lines, verbose=verbose)
-
-def parse_log(lines, verbose=False):
-    color = "(?:\x1b.*?m)?"
-    r_start = re.compile(color + r"\[([0-9a-fA-F]+)\] \{([\w-]+)" + color + "$")
-    r_stop  = re.compile(color + r"\[([0-9a-fA-F]+)\] ([\w-]+)\}" + color + "$")
-    lasttime = 0
-    log = DebugLog()
-    time_decrase = False
-    performance_log = True
-    nested = 0
-    #
-    if verbose and sys.stdout.isatty():
+    if sys.stdout.isatty():
         progress = progressbar.ProgressBar(color='green')
-        counter = 0
-    else:
-        progress = None
     single_percent = len(lines) / 100
     if verbose:
-        vnext = 0
+        vnext = single_percent
     else:
-        vnext = -1
+        vnext = len(lines)
+    counter = 0
     for i, line in enumerate(lines):
         if i == vnext:
-            if progress is not None:
+            counter += 1
+            if sys.stdout.isatty():
                 progress.render(counter)
-                counter += 1
                 vnext += single_percent
             else:
                 sys.stderr.write('%d%%..' % int(100.0*i/len(lines)))

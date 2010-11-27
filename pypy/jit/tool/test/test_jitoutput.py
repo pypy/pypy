@@ -1,11 +1,10 @@
 
 import py
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, DEBUG_PROFILE
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.jitprof import Profiler, JITPROF_LINES
 from pypy.jit.tool.jitoutput import parse_prof
-from pypy.tool.logparser import parse_log, extract_category
 
 def test_really_run():
     """ This test checks whether output of jitprof did not change.
@@ -22,15 +21,13 @@ def test_really_run():
     cap = py.io.StdCaptureFD()
     try:
         ll_meta_interp(f, [10], CPUClass=runner.LLtypeCPU, type_system='lltype',
-                       ProfilerClass=Profiler)
+                       ProfilerClass=Profiler, debug_level=DEBUG_PROFILE)
     finally:
         out, err = cap.reset()
-
-    log = parse_log(err.splitlines(True))
-    err_sections = list(extract_category(log, 'jit-summary'))
-    [err1] = err_sections    # there should be exactly one jit-summary
-    assert err1.count("\n") == JITPROF_LINES
-    info = parse_prof(err1)
+    err = "\n".join(err.splitlines()[-JITPROF_LINES:])
+    print err
+    assert err.count("\n") == JITPROF_LINES - 1
+    info = parse_prof(err)
     # assert did not crash
     # asserts below are a bit delicate, possibly they might be deleted
     assert info.tracing_no == 1
@@ -63,10 +60,6 @@ abort: vable escape:    12
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
-Total # of loops:       100
-Total # of bridges:     300
-Freed # of loops:       99
-Freed # of bridges:     299
 '''
 
 def test_parse():

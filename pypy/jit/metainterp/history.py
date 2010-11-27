@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.objectmodel import compute_hash, compute_unique_id
-from pypy.rlib.rarithmetic import intmask, r_int64
+from pypy.rlib.rarithmetic import intmask
+from pypy.tool.uid import uid
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -744,27 +745,13 @@ class LoopToken(AbstractDescr):
     terminating = False # see TerminatingLoopToken in compile.py
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
-    number = -1
-    generation = r_int64(0)
-    # one purpose of LoopToken is to keep alive the CompiledLoopToken
-    # returned by the backend.  When the LoopToken goes away, the
-    # CompiledLoopToken has its __del__ called, which frees the assembler
-    # memory and the ResumeGuards.
-    compiled_loop_token = None
+    number = 0
 
-    def __init__(self):
-        # For memory management of assembled loops
-        self._keepalive_target_looktokens = {}      # set of other LoopTokens
-
-    def record_jump_to(self, target_loop_token):
-        self._keepalive_target_looktokens[target_loop_token] = None
-
-    def __repr__(self):
-        return '<Loop %d, gen=%d>' % (self.number, self.generation)
+    def __init__(self, number=0):
+        self.number = number
 
     def repr_of_descr(self):
         return '<Loop%d>' % self.number
-
 
 class TreeLoop(object):
     inputargs = None

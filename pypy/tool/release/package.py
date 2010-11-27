@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 """ A sample script that packages PyPy, provided that it's already built.
-It uses 'pypy/translator/goal/pypy-c' and parts of the rest of the working
-copy.  Usage:
+Usage:
 
-    package.py root-pypy-dir [name-of-archive] [name-of-pypy-c]
-
-Usually you would do:   package.py ../../.. pypy-VER-PLATFORM.
-The output is found in the directory /tmp/usession-YOURNAME/build/.
+package.py pypydir [name-of-archive] [name-of-pypy-c]
 """
 
 import autopath
@@ -36,7 +32,7 @@ def ignore_patterns(*patterns):
 class PyPyCNotFound(Exception):
     pass
 
-def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
+def package(basedir, name='pypy-nightly', rename_pypy_c='pypy-c',
             copy_to_dir = None, override_pypy_c = None):
     basedir = py.path.local(basedir)
     if sys.platform == 'win32':
@@ -68,10 +64,6 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     headers = includedir.listdir('*.h') + includedir.listdir('*.inl')
     for n in headers:
         shutil.copy(str(n), str(pypydir.join('include')))
-    #
-    spdir = pypydir.ensure('site-packages', dir=True)
-    shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
-    #
     pypydir.ensure('bin', dir=True)
     archive_pypy_c = pypydir.join('bin', rename_pypy_c)
     shutil.copy(str(pypy_c), str(archive_pypy_c))

@@ -1,4 +1,3 @@
-import sys
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
@@ -758,16 +757,6 @@ class FunctionCodeGenerator(object):
                 format.append('%s')
                 argv.append('(%s) ? "True" : "False"' % self.expr(arg))
                 continue
-            elif T == SignedLongLong:
-                if sys.platform == 'win32':
-                    format.append('%I64d')
-                else:
-                    format.append('%lld')
-            elif T == UnsignedLongLong:
-                if sys.platform == 'win32':
-                    format.append('%I64u')
-                else:
-                    format.append('%llu')
             else:
                 raise Exception("don't know how to debug_print %r" % (T,))
             argv.append(self.expr(arg))
@@ -776,20 +765,17 @@ class FunctionCodeGenerator(object):
             "if (PYPY_HAVE_DEBUG_PRINTS) { fprintf(PYPY_DEBUG_FILE, %s); %s}"
             % (', '.join(argv), free_line))
 
-    def _op_debug(self, opname, arg):
-        if isinstance(arg, Constant):
-            string_literal = c_string_constant(''.join(arg.value.chars))
-            return "%s(%s);" % (opname, string_literal)
-        else:
-            x = "%s(RPyString_AsCharP(%s));\n" % (opname, self.expr(arg))
-            x += "RPyString_FreeCache();"
-            return x
-
     def OP_DEBUG_START(self, op):
-        return self._op_debug('PYPY_DEBUG_START', op.args[0])
+        arg = op.args[0]
+        assert isinstance(arg, Constant)
+        return "PYPY_DEBUG_START(%s);" % (
+            c_string_constant(''.join(arg.value.chars)),)
 
     def OP_DEBUG_STOP(self, op):
-        return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
+        arg = op.args[0]
+        assert isinstance(arg, Constant)
+        return "PYPY_DEBUG_STOP(%s);" % (
+            c_string_constant(''.join(arg.value.chars)),)
 
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),

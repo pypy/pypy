@@ -168,9 +168,6 @@ _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
 
-def _ll_1_gc_id(ptr):
-    return llop.gc_id(lltype.Signed, ptr)
-
 def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
@@ -551,9 +548,6 @@ def get_oostring_oopspec(op):
 def get_identityhash_oopspec(op):
     return 'gc_identityhash', op.args
 
-def get_gcid_oopspec(op):
-    return 'gc_id', op.args
-
 
 RENAMED_ADT_NAME = {
     'list': {
@@ -584,8 +578,6 @@ def decode_builtin_call(op):
         return get_oostring_oopspec(op)
     elif op.opname == 'gc_identityhash':
         return get_identityhash_oopspec(op)
-    elif op.opname == 'gc_id':
-        return get_gcid_oopspec(op)
     else:
         raise ValueError(op.opname)
 

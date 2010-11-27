@@ -27,10 +27,6 @@ REGEXES = [
     (('nvirtuals',), '^nvirtuals:\s+(\d+)$'),
     (('nvholes',), '^nvholes:\s+(\d+)$'),
     (('nvreused',), '^nvreused:\s+(\d+)$'),
-    (('total_compiled_loops',),   '^Total # of loops:\s+(\d+)$'),
-    (('total_compiled_bridges',), '^Total # of bridges:\s+(\d+)$'),
-    (('total_freed_loops',),      '^Freed # of loops:\s+(\d+)$'),
-    (('total_freed_bridges',),    '^Freed # of bridges:\s+(\d+)$'),
     ]
 
 class Ops(object):

@@ -336,15 +336,13 @@ class PyPyTestFunction(py.test.collect.Function):
         self.runtest_finish()
 
     def runtest_open(self):
-        if not getattr(self.obj, 'dont_track_allocations', False):
-            leakfinder.start_tracking_allocations()
+        leakfinder.start_tracking_allocations()
 
     def runtest_perform(self):
         super(PyPyTestFunction, self).runtest()
 
     def runtest_close(self):
-        if (not getattr(self.obj, 'dont_track_allocations', False)
-            and leakfinder.TRACK_ALLOCATIONS):
+        if leakfinder.TRACK_ALLOCATIONS:
             self._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
         else:            # stop_tracking_allocations() already called
             self._pypytest_leaks = None

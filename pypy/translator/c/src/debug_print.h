@@ -10,7 +10,6 @@
                      but not any nested debug_print
    :fname         full logging
    prefix:fname   conditional logging
-   prefix1,prefix2:fname   conditional logging with multiple selections
 
    Conditional logging means that it only includes the debug_start/debug_stop
    sections whose name match 'prefix'.  Other sections are ignored, including
@@ -71,12 +70,6 @@ static char *debug_prefix = NULL;
 static void pypy_debug_open(void)
 {
   char *filename = getenv("PYPYLOG");
-  if (filename)
-#ifndef MS_WINDOWS
-    unsetenv("PYPYLOG");   /* don't pass it to subprocesses */
-#else
-    putenv("PYPYLOG=");    /* don't pass it to subprocesses */
-#endif
   if (filename && filename[0])
     {
       char *colon = strchr(filename, ':');
@@ -146,22 +139,12 @@ void pypy_debug_ensure_opened(void)
 #endif
 
 
-static bool_t startswithoneof(const char *str, const char *substr)
+static bool_t startswith(const char *str, const char *substr)
 {
-  const char *p = str;
-  for (; *substr; substr++)
-    {
-      if (*substr != ',')
-        {
-          if (p && *p++ != *substr)
-            p = NULL;   /* mismatch */
-        }
-      else if (p != NULL)
-        return 1;   /* match */
-      else
-        p = str;    /* mismatched, retry with the next */
-    }
-  return p != NULL;
+  while (*substr)
+    if (*str++ != *substr++)
+      return 0;
+  return 1;
 }
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
@@ -192,7 +175,7 @@ void pypy_debug_start(const char *category)
   if (!debug_profile)
     {
       /* non-profiling version */
-      if (!debug_prefix || !startswithoneof(category, debug_prefix))
+      if (!debug_prefix || !startswith(category, debug_prefix))
         {
           /* wrong section name, or no PYPYLOG at all, skip it */
           return;

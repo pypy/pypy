@@ -15,5 +15,4 @@ def build_hierarchy(prefix):
 def test_stdlib_in_prefix(tmpdir):
     dirs = build_hierarchy(tmpdir)
     path = getinitialpath(str(tmpdir))
-    # we get at least 'dirs', and maybe more (e.g. plat-linux2)
-    assert path[:len(dirs)] == map(str, dirs)
+    assert path == map(str, dirs)

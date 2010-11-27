@@ -389,11 +389,6 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
-if r_longlong is not r_int:
-    r_int64 = r_longlong
-else:
-    r_int64 = int
-
 
 # float as string  -> sign, beforept, afterpt, exponent
 

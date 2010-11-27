@@ -147,7 +147,7 @@ class W_Root(object):
 
     __already_enqueued_for_destruction = False
 
-    def _enqueue_for_destruction(self, space, call_user_del=True):
+    def _enqueue_for_destruction(self, space):
         """Put the object in the destructor queue of the space.
         At a later, safe point in time, UserDelAction will use
         space.userdel() to call the object's app-level __del__ method.
@@ -160,8 +160,7 @@ class W_Root(object):
                 return
             self.__already_enqueued_for_destruction = True
         self.clear_all_weakrefs()
-        if call_user_del:
-            space.user_del_action.register_dying_object(self)
+        space.user_del_action.register_dying_object(self)
 
     def _call_builtin_destructor(self):
         pass     # method overridden in typedef.py

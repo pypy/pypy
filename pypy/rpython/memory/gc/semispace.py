@@ -42,7 +42,6 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc_varsize = True
     malloc_zero_filled = True
     first_unused_gcflag = first_gcflag << 5
-    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
@@ -267,10 +266,10 @@ class SemiSpaceGC(MovingGCBase):
         if self.run_finalizers.non_empty():
             self.update_run_finalizers()
         scan = self.scan_copied(scan)
-        if self.objects_with_finalizers.non_empty():
-            scan = self.deal_with_objects_with_finalizers(scan)
         if self.objects_with_weakrefs.non_empty():
             self.invalidate_weakrefs()
+        if self.objects_with_finalizers.non_empty():
+            scan = self.deal_with_objects_with_finalizers(scan)
         self.update_objects_with_id()
         self.finished_full_collect()
         self.debug_check_consistency()

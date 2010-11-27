@@ -1142,19 +1142,6 @@ class RecursiveTests:
             res = self.meta_interp(main, [], inline=True, trace_limit=tlimit)
             assert ''.join(res.chars) == 'ABCDEFGHIabcdefghijJ' * 5
 
-    def test_no_duplicates_bug(self):
-        driver = JitDriver(greens = ['codeno'], reds = ['i'],
-                           get_printable_location = lambda codeno: str(codeno))
-        def portal(codeno, i):
-            while i > 0:
-                driver.can_enter_jit(codeno=codeno, i=i)
-                driver.jit_merge_point(codeno=codeno, i=i)
-                if codeno > 0:
-                    break
-                portal(i, i)
-                i -= 1
-        self.meta_interp(portal, [0, 10], inline=True)
-
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass

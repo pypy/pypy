@@ -27,8 +27,6 @@ class BaseLinux(BasePosix):
 
 
 class Linux(BaseLinux):
-    shared_only = ()    # it seems that on 32-bit linux, compiling with -fPIC
-                        # gives assembler that asmgcc is not happy about.
     def library_dirs_for_libffi_a(self):
         # places where we need to look for libffi.a
         return self.library_dirs_for_libffi() + ['/usr/lib']

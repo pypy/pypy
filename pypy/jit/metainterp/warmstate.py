@@ -1,4 +1,4 @@
-import sys, weakref
+import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
@@ -9,6 +9,7 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import (PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL,
                            OPTIMIZER_NO_UNROLL)
+from pypy.rlib.jit import DEBUG_PROFILE
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp import history
@@ -149,34 +150,9 @@ class JitCell(BaseJitCell):
     #     counter == -1: there is an entry bridge for this cell
     #     counter == -2: tracing is currently going on for this cell
     counter = 0
-    compiled_merge_points_wref = None    # list of weakrefs to LoopToken
+    compiled_merge_points = None
     dont_trace_here = False
-    wref_entry_loop_token = None         # (possibly) one weakref to LoopToken
-
-    def get_compiled_merge_points(self):
-        result = []
-        if self.compiled_merge_points_wref is not None:
-            for wref in self.compiled_merge_points_wref:
-                looptoken = wref()
-                if looptoken is not None:
-                    result.append(looptoken)
-        return result
-
-    def set_compiled_merge_points(self, looptokens):
-        self.compiled_merge_points_wref = [self._makeref(token)
-                                           for token in looptokens]
-
-    def get_entry_loop_token(self):
-        if self.wref_entry_loop_token is not None:
-            return self.wref_entry_loop_token()
-        return None
-
-    def set_entry_loop_token(self, looptoken):
-        self.wref_entry_loop_token = self._makeref(looptoken)
-
-    def _makeref(self, looptoken):
-        assert looptoken is not None
-        return weakref.ref(looptoken)
+    entry_loop_token = None
 
 # ____________________________________________________________
 
@@ -189,8 +165,6 @@ class WarmEnterState(object):
         "NOT_RPYTHON"
         self.warmrunnerdesc = warmrunnerdesc
         self.jitdriver_sd = jitdriver_sd
-        if warmrunnerdesc is not None:       # for tests
-            self.cpu = warmrunnerdesc.cpu
         try:
             self.profiler = warmrunnerdesc.metainterp_sd.profiler
         except AttributeError:       # for tests
@@ -202,7 +176,7 @@ class WarmEnterState(object):
             meth(default_value)
 
     def set_param_threshold(self, threshold):
-        if threshold <= 0:
+        if threshold < 0:
             self.increment_threshold = 0   # never reach the THRESHOLD_LIMIT
             return
         if threshold < 2:
@@ -235,11 +209,10 @@ class WarmEnterState(object):
         else:
             raise ValueError("unknown optimizer")
 
-    def set_param_loop_longevity(self, value):
-        # note: it's a global parameter, not a per-jitdriver one
-        if (self.warmrunnerdesc is not None and
-            self.warmrunnerdesc.memory_manager is not None):   # all for tests
-            self.warmrunnerdesc.memory_manager.set_max_age(value)
+    def set_param_debug(self, value):
+        self.debug_level = value
+        if self.profiler is not None:
+            self.profiler.set_printing(value >= DEBUG_PROFILE)
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
@@ -252,15 +225,12 @@ class WarmEnterState(object):
     def attach_unoptimized_bridge_from_interp(self, greenkey,
                                               entry_loop_token):
         cell = self.jit_cell_at_key(greenkey)
-        old_token = cell.get_entry_loop_token()
-        cell.set_entry_loop_token(entry_loop_token)
-        cell.counter = -1       # valid entry bridge attached
+        cell.counter = -1
+        old_token = cell.entry_loop_token
+        cell.entry_loop_token = entry_loop_token
         if old_token is not None:
-            self.cpu.redirect_call_assembler(old_token, entry_loop_token)
-            # entry_loop_token is also kept alive by any loop that used
-            # to point to old_token.  Actually freeing old_token early
-            # is a pointless optimization (it is tiny).
-            old_token.record_jump_to(entry_loop_token)
+            cpu = self.warmrunnerdesc.cpu
+            cpu.redirect_call_assembler(old_token, entry_loop_token)
 
     # ----------
 
@@ -269,8 +239,7 @@ class WarmEnterState(object):
         if hasattr(self, 'maybe_compile_and_run'):
             return self.maybe_compile_and_run
 
-        warmrunnerdesc = self.warmrunnerdesc
-        metainterp_sd = warmrunnerdesc.metainterp_sd
+        metainterp_sd = self.warmrunnerdesc.metainterp_sd
         jitdriver_sd = self.jitdriver_sd
         vinfo = jitdriver_sd.virtualizable_info
         index_of_virtualizable = jitdriver_sd.index_of_virtualizable
@@ -328,27 +297,23 @@ class WarmEnterState(object):
                 assert cell.counter == -1
                 if not confirm_enter_jit(*args):
                     return
-                loop_token = cell.get_entry_loop_token()
-                if loop_token is None:   # it was a weakref that has been freed
-                    cell.counter = 0
-                    return
                 # machine code was already compiled for these greenargs
                 # get the assembler and fill in the boxes
                 set_future_values(*args[num_green_args:])
+                loop_token = cell.entry_loop_token
 
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
                 debug_start("jit-running")
-                fail_descr = warmrunnerdesc.execute_token(loop_token)
+                fail_descr = metainterp_sd.cpu.execute_token(loop_token)
                 debug_stop("jit-running")
                 metainterp_sd.profiler.end_running()
-                loop_token = None     # for test_memmgr
                 if vinfo is not None:
                     vinfo.reset_vable_token(virtualizable)
                 loop_token = fail_descr.handle_fail(metainterp_sd,
                                                     jitdriver_sd)
-
+       
         maybe_compile_and_run._dont_inline_ = True
         self.maybe_compile_and_run = maybe_compile_and_run
         return maybe_compile_and_run
@@ -494,7 +459,7 @@ class WarmEnterState(object):
 
         warmrunnerdesc = self.warmrunnerdesc
         jitdriver_sd   = self.jitdriver_sd
-        cpu = self.cpu
+        cpu = warmrunnerdesc.cpu
         vinfo = jitdriver_sd.virtualizable_info
         red_args_types = unrolling_iterable(jitdriver_sd._red_args_types)
         #
@@ -543,11 +508,10 @@ class WarmEnterState(object):
         if hasattr(self, 'get_location_str'):
             return
         #
-        warmrunnerdesc = self.warmrunnerdesc
         unwrap_greenkey = self.make_unwrap_greenkey()
         jit_getter = self.make_jitcell_getter()
         jd = self.jitdriver_sd
-        cpu = self.cpu
+        cpu = self.warmrunnerdesc.cpu
 
         def can_inline_greenargs(*greenargs):
             if can_never_inline(*greenargs):
@@ -565,16 +529,11 @@ class WarmEnterState(object):
         def get_assembler_token(greenkey, redboxes):
             # 'redboxes' is only used to know the types of red arguments
             cell = self.jit_cell_at_key(greenkey)
-            entry_loop_token = cell.get_entry_loop_token()
-            if entry_loop_token is None:
+            if cell.entry_loop_token is None:
                 from pypy.jit.metainterp.compile import compile_tmp_callback
-                if cell.counter == -1:    # used to be a valid entry bridge,
-                    cell.counter = 0      # but was freed in the meantime.
-                memmgr = warmrunnerdesc.memory_manager
-                entry_loop_token = compile_tmp_callback(cpu, jd, greenkey,
-                                                        redboxes, memmgr)
-                cell.set_entry_loop_token(entry_loop_token)
-            return entry_loop_token
+                cell.entry_loop_token = compile_tmp_callback(cpu, jd, greenkey,
+                                                             redboxes)
+            return cell.entry_loop_token
         self.get_assembler_token = get_assembler_token
         
         #

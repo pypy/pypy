@@ -1,0 +1,2 @@
+Choose the level of debugging output in the JIT.
+'off' means none, other values give increasingly more.

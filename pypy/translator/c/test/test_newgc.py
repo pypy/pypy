@@ -1064,16 +1064,14 @@ class TestUsingFramework(object):
     def test_get_rpy_type_index(self):
         self.run("get_rpy_type_index")
 
-    filename1_dump = str(udir.join('test_dump_rpy_heap.1'))
-    filename2_dump = str(udir.join('test_dump_rpy_heap.2'))
+    filename_dump = str(udir.join('test_dump_rpy_heap'))
     def define_dump_rpy_heap(self):
         U = lltype.GcForwardReference()
         U.become(lltype.GcStruct('U', ('next', lltype.Ptr(U)),
                                  ('x', lltype.Signed)))
         S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
         A = lltype.GcArray(lltype.Ptr(S))
-        filename1 = self.filename1_dump
-        filename2 = self.filename2_dump
+        filename = self.filename_dump
 
         def fn():
             s = lltype.malloc(S)
@@ -1083,31 +1081,20 @@ class TestUsingFramework(object):
             a = lltype.malloc(A, 1000)
             s2 = lltype.malloc(S)
             #
-            fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0666)
-            fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0666)
-            rgc.dump_rpy_heap(fd1)
-            rgc.dump_rpy_heap(fd2)      # try twice in a row
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
+            rgc.dump_rpy_heap(fd)
             keepalive_until_here(s2)
             keepalive_until_here(s)
             keepalive_until_here(a)
-            os.close(fd1)
-            os.close(fd2)
+            os.close(fd)
             return 0
 
         return fn
 
     def test_dump_rpy_heap(self):
         self.run("dump_rpy_heap")
-        for fn in [self.filename1_dump, self.filename2_dump]:
-            assert os.path.exists(fn)
-            assert os.path.getsize(fn) > 64
-        f = open(self.filename1_dump)
-        data1 = f.read()
-        f.close()
-        f = open(self.filename2_dump)
-        data2 = f.read()
-        f.close()
-        assert data1 == data2
+        assert os.path.exists(self.filename_dump)
+        assert os.path.getsize(self.filename_dump) > 64
 
     filename_dump_typeids_z = str(udir.join('test_typeids_z'))
     def define_write_typeids_z(self):

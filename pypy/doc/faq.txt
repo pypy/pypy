@@ -47,7 +47,7 @@ We list the differences we know about in `cpython_differences`_.
 
 There is also an experimental support for CPython extension modules, so
 they'll run without change (from current observation, rather with little
-change) on trunk. It has been a part of 1.4 release, but support is still
+change) on trunk. It has been a part of 1.3 release, but support is still
 in alpha phase.
 
 .. _`extension modules`: cpython_differences.html#extension-modules

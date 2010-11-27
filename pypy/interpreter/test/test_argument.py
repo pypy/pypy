@@ -453,11 +453,7 @@ class TestArgumentsNormal(object):
         assert set(args.keywords) == set(['a', 'b'])
         assert args.keywords_w[args.keywords.index('a')] == 2
         assert args.keywords_w[args.keywords.index('b')] == 3        
-
-        args = Arguments(space, [1])
-        w_args, w_kwds = args.topacked()
-        assert w_args == (1, )
-        assert not w_kwds
+                                 
 
 class TestErrorHandling(object):
     def test_missing_args(self):

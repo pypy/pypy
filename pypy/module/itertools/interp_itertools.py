@@ -391,8 +391,7 @@ class W_Chain(Wrappable):
         self.iterators_w = iterators_w
         self.current_iterator = 0
         self.num_iterators = len(iterators_w)
-        if self.num_iterators > 0:
-            self.w_it = iterators_w[0]
+        self.started = False
 
     def iter_w(self):
         return self.space.wrap(self)
@@ -400,23 +399,26 @@ class W_Chain(Wrappable):
     def next_w(self):
         if self.current_iterator >= self.num_iterators:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        try:
-            return self.space.next(self.w_it)
-        except OperationError, e:
-            return self._handle_error(e)
-
-    def _handle_error(self, e):
-        while True:
-            if not e.match(self.space, self.space.w_StopIteration):
-                raise e
-            self.current_iterator += 1
-            if self.current_iterator >= self.num_iterators:
-                raise e
+        if not self.started:
+            self.current_iterator = 0
             self.w_it = self.iterators_w[self.current_iterator]
+            self.started = True
+
+        while True:
             try:
-                return self.space.next(self.w_it)
+                w_obj = self.space.next(self.w_it)
             except OperationError, e:
-                pass   # loop back to the start of _handle_error(e)
+                if e.match(self.space, self.space.w_StopIteration):
+                    self.current_iterator += 1
+                    if self.current_iterator >= self.num_iterators:
+                        raise OperationError(self.space.w_StopIteration, self.space.w_None)
+                    else:
+                        self.w_it = self.iterators_w[self.current_iterator]
+                else:
+                    raise
+            else:
+                break
+        return w_obj
 
 def W_Chain___new__(space, w_subtype, args_w):
     return space.wrap(W_Chain(space, args_w))
@@ -444,10 +446,8 @@ class W_IMap(Wrappable):
 
     def __init__(self, space, w_fun, args_w):
         self.space = space
-        if self.space.is_w(w_fun, space.w_None):
-            self.w_fun = None
-        else:
-            self.w_fun = w_fun
+        self.identity_fun = (self.space.is_w(w_fun, space.w_None))
+        self.w_fun = w_fun
 
         iterators_w = []
         i = 0
@@ -470,25 +470,11 @@ class W_IMap(Wrappable):
         return self.space.wrap(self)
 
     def next_w(self):
-        # common case: 1 or 2 arguments
-        iterators_w = self.iterators_w
-        length = len(iterators_w)
-        if length == 1:
-            objects = [self.space.next(iterators_w[0])]
-        elif length == 2:
-            objects = [self.space.next(iterators_w[0]),
-                       self.space.next(iterators_w[1])]
-        else:
-            objects = self._get_objects()
-        w_objects = self.space.newtuple(objects)
-        if self.w_fun is None:
+        w_objects = self.space.newtuple([self.space.next(w_it) for w_it in self.iterators_w])
+        if self.identity_fun:
             return w_objects
         else:
             return self.space.call(self.w_fun, w_objects)
-
-    def _get_objects(self):
-        # the loop is out of the way of the JIT
-        return [self.space.next(w_elem) for w_elem in self.iterators_w]
 
 
 def W_IMap___new__(space, w_subtype, w_fun, args_w):
@@ -783,7 +769,15 @@ class W_GroupBy(Wrappable):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
         if not self.new_group:
-            self._consume_unwanted_input()
+            # Consume unwanted input until we reach the next group
+            try:
+                while True:
+                    self.group_next(self.index)
+
+            except StopIteration:
+                pass
+            if self.exhausted:
+                raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
         if not self.started:
             self.started = True
@@ -804,16 +798,6 @@ class W_GroupBy(Wrappable):
         self.new_group = False
         w_iterator = self.space.wrap(W_GroupByIterator(self.space, self.index, self))
         return self.space.newtuple([self.w_key, w_iterator])
-
-    def _consume_unwanted_input(self):
-        # Consume unwanted input until we reach the next group
-        try:
-            while True:
-                self.group_next(self.index)
-        except StopIteration:
-            pass
-        if self.exhausted:
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
     def group_next(self, group_index):
         if group_index < self.index:

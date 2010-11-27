@@ -373,10 +373,6 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def propagate_all_forward(self):
-        self.exception_might_have_happened = True
-        # ^^^ at least at the start of bridges.  For loops, we could set
-        # it to False, but we probably don't care
-        self.newoperations = []
         self.i = 0
         while self.i < len(self.loop.operations):
             op = self.loop.operations[self.i]

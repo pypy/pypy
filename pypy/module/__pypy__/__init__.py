@@ -11,10 +11,6 @@ class Module(MixedModule):
         'internal_repr'             : 'interp_magic.internal_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
-        'debug_start'               : 'interp_debug.debug_start',
-        'debug_print'               : 'interp_debug.debug_print',
-        'debug_stop'                : 'interp_debug.debug_stop',
-        'debug_print_once'          : 'interp_debug.debug_print_once',
     }
 
     def setup_after_space_initialization(self):

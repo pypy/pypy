@@ -206,7 +206,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del obj.x
         assert obj.z == prop
 
-    @py.test.mark.dont_track_allocations
     def test_tp_dict(self):
         foo = self.import_module("foo")
         module = self.import_extension('test', [
