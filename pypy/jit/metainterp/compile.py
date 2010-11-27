@@ -540,7 +540,28 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
         prepare_last_operation(new_loop, target_loop_token)
         resumekey.compile_and_attach(metainterp, new_loop)
+        compile_known_target_bridges(metainterp, new_loop)
     return target_loop_token
+
+# For backends that not supports emitting guards with preset jump
+# targets, emit mini-bridges containing the jump
+def compile_known_target_bridges(metainterp, bridge):
+    for op in bridge.operations:
+        if op.is_guard():
+            target = op.getjumptarget()
+            if target:
+                mini = create_empty_loop(metainterp, 'fallback')
+                mini.inputargs = op.getfailargs()[:]
+                jmp = ResOperation(rop.JUMP, mini.inputargs[:], None, target)
+                mini.operations = [jmp]
+                descr = op.getdescr()
+                
+                #descr.compile_and_attach(metainterp, mini)
+                if not we_are_translated():
+                    descr._debug_suboperations = mini.operations
+                send_bridge_to_backend(metainterp.staticdata, descr,
+                                       mini.inputargs, mini.operations)
+
 
 def prepare_last_operation(new_loop, target_loop_token):
     op = new_loop.operations[-1]

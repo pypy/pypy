@@ -196,6 +196,8 @@ class BaseCPU(model.AbstractCPU):
                     assert isinstance(token, history.LoopToken)
                     compiled_version = token._llgraph_compiled_version
                     llimpl.compile_add_guard_jump_target(c, compiled_version)
+                    # Inform frontend that guard is patched to jump to token
+                    op.setjumptarget(None) 
                         
             x = op.result
             if x is not None:
