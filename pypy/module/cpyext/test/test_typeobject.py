@@ -20,6 +20,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is module.fooType
         print "type of obj has type", type(type(obj))
         print "type of type of obj has type", type(type(type(obj)))
+        self.cleanup_references()
 
     def test_typeobject_method_descriptor(self):
         module = self.import_module(name='foo')
@@ -38,6 +39,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         print obj.foo
         assert obj.foo == 42
         assert obj.int_member == obj.foo
+        self.cleanup_references()
 
     def test_typeobject_data_member(self):
         module = self.import_module(name='foo')
@@ -54,6 +56,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(SystemError, "obj.broken_member = 42")
         assert module.fooType.broken_member.__doc__ is None
         assert module.fooType.object_member.__doc__ == "A Python object."
+        self.cleanup_references()
 
     def test_typeobject_object_member(self):
         module = self.import_module(name='foo')
@@ -74,6 +77,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
         obj.set_foo = 32
         assert obj.foo == 32
+        self.cleanup_references()
 
     def test_typeobject_string_member(self):
         module = self.import_module(name='foo')
@@ -91,6 +95,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.char_member == "a"
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
+        self.cleanup_references()
 
     def test_staticmethod(self):
         module = self.import_module(name="foo")
@@ -98,6 +103,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.foo == 42
         obj2 = obj.create()
         assert obj2.foo == 42
+        self.cleanup_references()
 
     def test_new(self):
         module = self.import_module(name='foo')
@@ -118,7 +124,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 return self
         assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
-    
+        self.cleanup_references()
+
     def test_init(self):
         module = self.import_module(name="foo")
         newobj = module.FuuType()
@@ -137,6 +144,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         newobj = Fuu2()
         assert newobj.get_val() == 42
         assert newobj.foobar == 32
+        self.cleanup_references()
 
     def test_metatype(self):
         module = self.import_module(name='foo')
@@ -145,6 +153,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert isinstance(x, type)
         assert isinstance(x, module.MetaType)
         x()
+        self.cleanup_references()
 
     def test_metaclass_compatible(self):
         # metaclasses should not conflict here
@@ -153,7 +162,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(module.fooType).__mro__ == (type, object)
         y = module.MetaType('other', (module.fooType,), {})
         assert isinstance(y, module.MetaType)
-        y()
+        x = y()
+        del x, y
+        self.cleanup_references()
 
     def test_sre(self):
         module = self.import_module(name='_sre')
@@ -172,17 +183,21 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert "groupdict" in dir(m)
         re._cache.clear()
         re._cache_repl.clear()
+        del prog, m
+        self.cleanup_references()
 
     def test_init_error(self):
         module = self.import_module("foo")
         raises(ValueError, module.InitErrType)
-    
+        self.cleanup_references()
+
     def test_cmps(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
         assert cmpr == 3
         assert cmpr != 42
-    
+        self.cleanup_references()
+
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
@@ -191,6 +206,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         d[cmpr] = 72
         assert d[cmpr] == 72
         assert d[3] == 72
+        self.cleanup_references()
 
     def test_descriptor(self):
         module = self.import_module("foo")
@@ -205,8 +221,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.y == (prop, 2)
         del obj.x
         assert obj.z == prop
+        self.cleanup_references()
 
-    @py.test.mark.dont_track_allocations
     def test_tp_dict(self):
         foo = self.import_module("foo")
         module = self.import_extension('test', [
@@ -227,6 +243,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             ])
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
+        self.cleanup_references()
 
 
 class TestTypes(BaseApiTest):

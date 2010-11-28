@@ -433,12 +433,6 @@ def type_attach(space, py_obj, w_type):
     finish_type_1(space, pto)
     finish_type_2(space, pto, w_type)
 
-    if space.type(w_type).is_cpytype():
-        # XXX Types with a C metatype are never freed, try to see why...
-        render_immortal(pto, w_type)
-        lltype.render_immortal(pto)
-        lltype.render_immortal(pto.c_tp_name)
-
     pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
@@ -544,24 +538,11 @@ def type_realize(space, py_obj):
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    render_immortal(py_type, w_obj)
 
     state = space.fromcache(RefcountState)
     state.non_heaptypes_w.append(w_obj)
 
     return w_obj
-
-def render_immortal(py_type, w_obj):
-    lltype.render_immortal(py_type.c_tp_bases)
-    lltype.render_immortal(py_type.c_tp_mro)
-
-    assert isinstance(w_obj, W_TypeObject)
-    if w_obj.is_cpytype():
-        lltype.render_immortal(py_type.c_tp_dict)
-    else:
-        lltype.render_immortal(py_type.c_tp_name)
-    if not w_obj.is_cpytype() and w_obj.is_heaptype():
-        lltype.render_immortal(py_type)
 
 def finish_type_1(space, pto):
     """

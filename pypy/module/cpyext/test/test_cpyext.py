@@ -1,10 +1,12 @@
 import sys
+import weakref
 import os.path
 
 import py
 
 from pypy.conftest import gettestobjspace
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app
 from pypy.rpython.lltypesystem import rffi, lltype, ll2ctypes
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
@@ -79,6 +81,23 @@ def freeze_refcnts(self):
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
 class LeakCheckingTest(object):
+    @staticmethod
+    def cleanup_references(space):
+        state = space.fromcache(RefcountState)
+
+        import gc; gc.collect()
+        # Clear all lifelines, objects won't resurrect
+        for w_obj, obj in state.lifeline_dict._dict.items():
+            if w_obj not in state.py_objects_w2r:
+                state.lifeline_dict.set(w_obj, None)
+            del obj
+        import gc; gc.collect()
+
+        for w_obj in state.non_heaptypes_w:
+            Py_DecRef(space, w_obj)
+        state.non_heaptypes_w[:] = []
+        state.reset_borrowed_references()
+
     def check_and_print_leaks(self):
         # check for sane refcnts
         import gc
@@ -89,13 +108,6 @@ class LeakCheckingTest(object):
         lost_objects_w = identity_dict()
         lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
 
-        # Clear all lifelines, objects won't resurrect
-        for w_obj, obj in state.lifeline_dict._dict.items():
-            if w_obj not in state.py_objects_w2r:
-                state.lifeline_dict.set(w_obj, None)
-            del obj
-        gc.collect()
-
         for w_obj, obj in state.py_objects_w2r.iteritems():
             base_refcnt = self.frozen_refcounts.get(w_obj)
             delta = obj.c_ob_refcnt
@@ -105,7 +117,12 @@ class LeakCheckingTest(object):
             if delta != 0:
                 leaking = True
                 print >>sys.stderr, "Leaking %r: %i references" % (w_obj, delta)
-                lifeline = state.lifeline_dict.get(w_obj)
+                try:
+                    weakref.ref(w_obj)
+                except TypeError:
+                    lifeline = None
+                else:
+                    lifeline = state.lifeline_dict.get(w_obj)
                 if lifeline is not None:
                     refcnt = lifeline.pyo.c_ob_refcnt
                     if refcnt > 0:
@@ -136,6 +153,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         importhook(cls.space, "os") # warm up reference counts
         state = cls.space.fromcache(RefcountState)
         state.non_heaptypes_w[:] = []
+
+        cls.w_cleanup_references = cls.space.wrap(interp2app(cls.cleanup_references))
 
     def compile_module(self, name, **kwds):
         """
@@ -256,13 +275,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
     def teardown_method(self, func):
         for name in self.imported_module_names:
             self.unimport_module(name)
-        state = self.space.fromcache(RefcountState)
-        for w_obj in state.non_heaptypes_w:
-            Py_DecRef(self.space, w_obj)
-        state.non_heaptypes_w[:] = []
-        state.reset_borrowed_references()
-        from pypy.module.cpyext import cdatetime
-        cdatetime.datetimeAPI_dealloc(self.space)
+        self.cleanup_references(self.space)
         if self.check_and_print_leaks():
             assert False, "Test leaks or loses object(s)."
 
