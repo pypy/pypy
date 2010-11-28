@@ -116,6 +116,14 @@ def PySequence_Concat(space, w_o1, w_o2):
     This is the equivalent of the Python expression o1 + o2."""
     return space.add(w_o1, w_o2)
 
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PySequence_Contains(space, w_obj, w_value):
+    """Determine if o contains value.  If an item in o is equal to value,
+    return 1, otherwise return 0. On error, return -1.  This is
+    equivalent to the Python expression value in o."""
+    w_res = space.contains(w_obj, w_value)
+    return space.int_w(w_res)
+
 @cpython_api([PyObject], PyObject)
 def PySeqIter_New(space, w_seq):
     """Return an iterator that works with a general sequence object, seq.  The
