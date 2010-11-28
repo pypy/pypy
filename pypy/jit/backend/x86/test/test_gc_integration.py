@@ -33,9 +33,6 @@ class MockGcRootMap(object):
     def add_callee_save_reg(self, shape, reg_index):
         index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }
         shape.append(index_to_name[reg_index])
-    def compress_callshape(self, shape):
-        assert shape[0] == 'shape'
-        return ['compressed'] + shape[1:]
 
 class MockGcDescr(GcCache):
     def get_funcptr_for_new(self):
@@ -58,6 +55,7 @@ class TestRegallocDirectGcIntegration(object):
 
     def test_mark_gc_roots(self):
         cpu = CPU(None, None)
+        cpu.setup_once()
         regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))
         boxes = [BoxPtr() for i in range(len(X86RegisterManager.all_regs))]
         longevity = {}
@@ -81,7 +79,7 @@ class TestRegallocDirectGcIntegration(object):
         assert len(regalloc.assembler.movs) == 3
         #
         mark = regalloc.get_mark_gc_roots(cpu.gc_ll_descr.gcrootmap)
-        assert mark[0] == 'compressed'
+        assert mark[0] == 'shape'
         base = -WORD * FRAME_FIXED_SIZE
         expected = ['ebx', 'esi', 'edi', base, base-WORD, base-WORD*2]
         assert dict.fromkeys(mark[1:]) == dict.fromkeys(expected)
@@ -90,6 +88,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)
     cpu.gc_ll_descr = MockGcDescr(False)
+    cpu.setup_once()
     
     S = lltype.GcForwardReference()
     S.become(lltype.GcStruct('S', ('field', lltype.Ptr(S)),
@@ -214,6 +213,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         cpu = CPU(None, None)
         cpu.vtable_offset = WORD
         cpu.gc_ll_descr = GCDescrFastpathMalloc()
+        cpu.setup_once()
 
         NODE = lltype.Struct('node', ('tid', lltype.Signed),
                                      ('value', lltype.Signed))

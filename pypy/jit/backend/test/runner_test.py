@@ -211,6 +211,7 @@ class BaseBackendTest(Runner):
 
         assert self.cpu.total_compiled_loops == 1
         assert self.cpu.total_compiled_bridges == 1
+        return looptoken
 
     def test_compile_bridge_with_holes(self):
         i0 = BoxInt()
@@ -2228,6 +2229,20 @@ class LLtypeBackendTest(BaseBackendTest):
                                          'int', descr=calldescr)
             assert res.value == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+
+    def test_free_loop_and_bridges(self):
+        from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not a subclass of llmodel.AbstractLLCPU")
+        if hasattr(self.cpu, 'setup_once'):
+            self.cpu.setup_once()
+        mem0 = self.cpu.asmmemmgr.total_mallocs
+        looptoken = self.test_compile_bridge()
+        mem1 = self.cpu.asmmemmgr.total_mallocs
+        self.cpu.free_loop_and_bridges(looptoken.compiled_loop_token)
+        mem2 = self.cpu.asmmemmgr.total_mallocs
+        assert mem2 < mem1
+        assert mem2 == mem0
 
 
 class OOtypeBackendTest(BaseBackendTest):

@@ -1108,7 +1108,7 @@ class RegAlloc(object):
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
                 gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
-        return gcrootmap.compress_callshape(shape)
+        return shape
 
     def consider_force_token(self, op):
         loc = self.rm.force_allocate_reg(op.result)

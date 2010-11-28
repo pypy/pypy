@@ -334,9 +334,9 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if possible_code == 'i':
-                        offset = intmask(val - (self.tell() + 5))
-                        if rx86.fits_in_32bits(offset):
+                        if self.WORD == 4:
                             _rx86_getattr(self, name + "_l")(val)
+                            self.add_pending_relocation()
                         else:
                             assert self.WORD == 8
                             self._load_scratch(val)

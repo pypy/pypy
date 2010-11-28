@@ -139,10 +139,14 @@ class AbstractCPU(object):
         # resume descrs are the largest consumers of memory (about 3x
         # more than the assembler, in the case of the x86 backend).
         lst = self.fail_descr_list
-        for n in compiled_loop_token.faildescr_indices:
+        # We expect 'compiled_loop_token' to be itself garbage-collected soon,
+        # but better safe than sorry: be ready to handle several calls to
+        # free_loop_and_bridges() for the same compiled_loop_token.
+        faildescr_indices = compiled_loop_token.faildescr_indices
+        compiled_loop_token.faildescr_indices = []
+        for n in faildescr_indices:
             lst[n] = None
-        self.fail_descr_free_list.extend(compiled_loop_token.faildescr_indices)
-        # We expect 'compiled_loop_token' to be itself garbage-collected soon.
+        self.fail_descr_free_list.extend(faildescr_indices)
 
     @staticmethod
     def sizeof(S):
@@ -271,6 +275,9 @@ class AbstractCPU(object):
 
 
 class CompiledLoopToken(object):
+    asmmemmgr_blocks = None
+    asmmemmgr_gcroots = 0
+
     def __init__(self, cpu, number):
         cpu.total_compiled_loops += 1
         self.cpu = cpu

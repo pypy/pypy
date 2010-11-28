@@ -4,7 +4,7 @@
 import py, math
 from pypy.module.math.test import test_direct
 from pypy.translator.c.test.test_genc import compile
-from pypy.jit.backend.x86.codebuf import ensure_sse2_floats
+from pypy.jit.backend.x86.support import ensure_sse2_floats
 
 
 def get_test_case((fnname, args, expected)):
