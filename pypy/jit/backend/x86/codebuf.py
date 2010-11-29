@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.rarithmetic import intmask
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.x86.rx86 import X86_32_CodeBuilder, X86_64_CodeBuilder
 from pypy.jit.backend.x86.regloc import LocationCodeBuilder
@@ -31,5 +32,5 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         for reloc in self.relocations:
             p = addr + reloc
             adr = rffi.cast(rffi.LONGP, p - WORD)
-            adr[0] -= p
+            adr[0] = intmask(adr[0] - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
