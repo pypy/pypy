@@ -495,13 +495,13 @@ if __name__ == '__main__':
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
     os = nanos.os_module_for_testing
-    sys.ps1 = '>>>> '
-    sys.ps2 = '.... '
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
     finally:
-        sys.ps1 = '>>> '     # restore the normal ones, in case
-        sys.ps2 = '... '     # we are dropping to CPython's prompt
+        # restore the normal prompt (which was changed by _pypy_interact), in
+        # case we are dropping to CPython's prompt
+        sys.ps1 = '>>> '
+        sys.ps2 = '... '
         import os; os.environ.update(reset)
         assert old_argv is sys.argv
         assert old_path is sys.path

@@ -329,6 +329,10 @@ class TestInteraction:
         child = self.spawn(['-mpypy.translator.goal.test2.mymodule'])
         child.expect('mymodule running')
 
+    def test_ps1_only_if_interactive(self):
+        argv = ['-c', 'import sys; print hasattr(sys, "ps1")']
+        child = self.spawn(argv)
+        child.expect('False')
 
 class TestNonInteractive:
 
