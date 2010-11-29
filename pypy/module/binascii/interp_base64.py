@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error
