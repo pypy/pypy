@@ -48,7 +48,9 @@ def a2b_uu(space, ascii):
         _a2b_write(space, res, length, (B & 0xf) << 4 | C >> 2)
         _a2b_write(space, res, length, (C & 0x3) << 6 | D)
 
-    res.append_multiple_char('\x00', length - res.getlength())
+    remaining = length - res.getlength()
+    if remaining > 0:
+        res.append_multiple_char('\x00', remaining)
     return space.wrap(res.build())
 a2b_uu.unwrap_spec = [ObjSpace, 'bufferstr']
 
