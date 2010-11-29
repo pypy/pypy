@@ -15,6 +15,7 @@ from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
+from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt,
                                         BasicFailDescr, LoopToken, INT, REF)
 from pypy.jit.metainterp.resoperation import rop
@@ -393,7 +394,7 @@ class ArrayOpAssember(object):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         a2 = op.getarg(2)
-        scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
 
         base_loc  = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         ofs_loc = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
@@ -420,7 +421,7 @@ class ArrayOpAssember(object):
     def emit_op_getarrayitem_gc(self, op, regalloc, fcond):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
 
         base_loc  = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         ofs_loc = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
@@ -463,7 +464,7 @@ class ArrayOpAssember(object):
         while (1 << scale) < size:
             scale += 1
         assert (1 << scale) == size
-        return scale, ofs, ofs_length, ptr
+        return size, scale, ofs, ofs_length, ptr
 
 class StrOpAssembler(object):
     _mixin_ = True
@@ -730,10 +731,138 @@ class ForceOpAssembler(object):
         self.mc.STR_ri(l0.value, r.fp.value)
         regalloc.possibly_free_var(t)
 
+class AllocOpAssembler(object):
+
+    def _prepare_args_for_new_op(self, new_args, regalloc):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        args = gc_ll_descr.args_for_new(new_args)
+        arglocs = []
+        for arg in args:
+            t = TempBox()
+            l = regalloc.force_allocate_reg(t)
+            self.mc.gen_load_int(l.value, arg)
+            arglocs.append(t)
+        return arglocs
+
+    # from: ../x86/regalloc.py:750
+    # XXX kill this function at some point
+    def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v, regalloc):
+        tempbox = TempBox()
+        size_loc = regalloc.force_allocate_reg(tempbox)
+        self.mc.gen_load_int(size_loc.value, ofs_items + (v.getint() << scale))
+        self._emit_call(self.malloc_func_addr, [tempbox],
+                                regalloc, result=res_v)
+        loc = regalloc.make_sure_var_in_reg(v, [res_v])
+        regalloc.possibly_free_var(v)
+        if tempbox is not None:
+            regalloc.possibly_free_var(tempbox)
+
+        # XXX combine with emit_op_setfield_gc operation
+        base_loc = regalloc.loc(res_v)
+        value_loc = regalloc.loc(v)
+        size = scale * 2
+        ofs = ofs_length
+        if size == 4:
+            f = self.mc.STR_ri
+        elif size == 2:
+            f = self.mc.STRH_ri
+        elif size == 1:
+            f = self.mc.STRB_ri
+        else:
+            assert 0
+        f(value_loc.value, base_loc.value, ofs)
+
+    def emit_op_new(self, op, regalloc, fcond):
+        arglocs = self._prepare_args_for_new_op(op.getdescr(), regalloc)
+        self._emit_call(self.malloc_func_addr, arglocs,
+                                regalloc, result=op.result)
+        regalloc.possibly_free_vars(arglocs)
+        return fcond
+
+    def emit_op_new_with_vtable(self, op, regalloc, fcond):
+        classint = op.getarg(0).getint()
+        descrsize = heaptracker.vtable2descr(self.cpu, classint)
+        arglocs = self._prepare_args_for_new_op(descrsize, regalloc)
+        self._emit_call(self.malloc_func_addr, arglocs,
+                                regalloc, result=op.result)
+        regalloc.possibly_free_vars(arglocs)
+        self.set_vtable(op.result, op.getarg(0), regalloc)
+        return fcond
+
+    def set_vtable(self, result, vtable, regalloc):
+        loc = regalloc.loc(result)
+        if self.cpu.vtable_offset is not None:
+            assert loc.is_reg()
+            adr = self.cpu.cast_adr_to_int(vtable.getint())
+            t = TempBox()
+            loc_vtable = regalloc.force_allocate_reg(t)
+            self.mc.gen_load_int(loc_vtable.value, adr)
+            #assert isinstance(loc_vtable, ImmedLoc)
+            self.mc.STR_ri(loc_vtable.value, loc.value, self.cpu.vtable_offset)
+            regalloc.possibly_free_var(t)
+
+    def emit_op_new_array(self, op, regalloc, fcond):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newarray is not None:
+            raise NotImplementedError
+            #XXX make sure this path works
+            # framework GC
+            #args = self.cpu.gc_ll_descr.args_for_new_array(op.getdescr())
+            #arglocs = [imm(x) for x in args]
+            #arglocs.append(self.loc(op.getarg(0)))
+            #return self._emit_call(self.malloc_array_func_addr, op.getarglist(),
+            #                        regalloc, result=op.result)
+        # boehm GC (XXX kill the following code at some point)
+        itemsize, scale, basesize, ofs_length, _ = (
+            self._unpack_arraydescr(op.getdescr()))
+        return self._malloc_varsize(basesize, ofs_length, scale,
+                                    op.getarg(0), op.result, regalloc)
+
+
+    def emit_op_newstr(self, op, regalloc, fcond):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newstr is not None:
+            raise NotImplementedError
+            # framework GC
+            #loc = self.loc(op.getarg(0))
+            #return self._call(op, [loc])
+        # boehm GC (XXX kill the following code at some point)
+        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
+                                            self.cpu.translate_support_code)
+        assert itemsize == 1
+        return self._malloc_varsize(ofs_items, ofs, 1, op.getarg(0),
+                                                        op.result, regalloc)
+
+
+
+    def emit_op_newunicode(self, op, regalloc, fcond):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newunicode is not None:
+            raise NotImplementedError
+            # framework GC
+            #loc = self.loc(op.getarg(0))
+            #return self._call(op, [loc])
+        # boehm GC (XXX kill the following code at some point)
+        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
+                                               self.cpu.translate_support_code)
+        scale = self._get_unicode_item_scale()
+        return self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
+                                                op.result, regalloc)
+
+    def _get_unicode_item_scale(self):
+        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                                  self.cpu.translate_support_code)
+        if itemsize == 4:
+            return 2
+        elif itemsize == 2:
+            return 1
+        else:
+            raise AssertionError("bad unicode item size")
+
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,
                     FieldOpAssembler, ArrayOpAssember,
                     StrOpAssembler, UnicodeOpAssembler,
-                    ForceOpAssembler):
+                    ForceOpAssembler, AllocOpAssembler):
     pass
 

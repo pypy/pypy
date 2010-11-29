@@ -20,16 +20,41 @@ from pypy.jit.backend.x86.support import values_array
 class AssemblerARM(ResOpAssembler):
 
     def __init__(self, cpu, failargs_limit=1000):
-        self.mc = ARMv7Builder()
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self._debug_asm = True
+        self.mc = None
+        self.malloc_func_addr = 0
+        self.malloc_array_func_addr = 0
+        self.malloc_str_func_addr = 0
+        self.malloc_unicode_func_addr = 0
 
-        self._exit_code_addr = self.mc.curraddr()
-        self._gen_exit_path()
-        self.align()
-        self.mc._start_addr = self.mc.curraddr()
+    def setup(self):
+        if self.mc is None:
+            self.mc = ARMv7Builder()
+            self._exit_code_addr = self.mc.curraddr()
+            self._gen_exit_path()
+            self.align()
+            self.mc._start_addr = self.mc.curraddr()
+
+            # Addresses of functions called by new_xxx operations
+            gc_ll_descr = self.cpu.gc_ll_descr
+            gc_ll_descr.initialize()
+            ll_new = gc_ll_descr.get_funcptr_for_new()
+            self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+            if gc_ll_descr.get_funcptr_for_newarray is not None:
+                ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
+                self.malloc_array_func_addr = rffi.cast(lltype.Signed,
+                                                        ll_new_array)
+            if gc_ll_descr.get_funcptr_for_newstr is not None:
+                ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
+                self.malloc_str_func_addr = rffi.cast(lltype.Signed,
+                                                      ll_new_str)
+            if gc_ll_descr.get_funcptr_for_newunicode is not None:
+                ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
+                self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
+                                                          ll_new_unicode)
 
 
     def setup_failure_recovery(self):
@@ -280,6 +305,7 @@ class AssemblerARM(ResOpAssembler):
 
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken):
+        self.setup()
         self.debug = False
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
@@ -377,6 +403,7 @@ class AssemblerARM(ResOpAssembler):
         return False
 
     def assemble_bridge(self, faildescr, inputargs, operations):
+        self.setup()
         self.debug = False
         enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
         longevity = compute_vars_longevity(inputargs, operations)
