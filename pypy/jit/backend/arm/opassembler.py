@@ -16,7 +16,7 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.codewriter import heaptracker
-from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt,
+from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, Box,
                                         BasicFailDescr, LoopToken, INT, REF)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
@@ -184,8 +184,8 @@ class GuardOpAssembler(object):
     def _emit_guard(self, op, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, BasicFailDescr)
-        if hasattr(op, 'getfailargs'):
-            print 'Failargs: ', op.getfailargs()
+        #if hasattr(op, 'getfailargs'):
+        #   print 'Failargs: ', op.getfailargs()
         self.mc.ensure_can_fit(self.guard_size)
         self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size, cond=fcond)
         descr._arm_guard_code = self.mc.curraddr()
@@ -230,6 +230,52 @@ class GuardOpAssembler(object):
 
     def emit_op_guard_overflow(self, op, regalloc, fcond):
         return self._emit_guard(op, regalloc, c.VS)
+
+    # from ../x86/assembler.py:1265
+    def emit_op_guard_class(self, op, regalloc, fcond):
+        locs, boxes = self._prepare_guard_class(op, regalloc, fcond)
+        self._cmp_guard_class(op, locs, regalloc, fcond)
+        regalloc.possibly_free_vars(boxes)
+        return fcond
+
+    def emit_op_guard_nonnull_class(self, op, regalloc, fcond):
+        locs, boxes = self._prepare_guard_class(op, regalloc, fcond)
+        self.mc.CMP_ri(locs[0].value, 0)
+        self._emit_guard(op, regalloc, c.NE)
+        self._cmp_guard_class(op, locs, regalloc, fcond)
+        regalloc.possibly_free_vars(boxes)
+        return fcond
+
+    def _prepare_guard_class(self, op, regalloc, fcond):
+        assert isinstance(op.getarg(0), Box)
+
+        x = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        y_temp = TempBox()
+        y = regalloc.force_allocate_reg(y_temp)
+        self.mc.gen_load_int(y.value,
+                        self.cpu.cast_adr_to_int(op.getarg(1).getint()))
+        return [x, y], [op.getarg(0), y_temp]
+
+
+    def _cmp_guard_class(self, op, locs, regalloc, fcond):
+        offset = self.cpu.vtable_offset
+        x = locs[0]
+        y = locs[1]
+        if offset is not None:
+            t0 = TempBox()
+            l0 = regalloc.force_allocate_reg(t0)
+            assert offset == 0
+            self.mc.LDR_ri(l0.value, x.value, offset)
+            self.mc.CMP_rr(l0.value, y.value)
+            regalloc.possibly_free_var(t0)
+        else:
+            raise NotImplentedError
+            # XXX port from x86 backend once gc support is in place
+
+        regalloc.possibly_free_vars_for_op(op)
+        return self._emit_guard(op, regalloc, c.EQ)
+
+
 
 class OpAssembler(object):
 
