@@ -101,7 +101,7 @@ raw_os_write = rffi.llexternal(underscore_on_windows+'write',
 
 AddressStack = get_address_stack()
 
-class HeapDumper:
+class HeapDumper(object):
     _alloc_flavor_ = "raw"
     BUFSIZE = 8192     # words
 
