@@ -8,7 +8,7 @@ class AppTestBinascii(object):
         Create a space with the binascii module and import it for use by the
         tests.
         """
-        cls.space = gettestobjspace()
+        cls.space = gettestobjspace(usemodules=['binascii'])
         cls.w_binascii = cls.space.appexec([], """():
             import binascii
             return binascii
