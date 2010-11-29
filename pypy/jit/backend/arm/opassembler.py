@@ -467,6 +467,7 @@ class ArrayOpAssember(object):
         return size, scale, ofs, ofs_length, ptr
 
 class StrOpAssembler(object):
+
     _mixin_ = True
 
     def emit_op_strlen(self, op, regalloc, fcond):
@@ -528,6 +529,7 @@ class StrOpAssembler(object):
         return fcond
 
 class UnicodeOpAssembler(object):
+
     _mixin_ = True
 
     def emit_op_unicodelen(self, op, regalloc, fcond):
@@ -596,6 +598,9 @@ class UnicodeOpAssembler(object):
         return fcond
 
 class ForceOpAssembler(object):
+
+    _mixin_ = True
+
     def emit_op_force_token(self, op, regalloc, fcond):
         res_loc = regalloc.force_allocate_reg(op.result)
         self.mc.MOV_rr(res_loc.value, r.fp.value)
@@ -732,6 +737,8 @@ class ForceOpAssembler(object):
         regalloc.possibly_free_var(t)
 
 class AllocOpAssembler(object):
+
+    _mixin_ = True
 
     def _prepare_args_for_new_op(self, new_args, regalloc):
         gc_ll_descr = self.cpu.gc_ll_descr
