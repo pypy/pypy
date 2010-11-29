@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import ObjSpace
 from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rpython.lltypesystem import rffi
 
 # ____________________________________________________________
 
@@ -57,19 +58,18 @@ crc_32_tab = [
     0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b,
     0x2d02ef8d
 ]
-def _make_signed_32(v):
-    if v >= 0x80000000:
-        v -= 0x100000000
-    return int(v)
-crc_32_tab = map(_make_signed_32, crc_32_tab)
+crc_32_tab = map(intmask, crc_32_tab)
 
 
 def crc32(space, data, oldcrc=0):
     "Compute the CRC-32 incrementally."
-    crc = ~oldcrc
+
+    crc = r_uint(rffi.cast(rffi.UINT, ~oldcrc))   # signed => 32-bit unsigned
+
+    # in the following loop, we have always 0 <= crc < 2**32
     for c in data:
-        crc_shifted_by_8 = intmask(r_uint(crc) >> 8)
-        crc = crc_32_tab[(crc & 0xff) ^ ord(c)] ^ crc_shifted_by_8
-    crc = ~crc
+        crc = crc_32_tab[(crc & 0xff) ^ ord(c)] ^ (crc >> 8)
+
+    crc = ~intmask(rffi.cast(rffi.INT, crc))   # unsigned => 32-bit signed
     return space.wrap(crc)
 crc32.unwrap_spec = [ObjSpace, 'bufferstr', 'c_int']
