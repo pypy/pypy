@@ -123,7 +123,9 @@ class Platform(object):
             errorfile.write(stderr, 'wb')
             stderrlines = stderr.splitlines()
             for line in stderrlines:
-                log.ERROR(line)
+                log.Error(line)
+            # ^^^ don't use ERROR, because it might actually be fine.
+            # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
             for line in stderr.splitlines():
