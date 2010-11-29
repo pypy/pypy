@@ -112,8 +112,8 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type)
     short = loop.token.short_preamble
     if short:
-        metainterp_sd.logger_ops.log_short_preamble(short.inputargs,
-                                                     short.operations)
+        metainterp_sd.logger_ops.log_short_preamble(short[-1].inputargs,
+                                                    short[-1].operations)
 
     if not we_are_translated():
         show_loop(metainterp_sd, loop)

@@ -170,6 +170,12 @@ class Optimization(object):
     def emit_operation(self, op):
         self.next_optimization.propagate_forward(op)
 
+    def test_emittable(self, op):
+        return self.is_emittable(op)
+    
+    def is_emittable(self, op):
+        return self.next_optimization.test_emittable(op)
+
     # FIXME: Move some of these here?
     def getvalue(self, box):
         return self.optimizer.getvalue(box)
@@ -396,7 +402,9 @@ class Optimizer(Optimization):
             self.optimize_default(op)
         #print '\n'.join([str(o) for o in self.newoperations]) + '\n---\n'
 
-
+    def test_emittable(self, op):
+        return True
+    
     def emit_operation(self, op):
         ###self.heap_op_optimizer.emitting_operation(op)
         self._emit_operation(op)

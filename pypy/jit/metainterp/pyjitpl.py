@@ -1854,6 +1854,9 @@ class MetaInterp(object):
         if loop_token is None:
             return
 
+        if loop_token.short_preamble:
+            old_loop_tokens[0].short_preamble.extend(loop_token.short_preamble)
+
         self.history.inputargs = original_inputargs
         self.history.operations = self.history.operations[:start]
         live_arg_boxes = bridge_arg_boxes

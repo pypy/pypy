@@ -19,7 +19,7 @@ class RetraceLoop(JitException):
 # ____________________________________________________________
 # Misc. utilities
 
-def _findall(Class, name_prefix):
+def _findall(Class, name_prefix, op_prefix=None):
     result = []
     for name in dir(Class):
         if name.startswith(name_prefix):
@@ -27,6 +27,8 @@ def _findall(Class, name_prefix):
             if opname.isupper():
                 assert hasattr(resoperation.rop, opname)
     for value, name in resoperation.opname.items():
+        if op_prefix and not name.startswith(op_prefix):
+            continue
         if hasattr(Class, name_prefix + name):
             result.append((value, getattr(Class, name_prefix + name)))
     return unrolling_iterable(result)

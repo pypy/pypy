@@ -25,6 +25,18 @@ class OptRewrite(Optimization):
                 break
         else:
             self.emit_operation(op)
+
+    def test_emittable(self, op):
+        opnum = op.getopnum()
+        for value, func in optimize_guards:
+            if opnum == value:
+                try:
+                    func(self, op, dryrun=True)
+                    return self.is_emittable(op)
+                except InvalidLoop:
+                    return False
+        return self.is_emittable(op)
+
         
     def try_boolinvers(self, op, targs):
         oldop = self.optimizer.pure_operations.get(targs, None)
@@ -145,7 +157,7 @@ class OptRewrite(Optimization):
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
 
-    def optimize_guard(self, op, constbox, emit_operation=True):
+    def optimize_guard(self, op, constbox, emit_operation=True, dryrun=False):
         value = self.getvalue(op.getarg(0))
         if value.is_constant():
             box = value.box
@@ -153,33 +165,36 @@ class OptRewrite(Optimization):
             if not box.same_constant(constbox):
                 raise InvalidLoop
             return
+        if dryrun: return
         if emit_operation:
             self.emit_operation(op)
         value.make_constant(constbox)
         self.optimizer.turned_constant(value)
 
-    def optimize_GUARD_ISNULL(self, op):
+    def optimize_GUARD_ISNULL(self, op, dryrun=False):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
             return
         elif value.is_nonnull():
             raise InvalidLoop
+        if dryrun: return
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
-    def optimize_GUARD_NONNULL(self, op):
+    def optimize_GUARD_NONNULL(self, op, dryrun=False):
         value = self.getvalue(op.getarg(0))
         if value.is_nonnull():
             return
         elif value.is_null():
             raise InvalidLoop
+        if dryrun: return
         self.emit_operation(op)
         value.make_nonnull(len(self.optimizer.newoperations) - 1)
 
-    def optimize_GUARD_VALUE(self, op):
+    def optimize_GUARD_VALUE(self, op, dryrun=False):
         value = self.getvalue(op.getarg(0))
         emit_operation = True
-        if value.last_guard_index != -1:
+        if not dryrun and value.last_guard_index != -1:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
@@ -197,15 +212,15 @@ class OptRewrite(Optimization):
             emit_operation = False
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
-        self.optimize_guard(op, constbox, emit_operation)
+        self.optimize_guard(op, constbox, emit_operation, dryrun)
 
-    def optimize_GUARD_TRUE(self, op):
-        self.optimize_guard(op, CONST_1)
+    def optimize_GUARD_TRUE(self, op, dryrun=False):
+        self.optimize_guard(op, CONST_1, dryrun=dryrun)
 
-    def optimize_GUARD_FALSE(self, op):
-        self.optimize_guard(op, CONST_0)
+    def optimize_GUARD_FALSE(self, op, dryrun=False):
+        self.optimize_guard(op, CONST_0, dryrun=dryrun)
 
-    def optimize_GUARD_CLASS(self, op):
+    def optimize_GUARD_CLASS(self, op, dryrun=False):
         value = self.getvalue(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)
@@ -214,6 +229,7 @@ class OptRewrite(Optimization):
             if realclassbox.same_constant(expectedclassbox):
                 return
             raise InvalidLoop
+        if dryrun: return
         emit_operation = True
         if value.last_guard_index != -1:
             # there already has been a guard_nonnull or guard_class or
@@ -239,7 +255,8 @@ class OptRewrite(Optimization):
             last_guard_index = value.last_guard_index
         value.make_constant_class(expectedclassbox, last_guard_index)
 
-    def optimize_GUARD_NO_EXCEPTION(self, op):
+    def optimize_GUARD_NO_EXCEPTION(self, op, dryrun=False):
+        if dryrun: return
         if not self.optimizer.exception_might_have_happened:
             return
         self.emit_operation(op)
@@ -359,4 +376,4 @@ class OptRewrite(Optimization):
         return False
 
 optimize_ops = _findall(OptRewrite, 'optimize_')
-
+optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')

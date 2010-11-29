@@ -1840,6 +1840,45 @@ class BasicTests:
                           'int_add': 1, 'int_mul': 1, 'int_sub': 2,
                           'int_gt': 2, 'jump': 2})
 
+    def test_multiple_specialied_zigzag(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
+        class Base:
+            def __init__(self, val):
+                self.val = val
+        class A(Base):
+            def binop(self, other):
+                return A(self.val + other.val)
+            def switch(self):
+                return B(self.val)
+        class B(Base):
+            def binop(self, other):
+                return B(self.val * other.val)
+            def switch(self):
+                return A(self.val)
+        def f(x, y):
+            res = x
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, res=res)
+                if y % 4 == 0:
+                    res = res.switch()
+                res = res.binop(x)
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            b1 = f(B(x), y)
+            b2 = f(B(x), y)
+            assert a1.val == a2.val
+            assert b1.val == b2.val
+            return a1.val + b1.val
+        res = self.meta_interp(g, [3, 23])
+        assert res == 7068153
+        self.check_loop_count(7)
+        self.check_loops(guard_true=4, guard_class=0, int_add=2, int_mul=2,
+                         guard_false=2)
+
     def test_current_trace_length(self):
         myjitdriver = JitDriver(greens = ['g'], reds = ['x'])
         @dont_look_inside

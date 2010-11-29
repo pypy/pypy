@@ -72,7 +72,10 @@ class UnrollOptimizer(Optimization):
                     short_loop.operations = short
 
                 assert isinstance(loop.preamble.token, LoopToken)
-                loop.preamble.token.short_preamble = short_loop
+                if loop.preamble.token.short_preamble:
+                    loop.preamble.token.short_preamble.append(short_loop)
+                else:
+                    loop.preamble.token.short_preamble = [short_loop]
 
                 
 
@@ -332,15 +335,24 @@ class OptInlineShortPreamble(Optimization):
         if op.getopnum() == rop.JUMP:
             descr = op.getdescr()
             assert isinstance(descr, LoopToken)
+            # FIXME: Use a tree, similar to the tree formed by the full
+            # preamble and it's bridges, instead of a list to save time and
+            # memory  
             short = descr.short_preamble
             if short:
-                self.inline(short.operations, short.inputargs, op.getarglist())
-                return
+                for sh in short:                    
+                    if self.inline(sh.operations, sh.inputargs,
+                                   op.getarglist(), dryrun=True):
+                        self.inline(sh.operations, sh.inputargs,
+                                   op.getarglist())
+                        return
+                    
+                raise RetraceLoop
         self.emit_operation(op)
                 
         
         
-    def inline(self, loop_operations, loop_args, jump_args):
+    def inline(self, loop_operations, loop_args, jump_args, dryrun=False):
         self.argmap = argmap = {}
         assert len(loop_args) == len(jump_args)
         for i in range(len(loop_args)):
@@ -360,11 +372,13 @@ class OptInlineShortPreamble(Optimization):
                 newop.result = newop.result.clonebox()
                 argmap[old_result] = newop.result
 
-            try:
+            if not dryrun:
                 self.emit_operation(newop)
-            except InvalidLoop:
-                raise RetraceLoop
-                
+            else:
+                if not self.is_emittable(newop):
+                    return False
+        
+        return True
 
     def inline_arg(self, arg):
         if isinstance(arg, Const):
