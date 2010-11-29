@@ -8,7 +8,7 @@ def interactive_console(mainmodule=None):
     # mimics what CPython does in pythonrun.c
     if not hasattr(sys, 'ps1'):
         sys.ps1 = '>>>> '
-    if not hasattr(sys, 'ps1'):
+    if not hasattr(sys, 'ps2'):
         sys.ps2 = '.... '
     #
     try:
