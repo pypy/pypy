@@ -217,13 +217,13 @@ elif sys.platform == 'darwin':
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
-elif sys.platform == 'freebsd7':
-    from pypy.translator.platform.freebsd7 import Freebsd7, Freebsd7_64
+elif "freebsd" in sys.platform:
+    from pypy.translator.platform.freebsd import Freebsd, Freebsd_64
     import platform
     if platform.architecture()[0] == '32bit':
-        host_factory = Freebsd7
+        host_factory = Freebsd
     else:
-        host_factory = Freebsd7_64
+        host_factory = Freebsd_64
 elif os.name == 'nt':
     from pypy.translator.platform.windows import Windows
     host_factory = Windows
