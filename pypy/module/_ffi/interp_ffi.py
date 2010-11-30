@@ -192,7 +192,12 @@ class W_CDLL(Wrappable):
         argtypes = [self.ffitype(w_argtype) for w_argtype in
                     space.listview(w_argtypes)]
         restype = self.ffitype(w_restype, allow_void=True)
-        func = self.cdll.getpointer(name, argtypes, restype)
+        try:
+            func = self.cdll.getpointer(name, argtypes, restype)
+        except KeyError:
+            raise operationerrfmt(space.w_AttributeError,
+                                  "No symbol %s found in library %s", name, self.name)
+            
         return W_FuncPtr(func)
 
 

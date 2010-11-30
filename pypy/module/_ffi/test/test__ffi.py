@@ -142,3 +142,8 @@ class AppTestFfi:
     def test_OSError_loading(self):
         from _ffi import CDLL, types
         raises(OSError, "CDLL('I do not exist')")
+
+    def test_AttributeError_missing_function(self):
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        raises(AttributeError, "libfoo.getfunc('I_do_not_exist', [], types.void)")
