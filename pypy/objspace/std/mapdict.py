@@ -42,20 +42,23 @@ class AbstractAttribute(object):
         return None
 
     def index(self, selector):
-        if (self.space.config.objspace.std.withmethodcache and
-                not jit.we_are_jitted()):
-            return self._index_cache(selector)
-        else:
+        if jit.we_are_jitted():
             # hack for the jit:
             # the _index method is pure too, but its argument is never
             # constant, because it is always a new tuple
-            if jit.we_are_jitted():
-                return self._index_jit_pure(selector[0], selector[1])
-            return self._index(selector)
+            return self._index_jit_pure(selector[0], selector[1])
+        else:
+            return self._index_indirection(selector)
 
     @jit.purefunction
     def _index_jit_pure(self, name, index):
-        return self._index((name, index))
+        return self._index_indirection((name, index))
+
+    @jit.dont_look_inside
+    def _index_indirection(self, selector):
+        if (self.space.config.objspace.std.withmethodcache):
+            return self._index_cache(selector)
+        return self._index(selector)
 
     @jit.dont_look_inside
     def _index_cache(self, selector):
