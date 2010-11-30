@@ -180,15 +180,22 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    guard_size = ARMv7Builder.size_of_gen_load_int + 2*WORD
-    def _emit_guard(self, op, regalloc, fcond):
+    guard_size = ARMv7Builder.size_of_gen_load_int + 6*WORD
+    def _emit_guard(self, op, regalloc, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, BasicFailDescr)
         #if hasattr(op, 'getfailargs'):
         #   print 'Failargs: ', op.getfailargs()
+
         self.mc.ensure_can_fit(self.guard_size)
         self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size, cond=fcond)
         descr._arm_guard_code = self.mc.curraddr()
+
+        self.mc.PUSH([reg.value for reg in r.caller_resp])
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
+        self.mc.BL(addr)
+        self.mc.POP([reg.value for reg in r.caller_resp])
+
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc)
         descr._failure_recovery_code = memaddr
         regalloc.possibly_free_vars_for_op(op)
@@ -356,6 +363,47 @@ class OpAssembler(object):
             self.mc.MOV_rr(resloc.value, argloc.value)
         regalloc.possibly_free_vars_for_op(op)
         regalloc.possibly_free_var(op.result)
+        return fcond
+
+    def emit_op_cond_call_gc_wb(self, op, regalloc, fcond):
+        #XXX implement once gc support is in place
+        return fcond
+
+    def emit_op_guard_no_exception(self, op, regalloc, fcond):
+        t = TempBox()
+        loc = regalloc.force_allocate_reg(t)
+        self.mc.gen_load_int(loc.value, self.cpu.pos_exception(), fcond)
+        self.mc.LDR_ri(loc.value, loc.value)
+        self.mc.CMP_ri(loc.value, 0)
+        self._emit_guard(op, regalloc, c.EQ, save_exc=True)
+        regalloc.possibly_free_var(t)
+
+    def emit_op_guard_exception(self, op, regalloc, fcond):
+        args = op.getarglist()
+        t = TempBox()
+        t1 = TempBox()
+        loc = regalloc.force_allocate_reg(t, args)
+        loc1 = regalloc.force_allocate_reg(t1, args + [t])
+        self.mc.gen_load_int(loc.value,
+            self.cpu.cast_adr_to_int(
+                op.getarg(0).getint()), fcond)
+
+        self.mc.gen_load_int(loc1.value, self.cpu.pos_exception(), fcond)
+        self.mc.LDR_ri(loc1.value, loc1.value)
+
+        self.mc.CMP_rr(loc1.value, loc.value)
+        self._emit_guard(op, regalloc, c.EQ, save_exc=True)
+        self.mc.gen_load_int(loc1.value, self.cpu.pos_exc_value(), fcond)
+        if op.result in regalloc.longevity:
+            resloc = regalloc.force_allocate_reg(op.result, args + [t, t1])
+            self.mc.LDR_ri(resloc.value, loc1.value)
+            regalloc.possibly_free_var(resloc)
+        self.mc.gen_load_int(loc.value, self.cpu.pos_exception(), fcond)
+        self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.STR_ri(r.ip.value, loc.value)
+        self.mc.STR_ri(r.ip.value, loc1.value)
+        regalloc.possibly_free_var(t)
+        regalloc.possibly_free_var(t1)
         return fcond
 
 class FieldOpAssembler(object):
@@ -573,6 +621,106 @@ class StrOpAssembler(object):
 
         self.mc.STRB_ri(value_loc.value, temp.value, basesize, cond=fcond)
         return fcond
+    #from ../x86/regalloc.py:928 ff.
+    def emit_op_copystrcontent(self, op, regalloc, fcond):
+        self._emit_copystrcontent(op, regalloc, fcond, is_unicode=False)
+
+    def emit_op_copyunicodecontent(self, op, regalloc, fcond):
+        self._emit_copystrcontent(op, regalloc, fcond, is_unicode=True)
+
+    def _emit_copystrcontent(self, op, regalloc, fcond, is_unicode):
+        # compute the source address
+        args = op.getarglist()
+        boxes = []
+        base_loc, box = self._ensure_value_is_boxed(args[0], regalloc)
+        boxes.append(box)
+        ofs_loc, box = self._ensure_value_is_boxed(args[2], regalloc)
+        boxes.append(box)
+        assert args[0] is not args[1]    # forbidden case of aliasing
+
+        srcaddr_box = TempBox()
+        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
+        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box, forbidden_vars)
+        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
+                                        is_unicode=is_unicode)
+        regalloc.possibly_free_var(boxes[0])
+        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
+            regalloc.possibly_free_var(boxes[1])     # it if ==args[3] or args[4]
+
+        # compute the destination address
+        base_loc, box = self._ensure_value_is_boxed(args[1], regalloc)
+        boxes.append(box)
+        ofs_loc, box = self._ensure_value_is_boxed(args[3], regalloc)
+        boxes.append(box)
+        assert base_loc.is_reg()
+        assert ofs_loc.is_reg()
+        forbidden_vars = [args[4], srcaddr_box]
+        dstaddr_box = TempBox()
+        dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box,
+                                forbidden_vars)
+        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
+                                        is_unicode=is_unicode)
+        regalloc.possibly_free_var(boxes[2])
+        if args[3] is not args[4]:     # more of the MESS described above
+            regalloc.possibly_free_var(boxes[3])
+
+        # compute the length in bytes
+        length_loc, length_box = self._ensure_value_is_boxed(args[4], regalloc)
+        boxes.append(length_box)
+        if is_unicode:
+            forbidden_vars = [srcaddr_box, dstaddr_box]
+            bytes_box = TempBox()
+            bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
+            scale = self._get_unicode_item_scale()
+            self.mc.MOV_rr(bytes_loc.value, length_loc.value)
+            self._load_address(length_loc, 0, scale, bytes_loc)
+            length_box = bytes_box
+            length_loc = bytes_loc
+        # call memcpy()
+        self._emit_call(self.memcpy_addr, [dstaddr_box, srcaddr_box, length_box], regalloc)
+
+        regalloc.possibly_free_var(length_box)
+        regalloc.possibly_free_var(dstaddr_box)
+        regalloc.possibly_free_var(srcaddr_box)
+        regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_vars(boxes)
+
+    def _load_address(self, sizereg, baseofs, scale, result, baseloc=None):
+        if baseloc is not None:
+            assert baseloc.is_reg()
+            self.mc.MOV_rr(result.value, baseloc.value)
+        else:
+            self.mc.MOV_ri(result.value, 0)
+        assert sizereg.is_reg()
+        if scale > 0:
+            self.mc.LSL_ri(r.ip.value, sizereg.value, scale)
+        else:
+            self.mc.MOV_rr(r.ip.value, sizereg.value)
+        self.mc.ADD_rr(result.value, result.value, r.ip.value)
+        self.mc.ADD_ri(result.value, result.value, baseofs)
+
+    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
+        cpu = self.cpu
+        if is_unicode:
+            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
+                                                  self.cpu.translate_support_code)
+            scale = self._get_unicode_item_scale()
+        else:
+            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                                  self.cpu.translate_support_code)
+            assert itemsize == 1
+            scale = 0
+        self._load_address(ofsloc, ofs_items, scale, resloc, baseloc)
+
+    def _get_unicode_item_scale(self):
+        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                                  self.cpu.translate_support_code)
+        if itemsize == 4:
+            return 2
+        elif itemsize == 2:
+            return 1
+        else:
+            raise AssertionError("bad unicode item size")
 
 class UnicodeOpAssembler(object):
 

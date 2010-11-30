@@ -52,17 +52,16 @@ class ArmCPU(AbstractLLCPU):
         return self.get_fail_descr_from_number(fail_index)
 
     def _execute_call(self, func):
-        #prev_interpreter = LLInterpreter.current_interpreter
-        #LLInterpreter.current_interpreter = self.debug_ll_interpreter
+        prev_interpreter = LLInterpreter.current_interpreter
+        LLInterpreter.current_interpreter = self.debug_ll_interpreter
         res = 0
-        #try:
-        res = func()
-        #finally:
-        #    LLInterpreter.current_interpreter = prev_interpreter
+        try:
+            res = func()
+        finally:
+            LLInterpreter.current_interpreter = prev_interpreter
         return res
 
-    @staticmethod
-    def cast_ptr_to_int(x):
+    def cast_ptr_to_int(self, x):
         adr = llmemory.cast_ptr_to_adr(x)
         return self.cast_adr_to_int(adr)
 

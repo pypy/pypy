@@ -5,7 +5,7 @@ from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
-from pypy.jit.metainterp.history import (ConstInt, BoxInt, BasicFailDescr,
+from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, BasicFailDescr,
                                                 INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
@@ -16,6 +16,9 @@ from pypy.jit.backend.arm.opassembler import ResOpAssembler
 # XXX Move to llsupport
 from pypy.jit.backend.x86.support import values_array
 
+memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
+                                       rffi.SIZE_T], lltype.Void,
+                            sandboxsafe=True, _nowrapper=True)
 
 class AssemblerARM(ResOpAssembler):
 
@@ -29,6 +32,7 @@ class AssemblerARM(ResOpAssembler):
         self.malloc_array_func_addr = 0
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
+        self.memcpy_addr = 0
 
     def setup(self):
         if self.mc is None:
@@ -55,6 +59,7 @@ class AssemblerARM(ResOpAssembler):
                 ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
                 self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
                                                           ll_new_unicode)
+            self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
 
 
     def setup_failure_recovery(self):
@@ -438,6 +443,20 @@ class AssemblerARM(ResOpAssembler):
                 lower_bound = arg.getint() > 0
             return arg.getint() <= size and lower_bound
         return False
+
+    def _ensure_value_is_boxed(self, thing, regalloc):
+        box = None
+        loc = None
+        if isinstance(thing, Const):
+            box = TempBox()
+            loc = regalloc.force_allocate_reg(box)
+            imm = regalloc.convert_to_imm(thing)
+            self.mc.gen_load_int(loc.value, imm.getint())
+        else:
+            loc = regalloc.make_sure_var_in_reg(thing, imm_fine=False)
+            box = thing
+        return loc, box
+
 
 
     def _ensure_result_bit_extension(self, resloc, size, signed, regalloc):
