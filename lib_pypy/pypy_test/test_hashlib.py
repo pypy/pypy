@@ -6,7 +6,7 @@ from . import hack___pypy__
 from .. import hashlib, _hashlib
 
 def test_unicode():
-    assert isinstance(hashlib.new('sha1', u'xxx'), _hashlib.hash)
+    assert isinstance(hashlib.new('sha256', u'xxx'), _hashlib.hash)
 
 def test_attributes():
     for name, expected_size in {'md5': 16,
