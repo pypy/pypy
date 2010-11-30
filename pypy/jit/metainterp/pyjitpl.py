@@ -612,8 +612,10 @@ class MIFrame(object):
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
         arrayindex = vinfo.array_field_by_descrs[arrayfielddescr]
         index = indexbox.getint()
-        if index < 0:
-            index += vinfo.get_array_length(virtualizable, arrayindex)
+        # Support for negative index: disabled
+        # (see codewriter/jtransform.py, _check_no_vable_array).
+        #if index < 0:
+        #    index += vinfo.get_array_length(virtualizable, arrayindex)
         assert 0 <= index < vinfo.get_array_length(virtualizable, arrayindex)
         return vinfo.get_index_in_array(virtualizable, arrayindex, index)
 

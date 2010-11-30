@@ -159,6 +159,8 @@ class WarmRunnerDesc(object):
         self.check_access_directly_sanity(graphs)
         if backendopt:
             self.prejit_optimizations(policy, graphs)
+        elif self.opt.listops:
+            self.prejit_optimizations_minimal_inline(policy, graphs)
 
         self.build_meta_interp(ProfilerClass)
         self.make_args_specifications()
@@ -255,6 +257,10 @@ class WarmRunnerDesc(object):
                               raisingop2direct_call=False,
                               remove_asserts=True,
                               really_remove_asserts=True)
+
+    def prejit_optimizations_minimal_inline(self, policy, graphs):
+        from pypy.translator.backendopt.inline import auto_inline_graphs
+        auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
                   no_stats=False, **kwds):

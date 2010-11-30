@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar, Number
 from pypy.rpython import robject
 from pypy.rlib.objectmodel import malloc_zero_filled
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.rarithmetic import ovfcheck, widen
+from pypy.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
 from pypy.rpython.annlowlevel import ADTInterface
 from pypy.rlib import rgc
 
@@ -241,17 +241,22 @@ class __extend__(pairtype(AbstractBaseListRepr, Repr)):
 class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
 
     def rtype_getitem((r_lst, r_int), hop, checkidx=False):
-        if checkidx:
-            spec = dum_checkidx
-        else:
-            spec = dum_nocheck
-        v_func = hop.inputconst(Void, spec)
         v_lst, v_index = hop.inputargs(r_lst, Signed)
+        if checkidx:
+            hop.exception_is_here()
+        else:
+            hop.exception_cannot_occur()
         if hop.args_s[0].listdef.listitem.mutated or checkidx:
             if hop.args_s[1].nonneg:
                 llfn = ll_getitem_nonneg
             else:
                 llfn = ll_getitem
+            if checkidx:
+                spec = dum_checkidx
+            else:
+                spec = dum_nocheck
+            c_func_marker = hop.inputconst(Void, spec)
+            v_res = hop.gendirectcall(llfn, c_func_marker, v_lst, v_index)
         else:
             # this is the 'foldable' version, which is not used when
             # we check for IndexError
@@ -259,11 +264,7 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
                 llfn = ll_getitem_foldable_nonneg
             else:
                 llfn = ll_getitem_foldable
-        if checkidx:
-            hop.exception_is_here()
-        else:
-            hop.exception_cannot_occur()
-        v_res = hop.gendirectcall(llfn, v_func, v_lst, v_index)
+            v_res = hop.gendirectcall(llfn, v_lst, v_index)
         return r_lst.recast(hop.llops, v_res)
 
     rtype_getitem_key = rtype_getitem
@@ -538,12 +539,14 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             dest.ll_setitem_fast(dest_start + i, item)
             i += 1
 ll_arraycopy._annenforceargs_ = [None, None, int, int, int]
+# no oopspec -- the function is inlined by the JIT
 
 def ll_copy(RESLIST, l):
     length = l.ll_length()
     new_lst = RESLIST.ll_newlist(length)
     ll_arraycopy(l, new_lst, 0, 0, length)
     return new_lst
+# no oopspec -- the function is inlined by the JIT
 
 def ll_len(l):
     return l.ll_length()
@@ -551,6 +554,7 @@ def ll_len(l):
 def ll_list_is_true(l):
     # check if a list is True, allowing for None
     return bool(l) and l.ll_length() != 0
+# no oopspec -- the function is inlined by the JIT
 
 def ll_len_foldable(l):
     return l.ll_length()
@@ -558,6 +562,7 @@ ll_len_foldable.oopspec = 'list.len_foldable(l)'
 
 def ll_list_is_true_foldable(l):
     return bool(l) and ll_len_foldable(l) != 0
+# no oopspec -- the function is inlined by the JIT
 
 def ll_append(l, newitem):
     length = l.ll_length()
@@ -588,6 +593,7 @@ def ll_concat(RESLIST, l1, l2):
     ll_arraycopy(l1, l, 0, 0, len1)
     ll_arraycopy(l2, l, 0, len1, len2)
     return l
+# no oopspec -- the function is inlined by the JIT
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.ll_length()
@@ -674,60 +680,72 @@ def ll_reverse(l):
         l.ll_setitem_fast(length_1_i, tmp)
         i += 1
         length_1_i -= 1
+ll_reverse.oopspec = 'list.reverse(l)'
 
 def ll_getitem_nonneg(func, l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")
     if func is dum_checkidx:
         if index >= l.ll_length():
             raise IndexError
-    else:
-        ll_assert(index < l.ll_length(), "list getitem index out of bound")
     return l.ll_getitem_fast(index)
-ll_getitem_nonneg.oopspec = 'list.getitem(l, index)'
+ll_getitem_nonneg._always_inline_ = True
+# no oopspec -- the function is inlined by the JIT
 
 def ll_getitem(func, l, index):
-    length = l.ll_length()
-    if index < 0:
-        index += length
     if func is dum_checkidx:
-        if index < 0 or index >= length:
-            raise IndexError
+        length = l.ll_length()    # common case: 0 <= index < length
+        if r_uint(index) >= r_uint(length):
+            # Failed, so either (-length <= index < 0), or we have to raise
+            # IndexError.  First add 'length' to get the final index, then
+            # check that we now have (0 <= index < length).
+            index = r_uint(index) + r_uint(length)
+            if index >= r_uint(length):
+                raise IndexError
+            index = intmask(index)
     else:
-        ll_assert(index >= 0, "negative list getitem index out of bound")
-        ll_assert(index < length, "list getitem index out of bound")
+        # We don't want checking, but still want to support index < 0.
+        # Only call ll_length() if needed.
+        if index < 0:
+            index += l.ll_length()
+            ll_assert(index >= 0, "negative list getitem index out of bound")
     return l.ll_getitem_fast(index)
-ll_getitem.oopspec = 'list.getitem(l, index)'
+# no oopspec -- the function is inlined by the JIT
 
-def ll_getitem_foldable_nonneg(func, l, index):
-    return ll_getitem_nonneg(func, l, index)
+def ll_getitem_foldable_nonneg(l, index):
+    ll_assert(index >= 0, "unexpectedly negative list getitem index")
+    return l.ll_getitem_fast(index)
 ll_getitem_foldable_nonneg.oopspec = 'list.getitem_foldable(l, index)'
 
-def ll_getitem_foldable(func, l, index):
-    return ll_getitem(func, l, index)
-ll_getitem_foldable.oopspec = 'list.getitem_foldable(l, index)'
+def ll_getitem_foldable(l, index):
+    if index < 0:
+        index += l.ll_length()
+    return ll_getitem_foldable_nonneg(l, index)
+ll_getitem_foldable._always_inline_ = True
+# no oopspec -- the function is inlined by the JIT
 
 def ll_setitem_nonneg(func, l, index, newitem):
     ll_assert(index >= 0, "unexpectedly negative list setitem index")
     if func is dum_checkidx:
         if index >= l.ll_length():
             raise IndexError
-    else:
-        ll_assert(index < l.ll_length(), "list setitem index out of bound")
     l.ll_setitem_fast(index, newitem)
-ll_setitem_nonneg.oopspec = 'list.setitem(l, index, newitem)'
+ll_setitem_nonneg._always_inline_ = True
+# no oopspec -- the function is inlined by the JIT
 
 def ll_setitem(func, l, index, newitem):
-    length = l.ll_length()
-    if index < 0:
-        index += length
     if func is dum_checkidx:
-        if index < 0 or index >= length:
-            raise IndexError
+        length = l.ll_length()
+        if r_uint(index) >= r_uint(length):   # see comments in ll_getitem().
+            index = r_uint(index) + r_uint(length)
+            if index >= r_uint(length):
+                raise IndexError
+            index = intmask(index)
     else:
-        ll_assert(index >= 0, "negative list setitem index out of bound")
-        ll_assert(index < length, "list setitem index out of bound")
+        if index < 0:
+            index += l.ll_length()
+            ll_assert(index >= 0, "negative list setitem index out of bound")
     l.ll_setitem_fast(index, newitem)
-ll_setitem.oopspec = 'list.setitem(l, index, newitem)'
+# no oopspec -- the function is inlined by the JIT
 
 def ll_delitem_nonneg(func, l, index):
     ll_assert(index >= 0, "unexpectedly negative list delitem index")
@@ -751,19 +769,20 @@ def ll_delitem_nonneg(func, l, index):
     l._ll_resize_le(newlength)
 ll_delitem_nonneg.oopspec = 'list.delitem(l, index)'
 
-def ll_delitem(func, l, i):
-    length = l.ll_length()
-    if i < 0:
-        i += length
+def ll_delitem(func, l, index):
     if func is dum_checkidx:
-        if i < 0 or i >= length:
-            raise IndexError
+        length = l.ll_length()
+        if r_uint(index) >= r_uint(length):   # see comments in ll_getitem().
+            index = r_uint(index) + r_uint(length)
+            if index >= r_uint(length):
+                raise IndexError
+            index = intmask(index)
     else:
-        ll_assert(i >= 0, "negative list delitem index out of bound")
-        ll_assert(i < length, "list delitem index out of bound")
-    ll_delitem_nonneg(dum_nocheck, l, i)
-ll_delitem.oopspec = 'list.delitem(l, i)'
-
+        if index < 0:
+            index += l.ll_length()
+            ll_assert(index >= 0, "negative list delitem index out of bound")
+    ll_delitem_nonneg(dum_nocheck, l, index)
+# no oopspec -- the function is inlined by the JIT
 
 def ll_extend(l1, l2):
     len1 = l1.ll_length()
@@ -799,6 +818,7 @@ def ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, start):
         lst.ll_setitem_fast(j, c)
         i += 1
         j += 1
+# not inlined by the JIT -- contains a loop
 
 def ll_extend_with_str_slice_startstop(lst, s, getstrlen, getstritem,
                                        start, stop):
@@ -824,6 +844,7 @@ def ll_extend_with_str_slice_startstop(lst, s, getstrlen, getstritem,
         lst.ll_setitem_fast(j, c)
         i += 1
         j += 1
+# not inlined by the JIT -- contains a loop
 
 def ll_extend_with_str_slice_minusone(lst, s, getstrlen, getstritem):
     len1 = lst.ll_length()
@@ -843,6 +864,7 @@ def ll_extend_with_str_slice_minusone(lst, s, getstrlen, getstritem):
         lst.ll_setitem_fast(j, c)
         i += 1
         j += 1
+# not inlined by the JIT -- contains a loop
 
 def ll_extend_with_char_count(lst, char, count):
     if count <= 0:
@@ -859,6 +881,7 @@ def ll_extend_with_char_count(lst, char, count):
     while j < newlength:
         lst.ll_setitem_fast(j, char)
         j += 1
+# not inlined by the JIT -- contains a loop
 
 def ll_listslice_startonly(RESLIST, l1, start):
     len1 = l1.ll_length()
@@ -869,6 +892,7 @@ def ll_listslice_startonly(RESLIST, l1, start):
     ll_arraycopy(l1, l, start, 0, newlength)
     return l
 ll_listslice_startonly._annenforceargs_ = (None, None, int)
+# no oopspec -- the function is inlined by the JIT
 
 def ll_listslice_startstop(RESLIST, l1, start, stop):
     length = l1.ll_length()
@@ -881,6 +905,7 @@ def ll_listslice_startstop(RESLIST, l1, start, stop):
     l = RESLIST.ll_newlist(newlength)
     ll_arraycopy(l1, l, start, 0, newlength)
     return l
+# no oopspec -- the function is inlined by the JIT
 
 def ll_listslice_minusone(RESLIST, l1):
     newlength = l1.ll_length() - 1
@@ -888,6 +913,7 @@ def ll_listslice_minusone(RESLIST, l1):
     l = RESLIST.ll_newlist(newlength)
     ll_arraycopy(l1, l, 0, 0, newlength)
     return l
+# no oopspec -- the function is inlined by the JIT
 
 def ll_listdelslice_startonly(l, start):
     ll_assert(start >= 0, "del l[start:] with unexpectedly negative start")
@@ -958,6 +984,7 @@ def ll_listeq(l1, l2, eqfn):
                 return False
         j += 1
     return True
+# not inlined by the JIT -- contains a loop
 
 def ll_listcontains(lst, obj, eqfn):
     lng = lst.ll_length()
@@ -971,6 +998,7 @@ def ll_listcontains(lst, obj, eqfn):
                 return True
         j += 1
     return False
+# not inlined by the JIT -- contains a loop
 
 def ll_listindex(lst, obj, eqfn):
     lng = lst.ll_length()
@@ -984,6 +1012,7 @@ def ll_listindex(lst, obj, eqfn):
                 return j
         j += 1
     raise ValueError # can't say 'list.index(x): x not in list'
+# not inlined by the JIT -- contains a loop
 
 def ll_listremove(lst, obj, eqfn):
     index = ll_listindex(lst, obj, eqfn) # raises ValueError if obj not in lst
@@ -1030,3 +1059,4 @@ def ll_mul(RESLIST, l, factor):
             i += 1
         j += length
     return res
+# not inlined by the JIT -- contains a loop

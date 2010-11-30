@@ -28,14 +28,14 @@ Py_GE = 5
 
 def check_num_args(space, ob, n):
     from pypy.module.cpyext.tupleobject import PyTuple_CheckExact, \
-            PyTuple_GET_SIZE
+            _PyTuple_Size_Fast
     if not PyTuple_CheckExact(space, ob):
         raise OperationError(space.w_SystemError,
             space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
-    if n == PyTuple_GET_SIZE(space, ob):
+    if n == _PyTuple_Size_Fast(space, ob):
         return
     raise operationerrfmt(space.w_TypeError,
-        "expected %d arguments, got %d", n, PyTuple_GET_SIZE(space, ob))
+        "expected %d arguments, got %d", n, _PyTuple_Size_Fast(space, ob))
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)

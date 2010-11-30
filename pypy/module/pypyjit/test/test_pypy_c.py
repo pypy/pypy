@@ -695,11 +695,9 @@ class PyPyCJITTests(object):
                 i = t2[3]
                 del t2
             return i
-        ''', 100, ([], 100))
+        ''', 40, ([], 100))
         bytecode, = self.get_by_bytecode('BINARY_SUBSCR')
-        assert len(bytecode.get_opnames('new_array')) == 1
-        # XXX I would like here to say that it's 0, but unfortunately
-        #     call that can raise is not exchanged into getarrayitem_gc
+        assert len(bytecode.get_opnames('new_array')) == 0
 
     def test_overflow_checking(self):
         startvalue = sys.maxint - 2147483647

@@ -376,7 +376,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     self, w_obj, expected_length)[:])
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
-        return t
+        return make_sure_not_resized(t)
 
     def fixedview_unroll(self, w_obj, expected_length=-1):
         return self.fixedview(w_obj, expected_length, unroll=True)
