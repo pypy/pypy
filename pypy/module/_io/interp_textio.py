@@ -172,7 +172,7 @@ class W_IncrementalNewlineDecoder(Wrappable):
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
         flag = space.r_longlong_w(w_flag)
-        self.pendingcr = (flag & 1)
+        self.pendingcr = bool(flag & 1)
         flag >>= 1
 
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
