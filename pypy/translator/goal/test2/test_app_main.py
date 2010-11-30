@@ -217,6 +217,38 @@ class TestInteraction:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
+    def test_ignore_python_startup(self):
+        old = os.environ.get('PYTHONSTARTUP', '')
+        try:
+            os.environ['PYTHONSTARTUP'] = crashing_demo_script
+            child = self.spawn(['-E'])
+            child.expect(re.escape(banner))
+            index = child.expect(['Traceback', '>>> '])
+            assert index == 1      # no traceback
+        finally:
+            os.environ['PYTHONSTARTUP'] = old
+
+    def test_ignore_python_inspect(self):
+        os.environ['PYTHONINSPECT_'] = '1'
+        try:
+            child = self.spawn(['-E', '-c', 'pass'])
+            from pexpect import EOF
+            index = child.expect(['>>> ', EOF])
+            assert index == 1      # no prompt
+        finally:
+            del os.environ['PYTHONINSPECT_']
+
+    def test_ignore_python_path(self):
+        old = os.environ.get('PYTHONPATH', '')
+        try:
+            os.environ['PYTHONPATH'] = 'foobarbaz'
+            child = self.spawn(['-E', '-c', 'import sys; print sys.path'])
+            from pexpect import EOF
+            index = child.expect(['foobarbaz', EOF])
+            assert index == 1      # no foobarbaz
+        finally:
+            os.environ['PYTHONPATH'] = old
+
     def test_unbuffered(self):
         line = 'import os,sys;sys.stdout.write(str(789));os.read(0,1)'
         child = self.spawn(['-u', '-c', line])
