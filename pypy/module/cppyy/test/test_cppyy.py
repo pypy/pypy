@@ -153,7 +153,7 @@ class AppTestCPPYY:
         assert t.invoke("getCount") == 0
 
     def testReturningOfAnObjectByPointer(self):
-        """Test returing of an instance as an argument."""
+        """Test returning of an instance as an argument."""
 
         t = self.example01
         
