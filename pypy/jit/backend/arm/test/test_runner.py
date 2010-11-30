@@ -1,3 +1,4 @@
+import py
 from pypy.jit.backend.arm.runner import ArmCPU
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
 from pypy.jit.backend.arm.test.support import skip_unless_arm
@@ -53,3 +54,6 @@ class TestARM(LLtypeBackendTest):
         output = [self.cpu.get_latest_value_int(i-1) for i in range(1, 15)]
         expected = [3, 7, 11, 15, 19, 23, 27, 3, 7, 11, 15, 19, 23, 27]
         assert output == expected
+
+    def test_cond_call_gc_wb(self, *args):
+        py.test.skip('needs gc support')
