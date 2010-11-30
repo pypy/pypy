@@ -631,7 +631,6 @@ class PyPyCJITTests(object):
         assert len(self.loops) == 1
 
     def test_getattr_with_dynamic_attribute(self):
-        py.test.skip("fix this test")
         self.run_source('''
         class A(object):
             pass
@@ -641,6 +640,11 @@ class PyPyCJITTests(object):
         def main(arg):
             sum = 0
             a = A()
+            a.a1 = 0
+            a.a2 = 0
+            a.a3 = 0
+            a.a4 = 0
+            a.a5 = 0 # workaround, because the first five attributes need a promotion
             a.x = 1
             a.y = 2
             i = 0
