@@ -630,6 +630,28 @@ class PyPyCJITTests(object):
         ''', 3000, ([0], 2000*3))
         assert len(self.loops) == 1
 
+    def test_getattr_with_dynamic_attribute(self):
+        py.test.skip("fix this test")
+        self.run_source('''
+        class A(object):
+            pass
+
+        l = ["x", "y"]
+
+        def main(arg):
+            sum = 0
+            a = A()
+            a.x = 1
+            a.y = 2
+            i = 0
+            while i < 2000:
+                name = l[i % 2]
+                sum += getattr(a, name)
+                i += 1
+            return sum
+        ''', 3000, ([0], 3000))
+        assert len(self.loops) == 1
+
     def test_blockstack_virtualizable(self):
         self.run_source('''
         from pypyjit import residual_call
