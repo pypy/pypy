@@ -201,7 +201,7 @@ class CPPConstructor(CPPMethod):
 
 class W_CPPOverload(Wrappable):
     _immutable_ = True
-    _immutable_fields_ = ["functions[*]"]
+    _immutable_fields_ = ["func_name", "functions[*]"]
     def __init__(self, space, func_name, functions):
         self.space = space
         self.func_name = func_name
@@ -211,10 +211,7 @@ class W_CPPOverload(Wrappable):
         return self.space.wrap(isinstance(self.functions[0], CPPFunction))
 
     def get_returntype(self):
-        try:
-            return self.space.wrap(self.functions[0].executor.cpptype.name)
-        except AttributeError:
-            return None
+        return self.space.wrap(self.functions[0].executor.name)
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):

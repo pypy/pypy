@@ -20,10 +20,10 @@ def bind_object(cppobj, cppclass):
     return bound_obj
 
 def make_static_function(cpptype, name, rettype):
-    if rettype is None:
+    if not rettype:                              # return builtin type
         def method(*args):
             return cpptype.invoke(name, *args)
-    else:
+    else:                                        # return instance
         cppclass = get_cppclass(rettype)
         def method(*args):
             return bind_object(cpptype.invoke(name, *args), cppclass)
@@ -31,7 +31,7 @@ def make_static_function(cpptype, name, rettype):
     return staticmethod(method)
 
 def make_method(name, rettype):
-    if rettype is None:                          # return builtin type
+    if not rettype:                              # return builtin type
         def method(self, *args):
             return self._cppinstance.invoke(name, *args)
     else:                                        # return instance

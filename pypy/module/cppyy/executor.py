@@ -10,8 +10,8 @@ class FunctionExecutor(object):
     _immutable_ = True
     libffitype = libffi.types.NULL
 
-    def __init__(self, space, cpptype):
-        pass
+    def __init__(self, space, name, cpptype):
+        self.name = name
 
     def execute(self, space, func, cppthis, num_args, args):
         raise NotImplementedError
@@ -93,7 +93,8 @@ class CStringExecutor(FunctionExecutor):
 
 class InstancePtrExecutor(FunctionExecutor):
     _immutable_ = True
-    def __init__(self, space, cpptype):
+    def __init__(self, space, name, cpptype):
+        FunctionExecutor.__init__(self, space, name, cpptype)
         self.cpptype = cpptype
 
     def execute(self, space, func, cppthis, num_args, args):
@@ -107,17 +108,18 @@ def get_executor(space, name):
     from pypy.module.cppyy import interp_cppyy
 
     try:
-        return _executors[name](space, None)
+        return _executors[name](space, "", None)
     except KeyError:
         pass
 
     compound = helper.compound(name)
-    cpptype = interp_cppyy.type_byname(space, helper.clean_type(name))
+    clean_name = helper.clean_type(name)
+    cpptype = interp_cppyy.type_byname(space, clean_name)
     if compound == "*":           
-        return InstancePtrExecutor(space, cpptype)
+        return InstancePtrExecutor(space, cpptype.name, cpptype)
 
     # currently used until proper lazy instantiation available in interp_cppyy
-    return FunctionExecutor(space, None)
+    return FunctionExecutor(space, "", None)
  
  #  raise TypeError("no clue what %s is" % name)
 
