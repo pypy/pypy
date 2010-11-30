@@ -11,6 +11,8 @@ from ctypes_support import get_errno
 # load the platform-specific cache made by running locale.ctc.py
 from ctypes_config_cache._locale_cache import *
 
+import __pypy__
+
 
 # Ubuntu Gusty i386 structure
 class lconv(Structure):
@@ -158,6 +160,7 @@ def fixup_ulcase():
     ul = ''.join(ul)
     string.letters = ul
 
+@__pypy__.builtinify
 def setlocale(category, locale=None):
     "(integer,string=None) -> string. Activates/queries locale processing."
     if locale:
@@ -182,6 +185,7 @@ def _copy_grouping(text):
         groups.append(0)
     return groups
 
+@__pypy__.builtinify
 def localeconv():
     "() -> dict. Returns numeric and monetary locale-specific parameters."
 
@@ -215,6 +219,7 @@ def localeconv():
     }
     return result
 
+@__pypy__.builtinify
 def strcoll(s1, s2):
     "string,string -> int. Compares two strings according to the locale."
 
@@ -233,6 +238,7 @@ def strcoll(s1, s2):
     # Collate the strings.
     return _wcscoll(s1, s2)
 
+@__pypy__.builtinify
 def strxfrm(s):
     "string -> string. Returns a string that behaves for cmp locale-aware."
 
@@ -246,6 +252,7 @@ def strxfrm(s):
         _strxfrm(buf, s, n2)
     return buf.value
 
+@__pypy__.builtinify
 def getdefaultlocale():
     # TODO: Port code from CPython for Windows and Mac OS
     raise NotImplementedError()
@@ -267,26 +274,31 @@ if HAS_LANGINFO:
         raise ValueError("unsupported langinfo constant")
 
 if HAS_LIBINTL:
+    @__pypy__.builtinify
     def gettext(msg):
         """gettext(msg) -> string
         Return translation of msg."""
         return _gettext(msg)
 
+    @__pypy__.builtinify
     def dgettext(domain, msg):
         """dgettext(domain, msg) -> string
         Return translation of msg in domain."""
         return _dgettext(domain, msg)
 
+    @__pypy__.builtinify
     def dcgettext(domain, msg, category):
         """dcgettext(domain, msg, category) -> string
         Return translation of msg in domain and category."""
         return _dcgettext(domain, msg, category)
 
+    @__pypy__.builtinify
     def textdomain(domain):
         """textdomain(domain) -> string
         Set the C library's textdomain to domain, returning the new domain."""
         return _textdomain(domain)
 
+    @__pypy__.builtinify
     def bindtextdomain(domain, dir):
         """bindtextdomain(domain, dir) -> string
         Bind the C library's domain to dir."""
@@ -297,6 +309,7 @@ if HAS_LIBINTL:
         return dirname
 
     if HAS_BIND_TEXTDOMAIN_CODESET:
+        @__pypy__.builtinify
         def bind_textdomain_codeset(domain, codeset):
             """bind_textdomain_codeset(domain, codeset) -> string
             Bind the C library's domain to codeset."""

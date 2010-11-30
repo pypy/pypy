@@ -11,6 +11,7 @@ import ctypes
 from ctypes_support import standard_c_lib as _c
 from ctypes_support import get_errno
 import errno
+import __pypy__
 
 try:
     open_osfhandle = _c._open_osfhandle
@@ -34,6 +35,7 @@ _locking = _c._locking
 _locking.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int]
 _locking.restype = ctypes.c_int
 
+@__pypy__.builtinify
 def locking(fd, mode, nbytes):
     '''lock or unlock a number of bytes in a file.'''
     rv = _locking(fd, mode, nbytes)

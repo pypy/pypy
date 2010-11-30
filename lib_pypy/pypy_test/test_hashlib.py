@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from ..ctypes_config_cache import rebuild
 rebuild.rebuild_one('hashlib.ctc.py')
 
+from . import hack___pypy__
 from .. import hashlib, _hashlib
 
 def test_unicode():

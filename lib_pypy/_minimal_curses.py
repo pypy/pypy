@@ -35,18 +35,23 @@ ERR = -1
 
 # ____________________________________________________________
 
+import __pypy__
+
+@__pypy__.builtinify
 def setupterm(termstr, fd):
     err = ctypes.c_int(0)
     result = clib.setupterm(termstr, fd, ctypes.byref(err))
     if result == ERR:
         raise error("setupterm() failed (err=%d)" % err.value)
 
+@__pypy__.builtinify
 def tigetstr(cap):
     result = clib.tigetstr(cap)
     if ctypes.cast(result, ctypes.c_void_p).value == ERR:
         return None
     return ctypes.cast(result, ctypes.c_char_p).value
 
+@__pypy__.builtinify
 def tparm(str, i1=0, i2=0, i3=0, i4=0, i5=0, i6=0, i7=0, i8=0, i9=0):
     result = clib.tparm(str, i1, i2, i3, i4, i5, i6, i7, i8, i9)
     if result is None:

@@ -10,7 +10,7 @@ The uid and gid items are integers, all others are strings. An
 exception is raised if the entry asked for cannot be found.
 """
 
-import sys
+import sys, __pypy__
 if sys.platform == 'win32':
     raise ImportError("No pwd module on Windows")
 
@@ -79,10 +79,12 @@ _endpwent = libc.endpwent
 _endpwent.argtypes = None
 _endpwent.restype = None
 
+@__pypy__.builtinify
 def mkpwent(pw):
     pw = pw.contents
     return struct_passwd(pw)
 
+@__pypy__.builtinify
 def getpwuid(uid):
     """
     getpwuid(uid) -> (pw_name,pw_passwd,pw_uid,
@@ -95,6 +97,7 @@ def getpwuid(uid):
         raise KeyError("getpwuid(): uid not found: %s" % uid)
     return mkpwent(pw)
 
+@__pypy__.builtinify
 def getpwnam(name):
     """
     getpwnam(name) -> (pw_name,pw_passwd,pw_uid,
@@ -109,9 +112,10 @@ def getpwnam(name):
         raise KeyError("getpwname(): name not found: %s" % name)
     return mkpwent(pw)
 
+@__pypy__.builtinify
 def getpwall():
     """
-    "getpwall() -> list_of_entries
+    getpwall() -> list_of_entries
     Return a list of all available password database entries, in arbitrary order.
     See pwd.__doc__ for more on password database entries.
     """
