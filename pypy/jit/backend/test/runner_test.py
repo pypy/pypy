@@ -1203,6 +1203,13 @@ class BaseBackendTest(Runner):
         yield nan_and_infinity, rop.FLOAT_GT,  operator.gt,  all_cases_binary
         yield nan_and_infinity, rop.FLOAT_GE,  operator.ge,  all_cases_binary
 
+    def test_noops(self):
+        c_box = self.alloc_string("hi there").constbox()
+        c_nest = ConstInt(0)
+        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest], 'void')
+        self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
+                                               c_nest, c_nest], 'void')
+
 
 class LLtypeBackendTest(BaseBackendTest):
 

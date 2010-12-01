@@ -583,7 +583,12 @@ class Frame(object):
     def op_debug_merge_point(self, _, value, recdepth):
         from pypy.jit.metainterp.warmspot import get_stats
         loc = ConstPtr(value)._get_str()
-        get_stats().add_merge_point_location(loc)
+        try:
+            stats = get_stats()
+        except AttributeError:
+            pass
+        else:
+            stats.add_merge_point_location(loc)
 
     def op_guard_true(self, _, value):
         if not value:
