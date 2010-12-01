@@ -43,6 +43,22 @@ class AsmMemoryManager(object):
         self.total_mallocs -= (stop - start)
         self._add_free_block(start, stop)
 
+    def open_malloc(self, minsize):
+        """Allocate at least minsize bytes.  Returns (start, stop)."""
+        result = self._allocate_block(minsize)
+        (start, stop) = result
+        self.total_mallocs += stop - start
+        return result
+
+    def open_free(self, middle, stop):
+        """Used for freeing the end of an open-allocated block of memory."""
+        if stop - middle >= self.min_fragment:
+            self.total_mallocs -= (stop - middle)
+            self._add_free_block(middle, stop)
+            return True
+        else:
+            return False    # too small to record
+
     def _allocate_large_block(self, minsize):
         # Compute 'size' from 'minsize': it must be rounded up to
         # 'large_alloc_size'.  Additionally, we use the following line
@@ -140,6 +156,40 @@ class AsmMemoryManager(object):
         self._allocated = None
 
 
+class MachineDataBlockWrapper(object):
+    def __init__(self, asmmemmgr, allblocks):
+        self.asmmemmgr = asmmemmgr
+        self.allblocks = allblocks
+        self.rawstart    = 0
+        self.rawposition = 0
+        self.rawstop     = 0
+
+    def done(self):
+        if self.rawstart != 0:
+            if self.asmmemmgr.open_free(self.rawposition, self.rawstop):
+                self.rawstop = self.rawposition
+            self.allblocks.append((self.rawstart, self.rawstop))
+            self.rawstart    = 0
+            self.rawposition = 0
+            self.rawstop     = 0
+
+    def _allocate_next_block(self, minsize):
+        self.done()
+        self.rawstart, self.rawstop = self.asmmemmgr.open_malloc(minsize)
+        self.rawposition = self.rawstart
+
+    def malloc_aligned(self, size, alignment):
+        p = self.rawposition
+        p = (p + alignment - 1) & (-alignment)
+        if p + size > self.rawstop:
+            self._allocate_next_block(size + alignment - 1)
+            p = self.rawposition
+            p = (p + alignment - 1) & (-alignment)
+            assert p + size <= self.rawstop
+        self.rawposition = p + size
+        return p
+
+
 class BlockBuilderMixin(object):
     _mixin_ = True
     # A base class to generate assembler.  It is equivalent to just a list
@@ -156,7 +206,6 @@ class BlockBuilderMixin(object):
     SUBBLOCK_PTR.TO.become(SUBBLOCK)
 
     gcroot_markers = None
-    gcroot_markers_total_size = 0
 
     def __init__(self, translated=None):
         if translated is None:
@@ -224,11 +273,8 @@ class BlockBuilderMixin(object):
         self.copy_to_raw_memory(rawstart)
         if self.gcroot_markers is not None:
             assert gcrootmap is not None
-            gcrootmap.add_raw_gcroot_markers(asmmemmgr,
-                                             allblocks,
-                                             self.gcroot_markers,
-                                             self.gcroot_markers_total_size,
-                                             rawstart)
+            for pos, mark in self.gcroot_markers:
+                gcrootmap.put(rawstart + pos, mark)
         return rawstart
 
     def _become_a_plain_block_builder(self):
@@ -247,4 +293,3 @@ class BlockBuilderMixin(object):
         if self.gcroot_markers is None:
             self.gcroot_markers = []
         self.gcroot_markers.append((self.get_relative_pos(), mark))
-        self.gcroot_markers_total_size += len(mark)

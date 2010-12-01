@@ -91,11 +91,27 @@ class TestGcRootMapAsmGcc:
         assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
                                   4, 8, 12, 16])
 
+    def test_compress_callshape(self):
+        class FakeDataBlockWrapper:
+            def malloc_aligned(self, size, alignment):
+                assert alignment == 1    # here
+                assert size == 4
+                return rffi.cast(lltype.Signed, p)
+        datablockwrapper = FakeDataBlockWrapper()
+        p = lltype.malloc(rffi.CArray(lltype.Char), 4, immortal=True)
+        gcrootmap = GcRootMap_asmgcc()
+        shape = ['a', 'b', 'c', 'd']
+        gcrootmap.compress_callshape(shape, datablockwrapper)
+        assert p[0] == 'd'
+        assert p[1] == 'c'
+        assert p[2] == 'b'
+        assert p[3] == 'a'
+
     def test_put_basic(self):
         gcrootmap = GcRootMap_asmgcc()
         retaddr = 1234567890
         shapeaddr = 51627384
-        gcrootmap._put(retaddr, shapeaddr)
+        gcrootmap.put(retaddr, shapeaddr)
         assert gcrootmap._gcmap[0] == retaddr
         assert gcrootmap._gcmap[1] == shapeaddr
         p = rffi.cast(rffi.LONGP, gcrootmap.gcmapstart())
@@ -109,7 +125,7 @@ class TestGcRootMapAsmGcc:
         for i in range(700):
             shapeaddr = i * 100 + 1
             retaddr = 123456789 + i
-            gcrootmap._put(retaddr, shapeaddr)
+            gcrootmap.put(retaddr, shapeaddr)
         for i in range(700):
             assert gcrootmap._gcmap[i*2+0] == 123456789 + i
             assert gcrootmap._gcmap[i*2+1] == i * 100 + 1
@@ -126,7 +142,7 @@ class TestGcRootMapAsmGcc:
         for i in range(700):
             shapeaddr = i * 100       # 0 if i == 0
             retaddr = 123456789 + i
-            gcrootmap._put(retaddr, shapeaddr)
+            gcrootmap.put(retaddr, shapeaddr)
             if shapeaddr != 0:
                 expected.append((retaddr, shapeaddr))
         # at the first resize, the 0 should be removed
@@ -142,71 +158,10 @@ class TestGcRootMapAsmGcc:
             # check that we can again insert 350 entries without a resize
             oldgcmap = gcrootmap._gcmap
             for i in range(0, 699, 2):
-                gcrootmap._put(515151 + i + repeat, 626262 + i)
+                gcrootmap.put(515151 + i + repeat, 626262 + i)
                 expected.append((515151 + i + repeat, 626262 + i))
             assert gcrootmap._gcmap == oldgcmap
             check()
-
-    def test_add_raw_gcroot_markers_maxalloc(self):
-        class FakeAsmMemMgr:
-            def malloc(self, minsize, maxsize):
-                assert minsize == 4
-                assert maxsize == 7
-                return (prawstart, prawstart + 8)
-        put = []
-        def fakeput(a, b):
-            put.append((a, b))
-        gcrootmap = GcRootMap_asmgcc()
-        gcrootmap._put = fakeput
-        memmgr = FakeAsmMemMgr()
-        allblocks = []
-        p = lltype.malloc(rffi.CArray(lltype.Char), 7, immortal=True)
-        prawstart = rffi.cast(lltype.Signed, p)
-        gcrootmap.add_raw_gcroot_markers(memmgr, allblocks,
-                                         [(2, ['a', 'b', 'c', 'd']),
-                                          (4, ['e', 'f', 'g'])],
-                                         4 + 3, 1200000)
-        assert allblocks == [(prawstart, prawstart + 8)]
-        assert ''.join([p[i] for i in range(7)]) == 'dcbagfe'
-        assert put == [(1200002, prawstart),
-                       (1200004, prawstart + 4)]
-
-    def test_add_raw_gcroot_markers_minalloc(self):
-        class FakeAsmMemMgr:
-            callnum = 0
-            def malloc(self, minsize, maxsize):
-                self.callnum += 1
-                if self.callnum == 1:
-                    assert minsize == 4
-                    assert maxsize == 7
-                    return (prawstart, prawstart + 6)
-                elif self.callnum == 2:
-                    assert minsize == 3
-                    assert maxsize == 3
-                    return (qrawstart, qrawstart + 5)
-                else:
-                    raise AssertionError
-        put = []
-        def fakeput(a, b):
-            put.append((a, b))
-        gcrootmap = GcRootMap_asmgcc()
-        gcrootmap._put = fakeput
-        memmgr = FakeAsmMemMgr()
-        allblocks = []
-        p = lltype.malloc(rffi.CArray(lltype.Char), 6, immortal=True)
-        prawstart = rffi.cast(lltype.Signed, p)
-        q = lltype.malloc(rffi.CArray(lltype.Char), 5, immortal=True)
-        qrawstart = rffi.cast(lltype.Signed, q)
-        gcrootmap.add_raw_gcroot_markers(memmgr, allblocks,
-                                         [(2, ['a', 'b', 'c', 'd']),
-                                          (4, ['e', 'f', 'g'])],
-                                         4 + 3, 1200000)
-        assert allblocks == [(prawstart, prawstart + 6),
-                             (qrawstart, qrawstart + 5)]
-        assert ''.join([p[i] for i in range(4)]) == 'dcba'
-        assert ''.join([q[i] for i in range(3)]) == 'gfe'
-        assert put == [(1200002, prawstart),
-                       (1200004, qrawstart)]
 
     def test_freeing_block(self):
         from pypy.jit.backend.llsupport import gc

@@ -60,32 +60,6 @@ class X86_64_RegisterManager(X86RegisterManager):
         r15: 5,
     }
 
-class FloatConstants(object):
-    BASE_CONSTANT_SIZE = 1000
-
-    def __init__(self):
-        self.cur_array_free = 0
-        self.const_id = 0
-
-    def _get_new_array(self):
-        n = self.BASE_CONSTANT_SIZE
-        # known to leak
-        self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n, # YYY leak
-                                       flavor='raw', track_allocation=False)
-        self.cur_array_free = n
-    _get_new_array._dont_inline_ = True
-
-    def record_float(self, floatval):
-        if self.cur_array_free == 0:
-            self._get_new_array()
-        arr = self.cur_array
-        n = self.cur_array_free - 1
-        arr[n] = floatval
-        self.cur_array_free = n
-        self.const_id += 1
-        return (self.const_id, rffi.cast(lltype.Signed, arr) + n * 8)
-
-
 class X86XMMRegisterManager(RegisterManager):
 
     box_types = [FLOAT]
@@ -93,20 +67,11 @@ class X86XMMRegisterManager(RegisterManager):
     # we never need lower byte I hope
     save_around_call_regs = all_regs
 
-    def __init__(self, longevity, frame_manager=None, assembler=None):
-        RegisterManager.__init__(self, longevity, frame_manager=frame_manager,
-                                 assembler=assembler)
-        if assembler is None:
-            self.float_constants = FloatConstants()
-        else:
-            if assembler._float_constants is None:
-                assembler._float_constants = FloatConstants()
-            self.float_constants = assembler._float_constants
-
     def convert_to_imm(self, c):
-        const_id, adr = self.float_constants.record_float(c.getfloat())
-        return ConstFloatLoc(adr, const_id)
-        
+        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        return ConstFloatLoc(adr)
+
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,
         # so genop_call will move it to some frame location immediately
@@ -1108,7 +1073,8 @@ class RegAlloc(object):
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
                 gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
-        return shape
+        return gcrootmap.compress_callshape(shape,
+                                            self.assembler.datablockwrapper)
 
     def consider_force_token(self, op):
         loc = self.rm.force_allocate_reg(op.result)
