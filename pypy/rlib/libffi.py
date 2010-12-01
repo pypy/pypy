@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.objectmodel import specialize, enforceargs, we_are_translated
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat
 from pypy.rlib import jit
 from pypy.rlib import clibffi
 from pypy.rlib.clibffi import get_libc_name, FUNCFLAG_CDECL, AbstractFuncPtr, \
@@ -40,6 +40,7 @@ class types(object):
         """
         if   ffi_type is types.void:    return 'v'
         elif ffi_type is types.double:  return 'f'
+        elif ffi_type is types.float:   return 'f'
         elif ffi_type is types.pointer: return 'i'
         #
         elif ffi_type is types.schar:   return 'i'
@@ -104,10 +105,20 @@ class ArgChain(object):
             val = rffi.cast(rffi.LONG, val)
         elif TYPE is rffi.DOUBLE:
             cls = FloatArg
+        elif TYPE is rffi.FLOAT:
+            raise TypeError, 'r_singlefloat not supported by arg(), use arg_singlefloat()'
         else:
             raise TypeError, 'Unsupported argument type: %s' % TYPE
         self._append(cls(val))
         return self
+
+    def arg_singlefloat(self, val):
+        """
+        Note: you must pass a python Float (rffi.DOUBLE), not a r_singlefloat
+        (else the jit complains).  Note that if you use single floats, the
+        call won't be jitted at all.
+        """
+        self._append(SingleFloatArg(val))
 
     def _append(self, arg):
         if self.first is None:
@@ -132,7 +143,7 @@ class IntArg(AbstractArg):
         func._push_int(self.intval, ll_args, i)
 
 class FloatArg(AbstractArg):
-    """ An argument holding a float
+    """ An argument holding a python float (i.e. a C double)
     """
 
     def __init__(self, floatval):
@@ -140,6 +151,17 @@ class FloatArg(AbstractArg):
 
     def push(self, func, ll_args, i):
         func._push_float(self.floatval, ll_args, i)
+
+
+class SingleFloatArg(AbstractArg):
+    """ An argument holding a C float
+    """
+
+    def __init__(self, floatval):
+        self.floatval = floatval
+
+    def push(self, func, ll_args, i):
+        func._push_single_float(self.floatval, ll_args, i)
 
 
 # ======================================================================
@@ -190,6 +212,10 @@ class Func(AbstractFuncPtr):
             res = self._do_call_int(self.funcsym, ll_args)
         elif RESULT is rffi.DOUBLE:
             return self._do_call_float(self.funcsym, ll_args)
+        elif RESULT is rffi.FLOAT:
+            # XXX: even if RESULT is FLOAT, we still return a DOUBLE, else the
+            # jit complains. Note that the jit is disabled in this case
+            return self._do_call_single_float(self.funcsym, ll_args)
         elif RESULT is lltype.Void:
             return self._do_call_void(self.funcsym, ll_args)
         else:
@@ -223,6 +249,10 @@ class Func(AbstractFuncPtr):
     def _push_float(self, value, ll_args, i):
         self._push_arg(value, ll_args, i)
 
+    @jit.dont_look_inside
+    def _push_single_float(self, value, ll_args, i):
+        self._push_arg(r_singlefloat(value), ll_args, i)
+
     @jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     def _do_call_int(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, rffi.LONG)
@@ -230,6 +260,11 @@ class Func(AbstractFuncPtr):
     @jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     def _do_call_float(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, rffi.DOUBLE)
+
+    @jit.dont_look_inside
+    def _do_call_single_float(self, funcsym, ll_args):
+        single_res = self._do_call(funcsym, ll_args, rffi.FLOAT)
+        return float(single_res)
 
     @jit.oopspec('libffi_call_void(self, funcsym, ll_args)')
     def _do_call_void(self, funcsym, ll_args):

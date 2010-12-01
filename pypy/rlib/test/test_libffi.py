@@ -2,6 +2,7 @@ import py
 import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
+from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name
 from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
 
@@ -110,7 +111,10 @@ class TestLibffiCall(BaseFfiTest):
         func = lib.getpointer(name, argtypes, restype)
         chain = ArgChain()
         for arg in args:
-            chain.arg(arg)
+            if isinstance(arg, r_singlefloat):
+                chain.arg_singlefloat(float(arg))
+            else:
+                chain.arg(arg)
         return func.call(chain, RESULT)
 
     def check_loops(self, *args, **kwds):
@@ -262,3 +266,19 @@ class TestLibffiCall(BaseFfiTest):
         #
         res = self.call(get_dummy, [], rffi.LONG)
         assert res == initval+1
+
+    def test_single_float_args(self):
+        """
+            float sum_xy_float(float x, float y)
+            {
+                return x+y;
+            }
+        """
+        from ctypes import c_float # this is used only to compute the expected result
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_float', [types.float, types.float], types.float)
+        x = r_singlefloat(12.34)
+        y = r_singlefloat(56.78)
+        res = self.call(func, [x, y], rffi.FLOAT, init_result=0.0)
+        expected = c_float(c_float(12.34).value + c_float(56.78).value).value
+        assert res == expected

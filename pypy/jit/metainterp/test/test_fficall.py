@@ -1,5 +1,6 @@
 
 import py
+from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib.jit import JitDriver, hint
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.libffi import ArgChain
@@ -35,7 +36,10 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                 func = hint(func, promote=True)
                 argchain = ArgChain()
                 for argval in args: # this loop is unrolled
-                    argchain.arg(argval)
+                    if type(argval) is r_singlefloat:
+                        argchain.arg_singlefloat(float(argval))
+                    else:
+                        argchain.arg(argval)
                 res = func.call(argchain, RESULT)
                 n += 1
             return res
