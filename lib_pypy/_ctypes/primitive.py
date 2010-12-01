@@ -132,8 +132,8 @@ class SimpleType(_CDataMeta):
                                              ConvMode.errors)
                     #self._objects = value
                     array = _rawffi.Array('c')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -155,8 +155,8 @@ class SimpleType(_CDataMeta):
                                              ConvMode.errors)
                     #self._objects = value
                     array = _rawffi.Array('u')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -174,8 +174,8 @@ class SimpleType(_CDataMeta):
             def _setvalue(self, value):
                 if isinstance(value, str):
                     array = _rawffi.Array('c')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -271,7 +271,9 @@ class SimpleType(_CDataMeta):
 
     def _CData_output(self, resbuffer, base=None, index=-1):
         output = super(SimpleType, self)._CData_output(resbuffer, base, index)
-        return output.value
+        if self.__bases__[0] is _SimpleCData:
+            return output.value
+        return output
     
     def _sizeofinstances(self):
         return _rawffi.sizeof(self._type_)
@@ -286,8 +288,12 @@ class _SimpleCData(_CData):
     __metaclass__ = SimpleType
     _type_ = 'i'
 
-    def __init__(self, value=DEFAULT_VALUE):
+    def __new__(cls, *args, **kwds):
+        self = _CData.__new__(cls, *args, **kwds)
         self._buffer = self._ffiarray(1, autofree=True)
+        return self
+
+    def __init__(self, value=DEFAULT_VALUE):
         if value is not DEFAULT_VALUE:
             self.value = value
 
@@ -312,7 +318,11 @@ class _SimpleCData(_CData):
         return self.value
 
     def __repr__(self):
-        return "%s(%r)" % (type(self).__name__, self.value)
+        if type(self).__bases__[0] is _SimpleCData:
+            return "%s(%r)" % (type(self).__name__, self.value)
+        else:
+            return "<%s object at 0x%x>" % (type(self).__name__,
+                                            id(self))
 
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')

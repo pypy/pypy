@@ -46,21 +46,6 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
-    def _CData_input(self, value):
-        """Used when data enters into ctypes from user code.  'value' is
-        some user-specified Python object, which is converted into a _rawffi
-        array of length 1 containing the same value according to the
-        type 'self'.
-        """
-        cobj = self.from_param(value)
-        return cobj, cobj._get_buffer_for_param()
-
-    def _CData_value(self, value):
-        cobj = self.from_param(value)
-        # we don't care here if this stuff will live afterwards, as we're
-        # interested only in value anyway
-        return cobj._get_buffer_value()
-
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
@@ -92,12 +77,19 @@ class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing
     it afterwards
     """
-    def __init__(self, buffer):
+    def __init__(self, obj, buffer):
+        self._obj = obj
         self._buffer = buffer
 
     def __del__(self):
         self._buffer.free()
         self._buffer = None
+
+    def __repr__(self):
+        return repr(self._obj)
+
+    def __eq__(self, other):
+        return self._obj == other
 
 class _CData(object):
     """ The most basic object for all ctypes types
@@ -128,7 +120,7 @@ class _CData(object):
         return buffer(self._buffer)
 
     def _get_b_base(self):
-        return self._objects
+        return self._base
     _b_base_ = property(_get_b_base)
     _b_needsfree_ = False
 
