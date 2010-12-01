@@ -114,40 +114,51 @@ class UnrollOptimizer(Optimization):
                 else:
                     loop.preamble.token.short_preamble = [short_loop]
 
-                
+                # Clone ops and boxes to get private versions and 
+                newargs = [a.clonebox() for a in short_loop.inputargs]
+                inliner = Inliner(short_loop.inputargs, newargs)
+                short_loop.inputargs = newargs
+                ops = [inliner.inline_op(op) for op in short_loop.operations]
+                short_loop.operations = ops
 
-                # Clone ops and boxes to get private versions and forget the
-                # values to allow them to be freed
-                boxmap = {}
-                for i in range(len(short_loop.inputargs)):
-                    box = short_loop.inputargs[i]
-                    newbox = box.clonebox()
-                    boxmap[box] = newbox
-                    newbox.forget_value()
-                    short_loop.inputargs[i] = newbox
-                for i in range(len(short)):
-                    oldop = short[i]
-                    op = oldop.clone()
-                    args = []
-                    for a in op.getarglist():
-                        if not isinstance(a, Const):
-                            a = boxmap[a]
-                        args.append(a)
-                    op.initarglist(args)
-                    if op.is_guard():
-                        args = []
-                        for a in op.getfailargs():
-                            if not isinstance(a, Const):
-                                a = boxmap[a]
-                            args.append(a)
-                        op.setfailargs(args)
-                    box = op.result
-                    if box:
+                # Forget the values to allow them to be freed
+                for box in short_loop.inputargs:
+                    box.forget_value()
+                for op in short_loop.operations:
+                    if op.result:
+                        op.result.forget_value()
+                
+                if False:
+                    boxmap = {}
+                    for i in range(len(short_loop.inputargs)):
+                        box = short_loop.inputargs[i]
                         newbox = box.clonebox()
                         boxmap[box] = newbox
                         newbox.forget_value()
-                        op.result = newbox
-                    short[i] = op
+                        short_loop.inputargs[i] = newbox
+                    for i in range(len(short)):
+                        oldop = short[i]
+                        op = oldop.clone()
+                        args = []
+                        for a in op.getarglist():
+                            if not isinstance(a, Const):
+                                a = boxmap[a]
+                            args.append(a)
+                        op.initarglist(args)
+                        if op.is_guard():
+                            args = []
+                            for a in op.getfailargs():
+                                if not isinstance(a, Const):
+                                    a = boxmap[a]
+                                args.append(a)
+                            op.setfailargs(args)
+                        box = op.result
+                        if box:
+                            newbox = box.clonebox()
+                            boxmap[box] = newbox
+                            newbox.forget_value()
+                            op.result = newbox
+                        short[i] = op
                 
 
     def inline(self, loop_operations, loop_args, jump_args):
@@ -168,11 +179,9 @@ class UnrollOptimizer(Optimization):
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
         for newop in loop_operations:
-            print 'N:', newop
             if newop.getopnum() == rop.JUMP:
                 newop.initarglist(inputargs)
             newop = inliner.inline_op(newop, clone=False)
-            print 'I:', newop
 
             self.optimizer.first_optimization.propagate_forward(newop)
 
@@ -187,7 +196,6 @@ class UnrollOptimizer(Optimization):
 
         # FIXME: Should also loop over operations added by forcing things in this loop
         for op in newoperations: 
-            #print 'E: ', str(op)
             boxes_created_this_iteration[op.result] = True
             args = op.getarglist()
             if op.is_guard():
@@ -294,10 +302,6 @@ class UnrollOptimizer(Optimization):
         jmp.setdescr(loop.token)
         short_preamble.append(jmp)
 
-        print
-        print preamble.inputargs
-        print '\n'.join([str(o) for o in short_preamble])
-
         # Check that boxes used as arguemts are produced.
         seen = {}
         for box in preamble.inputargs:
@@ -307,7 +311,6 @@ class UnrollOptimizer(Optimization):
                 if isinstance(box, Const):
                     continue
                 if box not in seen:
-                    print box
                     debug_print("create_short_preamble failed due to",
                                 "op arguments not produced")
                     return None
