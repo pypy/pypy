@@ -45,6 +45,13 @@ class AppTestFfi:
         pow = libm.getpointer('pow', [], types.void)
         pow_addr = rffi.cast(rffi.LONG, pow.funcsym)
         cls.w_pow_addr = space.wrap(pow_addr)
+        #
+        # these are needed for test_single_float_args
+        from ctypes import c_float
+        f_12_34 = c_float(12.34).value
+        f_56_78 = c_float(56.78).value
+        f_result = c_float(f_12_34 + f_56_78).value
+        cls.w_f_12_34_plus_56_78 = space.wrap(f_result)
 
     def test_libload(self):
         import _ffi
@@ -119,13 +126,26 @@ class AppTestFfi:
                 return x+y;
             }
         """
-        import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_us', [types.ushort, types.ushort],
                                 types.ushort)
         assert sum_xy(32000, 8000) == 40000
         assert sum_xy(60000, 30000) == 90000 % 65536
+
+    def test_single_float_args(self):
+        """
+            float sum_xy_float(float x, float y)
+            {
+                return x+y;
+            }
+        """
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_float', [types.float, types.float],
+                                types.float)
+        res = sum_xy(12.34, 56.78)
+        assert res == self.f_12_34_plus_56_78
 
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types

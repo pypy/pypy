@@ -79,6 +79,8 @@ class W_FuncPtr(Wrappable):
                 argchain.arg(intmask(space.uint_w(w_arg)))
             elif kind == 'f':
                 argchain.arg(space.float_w(w_arg))
+            elif kind == 's':
+                argchain.arg_singlefloat(space.float_w(w_arg))
             else:
                 assert False, "Argument kind '%s' not supported" % kind
         return argchain
@@ -94,6 +96,10 @@ class W_FuncPtr(Wrappable):
             return self._call_uint(space, argchain)
         elif reskind == 'f':
             floatres = self.func.call(argchain, rffi.DOUBLE)
+            return space.wrap(floatres)
+        elif reskind == 's':
+            # the result is a float, but widened to be inside a double
+            floatres = self.func.call(argchain, rffi.FLOAT)
             return space.wrap(floatres)
         else:
             voidres = self.func.call(argchain, lltype.Void)

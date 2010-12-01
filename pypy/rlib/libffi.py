@@ -40,7 +40,7 @@ class types(object):
         """
         if   ffi_type is types.void:    return 'v'
         elif ffi_type is types.double:  return 'f'
-        elif ffi_type is types.float:   return 'f'
+        elif ffi_type is types.float:   return 's'
         elif ffi_type is types.pointer: return 'i'
         #
         elif ffi_type is types.schar:   return 'i'
