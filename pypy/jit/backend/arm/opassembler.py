@@ -17,7 +17,7 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, Box,
-                                        BasicFailDescr, LoopToken, INT, REF)
+                                        AbstractFailDescr, LoopToken, INT, FLOAT, REF)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
@@ -169,11 +169,12 @@ class UnaryIntOpAssembler(object):
     #XXX check for a better way of doing this
     def emit_op_int_neg(self, op, regalloc, fcond):
         arg = op.getarg(0)
-        l0 = regalloc.make_sure_var_in_reg(arg, imm_fine=False)
+        resbox = op.result
+        l0 = regalloc.make_sure_var_in_reg(arg)
         l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), [arg], imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result, [arg])
-        self.mc.MUL(res.value, l0.value, l1.value)
-        regalloc.possibly_free_vars([l0, l1, res])
+        resloc = regalloc.force_allocate_reg(resbox, [arg])
+        self.mc.MUL(resloc.value, l0.value, l1.value)
+        regalloc.possibly_free_vars([arg, resbox])
         return fcond
 
 class GuardOpAssembler(object):
@@ -183,7 +184,7 @@ class GuardOpAssembler(object):
     guard_size = ARMv7Builder.size_of_gen_load_int + 6*WORD
     def _emit_guard(self, op, regalloc, fcond, save_exc=False):
         descr = op.getdescr()
-        assert isinstance(descr, BasicFailDescr)
+        assert isinstance(descr, AbstractFailDescr)
         #if hasattr(op, 'getfailargs'):
         #   print 'Failargs: ', op.getfailargs()
 
@@ -206,14 +207,14 @@ class GuardOpAssembler(object):
         a0 = op.getarg(0)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         self.mc.CMP_ri(l0.value, 0)
-        regalloc.possibly_free_var(l0)
+        regalloc.possibly_free_var(a0)
         return self._emit_guard(op, regalloc, c.NE)
 
     def emit_op_guard_false(self, op, regalloc, fcond):
         a0 = op.getarg(0)
         l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         self.mc.CMP_ri(l0.value, 0)
-        regalloc.possibly_free_var(l0)
+        regalloc.possibly_free_var(a0)
         return self._emit_guard(op, regalloc, c.EQ)
 
     def emit_op_guard_value(self, op, regalloc, fcond):
@@ -259,8 +260,8 @@ class GuardOpAssembler(object):
         x = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
         y_temp = TempBox()
         y = regalloc.force_allocate_reg(y_temp)
-        self.mc.gen_load_int(y.value,
-                        self.cpu.cast_adr_to_int(op.getarg(1).getint()))
+        arg = op.getarg(1).getint()
+        self.mc.gen_load_int(y.value, rffi.cast(lltype.Signed, arg))
         return [x, y], [op.getarg(0), y_temp]
 
 
@@ -276,7 +277,7 @@ class GuardOpAssembler(object):
             self.mc.CMP_rr(l0.value, y.value)
             regalloc.possibly_free_var(t0)
         else:
-            raise NotImplentedError
+            raise NotImplementedError
             # XXX port from x86 backend once gc support is in place
 
         regalloc.possibly_free_vars_for_op(op)
@@ -289,11 +290,13 @@ class OpAssembler(object):
     _mixin_ = True
 
     def emit_op_jump(self, op, regalloc, fcond):
-        destlocs = op.getdescr()._arm_arglocs
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        destlocs = descr._arm_arglocs
         srclocs  = [regalloc.loc(op.getarg(i)) for i in range(op.numargs())]
         remap_frame_layout(self, srclocs, destlocs, r.ip)
 
-        loop_code = op.getdescr()._arm_loop_code
+        loop_code = descr._arm_loop_code
         self.mc.B(loop_code, fcond)
         return fcond
 
@@ -302,7 +305,7 @@ class OpAssembler(object):
         return fcond
 
     def emit_op_call(self, op, regalloc, fcond, save_all_regs=False):
-        adr = self.cpu.cast_adr_to_int(op.getarg(0).getint())
+        adr = rffi.cast(lltype.Signed, op.getarg(0).getint())
         args = op.getarglist()[1:]
         cond =  self._emit_call(adr, args, regalloc, fcond, save_all_regs, op.result)
 
@@ -328,7 +331,7 @@ class OpAssembler(object):
             for i in range(4, n_args):
                 reg = regalloc.make_sure_var_in_reg(args[i])
                 self.mc.STR_ri(reg.value, r.sp.value, (i-4)*WORD)
-                regalloc.possibly_free_var(reg)
+                regalloc.possibly_free_var(args[i])
 
 
         reg_args = min(n_args, 4)
@@ -337,10 +340,8 @@ class OpAssembler(object):
                                             selected_reg=r.all_regs[i])
             locs.append(l)
         # XXX use PUSH here instead of spilling every reg for itself
-        if save_all_regs:
-            regalloc.before_call(r.all_regs, save_all_regs)
-        else:
-            regalloc.before_call()
+        regalloc.before_call(save_all_regs=save_all_regs)
+
         self.mc.BL(adr)
 
         if result:
@@ -375,8 +376,9 @@ class OpAssembler(object):
         self.mc.gen_load_int(loc.value, self.cpu.pos_exception(), fcond)
         self.mc.LDR_ri(loc.value, loc.value)
         self.mc.CMP_ri(loc.value, 0)
-        self._emit_guard(op, regalloc, c.EQ, save_exc=True)
+        cond = self._emit_guard(op, regalloc, c.EQ, save_exc=True)
         regalloc.possibly_free_var(t)
+        return cond
 
     def emit_op_guard_exception(self, op, regalloc, fcond):
         args = op.getarglist()
@@ -385,8 +387,8 @@ class OpAssembler(object):
         loc = regalloc.force_allocate_reg(t, args)
         loc1 = regalloc.force_allocate_reg(t1, args + [t])
         self.mc.gen_load_int(loc.value,
-            self.cpu.cast_adr_to_int(
-                op.getarg(0).getint()), fcond)
+                rffi.cast(lltype.Signed, op.getarg(0).getint()),
+                fcond)
 
         self.mc.gen_load_int(loc1.value, self.cpu.pos_exception(), fcond)
         self.mc.LDR_ri(loc1.value, loc1.value)
@@ -397,7 +399,7 @@ class OpAssembler(object):
         if op.result in regalloc.longevity:
             resloc = regalloc.force_allocate_reg(op.result, args + [t, t1])
             self.mc.LDR_ri(resloc.value, loc1.value)
-            regalloc.possibly_free_var(resloc)
+            regalloc.possibly_free_var(op.result)
         self.mc.gen_load_int(loc.value, self.cpu.pos_exception(), fcond)
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.STR_ri(r.ip.value, loc.value)
@@ -405,6 +407,10 @@ class OpAssembler(object):
         regalloc.possibly_free_var(t)
         regalloc.possibly_free_var(t1)
         return fcond
+
+    def emit_op_debug_merge_point(self, op, regalloc, fcond):
+        return fcond
+    emit_op_jit_debug = emit_op_debug_merge_point
 
 class FieldOpAssembler(object):
 
@@ -419,14 +425,13 @@ class FieldOpAssembler(object):
         base_loc = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         value_loc = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
         if size == 4:
-            f = self.mc.STR_ri
+            self.mc.STR_ri(value_loc.value, base_loc.value, ofs)
         elif size == 2:
-            f = self.mc.STRH_ri
+            self.mc.STRH_ri(value_loc.value, base_loc.value, ofs)
         elif size == 1:
-            f = self.mc.STRB_ri
+            self.mc.STRB_ri(value_loc.value, base_loc.value, ofs)
         else:
             assert 0
-        f(value_loc.value, base_loc.value, ofs)
         return fcond
 
     emit_op_setfield_raw = emit_op_setfield_gc
@@ -438,14 +443,13 @@ class FieldOpAssembler(object):
         base_loc = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
         res = regalloc.force_allocate_reg(op.result, [a0])
         if size == 4:
-            f = self.mc.LDR_ri
+            self.mc.LDR_ri(res.value, base_loc.value, ofs)
         elif size == 2:
-            f = self.mc.LDRH_ri
+            self.mc.LDRH_ri(res.value, base_loc.value, ofs)
         elif size == 1:
-            f = self.mc.LDRB_ri
+            self.mc.LDRB_ri(res.value, base_loc.value, ofs)
         else:
             assert 0
-        f(res.value, base_loc.value, ofs)
 
         #XXX Hack, Hack, Hack
         if not we_are_translated():
@@ -475,14 +479,15 @@ class ArrayOpAssember(object):
         arraydescr = op.getdescr()
         assert isinstance(arraydescr, BaseArrayDescr)
         ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        arg = op.getarg(0)
+        base_loc = regalloc.make_sure_var_in_reg(arg, imm_fine=False)
         regalloc.possibly_free_vars_for_op(op)
-        res = regalloc.force_allocate_reg(op.result, forbidden_vars=[base_loc])
+        res = regalloc.force_allocate_reg(op.result, forbidden_vars=[arg])
 
         self.mc.LDR_ri(res.value, base_loc.value, ofs)
-        regalloc.possibly_free_var(op.getarg(0))
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_var(arg)
+        regalloc.possibly_free_var(op.result)
+        return fcond
 
     def emit_op_setarrayitem_gc(self, op, regalloc, fcond):
         a0 = op.getarg(0)
@@ -527,15 +532,14 @@ class ArrayOpAssember(object):
             self.mc.ADD_ri(ofs_loc.value, ofs_loc.value, imm=ofs)
 
         if scale == 2:
-            f = self.mc.LDR_rr
+            self.mc.LDR_rr(res.value, base_loc.value, ofs_loc.value, cond=fcond)
         elif scale == 1:
-            f = self.mc.LDRH_rr
+            self.mc.LDRH_rr(res.value, base_loc.value, ofs_loc.value, cond=fcond)
         elif scale == 0:
-            f = self.mc.LDRB_rr
+            self.mc.LDRB_rr(res.value, base_loc.value, ofs_loc.value, cond=fcond)
         else:
             assert 0
 
-        f(res.value, base_loc.value, ofs_loc.value, cond=fcond)
         #XXX Hack, Hack, Hack
         if not we_are_translated():
             descr = op.getdescr()
@@ -621,12 +625,15 @@ class StrOpAssembler(object):
 
         self.mc.STRB_ri(value_loc.value, temp.value, basesize, cond=fcond)
         return fcond
+
     #from ../x86/regalloc.py:928 ff.
     def emit_op_copystrcontent(self, op, regalloc, fcond):
         self._emit_copystrcontent(op, regalloc, fcond, is_unicode=False)
+        return fcond
 
     def emit_op_copyunicodecontent(self, op, regalloc, fcond):
         self._emit_copystrcontent(op, regalloc, fcond, is_unicode=True)
+        return fcond
 
     def _emit_copystrcontent(self, op, regalloc, fcond, is_unicode):
         # compute the source address
@@ -754,15 +761,15 @@ class UnicodeOpAssembler(object):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         scale = itemsize/2
-        if scale == 2:
-            f = self.mc.LDR_ri
-        elif scale == 1:
-            f = self.mc.LDRH_ri
-        else:
-            assert 0, itemsize
+
         self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond,
                                                 imm=scale, shifttype=shift.LSL)
-        f(res.value, temp.value, basesize, cond=fcond)
+        if scale == 2:
+            self.mc.LDR_ri(res.value, temp.value, basesize, cond=fcond)
+        elif scale == 1:
+            self.mc.LDRH_ri(res.value, temp.value, basesize, cond=fcond)
+        else:
+            assert 0, itemsize
         return fcond
 
     def emit_op_unicodesetitem(self, op, regalloc, fcond):
@@ -779,16 +786,16 @@ class UnicodeOpAssembler(object):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         scale = itemsize/2
-        if scale == 2:
-            f = self.mc.STR_ri
-        elif scale == 1:
-            f = self.mc.STRH_ri
-        else:
-            assert 0, itemsize
 
         self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond,
                                             imm=scale, shifttype=shift.LSL)
-        f(value_loc.value, temp.value, basesize, cond=fcond)
+        if scale == 2:
+            self.mc.STR_ri(value_loc.value, temp.value, basesize, cond=fcond)
+        elif scale == 1:
+            self.mc.STRH_ri(value_loc.value, temp.value, basesize, cond=fcond)
+        else:
+            assert 0, itemsize
+
         return fcond
 
 class ForceOpAssembler(object):
@@ -831,7 +838,7 @@ class ForceOpAssembler(object):
         # check value
         t = TempBox()
         resloc = regalloc.force_allocate_reg(resbox)
-        loc = regalloc.force_allocate_reg(t, [r.r0])
+        loc = regalloc.force_allocate_reg(t)
         self.mc.gen_load_int(loc.value, value)
         self.mc.CMP_rr(resloc.value, loc.value)
         regalloc.possibly_free_var(resbox)
@@ -964,14 +971,13 @@ class AllocOpAssembler(object):
         size = scale * 2
         ofs = ofs_length
         if size == 4:
-            f = self.mc.STR_ri
+            self.mc.STR_ri(value_loc.value, base_loc.value, ofs)
         elif size == 2:
-            f = self.mc.STRH_ri
+            self.mc.STRH_ri(value_loc.value, base_loc.value, ofs)
         elif size == 1:
-            f = self.mc.STRB_ri
+            self.mc.STRB_ri(value_loc.value, base_loc.value, ofs)
         else:
             assert 0
-        f(value_loc.value, base_loc.value, ofs)
 
     def emit_op_new(self, op, regalloc, fcond):
         arglocs = self._prepare_args_for_new_op(op.getdescr(), regalloc)
@@ -994,7 +1000,7 @@ class AllocOpAssembler(object):
         loc = regalloc.loc(result)
         if self.cpu.vtable_offset is not None:
             assert loc.is_reg()
-            adr = self.cpu.cast_adr_to_int(vtable.getint())
+            adr = rffi.cast(lltype.Signed, vtable.getint())
             t = TempBox()
             loc_vtable = regalloc.force_allocate_reg(t)
             self.mc.gen_load_int(loc_vtable.value, adr)
@@ -1016,8 +1022,9 @@ class AllocOpAssembler(object):
         # boehm GC (XXX kill the following code at some point)
         itemsize, scale, basesize, ofs_length, _ = (
             self._unpack_arraydescr(op.getdescr()))
-        return self._malloc_varsize(basesize, ofs_length, scale,
+        self._malloc_varsize(basesize, ofs_length, scale,
                                     op.getarg(0), op.result, regalloc)
+        return fcond
 
 
     def emit_op_newstr(self, op, regalloc, fcond):
@@ -1031,8 +1038,9 @@ class AllocOpAssembler(object):
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
                                             self.cpu.translate_support_code)
         assert itemsize == 1
-        return self._malloc_varsize(ofs_items, ofs, 1, op.getarg(0),
+        self._malloc_varsize(ofs_items, ofs, 1, op.getarg(0),
                                                         op.result, regalloc)
+        return fcond
 
 
 
@@ -1047,8 +1055,9 @@ class AllocOpAssembler(object):
         ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
                                                self.cpu.translate_support_code)
         scale = self._get_unicode_item_scale()
-        return self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
+        self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
                                                 op.result, regalloc)
+        return fcond
 
     def _get_unicode_item_scale(self):
         _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,

@@ -17,10 +17,10 @@ class ArmCPU(AbstractLLCPU):
                                translate_support_code, gcdescr)
         self.assembler = AssemblerARM(self)
 
-    def compile_loop(self, inputargs, operations, looptoken):
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
         self.assembler.assemble_loop(inputargs, operations, looptoken)
 
-    def compile_bridge(self, faildescr, inputargs, operations):
+    def compile_bridge(self, faildescr, inputargs, operations, log=True):
         self.assembler.assemble_bridge(faildescr, inputargs, operations)
 
     def set_future_value_int(self, index, intvalue):
@@ -39,8 +39,10 @@ class ArmCPU(AbstractLLCPU):
         return self.assembler.fail_boxes_count
 
     def clear_latest_values(self, count):
-        # XXX TODO
-        pass
+        setitem = self.assembler.fail_boxes_ptr.setitem
+        null = lltype.nullptr(llmemory.GCREF.TO)
+        for index in range(count):
+            setitem(index, null)
 
     def execute_token(self, executable_token):
         #i = [self.get_latest_value_int(x) for x in range(10)]
@@ -52,18 +54,22 @@ class ArmCPU(AbstractLLCPU):
         return self.get_fail_descr_from_number(fail_index)
 
     def _execute_call(self, func):
-        prev_interpreter = LLInterpreter.current_interpreter
-        LLInterpreter.current_interpreter = self.debug_ll_interpreter
+        prev_interpreter = None
+        if not self.translate_support_code:
+            prev_interpreter = LLInterpreter.current_interpreter
+            LLInterpreter.current_interpreter = self.debug_ll_interpreter
         res = 0
         try:
             res = func()
         finally:
-            LLInterpreter.current_interpreter = prev_interpreter
+            if not self.translate_support_code:
+                LLInterpreter.current_interpreter = prev_interpreter
         return res
 
-    def cast_ptr_to_int(self, x):
+    @staticmethod
+    def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
-        return self.cast_adr_to_int(adr)
+        return ArmCPU.cast_adr_to_int(adr)
 
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)

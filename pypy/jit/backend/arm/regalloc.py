@@ -2,7 +2,7 @@ from pypy.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, compute_vars_longevity
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
-from pypy.jit.metainterp.history import ConstInt
+from pypy.jit.metainterp.history import ConstInt, ConstPtr
 from pypy.rpython.lltypesystem import rffi, lltype
 
 class ARMRegisterManager(RegisterManager):
@@ -18,6 +18,7 @@ class ARMRegisterManager(RegisterManager):
         if isinstance(c, ConstInt):
             return locations.ImmLocation(c.value)
         else:
+            assert isinstance(c, ConstPtr)
             return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
 
     def call_result_location(self, v):

@@ -8,6 +8,10 @@ class AbstractCPU(object):
     done_with_this_frame_ref_v = -1
     done_with_this_frame_float_v = -1
 
+    # for heaptracker
+    _all_size_descrs_with_vtable = None
+    _vtable_to_descr_dict = None
+
     def __init__(self):
         self.fail_descr_list = []
 
@@ -44,7 +48,7 @@ class AbstractCPU(object):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
         """
-        raise NotImplementedError    
+        raise NotImplementedError
 
     def execute_token(self, looptoken):
         """Execute the generated code referenced by the looptoken.

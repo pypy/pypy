@@ -5,7 +5,7 @@ from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
-from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, BasicFailDescr,
+from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, AbstractFailDescr,
                                                 INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
@@ -26,6 +26,7 @@ class AssemblerARM(ResOpAssembler):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
+        self.setup_failure_recovery()
         self._debug_asm = True
         self.mc = None
         self.malloc_func_addr = 0
@@ -73,6 +74,8 @@ class AssemblerARM(ResOpAssembler):
             return self.decode_registers_and_descr(mem_loc, frame_pointer, stack_pointer)
 
         self.failure_recovery_func = failure_recovery_func
+
+    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed, lltype.Signed], lltype.Signed))
 
     @rgc.no_collect
     def decode_registers_and_descr(self, mem_loc, frame_loc, regs_loc):
@@ -169,9 +172,7 @@ class AssemblerARM(ResOpAssembler):
         mem[i+3] = chr((n >> 24) & 0xFF)
 
     def _gen_exit_path(self):
-        self.setup_failure_recovery()
-        functype = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed, lltype.Signed], lltype.Signed))
-        decode_registers_addr = llhelper(functype, self.failure_recovery_func)
+        decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
 
         self.mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
         self.mc.MOV_rr(r.r0.value, r.lr.value) # move mem block address, to r0 to pass as
@@ -199,6 +200,7 @@ class AssemblerARM(ResOpAssembler):
 
         descr = op.getdescr()
         if op.getopnum() != rop.FINISH:
+            assert isinstance(descr, AbstractFailDescr)
             descr._arm_frame_depth = regalloc.frame_manager.frame_depth
         reg = r.lr
         # XXX free this memory
@@ -274,7 +276,7 @@ class AssemblerARM(ResOpAssembler):
                 raise ValueError
             self.mc.gen_load_int(reg.value, addr)
             self.mc.LDR_ri(reg.value, reg.value)
-            regalloc.possibly_free_var(reg)
+            regalloc.possibly_free_var(loc)
         arglocs = [regalloc.loc(arg) for arg in inputargs]
         looptoken._arm_arglocs = arglocs
         return arglocs
@@ -368,19 +370,17 @@ class AssemblerARM(ResOpAssembler):
             rev = False
         if n <= 0xFF and fcond == c.AL:
             if rev:
-                op = cb.ADD_ri
+                cb.ADD_ri(r.sp.value, base_reg.value, n)
             else:
-                op = cb.SUB_ri
-            op(r.sp.value, base_reg.value, n)
+                cb.SUB_ri(r.sp.value, base_reg.value, n)
         else:
             b = TempBox()
             reg = regalloc.force_allocate_reg(b)
             cb.gen_load_int(reg.value, n, cond=fcond)
             if rev:
-                op = cb.ADD_rr
+                cb.ADD_rr(r.sp.value, base_reg.value, reg.value, cond=fcond)
             else:
-                op = cb.SUB_rr
-            op(r.sp.value, base_reg.value, reg.value, cond=fcond)
+                cb.SUB_rr(r.sp.value, base_reg.value, reg.value, cond=fcond)
             regalloc.possibly_free_var(b)
 
     def _walk_operations(self, operations, regalloc):

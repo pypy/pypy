@@ -7,7 +7,9 @@ from pypy.jit.backend.arm.instruction_builder import define_instructions
 from pypy.rlib.rmmap import alloc, PTR
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.jit.metainterp.history import ConstInt, BoxInt, BasicFailDescr
+from pypy.jit.metainterp.history import ConstInt, BoxInt, AbstractFailDescr
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.tool.udir import udir
 
 def binary_helper_call(name):
     signature = getattr(arch, 'arm_%s_sign' % name)
@@ -20,7 +22,7 @@ def binary_helper_call(name):
             self.BL(addr)
         else:
             self.PUSH(range(2, 4), cond=c)
-            self.BL(addr, cond=c, some_reg=reg.r2)
+            self.BL(addr, c, some_reg=reg.r2)
             self.POP(range(2,4), cond=c)
     return f
 
@@ -30,14 +32,18 @@ class AbstractARMv7Builder(object):
         self._size = map_size
         self._pos = 0
 
-    def _dump_trace(self, name):
-        f = open('output/%s' % name, 'wb')
-        for i in range(self._pos):
-            f.write(self._data[i])
-        f.close()
+    def _dump_trace(self, name, formatter=-1):
+        if not we_are_translated():
+            if formatter != -1:
+                name = name % formatter
+            dir = udir.ensure('asm', dir=True)
+            f = dir.join(name).open('wb')
+            for i in range(self._pos):
+                f.write(self._data[i])
+            f.close()
 
     def ensure_can_fit(self, n):
-        raise NotImplentedError
+        raise NotImplementedError
 
     def NOP(self):
         self.MOV_rr(0, 0)
@@ -163,7 +169,7 @@ class ARMv7Builder(AbstractARMv7Builder):
         new_mem_addr = rffi.cast(lltype.Signed, new_mem)
         self.LDR_ri(reg.pc.value, reg.pc.value, -4)
         self.write32(new_mem_addr)
-        self._dump_trace('data%04d.asm' % self.n_data)
+        self._dump_trace('data%04d.asm', self.n_data)
         self.n_data += 1
         self._data = new_mem
         self._pos = 0

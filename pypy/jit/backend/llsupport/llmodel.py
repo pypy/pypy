@@ -34,7 +34,7 @@ class AbstractLLCPU(AbstractCPU):
         self.rtyper = rtyper
         self.stats = stats
         self.translate_support_code = translate_support_code
-        if translate_support_code:
+        if translate_support_code and rtyper is not None:
             translator = rtyper.annotator.translator
         else:
             translator = None
