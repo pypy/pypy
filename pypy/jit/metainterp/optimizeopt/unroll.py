@@ -101,12 +101,20 @@ class UnrollOptimizer(Optimization):
                 if False:
                     # FIXME: This should save some memory but requires
                     # a lot of tests to be fixed...
-                    loop.preamble.operations = short
-                    short_loop = loop.preamble
-                else:
-                    short_loop = TreeLoop('short preamble')
-                    short_loop.inputargs = loop.preamble.inputargs[:]
-                    short_loop.operations = short
+                    loop.preamble.operations = short[:]
+                    
+                # Turn guards into conditional jumps to the preamble
+                for i in range(len(short)):
+                    op = short[i]
+                    if op.is_guard():
+                        op = op.clone()
+                        op.setfailargs(loop.preamble.inputargs)
+                        op.setjumptarget(loop.preamble.token)
+                        short[i] = op
+
+                short_loop = TreeLoop('short preamble')
+                short_loop.inputargs = loop.preamble.inputargs[:]
+                short_loop.operations = short
 
                 assert isinstance(loop.preamble.token, LoopToken)
                 if loop.preamble.token.short_preamble:
@@ -269,6 +277,7 @@ class UnrollOptimizer(Optimization):
                                 "at position: ", preamble_i)
                     return None
                 short_preamble.append(op)
+                
             state.update(op)
             preamble_i += 1
 
@@ -317,15 +326,6 @@ class UnrollOptimizer(Optimization):
             if op.result:
                 seen[op.result] = True
         
-        # Turn guards into conditional jumps to the preamble
-        for i in range(len(short_preamble)):
-            op = short_preamble[i]
-            if op.is_guard():
-                op = op.clone()
-                op.setfailargs(preamble.inputargs)
-                op.setjumptarget(preamble.token)
-                short_preamble[i] = op
-
         return short_preamble
 
 class ExeState(object):
