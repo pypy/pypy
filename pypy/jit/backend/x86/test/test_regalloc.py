@@ -9,7 +9,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.regalloc import RegAlloc, X86RegisterManager,\
-     FloatConstants, is_comparison_or_ovf_op
+     is_comparison_or_ovf_op
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -519,16 +519,6 @@ class TestRegallocFloats(BaseTestRegalloc):
         '''
         self.interpret(ops, [0.1, .2, .3, .4, .5, .6, .7, .8, .9])
         assert self.getfloats(9) == [.1+.2, .9+3.5, .3, .4, .5, .6, .7, .8, .9]
-
-    def test_float_overflow_const_list(self):
-        ops = ['[f0]']
-        BASE_CONSTANT_SIZE = FloatConstants.BASE_CONSTANT_SIZE
-        for i in range(BASE_CONSTANT_SIZE * 2):
-            ops.append('f%d = float_add(f%d, 3.5)' % (i + 1, i))
-        ops.append('finish(f%d)' % (BASE_CONSTANT_SIZE * 2))
-        ops = "\n".join(ops)
-        self.interpret(ops, [0.1])
-        assert abs(self.getfloat(0) - (BASE_CONSTANT_SIZE * 2) * 3.5 - 0.1) < 0.00001
 
     def test_lt_const(self):
         ops = '''
