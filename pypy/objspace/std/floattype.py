@@ -59,8 +59,34 @@ def descr__new__(space, w_floattype, w_x=0.0):
     return w_obj
 
 
-_float_format = float.__getformat__("float")
-_double_format = float.__getformat__("double")
+def detect_floatformat():
+    from pypy.rpython.lltypesystem import rffi, lltype
+    buf = lltype.malloc(rffi.CCHARP.TO, 8, flavor='raw')
+    rffi.cast(rffi.DOUBLEP, buf)[0] = 9006104071832581.0
+    packed = rffi.charpsize2str(buf, 8)
+    if packed == "\x43\x3f\xff\x01\x02\x03\x04\x05":
+        double_format = 'IEEE, big-endian'
+    elif packed == "\x05\x04\x03\x02\x01\xff\x3f\x43":
+        double_format = 'IEEE, little-endian'
+    else:
+        double_format = 'unknown'
+    lltype.free(buf, flavor='raw')
+    #
+    buf = lltype.malloc(rffi.CCHARP.TO, 4, flavor='raw')
+    rffi.cast(rffi.FLOATP, buf)[0] = rarithmetic.r_singlefloat(16711938.0)
+    packed = rffi.charpsize2str(buf, 4)
+    if packed == "\x4b\x7f\x01\x02":
+        float_format = 'IEEE, big-endian'
+    elif packed == "\x02\x01\x7f\x4b":
+        float_format = 'IEEE, little-endian'
+    else:
+        float_format = 'unknown'
+    lltype.free(buf, flavor='raw')
+
+    return double_format, float_format
+
+_double_format, _float_format = detect_floatformat()
+
 def descr___getformat__(space, w_cls, kind):
     if kind == "float":
         return space.wrap(_float_format)

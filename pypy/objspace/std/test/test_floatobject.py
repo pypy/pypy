@@ -361,8 +361,8 @@ class AppTestAppFloatTest:
                 assert not (nan >  x)
 
     def test___getformat__(self):
-        float.__getformat__("float")
-        float.__getformat__("double")
+        assert float.__getformat__("float") != "unknown"
+        assert float.__getformat__("double") != "unknown"
         raises(ValueError, float.__getformat__, "random")
 
     def test_trunc(self):
