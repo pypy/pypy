@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
-from pypy.rlib.rarithmetic import formatd, isinf, isnan
+from pypy.rlib.rarithmetic import formatd, isinf, isnan, copysign
 
 import math
 
@@ -273,16 +273,16 @@ def str_format(x):
     return format_float(x, "%.12g")
 
 def repr__Complex(space, w_complex):
-    if w_complex.realval == 0 and math.copysign(1., w_complex.realval) == 1.:
+    if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
         return space.wrap(repr_format(w_complex.imagval) + 'j')
-    sign = (math.copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    sign = (copysign(1., w_complex.imagval) == 1.) and '+' or ''
     return space.wrap('(' + repr_format(w_complex.realval)
                       + sign + repr_format(w_complex.imagval) + 'j)')
 
 def str__Complex(space, w_complex):
-    if w_complex.realval == 0 and math.copysign(1., w_complex.realval) == 1.:
+    if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
         return space.wrap(str_format(w_complex.imagval) + 'j')
-    sign = (math.copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    sign = (copysign(1., w_complex.imagval) == 1.) and '+' or ''
     return space.wrap('(' + str_format(w_complex.realval)
                       + sign + str_format(w_complex.imagval) + 'j)')
 

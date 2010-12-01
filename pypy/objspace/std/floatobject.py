@@ -9,7 +9,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
-from pypy.rlib.rarithmetic import formatd, LONG_BIT, INFINITY
+from pypy.rlib.rarithmetic import formatd, LONG_BIT, INFINITY, copysign
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
@@ -102,7 +102,7 @@ def float_hex__Float(space, w_float):
     if isinf(value) or isnan(value):
         return str__Float(space, w_float)
     if value == 0.0:
-        if math.copysign(1., value) == -1.:
+        if copysign(1., value) == -1.:
             return space.wrap("-0x0.0p+0")
         else:
             return space.wrap("0x0.0p+0")
