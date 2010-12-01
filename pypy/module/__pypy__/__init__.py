@@ -15,6 +15,7 @@ class Module(MixedModule):
         'debug_print'               : 'interp_debug.debug_print',
         'debug_stop'                : 'interp_debug.debug_stop',
         'debug_print_once'          : 'interp_debug.debug_print_once',
+        'builtinify'                : 'interp_magic.builtinify',
     }
 
     def setup_after_space_initialization(self):

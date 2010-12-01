@@ -1,9 +1,10 @@
-import sys, py
+import sys
 if len(sys.argv) >= 4 and sys.argv[1] == '--sub':
     sys.path[:] = eval(sys.argv[2])      # hacks for test_integration
     from pypy.conftest import option
     option.__dict__.update(eval(sys.argv[3]))
 
+import py
 from pypy.jit.metainterp.memmgr import MemoryManager
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.rlib.jit import JitDriver, dont_look_inside

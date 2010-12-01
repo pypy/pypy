@@ -1,5 +1,5 @@
 import sys
-from pypy.rlib.debug import check_nonneg, list_not_modified_any_more
+from pypy.rlib.debug import check_nonneg
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rsre import rsre_char
 from pypy.tool.sourcetools import func_with_new_name
@@ -91,7 +91,7 @@ class AbstractMatchContext(object):
         # and they must not be more than len(string).
         check_nonneg(match_start)
         check_nonneg(end)
-        self.pattern = list_not_modified_any_more(pattern)
+        self.pattern = pattern
         self.match_start = match_start
         self.end = end
         self.flags = flags

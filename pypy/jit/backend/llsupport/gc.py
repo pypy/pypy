@@ -15,6 +15,7 @@ from pypy.jit.backend.llsupport.descr import BaseSizeDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
 from pypy.jit.backend.llsupport.descr import GcPtrFieldDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
+from pypy.rpython.memory.gctransform import asmgcroot
 
 # ____________________________________________________________
 
@@ -35,6 +36,8 @@ class GcLLDescription(GcCache):
         return False
     def has_write_barrier_class(self):
         return None
+    def freeing_block(self, start, stop):
+        pass
 
 # ____________________________________________________________
 
@@ -218,50 +221,152 @@ class GcRootMap_asmgcc:
     LOC_EBP_PLUS  = 2
     LOC_EBP_MINUS = 3
 
-    GCMAP_ARRAY = rffi.CArray(llmemory.Address)
+    GCMAP_ARRAY = rffi.CArray(lltype.Signed)
     CALLSHAPE_ARRAY = rffi.CArray(rffi.UCHAR)
 
     def __init__(self):
+        # '_gcmap' is an array of length '_gcmap_maxlength' of addresses.
+        # '_gcmap_curlength' tells how full the array really is.
+        # The addresses are actually grouped in pairs:
+        #     (addr-after-the-CALL-in-assembler, addr-of-the-call-shape).
+        # '_gcmap_deadentries' counts pairs marked dead (2nd item is NULL).
+        # '_gcmap_sorted' is True only if we know the array is sorted.
         self._gcmap = lltype.nullptr(self.GCMAP_ARRAY)
         self._gcmap_curlength = 0
         self._gcmap_maxlength = 0
+        self._gcmap_deadentries = 0
+        self._gcmap_sorted = True
 
     def initialize(self):
         # hack hack hack.  Remove these lines and see MissingRTypeAttribute
         # when the rtyper tries to annotate these methods only when GC-ing...
         self.gcmapstart()
         self.gcmapend()
+        self.gcmarksorted()
 
     def gcmapstart(self):
-        return llmemory.cast_ptr_to_adr(self._gcmap)
+        return rffi.cast(llmemory.Address, self._gcmap)
 
     def gcmapend(self):
         addr = self.gcmapstart()
         if self._gcmap_curlength:
-            addr += llmemory.sizeof(llmemory.Address)*self._gcmap_curlength
+            addr += rffi.sizeof(lltype.Signed) * self._gcmap_curlength
+            if not we_are_translated() and type(addr) is long:
+                from pypy.rpython.lltypesystem import ll2ctypes
+                addr = ll2ctypes._lladdress(addr)       # XXX workaround
         return addr
 
-    def put(self, retaddr, callshapeaddr):
+    def gcmarksorted(self):
+        # Called by the GC when it is about to sort [gcmapstart():gcmapend()].
+        # Returns the previous sortedness flag -- i.e. returns True if it
+        # is already sorted, False if sorting is needed.
+        sorted = self._gcmap_sorted
+        self._gcmap_sorted = True
+        return sorted
+
+    @rgc.no_collect
+    def _put(self, retaddr, callshapeaddr):
         """'retaddr' is the address just after the CALL.
-        'callshapeaddr' is the address returned by encode_callshape()."""
+        'callshapeaddr' is the address of the raw 'shape' marker.
+        Both addresses are actually integers here."""
         index = self._gcmap_curlength
         if index + 2 > self._gcmap_maxlength:
-            self._enlarge_gcmap()
+            index = self._enlarge_gcmap()
         self._gcmap[index] = retaddr
         self._gcmap[index+1] = callshapeaddr
         self._gcmap_curlength = index + 2
+        self._gcmap_sorted = False
 
+    @rgc.no_collect
     def _enlarge_gcmap(self):
-        newlength = 250 + self._gcmap_maxlength * 2
-        newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw',
-                                 track_allocation=False)   # YYY leak
         oldgcmap = self._gcmap
-        for i in range(self._gcmap_curlength):
-            newgcmap[i] = oldgcmap[i]
-        self._gcmap = newgcmap
-        self._gcmap_maxlength = newlength
-        if oldgcmap:
-            lltype.free(oldgcmap, flavor='raw', track_allocation=False)
+        if self._gcmap_deadentries * 3 * 2 > self._gcmap_maxlength:
+            # More than 1/3rd of the entries are dead.  Don't actually
+            # enlarge the gcmap table, but just clean up the dead entries.
+            newgcmap = oldgcmap
+        else:
+            # Normal path: enlarge the array.
+            newlength = 250 + (self._gcmap_maxlength // 3) * 4
+            newgcmap = lltype.malloc(self.GCMAP_ARRAY, newlength, flavor='raw',
+                                     track_allocation=False)
+            self._gcmap_maxlength = newlength
+        #
+        j = 0
+        i = 0
+        end = self._gcmap_curlength
+        while i < end:
+            if oldgcmap[i + 1]:
+                newgcmap[j] = oldgcmap[i]
+                newgcmap[j + 1] = oldgcmap[i + 1]
+                j += 2
+            i += 2
+        self._gcmap_curlength = j
+        self._gcmap_deadentries = 0
+        if oldgcmap != newgcmap:
+            self._gcmap = newgcmap
+            if oldgcmap:
+                lltype.free(oldgcmap, flavor='raw', track_allocation=False)
+        return j
+
+    def add_raw_gcroot_markers(self, asmmemmgr, allblocks,
+                               markers, total_size, rawstart):
+        """The interface is a bit custom, but this routine writes the
+        shapes of gcroots (for the GC to use) into raw memory."""
+        # xxx so far, we never try to share them.  But right now
+        # the amount of potential sharing would not be too large.
+        dst = 1
+        stop = 0
+        for relpos, shape in markers:
+            #
+            if dst + len(shape) > stop:
+                # No more space in the previous raw block,
+                # allocate a raw block of memory big enough to fit
+                # as many of the remaining 'shapes' as possible
+                start, stop = asmmemmgr.malloc(len(shape), total_size)
+                # add the raw block to 'compiled_loop_token.asmmemmgr_blocks'
+                allblocks.append((start, stop))
+                dst = start
+            #
+            # add the entry 'pos_after_call -> dst' to the table
+            self._put(rawstart + relpos, dst)
+            # Copy 'shape' into the raw memory, reversing the order
+            # of the bytes.  Similar to compress_callshape() in
+            # trackgcroot.py.
+            total_size -= len(shape)
+            src = len(shape) - 1
+            while src >= 0:
+                rffi.cast(rffi.CCHARP, dst)[0] = shape[src]
+                dst += 1
+                src -= 1
+
+    @rgc.no_collect
+    def freeing_block(self, start, stop):
+        # if [start:stop] is a raw block of assembler, then look up the
+        # corresponding gcroot markers, and mark them as freed now in
+        # self._gcmap by setting the 2nd address of every entry to NULL.
+        gcmapstart = self.gcmapstart()
+        gcmapend   = self.gcmapend()
+        if gcmapstart == gcmapend:
+            return
+        if not self.gcmarksorted():
+            asmgcroot.sort_gcmap(gcmapstart, gcmapend)
+        # A note about gcmarksorted(): the deletion we do here keeps the
+        # array sorted.  This avoids needing too many sort_gcmap()s.
+        # Indeed, freeing_block() is typically called many times in a row,
+        # so it will call sort_gcmap() at most the first time.
+        startaddr = rffi.cast(llmemory.Address, start)
+        stopaddr  = rffi.cast(llmemory.Address, stop)
+        item = asmgcroot.binary_search(gcmapstart, gcmapend, startaddr)
+        # 'item' points to one of the entries.  Because the whole array
+        # is sorted, we know that it points either to the first entry we
+        # want to kill, or to the previous entry.
+        if item.address[0] < startaddr:
+            item += asmgcroot.arrayitemsize    # go forward one entry
+            assert item == gcmapend or item.address[0] >= startaddr
+        while item != gcmapend and item.address[0] < stopaddr:
+            item.address[1] = llmemory.NULL
+            self._gcmap_deadentries += 1
+            item += asmgcroot.arrayitemsize
 
     def get_basic_shape(self, is_64_bit=False):
         # XXX: Should this code even really know about stack frame layout of
@@ -303,18 +408,6 @@ class GcRootMap_asmgcc:
     def add_callee_save_reg(self, shape, reg_index):
         assert reg_index > 0
         shape.append(chr(self.LOC_REG | (reg_index << 2)))
-
-    def compress_callshape(self, shape):
-        # Similar to compress_callshape() in trackgcroot.py.
-        # XXX so far, we always allocate a new small array (we could regroup
-        # them inside bigger arrays) and we never try to share them.
-        length = len(shape)
-        compressed = lltype.malloc(self.CALLSHAPE_ARRAY, length,
-                                   flavor='raw',
-                                   track_allocation=False)   # YYY leak
-        for i in range(length):
-            compressed[length-1-i] = rffi.cast(rffi.UCHAR, shape[i])
-        return llmemory.cast_ptr_to_adr(compressed)
 
 
 class WriteBarrierDescr(AbstractDescr):
@@ -379,6 +472,7 @@ class GcLLDescr_framework(GcLLDescription):
             'layoutbuilder': self.layoutbuilder,
             'gcmapstart': lambda: gcrootmap.gcmapstart(),
             'gcmapend': lambda: gcrootmap.gcmapend(),
+            'gcmarksorted': lambda: gcrootmap.gcmarksorted(),
             }
         self.GCClass = self.layoutbuilder.GCClass
         self.moving_gc = self.GCClass.moving_gc
@@ -640,6 +734,9 @@ class GcLLDescr_framework(GcLLDescription):
 
     def has_write_barrier_class(self):
         return WriteBarrierDescr
+
+    def freeing_block(self, start, stop):
+        self.gcrootmap.freeing_block(start, stop)
 
 # ____________________________________________________________
 

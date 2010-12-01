@@ -126,7 +126,7 @@ testmap = [
     RegrTest('test_augassign.py', core=True),
     RegrTest('test_base64.py'),
     RegrTest('test_bastion.py'),
-    RegrTest('test_binascii.py'),
+    RegrTest('test_binascii.py', usemodules='binascii'),
 
     RegrTest('test_binhex.py'),
 

@@ -5,7 +5,7 @@ Refer to the Unix manual pages for a detailed description of the
 syslog facility.
 """
 
-import sys
+import sys, __pypy__
 if sys.platform == 'win32':
     raise ImportError("No syslog on Windows")
 
@@ -34,9 +34,11 @@ _setlogmask = libc.setlogmask
 _setlogmask.argtypes = (c_int,)
 _setlogmask.restype = c_int
 
+@__pypy__.builtinify
 def openlog(ident, option, facility):
     _openlog(ident, option, facility)
 
+@__pypy__.builtinify
 def syslog(arg1, arg2=None):
     if arg2 is not None:
         priority, message = arg1, arg2
@@ -44,15 +46,19 @@ def syslog(arg1, arg2=None):
         priority, message = LOG_INFO, arg1
     _syslog(priority, "%s", message)
 
+@__pypy__.builtinify
 def closelog():
     _closelog()
 
+@__pypy__.builtinify
 def setlogmask(mask):
     return _setlogmask(mask)
 
+@__pypy__.builtinify
 def LOG_MASK(pri):
     return (1 << pri)
 
+@__pypy__.builtinify
 def LOG_UPTO(pri):
     return (1 << (pri + 1)) - 1
 

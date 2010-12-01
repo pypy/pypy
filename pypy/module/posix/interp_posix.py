@@ -653,6 +653,14 @@ def openpty(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
+def forkpty(space):
+    try:
+        pid, master_fd = os.forkpty()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(pid),
+                           space.wrap(master_fd)])
+
 def waitpid(space, pid, options):
     """ waitpid(pid, options) -> (pid, status)
     

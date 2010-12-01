@@ -6,9 +6,7 @@ CPU = getcpuclass()
 
 def test_stress():
     cpu = CPU(None, None)
+    cpu.setup_once()
     r = Random()
     for i in range(1000):
         check_random_function(cpu, LLtypeOperationBuilder, r, i, 1000)
-
-
-

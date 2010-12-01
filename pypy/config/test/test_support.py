@@ -4,32 +4,32 @@ from pypy.config.support import detect_number_of_processors
 import os, sys, py
 
 cpuinfo = """
-processor	: 0
+processor\t: 0
 
-processor	: 1
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 37
-model name	: Intel(R) Core(TM) i7 CPU       L 620  @ 2.00GHz
-stepping	: 2
+processor\t: 1
+vendor_id\t: GenuineIntel
+cpu family\t: 6
+model\t\t: 37
+model name\t: Intel(R) Core(TM) i7 CPU       L 620  @ 2.00GHz
+stepping\t: 2
 
-processor	: 2
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 37
-model name	: Intel(R) Core(TM) i7 CPU       L 620  @ 2.00GHz
-stepping	: 2
+processor\t: 2
+vendor_id\t: GenuineIntel
+cpu family\t: 6
+model\t\t: 37
+model name\t: Intel(R) Core(TM) i7 CPU       L 620  @ 2.00GHz
+stepping\t: 2
 
-processor	: 3
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 37
-model name	: Intel(R) Core(TM) i7 CPU       L 620  @ 2.00GHz
-stepping	: 2
-cpu MHz		: 1199.000
-cache size	: 4096 KB
-physical id	: 0
-siblings	: 4
+processor\t: 3
+vendor_id\t: GenuineIntel
+cpu family\t: 6
+model\t\t: 37
+model name\t: Intel(R) Core(TM) i7 CPU       L 620  @ 2.00GHz
+stepping\t: 2
+cpu MHz\t\t: 1199.000
+cache size\t: 4096 KB
+physical id\t: 0
+siblings\t: 4
 """
 
 class FakeEnviron:

@@ -6,8 +6,6 @@ from pypy.rlib.rdynload import DLLHANDLE
 import sys
 
 class State:
-    datetimeAPI = None # used in tests
-
     def __init__(self, space):
         self.space = space
         self.reset()

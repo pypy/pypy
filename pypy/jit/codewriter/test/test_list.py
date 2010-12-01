@@ -56,9 +56,8 @@ def builtin_test(oopspec_name, args, RESTYPE, expected):
     if '/' in oopspec_name:
         oopspec_name, property = oopspec_name.split('/')
         def force_flags(op):
-            if property == 'NONNEG':   return True, False
-            if property == 'NEG':      return False, False
-            if property == 'CANRAISE': return False, True
+            if property == 'NONNEG':   return True
+            if property == 'NEG':      return False
             raise ValueError(property)
         tr._get_list_nonneg_canraise_flags = force_flags
     op = SpaceOperation('direct_call',
@@ -122,9 +121,6 @@ def test_fixed_getitem():
                      check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
                      getarrayitem_gc_i %r0, <ArrayDescr>, %i1 -> %i2
                  """)
-    builtin_test('list.getitem/CANRAISE',
-                 [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
-                 lltype.Signed, NotSupported)
 
 def test_fixed_getitem_foldable():
     builtin_test('list.getitem_foldable/NONNEG',
@@ -139,9 +135,6 @@ def test_fixed_getitem_foldable():
                      check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
                      getarrayitem_gc_pure_i %r0, <ArrayDescr>, %i1 -> %i2
                  """)
-    builtin_test('list.getitem_foldable/CANRAISE',
-                 [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
-                 lltype.Signed, NotSupported)
 
 def test_fixed_setitem():
     builtin_test('list.setitem/NONNEG', [varoftype(FIXEDLIST),
@@ -158,10 +151,6 @@ def test_fixed_setitem():
                      check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
                      setarrayitem_gc_i %r0, <ArrayDescr>, %i1, %i2
                  """)
-    builtin_test('list.setitem/CANRAISE', [varoftype(FIXEDLIST),
-                                           varoftype(lltype.Signed),
-                                           varoftype(lltype.Signed)],
-                 lltype.Void, NotSupported)
 
 def test_fixed_len():
     builtin_test('list.len', [varoftype(FIXEDLIST)], lltype.Signed,
@@ -206,9 +195,6 @@ def test_resizable_getitem():
         check_resizable_neg_index %r0, <FieldDescr length>, %i0 -> %i1
         getlistitem_gc_i %r0, <FieldDescr items>, <ArrayDescr>, %i1 -> %i2
                  """)
-    builtin_test('list.getitem/CANRAISE',
-                 [varoftype(VARLIST), varoftype(lltype.Signed)],
-                 lltype.Signed, NotSupported)
 
 def test_resizable_setitem():
     builtin_test('list.setitem/NONNEG', [varoftype(VARLIST),
@@ -225,10 +211,6 @@ def test_resizable_setitem():
         check_resizable_neg_index %r0, <FieldDescr length>, %i0 -> %i1
         setlistitem_gc_i %r0, <FieldDescr items>, <ArrayDescr>, %i1, %i2
                  """)
-    builtin_test('list.setitem/CANRAISE', [varoftype(VARLIST),
-                                           varoftype(lltype.Signed),
-                                           varoftype(lltype.Signed)],
-                 lltype.Void, NotSupported)
 
 def test_resizable_len():
     builtin_test('list.len', [varoftype(VARLIST)], lltype.Signed,

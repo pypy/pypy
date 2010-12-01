@@ -185,7 +185,8 @@ def _should_widen_type(tp):
         return False
     r_class = rffi.platform.numbertype_to_rclass[tp]
     assert issubclass(r_class, base_int)
-    return r_class.BITS < LONG_BIT
+    return r_class.BITS < LONG_BIT or (
+        r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
 del _bits, _itest, _Ltest
@@ -485,6 +486,11 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
+
+if r_longlong is not r_int:
+    r_int64 = r_longlong
+else:
+    r_int64 = int
 
 
 # float as string  -> sign, beforept, afterpt, exponent

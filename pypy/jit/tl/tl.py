@@ -16,32 +16,40 @@ class Stack(object):
     def __init__(self, size):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         self.stack = [0] * size
-        self.stackpos = 0
+        self.stackpos = 0        # always store a known-nonneg integer here
 
     def append(self, elem):
         self.stack[self.stackpos] = elem
         self.stackpos += 1
 
     def pop(self):
-        self.stackpos -= 1
-        if self.stackpos < 0:
+        stackpos = self.stackpos - 1
+        if stackpos < 0:
             raise IndexError
-        return self.stack[self.stackpos]
+        self.stackpos = stackpos     # always store a known-nonneg integer here
+        return self.stack[stackpos]
 
     def pick(self, i):
-        self.append(self.stack[self.stackpos - i - 1])
+        n = self.stackpos - i - 1
+        assert n >= 0
+        self.append(self.stack[n])
 
     def put(self, i):
         elem = self.pop()
-        self.stack[self.stackpos - i - 1] = elem
+        n = self.stackpos - i - 1
+        assert n >= 0
+        self.stack[n] = elem
 
     def roll(self, r):
         if r < -1:
             i = self.stackpos + r
             if i < 0:
                 raise IndexError
-            elem = self.stack[self.stackpos - 1]
+            n = self.stackpos - 1
+            assert n >= 0
+            elem = self.stack[n]
             for j in range(self.stackpos - 2, i - 1, -1):
+                assert j >= 0
                 self.stack[j + 1] = self.stack[j]
             self.stack[i] = elem
         elif r > 1:
@@ -51,7 +59,9 @@ class Stack(object):
             elem = self.stack[i]
             for j in range(i, self.stackpos - 1):
                 self.stack[j] = self.stack[j + 1]
-            self.stack[self.stackpos - 1] = elem
+            n = self.stackpos - 1
+            assert n >= 0
+            self.stack[n] = elem
 
 
 def make_interp(supports_call):

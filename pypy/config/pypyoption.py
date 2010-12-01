@@ -31,7 +31,7 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect", "_multiprocessing", '_warnings']
+     "_bisect", "binascii", "_multiprocessing", '_warnings']
 ))
 
 translation_modules = default_modules.copy()
@@ -163,7 +163,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                suggests=[("objspace.allworkingmodules", False)]),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
-               cmdline=None,
                default=True),
 
     BoolOption("logbytecodes",

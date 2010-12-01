@@ -927,12 +927,16 @@ class RecursiveTests:
                                             x=x)
                 frame.s = hint(frame.s, promote=True)
                 n -= 1
-                x += frame.l[frame.s]
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
                 frame.s += 1
                 if codeno == 0:
                     subframe = Frame([n, n+1, n+2, n+3], 0)
                     x += f(1, 10, 1, subframe)
-                x += frame.l[frame.s]
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
                 x += len(frame.l)
                 frame.s -= 1
             return x

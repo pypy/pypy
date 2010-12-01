@@ -3375,23 +3375,69 @@ class TestAnnotateTestCase:
         a.build_types(fn, [])
         # assert did not raise ListChangeUnallowed
 
-    def test_list_not_modified_any_more(self):
-        from pypy.rlib.debug import list_not_modified_any_more
-
-        def pycode(consts):
-            return list_not_modified_any_more(consts)
-        def build1():
-            return pycode(consts=[1])
-        def build2():
-            return pycode(consts=[0])
-        def fn():
-            build1()
-            build2()
+    def test_return_immutable_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            l1 = [n, 0]
+            l1[1] = n+1
+            a.lst = l1
+            return a.lst
 
         a = self.RPythonAnnotator()
-        a.translator.config.translation.list_comprehension_operations = True
-        a.build_types(fn, [])
-        # assert did not raise ListChangeUnallowed
+        s = a.build_types(f, [int])
+        assert s.listdef.listitem.immutable
+
+    def test_immutable_list_is_actually_resized(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            l1 = [n]
+            l1.append(n+1)
+            a.lst = l1
+            return a.lst
+
+        a = self.RPythonAnnotator()
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
+
+    def test_can_merge_immutable_list_with_regular_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def foo(lst):
+            pass
+
+        def f(n):
+            a = A()
+            l1 = [n, 0]
+            l1[1] = n+1
+            a.lst = l1
+            if n > 0:
+                foo(a.lst)
+            else:
+                lst = [0]
+                lst[0] = n
+                foo(lst)
+
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
+        def f(n):
+            a = A()
+            l1 = [n, 0]
+            l1[1] = n+1
+            a.lst = l1
+            if n > 0:
+                lst = [0]
+                lst[0] = n
+                foo(lst)
+            else:
+                foo(a.lst)
+
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
 
 def g(n):
     return [0,1,2,n]

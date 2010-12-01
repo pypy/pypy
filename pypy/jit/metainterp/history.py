@@ -4,8 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.objectmodel import compute_hash, compute_unique_id
-from pypy.rlib.rarithmetic import intmask, r_longlong
-from pypy.tool.uid import uid
+from pypy.rlib.rarithmetic import intmask, r_int64
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -731,7 +730,7 @@ class LoopToken(AbstractDescr):
     # specnodes = ...
     # and more data specified by the backend when the loop is compiled
     number = -1
-    generation = r_longlong(0)
+    generation = r_int64(0)
     # one purpose of LoopToken is to keep alive the CompiledLoopToken
     # returned by the backend.  When the LoopToken goes away, the
     # CompiledLoopToken has its __del__ called, which frees the assembler

@@ -14,7 +14,7 @@ class ListItem(object):
     resized = False    # True for lists resized after creation
     range_step = None  # the step -- only for lists only created by a range()
     dont_change_any_more = False   # set to True when too late for changes
-    must_not_mutate = False   # list_not_modified_any_more()
+    immutable = False  # for getattr out of _immutable_fields_ = ['attr[*]']
     must_not_resize = False   # make_sure_not_resized()
 
     # what to do if range_step is different in merge.
@@ -38,8 +38,7 @@ class ListItem(object):
         if not self.mutated:
             if self.dont_change_any_more:
                 raise TooLateForChange
-            if self.must_not_mutate:
-                raise ListChangeUnallowed("mutating list")
+            self.immutable = False
             self.mutated = True
 
     def resize(self):
@@ -71,10 +70,7 @@ class ListItem(object):
                     # things more general
                     self, other = other, self
 
-            if other.must_not_mutate:
-                if self.mutated:
-                    raise ListChangeUnallowed("list merge with a mutated")
-                self.must_not_mutate = True
+            self.immutable &= other.immutable
             if other.must_not_resize:
                 if self.resized:
                     raise ListChangeUnallowed("list merge with a resized")
@@ -189,9 +185,11 @@ class ListDef(object):
         self.listitem.generalize(s_value)
 
     def __repr__(self):
-        return '<[%r]%s%s>' % (self.listitem.s_value,
+        return '<[%r]%s%s%s%s>' % (self.listitem.s_value,
                                self.listitem.mutated and 'm' or '',
-                               self.listitem.resized and 'r' or '')
+                               self.listitem.resized and 'r' or '',
+                               self.listitem.immutable and 'I' or '',
+                               self.listitem.must_not_resize and '!R' or '')
 
     def mutate(self):
         self.listitem.mutate()
@@ -205,11 +203,17 @@ class ListDef(object):
             raise ListChangeUnallowed("list already resized")
         self.listitem.must_not_resize = True
 
-    def never_mutate(self):
+    def mark_as_immutable(self):
+        # Sets the 'immutable' flag.  Note that unlike "never resized",
+        # the immutable flag is only a hint.  It is cleared again e.g.
+        # when we merge with a "normal" list that doesn't have it.  It
+        # is thus expected to live only shortly, mostly for the case
+        # of writing 'x.list[n]'.
         self.never_resize()
-        if self.listitem.mutated:
-            raise ListChangeUnallowed("list already mutated")
-        self.listitem.must_not_mutate = True
+        if not self.listitem.mutated:
+            self.listitem.immutable = True
+        #else: it's fine, don't set immutable=True at all (see
+        #      test_can_merge_immutable_list_with_regular_list)
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
 

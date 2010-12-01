@@ -139,12 +139,13 @@ class AsmStackRootWalker(BaseRootWalker):
         self._shape_decompressor = ShapeDecompressor()
         if hasattr(gctransformer.translator, '_jit2gc'):
             jit2gc = gctransformer.translator._jit2gc
-            self._extra_gcmapstart = jit2gc['gcmapstart']
-            self._extra_gcmapend   = jit2gc['gcmapend']
+            self._extra_gcmapstart  = jit2gc['gcmapstart']
+            self._extra_gcmapend    = jit2gc['gcmapend']
+            self._extra_mark_sorted = jit2gc['gcmarksorted']
         else:
-            returns_null = lambda: llmemory.NULL
-            self._extra_gcmapstart = returns_null
-            self._extra_gcmapend   = returns_null
+            self._extra_gcmapstart  = lambda: llmemory.NULL
+            self._extra_gcmapend    = lambda: llmemory.NULL
+            self._extra_mark_sorted = lambda: True
 
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.
@@ -295,14 +296,16 @@ class AsmStackRootWalker(BaseRootWalker):
             # we have a non-empty JIT-produced table to look in
             item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
             if item:
-                self._shape_decompressor.setaddr(item.address[1])
+                self._shape_decompressor.setaddr(item)
                 return
             # maybe the JIT-produced table is not sorted?
-            sort_gcmap(gcmapstart2, gcmapend2)
-            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
-            if item:
-                self._shape_decompressor.setaddr(item.address[1])
-                return
+            was_already_sorted = self._extra_mark_sorted()
+            if not was_already_sorted:
+                sort_gcmap(gcmapstart2, gcmapend2)
+                item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
+                if item:
+                    self._shape_decompressor.setaddr(item)
+                    return
         # the item may have been not found because the main array was
         # not sorted.  Sort it and try again.
         win32_follow_gcmap_jmp(gcmapstart, gcmapend)
@@ -357,7 +360,8 @@ def binary_search(start, end, addr1):
     The interval from the start address (included) to the end address
     (excluded) is assumed to be a sorted arrays of pairs (addr1, addr2).
     This searches for the item with a given addr1 and returns its
-    address.
+    address.  If not found exactly, it tries to return the address
+    of the item left of addr1 (i.e. such that result.address[0] < addr1).
     """
     count = (end - start) // arrayitemsize
     while count > 1:
@@ -386,7 +390,7 @@ def search_in_gcmap2(gcmapstart, gcmapend, retaddr):
     # (item.signed[1] is an address in this case, not a signed at all!)
     item = binary_search(gcmapstart, gcmapend, retaddr)
     if item.address[0] == retaddr:
-        return item     # found
+        return item.address[1]     # found
     else:
         return llmemory.NULL    # failed
 

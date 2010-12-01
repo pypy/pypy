@@ -18,6 +18,7 @@ from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
 from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
 from pypy.jit.backend.llsupport.ffisupport import get_call_descr_dynamic
+from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
 
@@ -52,6 +53,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self._setup_exception_handling_untranslated()
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
+        self.asmmemmgr = AsmMemoryManager()
         self.setup()
         if translate_support_code:
             self._setup_on_leave_jitted_translated()
@@ -176,6 +178,15 @@ class AbstractLLCPU(AbstractCPU):
         exc = self.saved_exc_value
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
         return exc
+
+    def free_loop_and_bridges(self, compiled_loop_token):
+        AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
+        blocks = compiled_loop_token.asmmemmgr_blocks
+        if blocks is not None:
+            compiled_loop_token.asmmemmgr_blocks = None
+            for rawstart, rawstop in blocks:
+                self.gc_ll_descr.freeing_block(rawstart, rawstop)
+                self.asmmemmgr.free(rawstart, rawstop)
 
     # ------------------- helpers and descriptions --------------------
 

@@ -9,7 +9,7 @@ from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.rlib.objectmodel import instantiate, r_dict, specialize
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int
+from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
 from pypy.tool.sourcetools import func_with_new_name
@@ -176,7 +176,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
-            return W_LongObject.fromrarith_int(x)
+            x = widen(x)
+            if isinstance(x, int):
+                return self.newint(x)
+            else:
+                return W_LongObject.fromrarith_int(x)
 
         # _____ below here is where the annotator should not get _____
 
@@ -372,7 +376,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     self, w_obj, expected_length)[:])
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
-        return t
+        return make_sure_not_resized(t)
 
     def fixedview_unroll(self, w_obj, expected_length=-1):
         return self.fixedview(w_obj, expected_length, unroll=True)

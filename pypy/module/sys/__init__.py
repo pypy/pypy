@@ -65,8 +65,6 @@ class Module(MixedModule):
         'pypy_svn_url'          : 'version.get_svn_url(space)',
         'subversion'            : 'version.get_subversion_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
-        'ps1'                   : 'space.wrap(">>>> ")', 
-        'ps2'                   : 'space.wrap(".... ")', 
 
         'displayhook'           : 'hook.displayhook', 
         '__displayhook__'       : 'hook.__displayhook__', 

@@ -333,6 +333,22 @@ class AppTestPosix:
             data = os.read(master_fd, 100)
             assert data.startswith('x')
 
+    if hasattr(__import__(os.name), "forkpty"):
+        def test_forkpty(self):
+            import sys
+            os = self.posix
+            childpid, master_fd = os.forkpty()
+            assert isinstance(childpid, int)
+            assert isinstance(master_fd, int)
+            if childpid == 0:
+                data = os.read(0, 100)
+                if data.startswith('abc'):
+                    os._exit(42)
+                else:
+                    os._exit(43)
+            os.write(master_fd, 'abc\n')
+            _, status = os.waitpid(childpid, 0)
+            assert status >> 8 == 42
 
     if hasattr(__import__(os.name), "execv"):
         def test_execv(self):

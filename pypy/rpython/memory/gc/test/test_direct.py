@@ -60,7 +60,7 @@ class DirectRootWalker(object):
         pass
 
 
-class DirectGCTest(object):
+class BaseDirectGCTest(object):
     GC_PARAMS = {}
 
     def setup_method(self, meth):
@@ -105,6 +105,9 @@ class DirectGCTest(object):
     def malloc(self, TYPE, n=None):
         addr = self.gc.malloc(self.get_type_id(TYPE), n, zero=True)
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+
+
+class DirectGCTest(BaseDirectGCTest):
 
     def test_simple(self):
         p = self.malloc(S)

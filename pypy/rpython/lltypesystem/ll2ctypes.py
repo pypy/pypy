@@ -446,6 +446,9 @@ class _parentable_mixin(object):
                             "not allocated from RPython at all")
         self._storage = None
 
+    def _getid(self):
+        return self._addressof_storage()
+
     def __eq__(self, other):
         if isinstance(other, _llgcopaque):
             addressof_other = other.intval
@@ -1299,7 +1302,7 @@ else:
             def _where_is_errno():
                 return standard_c_lib.__errno_location()
 
-        elif sys.platform in ('darwin', 'freebsd7'):
+        elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
             standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__error()

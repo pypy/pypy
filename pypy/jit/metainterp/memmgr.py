@@ -1,5 +1,5 @@
 import math
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_int64
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -24,7 +24,7 @@ class MemoryManager(object):
 
     def __init__(self):
         self.check_frequency = -1
-        # NB. use of r_longlong to be extremely far on the safe side:
+        # NB. use of r_int64 to be extremely far on the safe side:
         # this is increasing by one after each loop or bridge is
         # compiled, and it must not overflow.  If the backend implements
         # complete freeing in cpu.free_loop_and_bridges(), then it may
@@ -32,13 +32,13 @@ class MemoryManager(object):
         # enough.  But in this day and age, you'd still never have the
         # patience of waiting for a slowly-increasing 64-bit number to
         # overflow :-)
-        self.current_generation = r_longlong(1)
-        self.next_check = r_longlong(-1)
+        self.current_generation = r_int64(1)
+        self.next_check = r_int64(-1)
         self.alive_loops = {}
 
     def set_max_age(self, max_age, check_frequency=0):
         if max_age <= 0:
-            self.next_check = r_longlong(-1)
+            self.next_check = r_int64(-1)
         else:
             self.max_age = max_age
             if check_frequency <= 0:

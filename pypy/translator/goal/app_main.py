@@ -11,6 +11,7 @@ options:
   -h, --help     show this help message and exit
   -m             library module to be run as a script (terminates option list)
   -W arg         warning control (arg is action:message:category:module:lineno)
+  -E             ignore environment variables (such as PYTHONPATH)
   --version      print the PyPy version
   --info         print translation information about this PyPy executable
 """
@@ -204,7 +205,7 @@ def get_library_path(executable):
         break      # found!
     return newpath
 
-def setup_initial_paths(executable, nanos):
+def setup_initial_paths(executable, nanos, readenv=True, **extra):
     # a substituted os if we are translated
     global os
     os = nanos
@@ -225,7 +226,7 @@ def setup_initial_paths(executable, nanos):
     sys.executable = os.path.abspath(executable)
 
     newpath = get_library_path(executable)
-    path = os.getenv('PYTHONPATH')
+    path = readenv and os.getenv('PYTHONPATH')
     if path:
         newpath = path.split(os.pathsep) + newpath
     # remove duplicates
@@ -235,7 +236,6 @@ def setup_initial_paths(executable, nanos):
         if dir not in _seen:
             sys.path.append(dir)
             _seen[dir] = True
-    return executable
 
 # Order is significant!
 sys_flags = (
@@ -271,6 +271,7 @@ def parse_command_line(argv):
     options['warnoptions'] = []
     print_sys_flags = False
     i = 0
+    readenv = True
     while i < len(argv):
         arg = argv[i]
         if not arg.startswith('-'):
@@ -310,6 +311,8 @@ def parse_command_line(argv):
             argv[i] = '-c'
             options["run_command"] = True
             break
+        elif arg == '-E':
+            readenv = False
         elif arg == '-u':
             options["unbuffered"] = True
         elif arg == '-O' or arg == '-OO':
@@ -378,6 +381,7 @@ def run_command_line(interactive,
                      run_stdin,
                      warnoptions,
                      unbuffered,
+                     readenv,
                      cmd=None,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100 
@@ -431,7 +435,7 @@ def run_command_line(interactive,
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
         return (interactive or
-                (os.getenv('PYTHONINSPECT') and sys.stdin.isatty()))
+            (readenv and os.getenv('PYTHONINSPECT') and sys.stdin.isatty()))
 
     success = True
 
@@ -464,7 +468,7 @@ def run_command_line(interactive,
                 # If stdin is a tty or if "-i" is specified, we print
                 # a banner and run $PYTHONSTARTUP.
                 print_banner()
-                python_startup = os.getenv('PYTHONSTARTUP')
+                python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
                         f = open(python_startup)
@@ -538,7 +542,6 @@ def print_banner():
            '"license" for more information.')
 
 def entry_point(executable, argv, nanos):
-    executable = setup_initial_paths(executable, nanos)
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError, e:
@@ -546,8 +549,8 @@ def entry_point(executable, argv, nanos):
         return 2
     if cmdline is None:
         return 0
-    else:
-        return run_command_line(**cmdline)
+    setup_initial_paths(executable, nanos, **cmdline)
+    return run_command_line(**cmdline)
 
 
 if __name__ == '__main__':
@@ -582,13 +585,13 @@ if __name__ == '__main__':
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
     os = nanos.os_module_for_testing
-    sys.ps1 = '>>>> '
-    sys.ps2 = '.... '
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
     finally:
-        sys.ps1 = '>>> '     # restore the normal ones, in case
-        sys.ps2 = '... '     # we are dropping to CPython's prompt
+        # restore the normal prompt (which was changed by _pypy_interact), in
+        # case we are dropping to CPython's prompt
+        sys.ps1 = '>>> '
+        sys.ps2 = '... '
         import os; os.environ.update(reset)
         assert old_argv is sys.argv
         assert old_path is sys.path

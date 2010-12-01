@@ -1,4 +1,4 @@
-import sys
+import sys, __pypy__
 if sys.platform == 'win32':
     raise ImportError('resource module not available for win32')
 
@@ -77,6 +77,7 @@ class struct_rusage:
     ru_nvcsw = _structseq.structseqfield(14)
     ru_nivcsw = _structseq.structseqfield(15)
 
+@__pypy__.builtinify
 def rlimit_check_bounds(rlim_cur, rlim_max):
     if rlim_cur > rlim_t_max:
         raise ValueError("%d does not fit into rlim_t" % rlim_cur)
@@ -89,6 +90,7 @@ class rlimit(Structure):
         ("rlim_max", rlim_t),
     )
 
+@__pypy__.builtinify
 def getrusage(who):
     ru = _struct_rusage()
     ret = _getrusage(who, byref(ru))
@@ -116,6 +118,7 @@ def getrusage(who):
         ru.ru_nivcsw,
         ))
 
+@__pypy__.builtinify
 def getrlimit(resource):
     if not(0 <= resource < RLIM_NLIMITS):
         return ValueError("invalid resource specified")
@@ -127,6 +130,7 @@ def getrlimit(resource):
         raise error(errno)
     return (rlim.rlim_cur, rlim.rlim_max)
 
+@__pypy__.builtinify
 def setrlimit(resource, rlim):
     if not(0 <= resource < RLIM_NLIMITS):
         return ValueError("invalid resource specified")
@@ -143,6 +147,7 @@ def setrlimit(resource, rlim):
         else:
             raise error(errno)
 
+@__pypy__.builtinify
 def getpagesize():
     pagesize = 0
     if _getpagesize:

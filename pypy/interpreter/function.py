@@ -612,11 +612,9 @@ class BuiltinFunction(Function):
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
 
-    def descr_builtinfunction__new__(space, w_subtype, w_func):
-        func = space.interp_w(Function, w_func)
-        bltin = space.allocate_instance(BuiltinFunction, w_subtype)
-        BuiltinFunction.__init__(bltin, func)
-        return space.wrap(bltin)
+    def descr_builtinfunction__new__(space, w_subtype):
+        raise OperationError(space.w_TypeError,
+                     space.wrap("cannot create 'builtin_function' instances"))
 
     def descr_function_repr(self):
         return self.space.wrap('<built-in function %s>' % (self.name,))
