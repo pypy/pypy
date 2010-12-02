@@ -10,12 +10,16 @@ The uid and gid items are integers, all others are strings. An
 exception is raised if the entry asked for cannot be found.
 """
 
-import sys, __pypy__
+import sys
 if sys.platform == 'win32':
     raise ImportError("No pwd module on Windows")
 
 from ctypes_support import standard_c_lib as libc
 from ctypes import Structure, POINTER, c_int, c_char_p
+
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
 
 uid_t = c_int
 gid_t = c_int
@@ -79,12 +83,12 @@ _endpwent = libc.endpwent
 _endpwent.argtypes = None
 _endpwent.restype = None
 
-@__pypy__.builtinify
+@builtinify
 def mkpwent(pw):
     pw = pw.contents
     return struct_passwd(pw)
 
-@__pypy__.builtinify
+@builtinify
 def getpwuid(uid):
     """
     getpwuid(uid) -> (pw_name,pw_passwd,pw_uid,
@@ -97,7 +101,7 @@ def getpwuid(uid):
         raise KeyError("getpwuid(): uid not found: %s" % uid)
     return mkpwent(pw)
 
-@__pypy__.builtinify
+@builtinify
 def getpwnam(name):
     """
     getpwnam(name) -> (pw_name,pw_passwd,pw_uid,
@@ -112,7 +116,7 @@ def getpwnam(name):
         raise KeyError("getpwname(): name not found: %s" % name)
     return mkpwent(pw)
 
-@__pypy__.builtinify
+@builtinify
 def getpwall():
     """
     getpwall() -> list_of_entries

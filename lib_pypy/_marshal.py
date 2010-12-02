@@ -6,6 +6,10 @@ This module contains functions that can read and write Python values in a binary
 import types
 from _codecs import utf_8_decode, utf_8_encode
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
+
 TYPE_NULL     = '0'
 TYPE_NONE     = 'N'
 TYPE_FALSE    = 'F'
@@ -645,15 +649,18 @@ _load_dispatch = _FastUnmarshaller.dispatch
 
 version = 1
 
+@builtinify
 def dump(x, f, version=version):
     # XXX 'version' is ignored, we always dump in a version-0-compatible format
     m = _Marshaller(f.write)
     m.dump(x)
 
+@builtinify
 def load(f):
     um = _Unmarshaller(f.read)
     return um.load()
 
+@builtinify
 def dumps(x, version=version):
     # XXX 'version' is ignored, we always dump in a version-0-compatible format
     buffer = []
@@ -661,6 +668,7 @@ def dumps(x, version=version):
     m.dump(x)
     return ''.join(buffer)
 
+@builtinify
 def loads(s):
     um = _FastUnmarshaller(s)
     return um.load()

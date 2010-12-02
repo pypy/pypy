@@ -2,10 +2,13 @@
 import ctypes
 import ctypes.util
 from ctypes import c_char_p, c_int, c_void_p, POINTER, c_char, c_wchar_p
-import sys, __pypy__
+import sys
 
 # load the platform-specific cache made by running pyexpat.ctc.py
 from ctypes_config_cache._pyexpat_cache import *
+
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
 
 
 lib = ctypes.CDLL(ctypes.util.find_library('expat'))
@@ -425,11 +428,11 @@ class XMLParserType(object):
         new_parser._set_unknown_encoding_handler()
         return new_parser
 
-@__pypy__.builtinify
+@builtinify
 def ErrorString(errno):
     return XML_ErrorString(errno)[:200]
 
-@__pypy__.builtinify
+@builtinify
 def ParserCreate(encoding=None, namespace_separator=None, intern=None):
     if (not isinstance(encoding, str) and
         not encoding is None):

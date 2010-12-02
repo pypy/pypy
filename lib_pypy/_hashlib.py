@@ -148,29 +148,29 @@ def new(name, string=''):
     return hash(ctx, name)
 
 # shortcut functions
-import __pypy__
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
 
-@__pypy__.builtinify
+@builtinify
 def openssl_md5(string=''):
     return new('md5', string)
 
-@__pypy__.builtinify
+@builtinify
 def openssl_sha1(string=''):
     return new('sha1', string)
 
-@__pypy__.builtinify
+@builtinify
 def openssl_sha224(string=''):
     return new('sha224', string)
 
-@__pypy__.builtinify
+@builtinify
 def openssl_sha256(string=''):
     return new('sha256', string)
 
-@__pypy__.builtinify
+@builtinify
 def openssl_sha384(string=''):
     return new('sha384', string)
 
-@__pypy__.builtinify
+@builtinify
 def openssl_sha512(string=''):
     return new('sha512', string)
-
