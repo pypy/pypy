@@ -409,7 +409,7 @@ class TestNonInteractive:
             ("bytes_warning", "-b", "1"),
         )
         for flag, opt, value in flags:
-            cmd = "%s --print-sys-flags -c 'import sys; print sys.flags'"
+            cmd = "%s --print-sys-flags -c pass"
             data = self.run(cmd % (opt,), expect_prompt=opt == "-i")
             assert "%s=%s" % (flag, value) in data
 
