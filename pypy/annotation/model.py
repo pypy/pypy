@@ -356,8 +356,8 @@ class SomePBC(SomeObject):
     immutable = True
 
     def __init__(self, descriptions, can_be_None=False, subset_of=None):
-        # descriptions is a set of Desc instances.
-        descriptions = dict.fromkeys(descriptions)
+        # descriptions is a set of Desc instances
+        descriptions = set(descriptions)
         self.descriptions = descriptions
         self.can_be_None = can_be_None
         self.subset_of = subset_of
@@ -378,6 +378,9 @@ class SomePBC(SomeObject):
                 desc, = descriptions
                 if desc.pyobj is not None:
                     self.const = desc.pyobj
+
+    def any_description(self):
+        return iter(self.descriptions).next()
 
     def getKind(self):
         "Return the common Desc class of all descriptions in this PBC."
