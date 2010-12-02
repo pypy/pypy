@@ -205,7 +205,7 @@ def get_library_path(executable):
         break      # found!
     return newpath
 
-def setup_initial_paths(executable, nanos, readenv=True, **extra):
+def setup_initial_paths(executable, nanos, ignore_environment=False, **extra):
     # a substituted os if we are translated
     global os
     os = nanos
@@ -226,6 +226,7 @@ def setup_initial_paths(executable, nanos, readenv=True, **extra):
     sys.executable = os.path.abspath(executable)
 
     newpath = get_library_path(executable)
+    readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
     if path:
         newpath = path.split(os.pathsep) + newpath
@@ -271,7 +272,6 @@ def parse_command_line(argv):
     options['warnoptions'] = []
     print_sys_flags = False
     i = 0
-    readenv = True
     while i < len(argv):
         arg = argv[i]
         if not arg.startswith('-'):
@@ -311,8 +311,6 @@ def parse_command_line(argv):
             argv[i] = '-c'
             options["run_command"] = True
             break
-        elif arg == '-E':
-            readenv = False
         elif arg == '-u':
             options["unbuffered"] = True
         elif arg == '-O' or arg == '-OO':
@@ -381,7 +379,7 @@ def run_command_line(interactive,
                      run_stdin,
                      warnoptions,
                      unbuffered,
-                     readenv,
+                     ignore_environment,
                      cmd=None,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100 
@@ -403,7 +401,8 @@ def run_command_line(interactive,
         except:
             print >> sys.stderr, "'import site' failed"
 
-    pythonwarnings = os.getenv('PYTHONWARNINGS')
+    readenv = not ignore_environment
+    pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
         warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
