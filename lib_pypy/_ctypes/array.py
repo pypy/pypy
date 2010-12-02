@@ -158,12 +158,9 @@ class Array(_CData):
     __metaclass__ = ArrayMeta
     _ffiargshape = 'P'
 
-    def __new__(cls, *args):
-        self = _CData.__new__(cls, *args)
-        self._buffer = self._ffiarray(self._length_, autofree=True)
-        return self
-
     def __init__(self, *args):
+        if not hasattr(self, '_buffer'):
+            self._buffer = self._ffiarray(self._length_, autofree=True)
         for i, arg in enumerate(args):
             self[i] = arg
 
