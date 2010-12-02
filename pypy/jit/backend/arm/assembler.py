@@ -1,7 +1,7 @@
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
-from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN
+from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
@@ -243,9 +243,10 @@ class AssemblerARM(ResOpAssembler):
 
         n = self.cpu.get_fail_descr_number(descr)
         self.encode32(mem, j+1, n)
-        self.mc.ensure_can_fit(self.mc.size_of_gen_load_int)
-        self.mc.gen_load_int(r.lr.value, memaddr, cond=fcond) # use lr to pass an argument
+        self.mc.ensure_can_fit(4*WORD)
+        self.mc.LDR_ri(r.lr.value, r.pc.value, imm=WORD)
         self.mc.B(self._exit_code_addr)
+        self.mc.write32(memaddr)
 
         return memaddr
 

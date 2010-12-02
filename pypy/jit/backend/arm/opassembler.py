@@ -181,15 +181,15 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    guard_size = ARMv7Builder.size_of_gen_load_int + 6*WORD
+    guard_size = 10*WORD
     def _emit_guard(self, op, regalloc, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
-        #if hasattr(op, 'getfailargs'):
-        #   print 'Failargs: ', op.getfailargs()
+        if hasattr(op, 'getfailargs'):
+           print 'Failargs: ', op.getfailargs()
 
         self.mc.ensure_can_fit(self.guard_size)
-        self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size, cond=fcond)
+        self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size-PC_OFFSET, cond=fcond)
         descr._arm_guard_code = self.mc.curraddr()
 
         self.mc.PUSH([reg.value for reg in r.caller_resp])
@@ -200,7 +200,6 @@ class GuardOpAssembler(object):
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc)
         descr._failure_recovery_code = memaddr
         regalloc.possibly_free_vars_for_op(op)
-        self.mc.NOP()
         return c.AL
 
     def emit_op_guard_true(self, op, regalloc, fcond):
