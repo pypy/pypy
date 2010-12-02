@@ -11,12 +11,15 @@ import ctypes
 from ctypes_support import standard_c_lib as _c
 from ctypes_support import get_errno
 import errno
-import __pypy__
 
 try:
     open_osfhandle = _c._open_osfhandle
 except AttributeError: # we are not on windows
     raise ImportError
+
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
 
 open_osfhandle.argtypes = [ctypes.c_int, ctypes.c_int]
 open_osfhandle.restype = ctypes.c_int
@@ -35,7 +38,7 @@ _locking = _c._locking
 _locking.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int]
 _locking.restype = ctypes.c_int
 
-@__pypy__.builtinify
+@builtinify
 def locking(fd, mode, nbytes):
     '''lock or unlock a number of bytes in a file.'''
     rv = _locking(fd, mode, nbytes)

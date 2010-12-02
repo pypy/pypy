@@ -222,7 +222,7 @@ class GcRootMap_asmgcc:
     LOC_EBP_MINUS = 3
 
     GCMAP_ARRAY = rffi.CArray(lltype.Signed)
-    CALLSHAPE_ARRAY = rffi.CArray(rffi.UCHAR)
+    CALLSHAPE_ARRAY_PTR = rffi.CArrayPtr(rffi.UCHAR)
 
     def __init__(self):
         # '_gcmap' is an array of length '_gcmap_maxlength' of addresses.
@@ -264,8 +264,7 @@ class GcRootMap_asmgcc:
         self._gcmap_sorted = True
         return sorted
 
-    @rgc.no_collect
-    def _put(self, retaddr, callshapeaddr):
+    def put(self, retaddr, callshapeaddr):
         """'retaddr' is the address just after the CALL.
         'callshapeaddr' is the address of the raw 'shape' marker.
         Both addresses are actually integers here."""
@@ -307,37 +306,6 @@ class GcRootMap_asmgcc:
             if oldgcmap:
                 lltype.free(oldgcmap, flavor='raw', track_allocation=False)
         return j
-
-    def add_raw_gcroot_markers(self, asmmemmgr, allblocks,
-                               markers, total_size, rawstart):
-        """The interface is a bit custom, but this routine writes the
-        shapes of gcroots (for the GC to use) into raw memory."""
-        # xxx so far, we never try to share them.  But right now
-        # the amount of potential sharing would not be too large.
-        dst = 1
-        stop = 0
-        for relpos, shape in markers:
-            #
-            if dst + len(shape) > stop:
-                # No more space in the previous raw block,
-                # allocate a raw block of memory big enough to fit
-                # as many of the remaining 'shapes' as possible
-                start, stop = asmmemmgr.malloc(len(shape), total_size)
-                # add the raw block to 'compiled_loop_token.asmmemmgr_blocks'
-                allblocks.append((start, stop))
-                dst = start
-            #
-            # add the entry 'pos_after_call -> dst' to the table
-            self._put(rawstart + relpos, dst)
-            # Copy 'shape' into the raw memory, reversing the order
-            # of the bytes.  Similar to compress_callshape() in
-            # trackgcroot.py.
-            total_size -= len(shape)
-            src = len(shape) - 1
-            while src >= 0:
-                rffi.cast(rffi.CCHARP, dst)[0] = shape[src]
-                dst += 1
-                src -= 1
 
     @rgc.no_collect
     def freeing_block(self, start, stop):
@@ -408,6 +376,16 @@ class GcRootMap_asmgcc:
     def add_callee_save_reg(self, shape, reg_index):
         assert reg_index > 0
         shape.append(chr(self.LOC_REG | (reg_index << 2)))
+
+    def compress_callshape(self, shape, datablockwrapper):
+        # Similar to compress_callshape() in trackgcroot.py.
+        # Returns an address to raw memory (as an integer).
+        length = len(shape)
+        rawaddr = datablockwrapper.malloc_aligned(length, 1)
+        p = rffi.cast(self.CALLSHAPE_ARRAY_PTR, rawaddr)
+        for i in range(length):
+            p[length-1-i] = rffi.cast(rffi.UCHAR, shape[i])
+        return rawaddr
 
 
 class WriteBarrierDescr(AbstractDescr):

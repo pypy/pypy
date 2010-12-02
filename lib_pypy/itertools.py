@@ -27,7 +27,8 @@ __all__ = ['chain', 'count', 'cycle', 'dropwhile', 'groupby', 'ifilter',
            'ifilterfalse', 'imap', 'islice', 'izip', 'repeat', 'starmap',
            'takewhile', 'tee']
 
-import __pypy__
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
 
 
 class chain(object):
@@ -634,7 +635,7 @@ class TeeObject(object):
         return self
 
 
-@__pypy__.builtinify
+@builtinify
 def tee(iterable, n=2):
     """Return n independent iterators from a single iterable.
     Note : once tee() has made a split, the original iterable

@@ -5,8 +5,11 @@ functions for complex numbers."""
 
 # much code borrowed from mathmodule.c
 
-import math, __pypy__
+import math
 from math import e, pi
+
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
 
 
 # constants
@@ -32,14 +35,13 @@ def _prodi(x):
     return complex(real, imag)
 
 
-
-@__pypy__.builtinify
+@builtinify
 def phase(x):
     x = _to_complex(x)
     return math.atan2(x.imag, x.real)
 
 
-@__pypy__.builtinify
+@builtinify
 def polar(x):
     x = _to_complex(x)
     phi = math.atan2(x.imag, x.real)
@@ -47,12 +49,12 @@ def polar(x):
     return r, phi
 
 
-@__pypy__.builtinify
+@builtinify
 def rect(r, phi):
     return complex(r * math.cos(phi), r * math.sin(phi))
 
 
-@__pypy__.builtinify
+@builtinify
 def acos(x):
     """acos(x)
 
@@ -62,7 +64,7 @@ def acos(x):
     return -(_prodi(log((x+(_i*sqrt((_one-(x*x))))))))
 
 
-@__pypy__.builtinify
+@builtinify
 def acosh(x):
     """acosh(x)
 
@@ -73,7 +75,7 @@ def acosh(x):
     return z+z
 
 
-@__pypy__.builtinify
+@builtinify
 def asin(x):
     """asin(x)
 
@@ -86,7 +88,7 @@ def asin(x):
     return -(_prodi(log((sqrt_1_minus_x_sq+_prodi(x)))))
 
 
-@__pypy__.builtinify
+@builtinify
 def asinh(x):
     """asinh(x)
 
@@ -97,7 +99,7 @@ def asinh(x):
     return z+z
 
 
-@__pypy__.builtinify
+@builtinify
 def atan(x):
     """atan(x)
     
@@ -107,7 +109,7 @@ def atan(x):
     return _halfi*log(((_i+x)/(_i-x)))
 
 
-@__pypy__.builtinify
+@builtinify
 def atanh(x):
     """atanh(x)
 
@@ -117,7 +119,7 @@ def atanh(x):
     return _half*log((_one+x)/(_one-x))
 
 
-@__pypy__.builtinify
+@builtinify
 def cos(x):
     """cos(x)
 
@@ -129,7 +131,7 @@ def cos(x):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def cosh(x):
     """cosh(x)
     
@@ -141,7 +143,7 @@ def cosh(x):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def exp(x):
     """exp(x)
     
@@ -154,7 +156,7 @@ def exp(x):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def log(x, base=None):
     """log(x)
 
@@ -169,7 +171,7 @@ def log(x, base=None):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def log10(x):
     """log10(x)
 
@@ -182,7 +184,7 @@ def log10(x):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def sin(x):
     """sin(x)
 
@@ -194,7 +196,7 @@ def sin(x):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def sinh(x):
     """sinh(x)
 
@@ -206,7 +208,7 @@ def sinh(x):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def sqrt(x):
     """sqrt(x)
 
@@ -232,7 +234,7 @@ def sqrt(x):
 _sqrt_half = sqrt(_half)
 
 
-@__pypy__.builtinify
+@builtinify
 def tan(x):
     """tan(x)
 
@@ -253,7 +255,7 @@ def tan(x):
     return complex(real, imag)
 
 
-@__pypy__.builtinify
+@builtinify
 def tanh(x):
     """tanh(x)
 

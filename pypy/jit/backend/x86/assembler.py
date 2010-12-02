@@ -1,5 +1,6 @@
 import sys, os
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
 from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
                                          LoopToken)
@@ -55,7 +56,6 @@ class GuardToken(object):
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed))
 
 class Assembler386(object):
-    _float_constants = None
     _regalloc = None
     _output_loop_log = None
 
@@ -83,6 +83,7 @@ class Assembler386(object):
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
         self.fail_boxes_count = 0
         self._current_depths_cache = (0, 0)
+        self.datablockwrapper = None
         self.teardown()
 
     def leave_jitted_hook(self):
@@ -125,10 +126,14 @@ class Assembler386(object):
         self.set_debug(have_debug_prints())
         debug_stop('jit-backend-counts')
 
-    def setup(self):
+    def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.pending_guard_tokens = []
         self.mc = codebuf.MachineCodeBlockWrapper()
+        if self.datablockwrapper is None:
+            allblocks = self.get_asmmemmgr_blocks(looptoken)
+            self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                            allblocks)
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -145,13 +150,9 @@ class Assembler386(object):
             debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
-        # 44 bytes: 32 bytes for the data, and up to 12 bytes for alignment
-        addr = lltype.malloc(rffi.CArray(lltype.Char), 44, flavor='raw',
-                             track_allocation=False)
-        if not we_are_translated():
-            self._keepalive_malloced_float_consts = addr
-        float_constants = rffi.cast(lltype.Signed, addr)
-        float_constants = (float_constants + 15) & ~15    # align to 16 bytes
+        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
+        float_constants = datablockwrapper.malloc_aligned(32, alignment=16)
+        datablockwrapper.done()
         addr = rffi.cast(rffi.CArrayPtr(lltype.Char), float_constants)
         qword_padding = '\x00\x00\x00\x00\x00\x00\x00\x00'
         # 0x8000000000000000
@@ -203,13 +204,18 @@ class Assembler386(object):
                _x86_arglocs
                _x86_debug_checksum
         '''
+        # XXX this function is too longish and contains some code
+        # duplication with assemble_bridge().  Also, we should think
+        # about not storing on 'self' attributes that will live only
+        # for the duration of compiling one loop or a one bridge.
+
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
 
-        self.setup()
+        self.setup(looptoken)
         self.currently_compiling_loop = looptoken
         funcname = self._find_debug_merge_point(operations)
         if log:
@@ -235,7 +241,7 @@ class Assembler386(object):
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
-        rawstart = self.materialize(looptoken)
+        rawstart = self.materialize_loop(looptoken)
         debug_print("Loop #%d (%s) has address %x to %x" % (
             looptoken.number, funcname,
             rawstart + self.looppos,
@@ -268,7 +274,7 @@ class Assembler386(object):
                         "was already compiled!")
             return
 
-        self.setup()
+        self.setup(original_loop_token)
         funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
@@ -289,7 +295,7 @@ class Assembler386(object):
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
-        rawstart = self.materialize(original_loop_token)
+        rawstart = self.materialize_loop(original_loop_token)
 
         debug_print("Bridge out of guard %d (%s) has address %x to %x" %
                     (descr_number, funcname, rawstart, rawstart + codeendpos))
@@ -328,12 +334,17 @@ class Assembler386(object):
             p = rffi.cast(rffi.INTP, addr)
             p[0] = rffi.cast(rffi.INT, relative_target)
 
-    def materialize(self, looptoken):
+    def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
         if clt.asmmemmgr_blocks is None:
             clt.asmmemmgr_blocks = []
-        return self.mc.materialize(self.cpu.asmmemmgr,
-                                   clt.asmmemmgr_blocks,
+        return clt.asmmemmgr_blocks
+
+    def materialize_loop(self, looptoken):
+        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
+        self.datablockwrapper = None
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
     def _find_debug_merge_point(self, operations):

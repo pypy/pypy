@@ -4,7 +4,10 @@
 
 from pickle import *
 from pickle import __doc__, __version__, format_version, compatible_formats
-import __pypy__
+
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
 
 BadPickleGet = KeyError
 UnpickleableError = PicklingError
@@ -32,11 +35,11 @@ class Pickler(PythonPickler):
     def getvalue(self):
         return self.__f and self.__f.getvalue()
 
-@__pypy__.builtinify
+@builtinify
 def dump(obj, file, protocol=None):
     Pickler(file, protocol).dump(obj)
 
-@__pypy__.builtinify
+@builtinify
 def dumps(obj, protocol=None):
     file = StringIO()
     Pickler(file, protocol).dump(obj)
