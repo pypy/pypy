@@ -1,4 +1,4 @@
-from pypy.rlib import jit, objectmodel, debug, dont_look_inside
+from pypy.rlib import jit, objectmodel, debug
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -632,7 +632,6 @@ class MapDictImplementation(W_DictMultiObject):
     def _clear_fields(self):
         self.w_obj = None
 
-    @dont_look_inside
     def _as_rdict(self):
         self.initialize_as_rdict()
         space = self.space
@@ -640,6 +639,7 @@ class MapDictImplementation(W_DictMultiObject):
         materialize_r_dict(space, w_obj, self)
         self._clear_fields()
         return self
+
 
 def materialize_r_dict(space, obj, w_d):
     map = obj._get_mapdict_map()
