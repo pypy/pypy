@@ -17,6 +17,10 @@ try:
 except AttributeError: # we are not on windows
     raise ImportError
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
+
 open_osfhandle.argtypes = [ctypes.c_int, ctypes.c_int]
 open_osfhandle.restype = ctypes.c_int
 
@@ -34,6 +38,7 @@ _locking = _c._locking
 _locking.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int]
 _locking.restype = ctypes.c_int
 
+@builtinify
 def locking(fd, mode, nbytes):
     '''lock or unlock a number of bytes in a file.'''
     rv = _locking(fd, mode, nbytes)

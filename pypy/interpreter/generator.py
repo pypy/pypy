@@ -10,7 +10,7 @@ class GeneratorIterator(Wrappable):
     
     def __init__(self, frame):
         self.space = frame.space
-        self.frame = frame
+        self.frame = frame     # turned into None when frame_finished_execution
         self.running = False
 
     def descr__reduce__(self, space):
@@ -19,9 +19,13 @@ class GeneratorIterator(Wrappable):
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('generator_new')
         w        = space.wrap
+        if self.frame:
+            w_frame = w(self.frame)
+        else:
+            w_frame = space.w_None
 
         tup = [
-            w(self.frame),
+            w_frame,
             w(self.running),
             ]
 
@@ -41,7 +45,8 @@ return next yielded value or raise StopIteration."""
         if self.running:
             raise OperationError(space.w_ValueError,
                                  space.wrap('generator already executing'))
-        if self.frame.frame_finished_execution:
+        frame = self.frame
+        if frame is None:
             # xxx a bit ad-hoc, but we don't want to go inside
             # execute_generator_frame() if the frame is actually finished
             if operr is None:
@@ -49,7 +54,7 @@ return next yielded value or raise StopIteration."""
             raise operr
         # XXX it's not clear that last_instr should be promoted at all
         # but as long as it is necessary for call_assembler, let's do it early
-        last_instr = jit.hint(self.frame.last_instr, promote=True)
+        last_instr = jit.hint(frame.last_instr, promote=True)
         if last_instr == -1:
             if w_arg and not space.is_w(w_arg, space.w_None):
                 msg = "can't send non-None value to a just-started generator"
@@ -60,18 +65,19 @@ return next yielded value or raise StopIteration."""
         self.running = True
         try:
             try:
-                w_result = self.frame.execute_generator_frame(w_arg, operr)
+                w_result = frame.execute_generator_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
-                self.frame.frame_finished_execution = True
+                self.frame = None
                 raise
             # if the frame is now marked as finished, it was RETURNed from
-            if self.frame.frame_finished_execution:
+            if frame.frame_finished_execution:
+                self.frame = None
                 raise OperationError(space.w_StopIteration, space.w_None) 
             else:
                 return w_result     # YIELDed
         finally:
-            self.frame.f_backref = jit.vref_None
+            frame.f_backref = jit.vref_None
             self.running = False
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
@@ -115,7 +121,7 @@ return next yielded value or raise StopIteration."""
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
     def descr_gi_frame(space, self):
-        if not self.frame.frame_finished_execution:
+        if self.frame is not None and not self.frame.frame_finished_execution:
             return self.frame
         else:
             return space.w_None
@@ -125,15 +131,17 @@ return next yielded value or raise StopIteration."""
         applevel __del__, which is called at a safe point after the
         interp-level __del__ enqueued the object for destruction
         """
-        # Only bother raising an exception if the frame is still not
-        # finished and finally or except blocks are present.
-        if not self.frame.frame_finished_execution:
+        self.descr_close()
+
+    def __del__(self):
+        # Only bother enqueuing self to raise an exception if the frame is
+        # still not finished and finally or except blocks are present.
+        must_call_close = False
+        if self.frame is not None:
             block = self.frame.lastblock
             while block is not None:
                 if not isinstance(block, LoopBlock):
-                    self.descr_close()
-                    return
+                    must_call_close = True
+                    break
                 block = block.previous
-
-    def __del__(self):
-        self._enqueue_for_destruction(self.space)
+        self._enqueue_for_destruction(self.space, must_call_close)

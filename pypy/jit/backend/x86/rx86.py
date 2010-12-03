@@ -137,10 +137,9 @@ def immediate(argnum, width='i'):
 # ____________________________________________________________
 # Emit an immediate displacement (relative to the cur insn)
 
-def encode_relative(mc, target, _, orbyte):
+def encode_relative(mc, relative_target, _, orbyte):
     assert orbyte == 0
-    offset = intmask(target - (mc.tell() + 4))
-    mc.writeimm32(offset)
+    mc.writeimm32(relative_target)
     return 0
 
 def relative(argnum):

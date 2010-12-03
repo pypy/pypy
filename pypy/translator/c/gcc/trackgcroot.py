@@ -1106,7 +1106,7 @@ class DarwinFunctionGcRootTracker64(ElfFunctionGcRootTracker64):
     format = 'darwin64'
     function_names_prefix = '_'
 
-    LABEL = ElfFunctionGcRootTracker32.LABEL
+    LABEL = ElfFunctionGcRootTracker64.LABEL
     r_jmptable_item = re.compile(r"\t.(?:long|quad)\t"+LABEL+"(-\"?[A-Za-z0-9$]+\"?)?\s*$")
 
     r_functionstart = re.compile(r"_(\w+):\s*$")

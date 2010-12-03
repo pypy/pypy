@@ -1386,6 +1386,25 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], (int, int), "ll_os.ll_os_openpty",
                       llimpl=openpty_llimpl)
 
+    @registering_if(os, 'forkpty')
+    def register_os_forkpty(self):
+        os_forkpty = self.llexternal(
+            'forkpty',
+            [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
+            rffi.PID_T,
+            compilation_info=ExternalCompilationInfo(libraries=['util']))
+        def forkpty_llimpl():
+            master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            childpid = os_forkpty(master_p, None, None, None)
+            master_fd = master_p[0]
+            lltype.free(master_p, flavor='raw')
+            if childpid == -1:
+                raise OSError(rposix.get_errno(), "os_forkpty failed")
+            return (rffi.cast(lltype.Signed, childpid),
+                    rffi.cast(lltype.Signed, master_fd))
+
+        return extdef([], (int, int), "ll_os.ll_os_forkpty",
+                      llimpl=forkpty_llimpl)
 
     @registering(os._exit)
     def register_os__exit(self):

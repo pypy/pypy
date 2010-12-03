@@ -321,6 +321,8 @@ SYMBOLS_C = [
     'PyCObject_Type', 'init_pycobject',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+
+    'PyStructSequence_InitType', 'PyStructSequence_New',
 ]
 TYPES = {}
 GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
@@ -367,7 +369,7 @@ def build_exported_objects():
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
-    for cpyname in 'Method List Int Long Dict Tuple Class'.split():
+    for cpyname in 'Method List Int Long Dict Class'.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
                              'Py%sObject' % (cpyname, ))
 build_exported_objects()
@@ -845,6 +847,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "bufferobject.c",
                                source_dir / "object.c",
                                source_dir / "cobject.c",
+                               source_dir / "structseq.c",
                                ],
         separate_module_sources = [code, struct_source],
         export_symbols=export_symbols_eci,

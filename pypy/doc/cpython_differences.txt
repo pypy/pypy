@@ -20,16 +20,21 @@ List of extension modules that we support:
 
     __builtin__
     `__pypy__`_
+    _ast
+    _bisect
     _codecs
     _lsprof
     `_minimal_curses`_
     _random
     `_rawffi`_
+    _ssl
     _socket
     _sre
     _weakref
+    array
     bz2
     cStringIO
+    `cpyext`_
     crypt
     errno
     exceptions
@@ -72,7 +77,7 @@ List of extension modules that we support:
 
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
-  support this way: ``ctypes``, ``array``, ``cPickle``,
+  support this way: ``ctypes``, ``cPickle``,
   ``cStringIO``, ``cmath``, ``dbm`` (?), ``datetime``, ``binascii``...  
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
@@ -80,11 +85,13 @@ List of extension modules that we support:
 
 The extension modules (i.e. modules written in C, in the standard CPython)
 that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
+(You may have a chance to use them anyway with `cpyext`_.)
 
 .. the nonstandard modules are listed below...
 .. _`__pypy__`: __pypy__-module.html
 .. _`_rawffi`: ctypes-implementation.html
 .. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
+.. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
 .. _Stackless: stackless.html
 
 
@@ -129,12 +136,10 @@ module.  More information is available on the blog `[1]`__ `[2]`__.
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
 
-The built-in function ``id()`` returns numbers that are not addresses
-for most of PyPy's garbage collectors.
-This is most visible in the default repr: a typical PyPy object can
-pretend to be located ``at 0x00000009``.  This is just its ``id()``, not
-its real address (because an object can move around in some GCs). Calling
-``id`` a lot can lead to performance problem.
+Using the default GC called ``minimark``, the built-in function ``id()``
+works like it does in CPython.  With other GCs it returns numbers that
+are not real addresses (because an object can move around several times)
+and calling it a lot can lead to performance problem.
 
 Note that if you have a long chain of objects, each with a reference to
 the next one, and each with a __del__, PyPy's GC will perform badly.  On

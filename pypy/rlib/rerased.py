@@ -91,7 +91,7 @@ class Entry(ExtRegistryEntry):
             return annmodel.SomeInteger()
         assert isinstance(s_type, annmodel.SomePBC)
         assert len(s_type.descriptions) == 1
-        clsdef = s_type.descriptions.keys()[0].getuniqueclassdef()
+        clsdef = s_type.any_description().getuniqueclassdef()
         return annmodel.SomeInstance(clsdef)
 
     def specialize_call(self, hop):
@@ -108,7 +108,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_obj, s_type):
         assert isinstance(s_type, annmodel.SomePBC)
         assert len(s_type.descriptions) == 1
-        clsdef = s_type.descriptions.keys()[0].getuniqueclassdef()
+        clsdef = s_type.any_description().getuniqueclassdef()
         s_item = annmodel.SomeInstance(clsdef)
         return self.bookkeeper.newlist(s_item)
 

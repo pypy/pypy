@@ -5,8 +5,6 @@ from pypy.rpython.lltypesystem import lltype
 
 
 class State:
-    datetimeAPI = None # used in tests
-
     def __init__(self, space):
         self.space = space
         self.reset()

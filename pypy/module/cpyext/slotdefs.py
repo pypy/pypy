@@ -6,7 +6,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
     ssizeobjargproc, iternextfunc, initproc, richcmpfunc, hashfunc,
-    descrgetfunc, descrsetfunc)
+    descrgetfunc, descrsetfunc, objobjproc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -28,14 +28,14 @@ Py_GE = 5
 
 def check_num_args(space, ob, n):
     from pypy.module.cpyext.tupleobject import PyTuple_CheckExact, \
-            PyTuple_GET_SIZE
+            _PyTuple_Size_Fast
     if not PyTuple_CheckExact(space, ob):
         raise OperationError(space.w_SystemError,
             space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
-    if n == PyTuple_GET_SIZE(space, ob):
+    if n == _PyTuple_Size_Fast(space, ob):
         return
     raise operationerrfmt(space.w_TypeError,
-        "expected %d arguments, got %d", n, PyTuple_GET_SIZE(space, ob))
+        "expected %d arguments, got %d", n, _PyTuple_Size_Fast(space, ob))
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
@@ -155,6 +155,15 @@ def wrap_sq_delitem(space, w_self, w_args, func):
     res = generic_cpy_call(space, func_target, w_self, index, null)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
+
+def wrap_objobjproc(space, w_self, w_args, func):
+    func_target = rffi.cast(objobjproc, func)
+    check_num_args(space, w_args, 1)
+    w_value, = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_value)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.wrap(res)
 
 def wrap_ssizessizeargfunc(space, w_self, w_args, func):
     func_target = rffi.cast(ssizessizeargfunc, func)

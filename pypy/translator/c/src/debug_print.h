@@ -72,7 +72,11 @@ static void pypy_debug_open(void)
 {
   char *filename = getenv("PYPYLOG");
   if (filename)
+#ifndef MS_WINDOWS
     unsetenv("PYPYLOG");   /* don't pass it to subprocesses */
+#else
+    putenv("PYPYLOG=");    /* don't pass it to subprocesses */
+#endif
   if (filename && filename[0])
     {
       char *colon = strchr(filename, ':');

@@ -1204,9 +1204,10 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
         if destrptr:
+            typename = TYPE.__name__
             def ll_finalizer(addr):
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
-                ll_call_destructor(destrptr, v)
+                ll_call_destructor(destrptr, v, typename)
             fptr = self.transformer.annotate_finalizer(ll_finalizer,
                                                        [llmemory.Address],
                                                        lltype.Void)

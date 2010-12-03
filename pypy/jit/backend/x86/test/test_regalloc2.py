@@ -19,6 +19,7 @@ def test_bug_rshift():
         ResOperation(rop.FINISH, [v4, v3], None, descr=BasicFailDescr()),
         ]
     cpu = CPU(None, None)
+    cpu.setup_once()
     looptoken = LoopToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, 9)
@@ -41,6 +42,7 @@ def test_bug_int_is_true_1():
         ResOperation(rop.FINISH, [v4, v3, tmp5], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
+    cpu.setup_once()
     looptoken = LoopToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, -10)
@@ -137,6 +139,7 @@ def test_bug_0():
         ResOperation(rop.FINISH, [v40, v36, v37, v31, v16, v34, v35, v23, v22, v29, v14, v39, v30, v38], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
+    cpu.setup_once()
     looptoken = LoopToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, -13)
@@ -251,6 +254,7 @@ def test_bug_1():
         ResOperation(rop.FINISH, [v40, v10, v36, v26, v13, v30, v21, v33, v18, v25, v31, v32, v28, v29, v35, v38, v20, v39, v34, v23, v37], None, descr=BasicFailDescr()),
             ]
     cpu = CPU(None, None)
+    cpu.setup_once()
     looptoken = LoopToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, 17)

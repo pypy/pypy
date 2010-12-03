@@ -2289,13 +2289,6 @@ def PySequence_Count(space, o, value):
     in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySequence_Contains(space, o, value):
-    """Determine if o contains value.  If an item in o is equal to value,
-    return 1, otherwise return 0. On error, return -1.  This is
-    equivalent to the Python expression value in o."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PySequence_Index(space, o, value):
     """Return the first index i for which o[i] == value.  On error, return

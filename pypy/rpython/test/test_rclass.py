@@ -917,6 +917,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         assert destrptr is not None
     
     def test_del_inheritance(self):
+        from pypy.rlib import rgc
         class State:
             pass
         s = State()
@@ -937,6 +938,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
             A()
             B()
             C()
+            rgc.collect()
             return s.a_dels * 10 + s.b_dels
         res = f()
         assert res == 42
@@ -1067,6 +1069,7 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
         assert meth.finalizer
 
     def test_del_inheritance(self):
+        from pypy.rlib import rgc
         class State:
             pass
         s = State()
@@ -1087,6 +1090,7 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
             A()
             B()
             C()
+            rgc.collect()
             return s.a_dels * 10 + s.b_dels
         res = f()
         assert res == 42

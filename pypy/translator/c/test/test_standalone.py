@@ -272,7 +272,7 @@ class TestStandalone(StandaloneTests):
             x = "got:"
             debug_start  ("mycat")
             if have_debug_prints(): x += "b"
-            debug_print    ("foo", 2, "bar", 3)
+            debug_print    ("foo", r_longlong(2), "bar", 3)
             debug_start      ("cat2")
             if have_debug_prints(): x += "c"
             debug_print        ("baz")
@@ -402,6 +402,20 @@ class TestStandalone(StandaloneTests):
         assert out.strip() == 'got:.'
         assert not err
         assert path.check(file=0)
+
+    def test_debug_print_start_stop_nonconst(self):
+        def entry_point(argv):
+            debug_start(argv[1])
+            debug_print(argv[2])
+            debug_stop(argv[1])
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        out, err = cbuilder.cmdexec("foo bar", err=True, env={'PYPYLOG': ':-'})
+        lines = err.splitlines()
+        assert '{foo' in lines[0]
+        assert 'bar' == lines[1]
+        assert 'foo}' in lines[2]
+
 
     def test_fatal_error(self):
         def g(x):

@@ -67,11 +67,12 @@ def traceback_new(space):
     return space.wrap(tb)
 traceback_new.unwrap_spec = [ObjSpace]
 
-def generator_new(space, frame, running):
+def generator_new(space, w_frame, running):
+    frame = space.interp_w(PyFrame, w_frame, can_be_None=True)
     new_generator = GeneratorIterator(frame)
     new_generator.running = running
     return space.wrap(new_generator)
-generator_new.unwrap_spec = [ObjSpace, PyFrame, int]
+generator_new.unwrap_spec = [ObjSpace, W_Root, int]
 
 def xrangeiter_new(space, current, remaining, step):
     from pypy.module.__builtin__.functional import W_XRangeIterator

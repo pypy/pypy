@@ -200,6 +200,9 @@ class Func(AbstractFuncPtr):
         # the optimizer will fail to recognize the pattern and won't turn it
         # into a fast CALL.  Note that "arg = arg.next" is optimized away,
         # assuming that archain is completely virtual.
+        if argchain.numargs != len(self.argtypes):
+            raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
+                (argchain.numargs, len(self.argtypes))
         ll_args = self._prepare()
         i = 0
         arg = argchain.first

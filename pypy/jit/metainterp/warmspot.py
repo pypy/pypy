@@ -12,11 +12,12 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.debug import debug_print, fatalerror
+from pypy.rlib.debug import debug_start, debug_stop
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.unsimplify import call_final_function
 
-from pypy.jit.metainterp import history, pyjitpl, gc
+from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
@@ -24,21 +25,17 @@ from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
 from pypy.jit.codewriter import support, codewriter
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
 
 # ____________________________________________________________
 # Bootstrapping
 
-def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
-              inline=False,
-              **kwds):
+def apply_jit(translator, backend_name="auto", inline=False, **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
-    if debug_level > DEBUG_OFF:
-        ProfilerClass = Profiler
-    else:
-        ProfilerClass = EmptyProfiler
+    ProfilerClass = Profiler
+    # Always use Profiler here, which should have a very low impact.
+    # Otherwise you can try with ProfilerClass = EmptyProfiler.
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
@@ -47,7 +44,6 @@ def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
-        jd.warmstate.set_param_debug(debug_level)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
@@ -66,7 +62,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
-                    debug_level=DEBUG_STEPS, inline=False, **kwds):
+                    inline=False, loop_longevity=0, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -83,7 +79,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
-        jd.warmstate.set_param_debug(debug_level)
+        jd.warmstate.set_param_loop_longevity(loop_longevity)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
@@ -151,6 +147,7 @@ class WarmRunnerDesc(object):
                  optimizer=None, ProfilerClass=EmptyProfiler, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         self.set_translator(translator)
+        self.memory_manager = memmgr.MemoryManager()
         self.build_cpu(CPUClass, **kwds)
         self.find_portals()
         self.codewriter = codewriter.CodeWriter(self.cpu, self.jitdrivers_sd)
@@ -162,6 +159,8 @@ class WarmRunnerDesc(object):
         self.check_access_directly_sanity(graphs)
         if backendopt:
             self.prejit_optimizations(policy, graphs)
+        elif self.opt.listops:
+            self.prejit_optimizations_minimal_inline(policy, graphs)
 
         self.build_meta_interp(ProfilerClass)
         self.make_args_specifications()
@@ -258,6 +257,10 @@ class WarmRunnerDesc(object):
                               raisingop2direct_call=False,
                               remove_asserts=True,
                               really_remove_asserts=True)
+
+    def prejit_optimizations_minimal_inline(self, policy, graphs):
+        from pypy.translator.backendopt.inline import auto_inline_graphs
+        auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
                   no_stats=False, **kwds):
@@ -713,7 +716,7 @@ class WarmRunnerDesc(object):
                     loop_token = fail_descr.handle_fail(self.metainterp_sd, jd)
                 except JitException, e:
                     return handle_jitexception(e)
-                fail_descr = self.cpu.execute_token(loop_token)
+                fail_descr = self.execute_token(loop_token)
 
         jd._assembler_call_helper = assembler_call_helper # for debugging
         jd._assembler_helper_ptr = self.helper_func(
@@ -807,3 +810,10 @@ class WarmRunnerDesc(object):
             py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
         vrefinfo.replace_force_virtual_with_call(all_graphs)
+
+    # ____________________________________________________________
+
+    def execute_token(self, loop_token):
+        fail_descr = self.cpu.execute_token(loop_token)
+        self.memory_manager.keep_loop_alive(loop_token)
+        return fail_descr

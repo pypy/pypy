@@ -42,11 +42,23 @@ class AbstractAttribute(object):
         return None
 
     def index(self, selector):
-        if (self.space.config.objspace.std.withmethodcache and 
-                not jit.we_are_jitted()):
-            return self._index_cache(selector)
+        if jit.we_are_jitted():
+            # hack for the jit:
+            # the _index method is pure too, but its argument is never
+            # constant, because it is always a new tuple
+            return self._index_jit_pure(selector[0], selector[1])
         else:
-            return self._index(selector)
+            return self._index_indirection(selector)
+
+    @jit.purefunction
+    def _index_jit_pure(self, name, index):
+        return self._index_indirection((name, index))
+
+    @jit.dont_look_inside
+    def _index_indirection(self, selector):
+        if (self.space.config.objspace.std.withmethodcache):
+            return self._index_cache(selector)
+        return self._index(selector)
 
     @jit.dont_look_inside
     def _index_cache(self, selector):
@@ -498,10 +510,11 @@ def _make_subclass_size_n(supercls, n):
 
         def _mapdict_read_storage(self, index):
             assert index >= 0
-            for i in rangenmin1:
-                if index == i:
-                    erased = getattr(self, "_value%s" % i)
-                    return rerased.unerase(erased, W_Root)
+            if index < nmin1:
+                for i in rangenmin1:
+                    if index == i:
+                        erased = getattr(self, "_value%s" % i)
+                        return rerased.unerase(erased, W_Root)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[index - nmin1]
             erased = getattr(self, "_value%s" % nmin1)

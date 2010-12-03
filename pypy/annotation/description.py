@@ -636,6 +636,24 @@ class ClassDesc(Desc):
                     return self
         return None
 
+    def maybe_return_immutable_list(self, attr, s_result):
+        # hack: 'x.lst' where lst is listed in _immutable_fields_ as 'lst[*]'
+        # should really return an immutable list as a result.  Implemented
+        # by changing the result's annotation (but not, of course, doing an
+        # actual copy in the rtyper).  Tested in pypy.rpython.test.test_rlist,
+        # test_immutable_list_out_of_instance.
+        search = '%s[*]' % (attr,)
+        cdesc = self
+        while cdesc is not None:
+            if '_immutable_fields_' in cdesc.classdict:
+                if search in cdesc.classdict['_immutable_fields_'].value:
+                    s_result.listdef.never_resize()
+                    s_copy = s_result.listdef.offspring()
+                    s_copy.listdef.mark_as_immutable()
+                    return s_copy
+            cdesc = cdesc.basedesc
+        return s_result     # common case
+
     def consider_call_site(bookkeeper, family, descs, args, s_result):
         from pypy.annotation.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
@@ -654,7 +672,7 @@ class ClassDesc(Desc):
             if isinstance(s_init, SomePBC):
                 assert len(s_init.descriptions) == 1, (
                     "unexpected dynamic __init__?")
-                initfuncdesc = s_init.descriptions.keys()[0]
+                initfuncdesc, = s_init.descriptions
                 if isinstance(initfuncdesc, FunctionDesc):
                     initmethdesc = bookkeeper.getmethoddesc(initfuncdesc,
                                                             classdef,
@@ -782,8 +800,8 @@ class MethodDesc(Desc):
                                                         desc.selfclassdef,
                                                         desc.name,
                                                         commonflags)
-                del descs[desc]
-                descs[newdesc] = None
+                descs.remove(desc)
+                descs.add(newdesc)
 
         # --- case 1 ---
         groups = {}
@@ -798,7 +816,7 @@ class MethodDesc(Desc):
                     for desc2 in group:
                         cdef2 = desc2.selfclassdef
                         if cdef1 is not cdef2 and cdef1.issubclass(cdef2):
-                            del descs[desc1]
+                            descs.remove(desc1)
                             break
     simplify_desc_set = staticmethod(simplify_desc_set)
 
