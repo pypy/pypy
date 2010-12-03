@@ -385,8 +385,9 @@ class CFuncPtr(_CData):
         newargs = []
         for argtype, arg in zip(argtypes, args):
             value = arg.value
-            if isinstance(value, basestring) and len(value) == 1:
+            if argtype._ffishape == 'u':
                 # XXX: who should do this conversion? Maybe _ffi?
+                assert isinstance(value, basestring) and len(value) == 1
                 value = ord(value)
             newargs.append(value)
         return newargs
