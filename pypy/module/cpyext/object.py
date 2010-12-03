@@ -15,7 +15,7 @@ from pypy.interpreter.error import OperationError
 import pypy.module.__builtin__.operation as operation
 
 
-@cpython_api([Py_ssize_t], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
+@cpython_api([Py_ssize_t], rffi.VOIDP)
 def PyObject_MALLOC(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw', zero=True)
