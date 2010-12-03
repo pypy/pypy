@@ -1,4 +1,5 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 import sys
 
 class TestIntObject(BaseApiTest):
@@ -38,3 +39,14 @@ class TestIntObject(BaseApiTest):
             def __int__(self):
                 return 42
         assert api.PyInt_AsLong(space.wrap(Coerce())) == 42
+
+class AppTestIntObject(AppTestCpythonExtensionBase):
+    def test_fromstring(self):
+        module = self.import_extension('foo', [
+            ("from_string", "METH_NOARGS",
+             """
+                 return PyInt_FromString("1234", NULL, 16);
+             """),
+            ])
+        assert module.from_string() == 0x1234
+        assert type(module.from_string()) is int
