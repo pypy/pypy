@@ -124,8 +124,6 @@ class W_FuncPtr(Wrappable):
             intres = rffi.cast(rffi.LONG, call(argchain, rffi.SHORT))
         elif restype is libffi.types.schar:
             intres = rffi.cast(rffi.LONG, call(argchain, rffi.SIGNEDCHAR))
-        elif restype is libffi.types.pointer:
-            intres = rffi.cast(rffi.LONG, call(argchain, rffi.VOIDP))
         else:
             raise OperationError(space.w_ValueError,
                                  space.wrap('Unsupported restype'))
@@ -148,6 +146,9 @@ class W_FuncPtr(Wrappable):
         if restype is libffi.types.ulong:
             # special case
             uintres = call(argchain, rffi.ULONG)
+            return space.wrap(uintres)
+        elif restype is libffi.types.pointer:
+            uintres = rffi.cast(rffi.ULONG, call(argchain, rffi.VOIDP))
             return space.wrap(uintres)
         elif restype is libffi.types.uint:
             intres = rffi.cast(rffi.LONG, call(argchain, rffi.UINT))

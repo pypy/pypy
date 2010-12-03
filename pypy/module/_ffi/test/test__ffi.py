@@ -124,6 +124,17 @@ class AppTestFfi:
         assert get_dummy() == 123
         set_val_to_ptr(ptr, 0)
 
+    def test_huge_pointer_args(self):
+        """
+            #include <stdlib.h>
+            long is_null_ptr(void* ptr) { return ptr == NULL; }
+        """
+        import sys
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        is_null_ptr = libfoo.getfunc('is_null_ptr', [types.pointer], types.ulong)
+        assert not is_null_ptr(sys.maxint+1)
+
     def test_unsigned_long_args(self):
         """
             unsigned long sum_xy_ul(unsigned long x, unsigned long y)

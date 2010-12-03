@@ -199,7 +199,7 @@ class CFuncPtr(_CData):
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
         result = funcptr(*newargs)
-        if restype._ffishape == 'u':
+        if restype and restype._ffishape == 'u':
             # XXX: maybe it's a job of _ffi?
             result = unichr(result)
         ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
@@ -384,14 +384,25 @@ class CFuncPtr(_CData):
         return wrapped_args
 
     def _unwrap_args(self, argtypes, args):
+        """
+        Convert from ctypes high-level values to low-level values suitables to
+        be passed to _ffi
+        """
         assert len(argtypes) == len(args)
         newargs = []
         for argtype, arg in zip(argtypes, args):
-            value = arg.value
             if argtype._ffishape == 'u':
                 # XXX: who should do this conversion? Maybe _ffi?
+                value = arg.value
                 assert isinstance(value, basestring) and len(value) == 1
                 value = ord(value)
+            elif argtype._ffishape == 'P':
+                value = arg._buffer.buffer
+                if value > sys.maxint:
+                    # XXX: simulate overflow so that _ffi receive and int, not a long
+                    value = (-sys.maxint-1)*2 + value
+            else:
+                value = arg.value
             newargs.append(value)
         return newargs
 
