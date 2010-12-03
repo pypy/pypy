@@ -129,6 +129,42 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
         assert module.check_error()
 
+
+    def test_normalize(self):
+        module = self.import_extension('foo', [
+            ("check_error", "METH_NOARGS",
+             '''
+             PyObject *type, *val, *tb;
+             PyErr_SetString(PyExc_TypeError, "message");
+
+             PyErr_Fetch(&type, &val, &tb);
+             if (type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+             if (!PyString_Check(val))
+                 Py_RETURN_FALSE;
+             /* Normalize */
+             PyErr_NormalizeException(&type, &val, &tb);
+             if (type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+             if (val->ob_type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+
+             /* Normalize again */
+             PyErr_NormalizeException(&type, &val, &tb);
+             if (type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+             if (val->ob_type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+
+             PyErr_Restore(type, val, tb);
+             if (!PyErr_Occurred())
+                 Py_RETURN_FALSE;
+             Py_RETURN_TRUE;
+             '''
+             ),
+            ])
+        assert module.check_error()
+
     def test_SetFromErrno(self):
         import sys
         if sys.platform != 'win32':

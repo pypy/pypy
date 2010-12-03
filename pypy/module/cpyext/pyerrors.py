@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, Py_DecRef, borrow_from)
+    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef, borrow_from)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.rlib.rposix import get_errno
@@ -79,6 +79,21 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
     Py_DecRef(space, w_traceback)
+
+@cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
+def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
+    """Under certain circumstances, the values returned by PyErr_Fetch() below
+    can be "unnormalized", meaning that *exc is a class object but *val is
+    not an instance of the  same class.  This function can be used to instantiate
+    the class in that case.  If the values are already normalized, nothing happens.
+    The delayed normalization is implemented to improve performance."""
+    operr = OperationError(from_ref(space, exc_p[0]),
+                           from_ref(space, val_p[0]))
+    operr.normalize_exception(space)
+    Py_DecRef(space, exc_p[0])
+    Py_DecRef(space, val_p[0])
+    exc_p[0] = make_ref(space, operr.w_type)
+    val_p[0] = make_ref(space, operr.get_w_value(space))
 
 @cpython_api([], lltype.Void)
 def PyErr_BadArgument(space):

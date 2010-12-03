@@ -668,15 +668,6 @@ def PyDict_MergeFromSeq2(space, a, seq2, override):
     """
     raise NotImplementedError
 
-@cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
-def PyErr_NormalizeException(space, exc, val, tb):
-    """Under certain circumstances, the values returned by PyErr_Fetch() below
-    can be "unnormalized", meaning that *exc is a class object but *val is
-    not an instance of the  same class.  This function can be used to instantiate
-    the class in that case.  If the values are already normalized, nothing happens.
-    The delayed normalization is implemented to improve performance."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.CCHARP], PyObject)
 def PyErr_SetFromErrnoWithFilename(space, type, filename):
     """Similar to PyErr_SetFromErrno(), with the additional behavior that if
