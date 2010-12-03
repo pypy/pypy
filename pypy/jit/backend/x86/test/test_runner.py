@@ -82,7 +82,7 @@ class TestX86(LLtypeBackendTest):
         # relative addressing to work properly.
         addr = rffi.cast(lltype.Signed, addr)
         
-        self.cpu.assembler.setup()
+        self.cpu.assembler.setup_once()
         self.cpu.assembler.malloc_func_addr = addr
         ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
