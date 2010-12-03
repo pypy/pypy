@@ -57,34 +57,39 @@ class IntOpAsslember(object):
         return fcond
 
     def emit_op_int_sub(self, op, regalloc, fcond):
-        # assuming only one argument is constant
+        #XXX check if neg values are supported for imm values
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        imm_a0 = isinstance(a0, ConstInt) and (a0.getint() <= 0xFF or -1 * a0.getint() <= 0xFF)
-        imm_a1 = isinstance(a1, ConstInt) and (a1.getint() <= 0xFF or -1 * a1.getint() <= 0xFF)
-        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=imm_a0)
-        l1 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=imm_a1)
-        res = regalloc.force_allocate_reg(op.result, [a0, a1])
-        if imm_a0:
+        boxes = [a0, a1]
+        imm_a0 = self._check_imm_arg(a0)
+        imm_a1 = self._check_imm_arg(a1)
+        if not imm_a0 and imm_a1:
+            l0, box = self._ensure_value_is_boxed(a0, regalloc)
+            l1 = regalloc.make_sure_var_in_reg(a1, [a0])
+            boxes.append(box)
+        elif imm_a0 and not imm_a1:
+            l0 = regalloc.make_sure_var_in_reg(a0)
+            l1, box = self._ensure_value_is_boxed(a1, regalloc)
+            boxes.append(box)
+        else:
+            l0, box = self._ensure_value_is_boxed(a0, regalloc)
+            boxes.append(box)
+            l1, box = self._ensure_value_is_boxed(a1, regalloc)
+            boxes.append(box)
+        res = regalloc.force_allocate_reg(op.result, boxes)
+        if l0.is_imm():
             value = l0.getint()
-            if value < 0:
-                # XXX needs a test
-                self.mc.ADD_ri(res.value, l1.value, -1 * value, s=1)
-                self.mc.MVN_rr(res.value, l1.value, s=1)
-            else:
-                # reverse substract ftw
-                self.mc.RSB_ri(res.value, l1.value, value, s=1)
-        elif imm_a1:
+            assert value >= 0
+            # reverse substract ftw
+            self.mc.RSB_ri(res.value, l1.value, value, s=1)
+        elif l1.is_imm():
             value = l1.getint()
-            if value < 0:
-                self.mc.ADD_ri(res.value, l0.value, -1 * value, s=1)
-            else:
-                self.mc.SUB_ri(res.value, l0.value, value, s=1)
+            assert value >= 0
+            self.mc.SUB_ri(res.value, l0.value, value, s=1)
         else:
             self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
 
-        regalloc.possibly_free_var(a0)
-        regalloc.possibly_free_var(a1)
+        regalloc.possibly_free_vars(boxes)
         regalloc.possibly_free_var(op.result)
         return fcond
 
@@ -171,9 +176,9 @@ class UnaryIntOpAssembler(object):
         arg = op.getarg(0)
         resbox = op.result
         l0 = regalloc.make_sure_var_in_reg(arg)
-        l1 = regalloc.make_sure_var_in_reg(ConstInt(-1), [arg], imm_fine=False)
+        self.mc.MVN_ri(r.ip.value, imm=~-1)
         resloc = regalloc.force_allocate_reg(resbox, [arg])
-        self.mc.MUL(resloc.value, l0.value, l1.value)
+        self.mc.MUL(resloc.value, l0.value, r.ip.value)
         regalloc.possibly_free_vars([arg, resbox])
         return fcond
 
