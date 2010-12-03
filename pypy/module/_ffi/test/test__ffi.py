@@ -103,6 +103,26 @@ class AppTestFfi:
         assert get_dummy() == 0
         assert set_dummy(42) is None
         assert get_dummy() == 42
+        set_dummy(0)
+
+    def test_pointer_args(self):
+        """
+            extern int dummy; // defined in test_void_result 
+            int* get_dummy_ptr() { return &dummy; }
+            void set_val_to_ptr(int* ptr, int val) { *ptr = val; }
+        """
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        get_dummy = libfoo.getfunc('get_dummy', [], types.sint)
+        get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.pointer)
+        set_val_to_ptr = libfoo.getfunc('set_val_to_ptr',
+                                        [types.pointer, types.sint],
+                                        types.void)
+        assert get_dummy() == 0
+        ptr = get_dummy_ptr()
+        set_val_to_ptr(ptr, 123)
+        assert get_dummy() == 123
+        set_val_to_ptr(ptr, 0)
 
     def test_unsigned_long_args(self):
         """
@@ -146,6 +166,7 @@ class AppTestFfi:
                                 types.float)
         res = sum_xy(12.34, 56.78)
         assert res == self.f_12_34_plus_56_78
+
 
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types
