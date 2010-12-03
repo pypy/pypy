@@ -120,4 +120,8 @@ typedef long Py_ssize_t;
 #define PyDoc_STR(str) ""
 #endif
 
+/* PyPy does not implement --with-fpectl */
+#define PyFPE_START_PROTECT(err_string, leave_stmt)
+#define PyFPE_END_PROTECT(v)
+
 #endif
