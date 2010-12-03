@@ -122,7 +122,7 @@ def PyUnicode_AS_UNICODE(space, ref):
         ref_unicode.c_buffer = rffi.unicode2wcharp(u)
     return ref_unicode.c_buffer
 
-@cpython_api([PyObject], rffi.CWCHARP, error=lltype.nullptr(rffi.CWCHARP.TO))
+@cpython_api([PyObject], rffi.CWCHARP)
 def PyUnicode_AsUnicode(space, ref):
     """Return a read-only pointer to the Unicode object's internal Py_UNICODE
     buffer, NULL if unicode is not a Unicode object."""
