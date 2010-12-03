@@ -5,7 +5,7 @@ from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
-    PyMethodDef, PyCFunction, PyStaticMethod_New)
+    PyMethodDef, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError

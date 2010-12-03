@@ -193,7 +193,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
       the API headers.
     """
     if error is _NOT_SPECIFIED:
-        if restype is PyObject:
+        if isinstance(restype, lltype.Ptr):
             error = lltype.nullptr(restype.TO)
         elif restype is lltype.Void:
             error = CANNOT_FAIL
