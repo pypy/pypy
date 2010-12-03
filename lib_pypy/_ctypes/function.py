@@ -142,7 +142,7 @@ class CFuncPtr(_CData):
     
     def __call__(self, *args):
         if self.callable is not None:
-            assert False, 'TODO'
+            assert False, 'TODO1'
             try:
                 res = self.callable(*args)
             except:
@@ -156,7 +156,7 @@ class CFuncPtr(_CData):
         argtypes = self._argtypes_
 
         if self._com_index:
-            assert False, 'TODO'
+            assert False, 'TODO2'
             from ctypes import cast, c_void_p, POINTER
             thisarg = cast(args[0], POINTER(POINTER(c_void_p))).contents
             argtypes = [c_void_p] + list(argtypes)
@@ -166,29 +166,51 @@ class CFuncPtr(_CData):
             thisarg = None
             
         if argtypes is None:
-            assert False, 'TODO'
+            assert False, 'TODO3'
             argtypes = self._guess_argtypes(args)
 
         # XXX
-        #assert False, 'TODO'
-        #argtypes, argsandobjs = self._wrap_args(argtypes, args)
+        argtypes, argsandobjs = self._wrap_args(argtypes, args)
+        newargs = self._unwrap_args(argtypes, argsandobjs)
+
         
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
-        #return funcptr(*args)
-        return funcptr(args[0])
+        return funcptr(*newargs)
         #resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
         #return self._build_result(restype, resbuffer, argtypes, argsandobjs)
 
+    # XXX: maybe move this to _ffi
+    from _ffi import types
+    _typemap =  {
+        'c' : types.uchar,
+        'b' : types.schar,
+        'B' : types.uchar,
+        'h' : types.sshort,
+        'u' : types.ushort,  # XXXXXXXX, use cast_type_to_ffitype(lltype.UniChar)
+        'H' : types.ushort,
+        'i' : types.sint,
+        'I' : types.uint,
+        'l' : types.slong,
+        'L' : types.ulong,
+        #'q' : cast_type_to_ffitype(rffi.LONGLONG),
+        #'Q' : cast_type_to_ffitype(rffi.ULONGLONG),
+        'f' : types.float,
+        'd' : types.double,
+        's' : types.pointer,
+        'P' : types.pointer,
+        'z' : types.pointer,
+        'O' : types.pointer,
+        'Z' : types.pointer,
+        }
+    del types
+    
     def _shape_to_ffi_type(self, shape):
-        from _ffi import types
-        if shape == 'l':
-            return types.slong
-        elif shape == 'd':
-            return types.double
-        else:
+        try:
+            return self._typemap[shape]
+        except KeyError:
             print 'unknown shape %s' % shape
-            assert False, 'TODO'
+            assert False, 'TODO5'
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and argtypes is self._argtypes_:
@@ -321,6 +343,17 @@ class CFuncPtr(_CData):
                 wrapped_args.append(wrapped)
             argtypes = list(argtypes) + extra_types
         return argtypes, wrapped_args
+
+    def _unwrap_args(self, argtypes, argsandobjs):
+        assert len(argtypes) == len(argsandobjs)
+        newargs = []
+        for argtype, (_, arg) in zip(argtypes, argsandobjs):
+            value = arg.value
+            if isinstance(value, basestring) and len(value) == 1:
+                # XXX: who should do this conversion? Maybe _ffi?
+                value = ord(value)
+            newargs.append(value)
+        return newargs
 
     def _build_result(self, restype, resbuffer, argtypes, argsandobjs):
         """Build the function result:
