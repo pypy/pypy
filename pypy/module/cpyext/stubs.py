@@ -615,14 +615,6 @@ def PyDictProxy_New(space, dict):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyDict_Contains(space, p, key):
-    """Determine if dictionary p contains key.  If an item in p is matches
-    key, return 1, otherwise return 0.  On error, return -1.
-    This is equivalent to the Python expression key in p.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyDict_DelItemString(space, p, key):
     """Remove the entry in dictionary p which has a key specified by the string
