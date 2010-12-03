@@ -199,6 +199,9 @@ class CFuncPtr(_CData):
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
         result = funcptr(*newargs)
+        if restype._ffishape == 'u':
+            # XXX: maybe it's a job of _ffi?
+            result = unichr(result)
         ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
         ##                       for arg in args])
         ## result = self._build_result(restype, resbuffer, argtypes, args)
