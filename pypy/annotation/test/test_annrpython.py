@@ -1010,7 +1010,7 @@ class TestAnnotateTestCase:
         bookkeeper = a.bookkeeper
 
         def getmdesc(bmeth):
-            return bookkeeper.immutablevalue(bmeth).descriptions.keys()[0]
+            return bookkeeper.immutablevalue(bmeth).any_description()
 
         mdescA_m = getmdesc(A().m)
         mdescC_m = getmdesc(C().m)
@@ -2862,7 +2862,7 @@ class TestAnnotateTestCase:
         assert s.items[0].flags == {'access_directly': True}
         assert isinstance(s.items[1], annmodel.SomePBC)
         assert len(s.items[1].descriptions) == 1
-        assert s.items[1].descriptions.keys()[0].flags == {'access_directly':
+        assert s.items[1].any_description().flags == {'access_directly':
                                                            True}
         assert isinstance(s.items[2], annmodel.SomeInstance)
         assert s.items[2].flags == {'access_directly': True}

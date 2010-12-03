@@ -342,6 +342,15 @@ class DirectGCTest(BaseDirectGCTest):
             self.gc.collect()
             assert hash == self.gc.identityhash(self.stackroots[-1])
             self.stackroots.pop()
+        # (7) the same, but the objects are dying young
+        for i in range(10):
+            self.gc.collect()
+            p = self.malloc(VAR, i)
+            self.stackroots.append(p)
+            hash1 = self.gc.identityhash(p)
+            hash2 = self.gc.identityhash(p)
+            assert hash1 == hash2
+            self.stackroots.pop()
 
     def test_memory_alignment(self):
         A1 = lltype.GcArray(lltype.Char)

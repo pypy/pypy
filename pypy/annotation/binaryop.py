@@ -867,7 +867,7 @@ class __extend__(pairtype(SomePtr, SomeObject)):
     def getitem((p, obj)):
         assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
 
-    def setitem((p, obj)):
+    def setitem((p, obj), s_value):
         assert False,"ptr %r setitem index not an int: %r" % (p.ll_ptrtype, obj)
 
 class __extend__(pairtype(SomeObject, SomePtr)):

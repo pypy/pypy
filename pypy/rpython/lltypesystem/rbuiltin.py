@@ -42,7 +42,7 @@ def rtype_instantiate(hop):
         return hop.genop('cast_pointer', [v_inst],    # v_type implicit in r_result
                          resulttype = hop.r_result.lowleveltype)
 
-    classdef = s_class.descriptions.keys()[0].getuniqueclassdef()
+    classdef = s_class.any_description().getuniqueclassdef()
     return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
 
 def rtype_builtin_hasattr(hop):

@@ -288,12 +288,9 @@ class _SimpleCData(_CData):
     __metaclass__ = SimpleType
     _type_ = 'i'
 
-    def __new__(cls, *args, **kwds):
-        self = _CData.__new__(cls, *args, **kwds)
-        self._buffer = self._ffiarray(1, autofree=True)
-        return self
-
     def __init__(self, value=DEFAULT_VALUE):
+        if not hasattr(self, '_buffer'):
+            self._buffer = self._ffiarray(1, autofree=True)
         if value is not DEFAULT_VALUE:
             self.value = value
 

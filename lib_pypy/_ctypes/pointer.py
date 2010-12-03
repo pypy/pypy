@@ -59,7 +59,8 @@ class PointerType(_CDataMeta):
     def set_type(self, TP):
         ffiarray = _rawffi.Array('P')
         def __init__(self, value=None):
-            self._buffer = ffiarray(1, autofree=True)
+            if not hasattr(self, '_buffer'):
+                self._buffer = ffiarray(1, autofree=True)
             if value is not None:
                 self.contents = value
         self._ffiarray = ffiarray

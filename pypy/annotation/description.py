@@ -672,7 +672,7 @@ class ClassDesc(Desc):
             if isinstance(s_init, SomePBC):
                 assert len(s_init.descriptions) == 1, (
                     "unexpected dynamic __init__?")
-                initfuncdesc = s_init.descriptions.keys()[0]
+                initfuncdesc, = s_init.descriptions
                 if isinstance(initfuncdesc, FunctionDesc):
                     initmethdesc = bookkeeper.getmethoddesc(initfuncdesc,
                                                             classdef,
@@ -800,8 +800,8 @@ class MethodDesc(Desc):
                                                         desc.selfclassdef,
                                                         desc.name,
                                                         commonflags)
-                del descs[desc]
-                descs[newdesc] = None
+                descs.remove(desc)
+                descs.add(newdesc)
 
         # --- case 1 ---
         groups = {}
@@ -816,7 +816,7 @@ class MethodDesc(Desc):
                     for desc2 in group:
                         cdef2 = desc2.selfclassdef
                         if cdef1 is not cdef2 and cdef1.issubclass(cdef2):
-                            del descs[desc1]
+                            descs.remove(desc1)
                             break
     simplify_desc_set = staticmethod(simplify_desc_set)
 

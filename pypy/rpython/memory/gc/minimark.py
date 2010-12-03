@@ -652,7 +652,12 @@ class MiniMarkGC(MovingGCBase):
         # means recording that they have a smaller size, so that when
         # moved out of the nursery, they will consume less memory.
         # In particular, an array with GCFLAG_HAS_CARDS is never resized.
+        # Also, a nursery object with GCFLAG_HAS_SHADOW is not resized
+        # either, as this would potentially loose part of the memory in
+        # the already-allocated shadow.
         if not self.is_in_nursery(obj):
+            return False
+        if self.header(obj).tid & GCFLAG_HAS_SHADOW:
             return False
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1423,12 +1428,21 @@ class MiniMarkGC(MovingGCBase):
                     size = self.get_size(obj)
                     shadowhdr = self._malloc_out_of_nursery(size_gc_header +
                                                             size)
-                    # initialize to an invalid tid *without* GCFLAG_VISITED,
-                    # so that if the object dies before the next minor
-                    # collection, the shadow will stay around but be collected
-                    # by the next major collection.
+                    # Initialize the shadow enough to be considered a
+                    # valid gc object.  If the original object stays
+                    # alive at the next minor collection, it will anyway
+                    # be copied over the shadow and overwrite the
+                    # following fields.  But if the object dies, then
+                    # the shadow will stay around and only be freed at
+                    # the next major collection, at which point we want
+                    # it to look valid (but ready to be freed).
                     shadow = shadowhdr + size_gc_header
-                    self.header(shadow).tid = 0
+                    self.header(shadow).tid = self.header(obj).tid
+                    typeid = self.get_type_id(obj)
+                    if self.is_varsize(typeid):
+                        lenofs = self.varsize_offset_to_length(typeid)
+                        (shadow + lenofs).signed[0] = (obj + lenofs).signed[0]
+                    #
                     self.header(obj).tid |= GCFLAG_HAS_SHADOW
                     self.young_objects_shadows.setitem(obj, shadow)
                 #

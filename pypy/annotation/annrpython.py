@@ -145,7 +145,7 @@ class RPythonAnnotator(object):
         classdef.add_source_for_attribute(attr, classdef.classdesc)
         self.bookkeeper
         assert isinstance(s_result, annmodel.SomePBC)
-        olddesc = s_result.descriptions.iterkeys().next()
+        olddesc = s_result.any_description()
         desc = olddesc.bind_self(classdef)
         args = self.bookkeeper.build_args("simple_call", args_s[:])
         desc.consider_call_site(self.bookkeeper, desc.getcallfamily(), [desc],
