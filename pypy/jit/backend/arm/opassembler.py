@@ -69,17 +69,17 @@ class IntOpAsslember(object):
         imm_a0 = self._check_imm_arg(a0)
         imm_a1 = self._check_imm_arg(a1)
         if not imm_a0 and imm_a1:
-            l0, box = self._ensure_value_is_boxed(a0, regalloc)
+            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
             l1 = regalloc.make_sure_var_in_reg(a1, [a0])
             boxes.append(box)
         elif imm_a0 and not imm_a1:
             l0 = regalloc.make_sure_var_in_reg(a0)
-            l1, box = self._ensure_value_is_boxed(a1, regalloc)
+            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
             boxes.append(box)
         else:
-            l0, box = self._ensure_value_is_boxed(a0, regalloc)
+            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
             boxes.append(box)
-            l1, box = self._ensure_value_is_boxed(a1, regalloc)
+            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
             boxes.append(box)
         res = regalloc.force_allocate_reg(op.result, boxes)
         if l0.is_imm():
@@ -184,8 +184,7 @@ class UnaryIntOpAssembler(object):
 
         self.mc.MVN_rr(res.value, reg.value)
         regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_var(op.result)
         return fcond
 
     #XXX check for a better way of doing this
@@ -239,16 +238,23 @@ class GuardOpAssembler(object):
         return self._emit_guard(op, regalloc, c.EQ)
 
     def emit_op_guard_value(self, op, regalloc, fcond):
-        a0 = op.getarg(0)
-        a1 = op.getarg(1)
+        boxes = list(op.getarglist())
+        a0, a1 = boxes
         imm_a1 = self._check_imm_arg(a1)
-        l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-        l1 = regalloc.make_sure_var_in_reg(a1, imm_fine=imm_a1)
+        l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
+        boxes.append(box)
+        if not imm_a1:
+            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+            boxes.append(box)
+        else:
+            l1 = regalloc.make_sure_var_in_reg(a1)
+        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_var(op.result)
+
         if l1.is_imm():
             self.mc.CMP_ri(l0.value, l1.getint())
         else:
             self.mc.CMP_rr(l0.value, l1.value)
-        regalloc.possibly_free_vars_for_op(op)
         return self._emit_guard(op, regalloc, c.EQ)
 
     emit_op_guard_nonnull = emit_op_guard_true
