@@ -1,47 +1,53 @@
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
+from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 
 def gen_emit_op_unary_cmp(true_cond, false_cond):
     def f(self, op, regalloc, fcond):
         assert fcond is not None
         a0 = op.getarg(0)
-        reg = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result, [a0])
+        reg, box = self._ensure_value_is_boxed(a0, regalloc)
+        res = regalloc.force_allocate_reg(op.result, [box])
+        regalloc.possibly_free_vars([a0, box, op.result])
+
         self.mc.CMP_ri(reg.value, 0)
         self.mc.MOV_ri(res.value, 1, true_cond)
         self.mc.MOV_ri(res.value, 0, false_cond)
-        regalloc.possibly_free_var(a0)
-        regalloc.possibly_free_var(op.result)
         return fcond
     return f
 
 def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
+    ri_op = getattr(AbstractARMv7Builder, '%s_ri' % opname)
+    rr_op = getattr(AbstractARMv7Builder, '%s_rr' % opname)
     def f(self, op, regalloc, fcond):
         assert fcond is not None
-        ri_op = getattr(self.mc, '%s_ri' % opname)
-        rr_op = getattr(self.mc, '%s_rr' % opname)
-
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
-        imm_a0 = self._check_imm_arg(arg0, imm_size, allow_zero=allow_zero)
-        imm_a1 = self._check_imm_arg(arg1, imm_size, allow_zero=allow_zero)
-        if commutative and imm_a0:
-            l0 = regalloc.make_sure_var_in_reg(arg0, [arg1], imm_fine=imm_a0)
-            l1 = regalloc.make_sure_var_in_reg(arg1, [arg0])
-            res = regalloc.force_allocate_reg(op.result, [arg0, arg1])
-            ri_op(res.value, l1.value, imm=l0.getint(), cond=fcond)
-        elif imm_a1:
-            l0 = regalloc.make_sure_var_in_reg(arg0, [arg1], imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(arg1, [arg0], imm_fine=True)
-            res = regalloc.force_allocate_reg(op.result, [arg0, arg1])
-            ri_op(res.value, l0.value, imm=l1.getint(), cond=fcond)
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        boxes = list(op.getarglist())
+        imm_a0 = self._check_imm_arg(a0, imm_size, allow_zero=allow_zero)
+        imm_a1 = self._check_imm_arg(a1, imm_size, allow_zero=allow_zero)
+        if not imm_a0 and imm_a1:
+            l0, box = self._ensure_value_is_boxed(a0, regalloc)
+            boxes.append(box)
+            l1 = regalloc.make_sure_var_in_reg(a1, boxes)
+        elif commutative and imm_a0 and not imm_a1:
+            l1 = regalloc.make_sure_var_in_reg(a0, boxes)
+            l0, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+            boxes.append(box)
         else:
-            l0 = regalloc.make_sure_var_in_reg(arg0, [arg1], imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(arg1, [arg0], imm_fine=False)
-            res = regalloc.force_allocate_reg(op.result, [arg0, arg1])
-            rr_op(res.value, l0.value, l1.value)
-        regalloc.possibly_free_vars([arg0, arg1, op.result])
+            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
+            boxes.append(box)
+            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+            boxes.append(box)
+        res = regalloc.force_allocate_reg(op.result, boxes)
+        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_var(op.result)
+
+        if l1.is_imm():
+            ri_op(self.mc, res.value, l0.value, imm=l1.getint(), cond=fcond)
+        else:
+            rr_op(self.mc, res.value, l0.value, l1.value)
         return fcond
     return f
 

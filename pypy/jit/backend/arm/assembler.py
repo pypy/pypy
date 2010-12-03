@@ -35,13 +35,16 @@ class AssemblerARM(ResOpAssembler):
         self.malloc_unicode_func_addr = 0
         self.memcpy_addr = 0
 
+    def setup_mc(self):
+        self.mc = ARMv7Builder()
+        self._exit_code_addr = self.mc.curraddr()
+        self._gen_exit_path()
+        self.align()
+        self.mc._start_addr = self.mc.curraddr()
+
     def setup(self):
         if self.mc is None:
-            self.mc = ARMv7Builder()
-            self._exit_code_addr = self.mc.curraddr()
-            self._gen_exit_path()
-            self.align()
-            self.mc._start_addr = self.mc.curraddr()
+            self.setup_mc()
 
             # Addresses of functions called by new_xxx operations
             gc_ll_descr = self.cpu.gc_ll_descr
@@ -445,16 +448,21 @@ class AssemblerARM(ResOpAssembler):
             return arg.getint() <= size and lower_bound
         return False
 
-    def _ensure_value_is_boxed(self, thing, regalloc):
+    def _ensure_value_is_boxed(self, thing, regalloc, forbidden_vars=[]):
         box = None
         loc = None
         if isinstance(thing, Const):
-            box = TempBox()
-            loc = regalloc.force_allocate_reg(box)
+            if isinstance(thing, ConstInt):
+                box = BoxInt()
+            else:
+                box = TempBox()
+            loc = regalloc.force_allocate_reg(box,
+                            forbidden_vars=forbidden_vars)
             imm = regalloc.convert_to_imm(thing)
             self.mc.gen_load_int(loc.value, imm.getint())
         else:
-            loc = regalloc.make_sure_var_in_reg(thing, imm_fine=False)
+            loc = regalloc.make_sure_var_in_reg(thing,
+                            forbidden_vars=forbidden_vars, imm_fine=False)
             box = thing
         return loc, box
 

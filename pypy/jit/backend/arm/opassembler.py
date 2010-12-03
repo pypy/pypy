@@ -29,30 +29,35 @@ class IntOpAsslember(object):
     _mixin_ = True
 
     def emit_op_int_add(self, op, regalloc, fcond):
-        # assuming only one argument is constant
+        #XXX check if neg values are supported for imm values
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        imm_a0 = isinstance(a0, ConstInt) and (a0.getint() <= 0xFF or -1 * a0.getint() <= 0xFF)
-        imm_a1 = isinstance(a1, ConstInt) and (a1.getint() <= 0xFF or -1 * a1.getint() <= 0xFF)
-        if imm_a0:
-            imm_a0, imm_a1 = imm_a1, imm_a0
-            a0, a1 = a1, a0
-        if imm_a1:
-            l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=True)
-            res = regalloc.force_allocate_reg(op.result, [a0, a1])
-            if l1.getint() < 0:
-                self.mc.SUB_ri(res.value, l0.value, -1 * l1.getint(), s=1)
-            else:
-                self.mc.ADD_ri(res.value, l0.value, l1.getint(), s=1)
+        boxes = list(op.getarglist())
+        imm_a0 = self._check_imm_arg(a0)
+        imm_a1 = self._check_imm_arg(a1)
+        if not imm_a0 and imm_a1:
+            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
+            l1 = regalloc.make_sure_var_in_reg(a1, [a0])
+            boxes.append(box)
+        elif imm_a0 and not imm_a1:
+            l0 = regalloc.make_sure_var_in_reg(a0)
+            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+            boxes.append(box)
         else:
-            l0 = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-            l1 = regalloc.make_sure_var_in_reg(a1, forbidden_vars=[a0], imm_fine=False)
-            res = regalloc.force_allocate_reg(op.result, forbidden_vars=[a0, a1])
+            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
+            boxes.append(box)
+            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+            boxes.append(box)
+        res = regalloc.force_allocate_reg(op.result, boxes)
+
+        if l0.is_imm():
+            self.mc.ADD_ri(res.value, l1.value, imm=l0.value, s=1)
+        elif l1.is_imm():
+            self.mc.ADD_ri(res.value, l0.value, imm=l1.value, s=1)
+        else:
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
 
-        regalloc.possibly_free_var(a0)
-        regalloc.possibly_free_var(a1)
+        regalloc.possibly_free_vars(boxes)
         regalloc.possibly_free_var(op.result)
         return fcond
 
@@ -96,11 +101,16 @@ class IntOpAsslember(object):
     def emit_op_int_mul(self, op, regalloc, fcond):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        reg1 = regalloc.make_sure_var_in_reg(a0, [a1], imm_fine=False)
-        reg2 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result, [a0, a1])
+        boxes = list(op.getarglist())
+
+        reg1, box = self._ensure_value_is_boxed(a0, regalloc, forbidden_vars=boxes)
+        boxes.append(box)
+        reg2, box = self._ensure_value_is_boxed(a1, regalloc, forbidden_vars=boxes)
+        boxes.append(box)
+
+        res = regalloc.force_allocate_reg(op.result, boxes)
         self.mc.MUL(res.value, reg1.value, reg2.value)
-        regalloc.possibly_free_vars_for_op(op)
+        regalloc.possibly_free_vars(boxes)
         regalloc.possibly_free_var(op.result)
         return fcond
 
@@ -108,18 +118,25 @@ class IntOpAsslember(object):
     def emit_guard_int_mul_ovf(self, op, guard, regalloc, fcond):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        reg1 = regalloc.make_sure_var_in_reg(a0, [a1], imm_fine=False)
-        reg2 = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
-        res = regalloc.force_allocate_reg(op.result, [a0, a1])
+        boxes = list(op.getarglist())
+
+        reg1, box = self._ensure_value_is_boxed(a0, regalloc, forbidden_vars=boxes)
+        boxes.append(box)
+        reg2, box = self._ensure_value_is_boxed(a1, regalloc, forbidden_vars=boxes)
+        boxes.append(box)
+        res = regalloc.force_allocate_reg(op.result, boxes)
+
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, imm=31, cond=fcond)
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_var(op.result)
+
         if guard.getopnum() == rop.GUARD_OVERFLOW:
             return self._emit_guard(guard, regalloc, c.NE)
-        else:
+        if guard.getopnum() == rop.GUARD_NO_OVERFLOW:
             return self._emit_guard(guard, regalloc, c.EQ)
+        else:
+            assert 0
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
     emit_op_int_mod = gen_emit_op_by_helper_call('MOD')

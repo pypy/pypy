@@ -15,6 +15,7 @@ skip_unless_arm()
 class TestRunningAssembler():
     def setup_method(self, method):
         self.a = AssemblerARM(None)
+        self.a.setup_mc()
 
     def test_make_operation_list(self):
         i = rop.INT_ADD
