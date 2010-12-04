@@ -268,46 +268,45 @@ class GuardOpAssembler(object):
 
     # from ../x86/assembler.py:1265
     def emit_op_guard_class(self, op, regalloc, fcond):
-        locs, boxes = self._prepare_guard_class(op, regalloc, fcond)
+        locs = self._prepare_guard_class(op, regalloc, fcond)
         self._cmp_guard_class(op, locs, regalloc, fcond)
-        regalloc.possibly_free_vars(boxes)
         return fcond
 
     def emit_op_guard_nonnull_class(self, op, regalloc, fcond):
-        locs, boxes = self._prepare_guard_class(op, regalloc, fcond)
+        locs = self._prepare_guard_class(op, regalloc, fcond)
         self.mc.CMP_ri(locs[0].value, 0)
         self._emit_guard(op, regalloc, c.NE)
         self._cmp_guard_class(op, locs, regalloc, fcond)
-        regalloc.possibly_free_vars(boxes)
         return fcond
 
     def _prepare_guard_class(self, op, regalloc, fcond):
         assert isinstance(op.getarg(0), Box)
+        boxes = list(op.getarglist())
 
-        x = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        y_temp = TempBox()
-        y = regalloc.force_allocate_reg(y_temp)
-        arg = op.getarg(1).getint()
-        self.mc.gen_load_int(y.value, rffi.cast(lltype.Signed, arg))
-        return [x, y], [op.getarg(0), y_temp]
+        x, x_box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
+        boxes.append(x_box)
+
+        t = TempBox()
+        y = regalloc.force_allocate_reg(t, boxes)
+        boxes.append(t)
+        y_val = op.getarg(1).getint()
+        self.mc.gen_load_int(y.value, rffi.cast(lltype.Signed, y_val))
+
+        regalloc.possibly_free_vars(boxes)
+        return [x, y]
 
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
         offset = self.cpu.vtable_offset
-        x = locs[0]
-        y = locs[1]
+        x, y = locs
         if offset is not None:
-            t0 = TempBox()
-            l0 = regalloc.force_allocate_reg(t0)
             assert offset == 0
-            self.mc.LDR_ri(l0.value, x.value, offset)
-            self.mc.CMP_rr(l0.value, y.value)
-            regalloc.possibly_free_var(t0)
+            self.mc.LDR_ri(r.ip.value, x.value, offset)
+            self.mc.CMP_rr(r.ip.value, y.value)
         else:
             raise NotImplementedError
             # XXX port from x86 backend once gc support is in place
 
-        regalloc.possibly_free_vars_for_op(op)
         return self._emit_guard(op, regalloc, c.EQ)
 
 
@@ -346,7 +345,6 @@ class OpAssembler(object):
         return cond
 
     def _emit_call(self, adr, args, regalloc, fcond=c.AL, save_all_regs=False, result=None):
-        locs = []
         # all arguments past the 4th go on the stack
         # XXX support types other than int (one word types)
         n = 0
@@ -365,7 +363,6 @@ class OpAssembler(object):
         for i in range(0, reg_args):
             l = regalloc.make_sure_var_in_reg(args[i],
                                             selected_reg=r.all_regs[i])
-            locs.append(l)
         # XXX use PUSH here instead of spilling every reg for itself
         regalloc.before_call(save_all_regs=save_all_regs)
 
@@ -822,7 +819,7 @@ class UnicodeOpAssembler(object):
         boxes = list(op.getarglist())
 
         base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
-        boxes = [box]
+        boxes.append(box)
 
         ofs_loc, box = self._ensure_value_is_boxed(boxes[1], regalloc, boxes)
         boxes.append(box)
@@ -1024,7 +1021,7 @@ class AllocOpAssembler(object):
         arglocs = []
         for arg in args:
             t = TempBox()
-            l = regalloc.force_allocate_reg(t)
+            l = regalloc.force_allocate_reg(t, arglocs)
             self.mc.gen_load_int(l.value, arg)
             arglocs.append(t)
         return arglocs
@@ -1061,6 +1058,7 @@ class AllocOpAssembler(object):
         self._emit_call(self.malloc_func_addr, arglocs,
                                 regalloc, result=op.result)
         regalloc.possibly_free_vars(arglocs)
+        regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_new_with_vtable(self, op, regalloc, fcond):
@@ -1070,6 +1068,7 @@ class AllocOpAssembler(object):
         self._emit_call(self.malloc_func_addr, arglocs,
                                 regalloc, result=op.result)
         regalloc.possibly_free_vars(arglocs)
+        regalloc.possibly_free_var(op.result)
         self.set_vtable(op.result, op.getarg(0), regalloc)
         return fcond
 
