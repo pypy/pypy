@@ -402,9 +402,22 @@ class OptInlineShortPreamble(Optimization):
                 # FIXME: Emit a proper guard instead to move these
                 # forceings into the the small bridge back to the preamble
                 if newop.is_guard():
-                    for box in newop.getfailargs():
+                    failargs = newop.getfailargs()
+                    for i in range(len(failargs)):
+                        box = failargs[i]
                         if box in self.optimizer.values:
-                            box = self.optimizer.values[box].force_box()
+                            value = self.optimizer.values[box]
+                            if value.is_constant():
+                                newbox = box.clonebox()
+                                op = ResOperation(rop.SAME_AS,
+                                                  [value.force_box()], newbox)
+                                self.optimizer.newoperations.append(op)
+                                box = newbox
+                            else:
+                                box = value.force_box()
+                        failargs[i] = box
+                    newop.setfailargs(failargs)
+                                
                 
                 self.emit_operation(newop)
             else:

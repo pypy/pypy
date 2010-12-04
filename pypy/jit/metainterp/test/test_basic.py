@@ -1865,6 +1865,33 @@ class BasicTests:
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
 
+    def test_specialied_bridge_const(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'const', 'x', 'res'])
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def binop(self, other):
+                return A(self.val + other.val)
+        def f(x, y):
+            res = A(0)
+            const = 7
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, res=res, const=const)
+                myjitdriver.jit_merge_point(y=y, x=x, res=res, const=const)
+                const = hint(const, promote=True)
+                res = res.binop(A(const))
+                if y<7:
+                    res = x
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            assert a1.val == a2.val
+            return a1.val
+        res = self.meta_interp(g, [6, 14])
+        assert res == g(6, 14)
+
     def test_multiple_specialied_zigzag(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
         class Base:
