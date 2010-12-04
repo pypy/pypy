@@ -409,6 +409,7 @@ def add_storage(instance, mixin_cls, ctypes_storage):
     subcls = get_common_subclass(mixin_cls, instance.__class__)
     instance.__class__ = subcls
     instance._storage = ctypes_storage
+    assert ctypes_storage   # null pointer?
 
 class _parentable_mixin(object):
     """Mixin added to _parentable containers when they become ctypes-based.
