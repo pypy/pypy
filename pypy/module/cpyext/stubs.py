@@ -668,15 +668,6 @@ def PyDict_MergeFromSeq2(space, a, seq2, override):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP], PyObject)
-def PyErr_SetFromErrnoWithFilename(space, type, filename):
-    """Similar to PyErr_SetFromErrno(), with the additional behavior that if
-    filename is not NULL, it is passed to the constructor of type as a third
-    parameter.  In the case of exceptions such as IOError and OSError,
-    this is used to define the filename attribute of the exception instance.
-    Return value: always NULL."""
-    raise NotImplementedError
-
 @cpython_api([rffi.INT_real], PyObject)
 def PyErr_SetFromWindowsErr(space, ierr):
     """This is a convenience function to raise WindowsError. If called with
@@ -800,21 +791,6 @@ def Py_LeaveRecursiveCall(space, ):
     successful invocation of Py_EnterRecursiveCall()."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFile_Check(space, p):
-    """Return true if its argument is a PyFileObject or a subtype of
-    PyFileObject.
-    
-    Allowed subtypes to be accepted."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFile_CheckExact(space, p):
-    """Return true if its argument is a PyFileObject, but not a subtype of
-    PyFileObject.
-    """
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):
     """Create a new PyFileObject from the already-open standard C file
@@ -846,22 +822,6 @@ def PyFile_DecUseCount(space, p):
     
     The GIL must be held while calling this function.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyFile_GetLine(space, p, n):
-    """
-    
-    
-    
-    Equivalent to p.readline([n]), this function reads one line from the
-    object p.  p may be a file object or any object with a readline()
-    method.  If n is 0, exactly one line is read, regardless of the length of
-    the line.  If n is greater than 0, no more than n bytes will be read
-    from the file; a partial line can be returned.  In both cases, an empty string
-    is returned if the end of the file is reached immediately.  If n is less than
-    0, however, one line is read regardless of length, but EOFError is
-    raised if the end of the file is reached immediately."""
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)

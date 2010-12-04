@@ -184,3 +184,26 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         except OSError, e:
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
+            assert e.filename == None
+
+    def test_SetFromErrnoWithFilename(self):
+        import sys
+        if sys.platform != 'win32':
+            skip("callbacks through ll2ctypes modify errno")
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "blyf");
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        try:
+            module.set_from_errno()
+        except OSError, e:
+            assert e.filename == "blyf"
+            assert e.errno == errno.EBADF
+            assert e.strerror == os.strerror(errno.EBADF)

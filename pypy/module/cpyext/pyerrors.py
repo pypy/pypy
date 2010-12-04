@@ -129,10 +129,29 @@ def PyErr_SetFromErrno(space, w_type):
     function around a system call can write return PyErr_SetFromErrno(type);
     when the system call returns an error.
     Return value: always NULL."""
+    PyErr_SetFromErrnoWithFilename(space, w_type,
+                                   lltype.nullptr(rffi.CCHARP.TO))
+
+@cpython_api([PyObject, rffi.CCHARP], PyObject)
+def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
+    """Similar to PyErr_SetFromErrno(), with the additional behavior that if
+    filename is not NULL, it is passed to the constructor of type as a third
+    parameter.  In the case of exceptions such as IOError and OSError,
+    this is used to define the filename attribute of the exception instance.
+    Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = get_errno()
     msg = os.strerror(errno)
-    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    if llfilename:
+        w_filename = rffi.charp2str(llfilename)
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg),
+                                      space.wrap(w_filename))
+    else:
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
