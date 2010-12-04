@@ -885,11 +885,14 @@ class PyPyCJITTests(object):
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
             res = 19352859
-            if tc in 'IL':
+            if tc == 'L':
                 res = long(res)
             elif tc in 'fd':
                 res = float(res)
-            
+            elif tc == 'I' and sys.maxint == 2147483647:
+                res = long(res)
+                # note: in CPython we always get longs here, even on 64-bits
+
             self.run_source('''
             from array import array
 
@@ -937,11 +940,14 @@ class PyPyCJITTests(object):
             print '='*65
             print '='*20, 'running test for tc=%r' % (tc,), '='*20
             res = 73574560
-            if tc in 'IL':
+            if tc == 'L':
                 res = long(res)
             elif tc in 'fd':
                 res = float(res)
-            
+            elif tc == 'I' and sys.maxint == 2147483647:
+                res = long(res)
+                # note: in CPython we always get longs here, even on 64-bits
+
             self.run_source('''
             from array import array
 
