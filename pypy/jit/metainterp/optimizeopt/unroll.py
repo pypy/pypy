@@ -399,6 +399,13 @@ class OptInlineShortPreamble(Optimization):
             newop = inliner.inline_op(op)
             
             if not dryrun:
+                # FIXME: Emit a proper guard instead to move these
+                # forceings into the the small bridge back to the preamble
+                if newop.is_guard():
+                    for box in newop.getfailargs():
+                        if box in self.optimizer.values:
+                            box = self.optimizer.values[box].force_box()
+                
                 self.emit_operation(newop)
             else:
                 if not self.is_emittable(newop):

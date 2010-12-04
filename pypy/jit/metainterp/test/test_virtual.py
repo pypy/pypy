@@ -239,6 +239,32 @@ class VirtualTests:
         assert res == 78
         self.check_loops(new_with_vtable=0, new=0)
 
+    def test_specialied_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def binop(self, other):
+                return A(self.val + other.val)
+        def f(x, y):
+            res = A(0)
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, res=res)
+                res = res.binop(A(y))
+                if y<7:
+                    res = x
+                    x = A(1)
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            assert a1.val == a2.val
+            return a1.val
+        res = self.meta_interp(g, [6, 14])
+        assert res == g(6, 14)
+
     def test_both_virtual_and_field_variable(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         class Foo(object):

@@ -1840,6 +1840,31 @@ class BasicTests:
                           'int_add': 1, 'int_mul': 1, 'int_sub': 2,
                           'int_gt': 2, 'jump': 2})
 
+    def test_specialied_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
+        class A(Base):
+            def __init__(self, val):
+                self.val = val
+            def binop(self, other):
+                return A(self.val + other.val)
+        def f(x, y):
+            res = A(0)
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, res=res)
+                res = res.binop(A(y))
+                if y<7:
+                    res = x
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            assert a1.val == a2.val
+            return a1.val
+        res = self.meta_interp(g, [6, 14])
+        assert res == g(6, 14)
+
     def test_multiple_specialied_zigzag(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
         class Base:
