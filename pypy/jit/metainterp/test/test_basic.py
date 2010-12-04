@@ -1842,7 +1842,7 @@ class BasicTests:
 
     def test_specialied_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
-        class A(Base):
+        class A:
             def __init__(self, val):
                 self.val = val
             def binop(self, other):
