@@ -52,16 +52,17 @@ def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
     return f
 
 def gen_emit_op_by_helper_call(opname):
+    helper = getattr(AbstractARMv7Builder, opname)
     def f(self, op, regalloc, fcond):
         assert fcond is not None
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        arg1 = regalloc.make_sure_var_in_reg(a0, selected_reg=r.r0, imm_fine=False)
-        arg2 = regalloc.make_sure_var_in_reg(a1, selected_reg=r.r1, imm_fine=False)
+        arg1 = regalloc.make_sure_var_in_reg(a0, selected_reg=r.r0)
+        arg2 = regalloc.make_sure_var_in_reg(a1, selected_reg=r.r1)
         assert arg1 == r.r0
         assert arg2 == r.r1
         regalloc.before_call()
-        getattr(self.mc, opname)(fcond)
+        helper(self.mc, fcond)
         regalloc.after_call(op.result)
 
         regalloc.possibly_free_var(a0)

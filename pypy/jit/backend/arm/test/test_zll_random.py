@@ -31,13 +31,13 @@ for i in range(4):      # make more common
     OPERATIONS.append(test_ll_random.UnicodeLenOperation(rop.UNICODELEN))
 #
 for i in range(2):
-    OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
-    #OPERATIONS.append(test_ll_random.CallOperation(rop.CALL))
-    #OPERATIONS.append(test_ll_random.RaisingCallOperation(rop.CALL))
-    #OPERATIONS.append(test_ll_random.RaisingCallOperationGuardNoException(rop.CALL))
-    #OPERATIONS.append(test_ll_random.RaisingCallOperationWrongGuardException(rop.CALL))
-    #OPERATIONS.append(test_ll_random.CallOperationException(rop.CALL))
-OPERATIONS.append(test_ll_random.GuardNonNullClassOperation(rop.GUARD_NONNULL_CLASS))
+#    OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
+    OPERATIONS.append(test_ll_random.CallOperation(rop.CALL))
+    OPERATIONS.append(test_ll_random.RaisingCallOperation(rop.CALL))
+    OPERATIONS.append(test_ll_random.RaisingCallOperationGuardNoException(rop.CALL))
+    OPERATIONS.append(test_ll_random.RaisingCallOperationWrongGuardException(rop.CALL))
+    OPERATIONS.append(test_ll_random.CallOperationException(rop.CALL))
+#OPERATIONS.append(test_ll_random.GuardNonNullClassOperation(rop.GUARD_NONNULL_CLASS))
 
 
 
