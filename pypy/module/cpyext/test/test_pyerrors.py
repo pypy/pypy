@@ -157,8 +157,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  Py_RETURN_FALSE;
 
              PyErr_Restore(type, val, tb);
-             if (!PyErr_Occurred())
-                 Py_RETURN_FALSE;
+             PyErr_Clear();
              Py_RETURN_TRUE;
              '''
              ),
