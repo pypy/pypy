@@ -18,7 +18,7 @@ class BaseFrame(PyFrame):
 
     def LIST_APPEND(f, oparg, next_instr):
         w = f.popvalue()
-        v = f.peekvalue(oparg)
+        v = f.peekvalue(oparg - 1)
         if type(v) is W_ListObject:
             v.append(w)
         else:
