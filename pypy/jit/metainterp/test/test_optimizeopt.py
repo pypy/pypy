@@ -493,6 +493,42 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_guard_nonnull_class_1(self):
+        ops = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull(p0) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_guard_nonnull_class_2(self):
+        ops = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_int_is_true_1(self):
         ops = """
         [i0]

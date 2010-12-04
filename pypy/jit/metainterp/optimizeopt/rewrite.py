@@ -255,6 +255,10 @@ class OptRewrite(Optimization):
             last_guard_index = value.last_guard_index
         value.make_constant_class(expectedclassbox, last_guard_index)
 
+    def optimize_GUARD_NONNULL_CLASS(self, op, dryrun=False):
+        self.optimize_GUARD_NONNULL(op, True)
+        self.optimize_GUARD_CLASS(op, dryrun)
+
     def optimize_GUARD_NO_EXCEPTION(self, op, dryrun=False):
         if dryrun: return
         if not self.optimizer.exception_might_have_happened:
