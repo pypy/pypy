@@ -611,14 +611,24 @@ class StrOpAssembler(object):
     _mixin_ = True
 
     def emit_op_strlen(self, op, regalloc, fcond):
-        l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        regalloc.possibly_free_vars_for_op(op)
-        res = regalloc.force_allocate_reg(op.result)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
+        boxes = [box]
+
+        res = regalloc.force_allocate_reg(op.result, boxes)
+        boxes.append(op.result)
+
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
-        l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length))
+        imm_ofs = self._check_imm_arg(ofs_length)
+
+        if imm_ofs:
+            l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length), boxes)
+        else:
+            l1, box1 = self._ensure_value_is_boxed(ConstInt(ofs_length), regalloc, boxes)
+            boxes.append(box1)
+
+        regalloc.possibly_free_vars(boxes)
+
         if l1.is_imm():
             self.mc.LDR_ri(res.value, l0.value, l1.getint(), cond=fcond)
         else:
@@ -626,46 +636,56 @@ class StrOpAssembler(object):
         return fcond
 
     def emit_op_strgetitem(self, op, regalloc, fcond):
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
-        t = TempBox()
-        temp = regalloc.force_allocate_reg(t)
+        boxes = list(op.getarglist())
+        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc)
+        boxes.append(box)
+
+        a1 = boxes[1]
+        imm_a1 = self._check_imm_arg(a1)
+        if imm_a1:
+            ofs_loc = regalloc.make_sure_var_in_reg(a1, boxes)
+        else:
+            ofs_loc, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+            boxes.append(box)
         res = regalloc.force_allocate_reg(op.result)
-        regalloc.possibly_free_vars_for_op(op)
-        regalloc.possibly_free_var(t)
+        regalloc.possibly_free_vars(boxes)
+
         regalloc.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
         assert itemsize == 1
         if ofs_loc.is_imm():
-            self.mc.ADD_ri(temp.value, base_loc.value, ofs_loc.getint(), cond=fcond)
+            self.mc.ADD_ri(r.ip.value, base_loc.value, ofs_loc.getint(), cond=fcond)
         else:
-            self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond)
 
-        self.mc.LDRB_ri(res.value, temp.value, basesize, cond=fcond)
+        self.mc.LDRB_ri(res.value, r.ip.value, basesize, cond=fcond)
         return fcond
 
     def emit_op_strsetitem(self, op, regalloc, fcond):
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
-        value_loc = regalloc.make_sure_var_in_reg(op.getarg(2))
-        t = TempBox()
-        temp = regalloc.force_allocate_reg(t)
-        regalloc.possibly_free_vars_for_op(op)
-        regalloc.possibly_free_var(t)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        boxes = list(op.getarglist())
+
+        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
+        boxes.append(box)
+
+        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], regalloc, boxes)
+        boxes.append(box)
+
+        value_loc, box = self._ensure_value_is_boxed(boxes[2], regalloc, boxes)
+        boxes.append(box)
+
+        regalloc.possibly_free_vars(boxes)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
         assert itemsize == 1
         if ofs_loc.is_imm():
-            self.mc.ADD_ri(temp.value, base_loc.value, ofs_loc.getint(), cond=fcond)
+            self.mc.ADD_ri(r.ip.value, base_loc.value, ofs_loc.getint(), cond=fcond)
         else:
-            self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond)
 
-        self.mc.STRB_ri(value_loc.value, temp.value, basesize, cond=fcond)
+        self.mc.STRB_ri(value_loc.value, r.ip.value, basesize, cond=fcond)
         return fcond
 
     #from ../x86/regalloc.py:928 ff.
@@ -776,13 +796,22 @@ class UnicodeOpAssembler(object):
     _mixin_ = True
 
     def emit_op_unicodelen(self, op, regalloc, fcond):
-        l0 = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        regalloc.possibly_free_vars_for_op(op)
-        res = regalloc.force_allocate_reg(op.result)
-        regalloc.possibly_free_var(op.result)
+        l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
+        boxes = [box]
+        res = regalloc.force_allocate_reg(op.result, boxes)
+        boxes.append(op.result)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
-        l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length))
+        imm_ofs = self._check_imm_arg(ofs_length)
+
+        if imm_ofs:
+            l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length), boxes)
+        else:
+            l1, box1 = self._ensure_value_is_boxed(ConstInt(ofs_length), regalloc, boxes)
+            boxes.append(box1)
+        regalloc.possibly_free_vars(boxes)
+
+        # XXX merge with strlen
         if l1.is_imm():
             self.mc.LDR_ri(res.value, l0.value, l1.getint(), cond=fcond)
         else:
@@ -790,51 +819,57 @@ class UnicodeOpAssembler(object):
         return fcond
 
     def emit_op_unicodegetitem(self, op, regalloc, fcond):
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1), imm_fine=False)
-        t = TempBox()
-        temp = regalloc.force_allocate_reg(t)
+        boxes = list(op.getarglist())
+
+        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
+        boxes = [box]
+
+        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], regalloc, boxes)
+        boxes.append(box)
+
         res = regalloc.force_allocate_reg(op.result)
-        regalloc.possibly_free_vars_for_op(op)
-        regalloc.possibly_free_var(t)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+
+        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         scale = itemsize/2
 
-        self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond,
+        self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond,
                                                 imm=scale, shifttype=shift.LSL)
         if scale == 2:
-            self.mc.LDR_ri(res.value, temp.value, basesize, cond=fcond)
+            self.mc.LDR_ri(res.value, r.ip.value, basesize, cond=fcond)
         elif scale == 1:
-            self.mc.LDRH_ri(res.value, temp.value, basesize, cond=fcond)
+            self.mc.LDRH_ri(res.value, r.ip.value, basesize, cond=fcond)
         else:
             assert 0, itemsize
         return fcond
 
     def emit_op_unicodesetitem(self, op, regalloc, fcond):
-        base_loc = regalloc.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
-        ofs_loc = regalloc.make_sure_var_in_reg(op.getarg(1))
-        value_loc = regalloc.make_sure_var_in_reg(op.getarg(2))
-        t = TempBox()
-        temp = regalloc.force_allocate_reg(t)
-        regalloc.possibly_free_vars_for_op(op)
-        regalloc.possibly_free_var(t)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+        boxes = list(op.getarglist())
+
+        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
+        boxes.append(box)
+
+        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], regalloc, boxes)
+        boxes.append(box)
+
+        value_loc, box = self._ensure_value_is_boxed(boxes[2], regalloc, boxes)
+        boxes.append(box)
+
+        regalloc.possibly_free_vars(boxes)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         scale = itemsize/2
 
-        self.mc.ADD_rr(temp.value, base_loc.value, ofs_loc.value, cond=fcond,
+        self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond,
                                             imm=scale, shifttype=shift.LSL)
         if scale == 2:
-            self.mc.STR_ri(value_loc.value, temp.value, basesize, cond=fcond)
+            self.mc.STR_ri(value_loc.value, r.ip.value, basesize, cond=fcond)
         elif scale == 1:
-            self.mc.STRH_ri(value_loc.value, temp.value, basesize, cond=fcond)
+            self.mc.STRH_ri(value_loc.value, r.ip.value, basesize, cond=fcond)
         else:
             assert 0, itemsize
 

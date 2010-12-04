@@ -23,21 +23,21 @@ for i in range(4):      # make more common
     OPERATIONS.append(test_ll_random.ArrayLenOperation(rop.ARRAYLEN_GC))
 #    #OPERATIONS.append(test_ll_random.NewStrOperation(rop.NEWSTR))
 #    #OPERATIONS.append(test_ll_random.NewUnicodeOperation(rop.NEWUNICODE))
-#    OPERATIONS.append(test_ll_random.StrGetItemOperation(rop.STRGETITEM))
-#    OPERATIONS.append(test_ll_random.UnicodeGetItemOperation(rop.UNICODEGETITEM))
-#    OPERATIONS.append(test_ll_random.StrSetItemOperation(rop.STRSETITEM))
-#    OPERATIONS.append(test_ll_random.UnicodeSetItemOperation(rop.UNICODESETITEM))
-#    OPERATIONS.append(test_ll_random.StrLenOperation(rop.STRLEN))
-#    OPERATIONS.append(test_ll_random.UnicodeLenOperation(rop.UNICODELEN))
+    OPERATIONS.append(test_ll_random.StrGetItemOperation(rop.STRGETITEM))
+    OPERATIONS.append(test_ll_random.UnicodeGetItemOperation(rop.UNICODEGETITEM))
+    OPERATIONS.append(test_ll_random.StrSetItemOperation(rop.STRSETITEM))
+    OPERATIONS.append(test_ll_random.UnicodeSetItemOperation(rop.UNICODESETITEM))
+    OPERATIONS.append(test_ll_random.StrLenOperation(rop.STRLEN))
+    OPERATIONS.append(test_ll_random.UnicodeLenOperation(rop.UNICODELEN))
 #
-#for i in range(2):
-    #OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
+for i in range(2):
+    OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
     #OPERATIONS.append(test_ll_random.CallOperation(rop.CALL))
     #OPERATIONS.append(test_ll_random.RaisingCallOperation(rop.CALL))
     #OPERATIONS.append(test_ll_random.RaisingCallOperationGuardNoException(rop.CALL))
     #OPERATIONS.append(test_ll_random.RaisingCallOperationWrongGuardException(rop.CALL))
     #OPERATIONS.append(test_ll_random.CallOperationException(rop.CALL))
-#OPERATIONS.append(test_ll_random.GuardNonNullClassOperation(rop.GUARD_NONNULL_CLASS))
+OPERATIONS.append(test_ll_random.GuardNonNullClassOperation(rop.GUARD_NONNULL_CLASS))
 
 
 
