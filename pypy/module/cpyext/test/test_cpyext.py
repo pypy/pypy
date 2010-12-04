@@ -682,3 +682,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert mod.get_names() == ('cell', 'module', 'property',
                                    'staticmethod',
                                    'builtin_function_or_method')
+
+    def test_get_programname(self):
+        mod = self.import_extension('foo', [
+            ('get_programname', 'METH_NOARGS',
+             '''
+             char* name1 = Py_GetProgramName();
+             char* name2 = Py_GetProgramName();
+             if (name1 != name2)
+                 Py_RETURN_FALSE;
+             return PyString_FromString(name1);
+             '''
+             ),
+            ])
+        p = mod.get_programname()
+        print p
+        assert 'py' in p

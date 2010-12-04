@@ -1422,17 +1422,6 @@ def Py_SetProgramName(space, name):
     raise NotImplementedError
 
 @cpython_api([], rffi.CCHARP, error=CANNOT_FAIL)
-def Py_GetProgramName(space, ):
-    """
-    
-    
-    
-    Return the program name set with Py_SetProgramName(), or the default.
-    The returned string points into static storage; the caller should not modify its
-    value."""
-    raise NotImplementedError
-
-@cpython_api([], rffi.CCHARP, error=CANNOT_FAIL)
 def Py_GetPrefix(space, ):
     """Return the prefix for installed platform-independent files. This is derived
     through a number of complicated rules from the program name set with
