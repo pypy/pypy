@@ -146,8 +146,8 @@ class IntOpAsslember(object):
     emit_op_int_or = gen_emit_op_ri('ORR')
     emit_op_int_xor = gen_emit_op_ri('EOR')
     emit_op_int_lshift = gen_emit_op_ri('LSL', imm_size=0x1F, allow_zero=False, commutative=False)
-    emit_op_int_rshift = gen_emit_op_ri('ASR', imm_size=0x1F, commutative=False)
-    emit_op_uint_rshift = gen_emit_op_ri('LSR', imm_size=0x1F, commutative=False)
+    emit_op_int_rshift = gen_emit_op_ri('ASR', imm_size=0x1F, allow_zero=False, commutative=False)
+    emit_op_uint_rshift = gen_emit_op_ri('LSR', imm_size=0x1F, allow_zero=False, commutative=False)
 
     emit_op_int_lt = gen_emit_cmp_op(c.LT)
     emit_op_int_le = gen_emit_cmp_op(c.LE)
@@ -444,13 +444,16 @@ class FieldOpAssembler(object):
     _mixin_ = True
 
     def emit_op_setfield_gc(self, op, regalloc, fcond):
-        a0 = op.getarg(0)
-        a1 = op.getarg(1)
+        boxes = list(op.getarglist())
+        a0, a1 = boxes
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         #ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
         #size_loc = regalloc.make_sure_var_in_reg(ofs)
-        base_loc = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-        value_loc = regalloc.make_sure_var_in_reg(a1, [a0], imm_fine=False)
+        base_loc, base_box = self._ensure_value_is_boxed(a0, regalloc, boxes)
+        boxes.append(base_box)
+        value_loc, value_box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+        boxes.append(value_box)
+        regalloc.possibly_free_vars(boxes)
         if size == 4:
             self.mc.STR_ri(value_loc.value, base_loc.value, ofs)
         elif size == 2:
@@ -467,8 +470,12 @@ class FieldOpAssembler(object):
         a0 = op.getarg(0)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         # ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
-        base_loc = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
+        base_loc, base_box = self._ensure_value_is_boxed(a0, regalloc)
         res = regalloc.force_allocate_reg(op.result, [a0])
+        regalloc.possibly_free_var(a0)
+        regalloc.possibly_free_var(base_box)
+        regalloc.possibly_free_var(op.result)
+
         if size == 4:
             self.mc.LDR_ri(res.value, base_loc.value, ofs)
         elif size == 2:

@@ -555,3 +555,59 @@ class TestStuff(object):
         assert cpu.get_latest_value_int(3) == 357913940
         assert cpu.get_latest_value_int(4) == 16
         assert cpu.get_latest_value_int(5) == -5
+
+    def test_wrong_result2(self):
+        # block length 10
+        # random seed 1
+        f1 = BasicFailDescr(1)
+        f2 = BasicFailDescr(2)
+        f3 = BasicFailDescr(3)
+        v1 = BoxInt()
+        v2 = BoxInt()
+        v3 = BoxInt()
+        v4 = BoxInt()
+        v5 = BoxInt()
+        v6 = BoxInt()
+        v7 = BoxInt()
+        v8 = BoxInt()
+        v9 = BoxInt()
+        v10 = BoxInt()
+        v11 = BoxInt()
+        v12 = BoxInt()
+        v13 = BoxInt()
+        v14 = BoxInt()
+        v15 = BoxInt()
+        cpu = CPU(None, None)
+        inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
+        operations = [
+            ResOperation(rop.INT_LE, [v6, v1], v11),
+            ResOperation(rop.SAME_AS, [ConstInt(-14)], v12),
+            ResOperation(rop.INT_ADD, [ConstInt(24), v4], v13),
+            ResOperation(rop.UINT_RSHIFT, [v6, ConstInt(0)], v14),
+            ResOperation(rop.GUARD_VALUE, [v14, ConstInt(1)], None, descr=f3),
+            ResOperation(rop.INT_MUL, [v13, ConstInt(12)], v15),
+            ResOperation(rop.GUARD_FALSE, [v11], None, descr=f1),
+            ResOperation(rop.FINISH, [v2, v3, v5, v7, v10, v8, v9], None, descr=f2),
+            ]
+        operations[-2].setfailargs([v4, v10, v3, v9, v14, v2])
+        operations[4].setfailargs([v14])
+        looptoken = LoopToken()
+        cpu.compile_loop(inputargs, operations, looptoken)
+        cpu.set_future_value_int(0, 14)
+        cpu.set_future_value_int(1, -20)
+        cpu.set_future_value_int(2, 18)
+        cpu.set_future_value_int(3, -2058005163)
+        cpu.set_future_value_int(4, 6)
+        cpu.set_future_value_int(5, 1)
+        cpu.set_future_value_int(6, -16)
+        cpu.set_future_value_int(7, 11)
+        cpu.set_future_value_int(8, 0)
+        cpu.set_future_value_int(9, 19)
+        op = cpu.execute_token(looptoken)
+        assert op.identifier == 1
+        assert cpu.get_latest_value_int(0) == -2058005163
+        assert cpu.get_latest_value_int(1) == 19
+        assert cpu.get_latest_value_int(2) == 18
+        assert cpu.get_latest_value_int(3) == 0
+        assert cpu.get_latest_value_int(4) == 1
+        assert cpu.get_latest_value_int(5) == -20

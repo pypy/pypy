@@ -5,8 +5,9 @@ from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
-from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, AbstractFailDescr,
-                                                INT, REF, FLOAT)
+from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+                                        BoxInt, BoxPtr, AbstractFailDescr,
+                                        INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
@@ -454,6 +455,8 @@ class AssemblerARM(ResOpAssembler):
         if isinstance(thing, Const):
             if isinstance(thing, ConstInt):
                 box = BoxInt()
+            elif isinstance(thing, ConstPtr):
+                box = BoxPtr()
             else:
                 box = TempBox()
             loc = regalloc.force_allocate_reg(box,

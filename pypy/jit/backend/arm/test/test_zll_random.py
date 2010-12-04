@@ -9,12 +9,12 @@ from pypy.jit.metainterp.resoperation import rop
 # one
 OPERATIONS = test_random.OPERATIONS[:]
 
-#for i in range(4):      # make more common
-#    OPERATIONS.append(test_ll_random.GetFieldOperation(rop.GETFIELD_GC))
-#    OPERATIONS.append(test_ll_random.GetFieldOperation(rop.GETFIELD_GC))
-#    OPERATIONS.append(test_ll_random.SetFieldOperation(rop.SETFIELD_GC))
-#    #OPERATIONS.append(test_ll_random.NewOperation(rop.NEW))
-#    #OPERATIONS.append(test_ll_random.NewOperation(rop.NEW_WITH_VTABLE))
+for i in range(4):      # make more common
+    OPERATIONS.append(test_ll_random.GetFieldOperation(rop.GETFIELD_GC))
+    OPERATIONS.append(test_ll_random.GetFieldOperation(rop.GETFIELD_GC))
+    OPERATIONS.append(test_ll_random.SetFieldOperation(rop.SETFIELD_GC))
+    OPERATIONS.append(test_ll_random.NewOperation(rop.NEW))
+    OPERATIONS.append(test_ll_random.NewOperation(rop.NEW_WITH_VTABLE))
 #
 #    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC))
 #    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC))
