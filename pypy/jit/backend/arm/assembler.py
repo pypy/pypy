@@ -450,6 +450,8 @@ class AssemblerARM(ResOpAssembler):
         return False
 
     def _ensure_value_is_boxed(self, thing, regalloc, forbidden_vars=[]):
+        # XXX create TempBox subclasses with the corresponding type flags and
+        # remove the overridden force_allocate_reg once done
         box = None
         loc = None
         if isinstance(thing, Const):

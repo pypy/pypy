@@ -687,48 +687,47 @@ class StrOpAssembler(object):
 
     def _emit_copystrcontent(self, op, regalloc, fcond, is_unicode):
         # compute the source address
-        args = op.getarglist()
-        boxes = []
-        base_loc, box = self._ensure_value_is_boxed(args[0], regalloc)
-        boxes.append(box)
-        ofs_loc, box = self._ensure_value_is_boxed(args[2], regalloc)
-        boxes.append(box)
+        args = list(op.getarglist())
+        base_loc, box = self._ensure_value_is_boxed(args[0], regalloc, args)
+        args.append(box)
+        ofs_loc, box = self._ensure_value_is_boxed(args[2], regalloc, args)
+        args.append(box)
         assert args[0] is not args[1]    # forbidden case of aliasing
-
+        regalloc.possibly_free_var(args[0])
+        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
+            regalloc.possibly_free_var(args[2])     # it if ==args[3] or args[4]
         srcaddr_box = TempBox()
         forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
         srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
                                         is_unicode=is_unicode)
-        regalloc.possibly_free_var(boxes[0])
-        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
-            regalloc.possibly_free_var(boxes[1])     # it if ==args[3] or args[4]
 
         # compute the destination address
-        base_loc, box = self._ensure_value_is_boxed(args[1], regalloc)
-        boxes.append(box)
-        ofs_loc, box = self._ensure_value_is_boxed(args[3], regalloc)
-        boxes.append(box)
+        base_loc, box = self._ensure_value_is_boxed(args[1], regalloc, forbidden_vars)
+        args.append(box)
+        ofs_loc, box = self._ensure_value_is_boxed(args[3], regalloc, forbidden_vars)
+        args.append(box)
         assert base_loc.is_reg()
         assert ofs_loc.is_reg()
+        regalloc.possibly_free_var(args[1])
+        if args[3] is not args[4]:     # more of the MESS described above
+            regalloc.possibly_free_var(args[3])
         forbidden_vars = [args[4], srcaddr_box]
         dstaddr_box = TempBox()
         dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box,
                                 forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
                                         is_unicode=is_unicode)
-        regalloc.possibly_free_var(boxes[2])
-        if args[3] is not args[4]:     # more of the MESS described above
-            regalloc.possibly_free_var(boxes[3])
 
         # compute the length in bytes
         length_loc, length_box = self._ensure_value_is_boxed(args[4], regalloc)
-        boxes.append(length_box)
+        args.append(length_box)
         if is_unicode:
             forbidden_vars = [srcaddr_box, dstaddr_box]
             bytes_box = TempBox()
             bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
+            assert length_loc.is_reg()
             self.mc.MOV_rr(bytes_loc.value, length_loc.value)
             self._load_address(length_loc, 0, scale, bytes_loc)
             length_box = bytes_box
@@ -739,8 +738,7 @@ class StrOpAssembler(object):
         regalloc.possibly_free_var(length_box)
         regalloc.possibly_free_var(dstaddr_box)
         regalloc.possibly_free_var(srcaddr_box)
-        regalloc.possibly_free_vars_for_op(op)
-        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_vars(args)
 
     def _load_address(self, sizereg, baseofs, scale, result, baseloc=None):
         if baseloc is not None:
