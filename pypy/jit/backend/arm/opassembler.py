@@ -514,37 +514,40 @@ class ArrayOpAssember(object):
         assert isinstance(arraydescr, BaseArrayDescr)
         ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
         arg = op.getarg(0)
-        base_loc = regalloc.make_sure_var_in_reg(arg, imm_fine=False)
-        regalloc.possibly_free_vars_for_op(op)
-        res = regalloc.force_allocate_reg(op.result, forbidden_vars=[arg])
+        base_loc, base_box = self._ensure_value_is_boxed(arg, regalloc)
+        res = regalloc.force_allocate_reg(op.result, forbidden_vars=[arg, base_box])
+        regalloc.possibly_free_vars([arg, base_box, op.result])
 
         self.mc.LDR_ri(res.value, base_loc.value, ofs)
-        regalloc.possibly_free_var(arg)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_setarrayitem_gc(self, op, regalloc, fcond):
-        a0 = op.getarg(0)
-        a1 = op.getarg(1)
-        a2 = op.getarg(2)
+        a0, a1, a2 = boxes = list(op.getarglist())
         _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
 
-        base_loc  = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-        ofs_loc = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
+        base_loc, base_box  = self._ensure_value_is_boxed(a0, regalloc, boxes)
+        boxes.append(base_box)
+        ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+        boxes.append(ofs_box)
         #XXX check if imm would be fine here
-        value_loc = regalloc.make_sure_var_in_reg(a2, imm_fine=False)
+        value_loc, value_box = self._ensure_value_is_boxed(a2, regalloc, boxes)
+        boxes.append(value_box)
+        regalloc.possibly_free_vars(boxes)
 
         if scale > 0:
-            self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
+            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale)
+        else:
+            self.mc.MOV_rr(r.ip.value, ofs_loc.value)
+
         if ofs > 0:
-            self.mc.ADD_ri(ofs_loc.value, ofs_loc.value, ofs)
+            self.mc.ADD_ri(r.ip.value, r.ip.value, ofs)
 
         if scale == 2:
-            self.mc.STR_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.STR_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
         elif scale == 1:
-            self.mc.STRH_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.STRH_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
         elif scale == 0:
-            self.mc.STRB_rr(value_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.STRB_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
         else:
             assert 0
         return fcond
@@ -552,25 +555,30 @@ class ArrayOpAssember(object):
     emit_op_setarrayitem_raw = emit_op_setarrayitem_gc
 
     def emit_op_getarrayitem_gc(self, op, regalloc, fcond):
-        a0 = op.getarg(0)
-        a1 = op.getarg(1)
+        a0, a1 = boxes = list(op.getarglist())
         _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
 
-        base_loc  = regalloc.make_sure_var_in_reg(a0, imm_fine=False)
-        ofs_loc = regalloc.make_sure_var_in_reg(a1, imm_fine=False)
+        base_loc, base_box  = self._ensure_value_is_boxed(a0, regalloc, boxes)
+        boxes.append(base_box)
+        ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, regalloc, boxes)
+        boxes.append(ofs_box)
         res = regalloc.force_allocate_reg(op.result)
+        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_var(op.result)
 
         if scale > 0:
-            self.mc.LSL_ri(ofs_loc.value, ofs_loc.value, scale)
+            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale)
+        else:
+            self.mc.MOV_rr(r.ip.value, ofs_loc.value)
         if ofs > 0:
-            self.mc.ADD_ri(ofs_loc.value, ofs_loc.value, imm=ofs)
+            self.mc.ADD_ri(r.ip.value, r.ip.value, imm=ofs)
 
         if scale == 2:
-            self.mc.LDR_rr(res.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.LDR_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
         elif scale == 1:
-            self.mc.LDRH_rr(res.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.LDRH_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
         elif scale == 0:
-            self.mc.LDRB_rr(res.value, base_loc.value, ofs_loc.value, cond=fcond)
+            self.mc.LDRB_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
         else:
             assert 0
 

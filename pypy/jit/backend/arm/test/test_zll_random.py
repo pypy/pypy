@@ -15,12 +15,12 @@ for i in range(4):      # make more common
     OPERATIONS.append(test_ll_random.SetFieldOperation(rop.SETFIELD_GC))
     OPERATIONS.append(test_ll_random.NewOperation(rop.NEW))
     OPERATIONS.append(test_ll_random.NewOperation(rop.NEW_WITH_VTABLE))
-#
-#    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC))
-#    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC))
-#    OPERATIONS.append(test_ll_random.SetArrayItemOperation(rop.SETARRAYITEM_GC))
-#    #OPERATIONS.append(test_ll_random.NewArrayOperation(rop.NEW_ARRAY))
-#    OPERATIONS.append(test_ll_random.ArrayLenOperation(rop.ARRAYLEN_GC))
+
+    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC))
+    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC))
+    OPERATIONS.append(test_ll_random.SetArrayItemOperation(rop.SETARRAYITEM_GC))
+    #OPERATIONS.append(test_ll_random.NewArrayOperation(rop.NEW_ARRAY))
+    OPERATIONS.append(test_ll_random.ArrayLenOperation(rop.ARRAYLEN_GC))
 #    #OPERATIONS.append(test_ll_random.NewStrOperation(rop.NEWSTR))
 #    #OPERATIONS.append(test_ll_random.NewUnicodeOperation(rop.NEWUNICODE))
 #    OPERATIONS.append(test_ll_random.StrGetItemOperation(rop.STRGETITEM))
