@@ -312,8 +312,9 @@ def run_command_line(go_interactive,
                      cmd=None,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100 
-    # but we need more in the translated PyPy for the compiler package 
-    sys.setrecursionlimit(5000)
+    # but we need more in the translated PyPy for the compiler package
+    if '__pypy__' not in sys.builtin_module_names:
+        sys.setrecursionlimit(5000)
 
     if unbuffered:
         set_unbuffered_io()

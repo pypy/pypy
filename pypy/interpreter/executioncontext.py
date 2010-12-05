@@ -27,7 +27,6 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
-        self.framestackdepth = 0
         # tracing: space.frame_trace_action.fire() must be called to ensure
         # that tracing occurs whenever self.w_tracefunc or self.is_tracing
         # is modified.
@@ -54,9 +53,6 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
-        if self.framestackdepth > self.space.sys.recursionlimit:
-            raise self.space.prebuilt_recursion_error
-        self.framestackdepth += 1
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -66,7 +62,6 @@ class ExecutionContext(object):
                 self._trace(frame, 'leaveframe', self.space.w_None)
         finally:
             self.topframeref = frame.f_backref
-            self.framestackdepth -= 1
             jit.virtual_ref_finish(frame)
 
         if self.w_tracefunc is not None and not frame.hide():
@@ -80,7 +75,6 @@ class ExecutionContext(object):
 
         def __init__(self):
             self.topframe = None
-            self.framestackdepth = 0
             self.w_tracefunc = None
             self.profilefunc = None
             self.w_profilefuncarg = None
@@ -88,7 +82,6 @@ class ExecutionContext(object):
 
         def enter(self, ec):
             ec.topframeref = jit.non_virtual_ref(self.topframe)
-            ec.framestackdepth = self.framestackdepth
             ec.w_tracefunc = self.w_tracefunc
             ec.profilefunc = self.profilefunc
             ec.w_profilefuncarg = self.w_profilefuncarg
@@ -97,7 +90,6 @@ class ExecutionContext(object):
 
         def leave(self, ec):
             self.topframe = ec.gettopframe()
-            self.framestackdepth = ec.framestackdepth
             self.w_tracefunc = ec.w_tracefunc
             self.profilefunc = ec.profilefunc
             self.w_profilefuncarg = ec.w_profilefuncarg 
@@ -105,7 +97,6 @@ class ExecutionContext(object):
 
         def clear_framestack(self):
             self.topframe = None
-            self.framestackdepth = 0
 
         # the following interface is for pickling and unpickling
         def getstate(self, space):
@@ -121,17 +112,14 @@ class ExecutionContext(object):
                 self.topframe = space.interp_w(PyFrame, frames_w[-1])
             else:
                 self.topframe = None
-            self.framestackdepth = len(frames_w)
 
         def getframestack(self):
-            index = self.framestackdepth
-            lst = [None] * index
+            lst = []
             f = self.topframe
-            while index > 0:
-                index -= 1
-                lst[index] = f
+            while f is not None:
+                lst.append(f)
                 f = f.f_backref()
-            assert f is None
+            lst.reverse()
             return lst
         # coroutine: I think this is all, folks!
 
