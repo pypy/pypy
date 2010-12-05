@@ -12,7 +12,7 @@ class Darwin(posix.BasePosix):
 
     so_ext = 'so'
     
-    default_cc = 'gcc'
+    default_cc = 'gcc-4.0'
 
     def __init__(self, cc=None):
         if cc is None:
@@ -87,4 +87,3 @@ class Darwin_x86_64(Darwin):
     link_flags = ('-arch', 'x86_64', '-mmacosx-version-min=10.4')
     cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer',
               '-mmacosx-version-min=10.4')
-    default_cc = 'gcc-4.0'
