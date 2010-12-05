@@ -321,7 +321,7 @@ class WarmRunnerDesc(object):
                 return 'DoneWithThisFrameVoid()'
 
         class DoneWithThisFrameInt(JitException):
-            def __init__(self, result):
+            def __init__(self, result):                
                 assert lltype.typeOf(result) is lltype.Signed
                 self.result = result
             def __str__(self):
