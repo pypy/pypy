@@ -304,14 +304,19 @@ AppCoroutine.w_get_is_alive = w_get_is_alive
 
 def w_descr__framestack(space, self):
     assert isinstance(self, AppCoroutine)
+    counter = 0
     f = self.subctx.topframe
-    items = []
-    if not f:
-        return space.newtuple([])
     while f is not None:
-        items.append(space.wrap(f))
+        counter += 1
         f = f.f_backref()
-    items.reverse()
+    items = [None] * counter
+    f = self.subctx.topframe
+    while f is not None:
+        counter -= 1
+        assert counter >= 0
+        items[counter] = space.wrap(f)
+        f = f.f_backref()
+    assert counter == 0
     return space.newtuple(items)
 
 def makeStaticMethod(module, classname, funcname):
