@@ -150,7 +150,7 @@ MANTISSA_BITS = calc_mantissa_bits()
 del calc_mantissa_bits
 MANTISSA_DIGITS = len(str( (1L << MANTISSA_BITS)-1 )) + 1
 
-def interp_string_to_float(space, s):
+def string_to_float(s):
     """
     Conversion of string to float.
     This version tries to only raise on invalid literals.
