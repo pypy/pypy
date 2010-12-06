@@ -113,6 +113,14 @@ class W_MemoryView(Wrappable):
         return space.newtuple([space.wrap(self.getlength())])
     def w_get_strides(space, self):
         return space.newtuple([space.wrap(1)])
+    def w_get_suboffsets(space, self):
+        if isinstance(self.buf, buffer.SubBuffer):
+            offset = self.buf.offset
+        elif isinstance(self.buf, buffer.RWSubBuffer):
+            offset = self.buf.offset
+        else:
+            offset = 0
+        return space.newtuple([space.wrap(offset)])
 
 
 @unwrap_spec(ObjSpace, W_Root, W_Root)
@@ -144,6 +152,6 @@ Create a new memoryview object which references the given object.
     readonly    = GetSetProperty(W_MemoryView.w_is_readonly),
     shape       = GetSetProperty(W_MemoryView.w_get_shape),
     strides     = GetSetProperty(W_MemoryView.w_get_strides),
-    #suboffsets? undocumented
+    suboffsets  = GetSetProperty(W_MemoryView.w_get_suboffsets),
     )
 W_MemoryView.typedef.acceptable_as_base_class = False

@@ -192,3 +192,10 @@ class AppTestMemoryView:
         assert v.shape == (100,)
         assert v.ndim == 1
         assert v.strides == (1,)
+
+    def test_suboffsets(self):
+        v = memoryview("a"*100)
+        assert v.suboffsets == (0,)
+        v = memoryview(buffer("a"*100, 2))
+        assert v.shape == (98,)
+        assert v.suboffsets == (2,)
