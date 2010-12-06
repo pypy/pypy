@@ -1956,47 +1956,12 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
 
     def test_bug_4(self):
         ops = """
-        [p0, p1, p2, p3, p4, i5, i6, p7, p8, p9]
-
-        guard_value(i5, 0) []
-        guard_nonnull(p9) []
-
-        guard_value(p3, 0) []
-
-        guard_class(p9, ConstClass(node_vtable)) []
-        guard_class(p9, ConstClass(node_vtable)) []
-        i14 = getfield_gc_pure(p9, descr=valuedescr)
-        i16 = int_lt(i14, 10000)
-        guard_true(i16) []
-
-        guard_nonnull(p9) []
-
-        p17 = getfield_gc(p0, descr=nextdescr)
-        guard_nonnull(p17) []
-        guard_class(p17, 143782720) []
-        guard_class(p17, 143782720) []
-        guard_value(p17, ConstPtr(myptr)) []
+        [p9]
         setfield_gc(ConstPtr(myptr), p9, descr=nextdescr)
-
-        guard_nonnull(p9) []
-
-        guard_class(p9, ConstClass(node_vtable)) []
-        guard_class(p9, ConstClass(node_vtable)) []
-        i26 = getfield_gc_pure(p9, descr=valuedescr)
-        i28 = int_add_ovf(i26, 1)
-        guard_no_overflow() []
         p30 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p30, i28, descr=valuedescr)
-
-        p37 = same_as(0)
-        i39 = same_as(0)
-        i41 = same_as(9)
-        p43 = same_as(0)
-        p45 = same_as(0)
-        jump(p0, p1, p2, p37, p4, i39, i41, p43, p45, p30)
+        jump(p30)
         """
-        self.optimize_loop(ops, 'Not, Not, Not, Constant(0), Not, Constant(0), Not, Not, Not, ' +
-                                'Virtual(node_vtable, valuedescr=Not)', Ellipsis)
+        self.optimize_loop(ops, 'Virtual(node_vtable)', Ellipsis)
 
     def test_invalid_loop_1(self):
         ops = """
