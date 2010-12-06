@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
 from pypy.tool import autopath
-from pypy.rlib import jit
+from pypy.rlib import jit, rposix
 from pypy.rlib.rarithmetic import intmask
 
 def setup():
@@ -53,6 +53,7 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     pure_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT)
+c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
 
 
 class SignalActionFlag(AbstractActionFlag):
@@ -244,3 +245,10 @@ def set_wakeup_fd(space, fd):
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 set_wakeup_fd.unwrap_spec = [ObjSpace, int]
+
+def siginterrupt(space, signum, flag):
+    check_signum(space, signum)
+    if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
+        errno = rposix.get_errno()
+        raise OperationError(space.w_RuntimeError, space.wrap(errno))
+siginterrupt.unwrap_spec = [ObjSpace, int, int]
