@@ -180,3 +180,4 @@ class TestStrUtil:
                     print repr(s)
                     if s.strip(): # empty s raises OperationError directly
                         py.test.raises(ParseStringError, string_to_float, s)
+        py.test.raises(ParseStringError, string_to_float, "")
