@@ -196,6 +196,14 @@ class AppTestSignal:
         #
         signal.signal(signal.SIGUSR1, signal.SIG_DFL)
 
+    def test_siginterrupt(self):
+        import signal
+        signum = signal.SIGUSR1
+        oldhandler = signal.signal(signum, lambda x,y: None)
+        try:
+            signal.siginterrupt(signum, 0)
+        finally:
+            signal.signal(signum, oldhandler)
 
 class AppTestSignalSocket:
 
