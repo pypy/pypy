@@ -8,6 +8,8 @@
 # include <stddef.h>
 # include <limits.h>
 # include <math.h>
+# include <errno.h>
+# include <unistd.h>
 # define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
 # define PyAPI_FUNC(RTYPE) RTYPE
 # define PyAPI_DATA(RTYPE) extern RTYPE
@@ -115,6 +117,7 @@ typedef long Py_ssize_t;
 #include "sliceobject.h"
 #include "datetime.h"
 #include "pystate.h"
+#include "fileobject.h"
 
 // XXX This shouldn't be included here
 #include "structmember.h"
@@ -131,5 +134,9 @@ typedef long Py_ssize_t;
 #else
 #define PyDoc_STR(str) ""
 #endif
+
+/* PyPy does not implement --with-fpectl */
+#define PyFPE_START_PROTECT(err_string, leave_stmt)
+#define PyFPE_END_PROTECT(v)
 
 #endif

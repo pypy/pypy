@@ -1954,6 +1954,15 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, 'Virtual(node_vtable2, nextdescr=Not, otherdescr=Not)', expected)
 
+    def test_bug_4(self):
+        ops = """
+        [p9]
+        p30 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(ConstPtr(myptr), p9, descr=nextdescr)
+        jump(p30)
+        """
+        self.optimize_loop(ops, 'Not', ops)
+
     def test_invalid_loop_1(self):
         ops = """
         [p1]

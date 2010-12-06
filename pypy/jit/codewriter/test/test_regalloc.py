@@ -281,22 +281,22 @@ class TestRegAlloc:
         # this used to produce bogus code, containing these two
         # lines in the following broken order:
         #    last_exc_value -> %r0
-        #    ref_copy %r0 -> %r2    -- but expect to read the old value of %r0!
+        #    ref_copy %r0 -> %r1    -- but expect to read the old value of %r0!
         self.check_assembler(graph, """
             residual_call_r_r $<* fn bar>, <Descr>, R[%r0] -> %r1
             -live-
-            residual_call_ir_r $<* fn g>, <Descr>, I[%i0], R[] -> %r2
+            residual_call_ir_r $<* fn g>, <Descr>, I[%i0], R[] -> %r1
             -live-
             catch_exception L1
-            ref_return %r2
+            ref_return %r1
             ---
             L1:
             goto_if_exception_mismatch $<* struct object_vtable>, L2
-            ref_copy %r0 -> %r2
+            ref_copy %r0 -> %r1
             last_exc_value -> %r0
             residual_call_r_r $<* fn foo>, <Descr>, R[%r0] -> %r0
             -live-
-            ref_return %r2
+            ref_return %r1
             ---
             L2:
             reraise
