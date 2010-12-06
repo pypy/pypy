@@ -48,6 +48,7 @@ unicode_count      = SMM('count', 4, defaults=(0, maxint),
                              ' arguments start and end are\ninterpreted as in'
                              ' slice notation.')
 unicode_encode     = SMM('encode', 3, defaults=(None, None),
+                         argnames=['encoding', 'errors'],
                          doc='S.encode([encoding[,errors]]) -> string or'
                              ' unicode\n\nEncodes S using the codec registered'
                              ' for encoding. encoding defaults\nto the default'
