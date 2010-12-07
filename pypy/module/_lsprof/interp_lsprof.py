@@ -179,7 +179,7 @@ def create_spec(space, w_arg):
                 module += '.'
         return '{%s%s}' % (module, w_arg.name)
     else:
-        class_name = w_arg.w_class.getname(space, '?')
+        class_name = space.type(w_arg).getname(space, '?')
         return "{'%s' object}" % (class_name,)
     
 def lsprof_call(space, w_self, frame, event, w_arg):
