@@ -30,11 +30,16 @@ if sys.platform == 'win32':
 else:
     from pypy.rlib import rposix
 
+    if sys.platform == 'darwin':
+        libraries = []
+    else:
+        libraries = ['rt']
+
     eci = ExternalCompilationInfo(
         includes = ['sys/time.h',
                     'limits.h',
                     'semaphore.h'],
-        libraries = ['rt'],
+        libraries = libraries,
         )
 
     class CConfig:
