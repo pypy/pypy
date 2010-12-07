@@ -529,7 +529,7 @@ def reload(space, w_module):
             space.sys.setmodule(w_module)
             raise
     finally:
-        space.reloading_modules.clear()
+        del space.reloading_modules[modulename]
 
 
 # __________________________________________________________________
