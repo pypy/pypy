@@ -2,9 +2,10 @@ import py
 from pypy.conftest import gettestobjspace, option
 
 class AppTestCProfile(object):
+    keywords = {}
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_lsprof',))
+        space = gettestobjspace(usemodules=('_lsprof',), **cls.keywords)
         cls.w_expected_output = space.wrap(expected_output)
         cls.space = space
         cls.w_file = space.wrap(__file__)
@@ -148,6 +149,12 @@ class AppTestCProfile(object):
         finally:
             sys.path.pop(0)
 
+
+class AppTestDifferentBytecode(AppTestCProfile):
+    keywords = {'objspace.opcodes.CALL_LIKELY_BUILTIN': True,
+                'objspace.opcodes.CALL_METHOD': True}
+
+
 expected_output = {}
 expected_output['print_stats'] = """\
          126 function calls (106 primitive calls) in 1.000 CPU seconds
@@ -165,11 +172,11 @@ expected_output['print_stats'] = """\
         2    0.000    0.000    0.140    0.070 profilee.py:84(helper2_indirect)
         8    0.312    0.039    0.400    0.050 profilee.py:88(helper2)
         8    0.064    0.008    0.080    0.010 profilee.py:98(subhelper)
-        4    0.000    0.000    0.000    0.000 {.*append.*}
+        4    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
         1    0.000    0.000    0.000    0.000 {.*disable.*}
-       12    0.000    0.000    0.012    0.001 {hasattr.*}
-        8    0.000    0.000    0.000    0.000 {range.*}
-        4    0.000    0.000    0.000    0.000 {sys.exc_info.*}
+       12    0.000    0.000    0.012    0.001 {hasattr}
+        8    0.000    0.000    0.000    0.000 {range}
+        4    0.000    0.000    0.000    0.000 {sys.exc_info}
 
 
 """
