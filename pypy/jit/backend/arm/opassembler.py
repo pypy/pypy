@@ -200,7 +200,7 @@ class GuardOpAssembler(object):
     def _emit_guard(self, op, regalloc, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
-        if hasattr(op, 'getfailargs'):
+        if not we_are_translated() and hasattr(op, 'getfailargs'):
            print 'Failargs: ', op.getfailargs()
 
         self.mc.ensure_can_fit(self.guard_size)
@@ -266,8 +266,13 @@ class GuardOpAssembler(object):
 
     def emit_op_guard_nonnull_class(self, op, regalloc, fcond):
         locs = self._prepare_guard_class(op, regalloc, fcond)
+        offset = self.cpu.vtable_offset
+
         self.mc.CMP_ri(locs[0].value, 0)
-        self._emit_guard(op, regalloc, c.NE)
+        if offset is not None:
+            self.mc.ADD_ri(r.pc.value, r.pc.value, 2*WORD, cond=c.EQ)
+        else:
+            raise NotImplementedError
         self._cmp_guard_class(op, locs, regalloc, fcond)
         return fcond
 
@@ -326,6 +331,8 @@ class OpAssembler(object):
         adr = rffi.cast(lltype.Signed, op.getarg(0).getint())
         args = op.getarglist()[1:]
         cond =  self._emit_call(adr, args, regalloc, fcond, save_all_regs, op.result)
+        if op.result:
+            regalloc.possibly_free_var(op.result)
 
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
@@ -607,12 +614,13 @@ class StrOpAssembler(object):
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
-        imm_ofs = self._check_imm_arg(ofs_length)
+        ofs_box = ConstInt(ofs_length)
+        imm_ofs = self._check_imm_arg(ofs_box)
 
         if imm_ofs:
-            l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length), boxes)
+            l1 = regalloc.make_sure_var_in_reg(ofs_box, boxes)
         else:
-            l1, box1 = self._ensure_value_is_boxed(ConstInt(ofs_length), regalloc, boxes)
+            l1, box1 = self._ensure_value_is_boxed(ofs_box, regalloc, boxes)
             boxes.append(box1)
 
         regalloc.possibly_free_vars(boxes)
@@ -788,12 +796,13 @@ class UnicodeOpAssembler(object):
         boxes.append(op.result)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
-        imm_ofs = self._check_imm_arg(ofs_length)
+        ofs_box = ConstInt(ofs_length)
+        imm_ofs = self._check_imm_arg(ofs_box)
 
         if imm_ofs:
-            l1 = regalloc.make_sure_var_in_reg(ConstInt(ofs_length), boxes)
+            l1 = regalloc.make_sure_var_in_reg(ofs_box, boxes)
         else:
-            l1, box1 = self._ensure_value_is_boxed(ConstInt(ofs_length), regalloc, boxes)
+            l1, box1 = self._ensure_value_is_boxed(ofs_box, regalloc, boxes)
             boxes.append(box1)
         regalloc.possibly_free_vars(boxes)
 
@@ -900,6 +909,7 @@ class ForceOpAssembler(object):
 
         # check value
         t = TempBox()
+        #XXX is this correct?
         resloc = regalloc.force_allocate_reg(resbox)
         loc = regalloc.force_allocate_reg(t)
         self.mc.gen_load_int(loc.value, value)
@@ -1024,12 +1034,11 @@ class AllocOpAssembler(object):
         self._emit_call(self.malloc_func_addr, [tempbox],
                                 regalloc, result=res_v)
         loc = regalloc.make_sure_var_in_reg(v, [res_v])
-        regalloc.possibly_free_var(v)
-        regalloc.possibly_free_var(tempbox)
-
-        # XXX combine with emit_op_setfield_gc operation
         base_loc = regalloc.loc(res_v)
         value_loc = regalloc.loc(v)
+        regalloc.possibly_free_vars([v, res_v, tempbox])
+
+        # XXX combine with emit_op_setfield_gc operation
         size = scale * 2
         ofs = ofs_length
         if size == 4:
