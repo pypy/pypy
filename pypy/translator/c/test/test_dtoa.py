@@ -64,7 +64,8 @@ def dtoa(value):
                           rffi.cast(rffi.LONG, output_ptr))
                 builder.append(rffi.charpsize2str(output_ptr, decpt_ptr[0]))
                 builder.append('.')
-                ptr = rffi.ptradd(output_ptr, decpt_ptr[0])
+                ptr = rffi.ptradd(output_ptr,
+                                  rffi.cast(lltype.Signed, decpt_ptr[0]))
                 buflen -= decpt_ptr[0]
                 builder.append(rffi.charpsize2str(ptr, buflen))
                 dg_freedtoa(output_ptr)
