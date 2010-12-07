@@ -163,8 +163,11 @@ def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function
         class_name = w_arg.w_class.getname(space, '?')
-        assert isinstance(w_function, Function)
-        return "{method '%s' of '%s' objects}" % (w_function.name, class_name)
+        if isinstance(w_function, Function):
+            name = w_function.name
+        else:
+            name = '?'
+        return "{method '%s' of '%s' objects}" % (name, class_name)
     elif isinstance(w_arg, Function):
         if w_arg.w_module is None:
             module = ''
@@ -176,7 +179,8 @@ def create_spec(space, w_arg):
                 module += '.'
         return '{%s%s}' % (module, w_arg.name)
     else:
-        return '{!!!unknown!!!}'
+        class_name = w_arg.w_class.getname(space, '?')
+        return "{'%s' object}" % (class_name,)
     
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)

@@ -123,19 +123,30 @@ class ExecutionContext(object):
             return lst
         # coroutine: I think this is all, folks!
 
-    def c_call_trace(self, frame, w_func):
+    def c_call_trace(self, frame, w_func, args=None):
         "Profile the call of a builtin function"
-        if self.profilefunc is None:
-            frame.is_being_profiled = False
-        else:
-            self._trace(frame, 'c_call', w_func)
+        self._c_call_return_trace(frame, w_func, args, 'c_call')
 
-    def c_return_trace(self, frame, w_retval):
+    def c_return_trace(self, frame, w_func, args=None):
         "Profile the return from a builtin function"
+        self._c_call_return_trace(frame, w_func, args, 'c_return')
+
+    def _c_call_return_trace(self, frame, w_func, args, event):
         if self.profilefunc is None:
             frame.is_being_profiled = False
         else:
-            self._trace(frame, 'c_return', w_retval)
+            # undo the effect of the CALL_METHOD bytecode, which would be
+            # that even on a built-in method call like '[].append()',
+            # w_func is actually the unbound function 'append'.
+            from pypy.interpreter.function import FunctionWithFixedCode
+            if isinstance(w_func, FunctionWithFixedCode) and args is not None:
+                w_firstarg = args.firstarg()
+                if w_firstarg is not None:
+                    from pypy.interpreter.function import descr_function_get
+                    w_func = descr_function_get(self.space, w_func, w_firstarg,
+                                                self.space.type(w_firstarg))
+            #
+            self._trace(frame, event, w_func)
 
     def c_exception_trace(self, frame, w_exc):
         "Profile function called upon OperationError."

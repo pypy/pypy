@@ -862,14 +862,14 @@ class ObjSpace(object):
 
     def call_args_and_c_profile(self, frame, w_func, args):
         ec = self.getexecutioncontext()
-        ec.c_call_trace(frame, w_func)
+        ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
             w_value = e.get_w_value(self)
             ec.c_exception_trace(frame, w_value)
             raise
-        ec.c_return_trace(frame, w_func)
+        ec.c_return_trace(frame, w_func, args)
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):

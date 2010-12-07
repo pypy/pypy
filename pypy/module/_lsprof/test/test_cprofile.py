@@ -150,7 +150,7 @@ class AppTestCProfile(object):
             sys.path.pop(0)
 
 
-class AppTestDifferentBytecode(AppTestCProfile):
+class AppTestWithDifferentBytecodes(AppTestCProfile):
     keywords = {'objspace.opcodes.CALL_LIKELY_BUILTIN': True,
                 'objspace.opcodes.CALL_METHOD': True}
 
