@@ -114,10 +114,11 @@ class W_MemoryView(Wrappable):
     def w_get_strides(space, self):
         return space.newtuple([space.wrap(1)])
     def w_get_suboffsets(space, self):
-        if isinstance(self.buf, buffer.SubBuffer):
-            offset = self.buf.offset
-        elif isinstance(self.buf, buffer.RWSubBuffer):
-            offset = self.buf.offset
+        buf = self.buf
+        if isinstance(buf, buffer.SubBuffer):
+            offset = buf.offset
+        elif isinstance(buf, buffer.RWSubBuffer):
+            offset = buf.offset
         else:
             offset = 0
         return space.newtuple([space.wrap(offset)])
