@@ -104,7 +104,7 @@ class W_Epoll(Wrappable):
         fd = as_fd_w(self.space, w_fd)
         with lltype.scoped_alloc(epoll_event) as ev:
             ev.c_events = rffi.cast(rffi.UINT, eventmask)
-            ev.c_data.c_fd = fd
+            rffi.setintfield(ev.c_data, 'c_fd', fd)
 
             result = epoll_ctl(self.epfd, ctl, fd, ev)
             if ignore_ebadf and get_errno() == errno.EBADF:
