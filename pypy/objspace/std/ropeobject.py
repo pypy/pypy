@@ -15,7 +15,7 @@ from pypy.objspace.std.stringtype import wrapchar
 
 from pypy.rlib import rope
 from pypy.objspace.std.stringobject import mod__String_ANY as mod__Rope_ANY,\
-    _upper, _lower
+    _upper, _lower, DEFAULT_NOOP_TABLE
 
 class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -830,11 +830,14 @@ def str_translate__Rope_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     which must be a string of length 256"""
 
     # XXX CPython accepts buffers, too, not sure what we should do
-    table = space.str_w(w_table)
-    if len(table) != 256:
-        raise OperationError(
-            space.w_ValueError,
-            space.wrap("translation table must be 256 characters long"))
+    if space.is_w(w_table, space.w_None):
+        table = DEFAULT_NOOP_TABLE
+    else:
+        table = space.str_w(w_table)
+        if len(table) != 256:
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("translation table must be 256 characters long"))
 
     node = w_string._node
     chars = []
