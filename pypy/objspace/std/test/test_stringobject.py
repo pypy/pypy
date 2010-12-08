@@ -414,6 +414,7 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.index('abc', 1) == 9
         assert 'abcdefghiabc'.index('def', -4*maxint, 4*maxint) == 3
         assert 'abcdefgh'.index('def', 2, None) == 3
+        assert 'abcdefgh'.index('def', None, None) == 3
         raises(ValueError, 'abcdefghiabc'.index, 'hib')
         raises(ValueError, 'abcdefghiab'.index, 'abc', 1)
         raises(ValueError, 'abcdefghi'.index, 'ghi', 8)

@@ -387,6 +387,8 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
     self = w_self._value
     sub = w_sub._value
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
     if space.is_w(w_end, space.w_None):
         w_end = space.len(w_self)
     if upper_bound:
