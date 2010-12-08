@@ -1033,29 +1033,30 @@ class AllocOpAssembler(object):
     # from: ../x86/regalloc.py:750
     # XXX kill this function at some point
     def _malloc_varsize(self, ofs_items, ofs_length, itemsize, v, res_v, regalloc):
-        isize = ConstInt(itemsize)
-        iofsitems = ConstInt(ofs_items)
         boxes = [v, res_v]
+        itemsize_box = ConstInt(itemsize)
+        ofs_items_box = ConstInt(ofs_items)
+        if self._check_imm_arg(ofs_items_box):
+            ofs_items_loc = regalloc.convert_to_imm(ofs_items_box)
+        else:
+            ofs_items_loc, ofs_items_box = self._ensure_value_is_boxed(ofs_items_box, regalloc, boxes)
+            boxes.append(ofs_items_box)
         vloc, v = self._ensure_value_is_boxed(v, regalloc, [res_v])
         boxes.append(v)
-        size, size_box = self._ensure_value_is_boxed(isize, regalloc, boxes)
-
-        self._emit_call(self.malloc_func_addr, [size_box], regalloc, result=res_v)
-        base_loc = regalloc.make_sure_var_in_reg(res_v)
-        value_loc = regalloc.make_sure_var_in_reg(v)
-        regalloc.possibly_free_vars(boxes)
+        size, size_box = self._ensure_value_is_boxed(itemsize_box, regalloc, boxes)
 
         self.mc.MUL(size.value, size.value, vloc.value)
-        if self._check_imm_arg(iofsitems):
-            self.mc.ADD_ri(size.value, size.value, iofsitems.value)
+        if ofs_items_loc.is_imm():
+            self.mc.ADD_ri(size.value, size.value, ofs_items_loc.value)
         else:
-            t, tbox = self._ensure_value_is_boxed(iofsitems, regalloc, boxes)
-            self.mc.ADD_rr(size.value, size.value, t.value)
-            regalloc.possibly_free_var(tbox)
+            self.mc.ADD_rr(size.value, size.value, ofs_items_loc.value)
+        self._emit_call(self.malloc_func_addr, [size_box], regalloc, result=res_v)
 
-        size = itemsize
-        ofs = ofs_length
-        self.mc.STR_ri(value_loc.value, base_loc.value, ofs)
+        base_loc = regalloc.make_sure_var_in_reg(res_v)
+        value_loc = regalloc.make_sure_var_in_reg(v)
+        self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length)
+
+        regalloc.possibly_free_vars(boxes)
 
     def emit_op_new(self, op, regalloc, fcond):
         arglocs = self._prepare_args_for_new_op(op.getdescr(), regalloc)
