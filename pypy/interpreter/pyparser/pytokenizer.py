@@ -95,7 +95,7 @@ def generate_tokens(lines, flags):
             if not line:
                 raise TokenError("EOF while scanning triple-quoted string",
                                  strstart[2], strstart[0], strstart[1]+1,
-                                 token_list)
+                                 token_list, lnum)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
@@ -148,12 +148,12 @@ def generate_tokens(lines, flags):
 
         else:                                  # continued statement
             if not line:
-                start = 0
                 if parenlev > 0:
-                    lnum, start, line = parenlevstart
-                    start += 1
+                    lnum1, start1, line1 = parenlevstart
+                    raise TokenError("parenthesis is never closed", line1,
+                                     lnum1, start1 + 1, token_list, lnum)
                 raise TokenError("EOF in multi-line statement", line,
-                                 lnum, start, token_list)
+                                 lnum, 0, token_list)
             continued = 0
 
         while pos < max:
