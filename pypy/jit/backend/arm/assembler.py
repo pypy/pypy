@@ -22,6 +22,29 @@ memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                             sandboxsafe=True, _nowrapper=True)
 
 class AssemblerARM(ResOpAssembler):
+    """
+    Encoding for locations in memory
+    types:
+    \xEE = REF
+    \xEF = INT
+    location:
+    \xFC = stack location
+    \xFD = imm location
+    emtpy = reg location
+    \xFE = Empty loc
+
+    \xFF = END_OF_LOCS
+    """
+    REF_TYPE = '\xEE'
+    INT_TYPE = '\xEF'
+
+    STACK_LOC = '\xFC'
+    IMM_LOC = '\xFD'
+    # REG_LOC is empty
+    EMPTY_LOC = '\xFE'
+
+    END_OF_LOCS = '\xFF'
+
 
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
@@ -99,36 +122,36 @@ class AssemblerARM(ResOpAssembler):
             i += 1
             fail_index += 1
             res = enc[i]
-            if res == '\xFF':
+            if res == self.END_OF_LOCS:
                 break
-            if res == '\xFE':
+            if res == self.EMPTY_LOC:
                 continue
 
             group = res
             i += 1
             res = enc[i]
-            if res == '\xFD':
-                assert group == '\xEF'
+            if res == self.IMM_LOC:
+                assert group == self.INT_TYPE
                 # imm value
                 value = self.decode32(enc, i+1)
                 i += 4
-            elif res == '\xFC': # stack location
+            elif res == self.STACK_LOC:
                 stack_loc = self.decode32(enc, i+1)
                 value = self.decode32(stack, frame_depth - stack_loc*WORD)
                 i += 4
-            else: # an int in a reg location
+            else: # REG_LOC
                 reg = ord(enc[i])
                 value = self.decode32(regs, reg*WORD)
 
-            if group == '\xEF': # INT
+            if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
-            elif group == '\xEE': # REF
+            elif group == self.REF_TYPE:
                 self.fail_boxes_ptr.setitem(fail_index, rffi.cast(llmemory.GCREF, value))
             else:
                 assert 0, 'unknown type'
 
 
-        assert enc[i] == '\xFF'
+        assert enc[i] == self.END_OF_LOCS
         descr = self.decode32(enc, i+1)
         self.fail_boxes_count = fail_index
         return descr
@@ -138,23 +161,23 @@ class AssemblerARM(ResOpAssembler):
         j = 0
         for i in range(len(inputargs)):
             res = enc[j]
-            if res == '\xFF':
+            if res == self.END_OF_LOCS:
                 assert 0, 'reached end of encoded area'
-            # XXX decode imm and and stack locs and REFs
-            while res == '\xFE':
+            while res == self.EMPTY_LOC:
                 j += 1
                 res = enc[j]
 
-            assert res == '\xEF' # only int location for now
+            assert res in [self.INT_TYPE, self.REF_TYPE], 'location type is not supported'
             j += 1
             res = enc[j]
-            if res == '\xFD': # imm location
-                assert 0, 'fail'
-            elif res == '\xFC': # stack location
+            if res == self.IMM_LOC:
+                # XXX decode imm if necessary
+                assert 0, 'Imm Locations are not supported'
+            elif res == self.STACK_LOC:
                 stack_loc = self.decode32(enc, j+1)
                 loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
                 j += 4
-            else: # reg location
+            else: # REG_LOC
                 loc = r.all_regs[ord(res)]
             j += 1
             locs.append(loc)
@@ -191,16 +214,6 @@ class AssemblerARM(ResOpAssembler):
         self.gen_func_epilog()
 
     def _gen_path_to_exit_path(self, op, args, regalloc, fcond=c.AL):
-        """
-        types:
-        \xEE = REF
-        \xEF = INT
-        location:
-        \xFC = stack location
-        \xFD = imm location
-        emtpy = reg location
-        \xFE = Empty arg
-        """
 
         descr = op.getdescr()
         if op.getopnum() != rop.FINISH:
@@ -217,10 +230,10 @@ class AssemblerARM(ResOpAssembler):
             if args[i]:
                 loc = regalloc.loc(args[i])
                 if args[i].type == INT:
-                    mem[j] = '\xEF'
+                    mem[j] = self.INT_TYPE
                     j += 1
                 elif args[i].type == REF:
-                    mem[j] = '\xEE'
+                    mem[j] = self.REF_TYPE
                     j += 1
                 else:
                     assert 0, 'unknown type'
@@ -230,15 +243,15 @@ class AssemblerARM(ResOpAssembler):
                     j += 1
                 elif loc.is_imm():
                     assert args[i].type == INT
-                    mem[j] = '\xFD'
+                    mem[j] = self.IMM_LOC
                     self.encode32(mem, j+1, loc.getint())
                     j += 5
                 else:
-                    mem[j] = '\xFC'
+                    mem[j] = self.STACK_LOC
                     self.encode32(mem, j+1, loc.position)
                     j += 5
             else:
-                mem[j] = '\xFE'
+                mem[j] = self.EMPTY_LOC
                 j += 1
             i += 1
 
