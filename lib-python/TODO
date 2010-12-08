@@ -22,7 +22,7 @@ Probably easy tasks
 
       @test_support.cpython_only
 
-- (list|unicode|bytearray).(index|find) should accept None as indices
+- (unicode|bytearray).(index|find) should accept None as indices
 
 - Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
 
