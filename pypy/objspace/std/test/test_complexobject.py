@@ -36,6 +36,9 @@ class TestW_ComplexObject:
         test_cparse('3L+3j', '3L', '3')
         test_cparse('3j', '0.0', '3')
         test_cparse('.e+5', '.e+5', '0.0')
+        test_cparse('(1+2j)', '1', '2')
+        test_cparse('(1-6j)', '1', '-6')
+        
 
     def test_pow(self):
         assert cobj._pow((0.0,2.0),(0.0,0.0)) == (1.0,0.0)

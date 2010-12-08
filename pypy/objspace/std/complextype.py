@@ -32,6 +32,10 @@ def _split_complex(s):
     # ignore whitespace
     while i < slen and s[i] == ' ':
         i += 1
+    
+    if s[i] == '(' and s[slen-1] == ')':
+        i += 1
+        slen -= 1
 
     # extract first number
     realstart = i
