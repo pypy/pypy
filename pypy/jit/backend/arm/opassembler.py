@@ -732,7 +732,8 @@ class StrOpAssembler(object):
                                         is_unicode=is_unicode)
 
         # compute the length in bytes
-        length_loc, length_box = self._ensure_value_is_boxed(args[4], regalloc)
+        forbidden_vars = [srcaddr_box, dstaddr_box]
+        length_loc, length_box = self._ensure_value_is_boxed(args[4], regalloc, forbidden_vars)
         args.append(length_box)
         if is_unicode:
             forbidden_vars = [srcaddr_box, dstaddr_box]
@@ -747,10 +748,10 @@ class StrOpAssembler(object):
         # call memcpy()
         self._emit_call(self.memcpy_addr, [dstaddr_box, srcaddr_box, length_box], regalloc)
 
+        regalloc.possibly_free_vars(args)
         regalloc.possibly_free_var(length_box)
         regalloc.possibly_free_var(dstaddr_box)
         regalloc.possibly_free_var(srcaddr_box)
-        regalloc.possibly_free_vars(args)
 
     def _load_address(self, sizereg, baseofs, scale, result, baseloc=None):
         if baseloc is not None:
@@ -1031,28 +1032,30 @@ class AllocOpAssembler(object):
 
     # from: ../x86/regalloc.py:750
     # XXX kill this function at some point
-    def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v, regalloc):
-        tempbox = TempBox()
-        size_loc = regalloc.force_allocate_reg(tempbox)
-        self.mc.gen_load_int(size_loc.value, ofs_items + (v.getint() << scale))
-        self._emit_call(self.malloc_func_addr, [tempbox],
-                                regalloc, result=res_v)
-        loc = regalloc.make_sure_var_in_reg(v, [res_v])
-        base_loc = regalloc.loc(res_v)
-        value_loc = regalloc.loc(v)
-        regalloc.possibly_free_vars([v, res_v, tempbox])
+    def _malloc_varsize(self, ofs_items, ofs_length, itemsize, v, res_v, regalloc):
+        isize = ConstInt(itemsize)
+        iofsitems = ConstInt(ofs_items)
+        boxes = [v, res_v]
+        vloc, v = self._ensure_value_is_boxed(v, regalloc, [res_v])
+        boxes.append(v)
+        size, size_box = self._ensure_value_is_boxed(isize, regalloc, boxes)
 
-        # XXX combine with emit_op_setfield_gc operation
-        size = scale * 2
-        ofs = ofs_length
-        if size == 4:
-            self.mc.STR_ri(value_loc.value, base_loc.value, ofs)
-        elif size == 2:
-            self.mc.STRH_ri(value_loc.value, base_loc.value, ofs)
-        elif size == 1:
-            self.mc.STRB_ri(value_loc.value, base_loc.value, ofs)
+        self._emit_call(self.malloc_func_addr, [size_box], regalloc, result=res_v)
+        base_loc = regalloc.make_sure_var_in_reg(res_v)
+        value_loc = regalloc.make_sure_var_in_reg(v)
+        regalloc.possibly_free_vars(boxes)
+
+        self.mc.MUL(size.value, size.value, vloc.value)
+        if self._check_imm_arg(iofsitems):
+            self.mc.ADD_ri(size.value, size.value, iofsitems.value)
         else:
-            assert 0
+            t, tbox = self._ensure_value_is_boxed(iofsitems, regalloc, boxes)
+            self.mc.ADD_rr(size.value, size.value, t.value)
+            regalloc.possibly_free_var(tbox)
+
+        size = itemsize
+        ofs = ofs_length
+        self.mc.STR_ri(value_loc.value, base_loc.value, ofs)
 
     def emit_op_new(self, op, regalloc, fcond):
         arglocs = self._prepare_args_for_new_op(op.getdescr(), regalloc)
@@ -1098,7 +1101,7 @@ class AllocOpAssembler(object):
         # boehm GC (XXX kill the following code at some point)
         itemsize, scale, basesize, ofs_length, _ = (
             self._unpack_arraydescr(op.getdescr()))
-        self._malloc_varsize(basesize, ofs_length, scale,
+        self._malloc_varsize(basesize, ofs_length, itemsize,
                                     op.getarg(0), op.result, regalloc)
         return fcond
 
@@ -1114,7 +1117,7 @@ class AllocOpAssembler(object):
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
                                             self.cpu.translate_support_code)
         assert itemsize == 1
-        self._malloc_varsize(ofs_items, ofs, 1, op.getarg(0),
+        self._malloc_varsize(ofs_items, ofs, itemsize, op.getarg(0),
                                                         op.result, regalloc)
         return fcond
 
@@ -1130,20 +1133,11 @@ class AllocOpAssembler(object):
         # boehm GC (XXX kill the following code at some point)
         ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
                                                self.cpu.translate_support_code)
-        scale = self._get_unicode_item_scale()
-        self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
-                                                op.result, regalloc)
-        return fcond
-
-    def _get_unicode_item_scale(self):
         _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
                                                   self.cpu.translate_support_code)
-        if itemsize == 4:
-            return 2
-        elif itemsize == 2:
-            return 1
-        else:
-            raise AssertionError("bad unicode item size")
+        self._malloc_varsize(ofs_items, ofs, itemsize, op.getarg(0),
+                                                op.result, regalloc)
+        return fcond
 
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,

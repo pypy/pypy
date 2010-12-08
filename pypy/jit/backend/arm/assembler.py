@@ -469,7 +469,7 @@ class AssemblerARM(ResOpAssembler):
         loc = None
         if isinstance(thing, Const):
             if isinstance(thing, ConstInt):
-                box = BoxInt()
+                box = BoxInt(thing.value)
             elif isinstance(thing, ConstPtr):
                 box = BoxPtr()
             else:
