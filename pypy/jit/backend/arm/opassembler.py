@@ -265,8 +265,12 @@ class GuardOpAssembler(object):
         return fcond
 
     def emit_op_guard_nonnull_class(self, op, regalloc, fcond):
-        locs = self._prepare_guard_class(op, regalloc, fcond)
         offset = self.cpu.vtable_offset
+        if offset is not None:
+            self.mc.ensure_can_fit(self.guard_size+3*WORD)
+        else:
+            raise NotImplementedError
+        locs = self._prepare_guard_class(op, regalloc, fcond)
 
         self.mc.CMP_ri(locs[0].value, 0)
         if offset is not None:
