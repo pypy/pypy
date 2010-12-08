@@ -15,7 +15,7 @@ from pypy.objspace.std.stringtype import wrapchar
 
 from pypy.rlib import rope
 from pypy.objspace.std.stringobject import mod__String_ANY as mod__Rope_ANY,\
-    _upper, _lower    
+    _upper, _lower
 
 class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -61,7 +61,7 @@ class W_RopeIterObject(W_Object):
 
 registerimplementation(W_RopeIterObject)
 
-def _is_generic(space, w_self, fun): 
+def _is_generic(space, w_self, fun):
     l = w_self._node.length()
     if l == 0:
         return space.w_False
@@ -93,7 +93,7 @@ def str_isupper__Rope(space, w_self):
     """Return True if all cased characters in S are uppercase and there is
 at least one cased character in S, False otherwise."""
     l = w_self._node.length()
-    
+
     if l == 0:
         return space.w_False
     cased = False
@@ -110,7 +110,7 @@ def str_islower__Rope(space, w_self):
     """Return True if all cased characters in S are lowercase and there is
 at least one cased character in S, False otherwise."""
     l = w_self._node.length()
-    
+
     if l == 0:
         return space.w_False
     cased = False
@@ -178,7 +178,7 @@ def _swapcase(ch):
 def str_swapcase__Rope(space, w_self):
     return _local_transform(w_self._node, _swapcase)
 
-    
+
 def str_capitalize__Rope(space, w_self):
     node = w_self._node
     length = node.length()
@@ -203,7 +203,7 @@ def str_capitalize__Rope(space, w_self):
         return W_RopeObject.EMPTY
 
     return W_RopeObject(rope.rope_from_charlist(buffer))
-         
+
 
 def str_title__Rope(space, w_self):
     node = w_self._node
@@ -306,7 +306,7 @@ def str_rjust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("rjust() argument 2 must be a single character"))
-    
+
     d = u_arg - selfnode.length()
     if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
@@ -317,7 +317,7 @@ def str_rjust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
         return W_RopeObject(resultnode)
     else:
         return W_RopeObject(selfnode)
-        
+
 def str_ljust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_arg = space.int_w(w_arg)
     selfnode = w_self._node
@@ -325,7 +325,7 @@ def str_ljust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("rjust() argument 2 must be a single character"))
-    
+
     d = u_arg - selfnode.length()
     if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
@@ -341,6 +341,10 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False)
     self = w_self._node
     sub = w_sub._node
 
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    if space.is_w(w_end, space.w_None):
+        w_end = space.len(w_self)
     if upper_bound:
         start = slicetype.adapt_bound(space, self.length(), w_start)
         end = slicetype.adapt_bound(space, self.length(), w_end)
@@ -475,7 +479,7 @@ def str_strip__Rope_Rope(space, w_self, w_chars):
 
 def str_strip__Rope_None(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, left=True, right=True))
-   
+
 def str_rstrip__Rope_Rope(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, False, True,
                                    _contains, w_chars._node.flatten_string()))
@@ -511,7 +515,7 @@ def str_center__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     else:
         return w_self.create_if_subclassed()
 
-def str_count__Rope_Rope_ANY_ANY(space, w_self, w_arg, w_start, w_end): 
+def str_count__Rope_Rope_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     selfnode  = w_self._node
     length = selfnode.length()
     argnode   = w_arg._node
@@ -546,18 +550,18 @@ def str_endswith__Rope_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
-        suffix = rope_w(space, w_suffix) 
+        suffix = rope_w(space, w_suffix)
         if rope.endswith(self, suffix, start, end):
             return space.w_True
     return space.w_False
 
-  
+
 def str_startswith__Rope_Rope_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (self, prefix, start, end) = _convert_idx_params(space, w_self,
                                                      w_prefix, w_start, w_end,
                                                      True)
     return space.newbool(rope.startswith(self, prefix, start, end))
-    
+
 def str_startswith__Rope_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
     (self, _, start, end) = _convert_idx_params(space, w_self, W_RopeObject.EMPTY,
                                                   w_start, w_end, True)
@@ -570,7 +574,7 @@ def str_startswith__Rope_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end
         if rope.startswith(self, prefix, start, end):
             return space.w_True
     return space.w_False
- 
+
 
 def _tabindent(node, tabsize):
     "calculates distance after the token to the next tabstop"
@@ -590,22 +594,22 @@ def _tabindent(node, tabsize):
             if char == ord("\n") or char == ord("\r"):
                 break
             distance += 1
-                
+
         #the same like distance = len(u_token) - (offset + 1)
         distance = (tabsize - distance) % tabsize
         if distance == 0:
             return tabsize
 
-    return distance    
-    
-    
-def str_expandtabs__Rope_ANY(space, w_self, w_tabsize):   
+    return distance
+
+
+def str_expandtabs__Rope_ANY(space, w_self, w_tabsize):
     node = w_self._node
     length = node.length()
     if length == 0:
         return W_RopeObject.EMPTY
     tabsize  = space.int_w(w_tabsize)
-    
+
     splitted = rope.split(node, rope.LiteralStringNode.PREBUILT[ord("\t")])
     last = splitted[0]
     expanded = [last]
@@ -617,9 +621,9 @@ def str_expandtabs__Rope_ANY(space, w_self, w_tabsize):
     try:
         return W_RopeObject(rope.rebalance(expanded))
     except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap('new string is too long'))        
- 
- 
+        raise OperationError(space.w_OverflowError, space.wrap('new string is too long'))
+
+
 def str_splitlines__Rope_ANY(space, w_self, w_keepends):
     keepends = bool(space.int_w(w_keepends))  # truth value, but type checked
     node = w_self._node
@@ -819,10 +823,10 @@ def repr__Rope(space, w_str):
 
 def str_translate__Rope_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     """charfilter - unicode handling is not implemented
-    
-    Return a copy of the string where all characters occurring 
-    in the optional argument deletechars are removed, and the 
-    remaining characters have been mapped through the given translation table, 
+
+    Return a copy of the string where all characters occurring
+    in the optional argument deletechars are removed, and the
+    remaining characters have been mapped through the given translation table,
     which must be a string of length 256"""
 
     # XXX CPython accepts buffers, too, not sure what we should do
@@ -876,15 +880,15 @@ def iter__RopeIter(space, w_ropeiter):
 
 def next__RopeIter(space, w_ropeiter):
     if w_ropeiter.node is None:
-        raise OperationError(space.w_StopIteration, space.w_None) 
+        raise OperationError(space.w_StopIteration, space.w_None)
     try:
         char = w_ropeiter.item_iter.nextchar()
         w_item = wrapchar(space, char)
     except StopIteration:
         w_ropeiter.node = None
         w_ropeiter.char_iter = None
-        raise OperationError(space.w_StopIteration, space.w_None) 
-    w_ropeiter.index += 1 
+        raise OperationError(space.w_StopIteration, space.w_None)
+    w_ropeiter.index += 1
     return w_item
 
 # XXX __length_hint__()
