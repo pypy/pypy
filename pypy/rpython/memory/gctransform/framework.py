@@ -189,6 +189,7 @@ class FrameworkGCTransformer(GCTransformer):
             # run-time initialization code
             root_walker.setup_root_walker()
             gcdata.gc.setup()
+            gcdata.gc.post_setup()
 
         def frameworkgc__teardown():
             # run-time teardown code for tests!

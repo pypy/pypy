@@ -32,6 +32,9 @@ Environment variables can be used to fine-tune the following parameters:
                         limit.  Useful to avoid spending all the time in
                         the GC in very small programs.  Defaults to 8
                         times the nursery.
+
+ PYPY_GC_DEBUG          Enable extra checks around collections that are
+                        too slow for normal use.
 """
 # XXX Should find a way to bound the major collection threshold by the
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
@@ -841,7 +844,7 @@ class MiniMarkGC(MovingGCBase):
         def remember_young_pointer(addr_struct, newvalue):
             # 'addr_struct' is the address of the object in which we write.
             # 'newvalue' is the address that we are going to write in there.
-            if DEBUG:
+            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
                 ll_assert(not self.is_in_nursery(addr_struct),
                           "nursery object with GCFLAG_NO_YOUNG_PTRS")
             #
@@ -878,7 +881,7 @@ class MiniMarkGC(MovingGCBase):
             # 'addr_array' is the address of the object in which we write,
             # which must have an array part;  'index' is the index of the
             # item that is (or contains) the pointer that we write.
-            if DEBUG:
+            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
                 ll_assert(not self.is_in_nursery(addr_array),
                           "nursery array with GCFLAG_NO_YOUNG_PTRS")
             objhdr = self.header(addr_array)
