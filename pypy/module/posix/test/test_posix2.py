@@ -521,6 +521,14 @@ class AppTestPosix:
                 assert os.WIFEXITED(status)
                 assert os.WEXITSTATUS(status) == exit_status
 
+    if hasattr(os, 'getloadavg'):
+        def test_os_getloadavg(self):
+            os = self.posix
+            l0, l1, l2 = os.getloadavg()
+            assert type(l0) is float and l0 >= 0.0
+            assert type(l1) is float and l0 >= 0.0
+            assert type(l2) is float and l0 >= 0.0
+
     if hasattr(os, 'fsync'):
         def test_fsync(self):
             os = self.posix

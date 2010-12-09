@@ -755,3 +755,13 @@ if hasattr(os, 'uname'):
         for i in range(5):
             res = func(i)
             assert res == os.uname()[i]
+
+if hasattr(os, 'getloadavg'):
+    def test_os_getloadavg():
+        def does_stuff():
+            a, b, c = os.getloadavg()
+            print a, b, c
+            return a + b + c
+        f = compile(does_stuff, [])
+        res = f()
+        assert type(res) is float and res >= 0.0

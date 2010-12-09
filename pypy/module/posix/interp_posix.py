@@ -963,6 +963,17 @@ def chown(space, path, uid, gid):
     return space.w_None
 chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
 
+def getloadavg(space):
+    try:
+        load = os.getloadavg()
+    except OSError, e:
+        raise OperationError(space.w_OSError,
+                             space.wrap("Load averages are unobtainable"))
+    return space.newtuple([space.wrap(load[0]),
+                           space.wrap(load[1]),
+                           space.wrap(load[2])])
+getloadavg.unwrap_spec = [ObjSpace]
+
 if _WIN:
     from pypy.rlib import rwin32
 

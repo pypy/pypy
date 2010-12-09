@@ -730,6 +730,22 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([traits.str, int, int], int, traits.ll_os_name('open'),
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
 
+    @registering_if(os, 'getloadavg')
+    def register_os_getloadavg(self):
+        AP = rffi.CArrayPtr(lltype.Float)
+        c_getloadavg = self.llexternal('getloadavg', [AP, rffi.INT], rffi.INT)
+
+        def getloadavg_llimpl():
+            load = lltype.malloc(AP.TO, 3, flavor='raw')
+            r = c_getloadavg(load, 3)
+            result_tuple = load[0], load[1], load[2]
+            lltype.free(load, flavor='raw')
+            if r != 3:
+                raise OSError
+            return result_tuple
+        return extdef([], (float, float, float),
+                      "ll_os.ll_getloadavg", llimpl=getloadavg_llimpl)
+
 # ------------------------------- os.read -------------------------------
 
     @registering(os.read)
