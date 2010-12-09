@@ -75,9 +75,10 @@ stuff = "nothing"
         for input in ("())", "(()", "((", "))"):
             py.test.raises(SyntaxError, parse, input)
         exc = py.test.raises(SyntaxError, parse, "x = (\n\n(),\n(),").value
-        assert exc.msg == "EOF in multi-line statement"
+        assert exc.msg == "parenthesis is never closed"
         assert exc.lineno == 1
         assert exc.offset == 5
+        assert exc.lastlineno == 5
 
     def test_is(self):
         self.parse("x is y")
