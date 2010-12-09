@@ -741,8 +741,8 @@ class StrOpAssembler(object):
             bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
             assert length_loc.is_reg()
-            self.mc.MOV_rr(bytes_loc.value, length_loc.value)
-            self._load_address(length_loc, 0, scale, bytes_loc)
+            self.mc.MOV_ri(r.ip.value, 1<<scale)
+            self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
             length_box = bytes_box
             length_loc = bytes_loc
         # call memcpy()
@@ -753,19 +753,6 @@ class StrOpAssembler(object):
         regalloc.possibly_free_var(dstaddr_box)
         regalloc.possibly_free_var(srcaddr_box)
 
-    def _load_address(self, sizereg, baseofs, scale, result, baseloc=None):
-        if baseloc is not None:
-            assert baseloc.is_reg()
-            self.mc.MOV_rr(result.value, baseloc.value)
-        else:
-            self.mc.MOV_ri(result.value, 0)
-        assert sizereg.is_reg()
-        if scale > 0:
-            self.mc.LSL_ri(r.ip.value, sizereg.value, scale)
-        else:
-            self.mc.MOV_rr(r.ip.value, sizereg.value)
-        self.mc.ADD_rr(result.value, result.value, r.ip.value)
-        self.mc.ADD_ri(result.value, result.value, baseofs)
 
     def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
         cpu = self.cpu
@@ -778,7 +765,21 @@ class StrOpAssembler(object):
                                                   self.cpu.translate_support_code)
             assert itemsize == 1
             scale = 0
-        self._load_address(ofsloc, ofs_items, scale, resloc, baseloc)
+        self._gen_address(ofsloc, ofs_items, scale, resloc, baseloc)
+
+    def _gen_address(self, sizereg, baseofs, scale, result, baseloc=None):
+        assert sizereg.is_reg()
+        if scale > 0:
+            scaled_loc = r.ip
+            self.mc.LSL_ri(r.ip.value, sizereg.value, scale)
+        else:
+            scaled_loc = sizereg
+        if baseloc is not None:
+            assert baseloc.is_reg()
+            self.mc.ADD_rr(result.value, baseloc.value, scaled_loc.value)
+            self.mc.ADD_ri(result.value, result.value, baseofs)
+        else:
+            self.mc.ADD_ri(result.value, scaled_loc.value, baseofs)
 
     def _get_unicode_item_scale(self):
         _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
