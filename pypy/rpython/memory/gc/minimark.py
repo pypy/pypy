@@ -3,7 +3,8 @@
 Environment variables can be used to fine-tune the following parameters:
     
  PYPY_GC_NURSERY        The nursery size.  Defaults to half the size of
-                        the L2 cache.  Try values like '1.2MB'.
+                        the L2 cache.  Try values like '1.2MB'.  Small values
+                        (like 1 or 1KB) are useful for debugging.
 
  PYPY_GC_MAJOR_COLLECT  Major collection memory factor.  Default is '1.82',
                         which means trigger a major collection when the
@@ -34,7 +35,9 @@ Environment variables can be used to fine-tune the following parameters:
                         times the nursery.
 
  PYPY_GC_DEBUG          Enable extra checks around collections that are
-                        too slow for normal use.
+                        too slow for normal use.  Values are 0 (off),
+                        1 (on major collections) or 2 (also on minor
+                        collections).
 """
 # XXX Should find a way to bound the major collection threshold by the
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
@@ -226,7 +229,8 @@ class MiniMarkGC(MovingGCBase):
         self.nursery      = NULL
         self.nursery_free = NULL
         self.nursery_top  = NULL
-        self.debug_always_do_minor_collect = False
+        self.debug_tiny_nursery = -1
+        self.debug_rotating_nurseries = None
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
         if ArenaCollectionClass is None:
@@ -294,15 +298,20 @@ class MiniMarkGC(MovingGCBase):
             # From there on, the GC is fully initialized and the code
             # below can use it
             newsize = env.read_from_env('PYPY_GC_NURSERY')
-            # PYPY_GC_NURSERY=1 forces a minor collect for every malloc.
-            # Useful to debug external factors, like trackgcroot or the
-            # handling of the write barrier.
-            self.debug_always_do_minor_collect = newsize == 1
+            # PYPY_GC_NURSERY=smallvalue means that minor collects occur
+            # very frequently; the extreme case is PYPY_GC_NURSERY=1, which
+            # forces a minor collect for every malloc.  Useful to debug
+            # external factors, like trackgcroot or the handling of the write
+            # barrier.  Implemented by still using 'minsize' for the nursery
+            # size (needed to handle e.g. mallocs of 8249 words) but hacking
+            # at the current nursery position in collect_and_reserve().
             if newsize <= 0:
                 newsize = env.estimate_best_nursery_size()
                 if newsize <= 0:
                     newsize = defaultsize
-            newsize = max(newsize, minsize)
+            if newsize < minsize:
+                self.debug_tiny_nursery = newsize & ~(WORD-1)
+                newsize = minsize
             #
             major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
             if major_coll > 1.0:
@@ -335,17 +344,24 @@ class MiniMarkGC(MovingGCBase):
             self.allocate_nursery()
 
 
-    def allocate_nursery(self):
-        debug_start("gc-set-nursery-size")
-        debug_print("nursery size:", self.nursery_size)
+    def _nursery_memory_size(self):
+        extra = self.nonlarge_gcptrs_max + 1
+        return self.nursery_size + extra
+
+    def _alloc_nursery(self):
         # the start of the nursery: we actually allocate a bit more for
         # the nursery than really needed, to simplify pointer arithmetic
         # in malloc_fixedsize_clear().  The few extra pages are never used
         # anyway so it doesn't even count.
-        extra = self.nonlarge_gcptrs_max + 1
-        self.nursery = llarena.arena_malloc(self.nursery_size + extra, 2)
-        if not self.nursery:
+        nursery = llarena.arena_malloc(self._nursery_memory_size(), 2)
+        if not nursery:
             raise MemoryError("cannot allocate nursery")
+        return nursery
+
+    def allocate_nursery(self):
+        debug_start("gc-set-nursery-size")
+        debug_print("nursery size:", self.nursery_size)
+        self.nursery = self._alloc_nursery()
         # the current position in the nursery:
         self.nursery_free = self.nursery
         # the end of the nursery:
@@ -377,6 +393,39 @@ class MiniMarkGC(MovingGCBase):
         #
         self.next_major_collection_threshold = threshold
         return bounded
+
+
+    def post_setup(self):
+        # set up extra stuff for PYPY_GC_DEBUG.
+        MovingGCBase.post_setup(self)
+        if self.DEBUG and llarena.has_protect:
+            # gc debug mode: allocate 23 nurseries instead of just 1,
+            # and use them alternatively, while mprotect()ing the unused
+            # ones to detect invalid access.
+            debug_start("gc-debug")
+            self.debug_rotating_nurseries = []
+            for i in range(22):
+                nurs = self._alloc_nursery()
+                llarena.arena_protect(nurs, self._nursery_memory_size(), True)
+                self.debug_rotating_nurseries.append(nurs)
+            debug_print("allocated", len(self.debug_rotating_nurseries),
+                        "extra nurseries")
+            debug_stop("gc-debug")
+
+    def debug_rotate_nursery(self):
+        if self.debug_rotating_nurseries is not None:
+            debug_start("gc-debug")
+            oldnurs = self.nursery
+            llarena.arena_protect(oldnurs, self._nursery_memory_size(), True)
+            self.debug_rotating_nurseries.append(oldnurs)
+            #
+            newnurs = self.debug_rotating_nurseries.pop(0)
+            llarena.arena_protect(newnurs, self._nursery_memory_size(), False)
+            self.nursery = newnurs
+            self.nursery_top = self.nursery + self.nursery_size
+            debug_print("switching to nursery", self.nursery,
+                        "size", self.nursery_size)
+            debug_stop("gc-debug")
 
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect=True,
@@ -516,8 +565,9 @@ class MiniMarkGC(MovingGCBase):
         self.nursery_free = result + totalsize
         ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
         #
-        if self.debug_always_do_minor_collect:
-            self.nursery_free = self.nursery_top
+        if self.debug_tiny_nursery >= 0:   # for debugging
+            if self.nursery_top - self.nursery_free > self.debug_tiny_nursery:
+                self.nursery_free = self.nursery_top - self.debug_tiny_nursery
         #
         return result
     collect_and_reserve._dont_inline_ = True
@@ -1003,13 +1053,14 @@ class MiniMarkGC(MovingGCBase):
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
         llarena.arena_reset(self.nursery, self.nursery_size, 2)
+        self.debug_rotate_nursery()
         self.nursery_free = self.nursery
         #
         debug_print("minor collect, total memory used:",
                     self.get_total_memory_used())
+        if self.DEBUG >= 2:
+            self.debug_check_consistency()     # expensive!
         debug_stop("gc-minor")
-        if 0:  # not we_are_translated():
-            self.debug_check_consistency()     # xxx expensive!
 
 
     def collect_roots_in_nursery(self):

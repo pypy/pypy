@@ -67,7 +67,7 @@ elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
                       'DUPLICATE_SAME_ACCESS', 'MEM_COMMIT', 'MEM_RESERVE',
-                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE']
+                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
 
