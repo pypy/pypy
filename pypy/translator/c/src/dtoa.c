@@ -116,14 +116,17 @@
 
 /* Begin PYPY hacks */
 /* #include "Python.h" */
-#define IEEE_8087
+#define DOUBLE_IS_LITTLE_ENDIAN_IEEE754
 #define HAVE_UINT32_T
 #define HAVE_INT32_T
-#define PY_UINT32_T int
+#define HAVE_UINT64_T
+#define PY_UINT32_T unsigned int
 #define PY_INT32_T int
+#define PY_UINT64_T unsigned long long
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
+#include <stdio.h>
 #define PyMem_Malloc PyObject_Malloc
 #define PyMem_Free PyObject_Free
 /* End PYPY hacks */
