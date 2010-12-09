@@ -100,6 +100,7 @@ pass"""
         input = "def f():\n    pass\n  next_stmt"
         exc = py.test.raises(IndentationError, parse, input).value
         assert exc.msg == "unindent does not match any outer indentation level"
+        assert exc.lineno == 3
 
     def test_mac_newline(self):
         self.parse("this_is\ra_mac\rfile")

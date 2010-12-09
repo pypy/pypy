@@ -465,7 +465,11 @@ class W_SyntaxError(W_StandardError):
             if len(values_w) > 1: self.w_lineno     = values_w[1]
             if len(values_w) > 2: self.w_offset     = values_w[2]
             if len(values_w) > 3: self.w_text       = values_w[3]
-            if len(values_w) > 4: self.w_lastlineno = values_w[4]
+            if len(values_w) > 4:
+                self.w_lastlineno = values_w[4]   # PyPy extension
+                # kill the extra items from args_w to prevent undesired effects
+                args_w = args_w[:]
+                args_w[1] = space.newtuple(values_w[:4])
         W_BaseException.descr_init(self, space, args_w)
     descr_init.unwrap_spec = ['self', ObjSpace, 'args_w']
 
