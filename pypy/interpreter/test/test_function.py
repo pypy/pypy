@@ -494,6 +494,18 @@ class AppTestMethod:
         raises(TypeError, lambda: f(*0))
         raises(TypeError, lambda: f(**0))
 
+    def test_method_equal(self):
+        class A(object):
+            def m(self):
+                pass
+
+        class X(object):
+            def __eq__(self, other):
+                return True
+
+        assert A().m == X()
+        assert X() == A().m
+
 
 class TestMethod:
     def setup_method(self, method):
