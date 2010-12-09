@@ -710,8 +710,7 @@ class StrOpAssembler(object):
             regalloc.possibly_free_var(args[2])     # it if ==args[3] or args[4]
         srcaddr_box = TempBox()
         forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box,
-                                    forbidden_vars, selected_reg=r.r1)
+        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box, selected_reg=r.r1)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
                                         is_unicode=is_unicode)
 
