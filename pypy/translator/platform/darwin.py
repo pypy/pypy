@@ -11,8 +11,10 @@ class Darwin(posix.BasePosix):
     shared_only = ()
 
     so_ext = 'so'
-    
-    default_cc = 'gcc'
+
+    # NOTE: GCC 4.2 will fail at runtime due to subtle issues, possibly
+    # related to GC roots. Using LLVM-GCC or Clang will break the build.
+    default_cc = 'gcc-4.0'
 
     def __init__(self, cc=None):
         if cc is None:
@@ -87,4 +89,3 @@ class Darwin_x86_64(Darwin):
     link_flags = ('-arch', 'x86_64', '-mmacosx-version-min=10.4')
     cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer',
               '-mmacosx-version-min=10.4')
-    default_cc = 'gcc-4.0'

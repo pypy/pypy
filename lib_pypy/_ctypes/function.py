@@ -199,9 +199,8 @@ class CFuncPtr(_CData):
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
         result = funcptr(*newargs)
-        if restype and restype._ffishape == 'u':
-            # XXX: maybe it's a job of _ffi?
-            result = unichr(result)
+        result = self._wrap_result(restype, result)
+        #
         ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
         ##                       for arg in args])
         ## result = self._build_result(restype, resbuffer, argtypes, args)
@@ -383,6 +382,8 @@ class CFuncPtr(_CData):
                 wrapped_args.append(wrapped)
         return wrapped_args
 
+
+    # XXX: maybe the following two methods should be done inside _ffi?
     def _unwrap_args(self, argtypes, args):
         """
         Convert from ctypes high-level values to low-level values suitables to
@@ -399,12 +400,30 @@ class CFuncPtr(_CData):
             elif argtype._ffishape == 'P':
                 value = arg._buffer.buffer
                 if value > sys.maxint:
-                    # XXX: simulate overflow so that _ffi receive and int, not a long
+                    # XXX: workaround for old versions of pypy-c, as soon as
+                    # translation works again we can remove it
                     value = (-sys.maxint-1)*2 + value
             else:
                 value = arg.value
             newargs.append(value)
         return newargs
+
+    def _wrap_result(self, restype, result):
+        """
+        Convert from low-level repr of the result to the high-level python
+        one: e.g., if the restype is a pointer 0 is converted to None, and
+        for chars we convert the int value with chr, etc.
+        """
+        if not restype:
+            return None
+        elif restype._ffishape == 'u':
+            result = unichr(result)
+        elif restype._ffishape == 'P':
+            if result == 0:
+                result = None
+            else:
+                assert False, 'TODO'
+        return result
 
     def _build_result(self, restype, resbuffer, argtypes, argsandobjs):
         """Build the function result:

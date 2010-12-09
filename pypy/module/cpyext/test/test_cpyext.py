@@ -545,17 +545,16 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             PyObject *true = Py_True;
             PyObject *tup = NULL;
             int refcnt = true->ob_refcnt;
-            int refcnt_middle, refcnt_after;
+            int refcnt_after;
 
             tup = PyTuple_New(1);
             Py_INCREF(true);
             if (PyTuple_SetItem(tup, 0, true) < 0)
                 return NULL;
-            refcnt_middle = true->ob_refcnt;
-            Py_DECREF(tup);
             refcnt_after = true->ob_refcnt;
-            fprintf(stderr, "REFCNT2 %i %i %i\\n", refcnt, refcnt_middle, refcnt_after);
-            return PyBool_FromLong(refcnt_after == refcnt && refcnt_middle == refcnt+1);
+            Py_DECREF(tup);
+            fprintf(stderr, "REFCNT2 %i %i\\n", refcnt, refcnt_after);
+            return PyBool_FromLong(refcnt_after == refcnt);
         }
 
         static PyMethodDef methods[] = {
@@ -683,3 +682,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert mod.get_names() == ('cell', 'module', 'property',
                                    'staticmethod',
                                    'builtin_function_or_method')
+
+    def test_get_programname(self):
+        mod = self.import_extension('foo', [
+            ('get_programname', 'METH_NOARGS',
+             '''
+             char* name1 = Py_GetProgramName();
+             char* name2 = Py_GetProgramName();
+             if (name1 != name2)
+                 Py_RETURN_FALSE;
+             return PyString_FromString(name1);
+             '''
+             ),
+            ])
+        p = mod.get_programname()
+        print p
+        assert 'py' in p

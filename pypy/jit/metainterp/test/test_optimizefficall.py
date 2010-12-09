@@ -31,6 +31,7 @@ class FakeLLObject(object):
 
 
 class TestFfiCall(BaseTestOptimizeOpt, LLtypeMixin):
+    jit_ffi = True
 
     class namespace:
         cpu = LLtypeMixin.cpu

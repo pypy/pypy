@@ -17,7 +17,6 @@ from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
 from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
-from pypy.jit.backend.llsupport.ffisupport import get_call_descr_dynamic
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
@@ -247,7 +246,9 @@ class AbstractLLCPU(AbstractCPU):
         return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
 
     def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
-        return get_call_descr_dynamic(ffi_args, ffi_result, extrainfo)
+        from pypy.jit.backend.llsupport import ffisupport
+        return ffisupport.get_call_descr_dynamic(ffi_args, ffi_result,
+                                                 extrainfo)
 
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)

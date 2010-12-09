@@ -1,5 +1,6 @@
 import py
-from pypy.objspace.std import complexobject as cobj
+from pypy.objspace.std.complexobject import W_ComplexObject, \
+    pow__Complex_Complex_ANY
 from pypy.objspace.std import complextype as cobjtype
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stringobject import W_StringObject
@@ -11,7 +12,7 @@ class TestW_ComplexObject:
 
     def _test_instantiation(self):
         def _t_complex(r=0.0,i=0.0):
-            c = cobj.W_ComplexObject(r, i)
+            c = W_ComplexObject(r, i)
             assert c.real == float(r) and c.imag == float(i)
         pairs = (
             (1, 1),
@@ -38,21 +39,31 @@ class TestW_ComplexObject:
         test_cparse('.e+5', '.e+5', '0.0')
 
     def test_pow(self):
-        assert cobj._pow((0.0,2.0),(0.0,0.0)) == (1.0,0.0)
-        assert cobj._pow((0.0,0.0),(2.0,0.0)) == (0.0,0.0)
-        rr, ir = cobj._pow((0.0,1.0),(2.0,0.0))
+        def _pow((r1, i1), (r2, i2)):
+            w_res = W_ComplexObject(r1, i1).pow(W_ComplexObject(r2, i2))
+            return w_res.realval, w_res.imagval
+        assert _pow((0.0,2.0),(0.0,0.0)) == (1.0,0.0)
+        assert _pow((0.0,0.0),(2.0,0.0)) == (0.0,0.0)
+        rr, ir = _pow((0.0,1.0),(2.0,0.0))
         assert abs(-1.0 - rr) < EPS
         assert abs(0.0 - ir) < EPS
 
-        assert cobj._powu((0.0,2.0),0) == (1.0,0.0)
-        assert cobj._powu((0.0,0.0),2) == (0.0,0.0)
-        assert cobj._powu((0.0,1.0),2) == (-1.0,0.0)
-        assert cobj._powi((0.0,2.0),0) == (1.0,0.0)
-        assert cobj._powi((0.0,0.0),2) == (0.0,0.0)
-        assert cobj._powi((0.0,1.0),2) == (-1.0,0.0)
-        c = cobj.W_ComplexObject(0.0,1.0)
-        p = cobj.W_ComplexObject(2.0,0.0)
-        r = cobj.pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
+        def _powu((r1, i1), n):
+            w_res = W_ComplexObject(r1, i1).pow_positive_int(n)
+            return w_res.realval, w_res.imagval
+        assert _powu((0.0,2.0),0) == (1.0,0.0)
+        assert _powu((0.0,0.0),2) == (0.0,0.0)
+        assert _powu((0.0,1.0),2) == (-1.0,0.0)
+
+        def _powi((r1, i1), n):
+            w_res = W_ComplexObject(r1, i1).pow_int(n)
+            return w_res.realval, w_res.imagval
+        assert _powi((0.0,2.0),0) == (1.0,0.0)
+        assert _powi((0.0,0.0),2) == (0.0,0.0)
+        assert _powi((0.0,1.0),2) == (-1.0,0.0)
+        c = W_ComplexObject(0.0,1.0)
+        p = W_ComplexObject(2.0,0.0)
+        r = pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
         assert r.realval == -1.0
         assert r.imagval == 0.0
 

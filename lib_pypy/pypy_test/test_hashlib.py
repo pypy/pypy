@@ -41,7 +41,8 @@ def test_attributes():
 
         # also test the pure Python implementation
         modname, constructor = pure_python_version[name].split('.')
-        builder = getattr(__import__(modname), constructor)
+        mod = __import__('lib_pypy.' + modname, None, None, ['__doc__'])
+        builder = getattr(mod, constructor)
         h = builder('')
         assert h.digest_size == expected_size
         assert h.digestsize == expected_size

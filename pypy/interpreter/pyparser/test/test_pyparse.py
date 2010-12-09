@@ -64,12 +64,20 @@ stuff = "nothing"
         assert exc.lineno == 1
         assert exc.offset == 5
         assert exc.text.startswith("name another for")
-        exc = py.test.raises(SyntaxError, parse, "\"blah").value
+        exc = py.test.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
         assert exc.msg == "EOL while scanning single-quoted string"
-        exc = py.test.raises(SyntaxError, parse, "'''\n").value
+        assert exc.lineno == 1
+        assert exc.offset == 5
+        exc = py.test.raises(SyntaxError, parse, "x = '''\n\n\n").value
         assert exc.msg == "EOF while scanning triple-quoted string"
+        assert exc.lineno == 1
+        assert exc.offset == 5
         for input in ("())", "(()", "((", "))"):
             py.test.raises(SyntaxError, parse, input)
+        exc = py.test.raises(SyntaxError, parse, "x = (\n\n(),\n(),").value
+        assert exc.msg == "EOF in multi-line statement"
+        assert exc.lineno == 1
+        assert exc.offset == 5
 
     def test_is(self):
         self.parse("x is y")

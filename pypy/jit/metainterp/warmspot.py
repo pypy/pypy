@@ -144,7 +144,8 @@ class ContinueRunningNormallyBase(JitException):
 class WarmRunnerDesc(object):
 
     def __init__(self, translator, policy=None, backendopt=True, CPUClass=None,
-                 optimizer=None, ProfilerClass=EmptyProfiler, **kwds):
+                 optimizer=None, ProfilerClass=EmptyProfiler,
+                 jit_ffi=None, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         self.set_translator(translator)
         self.memory_manager = memmgr.MemoryManager()
@@ -162,7 +163,7 @@ class WarmRunnerDesc(object):
         elif self.opt.listops:
             self.prejit_optimizations_minimal_inline(policy, graphs)
 
-        self.build_meta_interp(ProfilerClass)
+        self.build_meta_interp(ProfilerClass, jit_ffi)
         self.make_args_specifications()
         #
         from pypy.jit.metainterp.virtualref import VirtualRefInfo
@@ -280,11 +281,14 @@ class WarmRunnerDesc(object):
                        translate_support_code, gcdescr=self.gcdescr)
         self.cpu = cpu
 
-    def build_meta_interp(self, ProfilerClass):
+    def build_meta_interp(self, ProfilerClass, jit_ffi=None):
+        if jit_ffi is None:
+            jit_ffi = self.translator.config.translation.jit_ffi
         self.metainterp_sd = MetaInterpStaticData(self.cpu,
                                                   self.opt,
                                                   ProfilerClass=ProfilerClass,
-                                                  warmrunnerdesc=self)
+                                                  warmrunnerdesc=self,
+                                                  jit_ffi=jit_ffi)
 
     def make_virtualizable_infos(self):
         vinfos = {}

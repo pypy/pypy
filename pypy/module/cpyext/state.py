@@ -8,6 +8,7 @@ class State:
     def __init__(self, space):
         self.space = space
         self.reset()
+        self.programname = lltype.nullptr(rffi.CCHARP.TO)
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -41,3 +42,16 @@ class State:
         if always:
             raise OperationError(self.space.w_SystemError, self.space.wrap(
                 "Function returned an error result without setting an exception"))
+
+    def get_programname(self):
+        if not self.programname:
+            space = self.space
+            argv = space.sys.get('argv')
+            if space.int_w(space.len(argv)):
+                argv0 = space.getitem(argv, space.wrap(0))
+                progname = space.str_w(argv0)
+            else:
+                progname = "pypy"
+            self.programname = rffi.str2charp(progname)
+            lltype.render_immortal(self.programname)
+        return self.programname

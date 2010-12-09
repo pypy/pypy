@@ -41,27 +41,21 @@ purposes only."""
         f = ec.getnextframe_nohidden(f)
     return space.wrap(f)
 
-# directly from the C code in ceval.c, might be moved somewhere else.
-
 def setrecursionlimit(space, w_new_limit):
-    """Set the maximum depth of the Python interpreter stack to n.  This
-limit prevents infinite recursion from causing an overflow of the C
-stack and crashing Python.  The highest possible limit is platform
-dependent."""
+    """DEPRECATED on PyPy. Will issue warning and not work
+    """
     new_limit = space.int_w(w_new_limit)
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
     # global recursion_limit
     # we need to do it without writing globals.
+    space.warn('setrecursionlimit deprecated', space.w_DeprecationWarning)
     space.sys.recursionlimit = new_limit
 
 def getrecursionlimit(space):
-    """Return the current value of the recursion limit, the maximum depth
-    of the Python interpreter stack.  This limit prevents infinite
-    recursion from causing an overflow of the C stack and crashing Python.
+    """DEPRECATED on PyPy. Will issue warning and not work
     """
-
     return space.wrap(space.sys.recursionlimit)
 
 def setcheckinterval(space, interval):
