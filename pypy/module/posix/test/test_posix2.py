@@ -536,14 +536,11 @@ class AppTestPosix:
             try:
                 fd = f.fileno()
                 os.fsync(fd)
-            finally:
+                os.fsync(f)     # <- should also work with a file, or anything
+            finally:            #    with a fileno() method
                 f.close()
-            try:
-                os.fsync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fsync didn't raise")
+            raises(OSError, os.fsync, fd)
+            raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
         def test_fdatasync(self):
@@ -554,12 +551,8 @@ class AppTestPosix:
                 os.fdatasync(fd)
             finally:
                 f.close()
-            try:
-                os.fdatasync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fdatasync didn't raise")
+            raises(OSError, os.fdatasync, fd)
+            raises(ValueError, os.fdatasync, -1)
 
     def test_largefile(self):
         os = self.posix

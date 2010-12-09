@@ -4,6 +4,7 @@ from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -151,19 +152,34 @@ def ftruncate(space, fd, length):
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
 
-def fsync(space, fd):
+def _as_filedescriptor(space, w_fd):
+    try:
+        fd = space.c_int_w(w_fd)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_fd = space.call_method(w_fd, 'fileno')
+        fd = space.c_int_w(w_fd)
+    if fd < 0:
+        raise operationerrfmt(space.w_ValueError,
+            "file descriptor cannot be a negative integer (%d)", fd)
+    return fd
+
+def fsync(space, w_fd):
+    fd = _as_filedescriptor(space, w_fd)
     try:
         os.fsync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fsync.unwrap_spec = [ObjSpace, "c_int"]
+fsync.unwrap_spec = [ObjSpace, W_Root]
 
-def fdatasync(space, fd):
+def fdatasync(space, w_fd):
+    fd = _as_filedescriptor(space, w_fd)
     try:
         os.fdatasync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fdatasync.unwrap_spec = [ObjSpace, "c_int"]
+fdatasync.unwrap_spec = [ObjSpace, W_Root]
 
 # ____________________________________________________________
 
