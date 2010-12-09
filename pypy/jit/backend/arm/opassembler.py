@@ -710,13 +710,19 @@ class StrOpAssembler(object):
             regalloc.possibly_free_var(args[2])     # it if ==args[3] or args[4]
         srcaddr_box = TempBox()
         forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box, forbidden_vars)
+        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box,
+                                    forbidden_vars, selected_reg=r.r1)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
                                         is_unicode=is_unicode)
 
         # compute the destination address
+        forbidden_vars = [args[4], args[3], srcaddr_box]
+        dstaddr_box = TempBox()
+        dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box, selected_reg=r.r0)
+        forbidden_vars.append(dstaddr_box)
         base_loc, box = self._ensure_value_is_boxed(args[1], regalloc, forbidden_vars)
         args.append(box)
+        forbidden_vars.append(box)
         ofs_loc, box = self._ensure_value_is_boxed(args[3], regalloc, forbidden_vars)
         args.append(box)
         assert base_loc.is_reg()
@@ -724,10 +730,6 @@ class StrOpAssembler(object):
         regalloc.possibly_free_var(args[1])
         if args[3] is not args[4]:     # more of the MESS described above
             regalloc.possibly_free_var(args[3])
-        forbidden_vars = [args[4], srcaddr_box]
-        dstaddr_box = TempBox()
-        dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box,
-                                forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
                                         is_unicode=is_unicode)
 
