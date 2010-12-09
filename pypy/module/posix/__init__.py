@@ -77,6 +77,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
         interpleveldefs['fdatasync'] = 'interp_posix.fdatasync'
+    if hasattr(os, 'fchdir'):
+        interpleveldefs['fchdir'] = 'interp_posix.fchdir'
     if hasattr(os, 'putenv'):
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os

@@ -546,7 +546,7 @@ class AppTestPosix:
     if hasattr(os, 'fdatasync'):
         def test_fdatasync(self):
             os = self.posix
-            f = open(self.path2)
+            f = open(self.path2, "w")
             try:
                 fd = f.fileno()
                 os.fdatasync(fd)
@@ -554,6 +554,24 @@ class AppTestPosix:
                 f.close()
             raises(OSError, os.fdatasync, fd)
             raises(ValueError, os.fdatasync, -1)
+
+    if hasattr(os, 'fchdir'):
+        def test_fchdir(self):
+            os = self.posix
+            localdir = os.getcwd()
+            try:
+                os.mkdir(self.path2 + 'dir')
+                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+                try:
+                    os.fchdir(fd)
+                    mypath = os.getcwd()
+                finally:
+                    os.close(fd)
+                assert mypath.endswith('test_posix2-dir')
+                raises(OSError, os.fchdir, fd)
+                raises(ValueError, os.fchdir, -1)
+            finally:
+                os.chdir(localdir)
 
     def test_largefile(self):
         os = self.posix

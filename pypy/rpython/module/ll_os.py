@@ -903,6 +903,18 @@ class RegisterOs(BaseLazyRegistering):
                       llimpl=fdatasync_llimpl,
                       export_name="ll_os.ll_os_fdatasync")
 
+    @registering_if(os, 'fchdir')
+    def register_os_fchdir(self):
+        os_fchdir = self.llexternal('fchdir', [rffi.INT], rffi.INT)
+
+        def fchdir_llimpl(fd):
+            res = rffi.cast(rffi.LONG, os_fchdir(rffi.cast(rffi.INT, fd)))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "fchdir failed")
+        return extdef([int], s_None,
+                      llimpl=fchdir_llimpl,
+                      export_name="ll_os.ll_os_fchdir")
+
     @registering_str_unicode(os.access)
     def register_os_access(self, traits):
         os_access = self.llexternal(traits.posix_function_name('access'),

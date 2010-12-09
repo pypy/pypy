@@ -168,6 +168,14 @@ def fdatasync(space, w_fd):
         raise wrap_oserror(space, e)
 fdatasync.unwrap_spec = [ObjSpace, W_Root]
 
+def fchdir(space, w_fd):
+    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        os.fchdir(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fchdir.unwrap_spec = [ObjSpace, W_Root]
+
 # ____________________________________________________________
 
 # For LL backends, expose all fields.

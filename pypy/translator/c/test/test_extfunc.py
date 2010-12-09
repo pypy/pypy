@@ -765,3 +765,21 @@ if hasattr(os, 'getloadavg'):
         f = compile(does_stuff, [])
         res = f()
         assert type(res) is float and res >= 0.0
+
+if hasattr(os, 'fchdir'):
+    def test_os_fchdir():
+        def does_stuff():
+            fd = os.open('/', os.O_RDONLY, 0400)
+            try:
+                os.fchdir(fd)
+                s = os.getcwd()
+            finally:
+                os.close(fd)
+            return s == '/'
+        f = compile(does_stuff, [])
+        localdir = os.getcwd()
+        try:
+            res = f()
+        finally:
+            os.chdir(localdir)
+        assert res == True
