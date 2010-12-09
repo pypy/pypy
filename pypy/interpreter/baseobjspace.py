@@ -1183,6 +1183,27 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
+    def c_filedescriptor_w(self, w_fd):
+        try:
+            fd = self.c_int_w(w_fd)
+        except OperationError, e:
+            if not e.match(self, self.w_TypeError):
+                raise
+            try:
+                w_fileno = self.getattr(w_fd, self.wrap('fileno'))
+            except OperationError, e:
+                if e.match(self, self.w_AttributeError):
+                    raise OperationError(self.w_TypeError,
+                        self.wrap("argument must be an int, "
+                                  "or have a fileno() method."))
+                raise
+            w_fd = self.call_function(w_fileno)
+            fd = self.c_int_w(w_fd)
+        if fd < 0:
+            raise operationerrfmt(self.w_ValueError,
+                "file descriptor cannot be a negative integer (%d)", fd)
+        return fd
+
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
             import warnings

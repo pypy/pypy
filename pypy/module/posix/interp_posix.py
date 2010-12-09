@@ -152,21 +152,8 @@ def ftruncate(space, fd, length):
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
 
-def _as_filedescriptor(space, w_fd):
-    try:
-        fd = space.c_int_w(w_fd)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_fd = space.call_method(w_fd, 'fileno')
-        fd = space.c_int_w(w_fd)
-    if fd < 0:
-        raise operationerrfmt(space.w_ValueError,
-            "file descriptor cannot be a negative integer (%d)", fd)
-    return fd
-
 def fsync(space, w_fd):
-    fd = _as_filedescriptor(space, w_fd)
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fsync(fd)
     except OSError, e:
@@ -174,7 +161,7 @@ def fsync(space, w_fd):
 fsync.unwrap_spec = [ObjSpace, W_Root]
 
 def fdatasync(space, w_fd):
-    fd = _as_filedescriptor(space, w_fd)
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fdatasync(fd)
     except OSError, e:

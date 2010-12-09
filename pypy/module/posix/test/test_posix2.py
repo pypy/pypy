@@ -536,6 +536,7 @@ class AppTestPosix:
             try:
                 fd = f.fileno()
                 os.fsync(fd)
+                os.fsync(long(fd))
                 os.fsync(f)     # <- should also work with a file, or anything
             finally:            #    with a fileno() method
                 f.close()
