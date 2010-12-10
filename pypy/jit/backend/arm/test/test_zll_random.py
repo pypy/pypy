@@ -9,6 +9,6 @@ CPU = getcpuclass()
 
 def test_stress():
     cpu = CPU(None, None)
-    r = Random()
     for i in range(1000):
+        r = Random(i)
         check_random_function(cpu, LLtypeOperationBuilder, r, i, 1000)

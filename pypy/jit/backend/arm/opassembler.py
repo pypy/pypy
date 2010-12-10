@@ -124,15 +124,16 @@ class IntOpAsslember(object):
 
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, imm=31, cond=fcond)
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
 
         if guard.getopnum() == rop.GUARD_OVERFLOW:
-            return self._emit_guard(guard, regalloc, c.NE)
-        if guard.getopnum() == rop.GUARD_NO_OVERFLOW:
-            return self._emit_guard(guard, regalloc, c.EQ)
+            fcond = self._emit_guard(guard, regalloc, c.NE)
+        elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
+            fcond = self._emit_guard(guard, regalloc, c.EQ)
         else:
             assert 0
+        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_var(op.result)
+        return fcond
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
     emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
@@ -219,15 +220,17 @@ class GuardOpAssembler(object):
 
     def emit_op_guard_true(self, op, regalloc, fcond):
         l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
-        regalloc.possibly_free_var(box)
         self.mc.CMP_ri(l0.value, 0)
-        return self._emit_guard(op, regalloc, c.NE)
+        fcond = self._emit_guard(op, regalloc, c.NE)
+        regalloc.possibly_free_var(box)
+        return fcond
 
     def emit_op_guard_false(self, op, regalloc, fcond):
         l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
-        regalloc.possibly_free_var(box)
         self.mc.CMP_ri(l0.value, 0)
-        return self._emit_guard(op, regalloc, c.EQ)
+        fcond = self._emit_guard(op, regalloc, c.EQ)
+        regalloc.possibly_free_var(box)
+        return fcond
 
     def emit_op_guard_value(self, op, regalloc, fcond):
         boxes = list(op.getarglist())
@@ -240,14 +243,15 @@ class GuardOpAssembler(object):
             boxes.append(box)
         else:
             l1 = regalloc.make_sure_var_in_reg(a1)
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
 
         if l1.is_imm():
             self.mc.CMP_ri(l0.value, l1.getint())
         else:
             self.mc.CMP_rr(l0.value, l1.value)
-        return self._emit_guard(op, regalloc, c.EQ)
+        fcond = self._emit_guard(op, regalloc, c.EQ)
+        regalloc.possibly_free_vars(boxes)
+        regalloc.possibly_free_var(op.result)
+        return fcond
 
     emit_op_guard_nonnull = emit_op_guard_true
     emit_op_guard_isnull = emit_op_guard_false
@@ -331,26 +335,47 @@ class OpAssembler(object):
         self._gen_path_to_exit_path(op, op.getarglist(), regalloc, c.AL)
         return fcond
 
-    def emit_op_call(self, op, regalloc, fcond, save_all_regs=False):
+    def emit_op_call(self, op, regalloc, fcond, spill_all_regs=False):
         adr = rffi.cast(lltype.Signed, op.getarg(0).getint())
         args = op.getarglist()[1:]
-        cond =  self._emit_call(adr, args, regalloc, fcond, save_all_regs, op.result)
+        cond =  self._emit_call(adr, args, regalloc, fcond, op.result, spill_all_regs=spill_all_regs)
+        regalloc.possibly_free_vars(args)
         if op.result:
             regalloc.possibly_free_var(op.result)
 
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
-            loc = regalloc.loc(op.result)
+            loc = regalloc.call_result_location(op.result)
             size = descr.get_result_size(False)
             signed = descr.is_result_signed()
             self._ensure_result_bit_extension(loc, size, signed, regalloc)
         return cond
 
-    def _emit_call(self, adr, args, regalloc, fcond=c.AL, save_all_regs=False, result=None):
-        # all arguments past the 4th go on the stack
+    # XXX improve this interface
+    # XXX and get rid of spill_all_regs in favor of pushing them in
+    # emit_op_call_may_force
+    # XXX improve freeing of stuff here
+    def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None, spill_all_regs=False):
         n = 0
         n_args = len(args)
+        reg_args = min(n_args, 4)
+        # prepare arguments passed in registers
+        for i in range(0, reg_args):
+            l = regalloc.make_sure_var_in_reg(args[i],
+                                            selected_reg=r.all_regs[i])
+        # save caller saved registers
+        if spill_all_regs:
+            regalloc.before_call(save_all_regs=spill_all_regs)
+        else:
+            if result:
+                if reg_args > 0 and regalloc.stays_alive(args[0]):
+                    regalloc.force_spill_var(args[0])
+                self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+            else:
+                self.mc.PUSH([reg.value for reg in r.caller_resp])
+
+        # all arguments past the 4th go on the stack
         if n_args > 4:
             stack_args = n_args - 4
             n = stack_args*WORD
@@ -360,23 +385,24 @@ class OpAssembler(object):
                 self.mc.STR_ri(reg.value, r.sp.value, (i-4)*WORD)
                 regalloc.possibly_free_var(box)
 
-
-        reg_args = min(n_args, 4)
-        for i in range(0, reg_args):
-            l = regalloc.make_sure_var_in_reg(args[i],
-                                            selected_reg=r.all_regs[i])
-        # XXX use PUSH here instead of spilling every reg for itself
-        regalloc.before_call(save_all_regs=save_all_regs)
-        regalloc.possibly_free_vars(args)
-
+        #the actual call
         self.mc.BL(adr)
 
-        if result:
-            regalloc.after_call(result)
+        regalloc.possibly_free_vars(args)
         # readjust the sp in case we passed some args on the stack
         if n_args > 4:
             assert n > 0
             self._adjust_sp(-n, regalloc, fcond=fcond)
+
+        # restore the argumets stored on the stack
+        if spill_all_regs:
+            regalloc.after_call(result)
+        else:
+            if result is not None:
+                regalloc.after_call(result)
+                self.mc.POP([reg.value for reg in r.caller_resp][1:])
+            else:
+                self.mc.POP([reg.value for reg in r.caller_resp])
         return fcond
 
     def emit_op_same_as(self, op, regalloc, fcond):
@@ -397,41 +423,41 @@ class OpAssembler(object):
         return fcond
 
     def emit_op_guard_no_exception(self, op, regalloc, fcond):
-        t = TempBox()
-        loc = regalloc.force_allocate_reg(t)
-        self.mc.gen_load_int(loc.value, self.cpu.pos_exception(), fcond)
+        loc, box = self._ensure_value_is_boxed(
+                        ConstInt(self.cpu.pos_exception()), regalloc)
+
         self.mc.LDR_ri(loc.value, loc.value)
         self.mc.CMP_ri(loc.value, 0)
         cond = self._emit_guard(op, regalloc, c.EQ, save_exc=True)
-        regalloc.possibly_free_var(t)
+        regalloc.possibly_free_var(box)
         return cond
 
     def emit_op_guard_exception(self, op, regalloc, fcond):
-        args = op.getarglist()
-        t = TempBox()
-        t1 = TempBox()
-        loc = regalloc.force_allocate_reg(t, args)
-        loc1 = regalloc.force_allocate_reg(t1, args + [t])
-        self.mc.gen_load_int(loc.value,
-                rffi.cast(lltype.Signed, op.getarg(0).getint()),
-                fcond)
+        boxes = list(op.getarglist())
+        arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
+        loc, box = self._ensure_value_is_boxed(arg0, regalloc)
+        boxes.append(box)
+        loc1, box = self._ensure_value_is_boxed(
+                        ConstInt(self.cpu.pos_exception()), regalloc, boxes)
+        boxes.append(box)
+        if op.result in regalloc.longevity:
+            resloc = regalloc.force_allocate_reg(op.result, boxes)
+            boxes.append(resloc)
+        else:
+            resloc = None
 
-        self.mc.gen_load_int(loc1.value, self.cpu.pos_exception(), fcond)
         self.mc.LDR_ri(loc1.value, loc1.value)
 
         self.mc.CMP_rr(loc1.value, loc.value)
         self._emit_guard(op, regalloc, c.EQ, save_exc=True)
+        regalloc.possibly_free_vars(boxes)
         self.mc.gen_load_int(loc1.value, self.cpu.pos_exc_value(), fcond)
-        if op.result in regalloc.longevity:
-            resloc = regalloc.force_allocate_reg(op.result, args + [t, t1])
+        if resloc:
             self.mc.LDR_ri(resloc.value, loc1.value)
-            regalloc.possibly_free_var(op.result)
         self.mc.gen_load_int(loc.value, self.cpu.pos_exception(), fcond)
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.STR_ri(r.ip.value, loc.value)
         self.mc.STR_ri(r.ip.value, loc1.value)
-        regalloc.possibly_free_var(t)
-        regalloc.possibly_free_var(t1)
         return fcond
 
     def emit_op_debug_merge_point(self, op, regalloc, fcond):
@@ -470,9 +496,9 @@ class FieldOpAssembler(object):
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         # ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
         base_loc, base_box = self._ensure_value_is_boxed(a0, regalloc)
-        res = regalloc.force_allocate_reg(op.result, [a0])
         regalloc.possibly_free_var(a0)
         regalloc.possibly_free_var(base_box)
+        res = regalloc.force_allocate_reg(op.result, [a0])
         regalloc.possibly_free_var(op.result)
 
         if size == 4:
@@ -933,9 +959,8 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self._emit_call(asm_helper_adr, [t, op.getarg(0)], regalloc, fcond, False, op.result)
+        self._emit_call(asm_helper_adr, [t, op.getarg(0)], regalloc, fcond, op.result)
         regalloc.possibly_free_var(t)
-
         # jump to merge point
         jmp_pos = self.mc.currpos()
         jmp_location = self.mc.curraddr()
@@ -985,12 +1010,12 @@ class ForceOpAssembler(object):
         l0 = regalloc.force_allocate_reg(t)
         self.mc.LDR_ri(l0.value, r.fp.value)
         self.mc.CMP_ri(l0.value, 0)
+
+        self._emit_guard(guard_op, regalloc, c.GE)
         regalloc.possibly_free_var(t)
         regalloc.possibly_free_vars_for_op(op)
         if op.result:
             regalloc.possibly_free_var(op.result)
-
-        self._emit_guard(guard_op, regalloc, c.GE)
         return fcond
 
     def emit_guard_call_may_force(self, op, guard_op, regalloc, fcond):
@@ -999,15 +1024,15 @@ class ForceOpAssembler(object):
         self._write_fail_index(fail_index, regalloc)
 
         # force all reg values to be spilled when calling
-        fcond = self.emit_op_call(op, regalloc, fcond, save_all_regs=True)
+        fcond = self.emit_op_call(op, regalloc, fcond, spill_all_regs=True)
 
         t = TempBox()
         l0 = regalloc.force_allocate_reg(t)
         self.mc.LDR_ri(l0.value, r.fp.value)
         self.mc.CMP_ri(l0.value, 0)
-        regalloc.possibly_free_var(t)
 
         self._emit_guard(guard_op, regalloc, c.GE)
+        regalloc.possibly_free_var(t)
         return fcond
 
     def _write_fail_index(self, fail_index, regalloc):
@@ -1046,19 +1071,23 @@ class AllocOpAssembler(object):
         vloc, v = self._ensure_value_is_boxed(v, regalloc, [res_v])
         boxes.append(v)
         size, size_box = self._ensure_value_is_boxed(itemsize_box, regalloc, boxes)
+        boxes.append(size_box)
 
         self.mc.MUL(size.value, size.value, vloc.value)
         if ofs_items_loc.is_imm():
             self.mc.ADD_ri(size.value, size.value, ofs_items_loc.value)
         else:
             self.mc.ADD_rr(size.value, size.value, ofs_items_loc.value)
-        self._emit_call(self.malloc_func_addr, [size_box], regalloc, result=res_v)
+        self._emit_call(self.malloc_func_addr, [size_box], regalloc,
+                                    result=res_v)
 
         base_loc = regalloc.make_sure_var_in_reg(res_v)
         value_loc = regalloc.make_sure_var_in_reg(v)
+        regalloc.possibly_free_vars(boxes)
+        assert value_loc.is_reg()
+        assert base_loc.is_reg()
         self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length)
 
-        regalloc.possibly_free_vars(boxes)
 
     def emit_op_new(self, op, regalloc, fcond):
         arglocs = self._prepare_args_for_new_op(op.getdescr(), regalloc)
@@ -1074,18 +1103,19 @@ class AllocOpAssembler(object):
         arglocs = self._prepare_args_for_new_op(descrsize, regalloc)
         self._emit_call(self.malloc_func_addr, arglocs,
                                 regalloc, result=op.result)
-        resloc = regalloc.loc(op.result) # r0
-        self.set_vtable(resloc, classint, regalloc)
+        self.set_vtable(op.result, classint, regalloc)
         regalloc.possibly_free_vars(arglocs)
         regalloc.possibly_free_var(op.result)
         return fcond
 
-    def set_vtable(self, loc, vtable, regalloc):
+    def set_vtable(self, box, vtable, regalloc):
         if self.cpu.vtable_offset is not None:
-            assert loc.is_reg()
+            loc = regalloc.loc(box) # r0
+            assert loc is r.r0
             adr = rffi.cast(lltype.Signed, vtable)
             t = TempBox()
-            loc_vtable = regalloc.force_allocate_reg(t)
+            loc_vtable = regalloc.force_allocate_reg(t, [box])
+            assert loc_vtable is not loc
             regalloc.possibly_free_var(t)
             self.mc.gen_load_int(loc_vtable.value, adr)
             self.mc.STR_ri(loc_vtable.value, loc.value, self.cpu.vtable_offset)

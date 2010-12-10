@@ -40,8 +40,8 @@ def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
             boxes.append(box)
-        res = regalloc.force_allocate_reg(op.result, boxes)
         regalloc.possibly_free_vars(boxes)
+        res = regalloc.force_allocate_reg(op.result, boxes)
         regalloc.possibly_free_var(op.result)
 
         if l1.is_imm():
@@ -91,8 +91,8 @@ def gen_emit_cmp_op(condition, inverse=False):
         else:
             l1, box = self._ensure_value_is_boxed(arg1, regalloc, forbidden_vars=boxes)
             boxes.append(box)
-        res = regalloc.force_allocate_reg(op.result)
         regalloc.possibly_free_vars(boxes)
+        res = regalloc.force_allocate_reg(op.result)
         regalloc.possibly_free_var(op.result)
 
         inv = c.get_opposite_of(condition)

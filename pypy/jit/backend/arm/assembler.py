@@ -3,7 +3,8 @@ from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
-from pypy.jit.backend.arm.regalloc import ARMRegisterManager, ARMFrameManager
+from pypy.jit.backend.arm.regalloc import (ARMRegisterManager, ARMFrameManager,
+                                                            TempInt, TempPtr)
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
                                         BoxInt, BoxPtr, AbstractFailDescr,
@@ -405,12 +406,14 @@ class AssemblerARM(ResOpAssembler):
         fcond=c.AL
         i = 0
         while i < len(operations):
+            regalloc.position = i
             op = operations[i]
             opnum = op.getopnum()
             if self.can_merge_with_next_guard(op, i, operations):
                 fcond = self.operations_with_guard[opnum](self, op,
                                             operations[i+1], regalloc, fcond)
                 i += 1
+                regalloc.position = i
             else:
                 fcond = self.operations[opnum](self, op, regalloc, fcond)
             i += 1
@@ -469,9 +472,9 @@ class AssemblerARM(ResOpAssembler):
         loc = None
         if isinstance(thing, Const):
             if isinstance(thing, ConstInt):
-                box = BoxInt(thing.value)
+                box = TempInt()
             elif isinstance(thing, ConstPtr):
-                box = BoxPtr()
+                box = TempPtr()
             else:
                 box = TempBox()
             loc = regalloc.force_allocate_reg(box,

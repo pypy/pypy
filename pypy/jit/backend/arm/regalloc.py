@@ -2,8 +2,18 @@ from pypy.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, compute_vars_longevity, TempBox
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
-from pypy.jit.metainterp.history import ConstInt, ConstPtr
+from pypy.jit.metainterp.history import ConstInt, ConstPtr, REF, INT
 from pypy.rpython.lltypesystem import rffi, lltype
+
+class TempInt(TempBox):
+    type = INT
+
+    def __repr__(self):
+        return "<TempInt at %s>" % (id(self),)
+class TempPtr(TempBox):
+    type = REF
+    def __repr__(self):
+        return "<TempPtr at %s>" % (id(self),)
 
 class ARMRegisterManager(RegisterManager):
     all_regs              = r.all_regs
@@ -46,6 +56,7 @@ class ARMRegisterManager(RegisterManager):
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
 
+    #XXX remove
     def force_allocate_reg(self, v, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
         # override ../llsupport/regalloc.py to set longevity for vals not in longevity
@@ -63,6 +74,10 @@ class ARMRegisterManager(RegisterManager):
             self.free_regs.append(prev_loc)
         self.reg_bindings[v] = loc
         return loc
+
+    def force_spill_var(self, var):
+        self._sync_var(var)
+        del self.reg_bindings[var]
 
 class ARMFrameManager(FrameManager):
     def __init__(self):
