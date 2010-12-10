@@ -423,7 +423,8 @@ class MiniMarkGC(MovingGCBase):
             llarena.arena_protect(newnurs, self._nursery_memory_size(), False)
             self.nursery = newnurs
             self.nursery_top = self.nursery + self.nursery_size
-            debug_print("switching to nursery", self.nursery,
+            debug_print("switching from nursery", oldnurs,
+                        "to nursery", self.nursery,
                         "size", self.nursery_size)
             debug_stop("gc-debug")
 
