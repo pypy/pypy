@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #include <process.h>
 #include <io.h>
 #else
