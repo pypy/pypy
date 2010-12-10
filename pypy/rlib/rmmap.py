@@ -100,8 +100,11 @@ def external(name, args, result):
                            sandboxsafe=True, threadsafe=False)
     return unsafe, safe
 
-def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_, calling_conv='win')
+def winexternal(name, args, result, **kwargs):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv='win',
+                           **kwargs)
 
 PTR = rffi.CCHARP
 
@@ -189,9 +192,17 @@ elif _MS_WINDOWS:
     VirtualAlloc = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
-    VirtualProtect = winexternal('VirtualProtect',
-                                 [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
-                                 BOOL)
+    # VirtualProtect is used in llarena and should not release the GIL
+    _VirtualProtect = winexternal('VirtualProtect',
+                                  [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
+                                  BOOL,
+                                  _nowrapper=True)
+    def VirtualProtect(addr, size, mode, oldmode_ptr):
+        return _VirtualProtect(addr,
+                               rffi.cast(rffi.SIZE_T, size),
+                               rffi.cast(DWORD, mode),
+                               oldmode_ptr)
+    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 

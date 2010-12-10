@@ -531,9 +531,7 @@ elif os.name == 'nt':
             from pypy.rlib.rmmap import PAGE_READWRITE as newprotect
         arg = lltype.malloc(LPDWORD.TO, 1, zero=True, flavor='raw')
         VirtualProtect(rffi.cast(rffi.VOIDP, addr),
-                       rffi.cast(rffi.SIZE_T, size),
-                       newprotect,
-                       arg)
+                       size, newprotect, arg)
         # ignore potential errors
         lltype.free(arg, flavor='raw')
     has_protect = True
