@@ -3,7 +3,8 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
-from pypy.rlib.rarithmetic import formatd, isinf, isnan, copysign
+from pypy.rlib.rarithmetic import (
+    formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 
 import math
 
@@ -255,7 +256,7 @@ def complex_conjugate__Complex(space, w_self):
     #w_imag = space.call_function(space.w_float,space.wrap(-w_self.imagval))
     return space.newcomplex(w_self.realval,-w_self.imagval)
 
-def format_float(x, format):
+def format_float(x, code, precision):
     # like float2string, except that the ".0" is not necessary
     if isinf(x):
         if x > 0.0:
@@ -265,12 +266,12 @@ def format_float(x, format):
     elif isnan(x):
         return "nan"
     else:
-        return formatd(format, x)
+        return formatd(x, code, precision)
 
 def repr_format(x):
-    return format_float(x, "%.17g")
+    return format_float(x, 'r', 0)
 def str_format(x):
-    return format_float(x, "%.12g")
+    return format_float(x, 'g', DTSF_STR_PRECISION)
 
 def repr__Complex(space, w_complex):
     if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:

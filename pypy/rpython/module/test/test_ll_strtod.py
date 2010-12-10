@@ -6,7 +6,7 @@ from pypy.rlib import rarithmetic
 class BaseTestStrtod(BaseRtypingTest):    
     def test_formatd(self):
         def f(y):
-            return rarithmetic.formatd("%.2f", y)
+            return rarithmetic.formatd(y, 'f', 2)
 
         assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
 

@@ -24,17 +24,20 @@ class RegisterStrtod(BaseLazyRegistering):
     @registering(rarithmetic.formatd)
     def register_formatd(self):
         ll_strtod = self.llexternal('LL_strtod_formatd',
-                                    [rffi.CCHARP, rffi.DOUBLE], rffi.CCHARP,
+                                    [rffi.DOUBLE, rffi.CHAR, rffi.INT], rffi.CCHARP,
                                     sandboxsafe=True, threadsafe=False)
         
-        def llimpl(fmt, x):
-            res = ll_strtod(fmt, x)
+        def llimpl(x, code, precision, flags):
+            if code == 'r':
+                code = 'g'
+                precision = 17
+            res = ll_strtod(x, code, precision)
             return rffi.charp2str(res)
 
-        def oofakeimpl(fmt, x):
-            return ootype.oostring(rarithmetic.formatd(fmt._str, x), -1)
+        def oofakeimpl(x, code, precision, flags):
+            return ootype.oostring(rarithmetic.formatd(x, code, precision, flags), -1)
 
-        return extdef([str, float], str, 'll_strtod.ll_strtod_formatd',
+        return extdef([float, lltype.Char, int, int], str, 'll_strtod.ll_strtod_formatd',
                       llimpl=llimpl, oofakeimpl=oofakeimpl,
                       sandboxsafe=True)
 

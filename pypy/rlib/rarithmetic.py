@@ -555,35 +555,60 @@ def parts_to_float(sign, beforept, afterpt, exponent):
 
 # float -> string
 
+DTSF_STR_PRECISION = 12
+
+DTSF_SIGN      = 0x1
+DTSF_ADD_DOT_0 = 0x2
+DTSF_ALT       = 0x4
+
+DIST_FINITE   = 1
+DIST_NAN      = 2
+DIST_INFINITY = 3
+
+formatd_ADD_DOT_0 = 0x1
+
+def formatd(x, code, precision, flags=0):
+    "NOT_RPYTHON"
+    if flags & DTSF_ALT:
+        alt = '#'
+    else:
+        alt = ''
+
+    if code == 'r':
+        fmt = "%r"
+    else:
+        fmt = "%%%s.%d%s" % (alt, precision, code)
+    s = fmt % (x,)
+
+    if flags & formatd_ADD_DOT_0:
+        # We want float numbers to be recognizable as such,
+        # i.e., they should contain a decimal point or an exponent.
+        # However, %g may print the number as an integer;
+        # in such cases, we append ".0" to the string.
+        for c in s:
+            if c in '.eE':
+                break
+        else:
+            s += '.0'
+    elif code == 'r' and s.endswith('.0'):
+        s = s[:-2]
+
+    return s
+
 formatd_max_length = 120
 
-def formatd(fmt, x):
-    return fmt % (x,)
-
-def formatd_overflow(alt, prec, kind, x):
+def formatd_overflow(x, kind, precision, flags=0):
     # msvcrt does not support the %F format.
     # OTOH %F and %f only differ for 'inf' or 'nan' numbers
     # which are already handled elsewhere
     if kind == 'F':
         kind = 'f'
 
-    if ((kind in 'gG' and formatd_max_length <= 10+prec) or
-        (kind in 'fF' and formatd_max_length <= 53+prec)):
+    if ((kind in 'gG' and formatd_max_length < 10+precision) or
+        (kind in 'fF' and formatd_max_length < 53+precision)):
         raise OverflowError("formatted float is too long (precision too large?)")
-    if alt:
-        alt = '#'
-    else:
-        alt = ''
 
-    fmt = "%%%s.%d%s" % (alt, prec, kind)
-
-    return formatd(fmt, x)
-
-DTSF_ADD_DOT_0 = 1
-
-DIST_FINITE = 1
-DIST_NAN = 2
-DIST_INFINITY = 3
+    return formatd(x, kind, precision, flags)
 
 def double_to_string(value, tp, precision, flags):
     if isnan(value):
@@ -592,7 +617,7 @@ def double_to_string(value, tp, precision, flags):
         special = DIST_INFINITY
     else:
         special = DIST_FINITE
-    result = formatd_overflow(False, precision, tp, value)
+    result = formatd_overflow(value, tp, precision)
     return result, special
 
 # the 'float' C type

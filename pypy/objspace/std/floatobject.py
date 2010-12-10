@@ -9,7 +9,8 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
-from pypy.rlib.rarithmetic import formatd, LONG_BIT, INFINITY, copysign
+from pypy.rlib.rarithmetic import (LONG_BIT, INFINITY, copysign,
+    formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
@@ -130,7 +131,7 @@ def float_hex__Float(space, w_float):
     else:
         return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
-def float2string(space, w_float, format):
+def float2string(space, w_float, code, precision):
     x = w_float.floatval
     # we special-case explicitly inf and nan here
     if isinf(x):
@@ -141,23 +142,14 @@ def float2string(space, w_float, format):
     elif isnan(x):
         s = "nan"
     else:
-        s = formatd(format, x)
-        # We want float numbers to be recognizable as such,
-        # i.e., they should contain a decimal point or an exponent.
-        # However, %g may print the number as an integer;
-        # in such cases, we append ".0" to the string.
-        for c in s:
-            if c in '.eE':
-                break
-        else:
-            s += '.0'
+        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
     return space.wrap(s)
 
 def repr__Float(space, w_float):
-    return float2string(space, w_float, "%.17g")
+    return float2string(space, w_float, 'r', 0)
 
 def str__Float(space, w_float):
-    return float2string(space, w_float, "%.12g")
+    return float2string(space, w_float, 'g', DTSF_STR_PRECISION)
 
 def format__Float_ANY(space, w_float, w_spec):
     return newformat.run_formatter(space, w_spec, "format_float", w_float)

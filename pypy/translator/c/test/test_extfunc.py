@@ -283,7 +283,7 @@ def test_rarith_parts_to_float():
 def test_rarith_formatd():
     from pypy.rlib.rarithmetic import formatd
     def fn(x):
-        return formatd("%.2f", x)
+        return formatd(x, 'f', 2, 0)
 
     f = compile(fn, [float])
 

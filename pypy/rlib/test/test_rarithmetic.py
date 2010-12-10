@@ -338,9 +338,17 @@ class BaseTestRarithmetic(BaseRtypingTest):
     def test_formatd(self):
         from pypy.rlib.rarithmetic import formatd
         def f(x):
-            return formatd('%.2f', x)
+            return formatd(x, 'f', 2, 0)
         res = self.ll_to_string(self.interpret(f, [10/3.0]))
         assert res == '3.33'
+
+    def test_formatd_repr(self):
+        py.test.skip('WIP: Need full dtoa support to run this test')
+        from pypy.rlib.rarithmetic import formatd
+        def f(x):
+            return formatd(x, 'r', 0, 0)
+        res = self.ll_to_string(self.interpret(f, [1.1]))
+        assert res == '1.1'
 
     def test_formatd_overflow(self):
         from pypy.translator.c.test.test_genc import compile
@@ -349,7 +357,7 @@ class BaseTestRarithmetic(BaseRtypingTest):
         def func(x):
             # Test the %F format, which is not supported by
             # the Microsoft's msvcrt library.
-            return formatd_overflow(0, 4, 'F', x)
+            return formatd_overflow(x, 'F', 4)
 
         f = compile(func, [float])
         assert f(10/3.0) == '3.3333'
