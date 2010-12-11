@@ -938,3 +938,6 @@ class AppTestExceptions:
             raise Exception("DID NOT RAISE")
         assert str(err1) != str(err2)
         assert repr(err1) != repr(err2)
+        err3 = eval(repr(err1))
+        assert str(err3) == str(err1)
+        assert repr(err3) == repr(err1)
