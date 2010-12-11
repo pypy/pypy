@@ -60,7 +60,7 @@ class DirectRootWalker(object):
         pass
 
 
-class DirectGCTest(object):
+class BaseDirectGCTest(object):
     GC_PARAMS = {}
 
     def setup_method(self, meth):
@@ -105,6 +105,9 @@ class DirectGCTest(object):
     def malloc(self, TYPE, n=None):
         addr = self.gc.malloc(self.get_type_id(TYPE), n, zero=True)
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+
+
+class DirectGCTest(BaseDirectGCTest):
 
     def test_simple(self):
         p = self.malloc(S)
@@ -338,6 +341,15 @@ class DirectGCTest(object):
             hash = self.gc.identityhash(p)
             self.gc.collect()
             assert hash == self.gc.identityhash(self.stackroots[-1])
+            self.stackroots.pop()
+        # (7) the same, but the objects are dying young
+        for i in range(10):
+            self.gc.collect()
+            p = self.malloc(VAR, i)
+            self.stackroots.append(p)
+            hash1 = self.gc.identityhash(p)
+            hash2 = self.gc.identityhash(p)
+            assert hash1 == hash2
             self.stackroots.pop()
 
     def test_memory_alignment(self):

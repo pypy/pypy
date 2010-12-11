@@ -10,7 +10,7 @@ from pypy.annotation.annrpython import RPythonAnnotator as _RPythonAnnotator
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
 from pypy.annotation import specialize
-from pypy.annotation.listdef import ListDef, TooLateForChange
+from pypy.annotation.listdef import ListDef, ListChangeUnallowed
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
@@ -1010,7 +1010,7 @@ class TestAnnotateTestCase:
         bookkeeper = a.bookkeeper
 
         def getmdesc(bmeth):
-            return bookkeeper.immutablevalue(bmeth).descriptions.keys()[0]
+            return bookkeeper.immutablevalue(bmeth).any_description()
 
         mdescA_m = getmdesc(A().m)
         mdescC_m = getmdesc(C().m)
@@ -2862,7 +2862,7 @@ class TestAnnotateTestCase:
         assert s.items[0].flags == {'access_directly': True}
         assert isinstance(s.items[1], annmodel.SomePBC)
         assert len(s.items[1].descriptions) == 1
-        assert s.items[1].descriptions.keys()[0].flags == {'access_directly':
+        assert s.items[1].any_description().flags == {'access_directly':
                                                            True}
         assert isinstance(s.items[2], annmodel.SomeInstance)
         assert s.items[2].flags == {'access_directly': True}
@@ -3206,7 +3206,7 @@ class TestAnnotateTestCase:
             l.append(4)
 
         a = self.RPythonAnnotator()
-        py.test.raises(TooLateForChange, a.build_types, g, [])
+        py.test.raises(ListChangeUnallowed, a.build_types, g, [])
         assert called
 
     def test_listitem_no_mutating2(self):
@@ -3229,7 +3229,7 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.translator.config.translation.list_comprehension_operations = True
-        py.test.raises(TooLateForChange, a.build_types, fn, [int])
+        py.test.raises(ListChangeUnallowed, a.build_types, fn, [int])
 
     def test_listitem_never_resize(self):
         from pypy.rlib.debug import check_annotation
@@ -3243,7 +3243,7 @@ class TestAnnotateTestCase:
             check_annotation(l, checker)
 
         a = self.RPythonAnnotator()
-        py.test.raises(TooLateForChange, a.build_types, f, [])
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [])
 
 
     def test_len_of_empty_list(self):
@@ -3356,6 +3356,87 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         # not a constant: both __enter__ and __exit__ have been annotated
         assert not s.is_constant()
+
+    def test_make_sure_not_resized(self):
+        from pypy.rlib.debug import make_sure_not_resized
+
+        def pycode(consts):
+            make_sure_not_resized(consts)
+        def build1():
+            return pycode(consts=[1])
+        def build2():
+            return pycode(consts=[0])
+        def fn():
+            build1()
+            build2()
+
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.list_comprehension_operations = True
+        a.build_types(fn, [])
+        # assert did not raise ListChangeUnallowed
+
+    def test_return_immutable_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            l1 = [n, 0]
+            l1[1] = n+1
+            a.lst = l1
+            return a.lst
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.listdef.listitem.immutable
+
+    def test_immutable_list_is_actually_resized(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            l1 = [n]
+            l1.append(n+1)
+            a.lst = l1
+            return a.lst
+
+        a = self.RPythonAnnotator()
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
+
+    def test_can_merge_immutable_list_with_regular_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def foo(lst):
+            pass
+
+        def f(n):
+            a = A()
+            l1 = [n, 0]
+            l1[1] = n+1
+            a.lst = l1
+            if n > 0:
+                foo(a.lst)
+            else:
+                lst = [0]
+                lst[0] = n
+                foo(lst)
+
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
+        def f(n):
+            a = A()
+            l1 = [n, 0]
+            l1[1] = n+1
+            a.lst = l1
+            if n > 0:
+                lst = [0]
+                lst[0] = n
+                foo(lst)
+            else:
+                foo(a.lst)
+
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
 
 
 def g(n):

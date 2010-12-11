@@ -7,6 +7,10 @@ class Finished(Exception):
 
 
 class TestExecutionContext:
+    keywords = {}
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**cls.keywords)
 
     def test_action(self):
 
@@ -77,29 +81,43 @@ class TestExecutionContext:
         assert l == ['call', 'return', 'call', 'return']
 
     def test_llprofile_c_call(self):
+        from pypy.interpreter.function import Function, Method
         l = []
+        seen = []
+        space = self.space
         
-        def profile_func(space, w_arg, frame, event, w_aarg):
+        def profile_func(space, w_arg, frame, event, w_func):
             assert w_arg is space.w_None
             l.append(event)
+            if event == 'c_call':
+                seen.append(w_func)
 
-        space = self.space
-        space.getexecutioncontext().setllprofile(profile_func, space.w_None)
-
-        def check_snippet(snippet):
+        def check_snippet(snippet, expected_c_call):
+            del l[:]
+            del seen[:]
+            space.getexecutioncontext().setllprofile(profile_func,
+                                                     space.w_None)
             space.appexec([], """():
             %s
             return
             """ % snippet)
             space.getexecutioncontext().setllprofile(None, None)
             assert l == ['call', 'return', 'call', 'c_call', 'c_return', 'return']
+            if isinstance(seen[0], Method):
+                found = 'method %s of %s' % (
+                    seen[0].w_function.name,
+                    seen[0].w_class.getname(space, '?'))
+            else:
+                assert isinstance(seen[0], Function)
+                found = 'builtin %s' % seen[0].name
+            assert found == expected_c_call
 
-        check_snippet('l = []; l.append(42)')
-        check_snippet('max(1, 2)')
-        check_snippet('args = (1, 2); max(*args)')
-        check_snippet('max(1, 2, **{})')
-        check_snippet('args = (1, 2); max(*args, **{})')
-        check_snippet('abs(val=0)')
+        check_snippet('l = []; l.append(42)', 'method append of list')
+        check_snippet('max(1, 2)', 'builtin max')
+        check_snippet('args = (1, 2); max(*args)', 'builtin max')
+        check_snippet('max(1, 2, **{})', 'builtin max')
+        check_snippet('args = (1, 2); max(*args, **{})', 'builtin max')
+        check_snippet('abs(val=0)', 'builtin abs')
         
     def test_llprofile_c_exception(self):
         l = []
@@ -241,6 +259,13 @@ class TestExecutionContext:
         finally:
             sys.setprofile(None)
         """)
+
+
+class TestExecutionContextWithCallLikelyBuiltin(TestExecutionContext):
+    keywords = {'objspace.opcodes.CALL_LIKELY_BUILTIN': True}
+
+class TestExecutionContextWithCallMethod(TestExecutionContext):
+    keywords = {'objspace.opcodes.CALL_METHOD': True}
 
 
 class AppTestDelNotBlocked:

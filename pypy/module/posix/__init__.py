@@ -77,6 +77,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
         interpleveldefs['fdatasync'] = 'interp_posix.fdatasync'
+    if hasattr(os, 'fchdir'):
+        interpleveldefs['fchdir'] = 'interp_posix.fchdir'
     if hasattr(os, 'putenv'):
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os
@@ -96,6 +98,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fork'] = 'interp_posix.fork'
     if hasattr(os, 'openpty'):
         interpleveldefs['openpty'] = 'interp_posix.openpty'
+    if hasattr(os, 'forkpty'):
+        interpleveldefs['forkpty'] = 'interp_posix.forkpty'
     if hasattr(os, 'waitpid'):
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
     if hasattr(os, 'execv'):
@@ -109,6 +113,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
+    if hasattr(os, 'getloadavg'):
+        interpleveldefs['getloadavg'] = 'interp_posix.getloadavg'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getpgrp', 'setpgrp',

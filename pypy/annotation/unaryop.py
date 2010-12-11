@@ -615,6 +615,9 @@ class __extend__(SomeInstance):
                     if basedef.classdesc.all_enforced_attrs is not None:
                         if attr in basedef.classdesc.all_enforced_attrs:
                             raise HarmlesslyBlocked("get enforced attr")
+            elif isinstance(s_result, SomeList):
+                s_result = ins.classdef.classdesc.maybe_return_immutable_list(
+                    attr, s_result)
             return s_result
         return SomeObject()
     getattr.can_only_throw = []

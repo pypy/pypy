@@ -217,6 +217,38 @@ class TestInteraction:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
+    def test_ignore_python_startup(self):
+        old = os.environ.get('PYTHONSTARTUP', '')
+        try:
+            os.environ['PYTHONSTARTUP'] = crashing_demo_script
+            child = self.spawn(['-E'])
+            child.expect(re.escape(banner))
+            index = child.expect(['Traceback', '>>> '])
+            assert index == 1      # no traceback
+        finally:
+            os.environ['PYTHONSTARTUP'] = old
+
+    def test_ignore_python_inspect(self):
+        os.environ['PYTHONINSPECT_'] = '1'
+        try:
+            child = self.spawn(['-E', '-c', 'pass'])
+            from pexpect import EOF
+            index = child.expect(['>>> ', EOF])
+            assert index == 1      # no prompt
+        finally:
+            del os.environ['PYTHONINSPECT_']
+
+    def test_ignore_python_path(self):
+        old = os.environ.get('PYTHONPATH', '')
+        try:
+            os.environ['PYTHONPATH'] = 'foobarbaz'
+            child = self.spawn(['-E', '-c', 'import sys; print sys.path'])
+            from pexpect import EOF
+            index = child.expect(['foobarbaz', EOF])
+            assert index == 1      # no foobarbaz
+        finally:
+            os.environ['PYTHONPATH'] = old
+
     def test_unbuffered(self):
         line = 'import os,sys;sys.stdout.write(str(789));os.read(0,1)'
         child = self.spawn(['-u', '-c', line])
@@ -329,6 +361,10 @@ class TestInteraction:
         child = self.spawn(['-mpypy.translator.goal.test2.mymodule'])
         child.expect('mymodule running')
 
+    def test_ps1_only_if_interactive(self):
+        argv = ['-c', 'import sys; print hasattr(sys, "ps1")']
+        child = self.spawn(argv)
+        child.expect('False')
 
 class TestNonInteractive:
 
@@ -534,7 +570,8 @@ class AppTestAppMain:
             newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
             assert newpath == sys.path
             newpath = app_main.get_library_path(self.fake_exe)
-            assert newpath == self.expected_path
+            # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
+            assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
             sys.path.pop()
 
@@ -547,7 +584,9 @@ class AppTestAppMain:
             app_main.os = os
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
             newpath = app_main.get_library_path(pypy_c)
-            assert len(newpath) == 3
+            # we get at least lib_pypy, lib-python/modified-X.Y.Z,
+            # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
+            assert len(newpath) >= 3
             for p in newpath:
                 assert p.startswith(self.trunkdir)
         finally:

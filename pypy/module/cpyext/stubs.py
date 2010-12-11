@@ -668,24 +668,6 @@ def PyDict_MergeFromSeq2(space, a, seq2, override):
     """
     raise NotImplementedError
 
-@cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
-def PyErr_NormalizeException(space, exc, val, tb):
-    """Under certain circumstances, the values returned by PyErr_Fetch() below
-    can be "unnormalized", meaning that *exc is a class object but *val is
-    not an instance of the  same class.  This function can be used to instantiate
-    the class in that case.  If the values are already normalized, nothing happens.
-    The delayed normalization is implemented to improve performance."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.CCHARP], PyObject)
-def PyErr_SetFromErrnoWithFilename(space, type, filename):
-    """Similar to PyErr_SetFromErrno(), with the additional behavior that if
-    filename is not NULL, it is passed to the constructor of type as a third
-    parameter.  In the case of exceptions such as IOError and OSError,
-    this is used to define the filename attribute of the exception instance.
-    Return value: always NULL."""
-    raise NotImplementedError
-
 @cpython_api([rffi.INT_real], PyObject)
 def PyErr_SetFromWindowsErr(space, ierr):
     """This is a convenience function to raise WindowsError. If called with
@@ -809,21 +791,6 @@ def Py_LeaveRecursiveCall(space, ):
     successful invocation of Py_EnterRecursiveCall()."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFile_Check(space, p):
-    """Return true if its argument is a PyFileObject or a subtype of
-    PyFileObject.
-    
-    Allowed subtypes to be accepted."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFile_CheckExact(space, p):
-    """Return true if its argument is a PyFileObject, but not a subtype of
-    PyFileObject.
-    """
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):
     """Create a new PyFileObject from the already-open standard C file
@@ -855,22 +822,6 @@ def PyFile_DecUseCount(space, p):
     
     The GIL must be held while calling this function.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyFile_GetLine(space, p, n):
-    """
-    
-    
-    
-    Equivalent to p.readline([n]), this function reads one line from the
-    object p.  p may be a file object or any object with a readline()
-    method.  If n is 0, exactly one line is read, regardless of the length of
-    the line.  If n is greater than 0, no more than n bytes will be read
-    from the file; a partial line can be returned.  In both cases, an empty string
-    is returned if the end of the file is reached immediately.  If n is less than
-    0, however, one line is read regardless of length, but EOFError is
-    raised if the end of the file is reached immediately."""
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
@@ -1428,17 +1379,6 @@ def Py_SetProgramName(space, name):
     zero-terminated character string in static storage whose contents will not
     change for the duration of the program's execution.  No code in the Python
     interpreter will change the contents of this storage."""
-    raise NotImplementedError
-
-@cpython_api([], rffi.CCHARP, error=CANNOT_FAIL)
-def Py_GetProgramName(space, ):
-    """
-    
-    
-    
-    Return the program name set with Py_SetProgramName(), or the default.
-    The returned string points into static storage; the caller should not modify its
-    value."""
     raise NotImplementedError
 
 @cpython_api([], rffi.CCHARP, error=CANNOT_FAIL)
@@ -2287,13 +2227,6 @@ def PySequence_Count(space, o, value):
     
     This function returned an int type. This might require changes
     in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySequence_Contains(space, o, value):
-    """Determine if o contains value.  If an item in o is equal to value,
-    return 1, otherwise return 0. On error, return -1.  This is
-    equivalent to the Python expression value in o."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)

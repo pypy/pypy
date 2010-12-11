@@ -1,7 +1,8 @@
 
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
-from _ctypes.basics import sizeof, byref, keepalive_key
+from _ctypes.basics import keepalive_key, store_reference, ensure_objects
+from _ctypes.basics import sizeof, byref
 from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
      array_slice_setitem
 
@@ -55,7 +56,8 @@ class PointerType(_CDataMeta):
     def set_type(self, TP):
         ffiarray = _rawffi.Array('P')
         def __init__(self, value=None):
-            self._buffer = ffiarray(1, autofree=True)
+            if not hasattr(self, '_buffer'):
+                self._buffer = ffiarray(1, autofree=True)
             if value is not None:
                 self.contents = value
         self._ffiarray = ffiarray
@@ -99,7 +101,10 @@ class _Pointer(_CData):
         return self._type_._CData_output(self._subarray(index), self, index)
 
     def __setitem__(self, index, value):
-        self._subarray(index)[0] = self._type_._CData_value(value)
+        cobj = self._type_.from_param(value)
+        if ensure_objects(cobj) is not None:
+            store_reference(self, index, cobj._objects)
+        self._subarray(index)[0] = cobj._get_buffer_value()
 
     def __nonzero__(self):
         return self._buffer[0] != 0
@@ -110,29 +115,32 @@ def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"
                         % (tp,))
-    if isinstance(obj, Array):
-        ptr = tp.__new__(tp)
-        ptr._buffer = tp._ffiarray(1, autofree=True)
-        ptr._buffer[0] = obj._buffer
-        return ptr
     if isinstance(obj, (int, long)):
         result = tp()
         result._buffer[0] = obj
         return result
-    if obj is None:
+    elif obj is None:
         result = tp()
         return result
-    if not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
+    elif isinstance(obj, Array):
+        ptr = tp.__new__(tp)
+        ptr._buffer = tp._ffiarray(1, autofree=True)
+        ptr._buffer[0] = obj._buffer
+        result = ptr
+    elif not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
         raise TypeError("cast() argument 1 must be a pointer, not %s"
                         % (type(obj),))
-    result = tp()
+    else:
+        result = tp()
+        result._buffer[0] = obj._buffer[0]
 
     # The casted objects '_objects' member:
-    # It must certainly contain the source objects one.
+    # From now on, both objects will use the same dictionary
+    # It must certainly contain the source objects
     # It must contain the source object itself.
     if obj._ensure_objects() is not None:
-        result._objects = {keepalive_key(0): obj._objects,
-                           keepalive_key(1): obj}
+        result._objects = obj._objects
+        if isinstance(obj._objects, dict):
+            result._objects[id(obj)] =  obj
 
-    result._buffer[0] = obj._buffer[0]
     return result

@@ -1,5 +1,6 @@
 
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import (cpython_api, PyObject, CANNOT_FAIL,
                                     build_type_checkers, Py_ssize_t)
 
@@ -19,6 +20,9 @@ def PyInt_AsLong(space, w_obj):
     already one, and then return its value. If there is an error, -1 is
     returned, and the caller should check PyErr_Occurred() to find out whether
     there was an error, or whether the value just happened to be -1."""
+    if w_obj is None:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("an integer is required, got NULL"))
     return space.int_w(space.int(w_obj))
 
 @cpython_api([PyObject], lltype.Unsigned, error=-1)
@@ -26,6 +30,9 @@ def PyInt_AsUnsignedLong(space, w_obj):
     """Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
+    if w_obj is None:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("an integer is required, got NULL"))
     return space.uint_w(space.int(w_obj))
 
 @cpython_api([PyObject], lltype.Signed, error=CANNOT_FAIL)
@@ -39,6 +46,9 @@ def PyInt_AsSsize_t(space, w_obj):
     PyLongObject, if it is not already one, and then return its value as
     Py_ssize_t.
     """
+    if w_obj is None:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("an integer is required, got NULL"))
     return space.int_w(w_obj) # XXX this is wrong on win64
 
 @cpython_api([Py_ssize_t], PyObject)
@@ -48,4 +58,3 @@ def PyInt_FromSsize_t(space, ival):
     returned.
     """
     return space.wrap(ival) # XXX this is wrong on win64
-

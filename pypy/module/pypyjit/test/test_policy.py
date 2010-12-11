@@ -4,7 +4,7 @@ pypypolicy = policy.PyPyJitPolicy()
 
 def test_id_any():
     from pypy.objspace.std.default import id__ANY
-    assert not pypypolicy.look_inside_function(id__ANY)
+    assert pypypolicy.look_inside_function(id__ANY)
 
 def test_bigint():
     from pypy.rlib.rbigint import rbigint

@@ -12,6 +12,7 @@ from pypy.rpython.ootypesystem import rlist as oo_rlist
 from pypy.rpython.rint import signed_repr
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rlib.debug import ll_assert
 
 # undo the specialization parameter
 for n1 in 'get set del'.split():
@@ -1076,7 +1077,13 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        py.test.raises(AssertionError, self.interpret, f, [1])
+        if self.type_system == 'lltype':
+            # on lltype we always get an AssertionError
+            py.test.raises(AssertionError, self.interpret, f, [1])
+        else:
+            # on ootype we happen to get through the ll_asserts and to
+            # hit the IndexError from ootype.py
+            self.interpret_raises(IndexError, f, [1])
 
         def f(x):
             l = [1]
@@ -1121,12 +1128,13 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        try:
-            self.interpret_raises(IndexError, f, [1])
-        except (AssertionError,), e:
-            pass
+        if self.type_system == 'lltype':
+            # on lltype we always get an AssertionError
+            py.test.raises(AssertionError, self.interpret, f, [1])
         else:
-            assert False
+            # on ootype we happen to get through the ll_asserts and to
+            # hit the IndexError from ootype.py
+            self.interpret_raises(IndexError, f, [1])
 
         def f(x):
             l = [1]
@@ -1163,12 +1171,13 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        try:
-            self.interpret_raises(IndexError, f, [1])
-        except (AssertionError,), e:
-            pass
+        if self.type_system == 'lltype':
+            # on lltype we always get an AssertionError
+            py.test.raises(AssertionError, self.interpret, f, [1])
         else:
-            assert False
+            # on ootype we happen to get through the ll_asserts and to
+            # hit the IndexError from ootype.py
+            self.interpret_raises(IndexError, f, [1])
 
     def test_charlist_extension_1(self):
         def f(n):
@@ -1327,8 +1336,32 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == True
 
+    def test_immutable_list_out_of_instance(self):
+        from pypy.translator.simplify import get_funcobj
+        for immutable_fields in (["a", "b"], ["a", "b", "y[*]"]):
+            class A(object):
+                _immutable_fields_ = immutable_fields
+            class B(A):
+                pass
+            def f(i):
+                b = B()
+                lst = [i]
+                lst[0] += 1
+                b.y = lst
+                ll_assert(b.y is lst, "copying when reading out the attr?")
+                return b.y[0]
+            res = self.interpret(f, [10])
+            assert res == 11
+            t, rtyper, graph = self.gengraph(f, [int])
+            block = graph.startblock
+            op = block.operations[-1]
+            assert op.opname == 'direct_call'
+            func = get_funcobj(op.args[0].value)._callable
+            assert ('foldable' in func.func_name) == \
+                   ("y[*]" in immutable_fields)
 
 class TestLLtype(BaseTestRlist, LLRtypeMixin):
+    type_system = 'lltype'
     rlist = ll_rlist
 
     def test_memoryerror(self):
@@ -1420,14 +1453,16 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
             lst2 = [i]
             lst2.append(42)    # mutated list
             return lst1[i] + lst2[i]
-        _, _, graph = self.gengraph(f, [int])
+        from pypy.annotation import model as annmodel
+        _, _, graph = self.gengraph(f, [annmodel.SomeInteger(nonneg=True)])
         block = graph.startblock
         lst1_getitem_op = block.operations[-3]     # XXX graph fishing
         lst2_getitem_op = block.operations[-2]
         func1 = lst1_getitem_op.args[0].value._obj._callable
         func2 = lst2_getitem_op.args[0].value._obj._callable
         assert func1.oopspec == 'list.getitem_foldable(l, index)'
-        assert func2.oopspec == 'list.getitem(l, index)'
+        assert not hasattr(func2, 'oopspec')
 
 class TestOOtype(BaseTestRlist, OORtypeMixin):
     rlist = oo_rlist
+    type_system = 'ootype'

@@ -32,6 +32,7 @@ class FakeLLObject(object):
 
 
 class TestFfiCall(BaseTestBasic, LLtypeMixin):
+    jit_ffi = True
 
     class namespace:
         cpu = LLtypeMixin.cpu

@@ -30,6 +30,17 @@ A good summary of the progress over the years.....enjoy!
   * `Düsseldorf (October 2006)`_
   * `Leysin (January 2007)`_
   * `Hildesheim (Feb 2007)`_ (also `EU report writing sprint`_)
+  * `Göteborg (November 2007)`_
+  * `Leysin (January 2008)`_
+  * `Berlin (May 2008)`_
+  * `Vilnius after EuroPython (July 2008)`_
+  * `Düsseldorf (August 2008)`_
+  * `Wroclaw (February 2009)`_
+  * `Leysin (April 2009)`_
+  * `Göteborg (August 2009)`_
+  * `Düsseldorf (November 2009)`_
+  * `CERN (July 2010)`_
+  * `Düsseldorf (October 2010)`_
 
     .. _Hildesheim (Feb 2003): http://codespeak.net/pypy/extradoc/sprintinfo/HildesheimReport.html
     .. _Gothenburg (May 2003): http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2003-sprintreport.txt
@@ -55,3 +66,15 @@ A good summary of the progress over the years.....enjoy!
     .. _Hildesheim (Feb 2007): http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/sprint-report.txt
     .. _`EU report writing sprint`: http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/eu-report-sprint-report.txt
     .. _`PyCon/Dallas (Feb 2006)`: http://codespeak.net/pypy/extradoc/sprintinfo/pycon06/sprint-report.txt
+    .. _`Göteborg (November 2007)`: http://morepypy.blogspot.com/2007_11_01_archive.html
+    .. _`Leysin (January 2008)`: http://morepypy.blogspot.com/2008/01/leysin-winter-sport-sprint-started.html
+    .. _`Berlin (May 2008)`: http://morepypy.blogspot.com/2008_05_01_archive.html
+    .. _`Vilnius after EuroPython (July 2008)`: http://morepypy.blogspot.com/2008/07/europython-2008-pypy-talks-and-sprint.html
+    .. _`Düsseldorf (August 2008)`: http://morepypy.blogspot.com/2008_10_01_archive.html
+    .. _`Wroclaw (February 2009)`: http://morepypy.blogspot.com/2009/02/wroclaw-2009-sprint-progress-report.html
+    .. _`Leysin (April 2009)`: http://morepypy.blogspot.com/2009/04/leysin-sprint-report.html
+    .. _`Göteborg (August 2009)`: http://morepypy.blogspot.com/2009/08/gothenburg-jit-sprint-report.html
+    .. _`Düsseldorf (November 2009)`: http://morepypy.blogspot.com/2009/11/dusseldorf-sprint-report.html
+    .. _`CERN (July 2010)`: http://morepypy.blogspot.com/2010/07/cern-sprint-report-wrapping-c-libraries.html
+    .. _`Düsseldorf (October 2010)`: http://morepypy.blogspot.com/2010/10/dusseldorf-sprint-report-2010.html
+

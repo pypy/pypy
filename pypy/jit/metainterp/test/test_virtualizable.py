@@ -481,9 +481,13 @@ class ImplicitVirtualizableTests:
                 myjitdriver.jit_merge_point(frame=frame, n=n, x=x)
                 frame.s = hint(frame.s, promote=True)
                 n -= 1
-                x += frame.l[frame.s]
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
                 frame.s += 1
-                x += frame.l[frame.s]
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
                 x += len(frame.l)
                 frame.s -= 1
             return x
@@ -995,7 +999,9 @@ class ImplicitVirtualizableTests:
                 jitdriver.can_enter_jit(frame=frame, n=n)
                 jitdriver.jit_merge_point(frame=frame, n=n)
                 popped = frame.stack[frame.stackpos]
-                frame.stackpos -= 1
+                sp = frame.stackpos - 1
+                assert sp >= 0
+                frame.stackpos = sp
                 to_push = intmask(popped * 3)
                 frame.stack[frame.stackpos] = to_push
                 frame.stackpos += 1

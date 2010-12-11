@@ -1107,7 +1107,7 @@ class DarwinFunctionGcRootTracker64(ElfFunctionGcRootTracker64):
     format = 'darwin64'
     function_names_prefix = '_'
 
-    LABEL = ElfFunctionGcRootTracker32.LABEL
+    LABEL = ElfFunctionGcRootTracker64.LABEL
     r_jmptable_item = re.compile(r"\t.(?:long|quad)\t"+LABEL+"(-\"?[A-Za-z0-9$]+\"?)?\s*$")
 
     r_functionstart = re.compile(r"_(\w+):\s*$")
@@ -1406,6 +1406,7 @@ class DarwinAssemblerParser(AssemblerParser):
                      'const_data'
                      ]
     r_sectionstart = re.compile(r"\t\.("+'|'.join(OTHERSECTIONS)+").*$")
+    sections_doesnt_end_function = {'cstring': True, 'const': True}
 
     def find_functions(self, iterlines):
         functionlines = []
@@ -1413,20 +1414,20 @@ class DarwinAssemblerParser(AssemblerParser):
         in_function = False
         for n, line in enumerate(iterlines):
             if self.r_textstart.match(line):
-                assert not in_text, "unexpected repeated .text start: %d" % n
                 in_text = True
             elif self.r_sectionstart.match(line):
-                if in_function:
+                sectionname = self.r_sectionstart.match(line).group(1)
+                if (in_function and
+                    sectionname not in self.sections_doesnt_end_function):
                     yield in_function, functionlines
                     functionlines = []
+                    in_function = False
                 in_text = False
-                in_function = False
             elif in_text and self.FunctionGcRootTracker.r_functionstart.match(line):
                 yield in_function, functionlines
                 functionlines = []
                 in_function = True
             functionlines.append(line)
-
         if functionlines:
             yield in_function, functionlines
 
@@ -1442,23 +1443,6 @@ class DarwinAssemblerParser64(DarwinAssemblerParser):
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
     FunctionGcRootTracker = Mingw32FunctionGcRootTracker
-
-    def find_functions(self, iterlines):
-        functionlines = []
-        in_text = False
-        in_function = False
-        for n, line in enumerate(iterlines):
-            if self.r_textstart.match(line):
-                in_text = True
-            elif self.r_sectionstart.match(line):
-                in_text = False
-            elif in_text and self.FunctionGcRootTracker.r_functionstart.match(line):
-                yield in_function, functionlines
-                functionlines = []
-                in_function = True
-            functionlines.append(line)
-        if functionlines:
-            yield in_function, functionlines
 
 class MsvcAssemblerParser(AssemblerParser):
     format = "msvc"

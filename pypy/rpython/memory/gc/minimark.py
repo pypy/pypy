@@ -3,7 +3,8 @@
 Environment variables can be used to fine-tune the following parameters:
     
  PYPY_GC_NURSERY        The nursery size.  Defaults to half the size of
-                        the L2 cache.  Try values like '1.2MB'.
+                        the L2 cache.  Try values like '1.2MB'.  Small values
+                        (like 1 or 1KB) are useful for debugging.
 
  PYPY_GC_MAJOR_COLLECT  Major collection memory factor.  Default is '1.82',
                         which means trigger a major collection when the
@@ -12,7 +13,7 @@ Environment variables can be used to fine-tune the following parameters:
                         collection.
 
  PYPY_GC_GROWTH         Major collection threshold's max growth rate.
-                        Default is '1.3'.  Useful to collect more often
+                        Default is '1.4'.  Useful to collect more often
                         than normally on sudden memory growth, e.g. when
                         there is a temporary peak in memory usage.
 
@@ -22,10 +23,21 @@ Environment variables can be used to fine-tune the following parameters:
                         crash the program with a fatal error.  Try values
                         like '1.6GB'.
 
+ PYPY_GC_MAX_DELTA      The major collection threshold will never be set
+                        to more than PYPY_GC_MAX_DELTA the amount really
+                        used after a collection.  Defaults to 1/8th of the
+                        total RAM size (which is constrained to be at most
+                        2/3/4GB on 32-bit systems).  Try values like '200MB'.
+
  PYPY_GC_MIN            Don't collect while the memory size is below this
                         limit.  Useful to avoid spending all the time in
                         the GC in very small programs.  Defaults to 8
                         times the nursery.
+
+ PYPY_GC_DEBUG          Enable extra checks around collections that are
+                        too slow for normal use.  Values are 0 (off),
+                        1 (on major collections) or 2 (also on minor
+                        collections).
 """
 # XXX Should find a way to bound the major collection threshold by the
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
@@ -36,7 +48,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
-from pypy.rpython.memory.gc import minimarkpage, base, generation
+from pypy.rpython.memory.gc import minimarkpage, env
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -96,6 +108,7 @@ class MiniMarkGC(MovingGCBase):
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx experiment with False
+    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains
@@ -154,7 +167,7 @@ class MiniMarkGC(MovingGCBase):
         # grow at most by the following factor from one collection to the
         # next.  Used e.g. when there is a sudden, temporary peak in memory
         # usage; this avoids that the upper bound grows too fast.
-        "growth_rate_max": 1.3,
+        "growth_rate_max": 1.4,
 
         # The number of array indices that are mapped to a single bit in
         # write_barrier_from_array().  Must be a power of two.  The default
@@ -198,6 +211,7 @@ class MiniMarkGC(MovingGCBase):
         self.min_heap_size = 0.0
         self.max_heap_size = 0.0
         self.max_heap_size_already_raised = False
+        self.max_delta = float(r_uint(-1))
         #
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
@@ -215,7 +229,8 @@ class MiniMarkGC(MovingGCBase):
         self.nursery      = NULL
         self.nursery_free = NULL
         self.nursery_top  = NULL
-        self.debug_always_do_minor_collect = False
+        self.debug_tiny_nursery = -1
+        self.debug_rotating_nurseries = None
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
         if ArenaCollectionClass is None:
@@ -282,35 +297,46 @@ class MiniMarkGC(MovingGCBase):
             #
             # From there on, the GC is fully initialized and the code
             # below can use it
-            newsize = base.read_from_env('PYPY_GC_NURSERY')
-            # PYPY_GC_NURSERY=1 forces a minor collect for every malloc.
-            # Useful to debug external factors, like trackgcroot or the
-            # handling of the write barrier.
-            self.debug_always_do_minor_collect = newsize == 1
+            newsize = env.read_from_env('PYPY_GC_NURSERY')
+            # PYPY_GC_NURSERY=smallvalue means that minor collects occur
+            # very frequently; the extreme case is PYPY_GC_NURSERY=1, which
+            # forces a minor collect for every malloc.  Useful to debug
+            # external factors, like trackgcroot or the handling of the write
+            # barrier.  Implemented by still using 'minsize' for the nursery
+            # size (needed to handle e.g. mallocs of 8249 words) but hacking
+            # at the current nursery position in collect_and_reserve().
             if newsize <= 0:
-                newsize = generation.estimate_best_nursery_size()
+                newsize = env.estimate_best_nursery_size()
                 if newsize <= 0:
                     newsize = defaultsize
-            newsize = max(newsize, minsize)
+            if newsize < minsize:
+                self.debug_tiny_nursery = newsize & ~(WORD-1)
+                newsize = minsize
             #
-            major_coll = base.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
+            major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
             if major_coll > 1.0:
                 self.major_collection_threshold = major_coll
             #
-            growth = base.read_float_from_env('PYPY_GC_GROWTH')
+            growth = env.read_float_from_env('PYPY_GC_GROWTH')
             if growth > 1.0:
                 self.growth_rate_max = growth
             #
-            min_heap_size = base.read_uint_from_env('PYPY_GC_MIN')
+            min_heap_size = env.read_uint_from_env('PYPY_GC_MIN')
             if min_heap_size > 0:
                 self.min_heap_size = float(min_heap_size)
             else:
                 # defaults to 8 times the nursery
                 self.min_heap_size = newsize * 8
             #
-            max_heap_size = base.read_uint_from_env('PYPY_GC_MAX')
+            max_heap_size = env.read_uint_from_env('PYPY_GC_MAX')
             if max_heap_size > 0:
                 self.max_heap_size = float(max_heap_size)
+            #
+            max_delta = env.read_uint_from_env('PYPY_GC_MAX_DELTA')
+            if max_delta > 0:
+                self.max_delta = float(max_delta)
+            else:
+                self.max_delta = 0.125 * env.get_total_memory()
             #
             self.minor_collection()    # to empty the nursery
             llarena.arena_free(self.nursery)
@@ -318,17 +344,24 @@ class MiniMarkGC(MovingGCBase):
             self.allocate_nursery()
 
 
-    def allocate_nursery(self):
-        debug_start("gc-set-nursery-size")
-        debug_print("nursery size:", self.nursery_size)
+    def _nursery_memory_size(self):
+        extra = self.nonlarge_gcptrs_max + 1
+        return self.nursery_size + extra
+
+    def _alloc_nursery(self):
         # the start of the nursery: we actually allocate a bit more for
         # the nursery than really needed, to simplify pointer arithmetic
         # in malloc_fixedsize_clear().  The few extra pages are never used
         # anyway so it doesn't even count.
-        extra = self.nonlarge_gcptrs_max + 1
-        self.nursery = llarena.arena_malloc(self.nursery_size + extra, 2)
-        if not self.nursery:
+        nursery = llarena.arena_malloc(self._nursery_memory_size(), 2)
+        if not nursery:
             raise MemoryError("cannot allocate nursery")
+        return nursery
+
+    def allocate_nursery(self):
+        debug_start("gc-set-nursery-size")
+        debug_print("nursery size:", self.nursery_size)
+        self.nursery = self._alloc_nursery()
         # the current position in the nursery:
         self.nursery_free = self.nursery
         # the end of the nursery:
@@ -360,6 +393,40 @@ class MiniMarkGC(MovingGCBase):
         #
         self.next_major_collection_threshold = threshold
         return bounded
+
+
+    def post_setup(self):
+        # set up extra stuff for PYPY_GC_DEBUG.
+        MovingGCBase.post_setup(self)
+        if self.DEBUG and llarena.has_protect:
+            # gc debug mode: allocate 23 nurseries instead of just 1,
+            # and use them alternatively, while mprotect()ing the unused
+            # ones to detect invalid access.
+            debug_start("gc-debug")
+            self.debug_rotating_nurseries = []
+            for i in range(22):
+                nurs = self._alloc_nursery()
+                llarena.arena_protect(nurs, self._nursery_memory_size(), True)
+                self.debug_rotating_nurseries.append(nurs)
+            debug_print("allocated", len(self.debug_rotating_nurseries),
+                        "extra nurseries")
+            debug_stop("gc-debug")
+
+    def debug_rotate_nursery(self):
+        if self.debug_rotating_nurseries is not None:
+            debug_start("gc-debug")
+            oldnurs = self.nursery
+            llarena.arena_protect(oldnurs, self._nursery_memory_size(), True)
+            self.debug_rotating_nurseries.append(oldnurs)
+            #
+            newnurs = self.debug_rotating_nurseries.pop(0)
+            llarena.arena_protect(newnurs, self._nursery_memory_size(), False)
+            self.nursery = newnurs
+            self.nursery_top = self.nursery + self.nursery_size
+            debug_print("switching from nursery", oldnurs,
+                        "to nursery", self.nursery,
+                        "size", self.nursery_size)
+            debug_stop("gc-debug")
 
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect=True,
@@ -499,8 +566,9 @@ class MiniMarkGC(MovingGCBase):
         self.nursery_free = result + totalsize
         ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
         #
-        if self.debug_always_do_minor_collect:
-            self.nursery_free = self.nursery_top
+        if self.debug_tiny_nursery >= 0:   # for debugging
+            if self.nursery_top - self.nursery_free > self.debug_tiny_nursery:
+                self.nursery_free = self.nursery_top - self.debug_tiny_nursery
         #
         return result
     collect_and_reserve._dont_inline_ = True
@@ -638,7 +706,12 @@ class MiniMarkGC(MovingGCBase):
         # means recording that they have a smaller size, so that when
         # moved out of the nursery, they will consume less memory.
         # In particular, an array with GCFLAG_HAS_CARDS is never resized.
+        # Also, a nursery object with GCFLAG_HAS_SHADOW is not resized
+        # either, as this would potentially loose part of the memory in
+        # the already-allocated shadow.
         if not self.is_in_nursery(obj):
+            return False
+        if self.header(obj).tid & GCFLAG_HAS_SHADOW:
             return False
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -822,7 +895,7 @@ class MiniMarkGC(MovingGCBase):
         def remember_young_pointer(addr_struct, newvalue):
             # 'addr_struct' is the address of the object in which we write.
             # 'newvalue' is the address that we are going to write in there.
-            if DEBUG:
+            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
                 ll_assert(not self.is_in_nursery(addr_struct),
                           "nursery object with GCFLAG_NO_YOUNG_PTRS")
             #
@@ -859,7 +932,7 @@ class MiniMarkGC(MovingGCBase):
             # 'addr_array' is the address of the object in which we write,
             # which must have an array part;  'index' is the index of the
             # item that is (or contains) the pointer that we write.
-            if DEBUG:
+            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
                 ll_assert(not self.is_in_nursery(addr_array),
                           "nursery array with GCFLAG_NO_YOUNG_PTRS")
             objhdr = self.header(addr_array)
@@ -981,13 +1054,14 @@ class MiniMarkGC(MovingGCBase):
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
         llarena.arena_reset(self.nursery, self.nursery_size, 2)
+        self.debug_rotate_nursery()
         self.nursery_free = self.nursery
         #
         debug_print("minor collect, total memory used:",
                     self.get_total_memory_used())
+        if self.DEBUG >= 2:
+            self.debug_check_consistency()     # expensive!
         debug_stop("gc-minor")
-        if 0:  # not we_are_translated():
-            self.debug_check_consistency()     # xxx expensive!
 
 
     def collect_roots_in_nursery(self):
@@ -1205,10 +1279,6 @@ class MiniMarkGC(MovingGCBase):
         self.collect_roots()
         self.visit_all_objects()
         #
-        # Weakref support: clear the weak pointers to dying objects
-        if self.old_objects_with_weakrefs.non_empty():
-            self.invalidate_old_weakrefs()
-        #
         # Finalizer support: adds the flag GCFLAG_VISITED to all objects
         # with a finalizer and all objects reachable from there (and also
         # moves some objects from 'objects_with_finalizers' to
@@ -1217,6 +1287,10 @@ class MiniMarkGC(MovingGCBase):
             self.deal_with_objects_with_finalizers()
         #
         self.objects_to_trace.delete()
+        #
+        # Weakref support: clear the weak pointers to dying objects
+        if self.old_objects_with_weakrefs.non_empty():
+            self.invalidate_old_weakrefs()
         #
         # Walk all rawmalloced objects and free the ones that don't
         # have the GCFLAG_VISITED flag.
@@ -1245,9 +1319,12 @@ class MiniMarkGC(MovingGCBase):
         #
         # Set the threshold for the next major collection to be when we
         # have allocated 'major_collection_threshold' times more than
+        # we currently have -- but no more than 'max_delta' more than
         # we currently have.
+        total_memory_used = float(self.get_total_memory_used())
         bounded = self.set_major_threshold_from(
-            self.get_total_memory_used() * self.major_collection_threshold,
+            min(total_memory_used * self.major_collection_threshold,
+                total_memory_used + self.max_delta),
             reserving_size)
         #
         # Max heap size: gives an upper bound on the threshold.  If we
@@ -1406,12 +1483,21 @@ class MiniMarkGC(MovingGCBase):
                     size = self.get_size(obj)
                     shadowhdr = self._malloc_out_of_nursery(size_gc_header +
                                                             size)
-                    # initialize to an invalid tid *without* GCFLAG_VISITED,
-                    # so that if the object dies before the next minor
-                    # collection, the shadow will stay around but be collected
-                    # by the next major collection.
+                    # Initialize the shadow enough to be considered a
+                    # valid gc object.  If the original object stays
+                    # alive at the next minor collection, it will anyway
+                    # be copied over the shadow and overwrite the
+                    # following fields.  But if the object dies, then
+                    # the shadow will stay around and only be freed at
+                    # the next major collection, at which point we want
+                    # it to look valid (but ready to be freed).
                     shadow = shadowhdr + size_gc_header
-                    self.header(shadow).tid = 0
+                    self.header(shadow).tid = self.header(obj).tid
+                    typeid = self.get_type_id(obj)
+                    if self.is_varsize(typeid):
+                        lenofs = self.varsize_offset_to_length(typeid)
+                        (shadow + lenofs).signed[0] = (obj + lenofs).signed[0]
+                    #
                     self.header(obj).tid |= GCFLAG_HAS_SHADOW
                     self.young_objects_shadows.setitem(obj, shadow)
                 #

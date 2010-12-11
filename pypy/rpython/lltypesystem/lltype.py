@@ -1381,6 +1381,15 @@ class _parentable(_container):
         self._check()   # no double-frees
         self._storage = None
 
+    def _protect(self):
+        result = self._storage
+        self._free()   # no double-frees or double-protects
+        return result
+
+    def _unprotect(self, saved_storage):
+        assert self._storage is None
+        self._storage = saved_storage
+
     def _was_freed(self):
         if self._storage is None:
             return True

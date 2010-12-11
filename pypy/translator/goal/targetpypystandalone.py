@@ -28,9 +28,14 @@ def create_entry_point(space, w_dict):
     w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
     w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
     w_os = setup_nanos(space)
+    withjit = space.config.objspace.usemodules.pypyjit
 
     def entry_point(argv):
         space.timer.start("Entrypoint")
+        if withjit:
+            from pypy.jit.backend.hlinfo import highleveljitinfo
+            highleveljitinfo.sys_executable = argv[0]
+
         #debug("entry point starting") 
         #for arg in argv: 
         #    debug(" argv -> " + arg)

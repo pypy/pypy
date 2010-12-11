@@ -40,6 +40,6 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                 n += 1
             return res
         #
-        res = self.meta_interp(f, [0])
+        res = self.meta_interp(f, [0], jit_ffi=True)
         return res
 

@@ -156,7 +156,7 @@ current_trace_length.oopspec = 'jit.current_trace_length()'
 
 def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
                       arg3=-sys.maxint-1, arg4=-sys.maxint-1):
-    """When JITted, cause an extra operation DEBUG_MERGE_POINT to appear in
+    """When JITted, cause an extra operation JIT_DEBUG to appear in
     the graphs.  Should not be left after debugging."""
     keepalive_until_here(string) # otherwise the whole function call is removed
 jit_debug.oopspec = 'jit.debug(string, arg1, arg2, arg3, arg4)'
@@ -260,18 +260,12 @@ OPTIMIZER_SIMPLE = 0
 OPTIMIZER_NO_UNROLL = 1
 OPTIMIZER_FULL = 2
 
-DEBUG_OFF = 0
-DEBUG_PROFILE = 1
-DEBUG_STEPS = 2
-DEBUG_DETAILED = 3
-
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
               'trace_limit': 10000,
               'inlining': False,
               'optimizer': OPTIMIZER_FULL,
-              #'optimizer': OPTIMIZER_NO_UNROLL,
-              'debug' : DEBUG_STEPS,
+              'loop_longevity': 1000,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 

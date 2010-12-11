@@ -4,6 +4,7 @@ This contains all the code that is directly run
 when executing on top of the llinterpreter.
 """
 
+import weakref
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import (ConstInt, ConstPtr,
@@ -161,6 +162,8 @@ TYPES = {
 # ____________________________________________________________
 
 class CompiledLoop(object):
+    has_been_freed = False
+
     def __init__(self):
         self.inputargs = []
         self.operations = []
@@ -285,6 +288,11 @@ def compile_start():
     del _variables[:]
     return _to_opaque(CompiledLoop())
 
+def mark_as_free(loop):
+    loop = _from_opaque(loop)
+    assert not loop.has_been_freed
+    loop.has_been_freed = True
+
 def compile_start_int_var(loop):
     return compile_start_ref_var(loop, lltype.Signed)
 
@@ -317,7 +325,7 @@ def compile_add_loop_token(loop, descr):
         raise ValueError("CALL_ASSEMBLER not supported")
     loop = _from_opaque(loop)
     op = loop.operations[-1]
-    op.descr = descr
+    op.descr = weakref.ref(descr)
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -436,6 +444,7 @@ class Frame(object):
         verbose = True
         self.opindex = 0
         while True:
+            assert not self.loop.has_been_freed
             op = self.loop.operations[self.opindex]
             args = [self.getenv(v) for v in op.args]
             if not op.is_final():
@@ -447,7 +456,10 @@ class Frame(object):
                     _stats.exec_conditional_jumps += 1
                     if op.jump_target is not None:
                         # a patched guard, pointing to further code
-                        args = [self.getenv(v) for v in op.fail_args if v]
+                        if op.fail_args:
+                            args = [self.getenv(v) for v in op.fail_args if v]
+                        else:
+                            args = []
                         assert len(op.jump_target.inputargs) == len(args)
                         self.env = dict(zip(op.jump_target.inputargs, args))
                         self.loop = op.jump_target
@@ -578,7 +590,12 @@ class Frame(object):
     def op_debug_merge_point(self, _, value, recdepth):
         from pypy.jit.metainterp.warmspot import get_stats
         loc = ConstPtr(value)._get_str()
-        get_stats().add_merge_point_location(loc)
+        try:
+            stats = get_stats()
+        except AttributeError:
+            pass
+        else:
+            stats.add_merge_point_location(loc)
 
     def op_guard_true(self, _, value):
         if not value:
@@ -846,14 +863,22 @@ class Frame(object):
         finally:
             self._may_force = -1
 
-    def op_call_assembler(self, loop_token, *args):
+    def op_call_assembler(self, wref_loop_token, *args):
+        if we_are_translated():
+            raise ValueError("CALL_ASSEMBLER not supported")
+        return self._do_call_assembler(wref_loop_token, *args)
+
+    def _do_call_assembler(self, wref_loop_token, *args):
         global _last_exception
+        loop_token = wref_loop_token()
+        assert loop_token, "CALL_ASSEMBLER to a target that already died"
+        ctl = loop_token.compiled_loop_token
+        if hasattr(ctl, 'redirected'):
+            return self._do_call_assembler(ctl.redirected, *args)
         assert not self._forced
-        loop_token = self.cpu._redirected_call_assembler.get(loop_token,
-                                                             loop_token)
         self._may_force = self.opindex
         try:
-            inpargs = _from_opaque(loop_token._llgraph_compiled_version).inputargs
+            inpargs = _from_opaque(ctl.compiled_version).inputargs
             for i, inparg in enumerate(inpargs):
                 TYPE = inparg.concretetype
                 if TYPE is lltype.Signed:
@@ -1546,10 +1571,13 @@ def reset_vable(jd, vable):
         do_setfield_gc_int(vable, fielddescr.ofs, 0)
 
 def redirect_call_assembler(cpu, oldlooptoken, newlooptoken):
-    OLD = _from_opaque(oldlooptoken._llgraph_compiled_version).getargtypes()
-    NEW = _from_opaque(newlooptoken._llgraph_compiled_version).getargtypes()
+    oldclt = oldlooptoken.compiled_loop_token
+    newclt = newlooptoken.compiled_loop_token
+    OLD = _from_opaque(oldclt.compiled_version).getargtypes()
+    NEW = _from_opaque(newclt.compiled_version).getargtypes()
     assert OLD == NEW
-    cpu._redirected_call_assembler[oldlooptoken] = newlooptoken
+    assert not hasattr(oldclt, 'redirected')
+    oldclt.redirected = weakref.ref(newlooptoken)
 
 # ____________________________________________________________
 
@@ -1617,6 +1645,7 @@ setannotation(compile_add_guard_jump_target, annmodel.s_None)
 setannotation(compile_add_fail, annmodel.SomeInteger())
 setannotation(compile_add_fail_arg, annmodel.s_None)
 setannotation(compile_redirect_fail, annmodel.s_None)
+setannotation(mark_as_free, annmodel.s_None)
 
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)

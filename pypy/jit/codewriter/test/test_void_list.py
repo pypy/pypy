@@ -51,9 +51,6 @@ def test_fixed_getitem():
     builtin_test('list.getitem/NEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Void, "")
-    builtin_test('list.getitem/CANRAISE',
-                 [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
-                 lltype.Void, NotSupported)
 
 def test_fixed_getitem_foldable():
     builtin_test('list.getitem_foldable/NONNEG',
@@ -62,9 +59,6 @@ def test_fixed_getitem_foldable():
     builtin_test('list.getitem_foldable/NEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Void, "")
-    builtin_test('list.getitem_foldable/CANRAISE',
-                 [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
-                 lltype.Void, NotSupported)
 
 def test_fixed_setitem():
     builtin_test('list.setitem/NONNEG', [varoftype(FIXEDLIST),
@@ -75,10 +69,6 @@ def test_fixed_setitem():
                                       varoftype(lltype.Signed),
                                       varoftype(lltype.Void)],
                  lltype.Void, "")
-    builtin_test('list.setitem/CANRAISE', [varoftype(FIXEDLIST),
-                                           varoftype(lltype.Signed),
-                                           varoftype(lltype.Void)],
-                 lltype.Void, NotSupported)
 
 def test_fixed_len():
     builtin_test('list.len', [varoftype(FIXEDLIST)], lltype.Signed,
@@ -115,9 +105,6 @@ def test_resizable_getitem():
     builtin_test('list.getitem/NEG',
                  [varoftype(VARLIST), varoftype(lltype.Signed)],
                  lltype.Void, "")
-    builtin_test('list.getitem/CANRAISE',
-                 [varoftype(VARLIST), varoftype(lltype.Signed)],
-                 lltype.Void, NotSupported)
 
 def test_resizable_setitem():
     builtin_test('list.setitem/NONNEG', [varoftype(VARLIST),
@@ -128,10 +115,6 @@ def test_resizable_setitem():
                                       varoftype(lltype.Signed),
                                       varoftype(lltype.Void)],
                  lltype.Void, "")
-    builtin_test('list.setitem/CANRAISE', [varoftype(VARLIST),
-                                           varoftype(lltype.Signed),
-                                           varoftype(lltype.Void)],
-                 lltype.Void, NotSupported)
 
 def test_resizable_len():
     builtin_test('list.len', [varoftype(VARLIST)], lltype.Signed,

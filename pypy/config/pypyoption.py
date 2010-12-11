@@ -31,7 +31,7 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect"]
+     "_bisect", "binascii"]
 ))
 
 translation_modules = default_modules.copy()
@@ -76,6 +76,7 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
+    "_ffi": [("translation.jit_ffi", True)],
     }
 
 module_import_dependencies = {
@@ -161,7 +162,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                suggests=[("objspace.allworkingmodules", False)]),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
-               cmdline=None,
                default=True),
 
     BoolOption("logbytecodes",

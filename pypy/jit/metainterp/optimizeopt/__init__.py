@@ -3,7 +3,6 @@ from pypy.jit.metainterp.optimizeopt.rewrite import OptRewrite
 from pypy.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
-from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.string import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 
@@ -17,6 +16,10 @@ def optimize_loop_1(metainterp_sd, loop, unroll=True):
                      OptVirtualize(),
                      opt_str,
                      OptHeap(),
+                    ]
+    if metainterp_sd.jit_ffi:
+        from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
+        optimizations = optimizations + [
                      OptFfiCall(),
                     ]
 

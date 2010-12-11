@@ -27,7 +27,6 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
-        self.framestackdepth = 0
         # tracing: space.frame_trace_action.fire() must be called to ensure
         # that tracing occurs whenever self.w_tracefunc or self.is_tracing
         # is modified.
@@ -54,9 +53,6 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
-        if self.framestackdepth > self.space.sys.recursionlimit:
-            raise self.space.prebuilt_recursion_error
-        self.framestackdepth += 1
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -66,7 +62,6 @@ class ExecutionContext(object):
                 self._trace(frame, 'leaveframe', self.space.w_None)
         finally:
             self.topframeref = frame.f_backref
-            self.framestackdepth -= 1
             jit.virtual_ref_finish(frame)
 
         if self.w_tracefunc is not None and not frame.hide():
@@ -80,7 +75,6 @@ class ExecutionContext(object):
 
         def __init__(self):
             self.topframe = None
-            self.framestackdepth = 0
             self.w_tracefunc = None
             self.profilefunc = None
             self.w_profilefuncarg = None
@@ -88,7 +82,6 @@ class ExecutionContext(object):
 
         def enter(self, ec):
             ec.topframeref = jit.non_virtual_ref(self.topframe)
-            ec.framestackdepth = self.framestackdepth
             ec.w_tracefunc = self.w_tracefunc
             ec.profilefunc = self.profilefunc
             ec.w_profilefuncarg = self.w_profilefuncarg
@@ -97,7 +90,6 @@ class ExecutionContext(object):
 
         def leave(self, ec):
             self.topframe = ec.gettopframe()
-            self.framestackdepth = ec.framestackdepth
             self.w_tracefunc = ec.w_tracefunc
             self.profilefunc = ec.profilefunc
             self.w_profilefuncarg = ec.w_profilefuncarg 
@@ -105,7 +97,6 @@ class ExecutionContext(object):
 
         def clear_framestack(self):
             self.topframe = None
-            self.framestackdepth = 0
 
         # the following interface is for pickling and unpickling
         def getstate(self, space):
@@ -121,33 +112,41 @@ class ExecutionContext(object):
                 self.topframe = space.interp_w(PyFrame, frames_w[-1])
             else:
                 self.topframe = None
-            self.framestackdepth = len(frames_w)
 
         def getframestack(self):
-            index = self.framestackdepth
-            lst = [None] * index
+            lst = []
             f = self.topframe
-            while index > 0:
-                index -= 1
-                lst[index] = f
+            while f is not None:
+                lst.append(f)
                 f = f.f_backref()
-            assert f is None
+            lst.reverse()
             return lst
         # coroutine: I think this is all, folks!
 
-    def c_call_trace(self, frame, w_func):
+    def c_call_trace(self, frame, w_func, args=None):
         "Profile the call of a builtin function"
-        if self.profilefunc is None:
-            frame.is_being_profiled = False
-        else:
-            self._trace(frame, 'c_call', w_func)
+        self._c_call_return_trace(frame, w_func, args, 'c_call')
 
-    def c_return_trace(self, frame, w_retval):
+    def c_return_trace(self, frame, w_func, args=None):
         "Profile the return from a builtin function"
+        self._c_call_return_trace(frame, w_func, args, 'c_return')
+
+    def _c_call_return_trace(self, frame, w_func, args, event):
         if self.profilefunc is None:
             frame.is_being_profiled = False
         else:
-            self._trace(frame, 'c_return', w_retval)
+            # undo the effect of the CALL_METHOD bytecode, which would be
+            # that even on a built-in method call like '[].append()',
+            # w_func is actually the unbound function 'append'.
+            from pypy.interpreter.function import FunctionWithFixedCode
+            if isinstance(w_func, FunctionWithFixedCode) and args is not None:
+                w_firstarg = args.firstarg()
+                if w_firstarg is not None:
+                    from pypy.interpreter.function import descr_function_get
+                    w_func = descr_function_get(self.space, w_func, w_firstarg,
+                                                self.space.type(w_firstarg))
+            #
+            self._trace(frame, event, w_func)
 
     def c_exception_trace(self, frame, w_exc):
         "Profile function called upon OperationError."

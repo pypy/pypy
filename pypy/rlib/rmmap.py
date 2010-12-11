@@ -67,7 +67,7 @@ elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
                       'DUPLICATE_SAME_ACCESS', 'MEM_COMMIT', 'MEM_RESERVE',
-                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE']
+                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
 
@@ -100,8 +100,11 @@ def external(name, args, result):
                            sandboxsafe=True, threadsafe=False)
     return unsafe, safe
 
-def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_, calling_conv='win')
+def winexternal(name, args, result, **kwargs):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv='win',
+                           **kwargs)
 
 PTR = rffi.CCHARP
 
@@ -189,9 +192,17 @@ elif _MS_WINDOWS:
     VirtualAlloc = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
-    VirtualProtect = winexternal('VirtualProtect',
-                                 [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
-                                 BOOL)
+    # VirtualProtect is used in llarena and should not release the GIL
+    _VirtualProtect = winexternal('VirtualProtect',
+                                  [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
+                                  BOOL,
+                                  _nowrapper=True)
+    def VirtualProtect(addr, size, mode, oldmode_ptr):
+        return _VirtualProtect(addr,
+                               rffi.cast(rffi.SIZE_T, size),
+                               rffi.cast(DWORD, mode),
+                               oldmode_ptr)
+    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
