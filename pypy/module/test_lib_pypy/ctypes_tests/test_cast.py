@@ -82,8 +82,11 @@ class TestCast(BaseCTypesTestChecker):
     def test_cast_functype(self):
         # make sure we can cast function type
         my_sqrt = lib.my_sqrt
+        saved_objects = my_sqrt._objects.copy()
         sqrt = cast(cast(my_sqrt, c_void_p), CFUNCTYPE(c_double, c_double))
         assert sqrt(4.0) == 2.0
         assert not cast(0, CFUNCTYPE(c_int))
-
-        
+        #
+        assert sqrt._objects is my_sqrt._objects   # on CPython too
+        my_sqrt._objects.clear()
+        my_sqrt._objects.update(saved_objects)
