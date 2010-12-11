@@ -73,6 +73,8 @@ def record_loop_or_bridge(loop):
             op.setdescr(None)    # clear reference, mostly for tests
     # mostly for tests: make sure we don't keep a reference to the LoopToken
     loop.token = None
+    if not we_are_translated():
+        loop._number = looptoken.number
 
 # ____________________________________________________________
 
