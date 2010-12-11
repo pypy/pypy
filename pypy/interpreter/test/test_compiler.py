@@ -919,3 +919,22 @@ class AppTestExceptions:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
             raise Exception("DID NOT RAISE")
+
+
+    def test_repr_vs_str(self):
+        source1 = "x = (\n"
+        source2 = "x = (\n\n"
+        try:
+            exec source1
+        except SyntaxError, err1:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+        try:
+            exec source2
+        except SyntaxError, err2:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+        assert str(err1) != str(err2)
+        assert repr(err1) != repr(err2)
