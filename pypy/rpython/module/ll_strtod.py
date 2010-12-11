@@ -21,7 +21,7 @@ class RegisterStrtod(BaseLazyRegistering):
     def __init__(self):
         self.configure(CConfig)
     
-    @registering(rarithmetic.formatd)
+    @registering(rarithmetic._formatd)
     def register_formatd(self):
         ll_strtod = self.llexternal('LL_strtod_formatd',
                                     [rffi.DOUBLE, rffi.CHAR, rffi.INT], rffi.CCHARP,

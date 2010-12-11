@@ -567,7 +567,7 @@ DIST_INFINITY = 3
 
 formatd_ADD_DOT_0 = 0x1
 
-def formatd(x, code, precision, flags=0):
+def _formatd(x, code, precision, flags):
     "NOT_RPYTHON"
     if flags & DTSF_ALT:
         alt = '#'
@@ -594,6 +594,8 @@ def formatd(x, code, precision, flags=0):
         s = s[:-2]
 
     return s
+def formatd(x, code, precision, flags=0):
+    return _formatd(x, code, precision, flags)
 
 formatd_max_length = 120
 
