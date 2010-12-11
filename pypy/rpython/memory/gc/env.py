@@ -112,7 +112,7 @@ else:
 
 # ---------- Linux2 ----------
 
-def get_L2cache_linux2(filename):
+def get_L2cache_linux2(filename="/proc/cpuinfo"):
     debug_start("gc-hardware")
     L2cache = sys.maxint
     try:
