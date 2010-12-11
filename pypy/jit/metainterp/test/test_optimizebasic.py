@@ -39,7 +39,7 @@ def test_store_final_boxes_in_guard():
     b1 = BoxInt()
     opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
                                 None)
-    fdescr = ResumeGuardDescr(None)
+    fdescr = ResumeGuardDescr()
     op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
     # setup rd data
     fi0 = resume.FrameInfo(None, "code0", 11)
@@ -261,14 +261,13 @@ class BaseTestBasic(BaseTest):
                                                      OptVirtualize,
                                                      OptString,
                                                      OptHeap,
-                                                     OptFfiCall,
                                                      Optimizer)
         optimizations = [OptIntBounds(),
                          OptRewrite(),
                          OptVirtualize(),
                          OptString(),
                          OptHeap(),
-                         OptFfiCall(),
+                         #OptFfiCall(),
                          ]
         optimizer = Optimizer(metainterp_sd, loop, optimizations)
         optimizer.propagate_all_forward()
@@ -796,6 +795,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i]
+        guard_no_exception() []
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]

@@ -887,7 +887,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         # note that 'guard_no_exception' at the very start must be kept
         # around: bridges may start with one.  (In case of loops we could
         # remove it, but we probably don't care.)
-        expected = """
+        preamble = """
         [i]
         guard_no_exception() []
         i1 = int_add(i, 3)
@@ -896,7 +896,15 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)
         """
-        self.optimize_loop(ops, expected, expected)
+        expected = """
+        [i]
+        i1 = int_add(i, 3)
+        i2 = call(i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        i3 = call(i2, descr=nonwritedescr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     # ----------
 
@@ -2240,7 +2248,18 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(ConstPtr(myptr), p9, descr=nextdescr)
         jump(p30)
         """
-        self.optimize_loop(ops, 'Not', ops)
+        preamble = """
+        [p9]
+        setfield_gc(ConstPtr(myptr), p9, descr=nextdescr)
+        jump()
+        """
+        expected = """
+        []
+        p30 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(ConstPtr(myptr), p30, descr=nextdescr)
+        jump()
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_invalid_loop_1(self):
         ops = """
