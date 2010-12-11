@@ -2,7 +2,8 @@
 String formatting routines.
 """
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow, isnan, isinf
+from pypy.rlib.rarithmetic import (
+    ovfcheck, formatd_overflow, DTSF_ALT, isnan, isinf)
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -138,8 +139,11 @@ class BaseStringFormatter(object):
                 prec = 6
             if char in 'fF' and x/1e25 > 1e25:
                 char = chr(ord(char) + 1)     # 'f' => 'g'
+            flags = 0
+            if self.f_alt:
+                flags |= DTSF_ALT
             try:
-                r = formatd_overflow(self.f_alt, prec, char, x)
+                r = formatd_overflow(x, char, prec, self.f_alt)
             except OverflowError:
                 raise OperationError(space.w_OverflowError, space.wrap(
                     "formatted float is too long (precision too large?)"))

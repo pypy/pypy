@@ -565,8 +565,6 @@ DIST_FINITE   = 1
 DIST_NAN      = 2
 DIST_INFINITY = 3
 
-formatd_ADD_DOT_0 = 0x1
-
 def _formatd(x, code, precision, flags):
     "NOT_RPYTHON"
     if flags & DTSF_ALT:
@@ -580,7 +578,7 @@ def _formatd(x, code, precision, flags):
         fmt = "%%%s.%d%s" % (alt, precision, code)
     s = fmt % (x,)
 
-    if flags & formatd_ADD_DOT_0:
+    if flags & DTSF_ADD_DOT_0:
         # We want float numbers to be recognizable as such,
         # i.e., they should contain a decimal point or an exponent.
         # However, %g may print the number as an integer;
