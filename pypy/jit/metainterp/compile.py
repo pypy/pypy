@@ -69,10 +69,12 @@ def record_loop_or_bridge(loop):
             if descr is not looptoken:
                 looptoken.record_jump_to(descr)
             op.setdescr(None)    # clear reference, mostly for tests
+            if not we_are_translated():
+                op._jumptarget_number = descr.number
     # mostly for tests: make sure we don't keep a reference to the LoopToken
     loop.token = None
     if not we_are_translated():
-        loop._number = looptoken.number
+        loop._looptoken_number = looptoken.number
 
 # ____________________________________________________________
 
