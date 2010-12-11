@@ -358,7 +358,7 @@ class Formatter(BaseFormatter):
             presentation_type = spec[i]
             if self.is_unicode:
                 try:
-                    the_type = spec[i].encode("ascii")
+                    the_type = spec[i].encode("ascii")[0]
                 except UnicodeEncodeError:
                     raise OperationError(space.w_ValueError,
                                          space.wrap("invalid presentation type"))
