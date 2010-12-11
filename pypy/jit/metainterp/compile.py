@@ -599,13 +599,16 @@ def compile_known_target_bridges(metainterp, bridge):
                 jmp = ResOperation(rop.JUMP, mini.inputargs[:], None, target)
                 mini.operations = [jmp]
                 descr = op.getdescr()
-                assert isinstance(descr, ResumeGuardDescr)                
+                assert isinstance(descr, ResumeGuardDescr)
+                mini.token = make_loop_token(len(mini.inputargs),
+                                             metainterp.jitdriver_sd)
                 
                 #descr.compile_and_attach(metainterp, mini)
                 if not we_are_translated():
                     descr._debug_suboperations = mini.operations
                 send_bridge_to_backend(metainterp.staticdata, descr,
-                                       mini.inputargs, mini.operations)
+                                       mini.inputargs, mini.operations,
+                                       bridge.token)
                 record_loop_or_bridge(mini)
 
 
