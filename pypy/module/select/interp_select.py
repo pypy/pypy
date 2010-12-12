@@ -24,7 +24,7 @@ class Poll(Wrappable):
     register.unwrap_spec = ['self', ObjSpace, W_Root, int]
 
     def modify(self, space, w_fd, events):
-        fd = as_fd_w(space, w_fd)
+        fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
             raise wrap_oserror(space, OSError(errno.ENOENT, "poll.modify"),
                                exception_name='w_IOError')
