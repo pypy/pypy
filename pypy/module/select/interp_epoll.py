@@ -7,7 +7,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec, ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.module.select.interp_select import as_fd_w
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.tool import rffi_platform
 from pypy.rlib._rsocket_rffi import socketclose, FD_SETSIZE
@@ -101,7 +100,7 @@ class W_Epoll(Wrappable):
             self.epfd = -1
 
     def epoll_ctl(self, ctl, w_fd, eventmask, ignore_ebadf=False):
-        fd = as_fd_w(self.space, w_fd)
+        fd = self.space.c_filedescriptor_w(w_fd)
         with lltype.scoped_alloc(epoll_event) as ev:
             ev.c_events = rffi.cast(rffi.UINT, eventmask)
             rffi.setintfield(ev.c_data, 'c_fd', fd)
