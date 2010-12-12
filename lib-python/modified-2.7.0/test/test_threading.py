@@ -386,6 +386,7 @@ class ThreadTests(BaseTestCase):
         finally:
             sys.setcheckinterval(old_interval)
 
+    @test.test_support.cpython_only
     def test_no_refcycle_through_target(self):
         class RunSelfFunction(object):
             def __init__(self, should_raise):
