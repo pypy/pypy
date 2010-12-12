@@ -1,11 +1,11 @@
 #! /usr/bin/env python
 """
-Viewer for the CODE_DUMP output of compiled programs generating code.
+Viewer for the output of compiled programs generating code.
+Use on the log files created with 'PYPYLOG=jit-backend-dump:log'.
 
 Try:
-    ./viewcode.py dumpfile.txt
-or
-    /tmp/usession-xxx/testing_1/testing_1 -var 4  2>&1  |  ./viewcode.py
+    ./viewcode.py --text log        # text only disassembly
+    ./viewcode.py log               # also includes a pygame viewer
 """
 
 import autopath
@@ -179,6 +179,7 @@ class World(object):
         self.symbols = {}
         self.logentries = {}
         self.backend_name = None
+        self.executable_name = None
 
     def parse(self, f, textonly=True):
         for line in f:
@@ -214,7 +215,9 @@ class World(object):
                 self.logentries[addr] = pieces[3]
             elif line.startswith('SYS_EXECUTABLE '):
                 filename = line[len('SYS_EXECUTABLE '):].strip()
-                self.symbols.update(load_symbols(filename))
+                if filename != self.executable_name:
+                    self.symbols.update(load_symbols(filename))
+                    self.executable_name = filename
 
     def find_cross_references(self):
         # find cross-references between blocks
@@ -375,10 +378,19 @@ if __name__ == '__main__':
         showgraph = False
     else:
         showgraph = True
-    if len(sys.argv) == 1:
-        f = sys.stdin
-    else:
-        f = open(sys.argv[1], 'r')
+    if len(sys.argv) != 2:
+        print >> sys.stderr, __doc__
+        sys.exit(2)
+    #
+    import cStringIO
+    from pypy.tool import logparser
+    log1 = logparser.parse_log_file(sys.argv[1])
+    text1 = logparser.extract_category(log1, catprefix='jit-backend-dump')
+    f = cStringIO.StringIO()
+    f.writelines(text1)
+    f.seek(0)
+    del log1, text1
+    #
     world = World()
     world.parse(f)
     if showgraph:
