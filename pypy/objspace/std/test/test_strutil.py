@@ -87,6 +87,9 @@ class TestStrUtil:
         raises(ParseStringError, string_to_int, '0x', 16)
         raises(ParseStringError, string_to_int, '-0x', 16)
 
+        exc = raises(ParseStringError, string_to_int, '')
+        assert exc.value.msg == "invalid literal for int() with base 10: ''"
+
     def test_string_to_int_overflow(self):
         import sys
         space = self.space

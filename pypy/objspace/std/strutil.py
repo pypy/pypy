@@ -34,11 +34,9 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
-        if self.literal:
-            raise ParseStringError, 'invalid literal for %s(): %s' % (self.fname, self.literal)
-        else:
-            raise ParseStringError, 'empty string for %s()' % (self.fname,)        
-        
+        raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
+                               (self.fname, self.base, self.literal))
+
     def __init__(self, s, literal, base, fname):
         self.literal = literal
         self.fname = fname
