@@ -865,14 +865,14 @@ class ObjSpace(object):
 
     def call_args_and_c_profile(self, frame, w_func, args):
         ec = self.getexecutioncontext()
-        ec.c_call_trace(frame, w_func)
+        ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
             w_value = e.get_w_value(self)
             ec.c_exception_trace(frame, w_value)
             raise
-        ec.c_return_trace(frame, w_func)
+        ec.c_return_trace(frame, w_func, args)
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):
@@ -1181,6 +1181,27 @@ class ObjSpace(object):
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
+
+    def c_filedescriptor_w(self, w_fd):
+        try:
+            fd = self.c_int_w(w_fd)
+        except OperationError, e:
+            if not e.match(self, self.w_TypeError):
+                raise
+            try:
+                w_fileno = self.getattr(w_fd, self.wrap('fileno'))
+            except OperationError, e:
+                if e.match(self, self.w_AttributeError):
+                    raise OperationError(self.w_TypeError,
+                        self.wrap("argument must be an int, "
+                                  "or have a fileno() method."))
+                raise
+            w_fd = self.call_function(w_fileno)
+            fd = self.c_int_w(w_fd)
+        if fd < 0:
+            raise operationerrfmt(self.w_ValueError,
+                "file descriptor cannot be a negative integer (%d)", fd)
+        return fd
 
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):

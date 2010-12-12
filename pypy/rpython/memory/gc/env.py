@@ -4,7 +4,7 @@ Utilities to get environ variables and platform-specific memory-related values.
 import os, sys
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 
 # ____________________________________________________________
@@ -110,15 +110,9 @@ else:
 # ____________________________________________________________
 # Estimation of the nursery size, based on the L2 cache.
 
-def best_nursery_size_for_L2cache(L2cache):
-    # Heuristically, the best nursery size to choose is about half
-    # of the L2 cache.  XXX benchmark some more.
-    if L2cache > 0:
-        return L2cache // 2
-    else:
-        return -1
+# ---------- Linux2 ----------
 
-def get_L2cache_linux2(filename):
+def get_L2cache_linux2(filename="/proc/cpuinfo"):
     debug_start("gc-hardware")
     L2cache = sys.maxint
     try:
@@ -189,61 +183,66 @@ def _skipspace(data, pos):
         pos += 1
     return pos
 
+# ---------- Darwin ----------
 
-if sys.platform == 'linux2':
-    def estimate_best_nursery_size():
-        """Try to estimate the best nursery size at run-time, depending
-        on the machine we are running on.  Linux code."""
-        L2cache = get_L2cache_linux2('/proc/cpuinfo')
-        return best_nursery_size_for_L2cache(L2cache)
-
-elif sys.platform == 'darwin':
-    from pypy.rpython.lltypesystem import rffi
-
-    sysctlbyname = rffi.llexternal('sysctlbyname',
-                                   [rffi.CCHARP, rffi.VOIDP, rffi.SIZE_TP,
-                                    rffi.VOIDP, rffi.SIZE_T],
-                                   rffi.INT,
-                                   sandboxsafe=True)
-
-    def estimate_best_nursery_size():
-        """Try to estimate the best nursery size at run-time, depending
-        on the machine we are running on.
-        """
-        debug_start("gc-hardware")
-        L2cache = 0
-        l2cache_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
+sysctlbyname = rffi.llexternal('sysctlbyname',
+                               [rffi.CCHARP, rffi.VOIDP, rffi.SIZE_TP,
+                                rffi.VOIDP, rffi.SIZE_T],
+                               rffi.INT,
+                               sandboxsafe=True)
+def get_L2cache_darwin():
+    """Try to estimate the best nursery size at run-time, depending
+    on the machine we are running on.
+    """
+    debug_start("gc-hardware")
+    L2cache = 0
+    l2cache_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
+    try:
+        len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
         try:
-            len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
-            try:
-                size = rffi.sizeof(rffi.LONGLONG)
-                l2cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
-                len_p[0] = rffi.cast(rffi.SIZE_T, size)
-                # XXX a hack for llhelper not being robust-enough
-                result = sysctlbyname("hw.l2cachesize",
-                                      rffi.cast(rffi.VOIDP, l2cache_p),
-                                      len_p,
-                                      lltype.nullptr(rffi.VOIDP.TO), 
-                                      rffi.cast(rffi.SIZE_T, 0))
-                if (rffi.cast(lltype.Signed, result) == 0 and
-                    rffi.cast(lltype.Signed, len_p[0]) == size):
-                    L2cache = rffi.cast(lltype.Signed, l2cache_p[0])
-                    if rffi.cast(rffi.LONGLONG, L2cache) != l2cache_p[0]:
-                        L2cache = 0    # overflow!
-            finally:
-                lltype.free(len_p, flavor='raw')
+            size = rffi.sizeof(rffi.LONGLONG)
+            l2cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
+            len_p[0] = rffi.cast(rffi.SIZE_T, size)
+            # XXX a hack for llhelper not being robust-enough
+            result = sysctlbyname("hw.l2cachesize",
+                                  rffi.cast(rffi.VOIDP, l2cache_p),
+                                  len_p,
+                                  lltype.nullptr(rffi.VOIDP.TO), 
+                                  rffi.cast(rffi.SIZE_T, 0))
+            if (rffi.cast(lltype.Signed, result) == 0 and
+                rffi.cast(lltype.Signed, len_p[0]) == size):
+                L2cache = rffi.cast(lltype.Signed, l2cache_p[0])
+                if rffi.cast(rffi.LONGLONG, L2cache) != l2cache_p[0]:
+                    L2cache = 0    # overflow!
         finally:
-            lltype.free(l2cache_p, flavor='raw')
-        debug_print("L2cache =", L2cache)
-        debug_stop("gc-hardware")
-        if L2cache > 0:
-            return L2cache
-        else:
-            # Print a top-level warning even in non-debug builds
-            llop.debug_print(lltype.Void,
-                "Warning: cannot find your CPU L2 cache size with sysctl()")
-            return -1
+            lltype.free(len_p, flavor='raw')
+    finally:
+        lltype.free(l2cache_p, flavor='raw')
+    debug_print("L2cache =", L2cache)
+    debug_stop("gc-hardware")
+    if L2cache > 0:
+        return L2cache
+    else:
+        # Print a top-level warning even in non-debug builds
+        llop.debug_print(lltype.Void,
+            "Warning: cannot find your CPU L2 cache size with sysctl()")
+        return -1
 
-else:
-    def estimate_best_nursery_size():
-        return -1     # XXX implement me for other platforms
+# --------------------
+
+get_L2cache = globals().get('get_L2cache_' + sys.platform,
+                            lambda: -1)     # implement me for other platforms
+
+def best_nursery_size_for_L2cache(L2cache):
+    # Heuristically, the best nursery size to choose is about half
+    # of the L2 cache.
+    if L2cache > 0:
+        return L2cache // 2
+    else:
+        return -1
+
+def estimate_best_nursery_size():
+    """Try to estimate the best nursery size at run-time, depending
+    on the machine we are running on.  Linux code."""
+    L2cache = get_L2cache()
+    return best_nursery_size_for_L2cache(L2cache)

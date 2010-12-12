@@ -148,6 +148,7 @@ def test_hybrid_gc():
     if sys.platform == 'linux2':  # on Mac, uses another (sandboxsafe) approach
         expect(f, g, "ll_os.ll_os_open", ("/proc/cpuinfo", 0, 420),
                OSError(5232, "xyz"))
+    expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GC_DEBUG",), None)
     g.close()
     tail = f.read()
     f.close()

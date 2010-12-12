@@ -6,6 +6,8 @@ from pypy.rpython.lltypesystem.llarena import arena_reserve, arena_free
 from pypy.rpython.lltypesystem.llarena import round_up_for_allocation
 from pypy.rpython.lltypesystem.llarena import ArenaError, arena_new_view
 from pypy.rpython.lltypesystem.llarena import arena_shrink_obj
+from pypy.rpython.lltypesystem.llarena import arena_protect, has_protect
+from pypy.translator.c.test import test_genc, test_standalone
 
 def test_arena():
     S = lltype.Struct('S', ('x',lltype.Signed))
@@ -265,8 +267,7 @@ def test_llinterpreted():
     assert res == 42
 
 def test_compiled():
-    from pypy.translator.c.test.test_genc import compile
-    fn = compile(test_look_inside_object, [])
+    fn = test_genc.compile(test_look_inside_object, [])
     res = fn()
     assert res == 42
 
@@ -282,3 +283,51 @@ def test_shrink_obj():
     arena_reserve(a, size_gc_header + llmemory.sizeof(S, 10))
     arena_shrink_obj(a, size_gc_header + llmemory.sizeof(S, 5))
     arena_reset(a, size_gc_header + llmemory.sizeof(S, 5), False)
+
+def test_arena_protect():
+    a = arena_malloc(100, False)
+    S = lltype.Struct('S', ('x', lltype.Signed))
+    arena_reserve(a, llmemory.sizeof(S))
+    p = llmemory.cast_adr_to_ptr(a, lltype.Ptr(S))
+    p.x = 123
+    assert p.x == 123
+    arena_protect(a, 100, True)
+    py.test.raises(ArenaError, arena_reserve, a + 48, llmemory.sizeof(S))
+    py.test.raises(RuntimeError, "p.x")
+    py.test.raises(RuntimeError, "p.x = 124")
+    arena_protect(a, 100, False)
+    assert p.x == 123
+    p.x = 125
+    assert p.x == 125
+
+
+class TestStandalone(test_standalone.StandaloneTests):
+    def test_compiled_arena_protect(self):
+        import os
+        from pypy.translator.c.test.test_genc import compile
+        S = lltype.Struct('S', ('x', lltype.Signed))
+        #
+        def fn(argv):
+            testrun = int(argv[1])
+            a = arena_malloc(65536, False)
+            arena_reserve(a, llmemory.sizeof(S))
+            p = llmemory.cast_adr_to_ptr(a + 23432, lltype.Ptr(S))
+            p.x = 123
+            assert p.x == 123
+            arena_protect(a, 65536, True)
+            result = 0
+            if testrun == 1:
+                print p.x       # segfault
+            if testrun == 2:
+                p.x = 124       # segfault
+            arena_protect(a, 65536, False)
+            p.x += 10
+            print p.x
+            return 0
+        #
+        t, cbuilder = self.compile(fn)
+        data = cbuilder.cmdexec('0')
+        assert data == '133\n'
+        if has_protect:
+            cbuilder.cmdexec('1', expect_crash=True)
+            cbuilder.cmdexec('2', expect_crash=True)

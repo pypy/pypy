@@ -6,7 +6,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.argument import Arguments
 
 
-class AppTestFunctionIntrospection: 
+class AppTestFunctionIntrospection:
     def test_attributes(self):
         globals()['__name__'] = 'mymodulename'
         def f(): pass
@@ -90,10 +90,10 @@ class AppTestFunctionIntrospection:
         def f(*args):
             return 42
             raises(TypeError, "dir.func_code = f.func_code")
-            raises(TypeError, "list.append.im_func.func_code = f.func_code") 
+            raises(TypeError, "list.append.im_func.func_code = f.func_code")
 
 
-class AppTestFunction: 
+class AppTestFunction:
     def test_simple_call(self):
         def func(arg1, arg2):
             return arg1, arg2
@@ -118,7 +118,7 @@ class AppTestFunction:
         assert res[2] == 333
 
         raises(TypeError, func)
-        raises(TypeError, func, 1, 2, 3, 4)        
+        raises(TypeError, func, 1, 2, 3, 4)
 
     def test_simple_varargs(self):
         def func(arg1, *args):
@@ -129,7 +129,7 @@ class AppTestFunction:
 
         res = func(23, *(42,))
         assert res[0] == 23
-        assert res[1] == (42,)        
+        assert res[1] == (42,)
 
     def test_simple_kwargs(self):
         def func(arg1, **kwargs):
@@ -222,7 +222,7 @@ class AppTestFunction:
             func(**{'self': 23})
             assert False
         except TypeError:
-            pass        
+            pass
 
     def test_kwargs_confusing_name(self):
         def func(self):    # 'self' conflicts with the interp-level
@@ -304,7 +304,7 @@ class AppTestFunction:
         # on function types
         raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
 
-class AppTestMethod: 
+class AppTestMethod:
     def test_simple_call(self):
         class A(object):
             def func(self, arg2):
@@ -325,7 +325,7 @@ class AppTestMethod:
 
         res = a.func(*(42,))
         assert res[0] is a
-        assert res[1] == (42,)        
+        assert res[1] == (42,)
 
     def test_obscure_varargs(self):
         class A(object):
@@ -338,14 +338,14 @@ class AppTestMethod:
 
         res = a.func(*(42,))
         assert res[0] is a
-        assert res[1] == 42        
+        assert res[1] == 42
 
     def test_simple_kwargs(self):
         class A(object):
             def func(self, **kwargs):
                 return self, kwargs
         a = A()
-            
+
         res = a.func(value=42)
         assert res[0] is a
         assert res[1] == {'value': 42}
@@ -399,19 +399,19 @@ class AppTestMethod:
         assert hash(C.m) == hash(D.m)
         assert hash(c.m) == hash(c.m)
 
-    def test_method_repr(self): 
-        class A(object): 
-            def f(self): 
+    def test_method_repr(self):
+        class A(object):
+            def f(self):
                 pass
         assert repr(A.f) == "<unbound method A.f>"
-        assert repr(A().f).startswith("<bound method A.f of <") 
-        assert repr(A().f).endswith(">>") 
+        assert repr(A().f).startswith("<bound method A.f of <")
+        assert repr(A().f).endswith(">>")
         class B:
             def f(self):
                 pass
         assert repr(B.f) == "<unbound method B.f>"
         assert repr(B().f).startswith("<bound method B.f of <")
-        assert repr(A().f).endswith(">>") 
+        assert repr(A().f).endswith(">>")
 
 
     def test_method_call(self):
@@ -504,14 +504,33 @@ class AppTestMethod:
         def f(): pass
         raises(TypeError, new.instancemethod, f, None)
 
+    def test_empty_arg_kwarg_call(self):
+        def f():
+            pass
 
-class TestMethod: 
+        raises(TypeError, lambda: f(*0))
+        raises(TypeError, lambda: f(**0))
+
+    def test_method_equal(self):
+        class A(object):
+            def m(self):
+                pass
+
+        class X(object):
+            def __eq__(self, other):
+                return True
+
+        assert A().m == X()
+        assert X() == A().m
+
+
+class TestMethod:
     def setup_method(self, method):
         def c(self, bar):
             return bar
         code = PyCode._from_code(self.space, c.func_code)
         self.fn = Function(self.space, code, self.space.newdict())
-        
+
     def test_get(self):
         space = self.space
         w_meth = descr_function_get(space, self.fn, space.wrap(5), space.type(space.wrap(5)))
@@ -569,7 +588,7 @@ class TestShortcuts(object):
 
     def test_call_function(self):
         space = self.space
-        
+
         d = {}
         for i in range(10):
             args = "(" + ''.join(["a%d," % a for a in range(i)]) + ")"
@@ -591,14 +610,14 @@ def f%s:
                  code.funcrun = bomb
                  code.funcrun_obj = bomb
 
-            args_w = map(space.wrap, range(i))            
+            args_w = map(space.wrap, range(i))
             w_res = space.call_function(fn, *args_w)
             check = space.is_true(space.eq(w_res, space.wrap(res)))
             assert check
 
     def test_flatcall(self):
         space = self.space
-        
+
         def f(a):
             return a
         code = PyCode._from_code(self.space, f.func_code)
@@ -625,7 +644,7 @@ def f%s:
 
     def test_flatcall_method(self):
         space = self.space
-        
+
         def f(self, a):
             return a
         code = PyCode._from_code(self.space, f.func_code)
@@ -653,7 +672,7 @@ def f%s:
 
     def test_flatcall_default_arg(self):
         space = self.space
-        
+
         def f(a, b):
             return a+b
         code = PyCode._from_code(self.space, f.func_code)
@@ -682,7 +701,7 @@ def f%s:
 
     def test_flatcall_default_arg_method(self):
         space = self.space
-        
+
         def f(self, a, b):
             return a+b
         code = PyCode._from_code(self.space, f.func_code)
@@ -705,7 +724,7 @@ def f%s:
         y = A().m(x)
         b = A().m
         z = b(x)
-        return y+10*z 
+        return y+10*z
         """)
 
         assert space.eq_w(w_res, space.wrap(44))

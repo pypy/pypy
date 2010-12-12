@@ -534,6 +534,14 @@ class AppTestPosix:
                 assert os.WIFEXITED(status)
                 assert os.WEXITSTATUS(status) == exit_status
 
+    if hasattr(os, 'getloadavg'):
+        def test_os_getloadavg(self):
+            os = self.posix
+            l0, l1, l2 = os.getloadavg()
+            assert type(l0) is float and l0 >= 0.0
+            assert type(l1) is float and l0 >= 0.0
+            assert type(l2) is float and l0 >= 0.0
+
     if hasattr(os, 'fsync'):
         def test_fsync(self):
             os = self.posix
@@ -541,30 +549,42 @@ class AppTestPosix:
             try:
                 fd = f.fileno()
                 os.fsync(fd)
-            finally:
+                os.fsync(long(fd))
+                os.fsync(f)     # <- should also work with a file, or anything
+            finally:            #    with a fileno() method
                 f.close()
-            try:
-                os.fsync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fsync didn't raise")
+            raises(OSError, os.fsync, fd)
+            raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
         def test_fdatasync(self):
             os = self.posix
-            f = open(self.path2)
+            f = open(self.path2, "w")
             try:
                 fd = f.fileno()
                 os.fdatasync(fd)
             finally:
                 f.close()
+            raises(OSError, os.fdatasync, fd)
+            raises(ValueError, os.fdatasync, -1)
+
+    if hasattr(os, 'fchdir'):
+        def test_fchdir(self):
+            os = self.posix
+            localdir = os.getcwd()
             try:
-                os.fdatasync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fdatasync didn't raise")
+                os.mkdir(self.path2 + 'dir')
+                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+                try:
+                    os.fchdir(fd)
+                    mypath = os.getcwd()
+                finally:
+                    os.close(fd)
+                assert mypath.endswith('test_posix2-dir')
+                raises(OSError, os.fchdir, fd)
+                raises(ValueError, os.fchdir, -1)
+            finally:
+                os.chdir(localdir)
 
     def test_largefile(self):
         os = self.posix

@@ -51,7 +51,7 @@ def setrecursionlimit(space, w_new_limit):
                              space.wrap("recursion limit must be positive"))
     # global recursion_limit
     # we need to do it without writing globals.
-    space.warn('setrecursionlimit deprecated', space.w_DeprecationWarning)
+    space.warn('setrecursionlimit() is ignored (and not needed) on PyPy', space.w_DeprecationWarning)
     space.sys.recursionlimit = new_limit
 
 def getrecursionlimit(space):

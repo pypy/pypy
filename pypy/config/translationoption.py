@@ -117,6 +117,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    BoolOption("jit_ffi", "optimize libffi calls", default=False),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),

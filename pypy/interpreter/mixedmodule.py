@@ -13,6 +13,10 @@ class MixedModule(Module):
 
     applevel_name = None
     expose__file__attribute = True
+
+    # The following attribute is None as long as the module has not been
+    # imported yet, and when it has been, it is mod.__dict__.items() just
+    # after startup().
     w_initialdict = None
 
     def __init__(self, space, w_name): 
@@ -26,8 +30,14 @@ class MixedModule(Module):
         """This is called each time the module is imported or reloaded
         """
         if self.w_initialdict is not None:
+            # the module was already imported.  Refresh its content with
+            # the saved dict, as done with built-in and extension modules
+            # on CPython.
             space.call_method(self.w_dict, 'update', self.w_initialdict)
-        Module.init(self, space)
+        else:
+            Module.init(self, space)
+            if not self.lazy and self.w_initialdict is None:
+                self.w_initialdict = space.call_method(self.w_dict, 'items')
 
     def get_applevel_name(cls):
         """ NOT_RPYTHON """
@@ -96,6 +106,7 @@ class MixedModule(Module):
 
     def _freeze_(self):
         self.getdict()
+        self.w_initialdict = None
         self.startup_called = False
         # hint for the annotator: Modules can hold state, so they are
         # not constant

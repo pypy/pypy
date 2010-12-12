@@ -25,90 +25,92 @@ class W_ComplexObject(W_Object):
         """ representation for debugging purposes """
         return "<W_ComplexObject(%f,%f)>" % (w_self.realval, w_self.imagval)
 
+    def sub(self, other):
+        return W_ComplexObject(self.realval - other.realval,
+                               self.imagval - other.imagval)
+
+    def mul(self, other):
+        r = self.realval * other.realval - self.imagval * other.imagval
+        i = self.realval * other.imagval + self.imagval * other.realval
+        return W_ComplexObject(r, i)
+
+    def div(self, other):
+        r1, i1 = self.realval, self.imagval
+        r2, i2 = other.realval, other.imagval
+        if r2 < 0:
+            abs_r2 = - r2
+        else:
+            abs_r2 = r2
+        if i2 < 0:
+            abs_i2 = - i2
+        else:
+            abs_i2 = i2
+        if abs_r2 >= abs_i2:
+            if abs_r2 == 0.0:
+                raise ZeroDivisionError
+            else:
+                ratio = i2 / r2
+                denom = r2 + i2 * ratio
+                rr = (r1 + i1 * ratio) / denom
+                ir = (i1 - r1 * ratio) / denom
+        else:
+            ratio = r2 / i2
+            denom = r2 * ratio + i2
+            assert i2 != 0.0
+            rr = (r1 * ratio + i1) / denom
+            ir = (i1 * ratio - r1) / denom
+        return W_ComplexObject(rr,ir)
+
+    def divmod(self, other):
+        w_div = self.div(other)
+        div = math.floor(w_div.realval)
+        w_mod = self.sub(
+            W_ComplexObject(other.realval * div, other.imagval * div))
+        return (W_ComplexObject(div, 0), w_mod)
+
+    def pow(self, other):
+        r1, i1 = self.realval, self.imagval
+        r2, i2 = other.realval, other.imagval
+        if r2 == 0.0 and i2 == 0.0:
+            rr, ir = 1, 0
+        elif r1 == 0.0 and i1 == 0.0:
+            if i2 != 0.0 or r2 < 0.0:
+                raise ZeroDivisionError
+            rr, ir = (0.0, 0.0)
+        else:
+            vabs = math.hypot(r1,i1)
+            len = math.pow(vabs,r2)
+            at = math.atan2(i1,r1)
+            phase = at * r2
+            if i2 != 0.0:
+                len /= math.exp(at * i2)
+                phase += i2 * math.log(vabs)
+            rr = len * math.cos(phase)
+            ir = len * math.sin(phase)
+        return W_ComplexObject(rr, ir)
+
+    def pow_int(self, n):
+        if n > 100 or n < -100:
+            return self.pow(W_ComplexObject(1.0 * n, 0.0))
+        elif n > 0:
+            return self.pow_positive_int(n)
+        else:
+            return w_one.div(self.pow_positive_int(-n))
+
+    def pow_positive_int(self, n):
+        mask = 1
+        w_result = w_one
+        while mask > 0 and n >= mask:
+            if n & mask:
+                w_result = w_result.mul(self)
+            mask <<= 1
+            self = self.mul(self)
+
+        return w_result
+
 registerimplementation(W_ComplexObject)
 
-c_1 = (1.0, 0.0)
-
-def _sum(c1, c2):
-    return (c1[0]+c2[0],c1[1]+c2[1])
-
-def _diff(c1, c2):
-    return (c1[0]-c2[0],c1[1]-c2[1])
-
-def _prod(c1, c2):
-    r = c1[0]*c2[0] - c1[1]*c2[1]
-    i = c1[0]*c2[1] + c1[1]*c2[0]
-    return (r,i)
-
-def _quot(c1,c2):
-    r1, i1 = c1
-    r2, i2 = c2
-    if r2 < 0:
-        abs_r2 = - r2
-    else:
-        abs_r2 = r2
-    if i2 < 0:
-        abs_i2 = - i2
-    else:
-        abs_i2 = i2
-    if abs_r2 >= abs_i2:
-        if abs_r2 == 0.0:
-            raise ZeroDivisionError
-        else:
-            ratio = i2 / r2
-            denom = r2 + i2 * ratio
-            rr = (r1 + i1 * ratio) / denom
-            ir = (i1 - r1 * ratio) / denom
-    else:
-        ratio = r2 / i2
-        denom = r2 * ratio + i2
-        assert i2 != 0.0
-        rr = (r1 * ratio + i1) / denom
-        ir = (i1 * ratio - r1) / denom
-    return (rr,ir)
-
-def _pow(c1,c2):
-    r1, i1 = c1
-    r2, i2 = c2
-    if r2 == 0.0 and i2 == 0.0:
-        rr, ir = c_1
-    elif r1 == 0.0 and i1 == 0.0:
-        if i2 != 0.0 or r2 < 0.0:
-            raise ZeroDivisionError
-        rr, ir = (0.0, 0.0)
-    else:
-        vabs = math.hypot(r1,i1)
-        len = math.pow(vabs,r2)
-        at = math.atan2(i1,r1)
-        phase = at * r2
-        if i2 != 0.0:
-            len /= math.exp(at * i2)
-            phase += i2 * math.log(vabs)
-        rr = len * math.cos(phase)
-        ir = len * math.sin(phase)
-    return (rr, ir)
-
-def _powu(c,n):
-    mask = 1;
-    rr, ir = c_1
-    rp = c[0]
-    ip = c[1]
-    while mask > 0 and n >= mask:
-        if n & mask:
-            rr, ir = _prod((rr, ir), (rp, ip))
-        mask <<= 1
-        rp, ip = _prod((rp, ip), (rp, ip))
-
-    return (rr, ir)
-
-def _powi(c,n):
-    if n > 100 or n < -100:
-        return _pow(c,(1.0 * n, 0.0))
-    elif n > 0:
-        return _powu(c, n)
-    else:
-        return _quot(c_1, _powu(c, -n))
-
+w_one = W_ComplexObject(1, 0)
 
 
 def delegate_Bool2Complex(space, w_bool):
@@ -128,38 +130,25 @@ def delegate_Float2Complex(space, w_float):
     return W_ComplexObject(w_float.floatval, 0.0)
 
 def hash__Complex(space, w_value):
-    #this is straight out of CPython complex implementation
-
     hashreal = _hash_float(space, w_value.realval)
-    if hashreal == -1:
-        return space.newint(-1)
     hashimg = _hash_float(space, w_value.imagval)
-    if hashimg == -1:
-        return space.newint(-1)
     combined = hashreal + 1000003 * hashimg
-    if (combined == -1):
-        combined = -2
     return space.newint(combined)
 
-def _w2t(space, w_complex):
-    "convert an interplevel complex object to a tuple representation"
-    return w_complex.realval, w_complex.imagval
-
-def _t2w(space, c):
-    return W_ComplexObject(c[0], c[1])
-
 def add__Complex_Complex(space, w_complex1, w_complex2):
-    return _t2w(space, _sum(_w2t(space, w_complex1), _w2t(space, w_complex2)))
+    return W_ComplexObject(w_complex1.realval + w_complex2.realval,
+                           w_complex1.imagval + w_complex2.imagval)
 
 def sub__Complex_Complex(space, w_complex1, w_complex2):
-    return _t2w(space, _diff(_w2t(space, w_complex1), _w2t(space, w_complex2)))
+    return W_ComplexObject(w_complex1.realval - w_complex2.realval,
+                           w_complex1.imagval - w_complex2.imagval)
 
 def mul__Complex_Complex(space, w_complex1, w_complex2):
-    return _t2w(space, _prod(_w2t(space, w_complex1), _w2t(space, w_complex2)))
+    return w_complex1.mul(w_complex2)
 
 def div__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        return _t2w(space, _quot(_w2t(space, w_complex1), _w2t(space, w_complex2)))
+        return w_complex1.div(w_complex2)
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
@@ -167,49 +156,38 @@ truediv__Complex_Complex = div__Complex_Complex
 
 def mod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        div = _quot(_w2t(space, w_complex1), _w2t(space, w_complex2))
+        return w_complex1.divmod(w_complex2)[1]
     except ZeroDivisionError, e:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap("complex remainder"))
-    div = (math.floor(div[0]), 0.0)
-    mod = _diff(_w2t(space, w_complex1), _prod(_w2t(space, w_complex2), div))
-
-    return _t2w(space, mod)
+        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
 def divmod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        div = _quot(_w2t(space, w_complex1), _w2t(space, w_complex2))
+        div, mod = w_complex1.divmod(w_complex2)
     except ZeroDivisionError, e:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap("complex divmod()"))
-    div = (math.floor(div[0]), 0.0)
-    mod = _diff(_w2t(space, w_complex1), _prod(_w2t(space, w_complex2), div))
-    w_div = _t2w(space, div)
-    w_mod = _t2w(space, mod)
-    return space.newtuple([w_div, w_mod])
+        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+    return space.newtuple([div, mod])
 
 def floordiv__Complex_Complex(space, w_complex1, w_complex2):
+    # don't care about the slight slowdown you get from using divmod
     try:
-        div = _quot(_w2t(space, w_complex1), _w2t(space, w_complex2))
+        return w_complex1.divmod(w_complex2)[0]
     except ZeroDivisionError, e:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap("complex floordiv()"))
-    div = (math.floor(div[0]), 0.0)
-    return _t2w(space, div)
+        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
-def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
+def pow__Complex_Complex_ANY(space, w_complex, w_exponent, thirdArg):
     if not space.is_w(thirdArg, space.w_None):
         raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
+    int_exponent = int(w_exponent.realval)
     try:
-        v = _w2t(space, w_complex1)
-        exponent = _w2t(space, w_complex2)
-        int_exponent = int(exponent[0])
-        if exponent[1] == 0.0 and exponent[0] == int_exponent:
-            p = _powi(v, int_exponent)
+        if w_exponent.imagval == 0.0 and w_exponent.realval == int_exponent:
+            w_p = w_complex.pow_int(int_exponent)
         else:
-            p = _pow(v, exponent)
+            w_p = w_complex.pow(w_exponent)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError, space.wrap("0.0 to a negative or complex power"))
     except OverflowError:
         raise OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
-    return _t2w(space, p)
+    return w_p
 
 def neg__Complex(space, w_complex):
     return W_ComplexObject(-w_complex.realval, -w_complex.imagval)

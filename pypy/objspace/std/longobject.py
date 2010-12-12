@@ -45,19 +45,6 @@ class W_LongObject(W_Object):
     fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
     fromrarith_int = staticmethod(fromrarith_int)
 
-    def fromdecimalstr(s):
-        return W_LongObject(rbigint.fromdecimalstr(s))
-    fromdecimalstr = staticmethod(fromdecimalstr)
-
-    def _count_bits(self):
-        return self.num._count_bits()
-
-    def is_odd(self):
-        return self.num.is_odd()
-
-    def get_sign(self):
-        return self.num.sign
-
 registerimplementation(W_LongObject)
 
 # bool-to-long

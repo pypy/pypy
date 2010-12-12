@@ -134,8 +134,6 @@ class TestStrUtil:
         assert string_to_bigint('1891234174197319').tolong() == 1891234174197319
 
     def test_string_to_float(self):
-        def string_to_float(x):
-            return interp_string_to_float(self.space, x)
         assert string_to_float('0') == 0.0
         assert string_to_float('1') == 1.0
         assert string_to_float('-1.5') == -1.5
@@ -183,3 +181,4 @@ class TestStrUtil:
                     print repr(s)
                     if s.strip(): # empty s raises OperationError directly
                         py.test.raises(ParseStringError, string_to_float, s)
+        py.test.raises(ParseStringError, string_to_float, "")

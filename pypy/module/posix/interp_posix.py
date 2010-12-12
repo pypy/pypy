@@ -4,6 +4,7 @@ from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -159,19 +160,29 @@ def ftruncate(space, fd, length):
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
 
-def fsync(space, fd):
+def fsync(space, w_fd):
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fsync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fsync.unwrap_spec = [ObjSpace, "c_int"]
+fsync.unwrap_spec = [ObjSpace, W_Root]
 
-def fdatasync(space, fd):
+def fdatasync(space, w_fd):
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fdatasync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fdatasync.unwrap_spec = [ObjSpace, "c_int"]
+fdatasync.unwrap_spec = [ObjSpace, W_Root]
+
+def fchdir(space, w_fd):
+    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        os.fchdir(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fchdir.unwrap_spec = [ObjSpace, W_Root]
 
 # ____________________________________________________________
 
@@ -1022,6 +1033,17 @@ def chown(space, path, uid, gid):
         raise wrap_oserror(space, e, path)
     return space.w_None
 chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
+
+def getloadavg(space):
+    try:
+        load = os.getloadavg()
+    except OSError, e:
+        raise OperationError(space.w_OSError,
+                             space.wrap("Load averages are unobtainable"))
+    return space.newtuple([space.wrap(load[0]),
+                           space.wrap(load[1]),
+                           space.wrap(load[2])])
+getloadavg.unwrap_spec = [ObjSpace]
 
 if _WIN:
     from pypy.rlib import rwin32

@@ -68,6 +68,17 @@ class BaseTestCompiler:
         space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                        'if 1:\n  x\n y\n', '?', 'exec', 0)
 
+    def test_syntaxerror_attrs(self):
+        w_args = self.space.appexec([], r"""():
+            try:
+                exec 'if 1:\n  x\n y\n'
+            except SyntaxError, e:
+                return e.args
+        """)
+        assert self.space.unwrap(w_args) == (
+            'unindent does not match any outer indentation level',
+            (None, 3, 0, ' y\n'))
+
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',
                                      '<hello>', 'exec', 0)
@@ -918,3 +929,25 @@ class AppTestExceptions:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
             raise Exception("DID NOT RAISE")
+
+
+    def test_repr_vs_str(self):
+        source1 = "x = (\n"
+        source2 = "x = (\n\n"
+        try:
+            exec source1
+        except SyntaxError, err1:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+        try:
+            exec source2
+        except SyntaxError, err2:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+        assert str(err1) != str(err2)
+        assert repr(err1) != repr(err2)
+        err3 = eval(repr(err1))
+        assert str(err3) == str(err1)
+        assert repr(err3) == repr(err1)

@@ -31,8 +31,10 @@ class ResOpGraphPage(GraphPage):
     def compute(self, graphs, errmsg=None):
         resopgen = ResOpGen()
         for graph, highlight in graphs:
-            if hasattr(graph, 'token'):
+            if getattr(graph, 'token', None) is not None:
                 resopgen.jumps_to_graphs[graph.token] = graph
+            if getattr(graph, '_number', None) is not None:
+                resopgen.jumps_to_graphs[graph._number] = graph
         
         for graph, highlight in graphs:
             resopgen.add_graph(graph, highlight)
@@ -173,7 +175,10 @@ class ResOpGen(object):
             if tgt is None:
                 tgt_g = graphindex
             else:
-                tgt = self.jumps_to_graphs.get(tgt)
+                if tgt in self.jumps_to_graphs:
+                    tgt = self.jumps_to_graphs[tgt]
+                else:
+                    tgt = self.jumps_to_graphs.get(tgt.number)
                 if tgt is not None:
                     tgt_g = self.graphs.index(tgt)
             if tgt_g != -1:

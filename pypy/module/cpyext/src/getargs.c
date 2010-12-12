@@ -459,6 +459,7 @@ converttuple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 				        bufsize);
 			return msgbuf;
 		}
+                PyPy_Borrow(arg, item);
 		msg = convertitem(item, &format, p_va, flags, levels+1, 
 				  msgbuf, bufsize, freelist);
 		if (msg != NULL) {

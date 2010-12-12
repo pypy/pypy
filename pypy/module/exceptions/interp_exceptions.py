@@ -505,6 +505,7 @@ class W_SyntaxError(W_StandardError):
         self.w_text     = space.w_None
         self.w_msg      = space.w_None
         self.w_print_file_and_line = space.w_None # what's that?
+        self.w_lastlineno = space.w_None          # this is a pypy extension
         W_BaseException.__init__(self, space)
 
     def descr_init(self, space, args_w):
@@ -512,11 +513,16 @@ class W_SyntaxError(W_StandardError):
         if len(args_w) > 0:
             self.w_msg = args_w[0]
         if len(args_w) == 2:
-            values_w = space.fixedview(args_w[1], 4)
-            self.w_filename = values_w[0]
-            self.w_lineno   = values_w[1]
-            self.w_offset   = values_w[2]
-            self.w_text     = values_w[3]
+            values_w = space.fixedview(args_w[1])
+            if len(values_w) > 0: self.w_filename   = values_w[0]
+            if len(values_w) > 1: self.w_lineno     = values_w[1]
+            if len(values_w) > 2: self.w_offset     = values_w[2]
+            if len(values_w) > 3: self.w_text       = values_w[3]
+            if len(values_w) > 4:
+                self.w_lastlineno = values_w[4]   # PyPy extension
+                # kill the extra items from args_w to prevent undesired effects
+                args_w = args_w[:]
+                args_w[1] = space.newtuple(values_w[:4])
         W_BaseException.descr_init(self, space, args_w)
     descr_init.unwrap_spec = ['self', ObjSpace, 'args_w']
 
@@ -525,22 +531,44 @@ class W_SyntaxError(W_StandardError):
             if type(self.msg) is not str:
                 return str(self.msg)
 
+            lineno = None
             buffer = self.msg
             have_filename = type(self.filename) is str
-            have_lineno = type(self.lineno) is int
+            if type(self.lineno) is int:
+                if (type(self.lastlineno) is int and
+                       self.lastlineno > self.lineno):
+                    lineno = 'lines %d-%d' % (self.lineno, self.lastlineno)
+                else:
+                    lineno = 'line %d' % (self.lineno,)
             if have_filename:
                 import os
                 fname = os.path.basename(self.filename or "???")
-                if have_lineno:
-                    buffer = "%s (%s, line %ld)" % (self.msg, fname, self.lineno)
+                if lineno:
+                    buffer = "%s (%s, %s)" % (self.msg, fname, lineno)
                 else:
                     buffer ="%s (%s)" % (self.msg, fname)
-            elif have_lineno:
-                buffer = "%s (line %ld)" % (self.msg, self.lineno)
+            elif lineno:
+                buffer = "%s (%s)" % (self.msg, lineno)
             return buffer
         """)
 
     descr_str.unwrap_spec = ['self', ObjSpace]
+
+    def descr_repr(self, space):
+        if (len(self.args_w) == 2
+            and not space.is_w(self.w_lastlineno, space.w_None)
+            and space.int_w(space.len(self.args_w[1])) == 4):
+            # fake a 5-element tuple in the repr, suitable for calling
+            # __init__ again
+            values_w = space.fixedview(self.args_w[1])
+            w_tuple = space.newtuple(values_w + [self.w_lastlineno])
+            args_w = [self.args_w[0], w_tuple]
+            args_repr = space.str_w(space.repr(space.newtuple(args_w)))
+            clsname = self.getclass(space).getname(space, '?')
+            return space.wrap(clsname + args_repr)
+        else:
+            return W_StandardError.descr_repr(self, space)
+    descr_repr.unwrap_spec = ['self', ObjSpace]
 
 W_SyntaxError.typedef = TypeDef(
     'SyntaxError',
@@ -548,6 +576,7 @@ W_SyntaxError.typedef = TypeDef(
     __new__ = _new(W_SyntaxError),
     __init__ = interp2app(W_SyntaxError.descr_init),
     __str__ = interp2app(W_SyntaxError.descr_str),
+    __repr__ = interp2app(W_SyntaxError.descr_repr),
     __doc__ = W_SyntaxError.__doc__,
     __module__ = 'exceptions',
     msg      = readwrite_attrproperty_w('w_msg', W_SyntaxError),
@@ -557,6 +586,7 @@ W_SyntaxError.typedef = TypeDef(
     text     = readwrite_attrproperty_w('w_text', W_SyntaxError),
     print_file_and_line = readwrite_attrproperty_w('w_print_file_and_line',
                                                    W_SyntaxError),
+    lastlineno = readwrite_attrproperty_w('w_lastlineno', W_SyntaxError),
 )
 
 W_FutureWarning = _new_exception('FutureWarning', W_Warning,

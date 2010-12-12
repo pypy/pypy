@@ -14,32 +14,12 @@ def poll(space):
 unregistering file descriptors, and then polling them for I/O events."""
     return Poll()
 
-def as_fd_w(space, w_fd):
-    if not space.is_true(space.isinstance(w_fd, space.w_int)):
-        try:
-            w_fileno = space.getattr(w_fd, space.wrap('fileno'))
-        except OperationError, e:
-            if e.match(space, space.w_AttributeError):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("argument must be an int, or have a fileno() method."))
-            raise
-        w_fd = space.call_function(w_fileno)
-        if not space.is_true(space.isinstance(w_fd, space.w_int)):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('filneo() return a non-integer'))
-        
-    fd = space.int_w(w_fd)
-    if fd < 0:
-        raise operationerrfmt(space.w_ValueError,
-            "file descriptor cannot be a negative integer (%d)", fd)
-    return fd
-
 class Poll(Wrappable):
     def __init__(self):
         self.fddict = {}
 
     def register(self, space, w_fd, events=defaultevents):
-        fd = as_fd_w(space, w_fd)
+        fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
     register.unwrap_spec = ['self', ObjSpace, W_Root, int]
 
@@ -52,7 +32,7 @@ class Poll(Wrappable):
     modify.unwrap_spec = ['self', ObjSpace, W_Root, int]
 
     def unregister(self, space, w_fd):
-        fd = as_fd_w(space, w_fd)
+        fd = space.c_filedescriptor_w(w_fd)
         try:
             del self.fddict[fd]
         except KeyError:
@@ -123,9 +103,9 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
     iwtd_w = space.listview(w_iwtd)
     owtd_w = space.listview(w_owtd)
     ewtd_w = space.listview(w_ewtd)
-    iwtd = [as_fd_w(space, w_f) for w_f in iwtd_w]
-    owtd = [as_fd_w(space, w_f) for w_f in owtd_w]
-    ewtd = [as_fd_w(space, w_f) for w_f in ewtd_w]
+    iwtd = [space.c_filedescriptor_w(w_f) for w_f in iwtd_w]
+    owtd = [space.c_filedescriptor_w(w_f) for w_f in owtd_w]
+    ewtd = [space.c_filedescriptor_w(w_f) for w_f in ewtd_w]
     iwtd_d = {}
     owtd_d = {}
     ewtd_d = {}

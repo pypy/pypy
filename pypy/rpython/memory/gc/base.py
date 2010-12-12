@@ -36,6 +36,12 @@ class GCBase(object):
         self.finalizer_lock_count = 0
         self.run_finalizers = self.AddressDeque()
 
+    def post_setup(self):
+        # More stuff that needs to be initialized when the GC is already
+        # fully working.  (Only called by gctransform/framework for now.)
+        from pypy.rpython.memory.gc import env
+        self.DEBUG = env.read_from_env('PYPY_GC_DEBUG')
+
     def _teardown(self):
         pass
 
@@ -48,7 +54,8 @@ class GCBase(object):
     # The following flag enables costly consistency checks after each
     # collection.  It is automatically set to True by test_gc.py.  The
     # checking logic is translatable, so the flag can be set to True
-    # here before translation.
+    # here before translation.  At run-time, if PYPY_GC_DEBUG is set,
+    # then it is also set to True.
     DEBUG = False
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,

@@ -730,6 +730,22 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([traits.str, int, int], int, traits.ll_os_name('open'),
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
 
+    @registering_if(os, 'getloadavg')
+    def register_os_getloadavg(self):
+        AP = rffi.CArrayPtr(lltype.Float)
+        c_getloadavg = self.llexternal('getloadavg', [AP, rffi.INT], rffi.INT)
+
+        def getloadavg_llimpl():
+            load = lltype.malloc(AP.TO, 3, flavor='raw')
+            r = c_getloadavg(load, 3)
+            result_tuple = load[0], load[1], load[2]
+            lltype.free(load, flavor='raw')
+            if r != 3:
+                raise OSError
+            return result_tuple
+        return extdef([], (float, float, float),
+                      "ll_os.ll_getloadavg", llimpl=getloadavg_llimpl)
+
 # ------------------------------- os.read -------------------------------
 
     @registering(os.read)
@@ -886,6 +902,18 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], s_None,
                       llimpl=fdatasync_llimpl,
                       export_name="ll_os.ll_os_fdatasync")
+
+    @registering_if(os, 'fchdir')
+    def register_os_fchdir(self):
+        os_fchdir = self.llexternal('fchdir', [rffi.INT], rffi.INT)
+
+        def fchdir_llimpl(fd):
+            res = rffi.cast(rffi.LONG, os_fchdir(rffi.cast(rffi.INT, fd)))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "fchdir failed")
+        return extdef([int], s_None,
+                      llimpl=fchdir_llimpl,
+                      export_name="ll_os.ll_os_fchdir")
 
     @registering_str_unicode(os.access)
     def register_os_access(self, traits):

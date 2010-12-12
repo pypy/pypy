@@ -295,9 +295,9 @@ class _SimpleCData(_CData):
             self.value = value
 
     def _ensure_objects(self):
-        if self._type_ in 'zZ':
-            return self._objects
-        return None
+        if self._type_ not in 'zZP':
+            assert self._objects is None
+        return self._objects
 
     def _getvalue(self):
         return self._buffer[0]

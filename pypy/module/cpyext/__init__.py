@@ -47,6 +47,7 @@ import pypy.module.cpyext.complexobject
 import pypy.module.cpyext.weakrefobject
 import pypy.module.cpyext.funcobject
 import pypy.module.cpyext.classobject
+import pypy.module.cpyext.pypyintf
 import pypy.module.cpyext.memoryobject
 import pypy.module.cpyext.codecs
 
