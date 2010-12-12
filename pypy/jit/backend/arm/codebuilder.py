@@ -120,18 +120,18 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         return self._pos
 
-    size_of_gen_load_int = 7 * WORD
+    size_of_gen_load_int = 4 * WORD
+    #XXX use MOV_ri if value fits in imm
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
-        assert r != reg.ip.value, 'ip is used to load int'
-        ip = reg.ip.value
-
         self.MOV_ri(r, (value & 0xFF), cond=cond)
-        for offset in range(8, 25, 8):
-            t = (value >> offset) & 0xFF
-            self.MOV_ri(ip, t, cond=cond)
-            self.ORR_rr(r, r, ip, offset, cond=cond)
+        for offset, shift in zip(range(8, 25, 8), range(12, 0, -4)):
+            b = (value >> offset) & 0xFF
+            if b == 0:
+                continue
+            t = b | (shift << 8)
+            self.ORR_ri(r, r, imm=t, cond=cond)
 
 
 class ARMv7InMemoryBuilder(AbstractARMv7Builder):

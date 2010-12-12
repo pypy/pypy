@@ -280,7 +280,7 @@ class OpAssembler(object):
         if n_args > 4:
             stack_args = n_args - 4
             n = stack_args*WORD
-            self._adjust_sp(n, regalloc, fcond=fcond)
+            self._adjust_sp(n, fcond=fcond)
             for i in range(4, n_args):
                 reg, box = regalloc._ensure_value_is_boxed(args[i], regalloc)
                 self.mc.STR_ri(reg.value, r.sp.value, (i-4)*WORD)
@@ -293,7 +293,7 @@ class OpAssembler(object):
         # readjust the sp in case we passed some args on the stack
         if n_args > 4:
             assert n > 0
-            self._adjust_sp(-n, regalloc, fcond=fcond)
+            self._adjust_sp(-n, fcond=fcond)
 
         # restore the argumets stored on the stack
         if spill_all_regs:
@@ -653,12 +653,10 @@ class ForceOpAssembler(object):
         assert value <= 0xff
 
         # check value
-        t = TempBox()
-        #XXX is this correct?
+        loc, t = regalloc._ensure_value_is_boxed(ConstInt(value))
         resloc = regalloc.force_allocate_reg(resbox)
-        loc = regalloc.force_allocate_reg(t)
-        self.mc.gen_load_int(loc.value, value)
-        self.mc.CMP_rr(resloc.value, loc.value)
+        self.mc.gen_load_int(r.ip.value, value)
+        self.mc.CMP_rr(resloc.value, r.ip.value)
         regalloc.possibly_free_var(resbox)
 
         fast_jmp_pos = self.mc.currpos()
@@ -702,8 +700,7 @@ class ForceOpAssembler(object):
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
-            loc = regalloc.force_allocate_reg(t)
-            resloc = regalloc.force_allocate_reg(op.result, [t])
+            resloc = regalloc.force_allocate_reg(op.result)
             kind = op.result.type
             if kind == INT:
                 adr = self.fail_boxes_int.get_addr_for_num(0)
@@ -711,9 +708,8 @@ class ForceOpAssembler(object):
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
-            self.mc.gen_load_int(loc.value, adr)
-            self.mc.LDR_ri(resloc.value, loc.value)
-            regalloc.possibly_free_var(t)
+            self.mc.gen_load_int(r.ip.value, adr)
+            self.mc.LDR_ri(resloc.value, r.ip.value)
 
         offset = self.mc.currpos() - jmp_pos
         pmc = ARMv7InMemoryBuilder(jmp_location, WORD)
@@ -737,9 +733,9 @@ class ForceOpAssembler(object):
         self._emit_guard(guard_op, arglocs, c.GE)
         return fcond
 
-    def _write_fail_index(self, fail_index, temp_reg):
-        self.mc.gen_load_int(temp_reg.value, fail_index)
-        self.mc.STR_ri(temp_reg.value, r.fp.value)
+    def _write_fail_index(self, fail_index):
+        self.mc.gen_load_int(r.ip.value, fail_index)
+        self.mc.STR_ri(r.ip.value, r.fp.value)
 
 class AllocOpAssembler(object):
 
@@ -771,23 +767,17 @@ class AllocOpAssembler(object):
         callargs = arglocs[:-1]
         self._emit_call(self.malloc_func_addr, callargs,
                                 regalloc, result=op.result)
-        self.set_vtable(op.result, classint, regalloc)
+        self.set_vtable(op.result, classint)
         #XXX free args here, because _emit_call works on regalloc
         regalloc.possibly_free_vars(callargs)
         regalloc.possibly_free_var(op.result)
         return fcond
 
-    def set_vtable(self, box, vtable, regalloc):
+    def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:
-            loc = regalloc.loc(box) # r0
-            assert loc is r.r0
             adr = rffi.cast(lltype.Signed, vtable)
-            t = TempBox()
-            loc_vtable = regalloc.force_allocate_reg(t, [box])
-            assert loc_vtable is not loc
-            regalloc.possibly_free_var(t)
-            self.mc.gen_load_int(loc_vtable.value, adr)
-            self.mc.STR_ri(loc_vtable.value, loc.value, self.cpu.vtable_offset)
+            self.mc.gen_load_int(r.ip.value, adr)
+            self.mc.STR_ri(r.ip.value, r.r0.value, self.cpu.vtable_offset)
 
     def emit_op_new_array(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs_length = arglocs

@@ -79,28 +79,14 @@ class ARMRegisterManager(RegisterManager):
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
 
-    #XXX remove
-    def force_allocate_reg(self, v, forbidden_vars=[], selected_reg=None,
-                           need_lower_byte=False):
-        # override ../llsupport/regalloc.py to set longevity for vals not in longevity
-        self._check_type(v)
-        if isinstance(v, TempBox) or v not in self.longevity:
-            self.longevity[v] = (self.position, self.position)
-        loc = self.try_allocate_reg(v, selected_reg,
-                                    need_lower_byte=need_lower_byte)
-        if loc:
-            return loc
-        loc = self._spill_var(v, forbidden_vars, selected_reg,
-                              need_lower_byte=need_lower_byte)
-        prev_loc = self.reg_bindings.get(v, None)
-        if prev_loc is not None:
-            self.free_regs.append(prev_loc)
-        self.reg_bindings[v] = loc
-        return loc
-
     def force_spill_var(self, var):
         self._sync_var(var)
-        del self.reg_bindings[var]
+        try:
+            loc = self.reg_bindings[var]
+            del self.reg_bindings[var]
+            self.free_regs.append(loc)
+        except KeyError:
+            import pdb; pdb.set_trace()
 
     def _check_imm_arg(self, arg, size=0xFF, allow_zero=True):
         if isinstance(arg, ConstInt):
@@ -112,8 +98,6 @@ class ARMRegisterManager(RegisterManager):
         return False
 
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
-        # XXX create TempBox subclasses with the corresponding type flags and
-        # remove the overridden force_allocate_reg once done
         box = None
         loc = None
         if isinstance(thing, Const):
@@ -207,13 +191,13 @@ class ARMRegisterManager(RegisterManager):
         boxes.append(box)
         reg2, box = self._ensure_value_is_boxed(a1,forbidden_vars=boxes)
         boxes.append(box)
-        self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result, boxes)
 
         args.append(reg1)
         args.append(reg2)
         args.append(res)
         args = self._prepare_guard(guard, args)
+        self.possibly_free_vars(boxes)
         self.possibly_free_var(op.result)
         return args
 
@@ -305,9 +289,10 @@ class ARMRegisterManager(RegisterManager):
             boxes.append(box)
         else:
             l1 = self.make_sure_var_in_reg(a1)
-        self.possibly_free_vars(boxes)
         assert op.result is None
-        return  self._prepare_guard(op, [l0, l1])
+        arglocs = self._prepare_guard(op, [l0, l1])
+        self.possibly_free_vars(boxes)
+        return arglocs
 
     def prepare_op_guard_no_overflow(self, op, fcond):
         return  self._prepare_guard(op)
@@ -327,16 +312,19 @@ class ARMRegisterManager(RegisterManager):
             boxes.append(resloc)
         else:
             resloc = None
-        self.possibly_free_vars(boxes)
+        # There is some redundancy here ?!
         pos_exc_value = imm(self.assembler.cpu.pos_exc_value())
         pos_exception = imm(self.assembler.cpu.pos_exception())
-        return self._prepare_guard(op, [loc, loc1, resloc, pos_exc_value, pos_exception])
+        arglocs = self._prepare_guard(op, [loc, loc1, resloc, pos_exc_value, pos_exception])
+        self.possibly_free_vars(boxes)
+        return arglocs
 
     def prepare_op_guard_no_exception(self, op, fcond):
         loc, box = self._ensure_value_is_boxed(
                     ConstInt(self.assembler.cpu.pos_exception()))
+        arglocs = self._prepare_guard(op, [loc])
         self.possibly_free_var(box)
-        return self._prepare_guard(op, [loc])
+        return arglocs
 
     def prepare_op_guard_class(self, op, fcond):
         return self._prepare_guard_class(op, fcond)
@@ -356,8 +344,9 @@ class ARMRegisterManager(RegisterManager):
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
         self.assembler.load(y, imm(y_val))
 
+        arglocs = self._prepare_guard(op, [x, y])
         self.possibly_free_vars(boxes)
-        return self._prepare_guard(op, [x, y])
+        return arglocs
 
     def prepare_op_jump(self, op, fcond):
         descr = op.getdescr()
@@ -645,11 +634,7 @@ class ARMRegisterManager(RegisterManager):
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         faildescr = guard_op.getdescr()
         fail_index = self.assembler.cpu.get_fail_descr_number(faildescr)
-        # XXX remove tempbox when ip can be used in gen_load_int
-        t = TempBox()
-        l0 = self.force_allocate_reg(t)
-        self.possibly_free_var(t)
-        self.assembler._write_fail_index(fail_index, l0)
+        self.assembler._write_fail_index(fail_index)
         args = [rffi.cast(lltype.Signed, op.getarg(0).getint())]
         # force all reg values to be spilled when calling
         self.assembler.emit_op_call(op, args, self, fcond, spill_all_regs=True)
@@ -659,11 +644,7 @@ class ARMRegisterManager(RegisterManager):
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         faildescr = guard_op.getdescr()
         fail_index = self.assembler.cpu.get_fail_descr_number(faildescr)
-        # XXX remove tempbox when ip can be used in gen_load_int
-        t = TempBox()
-        l0 = self.force_allocate_reg(t)
-        self.possibly_free_var(t)
-        self.assembler._write_fail_index(fail_index, l0)
+        self.assembler._write_fail_index(fail_index)
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr

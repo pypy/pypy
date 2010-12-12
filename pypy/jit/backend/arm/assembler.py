@@ -375,9 +375,9 @@ class AssemblerARM(ResOpAssembler):
         if regalloc.frame_manager.frame_depth == 1:
             return
         n = (regalloc.frame_manager.frame_depth-1)*WORD
-        self._adjust_sp(n, regalloc, cb, base_reg=r.fp)
+        self._adjust_sp(n, cb, base_reg=r.fp)
 
-    def _adjust_sp(self, n, regalloc, cb=None, fcond=c.AL, base_reg=r.sp):
+    def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):
         if cb is None:
             cb = self.mc
         if n < 0:
@@ -391,14 +391,11 @@ class AssemblerARM(ResOpAssembler):
             else:
                 cb.SUB_ri(r.sp.value, base_reg.value, n)
         else:
-            b = TempBox()
-            reg = regalloc.force_allocate_reg(b)
-            cb.gen_load_int(reg.value, n, cond=fcond)
+            cb.gen_load_int(r.ip.value, n, cond=fcond)
             if rev:
                 cb.ADD_rr(r.sp.value, base_reg.value, reg.value, cond=fcond)
             else:
                 cb.SUB_rr(r.sp.value, base_reg.value, reg.value, cond=fcond)
-            regalloc.possibly_free_var(b)
 
     def _walk_operations(self, operations, regalloc):
         fcond=c.AL
