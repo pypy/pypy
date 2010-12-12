@@ -15,7 +15,6 @@ from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
-from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, Box,
                                         AbstractFailDescr, LoopToken, INT, FLOAT, REF)
 from pypy.jit.metainterp.resoperation import rop
@@ -28,27 +27,8 @@ class IntOpAsslember(object):
 
     _mixin_ = True
 
-    def emit_op_int_add(self, op, regalloc, fcond):
-        #XXX check if neg values are supported for imm values
-        boxes = list(op.getarglist())
-        a0, a1 = boxes
-        imm_a0 = self._check_imm_arg(a0)
-        imm_a1 = self._check_imm_arg(a1)
-        if not imm_a0 and imm_a1:
-            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
-            l1 = regalloc.make_sure_var_in_reg(a1, [a0])
-            boxes.append(box)
-        elif imm_a0 and not imm_a1:
-            l0 = regalloc.make_sure_var_in_reg(a0)
-            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-            boxes.append(box)
-        else:
-            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
-            boxes.append(box)
-            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-            boxes.append(box)
-        res = regalloc.force_allocate_reg(op.result, boxes)
-
+    def emit_op_int_add(self, op, arglocs, regalloc, fcond):
+        l0, l1, res = arglocs
         if l0.is_imm():
             self.mc.ADD_ri(res.value, l1.value, imm=l0.value, s=1)
         elif l1.is_imm():
@@ -56,30 +36,10 @@ class IntOpAsslember(object):
         else:
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
 
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
-    def emit_op_int_sub(self, op, regalloc, fcond):
-        #XXX check if neg values are supported for imm values
-        boxes = list(op.getarglist())
-        a0, a1 = boxes
-        imm_a0 = self._check_imm_arg(a0)
-        imm_a1 = self._check_imm_arg(a1)
-        if not imm_a0 and imm_a1:
-            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
-            l1 = regalloc.make_sure_var_in_reg(a1, [a0])
-            boxes.append(box)
-        elif imm_a0 and not imm_a1:
-            l0 = regalloc.make_sure_var_in_reg(a0)
-            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-            boxes.append(box)
-        else:
-            l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
-            boxes.append(box)
-            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-            boxes.append(box)
-        res = regalloc.force_allocate_reg(op.result, boxes)
+    def emit_op_int_sub(self, op, arglocs, regalloc, fcond):
+        l0, l1, res = arglocs
         if l0.is_imm():
             value = l0.getint()
             assert value >= 0
@@ -92,47 +52,28 @@ class IntOpAsslember(object):
         else:
             self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
 
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
-    def emit_op_int_mul(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-        a0, a1 = boxes
-
-        reg1, box = self._ensure_value_is_boxed(a0, regalloc, forbidden_vars=boxes)
-        boxes.append(box)
-        reg2, box = self._ensure_value_is_boxed(a1, regalloc, forbidden_vars=boxes)
-        boxes.append(box)
-
-        res = regalloc.force_allocate_reg(op.result, boxes)
+    def emit_op_int_mul(self, op, arglocs, regalloc, fcond):
+        reg1, reg2, res = arglocs
         self.mc.MUL(res.value, reg1.value, reg2.value)
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
-    def emit_guard_int_mul_ovf(self, op, guard, regalloc, fcond):
-        boxes = list(op.getarglist())
-        a0, a1 = boxes
-
-        reg1, box = self._ensure_value_is_boxed(a0, regalloc, forbidden_vars=boxes)
-        boxes.append(box)
-        reg2, box = self._ensure_value_is_boxed(a1, regalloc, forbidden_vars=boxes)
-        boxes.append(box)
-        res = regalloc.force_allocate_reg(op.result, boxes)
-
+    def emit_guard_int_mul_ovf(self, op, guard, arglocs, regalloc, fcond):
+        reg1 = arglocs[0]
+        reg2 = arglocs[1]
+        res =  arglocs[2]
+        failargs = arglocs[3:]
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value, cond=fcond)
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, imm=31, cond=fcond)
 
         if guard.getopnum() == rop.GUARD_OVERFLOW:
-            fcond = self._emit_guard(guard, regalloc, c.NE)
+            fcond = self._emit_guard(guard, failargs, c.NE)
         elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
-            fcond = self._emit_guard(guard, regalloc, c.EQ)
+            fcond = self._emit_guard(guard, failargs, c.EQ)
         else:
             assert 0
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
@@ -156,15 +97,14 @@ class IntOpAsslember(object):
     emit_op_uint_le = gen_emit_cmp_op(c.LS)
     emit_op_uint_gt = gen_emit_cmp_op(c.HI)
 
-    emit_op_uint_lt = gen_emit_cmp_op(c.HI, inverse=True)
-    emit_op_uint_ge = gen_emit_cmp_op(c.LS, inverse=True)
+    emit_op_uint_lt = gen_emit_cmp_op(c.HI)
+    emit_op_uint_ge = gen_emit_cmp_op(c.LS)
 
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
 
     emit_op_ptr_eq = emit_op_int_eq
     emit_op_ptr_ne = emit_op_int_ne
-
 
 
 class UnaryIntOpAssembler(object):
@@ -174,20 +114,15 @@ class UnaryIntOpAssembler(object):
     emit_op_int_is_true = gen_emit_op_unary_cmp(c.NE, c.EQ)
     emit_op_int_is_zero = gen_emit_op_unary_cmp(c.EQ, c.NE)
 
-    def emit_op_int_invert(self, op, regalloc, fcond):
-        reg, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
-        res = regalloc.force_allocate_reg(op.result, [box])
-        regalloc.possibly_free_var(box)
-        regalloc.possibly_free_var(op.result)
+    def emit_op_int_invert(self, op, arglocs, regalloc, fcond):
+        reg, res = arglocs
 
         self.mc.MVN_rr(res.value, reg.value)
         return fcond
 
     #XXX check for a better way of doing this
-    def emit_op_int_neg(self, op, regalloc, fcond):
-        l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
-        resloc = regalloc.force_allocate_reg(op.result, [box])
-        regalloc.possibly_free_vars([box, op.result])
+    def emit_op_int_neg(self, op, arglocs, regalloc, fcond):
+        l0, resloc = arglocs
 
         self.mc.MVN_ri(r.ip.value, imm=~-1)
         self.mc.MUL(resloc.value, l0.value, r.ip.value)
@@ -198,7 +133,7 @@ class GuardOpAssembler(object):
     _mixin_ = True
 
     guard_size = 10*WORD
-    def _emit_guard(self, op, regalloc, fcond, save_exc=False):
+    def _emit_guard(self, op, arglocs, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
         if not we_are_translated() and hasattr(op, 'getfailargs'):
@@ -213,106 +148,76 @@ class GuardOpAssembler(object):
         self.mc.BL(addr)
         self.mc.POP([reg.value for reg in r.caller_resp])
 
-        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), regalloc)
+        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), arglocs)
         descr._failure_recovery_code = memaddr
-        regalloc.possibly_free_vars_for_op(op)
         return c.AL
 
-    def emit_op_guard_true(self, op, regalloc, fcond):
-        l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
+    def emit_op_guard_true(self, op, arglocs, regalloc, fcond):
+        l0 = arglocs[0]
+        failargs = arglocs[1:]
         self.mc.CMP_ri(l0.value, 0)
-        fcond = self._emit_guard(op, regalloc, c.NE)
-        regalloc.possibly_free_var(box)
+        fcond = self._emit_guard(op, failargs, c.NE)
         return fcond
 
-    def emit_op_guard_false(self, op, regalloc, fcond):
-        l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
+    def emit_op_guard_false(self, op, arglocs, regalloc, fcond):
+        l0 = arglocs[0]
+        failargs = arglocs[1:]
         self.mc.CMP_ri(l0.value, 0)
-        fcond = self._emit_guard(op, regalloc, c.EQ)
-        regalloc.possibly_free_var(box)
+        fcond = self._emit_guard(op, failargs, c.EQ)
         return fcond
 
-    def emit_op_guard_value(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-        a0, a1 = boxes
-        imm_a1 = self._check_imm_arg(a1)
-        l0, box = self._ensure_value_is_boxed(a0, regalloc, boxes)
-        boxes.append(box)
-        if not imm_a1:
-            l1, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-            boxes.append(box)
-        else:
-            l1 = regalloc.make_sure_var_in_reg(a1)
+    def emit_op_guard_value(self, op, arglocs, regalloc, fcond):
+        l0 = arglocs[0]
+        l1 = arglocs[1]
+        failargs = arglocs[2:]
 
         if l1.is_imm():
             self.mc.CMP_ri(l0.value, l1.getint())
         else:
             self.mc.CMP_rr(l0.value, l1.value)
-        fcond = self._emit_guard(op, regalloc, c.EQ)
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
+        fcond = self._emit_guard(op, failargs, c.EQ)
         return fcond
 
     emit_op_guard_nonnull = emit_op_guard_true
     emit_op_guard_isnull = emit_op_guard_false
 
-    def emit_op_guard_no_overflow(self, op, regalloc, fcond):
-        return self._emit_guard(op, regalloc, c.VC)
+    def emit_op_guard_no_overflow(self, op, arglocs, regalloc, fcond):
+        return self._emit_guard(op, arglocs, c.VC)
 
-    def emit_op_guard_overflow(self, op, regalloc, fcond):
-        return self._emit_guard(op, regalloc, c.VS)
+    def emit_op_guard_overflow(self, op, arglocs, regalloc, fcond):
+        return self._emit_guard(op, arglocs, c.VS)
 
     # from ../x86/assembler.py:1265
-    def emit_op_guard_class(self, op, regalloc, fcond):
-        locs = self._prepare_guard_class(op, regalloc, fcond)
-        self._cmp_guard_class(op, locs, regalloc, fcond)
+    def emit_op_guard_class(self, op, arglocs, regalloc, fcond):
+        self._cmp_guard_class(op, arglocs, regalloc, fcond)
         return fcond
 
-    def emit_op_guard_nonnull_class(self, op, regalloc, fcond):
+    def emit_op_guard_nonnull_class(self, op, arglocs, regalloc, fcond):
         offset = self.cpu.vtable_offset
         if offset is not None:
             self.mc.ensure_can_fit(self.guard_size+3*WORD)
         else:
             raise NotImplementedError
-        locs = self._prepare_guard_class(op, regalloc, fcond)
 
-        self.mc.CMP_ri(locs[0].value, 0)
+        self.mc.CMP_ri(arglocs[0].value, 0)
         if offset is not None:
             self.mc.ADD_ri(r.pc.value, r.pc.value, 2*WORD, cond=c.EQ)
         else:
             raise NotImplementedError
-        self._cmp_guard_class(op, locs, regalloc, fcond)
+        self._cmp_guard_class(op, arglocs, regalloc, fcond)
         return fcond
-
-    def _prepare_guard_class(self, op, regalloc, fcond):
-        assert isinstance(op.getarg(0), Box)
-        boxes = list(op.getarglist())
-
-        x, x_box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
-        boxes.append(x_box)
-
-        t = TempBox()
-        y = regalloc.force_allocate_reg(t, boxes)
-        boxes.append(t)
-        y_val = op.getarg(1).getint()
-        self.mc.gen_load_int(y.value, rffi.cast(lltype.Signed, y_val))
-
-        regalloc.possibly_free_vars(boxes)
-        return [x, y]
-
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
         offset = self.cpu.vtable_offset
-        x, y = locs
         if offset is not None:
             assert offset == 0
-            self.mc.LDR_ri(r.ip.value, x.value, offset)
-            self.mc.CMP_rr(r.ip.value, y.value)
+            self.mc.LDR_ri(r.ip.value, locs[0].value, offset)
+            self.mc.CMP_rr(r.ip.value, locs[1].value)
         else:
             raise NotImplementedError
             # XXX port from x86 backend once gc support is in place
 
-        return self._emit_guard(op, regalloc, c.EQ)
+        return self._emit_guard(op, locs[2:], c.EQ)
 
 
 
@@ -320,28 +225,24 @@ class OpAssembler(object):
 
     _mixin_ = True
 
-    def emit_op_jump(self, op, regalloc, fcond):
+    def emit_op_jump(self, op, arglocs, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
         destlocs = descr._arm_arglocs
-        srclocs  = [regalloc.loc(op.getarg(i)) for i in range(op.numargs())]
-        remap_frame_layout(self, srclocs, destlocs, r.ip)
-
         loop_code = descr._arm_loop_code
+
+        remap_frame_layout(self, arglocs, destlocs, r.ip)
         self.mc.B(loop_code, fcond)
         return fcond
 
-    def emit_op_finish(self, op, regalloc, fcond):
-        self._gen_path_to_exit_path(op, op.getarglist(), regalloc, c.AL)
+    def emit_op_finish(self, op, arglocs, regalloc, fcond):
+        self._gen_path_to_exit_path(op, op.getarglist(), arglocs, c.AL)
         return fcond
 
-    def emit_op_call(self, op, regalloc, fcond, spill_all_regs=False):
-        adr = rffi.cast(lltype.Signed, op.getarg(0).getint())
-        args = op.getarglist()[1:]
-        cond =  self._emit_call(adr, args, regalloc, fcond, op.result, spill_all_regs=spill_all_regs)
-        regalloc.possibly_free_vars(args)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
+    def emit_op_call(self, op, args, regalloc, fcond, spill_all_regs=False):
+        adr = args[0]
+        cond =  self._emit_call(adr, op.getarglist()[1:], regalloc, fcond,
+                                op.result, spill_all_regs=spill_all_regs)
 
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
@@ -349,7 +250,7 @@ class OpAssembler(object):
             loc = regalloc.call_result_location(op.result)
             size = descr.get_result_size(False)
             signed = descr.is_result_signed()
-            self._ensure_result_bit_extension(loc, size, signed, regalloc)
+            self._ensure_result_bit_extension(loc, size, signed)
         return cond
 
     # XXX improve this interface
@@ -381,7 +282,7 @@ class OpAssembler(object):
             n = stack_args*WORD
             self._adjust_sp(n, regalloc, fcond=fcond)
             for i in range(4, n_args):
-                reg, box = self._ensure_value_is_boxed(args[i], regalloc)
+                reg, box = regalloc._ensure_value_is_boxed(args[i], regalloc)
                 self.mc.STR_ri(reg.value, r.sp.value, (i-4)*WORD)
                 regalloc.possibly_free_var(box)
 
@@ -405,56 +306,37 @@ class OpAssembler(object):
                 self.mc.POP([reg.value for reg in r.caller_resp])
         return fcond
 
-    def emit_op_same_as(self, op, regalloc, fcond):
-        resloc = regalloc.force_allocate_reg(op.result)
-        arg = op.getarg(0)
-        imm_arg = self._check_imm_arg(arg)
-        argloc = regalloc.make_sure_var_in_reg(arg, [op.result], imm_fine=imm_arg)
+    def emit_op_same_as(self, op, arglocs, regalloc, fcond):
+        argloc, resloc = arglocs
         if argloc.is_imm():
             self.mc.MOV_ri(resloc.value, argloc.getint())
         else:
             self.mc.MOV_rr(resloc.value, argloc.value)
-        regalloc.possibly_free_vars_for_op(op)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_cond_call_gc_wb(self, op, regalloc, fcond):
         #XXX implement once gc support is in place
         return fcond
 
-    def emit_op_guard_no_exception(self, op, regalloc, fcond):
-        loc, box = self._ensure_value_is_boxed(
-                        ConstInt(self.cpu.pos_exception()), regalloc)
-
+    def emit_op_guard_no_exception(self, op, arglocs, regalloc, fcond):
+        loc = arglocs[0]
+        failargs = arglocs[1:]
         self.mc.LDR_ri(loc.value, loc.value)
         self.mc.CMP_ri(loc.value, 0)
-        cond = self._emit_guard(op, regalloc, c.EQ, save_exc=True)
-        regalloc.possibly_free_var(box)
+        cond = self._emit_guard(op, failargs, c.EQ, save_exc=True)
         return cond
 
-    def emit_op_guard_exception(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-        arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
-        loc, box = self._ensure_value_is_boxed(arg0, regalloc)
-        boxes.append(box)
-        loc1, box = self._ensure_value_is_boxed(
-                        ConstInt(self.cpu.pos_exception()), regalloc, boxes)
-        boxes.append(box)
-        if op.result in regalloc.longevity:
-            resloc = regalloc.force_allocate_reg(op.result, boxes)
-            boxes.append(resloc)
-        else:
-            resloc = None
-
+    def emit_op_guard_exception(self, op, arglocs, regalloc, fcond):
+        loc, loc1, resloc, pos_exc_value, pos_exception = arglocs[:5]
+        failargs = arglocs[5:]
         self.mc.LDR_ri(loc1.value, loc1.value)
 
         self.mc.CMP_rr(loc1.value, loc.value)
-        self._emit_guard(op, regalloc, c.EQ, save_exc=True)
-        regalloc.possibly_free_vars(boxes)
-        self.mc.gen_load_int(loc1.value, self.cpu.pos_exc_value(), fcond)
+        self._emit_guard(op, failargs, c.EQ, save_exc=True)
+        self.mc.gen_load_int(loc1.value, pos_exc_value.value, fcond)
         if resloc:
             self.mc.LDR_ri(resloc.value, loc1.value)
-        self.mc.gen_load_int(loc.value, self.cpu.pos_exception(), fcond)
+        self.mc.gen_load_int(loc.value, pos_exception.value, fcond)
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.STR_ri(r.ip.value, loc.value)
         self.mc.STR_ri(r.ip.value, loc1.value)
@@ -468,52 +350,35 @@ class FieldOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_op_setfield_gc(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-        a0, a1 = boxes
-        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
-        #ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
-        #size_loc = regalloc.make_sure_var_in_reg(ofs)
-        base_loc, base_box = self._ensure_value_is_boxed(a0, regalloc, boxes)
-        boxes.append(base_box)
-        value_loc, value_box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-        boxes.append(value_box)
-        regalloc.possibly_free_vars(boxes)
-        if size == 4:
-            self.mc.STR_ri(value_loc.value, base_loc.value, ofs)
-        elif size == 2:
-            self.mc.STRH_ri(value_loc.value, base_loc.value, ofs)
-        elif size == 1:
-            self.mc.STRB_ri(value_loc.value, base_loc.value, ofs)
+    def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
+        value_loc, base_loc, ofs, size = arglocs
+        if size.value == 4:
+            self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
+        elif size.value == 2:
+            self.mc.STRH_ri(value_loc.value, base_loc.value, ofs.value)
+        elif size.value == 1:
+            self.mc.STRB_ri(value_loc.value, base_loc.value, ofs.value)
         else:
             assert 0
         return fcond
 
     emit_op_setfield_raw = emit_op_setfield_gc
 
-    def emit_op_getfield_gc(self, op, regalloc, fcond):
-        a0 = op.getarg(0)
-        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
-        # ofs_loc = regalloc.make_sure_var_in_reg(ConstInt(ofs))
-        base_loc, base_box = self._ensure_value_is_boxed(a0, regalloc)
-        regalloc.possibly_free_var(a0)
-        regalloc.possibly_free_var(base_box)
-        res = regalloc.force_allocate_reg(op.result, [a0])
-        regalloc.possibly_free_var(op.result)
-
-        if size == 4:
-            self.mc.LDR_ri(res.value, base_loc.value, ofs)
-        elif size == 2:
-            self.mc.LDRH_ri(res.value, base_loc.value, ofs)
-        elif size == 1:
-            self.mc.LDRB_ri(res.value, base_loc.value, ofs)
+    def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
+        base_loc, ofs, res, size = arglocs
+        if size.value == 4:
+            self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
+        elif size.value == 2:
+            self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
+        elif size.value == 1:
+            self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
         else:
             assert 0
 
         #XXX Hack, Hack, Hack
         if not we_are_translated():
             signed = op.getdescr().is_field_signed()
-            self._ensure_result_bit_extension(res, size, signed, regalloc)
+            self._ensure_result_bit_extension(res, size.value, signed)
         return fcond
 
     emit_op_getfield_raw = emit_op_getfield_gc
@@ -522,56 +387,32 @@ class FieldOpAssembler(object):
 
 
 
-    #XXX from ../x86/regalloc.py:791
-    def _unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
-        ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.cpu.translate_support_code)
-        ptr = fielddescr.is_pointer_field()
-        return ofs, size, ptr
 
 class ArrayOpAssember(object):
 
     _mixin_ = True
 
-    def emit_op_arraylen_gc(self, op, regalloc, fcond):
-        arraydescr = op.getdescr()
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
-        arg = op.getarg(0)
-        base_loc, base_box = self._ensure_value_is_boxed(arg, regalloc)
-        res = regalloc.force_allocate_reg(op.result, forbidden_vars=[arg, base_box])
-        regalloc.possibly_free_vars([arg, base_box, op.result])
-
-        self.mc.LDR_ri(res.value, base_loc.value, ofs)
+    def emit_op_arraylen_gc(self, op, arglocs, regalloc, fcond):
+        res, base_loc, ofs = arglocs
+        self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
         return fcond
 
-    def emit_op_setarrayitem_gc(self, op, regalloc, fcond):
-        a0, a1, a2 = boxes = list(op.getarglist())
-        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+    def emit_op_setarrayitem_gc(self, op, arglocs, regalloc, fcond):
+        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
 
-        base_loc, base_box  = self._ensure_value_is_boxed(a0, regalloc, boxes)
-        boxes.append(base_box)
-        ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-        boxes.append(ofs_box)
-        #XXX check if imm would be fine here
-        value_loc, value_box = self._ensure_value_is_boxed(a2, regalloc, boxes)
-        boxes.append(value_box)
-        regalloc.possibly_free_vars(boxes)
-
-        if scale > 0:
-            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale)
+        if scale.value > 0:
+            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
             self.mc.MOV_rr(r.ip.value, ofs_loc.value)
 
-        if ofs > 0:
-            self.mc.ADD_ri(r.ip.value, r.ip.value, ofs)
+        if ofs.value > 0:
+            self.mc.ADD_ri(r.ip.value, r.ip.value, ofs.value)
 
-        if scale == 2:
+        if scale.value == 2:
             self.mc.STR_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
-        elif scale == 1:
+        elif scale.value == 1:
             self.mc.STRH_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
-        elif scale == 0:
+        elif scale.value == 0:
             self.mc.STRB_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
         else:
             assert 0
@@ -579,30 +420,20 @@ class ArrayOpAssember(object):
 
     emit_op_setarrayitem_raw = emit_op_setarrayitem_gc
 
-    def emit_op_getarrayitem_gc(self, op, regalloc, fcond):
-        a0, a1 = boxes = list(op.getarglist())
-        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
-
-        base_loc, base_box  = self._ensure_value_is_boxed(a0, regalloc, boxes)
-        boxes.append(base_box)
-        ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-        boxes.append(ofs_box)
-        res = regalloc.force_allocate_reg(op.result)
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
-
-        if scale > 0:
-            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale)
+    def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
+        res, base_loc, ofs_loc, scale, ofs = arglocs
+        if scale.value > 0:
+            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
             self.mc.MOV_rr(r.ip.value, ofs_loc.value)
-        if ofs > 0:
-            self.mc.ADD_ri(r.ip.value, r.ip.value, imm=ofs)
+        if ofs.value > 0:
+            self.mc.ADD_ri(r.ip.value, r.ip.value, imm=ofs.value)
 
-        if scale == 2:
+        if scale.value == 2:
             self.mc.LDR_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
-        elif scale == 1:
+        elif scale.value == 1:
             self.mc.LDRH_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
-        elif scale == 0:
+        elif scale.value == 0:
             self.mc.LDRB_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
         else:
             assert 0
@@ -612,123 +443,62 @@ class ArrayOpAssember(object):
             descr = op.getdescr()
             size =  descr.get_item_size(False)
             signed = descr.is_item_signed()
-            self._ensure_result_bit_extension(res, size, signed, regalloc)
+            self._ensure_result_bit_extension(res, size, signed)
         return fcond
 
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
     emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
 
-    #XXX from ../x86/regalloc.py:779
-    def _unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs_length = arraydescr.get_ofs_length(self.cpu.translate_support_code)
-        ofs = arraydescr.get_base_size(self.cpu.translate_support_code)
-        size = arraydescr.get_item_size(self.cpu.translate_support_code)
-        ptr = arraydescr.is_array_of_pointers()
-        scale = 0
-        while (1 << scale) < size:
-            scale += 1
-        assert (1 << scale) == size
-        return size, scale, ofs, ofs_length, ptr
 
 class StrOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_op_strlen(self, op, regalloc, fcond):
-        l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
-        boxes = [box]
-
-        res = regalloc.force_allocate_reg(op.result, boxes)
-        boxes.append(op.result)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        ofs_box = ConstInt(ofs_length)
-        imm_ofs = self._check_imm_arg(ofs_box)
-
-        if imm_ofs:
-            l1 = regalloc.make_sure_var_in_reg(ofs_box, boxes)
-        else:
-            l1, box1 = self._ensure_value_is_boxed(ofs_box, regalloc, boxes)
-            boxes.append(box1)
-
-        regalloc.possibly_free_vars(boxes)
-
+    def emit_op_strlen(self, op, arglocs, regalloc, fcond):
+        l0, l1, res = arglocs
         if l1.is_imm():
             self.mc.LDR_ri(res.value, l0.value, l1.getint(), cond=fcond)
         else:
             self.mc.LDR_rr(res.value, l0.value, l1.value, cond=fcond)
         return fcond
 
-    def emit_op_strgetitem(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc)
-        boxes.append(box)
-
-        a1 = boxes[1]
-        imm_a1 = self._check_imm_arg(a1)
-        if imm_a1:
-            ofs_loc = regalloc.make_sure_var_in_reg(a1, boxes)
-        else:
-            ofs_loc, box = self._ensure_value_is_boxed(a1, regalloc, boxes)
-            boxes.append(box)
-        res = regalloc.force_allocate_reg(op.result)
-        regalloc.possibly_free_vars(boxes)
-
-        regalloc.possibly_free_var(op.result)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        assert itemsize == 1
+    def emit_op_strgetitem(self, op, arglocs, regalloc, fcond):
+        res, base_loc, ofs_loc, basesize = arglocs
         if ofs_loc.is_imm():
             self.mc.ADD_ri(r.ip.value, base_loc.value, ofs_loc.getint(), cond=fcond)
         else:
             self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond)
 
-        self.mc.LDRB_ri(res.value, r.ip.value, basesize, cond=fcond)
+        self.mc.LDRB_ri(res.value, r.ip.value, basesize.value, cond=fcond)
         return fcond
 
-    def emit_op_strsetitem(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-
-        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
-        boxes.append(box)
-
-        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], regalloc, boxes)
-        boxes.append(box)
-
-        value_loc, box = self._ensure_value_is_boxed(boxes[2], regalloc, boxes)
-        boxes.append(box)
-
-        regalloc.possibly_free_vars(boxes)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        assert itemsize == 1
+    def emit_op_strsetitem(self, op, arglocs, regalloc, fcond):
+        value_loc, base_loc, ofs_loc, basesize = arglocs
         if ofs_loc.is_imm():
             self.mc.ADD_ri(r.ip.value, base_loc.value, ofs_loc.getint(), cond=fcond)
         else:
             self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond)
 
-        self.mc.STRB_ri(value_loc.value, r.ip.value, basesize, cond=fcond)
+        self.mc.STRB_ri(value_loc.value, r.ip.value, basesize.value, cond=fcond)
         return fcond
 
     #from ../x86/regalloc.py:928 ff.
-    def emit_op_copystrcontent(self, op, regalloc, fcond):
+    def emit_op_copystrcontent(self, op, arglocs, regalloc, fcond):
+        assert len(arglocs) == 0
         self._emit_copystrcontent(op, regalloc, fcond, is_unicode=False)
         return fcond
 
-    def emit_op_copyunicodecontent(self, op, regalloc, fcond):
+    def emit_op_copyunicodecontent(self, op, arglocs, regalloc, fcond):
+        assert len(arglocs) == 0
         self._emit_copystrcontent(op, regalloc, fcond, is_unicode=True)
         return fcond
 
     def _emit_copystrcontent(self, op, regalloc, fcond, is_unicode):
         # compute the source address
         args = list(op.getarglist())
-        base_loc, box = self._ensure_value_is_boxed(args[0], regalloc, args)
+        base_loc, box = regalloc._ensure_value_is_boxed(args[0], args)
         args.append(box)
-        ofs_loc, box = self._ensure_value_is_boxed(args[2], regalloc, args)
+        ofs_loc, box = regalloc._ensure_value_is_boxed(args[2], args)
         args.append(box)
         assert args[0] is not args[1]    # forbidden case of aliasing
         regalloc.possibly_free_var(args[0])
@@ -745,10 +515,10 @@ class StrOpAssembler(object):
         dstaddr_box = TempBox()
         dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box, selected_reg=r.r0)
         forbidden_vars.append(dstaddr_box)
-        base_loc, box = self._ensure_value_is_boxed(args[1], regalloc, forbidden_vars)
+        base_loc, box = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
         args.append(box)
         forbidden_vars.append(box)
-        ofs_loc, box = self._ensure_value_is_boxed(args[3], regalloc, forbidden_vars)
+        ofs_loc, box = regalloc._ensure_value_is_boxed(args[3], forbidden_vars)
         args.append(box)
         assert base_loc.is_reg()
         assert ofs_loc.is_reg()
@@ -760,7 +530,7 @@ class StrOpAssembler(object):
 
         # compute the length in bytes
         forbidden_vars = [srcaddr_box, dstaddr_box]
-        length_loc, length_box = self._ensure_value_is_boxed(args[4], regalloc, forbidden_vars)
+        length_loc, length_box = regalloc._ensure_value_is_boxed(args[4], forbidden_vars)
         args.append(length_box)
         if is_unicode:
             forbidden_vars = [srcaddr_box, dstaddr_box]
@@ -822,84 +592,30 @@ class UnicodeOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_op_unicodelen(self, op, regalloc, fcond):
-        l0, box = self._ensure_value_is_boxed(op.getarg(0), regalloc)
-        boxes = [box]
-        res = regalloc.force_allocate_reg(op.result, boxes)
-        boxes.append(op.result)
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        ofs_box = ConstInt(ofs_length)
-        imm_ofs = self._check_imm_arg(ofs_box)
+    emit_op_unicodelen = StrOpAssembler.emit_op_strlen
 
-        if imm_ofs:
-            l1 = regalloc.make_sure_var_in_reg(ofs_box, boxes)
+    def emit_op_unicodegetitem(self, op, arglocs, regalloc, fcond):
+        res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
+        self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond,
+                                            imm=scale.value, shifttype=shift.LSL)
+        if scale.value == 2:
+            self.mc.LDR_ri(res.value, r.ip.value, basesize.value, cond=fcond)
+        elif scale.value == 1:
+            self.mc.LDRH_ri(res.value, r.ip.value, basesize.value, cond=fcond)
         else:
-            l1, box1 = self._ensure_value_is_boxed(ofs_box, regalloc, boxes)
-            boxes.append(box1)
-        regalloc.possibly_free_vars(boxes)
-
-        # XXX merge with strlen
-        if l1.is_imm():
-            self.mc.LDR_ri(res.value, l0.value, l1.getint(), cond=fcond)
-        else:
-            self.mc.LDR_rr(res.value, l0.value, l1.value, cond=fcond)
+            assert 0, itemsize.value
         return fcond
 
-    def emit_op_unicodegetitem(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-
-        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
-        boxes.append(box)
-
-        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], regalloc, boxes)
-        boxes.append(box)
-
-        res = regalloc.force_allocate_reg(op.result)
-
-        regalloc.possibly_free_vars(boxes)
-        regalloc.possibly_free_var(op.result)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        scale = itemsize/2
-
+    def emit_op_unicodesetitem(self, op, arglocs, regalloc, fcond):
+        value_loc, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
         self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond,
-                                                imm=scale, shifttype=shift.LSL)
-        if scale == 2:
-            self.mc.LDR_ri(res.value, r.ip.value, basesize, cond=fcond)
-        elif scale == 1:
-            self.mc.LDRH_ri(res.value, r.ip.value, basesize, cond=fcond)
+                                        imm=scale.value, shifttype=shift.LSL)
+        if scale.value == 2:
+            self.mc.STR_ri(value_loc.value, r.ip.value, basesize.value, cond=fcond)
+        elif scale.value == 1:
+            self.mc.STRH_ri(value_loc.value, r.ip.value, basesize.value, cond=fcond)
         else:
-            assert 0, itemsize
-        return fcond
-
-    def emit_op_unicodesetitem(self, op, regalloc, fcond):
-        boxes = list(op.getarglist())
-
-        base_loc, box = self._ensure_value_is_boxed(boxes[0], regalloc, boxes)
-        boxes.append(box)
-
-        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], regalloc, boxes)
-        boxes.append(box)
-
-        value_loc, box = self._ensure_value_is_boxed(boxes[2], regalloc, boxes)
-        boxes.append(box)
-
-        regalloc.possibly_free_vars(boxes)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        scale = itemsize/2
-
-        self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value, cond=fcond,
-                                            imm=scale, shifttype=shift.LSL)
-        if scale == 2:
-            self.mc.STR_ri(value_loc.value, r.ip.value, basesize, cond=fcond)
-        elif scale == 1:
-            self.mc.STRH_ri(value_loc.value, r.ip.value, basesize, cond=fcond)
-        else:
-            assert 0, itemsize
+            assert 0, itemsize.value
 
         return fcond
 
@@ -907,18 +623,14 @@ class ForceOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_op_force_token(self, op, regalloc, fcond):
-        res_loc = regalloc.force_allocate_reg(op.result)
+    def emit_op_force_token(self, op, arglocs, regalloc, fcond):
+        res_loc = arglocs[0]
         self.mc.MOV_rr(res_loc.value, r.fp.value)
         return fcond
 
     # from: ../x86/assembler.py:1668
     # XXX Split into some helper methods
-    def emit_guard_call_assembler(self, op, guard_op, regalloc, fcond):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index, regalloc)
-
+    def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
 
@@ -1011,100 +723,57 @@ class ForceOpAssembler(object):
         self.mc.LDR_ri(l0.value, r.fp.value)
         self.mc.CMP_ri(l0.value, 0)
 
-        self._emit_guard(guard_op, regalloc, c.GE)
+        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.GE)
         regalloc.possibly_free_var(t)
         regalloc.possibly_free_vars_for_op(op)
         if op.result:
             regalloc.possibly_free_var(op.result)
         return fcond
 
-    def emit_guard_call_may_force(self, op, guard_op, regalloc, fcond):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index, regalloc)
+    def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc, fcond):
+        self.mc.LDR_ri(r.ip.value, r.fp.value)
+        self.mc.CMP_ri(r.ip.value, 0)
 
-        # force all reg values to be spilled when calling
-        fcond = self.emit_op_call(op, regalloc, fcond, spill_all_regs=True)
-
-        t = TempBox()
-        l0 = regalloc.force_allocate_reg(t)
-        self.mc.LDR_ri(l0.value, r.fp.value)
-        self.mc.CMP_ri(l0.value, 0)
-
-        self._emit_guard(guard_op, regalloc, c.GE)
-        regalloc.possibly_free_var(t)
+        self._emit_guard(guard_op, arglocs, c.GE)
         return fcond
 
-    def _write_fail_index(self, fail_index, regalloc):
-        t = TempBox()
-        l0 = regalloc.force_allocate_reg(t)
-        self.mc.gen_load_int(l0.value, fail_index)
-        self.mc.STR_ri(l0.value, r.fp.value)
-        regalloc.possibly_free_var(t)
+    def _write_fail_index(self, fail_index, temp_reg):
+        self.mc.gen_load_int(temp_reg.value, fail_index)
+        self.mc.STR_ri(temp_reg.value, r.fp.value)
 
 class AllocOpAssembler(object):
 
     _mixin_ = True
 
-    def _prepare_args_for_new_op(self, new_args, regalloc):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        args = gc_ll_descr.args_for_new(new_args)
-        arglocs = []
-        for arg in args:
-            t = TempBox()
-            l = regalloc.force_allocate_reg(t, arglocs)
-            self.mc.gen_load_int(l.value, arg)
-            arglocs.append(t)
-        return arglocs
 
     # from: ../x86/regalloc.py:750
+    # called from regalloc
     # XXX kill this function at some point
-    def _malloc_varsize(self, ofs_items, ofs_length, itemsize, v, res_v, regalloc):
-        boxes = [v, res_v]
-        itemsize_box = ConstInt(itemsize)
-        ofs_items_box = ConstInt(ofs_items)
-        if self._check_imm_arg(ofs_items_box):
-            ofs_items_loc = regalloc.convert_to_imm(ofs_items_box)
-        else:
-            ofs_items_loc, ofs_items_box = self._ensure_value_is_boxed(ofs_items_box, regalloc, boxes)
-            boxes.append(ofs_items_box)
-        vloc, v = self._ensure_value_is_boxed(v, regalloc, [res_v])
-        boxes.append(v)
-        size, size_box = self._ensure_value_is_boxed(itemsize_box, regalloc, boxes)
-        boxes.append(size_box)
-
+    def _regalloc_malloc_varsize(self, size, size_box, vloc, ofs_items_loc, regalloc, result):
         self.mc.MUL(size.value, size.value, vloc.value)
         if ofs_items_loc.is_imm():
             self.mc.ADD_ri(size.value, size.value, ofs_items_loc.value)
         else:
             self.mc.ADD_rr(size.value, size.value, ofs_items_loc.value)
         self._emit_call(self.malloc_func_addr, [size_box], regalloc,
-                                    result=res_v)
+                                    result=result)
 
-        base_loc = regalloc.make_sure_var_in_reg(res_v)
-        value_loc = regalloc.make_sure_var_in_reg(v)
-        regalloc.possibly_free_vars(boxes)
-        assert value_loc.is_reg()
-        assert base_loc.is_reg()
-        self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length)
-
-
-    def emit_op_new(self, op, regalloc, fcond):
-        arglocs = self._prepare_args_for_new_op(op.getdescr(), regalloc)
+    def emit_op_new(self, op, arglocs, regalloc, fcond):
         self._emit_call(self.malloc_func_addr, arglocs,
                                 regalloc, result=op.result)
+        #XXX free args here, because _emit_call works on regalloc
         regalloc.possibly_free_vars(arglocs)
         regalloc.possibly_free_var(op.result)
         return fcond
 
-    def emit_op_new_with_vtable(self, op, regalloc, fcond):
-        classint = op.getarg(0).getint()
-        descrsize = heaptracker.vtable2descr(self.cpu, classint)
-        arglocs = self._prepare_args_for_new_op(descrsize, regalloc)
-        self._emit_call(self.malloc_func_addr, arglocs,
+    def emit_op_new_with_vtable(self, op, arglocs, regalloc, fcond):
+        classint = arglocs[-1].value
+        callargs = arglocs[:-1]
+        self._emit_call(self.malloc_func_addr, callargs,
                                 regalloc, result=op.result)
         self.set_vtable(op.result, classint, regalloc)
-        regalloc.possibly_free_vars(arglocs)
+        #XXX free args here, because _emit_call works on regalloc
+        regalloc.possibly_free_vars(callargs)
         regalloc.possibly_free_var(op.result)
         return fcond
 
@@ -1120,57 +789,13 @@ class AllocOpAssembler(object):
             self.mc.gen_load_int(loc_vtable.value, adr)
             self.mc.STR_ri(loc_vtable.value, loc.value, self.cpu.vtable_offset)
 
-    def emit_op_new_array(self, op, regalloc, fcond):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            raise NotImplementedError
-            #XXX make sure this path works
-            # framework GC
-            #args = self.cpu.gc_ll_descr.args_for_new_array(op.getdescr())
-            #arglocs = [imm(x) for x in args]
-            #arglocs.append(self.loc(op.getarg(0)))
-            #return self._emit_call(self.malloc_array_func_addr, op.getarglist(),
-            #                        regalloc, result=op.result)
-        # boehm GC (XXX kill the following code at some point)
-        itemsize, scale, basesize, ofs_length, _ = (
-            self._unpack_arraydescr(op.getdescr()))
-        self._malloc_varsize(basesize, ofs_length, itemsize,
-                                    op.getarg(0), op.result, regalloc)
+    def emit_op_new_array(self, op, arglocs, regalloc, fcond):
+        value_loc, base_loc, ofs_length = arglocs
+        self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)
         return fcond
 
-
-    def emit_op_newstr(self, op, regalloc, fcond):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            raise NotImplementedError
-            # framework GC
-            #loc = self.loc(op.getarg(0))
-            #return self._call(op, [loc])
-        # boehm GC (XXX kill the following code at some point)
-        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
-                                            self.cpu.translate_support_code)
-        assert itemsize == 1
-        self._malloc_varsize(ofs_items, ofs, itemsize, op.getarg(0),
-                                                        op.result, regalloc)
-        return fcond
-
-
-
-    def emit_op_newunicode(self, op, regalloc, fcond):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            raise NotImplementedError
-            # framework GC
-            #loc = self.loc(op.getarg(0))
-            #return self._call(op, [loc])
-        # boehm GC (XXX kill the following code at some point)
-        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
-                                               self.cpu.translate_support_code)
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.cpu.translate_support_code)
-        self._malloc_varsize(ofs_items, ofs, itemsize, op.getarg(0),
-                                                op.result, regalloc)
-        return fcond
+    emit_op_newstr = emit_op_new_array
+    emit_op_newunicode = emit_op_new_array
 
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,

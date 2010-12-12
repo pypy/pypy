@@ -117,8 +117,6 @@ class AssemblerARM(ResOpAssembler):
         regs = rffi.cast(rffi.CCHARP, regs_loc)
         i = -1
         fail_index = -1
-        if self.debug:
-            import pdb; pdb.set_trace()
         while(True):
             i += 1
             fail_index += 1
@@ -214,26 +212,26 @@ class AssemblerARM(ResOpAssembler):
         self.mc.ensure_can_fit(self.epilog_size)
         self.gen_func_epilog()
 
-    def _gen_path_to_exit_path(self, op, args, regalloc, fcond=c.AL):
-
+    def _gen_path_to_exit_path(self, op, args, arglocs, fcond=c.AL):
         descr = op.getdescr()
         if op.getopnum() != rop.FINISH:
             assert isinstance(descr, AbstractFailDescr)
-            descr._arm_frame_depth = regalloc.frame_manager.frame_depth
+            descr._arm_frame_depth = arglocs[0].getint()
         reg = r.lr
         # XXX free this memory
         # XXX allocate correct amount of memory
-        mem = lltype.malloc(rffi.CArray(lltype.Char), len(args)*6+5,
+        mem = lltype.malloc(rffi.CArray(lltype.Char), (len(arglocs)-1)*6+5,
                                     flavor='raw', track_allocation=False)
         i = 0
         j = 0
-        while(i < len(args)):
-            if args[i]:
-                loc = regalloc.loc(args[i])
-                if args[i].type == INT:
+        while i < len(args):
+            if arglocs[i+1]:
+                arg = args[i]
+                loc = arglocs[i+1]
+                if arg.type == INT:
                     mem[j] = self.INT_TYPE
                     j += 1
-                elif args[i].type == REF:
+                elif arg.type == REF:
                     mem[j] = self.REF_TYPE
                     j += 1
                 else:
@@ -243,7 +241,7 @@ class AssemblerARM(ResOpAssembler):
                     mem[j] = chr(loc.value)
                     j += 1
                 elif loc.is_imm():
-                    assert args[i].type == INT
+                    assert arg.type == INT
                     mem[j] = self.IMM_LOC
                     self.encode32(mem, j+1, loc.getint())
                     j += 5
@@ -410,12 +408,15 @@ class AssemblerARM(ResOpAssembler):
             op = operations[i]
             opnum = op.getopnum()
             if self.can_merge_with_next_guard(op, i, operations):
+                arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
+                                        operations[i+1], fcond)
                 fcond = self.operations_with_guard[opnum](self, op,
-                                            operations[i+1], regalloc, fcond)
+                                        operations[i+1], arglocs, regalloc, fcond)
                 i += 1
                 regalloc.position = i
             else:
-                fcond = self.operations[opnum](self, op, regalloc, fcond)
+                arglocs = regalloc.operations[opnum](regalloc, op, fcond)
+                fcond = self.operations[opnum](self, op, arglocs, regalloc, fcond)
             i += 1
 
     def can_merge_with_next_guard(self, op, i, operations):
@@ -456,40 +457,8 @@ class AssemblerARM(ResOpAssembler):
     def _dump_trace(self, name):
         self.mc._dump_trace(name)
 
-    def _check_imm_arg(self, arg, size=0xFF, allow_zero=True):
-        if isinstance(arg, ConstInt):
-            if allow_zero:
-                lower_bound = arg.getint() >= 0
-            else:
-                lower_bound = arg.getint() > 0
-            return arg.getint() <= size and lower_bound
-        return False
 
-    def _ensure_value_is_boxed(self, thing, regalloc, forbidden_vars=[]):
-        # XXX create TempBox subclasses with the corresponding type flags and
-        # remove the overridden force_allocate_reg once done
-        box = None
-        loc = None
-        if isinstance(thing, Const):
-            if isinstance(thing, ConstInt):
-                box = TempInt()
-            elif isinstance(thing, ConstPtr):
-                box = TempPtr()
-            else:
-                box = TempBox()
-            loc = regalloc.force_allocate_reg(box,
-                            forbidden_vars=forbidden_vars)
-            imm = regalloc.convert_to_imm(thing)
-            self.mc.gen_load_int(loc.value, imm.getint())
-        else:
-            loc = regalloc.make_sure_var_in_reg(thing,
-                            forbidden_vars=forbidden_vars, imm_fine=False)
-            box = thing
-        return loc, box
-
-
-
-    def _ensure_result_bit_extension(self, resloc, size, signed, regalloc):
+    def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 4:
             return
         if size == 1:
@@ -500,11 +469,11 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.ASR_ri(resloc.value, resloc.value, 24)
         elif size == 2:
             if not signed:
-                t = TempBox()
-                loc = regalloc.force_allocate_reg(t)
-                self.mc.gen_load_int(loc.value, 0xFFFF)
-                self.mc.AND_rr(resloc.value, resloc.value, loc.value)
-                regalloc.possibly_free_var(t)
+                self.mc.LSL_ri(resloc.value, resloc.value, 16)
+                self.mc.LSR_ri(resloc.value, resloc.value, 16)
+                #self.mc.MOV_ri(r.ip.value, 0xFF)
+                #self.mc.ORR_ri(r.ip.value, 0xCFF)
+                #self.mc.AND_rr(resloc.value, resloc.value, r.ip.value)
             else:
                 self.mc.LSL_ri(resloc.value, resloc.value, 16)
                 self.mc.ASR_ri(resloc.value, resloc.value, 16)
@@ -517,6 +486,11 @@ class AssemblerARM(ResOpAssembler):
         b.B(bridge_addr, some_reg=r.lr)
 
     # regalloc support
+    def load(self, loc, value):
+        assert loc.is_reg()
+        assert value.is_imm()
+        self.mc.gen_load_int(loc.value, value.getint())
+
     def regalloc_mov(self, prev_loc, loc):
         if prev_loc.is_imm():
             # XXX check size of imm for current instr

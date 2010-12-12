@@ -76,3 +76,6 @@ class StackLocation(AssemblerLocation):
 
     def as_key(self):
         return -self.position
+
+def imm(i):
+    return ImmLocation(i)

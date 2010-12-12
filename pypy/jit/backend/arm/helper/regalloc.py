@@ -1,0 +1,84 @@
+from pypy.jit.backend.arm import conditions as c
+from pypy.jit.backend.arm import registers as r
+from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
+from pypy.jit.metainterp.history import ConstInt, BoxInt, Box
+
+def prepare_op_unary_cmp():
+    def f(self, op, fcond):
+        assert fcond is not None
+        a0 = op.getarg(0)
+        reg, box = self._ensure_value_is_boxed(a0)
+        res = self.force_allocate_reg(op.result, [box])
+        self.possibly_free_vars([a0, box, op.result])
+        return [reg, res]
+    return f
+
+def prepare_op_ri(imm_size=0xFF, commutative=True, allow_zero=True):
+    def f(self, op, fcond):
+        assert fcond is not None
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        boxes = list(op.getarglist())
+        imm_a0 = self._check_imm_arg(a0, imm_size, allow_zero=allow_zero)
+        imm_a1 = self._check_imm_arg(a1, imm_size, allow_zero=allow_zero)
+        if not imm_a0 and imm_a1:
+            l0, box = self._ensure_value_is_boxed(a0)
+            boxes.append(box)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
+        elif commutative and imm_a0 and not imm_a1:
+            l1 = self.make_sure_var_in_reg(a0, boxes)
+            l0, box = self._ensure_value_is_boxed(a1, boxes)
+            boxes.append(box)
+        else:
+            l0, box = self._ensure_value_is_boxed(a0, boxes)
+            boxes.append(box)
+            l1, box = self._ensure_value_is_boxed(a1, boxes)
+            boxes.append(box)
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result, boxes)
+        self.possibly_free_var(op.result)
+        return [l0, l1, res]
+    return f
+
+def prepare_op_by_helper_call():
+    def f(self, op, fcond):
+        assert fcond is not None
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        arg1 = self.make_sure_var_in_reg(a0, selected_reg=r.r0)
+        arg2 = self.make_sure_var_in_reg(a1, selected_reg=r.r1)
+        assert arg1 == r.r0
+        assert arg2 == r.r1
+        if isinstance(a0, Box) and self.stays_alive(a0):
+            self.force_spill_var(a0)
+        self.after_call(op.result)
+        self.possibly_free_var(a0)
+        self.possibly_free_var(a1)
+        self.possibly_free_var(op.result)
+        return []
+    return f
+
+def prepare_cmp_op(inverse=False):
+    def f(self, op, fcond):
+        assert fcond is not None
+        boxes = list(op.getarglist())
+        if not inverse:
+            arg0, arg1 = boxes
+        else:
+            arg1, arg0 = boxes
+        # XXX consider swapping argumentes if arg0 is const
+        imm_a0 = self._check_imm_arg(arg0)
+        imm_a1 = self._check_imm_arg(arg1)
+
+        l0, box = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
+        boxes.append(box)
+        if imm_a1 and not imm_a0:
+            l1 = self.make_sure_var_in_reg(arg1, boxes)
+        else:
+            l1, box = self._ensure_value_is_boxed(arg1, forbidden_vars=boxes)
+            boxes.append(box)
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [l0, l1, res]
+    return f
