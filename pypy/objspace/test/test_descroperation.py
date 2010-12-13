@@ -493,6 +493,10 @@ class AppTest_Descroperation:
 
         raises(AttributeError, lambda: A().a)
 
+    def test_non_callable(self):
+        meth = classmethod(1).__get__(1)
+        raises(TypeError, meth)
+
     def test_isinstance_and_issubclass(self):
         class Meta(type):
             def __instancecheck__(cls, instance):
