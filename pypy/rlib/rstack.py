@@ -6,21 +6,22 @@ RPython-compliant way, intended mostly for use by the Stackless PyPy.
 import inspect
 
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib import rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.controllerentry import Controller, SomeControlledInstance
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 def stack_unwind():
     if we_are_translated():
-        from pypy.rpython.lltypesystem.lloperation import llop
         return llop.stack_unwind(lltype.Void)
     raise RuntimeError("cannot unwind stack in non-translated versions")
 
 
 def stack_capture():
     if we_are_translated():
-        from pypy.rpython.lltypesystem.lloperation import llop
         ptr = llop.stack_capture(OPAQUE_STATE_HEADER_PTR)
         return frame_stack_top_controller.box(ptr)
     raise RuntimeError("cannot unwind stack in non-translated versions")
@@ -28,26 +29,57 @@ def stack_capture():
 
 def stack_frames_depth():
     if we_are_translated():
-        from pypy.rpython.lltypesystem.lloperation import llop
         return llop.stack_frames_depth(lltype.Signed)
     else:
         return len(inspect.stack())
 
+# ____________________________________________________________
+
 compilation_info = ExternalCompilationInfo(includes=['src/stack.h'])
 
-stack_too_big = rffi.llexternal('LL_stack_too_big', [], rffi.INT,
-                                compilation_info=compilation_info,
-                                _nowrapper=True,
-                                _callable=lambda: _zero,
-                                sandboxsafe=True)
-_zero = rffi.cast(rffi.INT, 0)
+def llexternal(name, args, res):
+    return rffi.llexternal(name, args, res, compilation_info=compilation_info,
+                           sandboxsafe=True, _nowrapper=True)
+
+_stack_get_start = llexternal('LL_stack_get_start', [], lltype.Signed)
+_stack_get_length = llexternal('LL_stack_get_length', [], lltype.Signed)
+_stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
+                                     [lltype.Signed], lltype.Char)
+# the following is used by the JIT
+_stack_get_start_adr = llexternal('LL_stack_get_start_adr', [], lltype.Signed)
+
 
 def stack_check():
-    if rffi.cast(lltype.Signed, stack_too_big()):
+    if not we_are_translated():
+        return
+    #
+    # Load the "current" stack position, or at least some address that
+    # points close to the current stack head
+    current = llop.stack_current(lltype.Signed)
+    #
+    # Load these variables from C code
+    start = _stack_get_start()
+    length = _stack_get_length()
+    #
+    # Common case: if 'current' is within [start:start+length], everything
+    # is fine
+    ofs = r_uint(current - start)
+    if ofs < r_uint(length):
+        return
+    #
+    # Else call the slow path
+    stack_check_slowpath(current)
+stack_check._always_inline_ = True
+
+@rgc.no_collect
+def stack_check_slowpath(current):
+    if ord(_stack_too_big_slowpath(current)):
+        # Now we are sure that the stack is really too big.  Note that the
         # stack_unwind implementation is different depending on if stackless
         # is enabled. If it is it unwinds the stack, otherwise it simply
         # raises a RuntimeError.
         stack_unwind()
+stack_check_slowpath._dont_inline_ = True
 
 # ____________________________________________________________
 

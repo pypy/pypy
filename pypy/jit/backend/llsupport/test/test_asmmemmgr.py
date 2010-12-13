@@ -3,6 +3,7 @@ from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib import debug
 
 
 def test_get_index():
@@ -184,9 +185,11 @@ class TestAsmMemoryManager:
 
 def test_blockbuildermixin(translated=True):
     mc = BlockBuilderMixin(translated)
+    writtencode = []
     for i in range(mc.SUBBLOCK_SIZE * 2 + 3):
         assert mc.get_relative_pos() == i
         mc.writechar(chr(i % 255))
+        writtencode.append(chr(i % 255))
     if translated:
         assert mc._cursubindex == 3
         assert mc._cursubblock
@@ -196,16 +199,26 @@ def test_blockbuildermixin(translated=True):
     #
     for i in range(0, mc.SUBBLOCK_SIZE * 2 + 3, 2):
         mc.overwrite(i, chr((i + 63) % 255))
+        writtencode[i] = chr((i + 63) % 255)
     #
     p = lltype.malloc(rffi.CCHARP.TO, mc.SUBBLOCK_SIZE * 2 + 3, flavor='raw')
     addr = rffi.cast(lltype.Signed, p)
     mc.copy_to_raw_memory(addr)
     #
     for i in range(mc.SUBBLOCK_SIZE * 2 + 3):
-        if i & 1:
-            assert p[i] == chr(i % 255)
-        else:
-            assert p[i] == chr((i + 63) % 255)
+        assert p[i] == writtencode[i]
+    #
+    debug._log = debug.DebugLog()
+    try:
+        mc._dump(addr, 'test-logname-section')
+        log = list(debug._log)
+    finally:
+        debug._log = None
+    encoded = ''.join(writtencode).encode('hex').upper()
+    ataddr = '@%x' % addr
+    assert log == [('test-logname-section',
+                    [('debug_print', 'CODE_DUMP', ataddr, '+0 ', encoded)])]
+    #
     lltype.free(p, flavor='raw')
 
 def test_blockbuildermixin2():

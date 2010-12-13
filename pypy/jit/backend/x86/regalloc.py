@@ -101,7 +101,6 @@ class X86FrameManager(FrameManager):
             return StackLoc(i, get_ebp_ofs(i), 1, box_type)
 
 class RegAlloc(object):
-    exc = False
 
     def __init__(self, assembler, translate_support_code=False):
         assert isinstance(translate_support_code, bool)
@@ -428,7 +427,10 @@ class RegAlloc(object):
         locs = [self.loc(op.getarg(i)) for i in range(op.numargs())]
         locs_are_ref = [op.getarg(i).type == REF for i in range(op.numargs())]
         fail_index = self.assembler.cpu.get_fail_descr_number(op.getdescr())
-        self.assembler.generate_failure(fail_index, locs, self.exc,
+        # note: no exception should currently be set in llop.get_exception_addr
+        # even if this finish may be an exit_frame_with_exception (in this case
+        # the exception instance is in locs[0]).
+        self.assembler.generate_failure(fail_index, locs, False,
                                         locs_are_ref)
         self.possibly_free_vars_for_op(op)
 

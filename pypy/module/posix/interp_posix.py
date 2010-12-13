@@ -161,6 +161,7 @@ def ftruncate(space, fd, length):
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
 
 def fsync(space, w_fd):
+    """Force write of file with filedescriptor to disk."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fsync(fd)
@@ -169,6 +170,8 @@ def fsync(space, w_fd):
 fsync.unwrap_spec = [ObjSpace, W_Root]
 
 def fdatasync(space, w_fd):
+    """Force write of file with filedescriptor to disk.
+Does not force update of metadata."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fdatasync(fd)
@@ -177,6 +180,8 @@ def fdatasync(space, w_fd):
 fdatasync.unwrap_spec = [ObjSpace, W_Root]
 
 def fchdir(space, w_fd):
+    """Change to the directory of the given file descriptor.  fildes must be
+opened on a directory, not a file."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fchdir(fd)
@@ -557,6 +562,27 @@ def rename(space, w_old, w_new):
         raise wrap_oserror(space, e) 
 rename.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+def mkfifo(space, w_filename, mode=0666):
+    """Create a FIFO (a POSIX named pipe)."""
+    try:
+        dispatch_filename(rposix.mkfifo)(space, w_filename, mode)
+    except OSError, e: 
+        raise wrap_oserror2(space, e, w_filename)
+mkfifo.unwrap_spec = [ObjSpace, W_Root, "c_int"]
+
+def mknod(space, w_filename, mode=0600, device=0):
+    """Create a filesystem node (file, device special file or named pipe)
+named filename. mode specifies both the permissions to use and the
+type of node to be created, being combined (bitwise OR) with one of
+S_IFREG, S_IFCHR, S_IFBLK, and S_IFIFO. For S_IFCHR and S_IFBLK,
+device defines the newly created device special file (probably using
+os.makedev()), otherwise it is ignored."""
+    try:
+        dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
+    except OSError, e: 
+        raise wrap_oserror2(space, e, w_filename)
+mknod.unwrap_spec = [ObjSpace, W_Root, "c_int", "c_int"]
+
 def umask(space, mask):
     "Set the current numeric umask and return the previous umask."
     prevmask = os.umask(mask)
@@ -579,6 +605,14 @@ def kill(space, pid, sig):
     except OSError, e:
         raise wrap_oserror(space, e)
 kill.unwrap_spec = [ObjSpace, "c_int", "c_int"]
+
+def killpg(space, pgid, sig):
+    "Kill a process group with a signal."
+    try:
+        os.killpg(pgid, sig)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+killpg.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
 def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
@@ -1034,6 +1068,14 @@ def chown(space, path, uid, gid):
     return space.w_None
 chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
 
+def lchown(space, path, uid, gid):
+    try:
+        os.lchown(path, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e, path)
+    return space.w_None
+lchown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
+
 def getloadavg(space):
     try:
         load = os.getloadavg()
@@ -1044,6 +1086,15 @@ def getloadavg(space):
                            space.wrap(load[1]),
                            space.wrap(load[2])])
 getloadavg.unwrap_spec = [ObjSpace]
+
+def nice(space, inc):
+    "Decrease the priority of process by inc and return the new priority."
+    try:
+        res = os.nice(inc)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
+nice.unwrap_spec = [ObjSpace, "c_int"]
 
 if _WIN:
     from pypy.rlib import rwin32

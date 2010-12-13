@@ -103,9 +103,9 @@ class Arguments(object):
             make_sure_not_resized(self.keywords_w)
 
         make_sure_not_resized(self.arguments_w)
-        if w_stararg is not None and space.is_true(w_stararg):
+        if w_stararg is not None:
             self._combine_starargs_wrapped(w_stararg)
-        if w_starstararg is not None and space.is_true(w_starstararg):
+        if w_starstararg is not None:
             self._combine_starstarargs_wrapped(w_starstararg)
             # if we have a call where **args are used at the callsite
             # we shouldn't let the JIT see the argument matching

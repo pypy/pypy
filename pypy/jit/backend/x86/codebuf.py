@@ -10,8 +10,10 @@ from pypy.jit.backend.x86 import valgrind
 # like this
 if IS_X86_32:
     codebuilder_cls = X86_32_CodeBuilder
+    backend_name = 'x86'
 elif IS_X86_64:
     codebuilder_cls = X86_64_CodeBuilder
+    backend_name = 'x86_64'
 
 
 class MachineCodeBlockWrapper(BlockBuilderMixin,
@@ -34,3 +36,4 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
             adr = rffi.cast(rffi.LONGP, p - WORD)
             adr[0] = intmask(adr[0] - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
+        self._dump(addr, "jit-backend-dump", backend_name)

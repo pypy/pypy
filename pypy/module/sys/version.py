@@ -98,6 +98,39 @@ def get_subversion_info(space):
                            space.wrap(svnbranch),
                            space.wrap(str(svn_revision()))])
 
+def get_mercurial_info(space):
+    '''Obtain Mercurial version information by invoking the 'hg' command.'''
+    # TODO: support extracting from .hg_archival.txt
+    import py
+    from subprocess import Popen, PIPE
+
+    pypyroot = os.path.abspath(os.path.join(pypydir, '..'))
+    hgexe = py.path.local.sysfind('hg')
+
+    if hgexe and os.path.isdir(os.path.join(pypyroot, '.hg')):
+        env = dict(os.environ)
+        # get Mercurial into scripting mode
+        env['HGPLAIN'] = '1'
+        # disable user configuration, extensions, etc.
+        env['HGRCPATH'] = os.devnull
+
+        p = Popen([str(hgexe), 'id', '-i', pypyroot], stdout=PIPE, env=env)
+        hgid = p.stdout.read().strip()
+
+        p = Popen([str(hgexe), 'id', '-t', pypyroot], stdout=PIPE, env=env)
+        hgtag = p.stdout.read().strip().split()[0]
+
+        if hgtag == 'tip':
+            # use the branch instead
+            p = Popen([str(hgexe), 'id', '-b', pypyroot], stdout=PIPE, env=env)
+            hgtag = p.stdout.read().strip()
+
+        return space.newtuple([space.wrap('PyPy'),
+                               space.wrap(hgtag),
+                               space.wrap(hgid)])
+    else:
+        return space.w_None
+
 def tuple2hex(ver):
     d = {'alpha':     0xA,
          'beta':      0xB,
