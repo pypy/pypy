@@ -422,7 +422,7 @@ class PyPyCJITTests(object):
                     ([1000], 49500),
                     ([10000], 495000),
                     ([100000], 4950000))
-        assert len(self.loops) == 3
+        assert len(self.rawloops)  + len(self.rawentrybridges) == 4
         op, = self.get_by_bytecode("CALL_FUNCTION_KW")
         # XXX a bit too many guards, but better than before
         assert len(op.get_opnames("guard")) <= 12

@@ -262,12 +262,14 @@ class BaseTestBasic(BaseTest):
                                                      OptString,
                                                      OptHeap,
                                                      Optimizer)
+        from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
+
         optimizations = [OptIntBounds(),
                          OptRewrite(),
                          OptVirtualize(),
                          OptString(),
                          OptHeap(),
-                         #OptFfiCall(),
+                         OptFfiCall(),
                          ]
         optimizer = Optimizer(metainterp_sd, loop, optimizations)
         optimizer.propagate_all_forward()
