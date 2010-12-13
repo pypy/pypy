@@ -243,7 +243,6 @@ class OpAssembler(object):
         adr = args[0]
         cond =  self._emit_call(adr, op.getarglist()[1:], regalloc, fcond,
                                 op.result, spill_all_regs=spill_all_regs)
-
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
@@ -282,9 +281,8 @@ class OpAssembler(object):
             n = stack_args*WORD
             self._adjust_sp(n, fcond=fcond)
             for i in range(4, n_args):
-                reg, box = regalloc._ensure_value_is_boxed(args[i], regalloc)
-                self.mc.STR_ri(reg.value, r.sp.value, (i-4)*WORD)
-                regalloc.possibly_free_var(box)
+                self.regalloc_mov(regalloc.loc(args[i]), r.ip)
+                self.mc.STR_ri(r.ip.value, r.sp.value, (i-4)*WORD)
 
         #the actual call
         self.mc.BL(adr)
@@ -329,14 +327,14 @@ class OpAssembler(object):
     def emit_op_guard_exception(self, op, arglocs, regalloc, fcond):
         loc, loc1, resloc, pos_exc_value, pos_exception = arglocs[:5]
         failargs = arglocs[5:]
-        self.mc.LDR_ri(loc1.value, loc1.value)
+        self.mc.gen_load_int(loc1.value, pos_exception.value)
+        self.mc.LDR_ri(r.ip.value, loc1.value)
 
-        self.mc.CMP_rr(loc1.value, loc.value)
+        self.mc.CMP_rr(r.ip.value, loc.value)
         self._emit_guard(op, failargs, c.EQ, save_exc=True)
-        self.mc.gen_load_int(loc1.value, pos_exc_value.value, fcond)
+        self.mc.gen_load_int(loc.value, pos_exc_value.value, fcond)
         if resloc:
-            self.mc.LDR_ri(resloc.value, loc1.value)
-        self.mc.gen_load_int(loc.value, pos_exception.value, fcond)
+            self.mc.LDR_ri(resloc.value, loc.value)
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.STR_ri(r.ip.value, loc.value)
         self.mc.STR_ri(r.ip.value, loc1.value)

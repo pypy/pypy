@@ -304,15 +304,14 @@ class ARMRegisterManager(RegisterManager):
         arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
         loc, box = self._ensure_value_is_boxed(arg0)
         boxes.append(box)
-        loc1, box = self._ensure_value_is_boxed(
-                    ConstInt(self.assembler.cpu.pos_exception()), boxes)
+        box = TempBox()
+        loc1 = self.force_allocate_reg(box, boxes)
         boxes.append(box)
         if op.result in self.longevity:
             resloc = self.force_allocate_reg(op.result, boxes)
             boxes.append(resloc)
         else:
             resloc = None
-        # There is some redundancy here ?!
         pos_exc_value = imm(self.assembler.cpu.pos_exc_value())
         pos_exception = imm(self.assembler.cpu.pos_exception())
         arglocs = self._prepare_guard(op, [loc, loc1, resloc, pos_exc_value, pos_exception])
