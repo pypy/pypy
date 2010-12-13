@@ -99,7 +99,7 @@ class UnicodeTraits:
         return 'll_os.ll_os_w' + name
 
 def registering_str_unicode(posixfunc, condition=True):
-    if not condition:
+    if not condition or posixfunc is None:
         return registering(None, condition=False)
 
     func_name = posixfunc.__name__
@@ -1129,6 +1129,19 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, int, int], None, "ll_os.ll_os_chown",
                       llimpl=os_chown_llimpl)
 
+    @registering_if(os, 'lchown')
+    def register_os_lchown(self):
+        os_lchown = self.llexternal('lchown',[rffi.CCHARP, rffi.INT, rffi.INT],
+                                    rffi.INT)
+
+        def os_lchown_llimpl(path, uid, gid):
+            res = os_lchown(path, uid, gid)
+            if res == -1:
+                raise OSError(rposix.get_errno(), "os_lchown failed")
+
+        return extdef([str, int, int], None, "ll_os.ll_os_lchown",
+                      llimpl=os_lchown_llimpl)
+
     @registering_if(os, 'readlink')
     def register_os_readlink(self):
         os_readlink = self.llexternal('readlink',
@@ -1323,6 +1336,33 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([traits.str, traits.str], s_None, llimpl=rename_llimpl,
                       export_name=traits.ll_os_name('rename'))
 
+    @registering_str_unicode(getattr(os, 'mkfifo', None))
+    def register_os_mkfifo(self, traits):
+        os_mkfifo = self.llexternal(traits.posix_function_name('mkfifo'),
+                                    [traits.CCHARP, rffi.MODE_T], rffi.INT)
+
+        def mkfifo_llimpl(path, mode):
+            res = rffi.cast(lltype.Signed, os_mkfifo(path, mode))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_mkfifo failed")
+
+        return extdef([traits.str, int], s_None, llimpl=mkfifo_llimpl,
+                      export_name=traits.ll_os_name('mkfifo'))
+
+    @registering_str_unicode(getattr(os, 'mknod', None))
+    def register_os_mknod(self, traits):
+        os_mknod = self.llexternal(traits.posix_function_name('mknod'),
+                                   [traits.CCHARP, rffi.MODE_T, rffi.INT],
+                                   rffi.INT)      # xxx: actually ^^^ dev_t
+
+        def mknod_llimpl(path, mode, dev):
+            res = rffi.cast(lltype.Signed, os_mknod(path, mode, dev))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_mknod failed")
+
+        return extdef([traits.str, int, int], s_None, llimpl=mknod_llimpl,
+                      export_name=traits.ll_os_name('mknod'))
+
     @registering(os.umask)
     def register_os_umask(self):
         os_umask = self.llexternal(underscore_on_windows+'umask', [rffi.MODE_T], rffi.MODE_T)
@@ -1347,6 +1387,20 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int, int], s_None, llimpl=kill_llimpl,
                       export_name="ll_os.ll_os_kill")
+
+    @registering_if(os, 'killpg')
+    def register_os_killpg(self):
+        os_killpg = self.llexternal('killpg', [rffi.INT, rffi.INT],
+                                    rffi.INT)
+
+        def killpg_llimpl(pid, sig):
+            res = rffi.cast(lltype.Signed, os_killpg(rffi.cast(rffi.INT, pid),
+                                                     rffi.cast(rffi.INT, sig)))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_killpg failed")
+
+        return extdef([int, int], s_None, llimpl=killpg_llimpl,
+                      export_name="ll_os.ll_os_killpg")
 
     @registering_if(os, 'link')
     def register_os_link(self):
@@ -1443,6 +1497,25 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int], s_None, llimpl=_exit_llimpl,
                       export_name="ll_os.ll_os__exit")
+
+    @registering_if(os, 'nice')
+    def register_os_nice(self):
+        os_nice = self.llexternal('nice', [rffi.INT], rffi.INT)
+
+        def nice_llimpl(inc):
+            # Assume that the system provides a standard-compliant version
+            # of nice() that returns the new priority.  Nowadays, FreeBSD
+            # might be the last major non-compliant system (xxx check me).
+            rposix.set_errno(0)
+            res = rffi.cast(lltype.Signed, os_nice(inc))
+            if res == -1:
+                err = rposix.get_errno()
+                if err != 0:
+                    raise OSError(err, "os_nice failed")
+            return res
+
+        return extdef([int], int, llimpl=nice_llimpl,
+                      export_name="ll_os.ll_os_nice")
 
 # --------------------------- os.stat & variants ---------------------------
 

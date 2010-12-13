@@ -659,6 +659,67 @@ class AppTestPosix:
             f.close()
             os.chown(self.path, os.getuid(), os.getgid())
 
+    if hasattr(os, 'lchown'):
+        def test_lchown(self):
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.lchown, self.path, os.getuid(), os.getgid())
+            os.symlink('foobar', self.path)
+            os.lchown(self.path, os.getuid(), os.getgid())
+
+    if hasattr(os, 'mkfifo'):
+        def test_mkfifo(self):
+            os = self.posix
+            os.mkfifo(self.path2 + 'test_mkfifo', 0666)
+            st = os.lstat(self.path2 + 'test_mkfifo')
+            import stat
+            assert stat.S_ISFIFO(st.st_mode)
+
+    if hasattr(os, 'mknod'):
+        def test_mknod(self):
+            import stat
+            os = self.posix
+            # not very useful: os.mknod() without specifying 'mode'
+            os.mknod(self.path2 + 'test_mknod-1')
+            st = os.lstat(self.path2 + 'test_mknod-1')
+            assert stat.S_ISREG(st.st_mode)
+            # os.mknod() with S_IFIFO
+            os.mknod(self.path2 + 'test_mknod-2', 0600 | stat.S_IFIFO)
+            st = os.lstat(self.path2 + 'test_mknod-2')
+            assert stat.S_ISFIFO(st.st_mode)
+
+        def test_mknod_with_ifchr(self):
+            # os.mknod() with S_IFCHR
+            # -- usually requires root priviledges --
+            os = self.posix
+            if hasattr(os.lstat('.'), 'st_rdev'):
+                import stat
+                try:
+                    os.mknod(self.path2 + 'test_mknod-3', 0600 | stat.S_IFCHR,
+                             0x105)
+                except OSError, e:
+                    skip("os.mknod() with S_IFCHR: got %r" % (e,))
+                else:
+                    st = os.lstat(self.path2 + 'test_mknod-3')
+                    assert stat.S_ISCHR(st.st_mode)
+                    assert st.st_rdev == 0x105
+
+    if hasattr(os, 'nice') and hasattr(os, 'fork') and hasattr(os, 'waitpid'):
+        def test_nice(self):
+            os = self.posix
+            myprio = os.nice(0)
+            #
+            pid = os.fork()
+            if pid == 0:    # in the child
+                res = os.nice(3)
+                os._exit(res)
+            #
+            pid1, status1 = os.waitpid(pid, 0)
+            assert pid1 == pid
+            assert os.WIFEXITED(status1)
+            assert os.WEXITSTATUS(status1) == myprio + 3
+
+
 class AppTestEnvironment(object):
     def setup_class(cls): 
         cls.space = space 
