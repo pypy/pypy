@@ -121,12 +121,12 @@ class AbstractARMv7Builder(object):
         return self._pos
 
     size_of_gen_load_int = 4 * WORD
-    #XXX use MOV_ri if value fits in imm
+    ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
         self.MOV_ri(r, (value & 0xFF), cond=cond)
-        for offset, shift in zip(range(8, 25, 8), range(12, 0, -4)):
+        for offset, shift in self.ofs_shift:
             b = (value >> offset) & 0xFF
             if b == 0:
                 continue

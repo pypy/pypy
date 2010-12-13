@@ -240,8 +240,9 @@ class OpAssembler(object):
         return fcond
 
     def emit_op_call(self, op, args, regalloc, fcond, spill_all_regs=False):
-        adr = args[0]
-        cond =  self._emit_call(adr, op.getarglist()[1:], regalloc, fcond,
+        adr = args[0].value
+        arglist = op.getarglist()[1:]
+        cond =  self._emit_call(adr, arglist, regalloc, fcond,
                                 op.result, spill_all_regs=spill_all_regs)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
@@ -312,10 +313,6 @@ class OpAssembler(object):
             self.mc.MOV_rr(resloc.value, argloc.value)
         return fcond
 
-    def emit_op_cond_call_gc_wb(self, op, regalloc, fcond):
-        #XXX implement once gc support is in place
-        return fcond
-
     def emit_op_guard_no_exception(self, op, arglocs, regalloc, fcond):
         loc = arglocs[0]
         failargs = arglocs[1:]
@@ -340,9 +337,10 @@ class OpAssembler(object):
         self.mc.STR_ri(r.ip.value, loc1.value)
         return fcond
 
-    def emit_op_debug_merge_point(self, op, regalloc, fcond):
+    def emit_op_debug_merge_point(self, op, arglocs, regalloc, fcond):
         return fcond
     emit_op_jit_debug = emit_op_debug_merge_point
+    emit_op_cond_call_gc_wb = emit_op_debug_merge_point
 
 class FieldOpAssembler(object):
 
@@ -753,22 +751,11 @@ class AllocOpAssembler(object):
                                     result=result)
 
     def emit_op_new(self, op, arglocs, regalloc, fcond):
-        self._emit_call(self.malloc_func_addr, arglocs,
-                                regalloc, result=op.result)
-        #XXX free args here, because _emit_call works on regalloc
-        regalloc.possibly_free_vars(arglocs)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
     def emit_op_new_with_vtable(self, op, arglocs, regalloc, fcond):
-        classint = arglocs[-1].value
-        callargs = arglocs[:-1]
-        self._emit_call(self.malloc_func_addr, callargs,
-                                regalloc, result=op.result)
+        classint = arglocs[0].value
         self.set_vtable(op.result, classint)
-        #XXX free args here, because _emit_call works on regalloc
-        regalloc.possibly_free_vars(callargs)
-        regalloc.possibly_free_var(op.result)
         return fcond
 
     def set_vtable(self, box, vtable):

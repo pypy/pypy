@@ -14,6 +14,7 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.codewriter import heaptracker
+from pypy.rlib.objectmodel import we_are_translated
 
 class TempInt(TempBox):
     type = INT
@@ -86,7 +87,10 @@ class ARMRegisterManager(RegisterManager):
             del self.reg_bindings[var]
             self.free_regs.append(loc)
         except KeyError:
-            import pdb; pdb.set_trace()
+            if not we_are_translated():
+                import pdb; pdb.set_trace()
+            else:
+                raise ValueError
 
     def _check_imm_arg(self, arg, size=0xFF, allow_zero=True):
         if isinstance(arg, ConstInt):
@@ -244,7 +248,7 @@ class ARMRegisterManager(RegisterManager):
     prepare_op_int_invert = prepare_op_int_neg
 
     def prepare_op_call(self, op, fcond):
-        args = [rffi.cast(lltype.Signed, op.getarg(0).getint())]
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 
     def _prepare_guard(self, op, args=None):
@@ -309,7 +313,7 @@ class ARMRegisterManager(RegisterManager):
         boxes.append(box)
         if op.result in self.longevity:
             resloc = self.force_allocate_reg(op.result, boxes)
-            boxes.append(resloc)
+            boxes.append(op.result)
         else:
             resloc = None
         pos_exc_value = imm(self.assembler.cpu.pos_exc_value())
@@ -555,17 +559,21 @@ class ARMRegisterManager(RegisterManager):
 
     def prepare_op_new(self, op, fcond):
         arglocs = self._prepare_args_for_new_op(op.getdescr())
-        #XXX args are freed in assembler._emit_call
-        #self.possibly_free_vars(arglocs)
+        self.assembler._emit_call(self.assembler.malloc_func_addr,
+                                arglocs, self, result=op.result)
+        self.possibly_free_vars(arglocs)
         self.possibly_free_var(op.result)
-        return arglocs
+        return []
 
     def prepare_op_new_with_vtable(self, op, fcond):
         classint = op.getarg(0).getint()
         descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
-        arglocs = self._prepare_args_for_new_op(descrsize)
-        arglocs.append(imm(classint))
-        return arglocs
+        callargs = self._prepare_args_for_new_op(descrsize)
+        self.assembler._emit_call(self.assembler.malloc_func_addr,
+                                    callargs, self, result=op.result)
+        self.possibly_free_vars(callargs)
+        self.possibly_free_var(op.result)
+        return [imm(classint)]
 
     def prepare_op_new_array(self, op, fcond):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -634,7 +642,7 @@ class ARMRegisterManager(RegisterManager):
         faildescr = guard_op.getdescr()
         fail_index = self.assembler.cpu.get_fail_descr_number(faildescr)
         self.assembler._write_fail_index(fail_index)
-        args = [rffi.cast(lltype.Signed, op.getarg(0).getint())]
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         # force all reg values to be spilled when calling
         self.assembler.emit_op_call(op, args, self, fcond, spill_all_regs=True)
 
@@ -644,6 +652,7 @@ class ARMRegisterManager(RegisterManager):
         faildescr = guard_op.getdescr()
         fail_index = self.assembler.cpu.get_fail_descr_number(faildescr)
         self.assembler._write_fail_index(fail_index)
+        return []
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr

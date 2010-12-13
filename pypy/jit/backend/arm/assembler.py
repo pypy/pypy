@@ -393,9 +393,9 @@ class AssemblerARM(ResOpAssembler):
         else:
             cb.gen_load_int(r.ip.value, n, cond=fcond)
             if rev:
-                cb.ADD_rr(r.sp.value, base_reg.value, reg.value, cond=fcond)
+                cb.ADD_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
             else:
-                cb.SUB_rr(r.sp.value, base_reg.value, reg.value, cond=fcond)
+                cb.SUB_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
 
     def _walk_operations(self, operations, regalloc):
         fcond=c.AL
@@ -429,7 +429,9 @@ class AssemblerARM(ResOpAssembler):
     def assemble_bridge(self, faildescr, inputargs, operations):
         self.setup()
         self.debug = False
-        enc = rffi.cast(rffi.CCHARP, faildescr._failure_recovery_code)
+        code = faildescr._failure_recovery_code
+        assert isinstance(code, int)
+        enc = rffi.cast(rffi.CCHARP, code)
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
 
@@ -522,7 +524,7 @@ class AssemblerARM(ResOpAssembler):
         pass
 
 def make_operation_list():
-    def notimplemented(self, op, regalloc, fcond):
+    def notimplemented(self, op, arglocs, regalloc, fcond):
         raise NotImplementedError, op
 
     operations = [None] * (rop._LAST+1)
@@ -539,7 +541,7 @@ def make_operation_list():
     return operations
 
 def make_guard_operation_list():
-    def notimplemented(self, op, guard_op, regalloc, fcond):
+    def notimplemented(self, op, guard_op, arglocs, regalloc, fcond):
         raise NotImplementedError, op
     guard_operations = [notimplemented] * rop._LAST
     for key, value in rop.__dict__.items():
