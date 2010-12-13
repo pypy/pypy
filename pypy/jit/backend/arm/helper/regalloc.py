@@ -49,13 +49,10 @@ def prepare_op_by_helper_call():
         arg2 = self.make_sure_var_in_reg(a1, selected_reg=r.r1)
         assert arg1 == r.r0
         assert arg2 == r.r1
-        spilled = False
         if isinstance(a0, Box) and self.stays_alive(a0):
-            spilled = True
             self.force_spill_var(a0)
+        self.possibly_free_var(a0)
         self.after_call(op.result)
-        if spilled:
-            self.possibly_free_var(a0)
         self.possibly_free_var(a1)
         self.possibly_free_var(op.result)
         return []

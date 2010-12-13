@@ -143,8 +143,8 @@ class ARMRegisterManager(RegisterManager):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(a1, [box])
             boxes.append(box)
-        res = self.force_allocate_reg(op.result, boxes)
         self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [l0, l1, res]
 
@@ -167,8 +167,8 @@ class ARMRegisterManager(RegisterManager):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(a1, boxes)
             boxes.append(box)
-        res = self.force_allocate_reg(op.result, boxes)
         self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [l0, l1, res]
 
@@ -181,8 +181,8 @@ class ARMRegisterManager(RegisterManager):
         reg2, box = self._ensure_value_is_boxed(a1, forbidden_vars=boxes)
         boxes.append(box)
 
-        res = self.force_allocate_reg(op.result, boxes)
         self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
 
@@ -241,8 +241,9 @@ class ARMRegisterManager(RegisterManager):
 
     def prepare_op_int_neg(self, op, fcond):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
-        resloc = self.force_allocate_reg(op.result, [box])
-        self.possibly_free_vars([box, op.result])
+        self.possibly_free_var(box)
+        resloc = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
         return [l0, resloc]
 
     prepare_op_int_invert = prepare_op_int_neg
@@ -376,7 +377,7 @@ class ARMRegisterManager(RegisterManager):
         base_loc, base_box = self._ensure_value_is_boxed(a0)
         self.possibly_free_var(a0)
         self.possibly_free_var(base_box)
-        res = self.force_allocate_reg(op.result, [a0])
+        res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [base_loc, imm(ofs), res, imm(size)]
 
