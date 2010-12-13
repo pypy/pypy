@@ -207,10 +207,7 @@ def get_library_path(executable):
         break      # found!
     return newpath
 
-def setup_initial_paths(executable, nanos, ignore_environment=False, **extra):
-    # a substituted os if we are translated
-    global os
-    os = nanos
+def setup_initial_paths(executable, ignore_environment=False, **extra):
     # find the full path to the executable, assuming that if there is no '/'
     # in the provided one then we must look along the $PATH
     if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
@@ -578,12 +575,15 @@ def print_banner():
            '"license" for more information.')
 
 def entry_point(executable, argv, nanos):
+    # a substituted os if we are translated
+    global os
+    os = nanos
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError, e:
         print_error(str(e))
         return 2
-    setup_initial_paths(executable, nanos, **cmdline)
+    setup_initial_paths(executable, **cmdline)
     return run_command_line(**cmdline)
 
 
