@@ -664,6 +664,20 @@ class AppTestTypeObject:
         assert c.a == 42
         assert c.e == 85
 
+    def test_string_slots(self):
+        class A(object):
+            __slots__ = "abc"
+
+        class B(object):
+            __slots__ = u"abc"
+
+        a = A()
+        a.abc = "awesome"
+        assert a.abc == "awesome"
+        b = B()
+        b.abc = "awesomer"
+        assert b.abc == "awesomer"
+
     def test_base_attr(self):
         # check the '__base__'
         class A(object):
@@ -1118,4 +1132,3 @@ class AppTestNewShortcut:
                 return x + 1
         a = A()
         assert a.f(1) == 2
-

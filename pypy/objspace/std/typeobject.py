@@ -556,7 +556,8 @@ def create_all_slots(w_self, hasoldstylebase):
         wantdict = False
         wantweakref = False
         w_slots = dict_w['__slots__']
-        if space.is_true(space.isinstance(w_slots, space.w_str)):
+        if (space.isinstance_w(w_slots, space.w_str) or
+            space.isinstance_w(w_slots, space.w_unicode)):
             slot_names_w = [w_slots]
         else:
             slot_names_w = space.unpackiterable(w_slots)
