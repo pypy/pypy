@@ -398,11 +398,7 @@ class CFuncPtr(_CData):
                 assert isinstance(value, basestring) and len(value) == 1
                 value = ord(value)
             elif argtype._ffishape == 'P':
-                value = arg._buffer.buffer
-                if value > sys.maxint:
-                    # XXX: workaround for old versions of pypy-c, as soon as
-                    # translation works again we can remove it
-                    value = (-sys.maxint-1)*2 + value
+                value = arg._get_buffer_value()
             else:
                 value = arg.value
             newargs.append(value)
