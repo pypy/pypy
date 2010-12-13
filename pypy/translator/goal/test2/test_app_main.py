@@ -331,17 +331,16 @@ class TestInteraction:
         child.expect('>>> ')
 
     def test_clear_pythoninspect(self):
-        py.test.skip("obscure difference with CPython -- do we care?")
-        old = os.environ.get('PYTHONINSPECT', '')
+        os.environ['PYTHONINSPECT_'] = '1'
         try:
             path = getscript("""
                 import os
                 del os.environ['PYTHONINSPECT']
                 """)
             child = self.spawn([path])
-            xxx  # do we expect a prompt or not?  CPython gives one
+            child.expect('>>> ')
         finally:
-            os.environ['PYTHONINSPECT'] = old
+            del os.environ['PYTHONINSPECT_']
 
     def test_stdout_flushes_before_stdin_blocks(self):
         # This doesn't really test app_main.py, but a behavior that

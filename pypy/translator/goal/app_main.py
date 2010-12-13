@@ -360,6 +360,8 @@ def parse_command_line(argv):
     if not sys.argv:          # (relevant in case of "reload(sys)")
         sys.argv.append('')
         options["run_stdin"] = True
+    if not options["ignore_environment"] and os.getenv('PYTHONINSPECT'):
+        options["inspect"] = True
     if print_sys_flags:
         flag_opts = ["%s=%s" % (opt, int(value))
                      for opt, value in options.iteritems()
@@ -373,6 +375,7 @@ def parse_command_line(argv):
     return options
 
 def run_command_line(interactive,
+                     inspect,
                      run_command,
                      no_site,
                      run_module,
@@ -427,15 +430,17 @@ def run_command_line(interactive,
             signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
 
     def inspect_requested():
-        # We get an interactive prompt in one of the following two cases:
+        # We get an interactive prompt in one of the following three cases:
         #
-        #     * insepct=True, either from the "-i" option or from the fact that
-        #     we printed the banner;
+        #     * interactive=True, from the "-i" option
+        # or
+        #     * inspect=True and stdin is a tty
         # or
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
         return (interactive or
-            (readenv and os.getenv('PYTHONINSPECT') and sys.stdin.isatty()))
+                ((inspect or (readenv and os.getenv('PYTHONINSPECT')))
+                 and sys.stdin.isatty()))
 
     success = True
 
@@ -485,7 +490,7 @@ def run_command_line(interactive,
                             exec co_python_startup in mainmodule.__dict__
                         run_toplevel(run_it)
                 # Then we need a prompt.
-                interactive = True
+                inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
                 def run_it():
