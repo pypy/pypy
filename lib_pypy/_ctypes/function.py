@@ -399,6 +399,8 @@ class CFuncPtr(_CData):
                 value = ord(value)
             elif argtype._ffishape == 'P':
                 value = arg._get_buffer_value()
+            elif argtype._ffishape == 'z':
+                value = arg._get_buffer_value()
             else:
                 value = arg.value
             newargs.append(value)
@@ -419,6 +421,8 @@ class CFuncPtr(_CData):
                 result = None
             else:
                 assert False, 'TODO'
+        elif restype._ffishape == 'z':
+            result = restype(result).value # XXX: maybe it's the general way to do it?
         return result
 
     def _build_result(self, restype, resbuffer, argtypes, argsandobjs):
