@@ -1016,6 +1016,10 @@ class W_Product(Wrappable):
         self.cont = True
 
     def roll_gears(self):
+        if self.num_gears == 0:
+            self.cont = False
+            return
+
         # Starting from the end of the gear indicies work to the front
         # incrementing the gear until the limit is reached. When the limit
         # is reached carry operation to the next gear

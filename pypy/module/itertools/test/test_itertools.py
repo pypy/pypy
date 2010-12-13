@@ -752,3 +752,9 @@ class AppTestItertools:
         l = [1, 2]
         m = ['a']
         raises(TypeError, product, l, m, repeat=1, foo=2)
+
+    def test_product_empty(self):
+        from itertools import product
+        prod = product('abc', repeat=0)
+        assert prod.next() == ()
+        raises (StopIteration, prod.next)
