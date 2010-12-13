@@ -346,7 +346,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def _wrap_expected_length(self, expected, got):
         return OperationError(self.w_ValueError,
-                self.wrap("Expected length %d, got %d" % (expected, got)))
+                self.wrap("expected length %d, got %d" % (expected, got)))
 
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_TupleObject):
