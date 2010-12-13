@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root
 
 
@@ -10,6 +11,10 @@ before the leftmost x already there.
 
 Optional args lo (default 0) and hi (default len(a)) bound the
 slice of a to be searched."""
+    if lo < 0:
+        raise OperationError(space.w_ValueError,
+            space.wrap("lo must be non-negative")
+        )
     if hi == -1:
         hi = space.int_w(space.len(w_a))
     while lo < hi:
