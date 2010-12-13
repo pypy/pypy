@@ -351,6 +351,8 @@ class AppTestStringObject:
         raises(TypeError, 'hello'.endswith, (42,))
 
     def test_expandtabs(self):
+        import sys
+
         assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
         assert 'abc\rab\tdef\ng\thi'.expandtabs(8) ==   'abc\rab      def\ng       hi'
         assert 'abc\rab\tdef\ng\thi'.expandtabs(4) ==   'abc\rab  def\ng   hi'
@@ -360,16 +362,18 @@ class AppTestStringObject:
         assert 'abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4) == 'abc\r\nab\r\ndef\ng\r\nhi'
 
         s = 'xy\t'
-        assert s.expandtabs() =='xy      '
+        assert s.expandtabs() == 'xy      '
 
         s = '\txy\t'
-        assert s.expandtabs() =='        xy      '
-        assert s.expandtabs(1) ==' xy '
-        assert s.expandtabs(2) =='  xy  '
-        assert s.expandtabs(3) =='   xy '
+        assert s.expandtabs() == '        xy      '
+        assert s.expandtabs(1) == ' xy '
+        assert s.expandtabs(2) == '  xy  '
+        assert s.expandtabs(3) == '   xy '
 
-        assert 'xy'.expandtabs() =='xy'
-        assert ''.expandtabs() ==''
+        assert 'xy'.expandtabs() == 'xy'
+        assert ''.expandtabs() == ''
+
+        raises(OverflowError, "t\tt\t".expandtabs, sys.maxint)
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
