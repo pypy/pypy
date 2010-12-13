@@ -1,0 +1,4 @@
+greenlet = [svn]http://codespeak.net/svn/greenlet/trunk/c
+testrunner = [svn]http://codespeak.net/svn/pypy/build/testrunner
+lib_pypy/pyrepl = [svn]http://codespeak.net/svn/pyrepl/trunk/pyrepl/pyrepl
+lib_pypy/sqlite3 = [svn]http://codespeak.net/svn/pypy/pysqlite2
