@@ -37,14 +37,18 @@ def stack_frames_depth():
 
 compilation_info = ExternalCompilationInfo(includes=['src/stack.h'])
 
-def llexternal(name, args, res):
+def llexternal(name, args, res, _callable=None):
     return rffi.llexternal(name, args, res, compilation_info=compilation_info,
-                           sandboxsafe=True, _nowrapper=True)
+                           sandboxsafe=True, _nowrapper=True,
+                           _callable=_callable)
 
-_stack_get_start = llexternal('LL_stack_get_start', [], lltype.Signed)
-_stack_get_length = llexternal('LL_stack_get_length', [], lltype.Signed)
+_stack_get_start = llexternal('LL_stack_get_start', [], lltype.Signed,
+                              lambda: 0)
+_stack_get_length = llexternal('LL_stack_get_length', [], lltype.Signed,
+                               lambda: 1)
 _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
-                                     [lltype.Signed], lltype.Char)
+                                     [lltype.Signed], lltype.Char,
+                                     lambda cur: '\x00')
 # the following is used by the JIT
 _stack_get_start_adr = llexternal('LL_stack_get_start_adr', [], lltype.Signed)
 
