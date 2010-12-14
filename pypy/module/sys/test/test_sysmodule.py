@@ -485,13 +485,14 @@ class AppTestSysModulePortedFromCPython:
         assert revision.isdigit()
 
     def test__mercurial(self):
-        info = sys._mercurial
-        print info
-        if info:
-            project, hgtag, hgid = info
-            assert project == 'PyPy'
-            assert hgtag  # no clue how to check something more :-/
-            assert hgid
+        import re
+        project, hgtag, hgid = sys._mercurial
+        assert project == 'PyPy'
+        # the tag or branch may be anything, including the empty string
+        assert isinstance(hgtag, str)
+        # the id is either nothing, or an id of 12 hash digits, with a possible
+        # suffix of '+' if there are local modifications
+        assert hgid == '' or re.match('[0-9a-f]{12}\+?', hgid)
 
     def test_trace_exec_execfile(self):
         found = []
