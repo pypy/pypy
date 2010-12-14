@@ -1,8 +1,10 @@
 from pypy.rlib.rsdl.eci import check_sdl_installation, SDLNotInstalled
 import py
 
-def pytest_collect_directory():
+def pytest_ignore_collect(path):
     try:
         check_sdl_installation()
     except SDLNotInstalled, e:
-        py.test.skip("SDL not installed(?): %s" % (e,))
+        return True
+    else:
+        return False

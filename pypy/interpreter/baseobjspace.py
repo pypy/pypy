@@ -800,8 +800,8 @@ class ObjSpace(object):
 
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance            
-            from pypy.interpreter.function import Function        
+            # XXX start of hack for performance
+            from pypy.interpreter.function import Function
             if isinstance(w_callable, Function):
                 return w_callable.call_obj_args(w_obj, args)
             # XXX end of hack for performance
@@ -1183,24 +1183,27 @@ class ObjSpace(object):
         return value
 
     def c_filedescriptor_w(self, w_fd):
-        try:
-            fd = self.c_int_w(w_fd)
-        except OperationError, e:
-            if not e.match(self, self.w_TypeError):
-                raise
+        if (not self.isinstance_w(w_fd, self.w_int) and
+            not self.isinstance_w(w_fd, self.w_long)):
             try:
-                w_fileno = self.getattr(w_fd, self.wrap('fileno'))
+                w_fileno = self.getattr(w_fd, self.wrap("fileno"))
             except OperationError, e:
                 if e.match(self, self.w_AttributeError):
                     raise OperationError(self.w_TypeError,
-                        self.wrap("argument must be an int, "
-                                  "or have a fileno() method."))
+                        self.wrap("argument must be an int, or have a fileno() "
+                            "method.")
+                    )
                 raise
             w_fd = self.call_function(w_fileno)
-            fd = self.c_int_w(w_fd)
+            if not self.isinstance_w(w_fd, self.w_int):
+                raise OperationError(self.w_TypeError,
+                    self.wrap("fileno() must return an integer")
+                )
+        fd = self.int_w(w_fd)
         if fd < 0:
             raise operationerrfmt(self.w_ValueError,
-                "file descriptor cannot be a negative integer (%d)", fd)
+                "file descriptor cannot be a negative integer (%d)", fd
+            )
         return fd
 
     def warn(self, msg, w_warningcls):
@@ -1405,4 +1408,3 @@ ObjSpace.IrregularOpTable = [
     'call_args',
     'marshal_w',
     ]
-

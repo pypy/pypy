@@ -43,6 +43,93 @@ crashing_demo_script = getscript("""
     """)
 
 
+class TestParseCommandLine:
+
+    def check_options(self, options, sys_argv, **expected):
+        assert sys.argv == sys_argv
+        for key, value in expected.items():
+            assert options[key] == value
+        for key, value in options.items():
+            if key not in expected:
+                assert not value, (
+                    "option %r has unexpectedly the value %r" % (key, value))
+
+    def check(self, argv, **expected):
+        import StringIO
+        from pypy.translator.goal import app_main
+        saved_sys_argv = sys.argv[:]
+        saved_sys_stdout = sys.stdout
+        saved_sys_stderr = sys.stdout
+        app_main.os = os
+        try:
+            sys.stdout = sys.stderr = StringIO.StringIO()
+            try:
+                options = app_main.parse_command_line(argv)
+            except SystemExit:
+                output = expected['output_contains']
+                assert output in sys.stdout.getvalue()
+            else:
+                self.check_options(options, **expected)
+        finally:
+            sys.argv[:] = saved_sys_argv
+            sys.stdout = saved_sys_stdout
+            sys.stderr = saved_sys_stderr
+
+    def test_all_combinations_I_can_think_of(self):
+        self.check([], sys_argv=[''], run_stdin=True)
+        self.check(['-'], sys_argv=['-'], run_stdin=True)
+        self.check(['-S'], sys_argv=[''], run_stdin=True, no_site=1)
+        self.check(['-OO'], sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-O', '-O'], sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-Qnew'], sys_argv=[''], run_stdin=True, division_new=1)
+        self.check(['-Qold'], sys_argv=[''], run_stdin=True, division_new=0)
+        self.check(['-Qwarn'], sys_argv=[''], run_stdin=True, division_warning=1)
+        self.check(['-Qwarnall'], sys_argv=[''], run_stdin=True,
+                   division_warning=2)
+        self.check(['-Q', 'new'], sys_argv=[''], run_stdin=True, division_new=1)
+        self.check(['-SOQnew'], sys_argv=[''], run_stdin=True,
+                   no_site=1, optimize=1, division_new=1)
+        self.check(['-SOQ', 'new'], sys_argv=[''], run_stdin=True,
+                   no_site=1, optimize=1, division_new=1)
+        self.check(['-i'], sys_argv=[''], run_stdin=True,
+                   interactive=1, inspect=1)
+        self.check(['-h'], output_contains='usage:')
+        self.check(['-S', '-tO', '-h'], output_contains='usage:')
+        self.check(['-S', '-thO'], output_contains='usage:')
+        self.check(['-S', '-tO', '--help'], output_contains='usage:')
+        self.check(['-S', '-tO', '--info'], output_contains='translation')
+        self.check(['-S', '-tO', '--version'], output_contains='Python')
+        self.check(['-S', '-tOV'], output_contains='Python')
+        self.check(['--jit', 'foobar', '-S'], sys_argv=[''],
+                   run_stdin=True, no_site=1)
+        self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass'], sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass','x'], sys_argv=['-c','x'], run_command='pass')
+        self.check(['-Sc', 'pass'], sys_argv=['-c'], run_command='pass',
+                   no_site=1)
+        self.check(['-Scpass'], sys_argv=['-c'], run_command='pass', no_site=1)
+        self.check(['-c', '', ''], sys_argv=['-c', ''], run_command='')
+        self.check(['-mfoo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True)
+        self.check(['-m', 'foo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True)
+        self.check(['-Smfoo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True, no_site=1)
+        self.check(['-Sm', 'foo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True, no_site=1)
+        self.check(['-', 'foo', 'bar'], sys_argv=['-', 'foo', 'bar'],
+                   run_stdin=True)
+        self.check(['foo', 'bar'], sys_argv=['foo', 'bar'])
+        self.check(['foo', '-i'], sys_argv=['foo', '-i'])
+        self.check(['-i', 'foo'], sys_argv=['foo'], interactive=1, inspect=1)
+        self.check(['--', 'foo'], sys_argv=['foo'])
+        self.check(['--', '-i', 'foo'], sys_argv=['-i', 'foo'])
+        self.check(['--', '-', 'foo'], sys_argv=['-', 'foo'], run_stdin=True)
+        self.check(['-Wbog'], sys_argv=[''], warnoptions=['bog'], run_stdin=True)
+        self.check(['-W', 'ab', '-SWc'], sys_argv=[''], warnoptions=['ab', 'c'],
+                   run_stdin=True, no_site=1)
+
+
 class TestInteraction:
     """
     These tests require pexpect (UNIX-only).
@@ -446,7 +533,7 @@ class TestNonInteractive:
 
     def test_option_W_crashing(self):
         data = self.run('-W')
-        assert 'Argument expected for the -W option' in data
+        assert "Argument expected for the '-W' option" in data
 
     def test_option_W_arg_ignored(self):
         data = self.run('-Wc')

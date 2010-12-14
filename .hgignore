@@ -6,7 +6,6 @@ site-packages
 pypy/module/cpyext/src/*.o
 pypy/bin/pypy-c
 pypy/translator/jvm/src/pypy/*.class
-pypy/module/_stackless/test/
 pypy/module/cpyext/test/*.errors
 pypy/doc/*.html
 pypy/doc/basicblock.asc
@@ -20,7 +19,6 @@ pypy/translator/benchmark/gadfly
 pypy/translator/benchmark/mako
 pypy/translator/benchmark/bench-custom.benchmark_result
 pypy/translator/benchmark/shootout_benchmarks
-pypy/module/_stackless/
 pypy/translator/goal/pypy-translation-snapshot
 pypy/translator/goal/pypy-c*
 pypy/translator/goal/*.exe
@@ -38,12 +36,10 @@ lib_pypy/ctypes_config_cache/_*_cache.py
 lib_pypy/ctypes_config_cache/_*_*_.py
 pypy/translator/cli/query-descriptions
 pypy/doc/discussion/*.html
-pypy/doc/discussion/
 include/*.h
 include/*.inl
 pypy/doc/config/*.html
 pypy/doc/config/style.css
-pypy/doc/config/
 pypy/doc/jit/*.html
 pypy/doc/jit/style.css
 pypy/doc/image/lattice1.png

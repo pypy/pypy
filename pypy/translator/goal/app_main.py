@@ -115,7 +115,7 @@ def display_exception():
 # ____________________________________________________________
 # Option parsing
 
-def print_info():
+def print_info(*args):
     try:
         options = sys.pypy_translation_info
     except AttributeError:
@@ -125,21 +125,35 @@ def print_info():
         optitems.sort()
         for name, value in optitems:
             print ' %51s: %s' % (name, value)
+    raise SystemExit
 
-def print_help():
+def print_help(*args):
     print 'usage: %s [options]' % (sys.executable,)
     print __doc__.rstrip()
     if 'pypyjit' in sys.builtin_module_names:
-        print_jit_help()
+        _print_jit_help()
     print
+    raise SystemExit
 
-def print_jit_help():
+def _print_jit_help():
     import pypyjit
     items = pypyjit.defaults.items()
     items.sort()
     for key, value in items:
         print '  --jit %s=N %slow-level JIT parameter (default %s)' % (
             key, ' '*(18-len(key)), value)
+
+def print_version(*args):
+    print "Python", sys.version
+    raise SystemExit
+
+def set_jit_option(options, jitparam, *args):
+    if 'pypyjit' not in sys.builtin_module_names:
+        print >> sys.stderr, ("Warning: No jit support in %s" %
+                              (sys.executable,))
+    else:
+        import pypyjit
+        pypyjit.set_param(jitparam)
 
 class CommandLineError(Exception):
     pass
@@ -176,18 +190,6 @@ if 'nt' in sys.builtin_module_names:
 else:
     IS_WINDOWS = False
 
-def get_argument(option, argv, i):
-    arg = argv[i]
-    n = len(option)
-    if len(arg) > n:
-        return arg[n:], i
-    else:
-        i += 1
-        if i >= len(argv):
-            raise CommandLineError('Argument expected for the %s option' %
-                                   option)
-        return argv[i], i
-
 def get_library_path(executable):
     search = executable
     while 1:
@@ -205,10 +207,7 @@ def get_library_path(executable):
         break      # found!
     return newpath
 
-def setup_initial_paths(executable, nanos, ignore_environment=False, **extra):
-    # a substituted os if we are translated
-    global os
-    os = nanos
+def setup_initial_paths(executable, ignore_environment=False, **extra):
     # find the full path to the executable, assuming that if there is no '/'
     # in the provided one then we must look along the $PATH
     if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
@@ -264,114 +263,144 @@ default_options = dict.fromkeys(
     "run_module",
     "run_stdin",
     "warnoptions",
-    "unbuffered"), False)
+    "unbuffered"), 0)
+
+
+PYTHON26 = True
+
+def simple_option(options, name, iterargv):
+    options[name] += 1
+
+def div_option(options, div, iterargv):
+    if div == "warn":
+        options["division_warning"] = 1
+    elif div == "warnall":
+        options["division_warning"] = 2
+    elif div == "new":
+        options["division_new"] = 1
+    elif div != "old":
+        raise CommandLineError("invalid division option: %r" % (div,))
+
+def c_option(options, runcmd, iterargv):
+    options["run_command"] = runcmd
+    return ['-c'] + list(iterargv)
+
+def m_option(options, runmodule, iterargv):
+    options["run_module"] = True
+    return [runmodule] + list(iterargv)
+
+def W_option(options, warnoption, iterargv):
+    options["warnoptions"].append(warnoption)
+
+def end_options(options, _, iterargv):
+    return list(iterargv)
+
+cmdline_options = {
+    # simple options just increment the counter of the options listed above
+    'd': (simple_option, 'debug'),
+    'i': (simple_option, 'interactive'),
+    'O': (simple_option, 'optimize'),
+    'S': (simple_option, 'no_site'),
+    'E': (simple_option, 'ignore_environment'),
+    't': (simple_option, 'tabcheck'),
+    'v': (simple_option, 'verbose'),
+    'U': (simple_option, 'unicode'),
+    'u': (simple_option, 'unbuffered'),
+    # more complex options
+    'Q':         (div_option,      Ellipsis),
+    'c':         (c_option,        Ellipsis),
+    'm':         (m_option,        Ellipsis),
+    'W':         (W_option,        Ellipsis),
+    'V':         (print_version,   None),
+    '--version': (print_version,   None),
+    '--info':    (print_info,      None),
+    'h':         (print_help,      None),
+    '--help':    (print_help,      None),
+    '--jit':     (set_jit_option,  Ellipsis),
+    '--':        (end_options,     None),
+    }
+
+if PYTHON26:
+    cmdline_options.update({
+        '3': (simple_option, 'py3k_warning'),
+        'B': (simple_option, 'dont_write_bytecode'),
+        's': (simple_option, 'no_user_site'),
+        'b': (simple_option, 'bytes_warning'),
+        })
+
+
+def handle_argument(c, options, iterargv, iterarg=iter(())):
+    function, funcarg = cmdline_options[c]
+    #
+    # If needed, fill in the real argument by taking it from the command line
+    if funcarg is Ellipsis:
+        remaining = list(iterarg)
+        if remaining:
+            funcarg = ''.join(remaining)
+        else:
+            try:
+                funcarg = iterargv.next()
+            except StopIteration:
+                if len(c) == 1:
+                    c = '-' + c
+                raise CommandLineError('Argument expected for the %r option' % c)
+    #
+    return function(options, funcarg, iterargv)
 
 
 def parse_command_line(argv):
     options = default_options.copy()
     options['warnoptions'] = []
-    print_sys_flags = False
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if not arg.startswith('-'):
-            break
-        if arg == '-i':
-            options["inspect"] = options["interactive"] = True
-        elif arg == '-d':
-            options["debug"] = True
-        elif arg == '-3':
-            options["py3k_warning"] = True
-        elif arg == '-E':
-            options["ignore_environment"] = True
-        elif arg == '-U':
-            options["unicode"] = True
-        elif arg.startswith('-b'):
-            options["bytes_warning"] = arg.count('b')
-        elif arg.startswith('-t'):
-            options["tabcheck"] = arg.count('t')
-        elif arg.startswith('-v'):
-            options["verbose"] += arg.count('v')
-        elif arg.startswith('-Q'):
-            div, i = get_argument("-Q", argv, i)
-            if div == "warn":
-                options["division_warning"] = 1
-            elif div == "warnall":
-                options["division_warning"] = 2
-            elif div == "new":
-                options["division_new"] = True
-            elif div != "old":
-                raise CommandLineError("invalid division option: %r" % (div,))
-        elif arg.startswith('-O'):
-            options["optimize"] = arg.count('O')
-        elif arg == '-B':
-            options["dont_write_bytecode"] = True
-        elif arg.startswith('-c'):
-            options["cmd"], i = get_argument('-c', argv, i)
-            argv[i] = '-c'
-            options["run_command"] = True
-            break
-        elif arg == '-u':
-            options["unbuffered"] = True
-        elif arg == '-O' or arg == '-OO':
-            pass
-        elif arg == '--version' or arg == '-V':
-            print "Python", sys.version
-            return
-        elif arg == '--info':
-            print_info()
-            return
-        elif arg == '-h' or arg == '--help':
-            print_help()
-            return
-        elif arg == '-s':
-            options["no_user_site"] = True
-        elif arg == '-S':
-            options["no_site"] = True
-        elif arg == '-':
-            options["run_stdin"] = True
-            break     # not an option but a file name representing stdin
-        elif arg.startswith('-m'):
-            module, i = get_argument('-m', argv, i)
-            argv[i] = module
-            options["run_module"] = True
-            break
-        elif arg.startswith('-W'):
-            warnoption, i = get_argument('-W', argv, i)
-            options["warnoptions"].append(warnoption)
-        elif arg.startswith('--jit'):
-            jitparam, i = get_argument('--jit', argv, i)
-            if 'pypyjit' not in sys.builtin_module_names:
-                print >> sys.stderr, ("Warning: No jit support in %s" %
-                                      (sys.executable,))
-            else:
-                import pypyjit
-                pypyjit.set_param(jitparam)
-        elif arg == '--':
-            i += 1
-            break     # terminates option list
-        # for testing
-        elif not we_are_translated() and arg == "--print-sys-flags":
-            print_sys_flags = True
+    #
+    iterargv = iter(argv)
+    argv = None
+    for arg in iterargv:
+        #
+        # If the next argument isn't at least two characters long or
+        # doesn't start with '-', stop processing
+        if len(arg) < 2 or arg[0] != '-':
+            if IS_WINDOWS and arg == '/?':      # special case
+                print_help()
+            argv = [arg] + list(iterargv)    # finishes processing
+        #
+        # If the next argument is directly in cmdline_options, handle
+        # it as a single argument
+        elif arg in cmdline_options:
+            argv = handle_argument(arg, options, iterargv)
+        #
+        # Else interpret the rest of the argument character by character
         else:
-            raise CommandLineError('unrecognized option %r' % (arg,))
-        i += 1
-    sys.argv[:] = argv[i:]    # don't change the list that sys.argv is bound to
-    if not sys.argv:          # (relevant in case of "reload(sys)")
-        sys.argv.append('')
+            iterarg = iter(arg)
+            iterarg.next()     # skip the '-'
+            for c in iterarg:
+                if c not in cmdline_options:
+                    raise CommandLineError('Unknown option: -%s' % (c,))
+                argv = handle_argument(c, options, iterargv, iterarg)
+
+    if not argv:
+        argv = ['']
         options["run_stdin"] = True
-    if not options["ignore_environment"] and os.getenv('PYTHONINSPECT'):
+    elif argv[0] == '-':
+        options["run_stdin"] = True
+
+    # don't change the list that sys.argv is bound to
+    # (relevant in case of "reload(sys)")
+    sys.argv[:] = argv
+
+    if (options["interactive"] or
+        (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = True
-    if print_sys_flags:
-        flag_opts = ["%s=%s" % (opt, int(value))
-                     for opt, value in options.iteritems()
-                     if isinstance(value, int)]
-        "(%s)" % (", ".join(flag_opts),)
-        print flag_opts
-    if we_are_translated():
+
+    if PYTHON26 and we_are_translated():
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = sys.flags.py3k_warning
+
+##    if not we_are_translated():
+##        for key in sorted(options):
+##            print '%40s: %s' % (key, options[key])
+##        print '%40s: %s' % ("sys.argv", sys.argv)
+
     return options
 
 def run_command_line(interactive,
@@ -383,7 +412,6 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
-                     cmd=None,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100 
     # but we need more in the translated PyPy for the compiler package
@@ -445,13 +473,13 @@ def run_command_line(interactive,
     success = True
 
     try:
-        if run_command:
+        if run_command != 0:
             # handle the "-c" command
             # Put '' on sys.path
             sys.path.insert(0, '')
 
             def run_it():
-                exec cmd in mainmodule.__dict__
+                exec run_command in mainmodule.__dict__
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
@@ -547,14 +575,15 @@ def print_banner():
            '"license" for more information.')
 
 def entry_point(executable, argv, nanos):
+    # a substituted os if we are translated
+    global os
+    os = nanos
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError, e:
         print_error(str(e))
         return 2
-    if cmdline is None:
-        return 0
-    setup_initial_paths(executable, nanos, **cmdline)
+    setup_initial_paths(executable, **cmdline)
     return run_command_line(**cmdline)
 
 

@@ -484,6 +484,15 @@ class AppTestSysModulePortedFromCPython:
         assert svnbranch == svnbranch.strip('/')
         assert revision.isdigit()
 
+    def test__mercurial(self):
+        info = sys._mercurial
+        print info
+        if info:
+            project, hgtag, hgid = info
+            assert project == 'PyPy'
+            assert hgtag  # no clue how to check something more :-/
+            assert hgid
+
     def test_trace_exec_execfile(self):
         found = []
         def do_tracing(f, *args):

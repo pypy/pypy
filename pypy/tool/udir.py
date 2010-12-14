@@ -21,14 +21,8 @@ import autopath
 import os, sys
 import py
 
+from pypy.tool.version import get_mercurial_info
 from py.path import local 
-
-def svn_info(url):
-    basename = url[:-len('pypy/tool')]
-    if basename.endswith('dist/'):
-        return 'dist'
-    else:
-        return basename.split('/')[-2]
 
 PYPY_KEEP = int(os.environ.get('PYPY_USESSION_KEEP', '3'))
 
@@ -36,12 +30,13 @@ def make_udir(dir=None, basename=None):
     if dir is not None:
         dir = local(dir)
     if basename is None:
-        try:
-            p = py.path.local(__file__).dirpath()
-            basename = svn_info(py.path.svnwc(p).info().url)
+        info = get_mercurial_info()
+        if info:
+            project, hgtag, hgid = info
+            basename = hgtag
             if isinstance(basename, unicode):
                 basename = basename.encode(sys.getdefaultencoding())
-        except:
+        else:
             basename = ''
     if not basename.startswith('-'):
         basename = '-' + basename

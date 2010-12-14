@@ -240,7 +240,10 @@ a = 1 - 2 - 3
         t = self.ToAST.transform(t)
 
     def test_parse_this(self):
-        s = py.path.local(__file__).read()
+        filename = __file__
+        if filename.lower().endswith('.pyc'):
+            filename = filename[:-1]
+        s = py.path.local(filename).read()
         t = self.parse(s)
         t = self.ToAST.transform(t)
 
