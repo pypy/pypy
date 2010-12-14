@@ -12,16 +12,22 @@ def get_mercurial_info():
     pypyroot = os.path.abspath(os.path.join(pypydir, '..'))
     hgexe = py.path.local.sysfind('hg')
 
-    if hgexe and os.path.isdir(os.path.join(pypyroot, '.hg')):
-        def maywarn(err):
-            if not err:
-                return
+    def maywarn(err):
+        if not err:
+            return
 
-            from pypy.tool.ansi_print import ansi_log
-            log = py.log.Producer("version")
-            py.log.setconsumer("version", ansi_log)
-            log.WARNING('Errors getting Mercurial information:' + err)
+        from pypy.tool.ansi_print import ansi_log
+        log = py.log.Producer("version")
+        py.log.setconsumer("version", ansi_log)
+        log.WARNING('Errors getting Mercurial information: ' + err)
 
+    if not os.path.isdir(os.path.join(pypyroot, '.hg')):
+        maywarn('Not running from a Mercurial repository!')
+        return 'PyPy', '', ''
+    elif not hgexe:
+        maywarn('Cannot find Mercurial command!')
+        return 'PyPy', '', ''
+    else:
         env = dict(os.environ)
         # get Mercurial into scripting mode
         env['HGPLAIN'] = '1'
@@ -48,5 +54,3 @@ def get_mercurial_info():
             maywarn(p.stderr.read())
 
             return 'PyPy', hgbranch, hgid
-    else:
-        return None
