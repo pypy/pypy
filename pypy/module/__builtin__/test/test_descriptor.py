@@ -226,7 +226,9 @@ class AppTestBuiltinApp:
         assert super(D,D).goo() == (D,)
         assert super(D,d).goo() == (D,)
 
-        raises(TypeError, "classmethod(1).__get__(1)")
+        meth = classmethod(1).__get__(1)
+        raises(TypeError, meth)
+
 
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
