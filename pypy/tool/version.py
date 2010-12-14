@@ -13,24 +13,39 @@ def get_mercurial_info():
     hgexe = py.path.local.sysfind('hg')
 
     if hgexe and os.path.isdir(os.path.join(pypyroot, '.hg')):
+        def maywarn(err):
+            if not err:
+                return
+
+            from pypy.tool.ansi_print import ansi_log
+            log = py.log.Producer("version")
+            py.log.setconsumer("version", ansi_log)
+            log.WARNING('Errors getting Mercurial information:' + err)
+
         env = dict(os.environ)
         # get Mercurial into scripting mode
         env['HGPLAIN'] = '1'
         # disable user configuration, extensions, etc.
         env['HGRCPATH'] = os.devnull
 
-        p = Popen([str(hgexe), 'id', '-i', pypyroot], stdout=PIPE, env=env)
+        p = Popen([str(hgexe), 'id', '-i', pypyroot],
+                  stdout=PIPE, stderr=PIPE, env=env)
         hgid = p.stdout.read().strip()
+        maywarn(p.stderr.read())
 
-        p = Popen([str(hgexe), 'id', '-t', pypyroot], stdout=PIPE, env=env)
+        p = Popen([str(hgexe), 'id', '-t', pypyroot],
+                  stdout=PIPE, stderr=PIPE, env=env)
         hgtags = [t for t in p.stdout.read().strip().split() if t != 'tip']
+        maywarn(p.stderr.read())
 
         if hgtags:
             return 'PyPy', hgtags[0], hgid
         else:
             # use the branch instead
-            p = Popen([str(hgexe), 'id', '-b', pypyroot], stdout=PIPE, env=env)
+            p = Popen([str(hgexe), 'id', '-b', pypyroot],
+                      stdout=PIPE, stderr=PIPE, env=env)
             hgbranch = p.stdout.read().strip()
+            maywarn(p.stderr.read())
 
             return 'PyPy', hgbranch, hgid
     else:
