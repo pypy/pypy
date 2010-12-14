@@ -207,7 +207,10 @@ def get_library_path(executable):
         break      # found!
     return newpath
 
-def setup_initial_paths(executable, ignore_environment=False, **extra):
+def setup_sys_executable(executable, nanos):
+    # a substituted os if we are translated
+    global os
+    os = nanos
     # find the full path to the executable, assuming that if there is no '/'
     # in the provided one then we must look along the $PATH
     if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
@@ -224,7 +227,8 @@ def setup_initial_paths(executable, ignore_environment=False, **extra):
                     break
     sys.executable = os.path.abspath(executable)
 
-    newpath = get_library_path(executable)
+def setup_initial_paths(ignore_environment=False, **extra):
+    newpath = get_library_path(sys.executable)
     readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
     if path:
@@ -575,15 +579,13 @@ def print_banner():
            '"license" for more information.')
 
 def entry_point(executable, argv, nanos):
-    # a substituted os if we are translated
-    global os
-    os = nanos
+    setup_sys_executable(executable, nanos)
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError, e:
         print_error(str(e))
         return 2
-    setup_initial_paths(executable, **cmdline)
+    setup_initial_paths(**cmdline)
     return run_command_line(**cmdline)
 
 
