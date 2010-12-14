@@ -9,7 +9,7 @@ def compile_so_file():
     from pypy.translator.platform import platform
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     udir = py.test.ensuretemp('_ctypes_test')
-    cfile = py.path.local(__file__).dirpath().join("_ctypes_test.c")
+    cfile = py.path.local(__file__).dirpath().join("ctypes_tests", "_ctypes_test.c")
 
     if sys.platform == 'win32':
         libraries = ['oleaut32']
