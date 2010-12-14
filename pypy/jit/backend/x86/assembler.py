@@ -84,7 +84,7 @@ class Assembler386(object):
         self.fail_boxes_count = 0
         self._current_depths_cache = (0, 0)
         self.datablockwrapper = None
-        self.stack_check_slowpath_imm = imm0
+        self.stack_check_slowpath = 0
         self.teardown()
 
     def leave_jitted_hook(self):
@@ -196,10 +196,12 @@ class Assembler386(object):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_fixedsize_slowpath2 = rawstart
 
-    _STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
-                                                       lltype.Void))
     def _build_stack_check_slowpath(self):
         from pypy.rlib import rstack
+        _, _, slowpathaddr = self.cpu.insert_stack_check()
+        if slowpathaddr == 0 or self.cpu.exit_frame_with_exception_v < 0:
+            return      # no stack check (for tests, or non-translated)
+        #
         mc = codebuf.MachineCodeBlockWrapper()
         mc.PUSH_r(ebp.value)
         mc.MOV_rr(ebp.value, esp.value)
@@ -220,9 +222,7 @@ class Assembler386(object):
             mc.LEA_rb(edi.value, +16)
             mc.AND_ri(esp.value, -16)
         #
-        f = llhelper(self._STACK_CHECK_SLOWPATH, rstack.stack_check_slowpath)
-        addr = rffi.cast(lltype.Signed, f)
-        mc.CALL(imm(addr))
+        mc.CALL(imm(slowpathaddr))
         #
         mc.MOV(eax, heap(self.cpu.pos_exception()))
         mc.TEST_rr(eax.value, eax.value)
@@ -257,7 +257,6 @@ class Assembler386(object):
         addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
         mc.CALL(imm(addr))
         #
-        assert self.cpu.exit_frame_with_exception_v >= 0
         mc.MOV_ri(eax.value, self.cpu.exit_frame_with_exception_v)
         #
         # footer -- note the ADD, which skips the return address of this
@@ -270,7 +269,7 @@ class Assembler386(object):
         mc.RET()
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.stack_check_slowpath_imm = imm(rawstart)
+        self.stack_check_slowpath = rawstart
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
@@ -547,16 +546,16 @@ class Assembler386(object):
             self.mc.PUSH_r(regloc.value)
 
     def _call_header_with_stack_check(self):
-        startaddr, length, slowpathaddr = self.cpu.insert_stack_check()
-        if slowpathaddr == 0:
+        if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
+            startaddr, length, _ = self.cpu.insert_stack_check()
             self.mc.MOV(eax, esp)                       # MOV eax, current
             self.mc.SUB(eax, heap(startaddr))           # SUB eax, [startaddr]
             self.mc.CMP(eax, imm(length))               # CMP eax, length
             self.mc.J_il8(rx86.Conditions['B'], 0)      # JB .skip
             jb_location = self.mc.get_relative_pos()
-            self.mc.CALL(self.stack_check_slowpath_imm) # CALL slowpath
+            self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
             # patch the JB above                        # .skip:
             offset = self.mc.get_relative_pos() - jb_location
             assert 0 < offset <= 127
