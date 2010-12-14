@@ -118,7 +118,11 @@ def get_mercurial_info(space):
         hgid = p.stdout.read().strip()
 
         p = Popen([str(hgexe), 'id', '-t', pypyroot], stdout=PIPE, env=env)
-        hgtag = p.stdout.read().strip().split()[0]
+        output = p.stdout.read().strip()
+        if output:
+            hgtag = output.split()[0]
+        else:
+            hgtag = None
 
         if hgtag == 'tip':
             # use the branch instead
