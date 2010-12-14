@@ -19,7 +19,7 @@ def get_mercurial_info(hgexe=None):
         from pypy.tool.ansi_print import ansi_log
         log = py.log.Producer("version")
         py.log.setconsumer("version", ansi_log)
-        log.WARNING('Errors getting Mercurial information: ' + err)
+        log.WARNING('Errors getting Mercurial information: %s' % err)
 
     if not os.path.isdir(os.path.join(pypyroot, '.hg')):
         maywarn('Not running from a Mercurial repository!')
@@ -33,6 +33,17 @@ def get_mercurial_info(hgexe=None):
         env['HGPLAIN'] = '1'
         # disable user configuration, extensions, etc.
         env['HGRCPATH'] = os.devnull
+
+        try:
+            p = Popen([str(hgexe), 'version', '-q'],
+                      stdout=PIPE, stderr=PIPE, env=env)
+        except OSError, e:
+            maywarn(e)
+            return 'PyPy', '', ''
+
+        if not p.stdout.read().startswith('Mercurial Distributed SCM'):
+            maywarn('command does not identify itself as Mercurial')
+            return 'PyPy', '', ''
 
         p = Popen([str(hgexe), 'id', '-i', pypyroot],
                   stdout=PIPE, stderr=PIPE, env=env)
