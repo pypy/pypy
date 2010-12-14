@@ -1,12 +1,6 @@
 
 from pypy.tool import udir
 
-def test_svn_info():
-    res = udir.svn_info('http://codespeak.net/svn/pypy/dist/pypy/tool')
-    assert res == 'dist'
-    res = udir.svn_info('http://codespeak.net/svn/pypy/branch/stuff/pypy/tool')
-    assert res == 'stuff'
-
 def test_make_udir():
     root = str(udir.udir.ensure('make_udir1', dir=1))
     p1 = udir.make_udir(dir=root)
@@ -18,7 +12,6 @@ def test_make_udir():
 
 def test_make_udir_with_basename():
     root = str(udir.udir.ensure('make_udir2', dir=1))
-    import pdb;pdb.set_trace()
     p1 = udir.make_udir(dir=root, basename='foobar')
     assert p1.relto(root) == 'usession-foobar-0'
     p1 = udir.make_udir(dir=root, basename='-foobar')
