@@ -4,13 +4,13 @@ from subprocess import Popen, PIPE
 import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
 
-
-def get_mercurial_info():
+def get_mercurial_info(hgexe=None):
     '''Obtain Mercurial version information by invoking the 'hg' command.'''
     # TODO: support extracting from .hg_archival.txt
 
     pypyroot = os.path.abspath(os.path.join(pypydir, '..'))
-    hgexe = py.path.local.sysfind('hg')
+    if hgexe is None:
+        hgexe = py.path.local.sysfind('hg')
 
     def maywarn(err):
         if not err:
