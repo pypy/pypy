@@ -55,8 +55,9 @@ class W_DictMultiObject(W_Object):
         else:
             if w_type is None:
                 w_type = space.w_dict
-            w_self = space.allocate_instance(EmptyDictImplementation, w_type)
-            EmptyDictImplementation.__init__(w_self, space)
+            w_self = space.allocate_instance(W_DictMultiObject, w_type)
+            W_DictMultiObject.__init__(w_self, space)
+            w_self.initialize_as_rdict()
             return w_self
 
     def __init__(self, space):

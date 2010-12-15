@@ -16,7 +16,7 @@ class TestW_DictObject:
         space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
-        assert d.r_dict_content is None
+        #assert d.r_dict_content is None
 
     def test_nonempty(self):
         space = self.space
