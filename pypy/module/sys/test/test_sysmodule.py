@@ -440,9 +440,6 @@ class AppTestSysModulePortedFromCPython:
 
     def test_pypy_attributes(self):
         assert isinstance(sys.pypy_objspaceclass, str)
-        assert isinstance(sys.pypy_svn_url, tuple)
-        url = sys.pypy_svn_url
-        assert isinstance(url[0], str)
         vi = sys.pypy_version_info
         assert isinstance(vi, tuple)
         assert len(vi) == 5
@@ -451,16 +448,12 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
-        assert url[1] == vi[4]
 
     def test_allattributes(self):
         sys.__dict__   # check that we don't crash initializing any attribute
 
     def test_subversion(self):
-        project, svnbranch, revision = sys.subversion
-        assert project == 'PyPy'
-        assert svnbranch == svnbranch.strip('/')
-        assert revision.isdigit()
+        assert sys.subversion == ('PyPy', '', '')
 
     def test__mercurial(self):
         import re
