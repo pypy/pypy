@@ -115,6 +115,7 @@ class AbstractLLCPU(AbstractCPU):
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.insert_stack_check = lambda: (0, 0, 0)
 
 
     def _setup_exception_handling_translated(self):
@@ -138,9 +139,20 @@ class AbstractLLCPU(AbstractCPU):
             # in the assignment to self.saved_exc_value, as needed.
             self.saved_exc_value = exc_value
 
+        from pypy.rlib import rstack
+        STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
+                                                          lltype.Void))
+        def insert_stack_check():
+            startaddr = rstack._stack_get_start_adr()
+            length = rstack._stack_get_length()
+            f = llhelper(STACK_CHECK_SLOWPATH, rstack.stack_check_slowpath)
+            slowpathaddr = rffi.cast(lltype.Signed, f)
+            return startaddr, length, slowpathaddr
+
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.insert_stack_check = insert_stack_check
 
     def _setup_on_leave_jitted_untranslated(self):
         # assume we don't need a backend leave in this case

@@ -84,6 +84,7 @@ class Assembler386(object):
         self.fail_boxes_count = 0
         self._current_depths_cache = (0, 0)
         self.datablockwrapper = None
+        self.stack_check_slowpath = 0
         self.teardown()
 
     def leave_jitted_hook(self):
@@ -122,6 +123,7 @@ class Assembler386(object):
             self._build_float_constants()
         if hasattr(gc_ll_descr, 'get_malloc_fixedsize_slowpath_addr'):
             self._build_malloc_fixedsize_slowpath()
+        self._build_stack_check_slowpath()
         debug_start('jit-backend-counts')
         self.set_debug(have_debug_prints())
         debug_stop('jit-backend-counts')
@@ -193,6 +195,81 @@ class Assembler386(object):
         mc.RET()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_fixedsize_slowpath2 = rawstart
+
+    def _build_stack_check_slowpath(self):
+        from pypy.rlib import rstack
+        _, _, slowpathaddr = self.cpu.insert_stack_check()
+        if slowpathaddr == 0 or self.cpu.exit_frame_with_exception_v < 0:
+            return      # no stack check (for tests, or non-translated)
+        #
+        mc = codebuf.MachineCodeBlockWrapper()
+        mc.PUSH_r(ebp.value)
+        mc.MOV_rr(ebp.value, esp.value)
+        #
+        if IS_X86_64:
+            # on the x86_64, we have to save all the registers that may
+            # have been used to pass arguments
+            for reg in [edi, esi, edx, ecx, r8, r9]:
+                mc.PUSH_r(reg.value)
+            mc.SUB_ri(esp.value, 8*8)
+            for i in range(8):
+                mc.MOVSD_sx(8*i, i)     # xmm0 to xmm7
+        #
+        if IS_X86_32:
+            mc.LEA_rb(eax.value, +8)
+            mc.PUSH_r(eax.value)
+        elif IS_X86_64:
+            mc.LEA_rb(edi.value, +16)
+            mc.AND_ri(esp.value, -16)
+        #
+        mc.CALL(imm(slowpathaddr))
+        #
+        mc.MOV(eax, heap(self.cpu.pos_exception()))
+        mc.TEST_rr(eax.value, eax.value)
+        mc.J_il8(rx86.Conditions['NZ'], 0)
+        jnz_location = mc.get_relative_pos()
+        #
+        if IS_X86_64:
+            # restore the registers
+            for i in range(7, -1, -1):
+                mc.MOVSD_xs(i, 8*i)
+            for i, reg in [(6, r9), (5, r8), (4, ecx),
+                           (3, edx), (2, esi), (1, edi)]:
+                mc.MOV_rb(reg.value, -8*i)
+        #
+        mc.MOV_rr(esp.value, ebp.value)
+        mc.POP_r(ebp.value)
+        mc.RET()
+        #
+        # patch the JNZ above
+        offset = mc.get_relative_pos() - jnz_location
+        assert 0 < offset <= 127
+        mc.overwrite(jnz_location-1, chr(offset))
+        # clear the exception from the global position
+        mc.MOV(eax, heap(self.cpu.pos_exc_value()))
+        mc.MOV(heap(self.cpu.pos_exception()), imm0)
+        mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+        # save the current exception instance into fail_boxes_ptr[0]
+        adr = self.fail_boxes_ptr.get_addr_for_num(0)
+        mc.MOV(heap(adr), eax)
+        # call the helper function to set the GC flag on the fail_boxes_ptr
+        # array (note that there is no exception any more here)
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
+        mc.CALL(imm(addr))
+        #
+        mc.MOV_ri(eax.value, self.cpu.exit_frame_with_exception_v)
+        #
+        # footer -- note the ADD, which skips the return address of this
+        # function, and will instead return to the caller's caller.  Note
+        # also that we completely ignore the saved arguments, because we
+        # are interrupting the function.
+        mc.MOV_rr(esp.value, ebp.value)
+        mc.POP_r(ebp.value)
+        mc.ADD_ri(esp.value, WORD)
+        mc.RET()
+        #
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.stack_check_slowpath = rawstart
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
@@ -468,6 +545,24 @@ class Assembler386(object):
         for regloc in self.cpu.CALLEE_SAVE_REGISTERS:
             self.mc.PUSH_r(regloc.value)
 
+    def _call_header_with_stack_check(self):
+        if self.stack_check_slowpath == 0:
+            pass                # no stack check (e.g. not translated)
+        else:
+            startaddr, length, _ = self.cpu.insert_stack_check()
+            self.mc.MOV(eax, esp)                       # MOV eax, current
+            self.mc.SUB(eax, heap(startaddr))           # SUB eax, [startaddr]
+            self.mc.CMP(eax, imm(length))               # CMP eax, length
+            self.mc.J_il8(rx86.Conditions['B'], 0)      # JB .skip
+            jb_location = self.mc.get_relative_pos()
+            self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
+            # patch the JB above                        # .skip:
+            offset = self.mc.get_relative_pos() - jb_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jb_location-1, chr(offset))
+            #
+        self._call_header()
+
     def _call_footer(self):
         self.mc.LEA_rb(esp.value, -len(self.cpu.CALLEE_SAVE_REGISTERS) * WORD)
 
@@ -485,7 +580,7 @@ class Assembler386(object):
         # XXX this can be improved greatly. Right now it'll behave like
         #     a normal call
         nonfloatlocs, floatlocs = arglocs
-        self._call_header()
+        self._call_header_with_stack_check()
         self.mc.LEA_rb(esp.value, self._get_offset_of_ebp_from_esp(stackdepth))
         for i in range(len(nonfloatlocs)):
             loc = nonfloatlocs[i]
@@ -526,7 +621,7 @@ class Assembler386(object):
         unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
 
         nonfloatlocs, floatlocs = arglocs
-        self._call_header()
+        self._call_header_with_stack_check()
         self.mc.LEA_rb(esp.value, self._get_offset_of_ebp_from_esp(stackdepth))
 
         # The lists are padded with Nones

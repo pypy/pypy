@@ -2,6 +2,8 @@ import sys
 from pypy.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rmmap
+from pypy.rlib.debug import debug_start, debug_print, debug_stop
+from pypy.rlib.debug import have_debug_prints
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 
 
@@ -264,6 +266,31 @@ class BlockBuilderMixin(object):
             blocksize = self.SUBBLOCK_SIZE
             targetindex -= self.SUBBLOCK_SIZE
         assert not block
+
+    def _dump(self, addr, logname, backend=None):
+        debug_start(logname)
+        if have_debug_prints():
+            #
+            if backend is not None:
+                debug_print('BACKEND', backend)
+            #
+            from pypy.jit.backend.hlinfo import highleveljitinfo
+            if highleveljitinfo.sys_executable:
+                debug_print('SYS_EXECUTABLE', highleveljitinfo.sys_executable)
+            #
+            HEX = '0123456789ABCDEF'
+            dump = []
+            src = rffi.cast(rffi.CCHARP, addr)
+            for p in range(self.get_relative_pos()):
+                o = ord(src[p])
+                dump.append(HEX[o >> 4])
+                dump.append(HEX[o & 15])
+            debug_print('CODE_DUMP',
+                        '@%x' % addr,
+                        '+0 ',     # backwards compatibility
+                        ''.join(dump))
+            #
+        debug_stop(logname)
 
     def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
         size = self.get_relative_pos()

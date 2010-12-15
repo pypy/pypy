@@ -71,6 +71,8 @@ corresponding Unix manual entries for more information on calls."""
 
     if hasattr(os, 'chown'):
         interpleveldefs['chown'] = 'interp_posix.chown'
+    if hasattr(os, 'lchown'):
+        interpleveldefs['lchown'] = 'interp_posix.lchown'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
     if hasattr(os, 'fsync'):
@@ -86,6 +88,8 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(os, 'kill') and sys.platform != 'win32':
         interpleveldefs['kill'] = 'interp_posix.kill'
         interpleveldefs['abort'] = 'interp_posix.abort'
+    if hasattr(os, 'killpg'):
+        interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
     if hasattr(os, 'link'):
@@ -115,6 +119,12 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
         interpleveldefs['getloadavg'] = 'interp_posix.getloadavg'
+    if hasattr(os, 'mkfifo'):
+        interpleveldefs['mkfifo'] = 'interp_posix.mkfifo'
+    if hasattr(os, 'mknod'):
+        interpleveldefs['mknod'] = 'interp_posix.mknod'
+    if hasattr(os, 'nice'):
+        interpleveldefs['nice'] = 'interp_posix.nice'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getpgrp', 'setpgrp',
