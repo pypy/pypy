@@ -585,6 +585,8 @@ def entry_point(executable, argv, nanos):
     except CommandLineError, e:
         print_error(str(e))
         return 2
+    except SystemExit, e:
+        return e.code or 0
     setup_initial_paths(**cmdline)
     return run_command_line(**cmdline)
 

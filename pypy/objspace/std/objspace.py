@@ -322,6 +322,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_subtype = w_type.check_user_subclass(w_subtype)
             if cls.typedef.applevel_subclasses_base is not None:
                 cls = cls.typedef.applevel_subclasses_base
+            #
+            if not we_are_translated():
+                if issubclass(cls, model.W_Object):
+                    # If cls is missing from model.typeorder, then you
+                    # need to add it there (including the inheritance
+                    # relationship, if any)
+                    assert cls in self.model.typeorder, repr(cls)
+            #
             if (self.config.objspace.std.withmapdict and cls is W_ObjectObject
                     and not w_subtype.needsdel):
                 from pypy.objspace.std.mapdict import get_subclass_of_correct_size
