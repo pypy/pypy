@@ -113,7 +113,8 @@ class W_DictMultiObject(W_Object):
         self._as_rdict().impl_fallback_setitem_str(key, w_value)
 
     def impl_delitem(self, w_key):
-        # XXX need to call hash(w_key) as well?
+        # in case the key is unhashable, try to hash it
+        self.space.hash(w_key)
         raise KeyError
 
     def impl_length(self):

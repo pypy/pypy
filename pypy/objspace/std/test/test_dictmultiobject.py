@@ -506,6 +506,7 @@ class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
         raises(TypeError, "{}[['x']]")
+        raises(TypeError, "del {}[['x']]")
 
     def test_string_subclass_via_setattr(self):
         class A(object):
