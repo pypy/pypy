@@ -417,45 +417,6 @@ class WaryDictImplementation(StrDictImplementation):
         return self.shadowed[i]
 
 
-class EmptyDictImplementation(W_DictMultiObject):
-    def __init__(self, space):
-        self.space = space
-
-    def impl_setitem(self, w_key, w_value):
-        self._as_rdict().impl_fallback_setitem(w_key, w_value)
-
-    def impl_setitem_str(self, key, w_value):
-        self._as_rdict().impl_fallback_setitem_str(key, w_value)
-
-    def impl_delitem(self, w_key):
-        raise KeyError
-
-    def impl_length(self):
-        return 0
-
-    def impl_getitem_str(self, key):
-        return None
-
-    def impl_getitem(self, w_key):
-        # in case the key is unhashable, try to hash it
-        self.space.hash(w_key)
-        # return None anyway
-        return None
-
-    def impl_iter(self):
-        # XXX I guess it's not important to be fast in this case?
-        return self._as_rdict().impl_fallback_iter()
-
-    def impl_clear(self):
-        self.r_dict_content = None
-
-    def _as_rdict(self):
-        r_dict_content = self.initialize_as_rdict()
-        return self
-
-    def _clear_fields(self):
-        pass
-
 class RDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
