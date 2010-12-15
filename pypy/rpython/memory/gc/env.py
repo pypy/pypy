@@ -51,7 +51,7 @@ def read_float_from_env(varname):
 # ____________________________________________________________
 # Get the total amount of RAM installed in a system.
 # On 32-bit systems, it will try to return at most the addressable size.
-# Note that if unknown it will just return the addressable size, which
+# If unknown, it will just return the addressable size, which
 # will be huge on 64-bit systems.
 
 if sys.maxint == 2147483647:    # 32-bit
