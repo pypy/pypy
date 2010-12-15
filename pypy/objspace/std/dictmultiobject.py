@@ -57,7 +57,6 @@ class W_DictMultiObject(W_Object):
                 w_type = space.w_dict
             w_self = space.allocate_instance(W_DictMultiObject, w_type)
             W_DictMultiObject.__init__(w_self, space)
-            w_self.initialize_as_rdict()
             return w_self
 
     def __init__(self, space):
@@ -98,29 +97,38 @@ class W_DictMultiObject(W_Object):
     # implementation methods
     def impl_getitem(self, w_key):
         #return w_value or None
-        raise NotImplementedError("abstract base class")
+        # in case the key is unhashable, try to hash it
+        self.space.hash(w_key)
+        # return None anyway
+        return None
 
     def impl_getitem_str(self, key):
         #return w_value or None
-        raise NotImplementedError("abstract base class")
-
-    def impl_setitem_str(self, key, w_value):
-        raise NotImplementedError("abstract base class")
+        return None
 
     def impl_setitem(self, w_key, w_value):
-        raise NotImplementedError("abstract base class")
+        self._as_rdict().impl_fallback_setitem(w_key, w_value)
+
+    def impl_setitem_str(self, key, w_value):
+        self._as_rdict().impl_fallback_setitem_str(key, w_value)
 
     def impl_delitem(self, w_key):
-        raise NotImplementedError("abstract base class")
+        # XXX need to call hash(w_key) as well?
+        raise KeyError
 
     def impl_length(self):
-        raise NotImplementedError("abstract base class")
+        return 0
 
     def impl_iter(self):
-        raise NotImplementedError("abstract base class")
+        # XXX I guess it's not important to be fast in this case?
+        return self._as_rdict().impl_fallback_iter()
 
     def impl_clear(self):
-        raise NotImplementedError("abstract base class")
+        self.r_dict_content = None
+
+    def _as_rdict(self):
+        r_dict_content = self.initialize_as_rdict()
+        return self
 
     def impl_keys(self):
         iterator = self.impl_iter()
