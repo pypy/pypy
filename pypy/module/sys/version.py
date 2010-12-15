@@ -8,8 +8,7 @@ import os
 CPYTHON_VERSION            = (2, 5, 2, "beta", 42)   #XXX # sync patchlevel.h
 CPYTHON_API_VERSION        = 1012   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 4, 0, "beta", '?')  #XXX # sync patchlevel.h
-# the last item is replaced by the svn revision ^^^
+PYPY_VERSION               = (1, 4, 0, "beta", 0)    #XXX # sync patchlevel.h
 
 TRIM_URL_UP_TO = 'svn/pypy/'
 SVN_URL = """$HeadURL$"""[10:-28]
@@ -49,11 +48,11 @@ def get_version_info(space):
     return space.wrap(CPYTHON_VERSION)
 
 def get_version(space):
-    return space.wrap("%d.%d.%d (%d, %s, %s)\n[PyPy %d.%d.%d]" % (
+    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy %d.%d.%d]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
-        svn_revision(),
+        hg_universal_id(),
         date,
         time,
         PYPY_VERSION[0],
@@ -70,7 +69,7 @@ def get_hexversion(space):
 
 def get_pypy_version_info(space):
     ver = PYPY_VERSION
-    ver = ver[:-1] + (svn_revision(),)
+    #ver = ver[:-1] + (svn_revision(),)
     return space.wrap(ver)
 
 def get_svn_url(space):
@@ -95,6 +94,13 @@ def wrap_mercurial_info(space):
                                space.wrap(hgid)])
     else:
         return space.w_None
+
+def hg_universal_id():
+    info = get_mercurial_info()
+    if info:
+        return info[2]
+    else:
+        return '?'
 
 
 def tuple2hex(ver):

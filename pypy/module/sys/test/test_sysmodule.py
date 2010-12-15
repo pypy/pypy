@@ -471,6 +471,9 @@ class AppTestSysModulePortedFromCPython:
         # the id is either nothing, or an id of 12 hash digits, with a possible
         # suffix of '+' if there are local modifications
         assert hgid == '' or re.match('[0-9a-f]{12}\+?', hgid)
+        # the id should also show up in sys.version
+        if hgid != '':
+            assert hgid in sys.version
 
     def test_trace_exec_execfile(self):
         found = []
