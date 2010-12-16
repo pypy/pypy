@@ -10,8 +10,6 @@ Probably easy tasks
 
 - Missing builtin: bytearray (possibly reuse module.__pypy__.bytebuffer)
 
-- Missing complex.__trunc__
-
 - New complex syntax::
 
       assert complex("(1+2j)") == (1+2j)
