@@ -60,7 +60,7 @@ def descr_fromkeys(space, w_type, w_keys, w_fill=None):
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
         w_fill = space.w_None
-    if w_type is space.w_dict:
+    if space.is_w(w_type, space.w_dict):
         w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
         for w_key in space.listview(w_keys):
             w_dict.setitem(w_key, w_fill)
