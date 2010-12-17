@@ -95,3 +95,4 @@ def PyInt_FromString(space, str, pend, base):
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_int, w_str, w_base)
+

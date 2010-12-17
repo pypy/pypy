@@ -7,7 +7,7 @@ from pypy.translator.platform import platform
 
 #XXX # the release serial 42 is not in range(16)
 CPYTHON_VERSION            = (2, 7, 0, "final", 42)   #XXX # sync patchlevel.h
-CPYTHON_API_VERSION        = 1012   #XXX # sync with include/modsupport.h
+CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
 PYPY_VERSION               = (1, 4, 0, "beta", 0)    #XXX # sync patchlevel.h
 
