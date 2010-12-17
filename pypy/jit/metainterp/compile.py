@@ -602,8 +602,7 @@ def compile_known_target_bridges(metainterp, bridge):
                 mini.operations = [jmp]
                 descr = op.getdescr()
                 assert isinstance(descr, ResumeGuardDescr)
-                mini.token = make_loop_token(len(mini.inputargs),
-                                             metainterp.jitdriver_sd)
+                mini.token = bridge.token
                 
                 #descr.compile_and_attach(metainterp, mini)
                 if not we_are_translated():
