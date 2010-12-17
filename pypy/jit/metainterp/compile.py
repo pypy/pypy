@@ -46,13 +46,15 @@ def make_loop_token(nb_args, jitdriver_sd):
     loop_token.outermost_jitdriver_sd = jitdriver_sd
     return loop_token
 
-def record_loop_or_bridge(loop):
+def record_loop_or_bridge(metainterp_sd, loop):
     """Do post-backend recordings and cleanups on 'loop'.
     """
     # get the original loop token (corresponding to 'loop', or if that is
     # a bridge, to the loop that this bridge belongs to)
     looptoken = loop.token
     assert looptoken is not None
+    if metainterp_sd.warmrunnerdesc is not None:    # for tests
+        assert looptoken.generation > 0     # has been registered with memmgr
     wref = weakref.ref(looptoken)
     for op in loop.operations:
         descr = op.getdescr()
@@ -112,21 +114,21 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
 
     if loop.preamble.operations is not None:
         send_loop_to_backend(metainterp_sd, loop, "loop")
-        record_loop_or_bridge(loop)
+        record_loop_or_bridge(metainterp_sd, loop)
         token = loop.preamble.token
         if full_preamble_needed or not loop.preamble.token.short_preamble:
             send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
             insert_loop_token(old_loop_tokens, loop.preamble.token)
             jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
                 greenkey, loop.preamble.token)
-            record_loop_or_bridge(loop.preamble)
+            record_loop_or_bridge(metainterp_sd, loop.preamble)
         return token
     else:
         send_loop_to_backend(metainterp_sd, loop, "loop")
         insert_loop_token(old_loop_tokens, loop_token)
         jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
             greenkey, loop.token)
-        record_loop_or_bridge(loop)
+        record_loop_or_bridge(metainterp_sd, loop)
         return loop_token
 
 def insert_loop_token(old_loop_tokens, loop_token):
@@ -584,7 +586,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
         prepare_last_operation(new_loop, target_loop_token)
         resumekey.compile_and_attach(metainterp, new_loop)
         compile_known_target_bridges(metainterp, new_loop)
-        record_loop_or_bridge(new_loop)
+        record_loop_or_bridge(metainterp_sd, new_loop)
     return target_loop_token
 
 # For backends that not supports emitting guards with preset jump
@@ -609,7 +611,7 @@ def compile_known_target_bridges(metainterp, bridge):
                 send_bridge_to_backend(metainterp.staticdata, descr,
                                        mini.inputargs, mini.operations,
                                        bridge.token)
-                record_loop_or_bridge(mini)
+                record_loop_or_bridge(metainterp.staticdata, mini)
 
 
 def prepare_last_operation(new_loop, target_loop_token):
