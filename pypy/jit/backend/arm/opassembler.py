@@ -9,7 +9,7 @@ from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
                                                     gen_emit_op_ri, gen_emit_cmp_op)
-from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
+from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
 from pypy.jit.backend.llsupport import symbolic
@@ -139,11 +139,9 @@ class GuardOpAssembler(object):
         if not we_are_translated() and hasattr(op, 'getfailargs'):
            print 'Failargs: ', op.getfailargs()
 
-        self.mc.ensure_can_fit(self.guard_size)
         self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size-PC_OFFSET, cond=fcond)
-        descr._arm_guard_code = self.mc.curraddr()
-
         self.mc.PUSH([reg.value for reg in r.caller_resp])
+        descr._arm_guard_pos = self.mc.currpos()
         addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
         self.mc.BL(addr)
         self.mc.POP([reg.value for reg in r.caller_resp])
@@ -194,10 +192,6 @@ class GuardOpAssembler(object):
 
     def emit_op_guard_nonnull_class(self, op, arglocs, regalloc, fcond):
         offset = self.cpu.vtable_offset
-        if offset is not None:
-            self.mc.ensure_can_fit(self.guard_size+3*WORD)
-        else:
-            raise NotImplementedError
 
         self.mc.CMP_ri(arglocs[0].value, 0)
         if offset is not None:
@@ -229,10 +223,14 @@ class OpAssembler(object):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
         destlocs = descr._arm_arglocs
-        loop_code = descr._arm_loop_code
+        assert fcond == c.AL
 
         remap_frame_layout(self, arglocs, destlocs, r.ip)
-        self.mc.B(loop_code, fcond)
+        if descr._arm_bootstrap_code == 0:
+            self.mc.B_offs(descr._arm_loop_code, fcond)
+        else:
+            target = descr._arm_bootstrap_code + descr._arm_loop_code
+            self.mc.B(target, fcond)
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
@@ -287,7 +285,6 @@ class OpAssembler(object):
 
         #the actual call
         self.mc.BL(adr)
-
         regalloc.possibly_free_vars(args)
         # readjust the sp in case we passed some args on the stack
         if n_args > 4:
@@ -629,11 +626,9 @@ class ForceOpAssembler(object):
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-
         resbox = TempBox()
         self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
-                                                regalloc, fcond, result=resbox)
-        #self.mc.ensure_bytes_available(256)
+                                regalloc, fcond, result=resbox, spill_all_regs=True)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
         else:
@@ -649,14 +644,12 @@ class ForceOpAssembler(object):
         assert value <= 0xff
 
         # check value
-        loc, t = regalloc._ensure_value_is_boxed(ConstInt(value))
         resloc = regalloc.force_allocate_reg(resbox)
         self.mc.gen_load_int(r.ip.value, value)
         self.mc.CMP_rr(resloc.value, r.ip.value)
-        regalloc.possibly_free_var(resbox)
 
         fast_jmp_pos = self.mc.currpos()
-        fast_jmp_location = self.mc.curraddr()
+        #fast_jmp_location = self.mc.curraddr()
         self.mc.NOP()
 
         #if values are equal we take the fast pat
@@ -665,17 +658,18 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self._emit_call(asm_helper_adr, [t, op.getarg(0)], regalloc, fcond, op.result)
-        regalloc.possibly_free_var(t)
+        self._emit_call(asm_helper_adr, [resbox, op.getarg(0)], regalloc, fcond, op.result)
+        regalloc.possibly_free_var(resbox)
         # jump to merge point
         jmp_pos = self.mc.currpos()
-        jmp_location = self.mc.curraddr()
+        #jmp_location = self.mc.curraddr()
         self.mc.NOP()
 
         # Fast Path using result boxes
         # patch the jump to the fast path
         offset = self.mc.currpos() - fast_jmp_pos
-        pmc = ARMv7InMemoryBuilder(fast_jmp_location, WORD)
+        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
+        #pmc = ARMv7InMemoryBuilder(fast_jmp_location, WORD)
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
 
         # Reset the vable token --- XXX really too much special logic here:-(
@@ -708,15 +702,13 @@ class ForceOpAssembler(object):
             self.mc.LDR_ri(resloc.value, r.ip.value)
 
         offset = self.mc.currpos() - jmp_pos
-        pmc = ARMv7InMemoryBuilder(jmp_location, WORD)
+        pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
 
-        l0 = regalloc.force_allocate_reg(t)
-        self.mc.LDR_ri(l0.value, r.fp.value)
-        self.mc.CMP_ri(l0.value, 0)
+        self.mc.LDR_ri(r.ip.value, r.fp.value)
+        self.mc.CMP_ri(r.ip.value, 0)
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.GE)
-        regalloc.possibly_free_var(t)
         regalloc.possibly_free_vars_for_op(op)
         if op.result:
             regalloc.possibly_free_var(op.result)

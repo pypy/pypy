@@ -9,6 +9,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.history import ConstInt, BoxInt, AbstractFailDescr
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.tool.udir import udir
 
 def binary_helper_call(name):
@@ -22,29 +23,18 @@ def binary_helper_call(name):
             self.BL(addr)
         else:
             self.PUSH(range(2, 4), cond=c)
-            self.BL(addr, c, some_reg=reg.r2)
+            self.BL(addr, c)
             self.POP(range(2,4), cond=c)
     return f
 
 class AbstractARMv7Builder(object):
-    def _init(self, data, map_size):
-        self._data = data
-        self._size = map_size
-        self._pos = 0
 
-    def _dump_trace(self, name, formatter=-1):
-        if not we_are_translated():
-            if formatter != -1:
-                name = name % formatter
-            dir = udir.ensure('asm', dir=True)
-            f = dir.join(name).open('wb')
-            for i in range(self._pos):
-                f.write(self._data[i])
-            f.close()
+    def __init__(self):
+        pass
 
-    def ensure_can_fit(self, n):
-        raise NotImplementedError
-
+    def align(self):
+        while(self.currpos() % FUNC_ALIGN != 0):
+            self.writechar(chr(0))
     def NOP(self):
         self.MOV_rr(0, 0)
 
@@ -61,29 +51,43 @@ class AbstractARMv7Builder(object):
     def BKPT(self, cond=cond.AL):
         self.write32(cond << 28 | 0x1200070)
 
-    def B(self, target, c=cond.AL, some_reg=None):
+    def B(self, target, c=cond.AL):
         if c == cond.AL:
-            self.ensure_can_fit(2*WORD)
             self.LDR_ri(reg.pc.value, reg.pc.value, -arch.PC_OFFSET/2)
             self.write32(target)
         else:
-            assert some_reg is not None
-            self.ensure_can_fit(self.size_of_gen_load_int+WORD)
-            self.gen_load_int(some_reg.value, target, cond=c)
-            self.MOV_rr(reg.pc.value, some_reg.value, cond=c)
+            self.gen_load_int(reg.ip.value, target, cond=c)
+            self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
 
-    def BL(self, target, c=cond.AL, some_reg=None):
+    def B_offs(self, target_ofs, c=cond.AL):
+        target = target_ofs-arch.PC_OFFSET/2
+        pos = self.currpos()
+        if target_ofs > pos:
+            raise NotImplementedError
+        else:
+            if target >= 0 and target <= 0xFF:
+                pos = self.currpos()
+                target_ofs = pos - target_ofs
+                target = WORD + target_ofs + arch.PC_OFFSET/2
+                self.SUB_ri(reg.pc.value, reg.pc.value, target, cond=c)
+            else:
+                assert c == cond.AL
+                self.LDR_ri(reg.ip.value, reg.pc.value, cond=c)
+                self.SUB_rr(reg.pc.value, reg.pc.value, reg.ip.value, cond=c)
+                pos = self.currpos()
+                target_ofs = pos - target_ofs
+                target = WORD + target_ofs + arch.PC_OFFSET/2
+                self.write32(target)
+
+    def BL(self, target, c=cond.AL):
         if c == cond.AL:
-            self.ensure_can_fit(3*WORD)
             self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET/2)
             self.LDR_ri(reg.pc.value, reg.pc.value, imm=-arch.PC_OFFSET/2)
             self.write32(target)
         else:
-            assert some_reg is not None
-            self.ensure_can_fit(self.size_of_gen_load_int*2+WORD)
-            self.gen_load_int(some_reg.value, target, cond=c)
-            self.gen_load_int(reg.lr.value, self.curraddr()+self.size_of_gen_load_int+WORD, cond=c)
-            self.MOV_rr(reg.pc.value, some_reg.value, cond=c)
+            self.gen_load_int(reg.ip.value, target, cond=c)
+            self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET/2)
+            self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
 
     DIV = binary_helper_call('int_div')
     MOD = binary_helper_call('int_mod')
@@ -108,17 +112,10 @@ class AbstractARMv7Builder(object):
         self.writechar(chr((word >> 24) & 0xFF))
 
     def writechar(self, char):
-        self._data[self._pos] = char
-        self._pos += 1
-
-    def baseaddr(self):
-        return rffi.cast(lltype.Signed, self._data)
-
-    def curraddr(self):
-        return self.baseaddr() + self._pos
+        raise NotImplementedError
 
     def currpos(self):
-        return self._pos
+        raise NotImplementedError
 
     size_of_gen_load_int = 4 * WORD
     ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
@@ -134,51 +131,54 @@ class AbstractARMv7Builder(object):
             self.ORR_ri(r, r, imm=t, cond=cond)
 
 
-class ARMv7InMemoryBuilder(AbstractARMv7Builder):
-    def __init__(self, start, end):
-        map_size = end - start
-        data = rffi.cast(PTR, start)
-        self._init(data, map_size)
+class OverwritingBuilder(AbstractARMv7Builder):
+    def __init__(self, cb, start, size):
+        AbstractARMv7Builder.__init__(self)
+        self.cb = cb
+        self.index = start
+        self.end = start + size
 
-    def ensure_can_fit(self, n):
-        """ensure after this call there is enough space for n instructions
-        in a contiguous memory chunk or raise an exception"""
-        if not self._pos + n < self._size:
-            raise ValueError
-
-class ARMv7Builder(AbstractARMv7Builder):
-
-    def __init__(self):
-        map_size = 4096
-        data = alloc(map_size)
-        self._pos = 0
-        self._init(data, map_size)
-        self.checks = True
-        self.n_data=0
-
-    _space_for_jump = 2 * WORD
     def writechar(self, char):
-        if self.checks and not self._pos < self._size - self._space_for_jump - WORD:
-            self._add_more_mem()
-        assert self._pos < self._size - 1
-        AbstractARMv7Builder.writechar(self, char)
+        assert self.index <= self.end
+        self.cb.overwrite(self.index, char)
+        self.index += 1
 
-    def _add_more_mem(self):
-        self.checks = False
-        new_mem = alloc(self._size)
-        new_mem_addr = rffi.cast(lltype.Signed, new_mem)
-        self.LDR_ri(reg.pc.value, reg.pc.value, -4)
-        self.write32(new_mem_addr)
-        self._dump_trace('data%04d.asm', self.n_data)
-        self.n_data += 1
-        self._data = new_mem
-        self._pos = 0
-        self.checks = True
+class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
+    def __init__(self):
+        AbstractARMv7Builder.__init__(self)
+        self.init_block_builder()
 
-    def ensure_can_fit(self, n):
-        """ensure after this call there is enough space for n instructions
-        in a contiguous memory chunk"""
-        if not self._pos + n + self._space_for_jump < self._size - WORD:
-            self._add_more_mem()
+    def _dump_trace(self, addr, name, formatter=-1):
+        if not we_are_translated():
+            if formatter != -1:
+                name = name % formatter
+            dir = udir.ensure('asm', dir=True)
+            f = dir.join(name).open('wb')
+            data = rffi.cast(rffi.CCHARP, addr)
+            for i in range(self.currpos()):
+                f.write(data[i])
+            f.close()
+
+    # XXX remove and setup aligning in llsupport
+    def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
+        size = self.get_relative_pos()
+        malloced = asmmemmgr.malloc(size, size+7)
+        allblocks.append(malloced)
+        rawstart = malloced[0]
+        while(rawstart % FUNC_ALIGN != 0):
+            rawstart += 1
+        self.copy_to_raw_memory(rawstart)
+        if self.gcroot_markers is not None:
+            assert gcrootmap is not None
+            for pos, mark in self.gcroot_markers:
+                gcrootmap.put(rawstart + pos, mark)
+        return rawstart
+
+    def copy_to_raw_memory(self, addr):
+        self._copy_to_raw_memory(addr)
+
+    def currpos(self):
+        return self.get_relative_pos()
+
 
 define_instructions(AbstractARMv7Builder)

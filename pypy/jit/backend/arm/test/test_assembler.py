@@ -1,10 +1,11 @@
-from pypy.jit.backend.arm.arch import arm_int_div, arm_int_div_sign
+from pypy.jit.backend.arm import arch
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD
+from pypy.jit.backend.arm.arch import arm_int_div, arm_int_div_sign
 from pypy.jit.backend.arm.assembler import AssemblerARM
-from pypy.jit.backend.arm.codebuilder import ARMv7InMemoryBuilder
 from pypy.jit.backend.arm.test.support import skip_unless_arm, run_asm
+from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.metainterp.resoperation import rop
 
 from pypy.rpython.annlowlevel import llhelper
@@ -12,10 +13,13 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 
 skip_unless_arm()
 
+CPU = getcpuclass()
 class TestRunningAssembler():
     def setup_method(self, method):
-        self.a = AssemblerARM(None)
-        self.a.setup_mc()
+        cpu = CPU(None, None)
+        self.a = AssemblerARM(cpu)
+        self.a.setup_once()
+        self.a.setup()
 
     def test_make_operation_list(self):
         i = rop.INT_ADD
@@ -88,11 +92,11 @@ class TestRunningAssembler():
     def test_simple_jump(self):
         self.a.gen_func_prolog()
         self.a.mc.MOV_ri(r.r1.value, 1)
-        loop_head = self.a.mc.curraddr()
+        loop_head = self.a.mc.currpos()
         self.a.mc.CMP_ri(r.r1.value, 0) # z=0, z=1
         self.a.mc.MOV_ri(r.r1.value, 0, cond=c.NE)
         self.a.mc.MOV_ri(r.r1.value, 7, cond=c.EQ)
-        self.a.mc.B(loop_head, c.NE, some_reg = r.r4)
+        self.a.mc.B_offs(loop_head, c.NE)
         self.a.mc.MOV_rr(r.r0.value, r.r1.value)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 7
@@ -100,27 +104,13 @@ class TestRunningAssembler():
     def test_jump(self):
         self.a.gen_func_prolog()
         self.a.mc.MOV_ri(r.r1.value, 1)
-        loop_head = self.a.mc.curraddr()
+        loop_head = self.a.mc.currpos()
         self.a.mc.ADD_ri(r.r1.value, r.r1.value, 1)
         self.a.mc.CMP_ri(r.r1.value, 9)
-        self.a.mc.B(loop_head, c.NE, some_reg = r.r4)
+        self.a.mc.B_offs(loop_head, c.NE)
         self.a.mc.MOV_rr(r.r0.value, r.r1.value)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 9
-
-    def test_jump_with_inline_address(self):
-        self.a.gen_func_prolog()
-        self.a.mc.MOV_ri(r.r1.value, 1)
-        loop_head = self.a.mc.curraddr()
-        self.a.mc.ADD_ri(r.r1.value, r.r1.value, 1)
-        self.a.mc.CMP_ri(r.r1.value, 9)
-        self.a.mc.LDR_ri(r.pc.value, r.pc.value,
-        imm=self.a.epilog_size, cond=c.NE) # we want to read after the last instr. of gen_func_prolog
-        self.a.mc.MOV_rr(r.r0.value, r.r1.value)
-        self.a.gen_func_epilog()
-        self.a.mc.write32(loop_head)
-        assert run_asm(self.a) == 9
-
 
     def test_call_python_func(self):
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
@@ -139,7 +129,7 @@ class TestRunningAssembler():
         # call to div
         self.a.mc.PUSH(range(2, 12))
         div_addr = rffi.cast(lltype.Signed, llhelper(arm_int_div_sign, arm_int_div))
-        self.a.mc.BL(div_addr, some_reg=r.r2)
+        self.a.mc.BL(div_addr)
         self.a.mc.POP(range(2, 12))
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 61
@@ -177,7 +167,7 @@ class TestRunningAssembler():
         self.a.gen_func_prolog()
         self.a.mc.MOV_ri(r.r0.value, 123)
         self.a.mc.CMP_ri(r.r0.value, 1)
-        self.a.mc.BL(call_addr, c.NE, some_reg=r.r1)
+        self.a.mc.BL(call_addr, c.NE)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 133
 

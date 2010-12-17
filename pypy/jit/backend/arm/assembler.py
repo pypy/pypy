@@ -2,10 +2,11 @@ from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET
-from pypy.jit.backend.arm.codebuilder import ARMv7Builder, ARMv7InMemoryBuilder
+from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (ARMRegisterManager, ARMFrameManager,
                                                             TempInt, TempPtr)
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
+from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
                                         BoxInt, BoxPtr, AbstractFailDescr,
                                         INT, REF, FLOAT)
@@ -52,43 +53,39 @@ class AssemblerARM(ResOpAssembler):
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.setup_failure_recovery()
-        self._debug_asm = True
         self.mc = None
         self.malloc_func_addr = 0
         self.malloc_array_func_addr = 0
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
         self.memcpy_addr = 0
-
-    def setup_mc(self):
-        self.mc = ARMv7Builder()
-        self._exit_code_addr = self.mc.curraddr()
-        self._gen_exit_path()
-        self.align()
-        self.mc._start_addr = self.mc.curraddr()
+        self.teardown()
+        self._exit_code_addr = 0
 
     def setup(self):
-        if self.mc is None:
-            self.setup_mc()
+        assert self.memcpy_addr != 0, 'setup_once() not called?'
+        self.mc = ARMv7Builder()
 
-            # Addresses of functions called by new_xxx operations
-            gc_ll_descr = self.cpu.gc_ll_descr
-            gc_ll_descr.initialize()
-            ll_new = gc_ll_descr.get_funcptr_for_new()
-            self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
-            if gc_ll_descr.get_funcptr_for_newarray is not None:
-                ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
-                self.malloc_array_func_addr = rffi.cast(lltype.Signed,
-                                                        ll_new_array)
-            if gc_ll_descr.get_funcptr_for_newstr is not None:
-                ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
-                self.malloc_str_func_addr = rffi.cast(lltype.Signed,
-                                                      ll_new_str)
-            if gc_ll_descr.get_funcptr_for_newunicode is not None:
-                ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
-                self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
-                                                          ll_new_unicode)
-            self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+    def setup_once(self):
+        # Addresses of functions called by new_xxx operations
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gc_ll_descr.initialize()
+        ll_new = gc_ll_descr.get_funcptr_for_new()
+        self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+        if gc_ll_descr.get_funcptr_for_newarray is not None:
+            ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
+            self.malloc_array_func_addr = rffi.cast(lltype.Signed,
+                                                    ll_new_array)
+        if gc_ll_descr.get_funcptr_for_newstr is not None:
+            ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
+            self.malloc_str_func_addr = rffi.cast(lltype.Signed,
+                                                  ll_new_str)
+        if gc_ll_descr.get_funcptr_for_newunicode is not None:
+            ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
+            self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
+                                                      ll_new_unicode)
+        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self._exit_code_addr = self._gen_exit_path()
 
 
     def setup_failure_recovery(self):
@@ -198,19 +195,21 @@ class AssemblerARM(ResOpAssembler):
         mem[i+3] = chr((n >> 24) & 0xFF)
 
     def _gen_exit_path(self):
+        mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
 
-        self.mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
-        self.mc.MOV_rr(r.r0.value, r.lr.value) # move mem block address, to r0 to pass as
-        self.mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
-        self.mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
+        mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
+        mc.MOV_rr(r.r0.value, r.lr.value) # move mem block address, to r0 to pass as
+        mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
+        mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
 
-        self.mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
-        self.mc.MOV_rr(r.ip.value, r.r0.value)
-        self.mc.POP([reg.value for reg in r.all_regs])
-        self.mc.MOV_rr(r.r0.value, r.ip.value)
-        self.mc.ensure_can_fit(self.epilog_size)
-        self.gen_func_epilog()
+        mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
+        mc.MOV_rr(r.ip.value, r.r0.value)
+        mc.POP([reg.value for reg in r.all_regs])
+        mc.MOV_rr(r.r0.value, r.ip.value)
+        self.gen_func_epilog(mc=mc)
+        return mc.materialize(self.cpu.asmmemmgr, [],
+                                   self.cpu.gc_ll_descr.gcrootmap)
 
     def _gen_path_to_exit_path(self, op, args, arglocs, fcond=c.AL):
         descr = op.getdescr()
@@ -259,7 +258,6 @@ class AssemblerARM(ResOpAssembler):
 
         n = self.cpu.get_fail_descr_number(descr)
         self.encode32(mem, j+1, n)
-        self.mc.ensure_can_fit(4*WORD)
         self.mc.LDR_ri(r.lr.value, r.pc.value, imm=WORD)
         self.mc.B(self._exit_code_addr)
         self.mc.write32(memaddr)
@@ -267,14 +265,16 @@ class AssemblerARM(ResOpAssembler):
         return memaddr
 
     def align(self):
-        while(self.mc.curraddr() % FUNC_ALIGN != 0):
+        while(self.mc.currpos() % FUNC_ALIGN != 0):
             self.mc.writechar(chr(0))
 
     epilog_size = 3*WORD
-    def gen_func_epilog(self,cond=c.AL):
-        self.mc.MOV_rr(r.sp.value, r.fp.value)
-        self.mc.ADD_ri(r.sp.value, r.sp.value, WORD)
-        self.mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
+    def gen_func_epilog(self, mc=None, cond=c.AL):
+        if mc is None:
+            mc = self.mc
+        mc.MOV_rr(r.sp.value, r.fp.value)
+        mc.ADD_ri(r.sp.value, r.sp.value, WORD)
+        mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
@@ -300,7 +300,6 @@ class AssemblerARM(ResOpAssembler):
 
     direct_bootstrap_code_size=100*WORD
     def gen_direct_bootstrap_code(self, arglocs, loop_head, regalloc):
-        self.mc.ensure_can_fit(self.direct_bootstrap_code_size)
         self.gen_func_prolog()
         if len(arglocs) > 4:
             reg_args = 4
@@ -323,53 +322,102 @@ class AssemblerARM(ResOpAssembler):
                 self.mov_loc_loc(r.ip, loc)
             else:
                 assert 0, 'invalid location'
-        sp_patch_location = self._prepare_sp_patch_location()
-        self.mc.B(loop_head)
+        sp_patch_location = self._prepare_sp_patch_position()
+        self.mc.B_offs(loop_head)
         self._patch_sp_offset(sp_patch_location, regalloc)
 
     # cpu interface
-    def assemble_loop(self, inputargs, operations, looptoken):
+    def assemble_loop(self, inputargs, operations, looptoken, log):
         self.setup()
-        self.debug = False
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
+
+        clt = CompiledLoopToken(self.cpu, looptoken.number)
+        looptoken.compiled_loop_token = clt
+
         self.align()
-        loop_start=self.mc.curraddr()
         self.gen_func_prolog()
-
-
         arglocs = self.gen_bootstrap_code(inputargs, regalloc, looptoken)
-        sp_patch_location = self._prepare_sp_patch_location()
+        sp_patch_location = self._prepare_sp_patch_position()
 
-        loop_head=self.mc.curraddr()
-        looptoken._arm_bootstrap_code = loop_start
+        loop_head = self.mc.currpos()
+
         looptoken._arm_loop_code = loop_head
-        print 'Loop', inputargs, operations
+        looptoken._arm_bootstrap_code = 0
+
         self._walk_operations(operations, regalloc)
 
         self._patch_sp_offset(sp_patch_location, regalloc)
 
         self.align()
 
-        looptoken._arm_direct_bootstrap_code = self.mc.curraddr()
+        direct_bootstrap_code = self.mc.currpos()
         self.gen_direct_bootstrap_code(arglocs, loop_head, regalloc)
 
-        if self._debug_asm:
-            self._dump_trace('loop.asm')
-        print 'Done assembling loop with token %r' % looptoken
+        loop_start = self.materialize_loop(looptoken)
+        looptoken._arm_bootstrap_code = loop_start
+        looptoken._arm_direct_bootstrap_code = loop_start + direct_bootstrap_code
 
-    def _prepare_sp_patch_location(self):
+        if log:
+            print 'Loop', inputargs, operations
+            self.mc._dump_trace(loop_start, 'loop.asm')
+            print 'Done assembling loop with token %r' % looptoken
+        self.teardown()
+
+    def assemble_bridge(self, faildescr, inputargs, operations,
+                                                    original_loop_token, log):
+        self.setup()
+        assert isinstance(faildescr, AbstractFailDescr)
+        code = faildescr._failure_recovery_code
+        enc = rffi.cast(rffi.CCHARP, code)
+        longevity = compute_vars_longevity(inputargs, operations)
+        regalloc = ARMRegisterManager(longevity, assembler=self,
+                                            frame_manager=ARMFrameManager())
+
+        frame_depth = faildescr._arm_frame_depth
+        locs = self.decode_inputargs(enc, inputargs, regalloc)
+        regalloc.update_bindings(locs, frame_depth, inputargs)
+        sp_patch_location = self._prepare_sp_patch_position()
+
+        self._walk_operations(operations, regalloc)
+
+        self._patch_sp_offset(sp_patch_location, regalloc)
+
+        bridge_start = self.materialize_loop(original_loop_token)
+
+        self.patch_trace(faildescr, original_loop_token, bridge_start, regalloc)
+        if log:
+            print 'Bridge', inputargs, operations
+            self.mc._dump_trace(bridge_start, 'bridge.asm')
+        self.teardown()
+
+    def materialize_loop(self, looptoken):
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
+                                   self.cpu.gc_ll_descr.gcrootmap)
+
+    def teardown(self):
+        self.mc = None
+        #self.looppos = -1
+        #self.currently_compiling_loop = None
+
+    def get_asmmemmgr_blocks(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_blocks is None:
+            clt.asmmemmgr_blocks = []
+        return clt.asmmemmgr_blocks
+
+    def _prepare_sp_patch_position(self):
         """Generate NOPs as placeholder to patch the instruction(s) to update the
         sp according to the number of spilled variables"""
         size = (self.mc.size_of_gen_load_int+WORD)
-        self.mc.ensure_can_fit(size)
-        l = self.mc.curraddr()
+        l = self.mc.currpos()
         for _ in range(size//WORD):
             self.mc.MOV_rr(r.r0.value, r.r0.value)
         return l
 
-    def _patch_sp_offset(self, addr, regalloc):
-        cb = ARMv7InMemoryBuilder(addr, ARMv7InMemoryBuilder.size_of_gen_load_int)
+    def _patch_sp_offset(self, pos, regalloc):
+        cb = OverwritingBuilder(self.mc, pos, OverwritingBuilder.size_of_gen_load_int)
         # Note: the frame_depth is one less than the value stored in the frame
         # manager
         if regalloc.frame_manager.frame_depth == 1:
@@ -426,36 +474,6 @@ class AssemblerARM(ResOpAssembler):
             return True
         return False
 
-    def assemble_bridge(self, faildescr, inputargs, operations):
-        self.setup()
-        self.debug = False
-        code = faildescr._failure_recovery_code
-        assert isinstance(code, int)
-        enc = rffi.cast(rffi.CCHARP, code)
-        longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
-
-        bridge_head = self.mc.curraddr()
-        frame_depth = faildescr._arm_frame_depth
-        locs = self.decode_inputargs(enc, inputargs, regalloc)
-        regalloc.update_bindings(locs, frame_depth, inputargs)
-        sp_patch_location = self._prepare_sp_patch_location()
-
-        print 'Bridge', inputargs, operations
-        self._walk_operations(operations, regalloc)
-
-        self._patch_sp_offset(sp_patch_location, regalloc)
-
-        print 'Done building bridges'
-        self.patch_trace(faildescr, bridge_head, regalloc)
-        print 'Done patching trace'
-        if self._debug_asm:
-            self._dump_trace('bridge.asm')
-
-
-    def _dump_trace(self, name):
-        self.mc._dump_trace(name)
-
 
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 4:
@@ -477,12 +495,13 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.LSL_ri(resloc.value, resloc.value, 16)
                 self.mc.ASR_ri(resloc.value, resloc.value, 16)
 
-    def patch_trace(self, faildescr, bridge_addr, regalloc):
+    def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
         # The first instruction (word) is not overwritten, because it is the
         # one that actually checks the condition
-        b = ARMv7InMemoryBuilder(faildescr._arm_guard_code,
-                                        self.guard_size-WORD)
-        b.B(bridge_addr, some_reg=r.lr)
+        b = ARMv7Builder()
+        patch_addr = looptoken._arm_bootstrap_code + faildescr._arm_guard_pos
+        b.B(bridge_addr)
+        b.copy_to_raw_memory(patch_addr)
 
     # regalloc support
     def load(self, loc, value):

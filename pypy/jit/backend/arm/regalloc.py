@@ -46,6 +46,7 @@ class ARMRegisterManager(RegisterManager):
     save_around_call_regs = r.caller_resp
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
+        self.cpu = assembler.cpu
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
     def convert_to_imm(self, c):
@@ -79,6 +80,21 @@ class ARMRegisterManager(RegisterManager):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+
+    def before_call(self, force_store=[], save_all_regs=False):
+        for v, reg in self.reg_bindings.items():
+            if(reg in self.save_around_call_regs and v not in force_store and
+                        self.longevity[v][1] <= self.position):
+                # variable dies
+                del self.reg_bindings[v]
+                self.free_regs.append(reg)
+                continue
+            if not save_all_regs and reg not in self.save_around_call_regs:
+                # we don't have to
+                continue
+            self._sync_var(v)
+            del self.reg_bindings[v]
+            self.free_regs.append(reg)
 
     def force_spill_var(self, var):
         self._sync_var(var)
@@ -317,15 +333,15 @@ class ARMRegisterManager(RegisterManager):
             boxes.append(op.result)
         else:
             resloc = None
-        pos_exc_value = imm(self.assembler.cpu.pos_exc_value())
-        pos_exception = imm(self.assembler.cpu.pos_exception())
+        pos_exc_value = imm(self.cpu.pos_exc_value())
+        pos_exception = imm(self.cpu.pos_exception())
         arglocs = self._prepare_guard(op, [loc, loc1, resloc, pos_exc_value, pos_exception])
         self.possibly_free_vars(boxes)
         return arglocs
 
     def prepare_op_guard_no_exception(self, op, fcond):
         loc, box = self._ensure_value_is_boxed(
-                    ConstInt(self.assembler.cpu.pos_exception()))
+                    ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
         self.possibly_free_var(box)
         return arglocs
@@ -388,7 +404,7 @@ class ARMRegisterManager(RegisterManager):
     def prepare_op_arraylen_gc(self, op, fcond):
         arraydescr = op.getdescr()
         assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.assembler.cpu.translate_support_code)
+        ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
         arg = op.getarg(0)
         base_loc, base_box = self._ensure_value_is_boxed(arg)
         self.possibly_free_vars([arg, base_box])
@@ -434,7 +450,7 @@ class ARMRegisterManager(RegisterManager):
 
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.assembler.cpu.translate_support_code)
+                                         self.cpu.translate_support_code)
         ofs_box = ConstInt(ofs_length)
         imm_ofs = self._check_imm_arg(ofs_box)
 
@@ -467,7 +483,7 @@ class ARMRegisterManager(RegisterManager):
         self.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.assembler.cpu.translate_support_code)
+                                         self.cpu.translate_support_code)
         assert itemsize == 1
         return [res, base_loc, ofs_loc, imm(basesize)]
 
@@ -486,7 +502,7 @@ class ARMRegisterManager(RegisterManager):
         self.possibly_free_vars(boxes)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.assembler.cpu.translate_support_code)
+                                         self.cpu.translate_support_code)
         assert itemsize == 1
         return [value_loc, base_loc, ofs_loc, imm(basesize)]
 
@@ -497,7 +513,7 @@ class ARMRegisterManager(RegisterManager):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
         boxes = [box]
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.assembler.cpu.translate_support_code)
+                                         self.cpu.translate_support_code)
         ofs_box = ConstInt(ofs_length)
         imm_ofs = self._check_imm_arg(ofs_box)
 
@@ -524,7 +540,7 @@ class ARMRegisterManager(RegisterManager):
         self.possibly_free_var(op.result)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.assembler.cpu.translate_support_code)
+                                         self.cpu.translate_support_code)
         scale = itemsize/2
         return [res, base_loc, ofs_loc, imm(scale), imm(basesize), imm(itemsize)]
 
@@ -540,7 +556,7 @@ class ARMRegisterManager(RegisterManager):
         self.possibly_free_vars(boxes)
 
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.assembler.cpu.translate_support_code)
+                                         self.cpu.translate_support_code)
         scale = itemsize/2
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(basesize), imm(itemsize)]
 
@@ -568,7 +584,7 @@ class ARMRegisterManager(RegisterManager):
 
     def prepare_op_new_with_vtable(self, op, fcond):
         classint = op.getarg(0).getint()
-        descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
+        descrsize = heaptracker.vtable2descr(self.cpu, classint)
         callargs = self._prepare_args_for_new_op(descrsize)
         self.assembler._emit_call(self.assembler.malloc_func_addr,
                                     callargs, self, result=op.result)
@@ -577,7 +593,7 @@ class ARMRegisterManager(RegisterManager):
         return [imm(classint)]
 
     def prepare_op_new_array(self, op, fcond):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newarray is not None:
             raise NotImplementedError
         # boehm GC
@@ -586,24 +602,24 @@ class ARMRegisterManager(RegisterManager):
         return self._malloc_varsize(basesize, ofs_length, itemsize, op)
 
     def prepare_op_newstr(self, op, fcond):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newstr is not None:
             raise NotImplementedError
         # boehm GC
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
-                            self.assembler.cpu.translate_support_code)
+                            self.cpu.translate_support_code)
         assert itemsize == 1
         return self._malloc_varsize(ofs_items, ofs, itemsize, op)
 
     def prepare_op_newunicode(self, op, fcond):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newunicode is not None:
             raise NotImplementedError
         # boehm GC
         ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
-                            self.assembler.cpu.translate_support_code)
+                            self.cpu.translate_support_code)
         _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                            self.assembler.cpu.translate_support_code)
+                            self.cpu.translate_support_code)
         return self._malloc_varsize(ofs_items, ofs, itemsize, op)
 
     def _malloc_varsize(self, ofs_items, ofs_length, itemsize, op):
@@ -641,7 +657,7 @@ class ARMRegisterManager(RegisterManager):
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         faildescr = guard_op.getdescr()
-        fail_index = self.assembler.cpu.get_fail_descr_number(faildescr)
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.assembler._write_fail_index(fail_index)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         # force all reg values to be spilled when calling
@@ -651,12 +667,12 @@ class ARMRegisterManager(RegisterManager):
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         faildescr = guard_op.getdescr()
-        fail_index = self.assembler.cpu.get_fail_descr_number(faildescr)
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.assembler._write_fail_index(fail_index)
         return []
 
     def _prepare_args_for_new_op(self, new_args):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        gc_ll_descr = self.cpu.gc_ll_descr
         args = gc_ll_descr.args_for_new(new_args)
         arglocs = []
         for i in range(len(args)):
@@ -671,14 +687,14 @@ class ARMRegisterManager(RegisterManager):
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
         ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.assembler.cpu.translate_support_code)
+        size = fielddescr.get_field_size(self.cpu.translate_support_code)
         ptr = fielddescr.is_pointer_field()
         return ofs, size, ptr
 
     #XXX from ../x86/regalloc.py:779
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
-        cpu = self.assembler.cpu
+        cpu = self.cpu
         ofs_length = arraydescr.get_ofs_length(cpu.translate_support_code)
         ofs = arraydescr.get_base_size(cpu.translate_support_code)
         size = arraydescr.get_item_size(cpu.translate_support_code)

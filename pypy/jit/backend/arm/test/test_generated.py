@@ -30,6 +30,7 @@ class TestStuff(object):
         v11 = BoxInt()
         v12 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_SUB, [ConstInt(-1073741824), v7], v11),
@@ -81,6 +82,7 @@ class TestStuff(object):
         v17 = BoxInt()
         v18 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_SUB, [ConstInt(21), v5], v11),
@@ -136,6 +138,7 @@ class TestStuff(object):
         v12 = BoxInt()
         tmp13 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_EQ, [ConstInt(17), v9], v11),
@@ -186,6 +189,7 @@ class TestStuff(object):
         v14 = BoxInt()
         v15 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_LT, [v9, v9], v11),
@@ -237,6 +241,7 @@ class TestStuff(object):
         v14 = BoxInt()
         v15 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_LT, [v5, ConstInt(-67)], v11),
@@ -294,6 +299,7 @@ class TestStuff(object):
         tmp16 = BoxInt()
         tmp17 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_IS_TRUE, [v1], tmp15),
@@ -352,6 +358,7 @@ class TestStuff(object):
         v16 = BoxInt()
         tmp17 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_ADD_OVF, [v8, ConstInt(-30)], v11),
@@ -408,6 +415,7 @@ class TestStuff(object):
         v15 = BoxInt()
         v16 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.UINT_LT, [ConstInt(-11), v7], v11),
@@ -469,6 +477,7 @@ class TestStuff(object):
         tmp16 = BoxInt()
         tmp17 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_IS_TRUE, [v3], tmp16),
@@ -527,6 +536,7 @@ class TestStuff(object):
         v11 = BoxInt()
         tmp12 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_ADD, [ConstInt(-1073741825), v3], v11),
@@ -578,6 +588,7 @@ class TestStuff(object):
         v14 = BoxInt()
         v15 = BoxInt()
         cpu = CPU(None, None)
+        cpu.setup_once()
         inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
         operations = [
             ResOperation(rop.INT_LE, [v6, v1], v11),

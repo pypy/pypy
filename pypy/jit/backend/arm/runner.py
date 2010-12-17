@@ -15,13 +15,29 @@ class ArmCPU(AbstractLLCPU):
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
+    def setup(self):
+        if self.opts is not None:
+            failargs_limit = self.opts.failargs_limit
+        else:
+            failargs_limit = 1000
         self.assembler = AssemblerARM(self)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
-        self.assembler.assemble_loop(inputargs, operations, looptoken)
+    def setup_once(self):
+        self.assembler.setup_once()
 
-    def compile_bridge(self, faildescr, inputargs, operations, log=True):
-        self.assembler.assemble_bridge(faildescr, inputargs, operations)
+    def finish_once(self):
+        self.assembler.finish_once()
+
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
+        self.assembler.assemble_loop(inputargs, operations,
+                                                    looptoken, log=log)
+
+    def compile_bridge(self, faildescr, inputargs, operations,
+                                       original_loop_token, log=True):
+        clt = original_loop_token.compiled_loop_token
+        clt.compiling_a_bridge()
+        self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                       original_loop_token, log=log)
 
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)

@@ -1,4 +1,5 @@
 import py
+import os
 from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
@@ -11,6 +12,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.arm.runner import ArmCPU
+from pypy.tool.udir import udir
 
 class FakeStats(object):
     pass
@@ -32,6 +34,7 @@ class TestBackendTranslation(object):
                 ]
             inputargs = [i0]
             operations[2].setfailargs([i1])
+            cpu.setup_once()
             cpu.compile_loop(inputargs, operations, looptoken)
 
             i1b = BoxInt()
@@ -42,14 +45,17 @@ class TestBackendTranslation(object):
                 ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
             ]
             bridge[1].setfailargs([i1b])
-
-            cpu.compile_bridge(faildescr1, [i1b], bridge)
+            assert looptoken._arm_bootstrap_code != 0
+            assert looptoken._arm_loop_code != 0
+            cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken, True)
 
             cpu.set_future_value_int(0, 2)
             fail = cpu.execute_token(looptoken)
             res = cpu.get_latest_value_int(0)
             return fail.identifier * 1000 + res
 
+        logfile = udir.join('test_ztranslation.log')
+        os.environ['PYPYLOG'] = 'jit-log-opt:%s' % (logfile,)
         res = interpret(loop, [], insist=True)
         assert res == 2020
 

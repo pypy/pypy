@@ -10,10 +10,10 @@ else:
 
 def run_asm(asm):
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
-    addr = asm.mc._start_addr
+    addr = asm.mc.materialize(asm.cpu.asmmemmgr, [], None)
     assert addr % 8 == 0
     func = rffi.cast(lltype.Ptr(BOOTSTRAP_TP), addr)
-    asm.mc._dump_trace('test.asm')
+    asm.mc._dump_trace(addr, 'test.asm')
     return func()
 
 def skip_unless_arm():
