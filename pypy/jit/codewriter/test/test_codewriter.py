@@ -152,6 +152,42 @@ def test_instantiate():
     assert 'B2' in names
     assert 'dont_look' in names
 
+def test_instantiate_with_unreasonable_attr():
+    # It is possible to have in real code the instantiate() function for
+    # a class be dont-look-inside.  This is caused by the code that
+    # initialize the instance attributes: if one attribute has a strange
+    # type, the whole function is disabled.  Check that it still works.
+    class MyFakePolicy:
+        def look_inside_graph(self, graph):
+            name = graph.name
+            return not (name.startswith('instantiate_') and
+                        name.endswith('A2'))
+    class A1:
+        pass
+    class A2(A1):
+        pass
+    def f(n):
+        if n > 5:
+            x = A1
+        else:
+            x = A2
+        x()
+    rtyper = support.annotate(f, [35])
+    maingraph = rtyper.annotator.translator.graphs[0]
+    cw = CodeWriter(FakeCPU(rtyper), [FakeJitDriverSD(maingraph)])
+    cw.find_all_graphs(MyFakePolicy())
+    cw.make_jitcodes(verbose=True)
+    #
+    names = [jitcode.name for jitcode in cw.assembler.indirectcalltargets]
+    assert len(names) == 1
+    assert names[0].startswith('instantiate_') and names[0].endswith('A1')
+    #
+    print cw.assembler.list_of_addr2name
+    names = dict.fromkeys([value
+                           for key, value in cw.assembler.list_of_addr2name])
+    assert 'A1' in names
+    assert 'A2' in names
+
 def test_int_abs():
     def f(n):
         return abs(n)

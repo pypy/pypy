@@ -1,3 +1,9 @@
+"""A pure Python implementation of binascii.
+
+Rather slow and buggy in corner cases.
+PyPy provides an RPython version too.
+"""
+
 class Error(Exception):
     pass
 
@@ -277,7 +283,7 @@ def b2a_qp(data, quotetabs=False, istext=True, header=False):
         if (c > '~' or
             c == '=' or
             (header and c == '_') or
-            (c == '.' and linelen == 0 and (inp == len(data) or
+            (c == '.' and linelen == 0 and (inp+1 == len(data) or
                                             data[inp+1] == '\n' or
                                             data[inp+1] == '\r')) or
             (not istext and (c == '\r' or c == '\n')) or

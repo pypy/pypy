@@ -34,9 +34,11 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None,
         if not isinstance(tp, _CDataMeta):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
     import ctypes
-    all_fields = _fields_[:]
-    for cls in inspect.getmro(superclass):
-        all_fields += getattr(cls, '_fields_', [])
+    all_fields = []
+    for cls in reversed(inspect.getmro(superclass)):
+        # The first field comes from the most base class
+        all_fields.extend(getattr(cls, '_fields_', []))
+    all_fields.extend(_fields_)
     names = [name for name, ctype in all_fields]
     rawfields = [(name, ctype._ffishape)
                  for name, ctype in all_fields]
@@ -168,7 +170,7 @@ class StructOrUnion(_CData):
 
     def __init__(self, *args, **kwds):
         if len(args) > len(self._names):
-            raise TypeError("too many arguments")
+            raise TypeError("too many initializers")
         for name, arg in zip(self._names, args):
             if name in kwds:
                 raise TypeError("duplicate value for argument %r" % (

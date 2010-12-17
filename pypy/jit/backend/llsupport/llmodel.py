@@ -17,7 +17,7 @@ from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
 from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
-from pypy.jit.backend.llsupport.ffisupport import get_call_descr_dynamic
+from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
 
@@ -52,6 +52,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self._setup_exception_handling_untranslated()
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
+        self.asmmemmgr = AsmMemoryManager()
         self.setup()
         if translate_support_code:
             self._setup_on_leave_jitted_translated()
@@ -114,6 +115,7 @@ class AbstractLLCPU(AbstractCPU):
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.insert_stack_check = lambda: (0, 0, 0)
 
 
     def _setup_exception_handling_translated(self):
@@ -137,9 +139,20 @@ class AbstractLLCPU(AbstractCPU):
             # in the assignment to self.saved_exc_value, as needed.
             self.saved_exc_value = exc_value
 
+        from pypy.rlib import rstack
+        STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
+                                                          lltype.Void))
+        def insert_stack_check():
+            startaddr = rstack._stack_get_start_adr()
+            length = rstack._stack_get_length()
+            f = llhelper(STACK_CHECK_SLOWPATH, rstack.stack_check_slowpath)
+            slowpathaddr = rffi.cast(lltype.Signed, f)
+            return startaddr, length, slowpathaddr
+
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.insert_stack_check = insert_stack_check
 
     def _setup_on_leave_jitted_untranslated(self):
         # assume we don't need a backend leave in this case
@@ -176,6 +189,15 @@ class AbstractLLCPU(AbstractCPU):
         exc = self.saved_exc_value
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
         return exc
+
+    def free_loop_and_bridges(self, compiled_loop_token):
+        AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
+        blocks = compiled_loop_token.asmmemmgr_blocks
+        if blocks is not None:
+            compiled_loop_token.asmmemmgr_blocks = None
+            for rawstart, rawstop in blocks:
+                self.gc_ll_descr.freeing_block(rawstart, rawstop)
+                self.asmmemmgr.free(rawstart, rawstop)
 
     # ------------------- helpers and descriptions --------------------
 
@@ -236,7 +258,9 @@ class AbstractLLCPU(AbstractCPU):
         return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
 
     def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
-        return get_call_descr_dynamic(ffi_args, ffi_result, extrainfo)
+        from pypy.jit.backend.llsupport import ffisupport
+        return ffisupport.get_call_descr_dynamic(ffi_args, ffi_result,
+                                                 extrainfo)
 
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)

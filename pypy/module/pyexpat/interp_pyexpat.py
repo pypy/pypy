@@ -329,7 +329,7 @@ getting the advantage of providing document type information to the parser.
         if self.returns_unicode:
             return space.call_function(
                 space.getattr(space.wrap(s), space.wrap("decode")),
-                space.wrap(self.encoding),
+                space.wrap("utf-8"),
                 space.wrap("strict"))
         else:
             return space.wrap(s)

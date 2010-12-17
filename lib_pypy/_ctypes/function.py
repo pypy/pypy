@@ -35,6 +35,7 @@ class CFuncPtr(_CData):
 
     _argtypes_ = None
     _restype_ = None
+    _errcheck_ = None
     _flags_ = 0
     _ffiargshape = 'P'
     _ffishape = 'P'
@@ -53,7 +54,15 @@ class CFuncPtr(_CData):
         return self._argtypes_
     def _setargtypes(self, argtypes):
         self._ptr = None
-        self._argtypes_ = argtypes    
+        if argtypes is None:
+            self._argtypes_ = None
+        else:
+            for i, argtype in enumerate(argtypes):
+                if not hasattr(argtype, 'from_param'):
+                    raise TypeError(
+                        "item %d in _argtypes_ has no from_param method" % (
+                            i + 1,))
+            self._argtypes_ = argtypes
     argtypes = property(_getargtypes, _setargtypes)
 
     def _getrestype(self):
@@ -72,9 +81,24 @@ class CFuncPtr(_CData):
         del self._restype_
     restype = property(_getrestype, _setrestype, _delrestype)
 
+    def _geterrcheck(self):
+        return getattr(self, '_errcheck_', None)
+    def _seterrcheck(self, errcheck):
+        if not callable(errcheck):
+            raise TypeError("The errcheck attribute must be callable")
+        self._errcheck_ = errcheck
+    def _delerrcheck(self):
+        try:
+            del self._errcheck_
+        except AttributeError:
+            pass
+    errcheck = property(_geterrcheck, _seterrcheck, _delerrcheck)
+
     def _ffishapes(self, args, restype):
         argtypes = [arg._ffiargshape for arg in args]
         if restype is not None:
+            if not isinstance(restype, _CDataMeta):
+                raise TypeError("invalid result type for callback function")
             restype = restype._ffiargshape
         else:
             restype = 'O' # void
@@ -140,6 +164,7 @@ class CFuncPtr(_CData):
     
     def __call__(self, *args):
         if self.callable is not None:
+            args = args[:len(self._argtypes_)]
             try:
                 res = self.callable(*args)
             except:
@@ -162,13 +187,29 @@ class CFuncPtr(_CData):
             thisarg = None
             
         if argtypes is None:
-            argtypes = self._guess_argtypes(args)
-        argtypes, argsandobjs = self._wrap_args(argtypes, args)
+            argtypes = []
+        args = self._convert_args(argtypes, args)
+        argtypes = [type(arg) for arg in args]
         
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
-        resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
-        return self._build_result(restype, resbuffer, argtypes, argsandobjs)
+        resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
+                              for arg in args])
+        result = self._build_result(restype, resbuffer, argtypes, args)
+
+        # The 'errcheck' protocol
+        if self._errcheck_:
+            v = self._errcheck_(result, self, args)
+            # If the errcheck funtion failed, let it throw
+            # If the errcheck function returned callargs unchanged,
+            # continue normal processing.
+            # If the errcheck function returned something else,
+            # use that as result.
+            if v is not args:
+                result = v
+
+        return result
+
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and argtypes is self._argtypes_:
@@ -212,31 +253,33 @@ class CFuncPtr(_CData):
             raise
 
     @staticmethod
-    def _guess_argtypes(args):
+    def _conv_param(argtype, arg, index):
         from ctypes import c_char_p, c_wchar_p, c_void_p, c_int
-        res = []
-        for arg in args:
-            if hasattr(arg, '_as_parameter_'):
-                arg = arg._as_parameter_
-            if isinstance(arg, str):
-                res.append(c_char_p)
-            elif isinstance(arg, unicode):
-                res.append(c_wchar_p)
-            elif isinstance(arg, _CData):
-                res.append(type(arg))
-            elif arg is None:
-                res.append(c_void_p)
-            #elif arg == 0:
-            #    res.append(c_void_p)
-            elif isinstance(arg, (int, long)):
-                res.append(c_int)
-            else:
-                raise TypeError("Don't know how to handle %s" % (arg,))
-        return res
+        if argtype is not None:
+            arg = argtype.from_param(arg)
+        if hasattr(arg, '_as_parameter_'):
+            arg = arg._as_parameter_
 
-    def _wrap_args(self, argtypes, args):
+        if isinstance(arg, _CData):
+            # The usual case when argtype is defined
+            cobj = arg
+        elif isinstance(arg, str):
+            cobj = c_char_p(arg)
+        elif isinstance(arg, unicode):
+            cobj = c_wchar_p(arg)
+        elif arg is None:
+            cobj = c_void_p()
+        elif isinstance(arg, (int, long)):
+            cobj = c_int(arg)
+        else:
+            raise TypeError("Don't know how to handle %s" % (arg,))
+
+        return cobj
+
+    def _convert_args(self, argtypes, args):
         wrapped_args = []
         consumed = 0
+
         for i, argtype in enumerate(argtypes):
             defaultvalue = None
             if i > 0 and self._paramflags is not None:
@@ -263,7 +306,7 @@ class CFuncPtr(_CData):
                     val = defaultvalue
                     if val is None:
                         val = 0
-                    wrapped = argtype._CData_input(val)
+                    wrapped = self._conv_param(argtype, val, consumed)
                     wrapped_args.append(wrapped)
                     continue
                 else:
@@ -278,23 +321,22 @@ class CFuncPtr(_CData):
                 raise TypeError("Not enough arguments")
 
             try:
-                wrapped = argtype._CData_input(arg)
-            except (UnicodeError, TypeError), e:
+                wrapped = self._conv_param(argtype, arg, consumed)
+            except (UnicodeError, TypeError, ValueError), e:
                 raise ArgumentError(str(e))
             wrapped_args.append(wrapped)
             consumed += 1
 
         if len(wrapped_args) < len(args):
             extra = args[len(wrapped_args):]
-            extra_types = self._guess_argtypes(extra)
-            for arg, argtype in zip(extra, extra_types):
+            argtypes = list(argtypes)
+            for i, arg in enumerate(extra):
                 try:
-                    wrapped = argtype._CData_input(arg)
-                except (UnicodeError, TypeError), e:
+                    wrapped = self._conv_param(None, arg, i)
+                except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
                 wrapped_args.append(wrapped)
-            argtypes = list(argtypes) + extra_types
-        return argtypes, wrapped_args
+        return wrapped_args
 
     def _build_result(self, restype, resbuffer, argtypes, argsandobjs):
         """Build the function result:
@@ -307,7 +349,7 @@ class CFuncPtr(_CData):
         if self._com_index:
             if resbuffer[0] & 0x80000000:
                 raise get_com_error(resbuffer[0],
-                                    self._com_iid, argsandobjs[0][0])
+                                    self._com_iid, argsandobjs[0])
             else:
                 retval = int(resbuffer[0])
         elif restype is not None:
@@ -326,8 +368,8 @@ class CFuncPtr(_CData):
 
         results = []
         if self._paramflags:
-            for argtype, (obj, _), paramflag in zip(argtypes[1:], argsandobjs[1:],
-                                                    self._paramflags):
+            for argtype, obj, paramflag in zip(argtypes[1:], argsandobjs[1:],
+                                               self._paramflags):
                 if len(paramflag) == 2:
                     idlflag, name = paramflag
                 elif len(paramflag) == 3:

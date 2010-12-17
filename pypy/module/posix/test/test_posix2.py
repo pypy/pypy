@@ -331,6 +331,22 @@ class AppTestPosix:
             data = os.read(master_fd, 100)
             assert data.startswith('x')
 
+    if hasattr(__import__(os.name), "forkpty"):
+        def test_forkpty(self):
+            import sys
+            os = self.posix
+            childpid, master_fd = os.forkpty()
+            assert isinstance(childpid, int)
+            assert isinstance(master_fd, int)
+            if childpid == 0:
+                data = os.read(0, 100)
+                if data.startswith('abc'):
+                    os._exit(42)
+                else:
+                    os._exit(43)
+            os.write(master_fd, 'abc\n')
+            _, status = os.waitpid(childpid, 0)
+            assert status >> 8 == 42
 
     if hasattr(__import__(os.name), "execv"):
         def test_execv(self):
@@ -505,6 +521,14 @@ class AppTestPosix:
                 assert os.WIFEXITED(status)
                 assert os.WEXITSTATUS(status) == exit_status
 
+    if hasattr(os, 'getloadavg'):
+        def test_os_getloadavg(self):
+            os = self.posix
+            l0, l1, l2 = os.getloadavg()
+            assert type(l0) is float and l0 >= 0.0
+            assert type(l1) is float and l0 >= 0.0
+            assert type(l2) is float and l0 >= 0.0
+
     if hasattr(os, 'fsync'):
         def test_fsync(self):
             os = self.posix
@@ -512,30 +536,42 @@ class AppTestPosix:
             try:
                 fd = f.fileno()
                 os.fsync(fd)
-            finally:
+                os.fsync(long(fd))
+                os.fsync(f)     # <- should also work with a file, or anything
+            finally:            #    with a fileno() method
                 f.close()
-            try:
-                os.fsync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fsync didn't raise")
+            raises(OSError, os.fsync, fd)
+            raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
         def test_fdatasync(self):
             os = self.posix
-            f = open(self.path2)
+            f = open(self.path2, "w")
             try:
                 fd = f.fileno()
                 os.fdatasync(fd)
             finally:
                 f.close()
+            raises(OSError, os.fdatasync, fd)
+            raises(ValueError, os.fdatasync, -1)
+
+    if hasattr(os, 'fchdir'):
+        def test_fchdir(self):
+            os = self.posix
+            localdir = os.getcwd()
             try:
-                os.fdatasync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fdatasync didn't raise")
+                os.mkdir(self.path2 + 'dir')
+                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+                try:
+                    os.fchdir(fd)
+                    mypath = os.getcwd()
+                finally:
+                    os.close(fd)
+                assert mypath.endswith('test_posix2-dir')
+                raises(OSError, os.fchdir, fd)
+                raises(ValueError, os.fchdir, -1)
+            finally:
+                os.chdir(localdir)
 
     def test_largefile(self):
         os = self.posix
@@ -622,6 +658,67 @@ class AppTestPosix:
             f.write("this is a test")
             f.close()
             os.chown(self.path, os.getuid(), os.getgid())
+
+    if hasattr(os, 'lchown'):
+        def test_lchown(self):
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.lchown, self.path, os.getuid(), os.getgid())
+            os.symlink('foobar', self.path)
+            os.lchown(self.path, os.getuid(), os.getgid())
+
+    if hasattr(os, 'mkfifo'):
+        def test_mkfifo(self):
+            os = self.posix
+            os.mkfifo(self.path2 + 'test_mkfifo', 0666)
+            st = os.lstat(self.path2 + 'test_mkfifo')
+            import stat
+            assert stat.S_ISFIFO(st.st_mode)
+
+    if hasattr(os, 'mknod'):
+        def test_mknod(self):
+            import stat
+            os = self.posix
+            # not very useful: os.mknod() without specifying 'mode'
+            os.mknod(self.path2 + 'test_mknod-1')
+            st = os.lstat(self.path2 + 'test_mknod-1')
+            assert stat.S_ISREG(st.st_mode)
+            # os.mknod() with S_IFIFO
+            os.mknod(self.path2 + 'test_mknod-2', 0600 | stat.S_IFIFO)
+            st = os.lstat(self.path2 + 'test_mknod-2')
+            assert stat.S_ISFIFO(st.st_mode)
+
+        def test_mknod_with_ifchr(self):
+            # os.mknod() with S_IFCHR
+            # -- usually requires root priviledges --
+            os = self.posix
+            if hasattr(os.lstat('.'), 'st_rdev'):
+                import stat
+                try:
+                    os.mknod(self.path2 + 'test_mknod-3', 0600 | stat.S_IFCHR,
+                             0x105)
+                except OSError, e:
+                    skip("os.mknod() with S_IFCHR: got %r" % (e,))
+                else:
+                    st = os.lstat(self.path2 + 'test_mknod-3')
+                    assert stat.S_ISCHR(st.st_mode)
+                    assert st.st_rdev == 0x105
+
+    if hasattr(os, 'nice') and hasattr(os, 'fork') and hasattr(os, 'waitpid'):
+        def test_nice(self):
+            os = self.posix
+            myprio = os.nice(0)
+            #
+            pid = os.fork()
+            if pid == 0:    # in the child
+                res = os.nice(3)
+                os._exit(res)
+            #
+            pid1, status1 = os.waitpid(pid, 0)
+            assert pid1 == pid
+            assert os.WIFEXITED(status1)
+            assert os.WEXITSTATUS(status1) == myprio + 3
+
 
 class AppTestEnvironment(object):
     def setup_class(cls): 

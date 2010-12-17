@@ -41,27 +41,26 @@ purposes only."""
         f = ec.getnextframe_nohidden(f)
     return space.wrap(f)
 
-# directly from the C code in ceval.c, might be moved somewhere else.
-
 def setrecursionlimit(space, w_new_limit):
-    """Set the maximum depth of the Python interpreter stack to n.  This
-limit prevents infinite recursion from causing an overflow of the C
-stack and crashing Python.  The highest possible limit is platform
-dependent."""
+    """setrecursionlimit() is ignored (and not needed) on PyPy.
+
+On CPython it would set the maximum number of nested calls that can
+occur before a RuntimeError is raised.  On PyPy overflowing the stack
+also causes RuntimeErrors, but the limit is checked at a lower level.
+(The limit is currenty hard-coded at 768 KB, corresponding to roughly
+1480 Python calls on Linux.)"""
     new_limit = space.int_w(w_new_limit)
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
-    # global recursion_limit
-    # we need to do it without writing globals.
+    # for now, don't rewrite a warning but silently ignore the
+    # recursion limit.
+    #space.warn('setrecursionlimit() is ignored (and not needed) on PyPy', space.w_RuntimeWarning)
     space.sys.recursionlimit = new_limit
 
 def getrecursionlimit(space):
-    """Return the current value of the recursion limit, the maximum depth
-    of the Python interpreter stack.  This limit prevents infinite
-    recursion from causing an overflow of the C stack and crashing Python.
+    """Return the last value set by setrecursionlimit().
     """
-
     return space.wrap(space.sys.recursionlimit)
 
 def setcheckinterval(space, interval):

@@ -409,6 +409,7 @@ def add_storage(instance, mixin_cls, ctypes_storage):
     subcls = get_common_subclass(mixin_cls, instance.__class__)
     instance.__class__ = subcls
     instance._storage = ctypes_storage
+    assert ctypes_storage   # null pointer?
 
 class _parentable_mixin(object):
     """Mixin added to _parentable containers when they become ctypes-based.
@@ -441,6 +442,9 @@ class _parentable_mixin(object):
             raise Exception("invalid free() - data already freed or "
                             "not allocated from RPython at all")
         self._storage = None
+
+    def _getid(self):
+        return self._addressof_storage()
 
     def __eq__(self, other):
         if isinstance(other, _llgcopaque):
@@ -1294,7 +1298,7 @@ else:
             def _where_is_errno():
                 return standard_c_lib.__errno_location()
 
-        elif sys.platform in ('darwin', 'freebsd7'):
+        elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
             standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__error()

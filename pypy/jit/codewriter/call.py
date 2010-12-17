@@ -95,15 +95,8 @@ class CallControl(object):
             else:
                 v_obj = op.args[1].concretetype
                 graphs = v_obj._lookup_graphs(op.args[0].value)
-            if graphs is not None:
-                result = []
-                for graph in graphs:
-                    if is_candidate(graph):
-                        result.append(graph)
-                if result:
-                    return result  # common case: look inside these graphs,
-                                   # and ignore the others if there are any
-            else:
+            #
+            if graphs is None:
                 # special case: handle the indirect call that goes to
                 # the 'instantiate' methods.  This check is a bit imprecise
                 # but it's not too bad if we mistake a random indirect call
@@ -112,7 +105,16 @@ class CallControl(object):
                 CALLTYPE = op.args[0].concretetype
                 if (op.opname == 'indirect_call' and len(op.args) == 2 and
                     CALLTYPE == rclass.OBJECT_VTABLE.instantiate):
-                    return list(self._graphs_of_all_instantiate())
+                    graphs = list(self._graphs_of_all_instantiate())
+            #
+            if graphs is not None:
+                result = []
+                for graph in graphs:
+                    if is_candidate(graph):
+                        result.append(graph)
+                if result:
+                    return result  # common case: look inside these graphs,
+                                   # and ignore the others if there are any
         # residual call case: we don't need to look into any graph
         return None
 

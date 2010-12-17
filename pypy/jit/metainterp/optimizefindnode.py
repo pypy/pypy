@@ -128,6 +128,7 @@ class NodeFinder(object):
         assert isinstance(constbox, Const)
         node = InstanceNode()
         node.unique = UNIQUE_NO
+        node.escaped = True
         node.knownvaluebox = constbox
         self.nodes[box] = node
         return node

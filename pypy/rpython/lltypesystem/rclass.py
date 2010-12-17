@@ -392,7 +392,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 source_classdef = source_desc.getclassdef(None)
                 source_repr = getinstancerepr(self.rtyper, source_classdef)
                 assert len(s_func.descriptions) == 1
-                funcdesc = s_func.descriptions.keys()[0]
+                funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,

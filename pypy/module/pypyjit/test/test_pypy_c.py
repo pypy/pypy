@@ -630,6 +630,32 @@ class PyPyCJITTests(object):
         ''', 3000, ([0], 2000*3))
         assert len(self.loops) == 1
 
+    def test_getattr_with_dynamic_attribute(self):
+        self.run_source('''
+        class A(object):
+            pass
+
+        l = ["x", "y"]
+
+        def main(arg):
+            sum = 0
+            a = A()
+            a.a1 = 0
+            a.a2 = 0
+            a.a3 = 0
+            a.a4 = 0
+            a.a5 = 0 # workaround, because the first five attributes need a promotion
+            a.x = 1
+            a.y = 2
+            i = 0
+            while i < 2000:
+                name = l[i % 2]
+                sum += getattr(a, name)
+                i += 1
+            return sum
+        ''', 3000, ([0], 3000))
+        assert len(self.loops) == 1
+
     def test_blockstack_virtualizable(self):
         self.run_source('''
         from pypyjit import residual_call
@@ -673,11 +699,9 @@ class PyPyCJITTests(object):
                 i = t2[3]
                 del t2
             return i
-        ''', 100, ([], 100))
+        ''', 40, ([], 100))
         bytecode, = self.get_by_bytecode('BINARY_SUBSCR')
-        assert len(bytecode.get_opnames('new_array')) == 1
-        # XXX I would like here to say that it's 0, but unfortunately
-        #     call that can raise is not exchanged into getarrayitem_gc
+        assert len(bytecode.get_opnames('new_array')) == 0
 
     def test_overflow_checking(self):
         startvalue = sys.maxint - 2147483647
@@ -861,11 +885,14 @@ class PyPyCJITTests(object):
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
             res = 19352859
-            if tc in 'IL':
+            if tc == 'L':
                 res = long(res)
             elif tc in 'fd':
                 res = float(res)
-            
+            elif tc == 'I' and sys.maxint == 2147483647:
+                res = long(res)
+                # note: in CPython we always get longs here, even on 64-bits
+
             self.run_source('''
             from array import array
 
@@ -913,11 +940,14 @@ class PyPyCJITTests(object):
             print '='*65
             print '='*20, 'running test for tc=%r' % (tc,), '='*20
             res = 73574560
-            if tc in 'IL':
+            if tc == 'L':
                 res = long(res)
             elif tc in 'fd':
                 res = float(res)
-            
+            elif tc == 'I' and sys.maxint == 2147483647:
+                res = long(res)
+                # note: in CPython we always get longs here, even on 64-bits
+
             self.run_source('''
             from array import array
 

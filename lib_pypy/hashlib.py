@@ -50,53 +50,30 @@ More condensed:
     'a4337bc45a8fc544c03f52dc550cd6e1e87021bc896588bd79e901e2'
 
 """
+import sys
 try:
     import _hashlib
 except ImportError:
     _hashlib = None
-
-def __get_builtin_constructor(name):
-    if name in ('SHA1', 'sha1'):
-        import sha
-        return sha.new
-    elif name in ('MD5', 'md5'):
-        import md5
-        return md5.new
-    elif name in ('SHA256', 'sha256'):
-        import _sha256
-        return _sha256.sha256
-    elif name in ('SHA224', 'sha224'):
-        import _sha256
-        return _sha256.sha224
-    elif name in ('SHA512', 'sha512'):
-        import _sha512
-        return _sha512.sha512
-    elif name in ('SHA384', 'sha384'):
-        import _sha512
-        return _sha512.sha384
-    raise ValueError, "unsupported hash type"
 
 def __hash_new(name, string=''):
     """new(name, string='') - Return a new hashing object using the named algorithm;
     optionally initialized with a string.
     """
     try:
-        if _hashlib:
-            return _hashlib.new(name, string)
-    except ValueError:
-        # If the _hashlib module (OpenSSL) doesn't support the named
-        # hash, try using our builtin implementations.
-        # This allows for SHA224/256 and SHA384/512 support even though
-        # the OpenSSL library prior to 0.9.8 doesn't provide them.
-        pass
-
-    return __get_builtin_constructor(name)(string)
+        new = __byname[name]
+    except KeyError:
+        raise ValueError("unsupported hash type")
+    return new(string)
 
 new = __hash_new
 
-def _setfuncs():
-    # use the wrapper of the C implementation
+# ____________________________________________________________
 
+__byname = {}
+
+def __use_openssl_funcs():
+    # use the wrapper of the C implementation
     sslprefix = 'openssl_'
     for opensslfuncname, func in vars(_hashlib).items():
         if not opensslfuncname.startswith(sslprefix):
@@ -106,23 +83,41 @@ def _setfuncs():
             # try them all, some may not work due to the OpenSSL
             # version not supporting that algorithm.
             func() 
-            # Use the C function directly (very fast)
-            globals()[funcname] = func 
+            # Use the C function directly (very fast, but with ctypes overhead)
+            __byname[funcname] = func
         except ValueError:
-            try:
-                # Use the builtin implementation directly (fast)
-                globals()[funcname] = __get_builtin_constructor(funcname) 
-            except ValueError:
-                # this one has no builtin implementation, don't define it
-                pass
+            pass
+
+def __use_builtin_funcs():
+    # look up the built-in versions (written in Python or RPython),
+    # and use the fastest one:
+    #  1. the one in RPython
+    #  2. the one from openssl (slower due to ctypes calling overhead)
+    #  3. the one in pure Python
+    if 'sha1' not in __byname or 'sha' in sys.builtin_module_names:
+        import sha
+        __byname['sha1'] = sha.new
+    if 'md5' not in __byname or 'md5' in sys.builtin_module_names:
+        import md5
+        __byname['md5'] = md5.new
+    if 'sha256' not in __byname:
+        import _sha256
+        __byname['sha256'] = _sha256.sha256
+    if 'sha224' not in __byname:
+        import _sha256
+        __byname['sha224'] = _sha256.sha224
+    if 'sha512' not in __byname:
+        import _sha512
+        __byname['sha512'] = _sha512.sha512
+    if 'sha384' not in __byname:
+        import _sha512
+        __byname['sha384'] = _sha512.sha384
+
+def __export_funcs():
+    for key, value in __byname.items():
+        globals()[key] = __byname[key.upper()] = value
 
 if _hashlib:
-    _setfuncs()
-else:
-    # lookup the C function to use directly for the named constructors
-    md5 = __get_builtin_constructor('md5')
-    sha1 = __get_builtin_constructor('sha1')
-    sha224 = __get_builtin_constructor('sha224')
-    sha256 = __get_builtin_constructor('sha256')
-    sha384 = __get_builtin_constructor('sha384')
-    sha512 = __get_builtin_constructor('sha512')
+    __use_openssl_funcs()
+__use_builtin_funcs()
+__export_funcs()

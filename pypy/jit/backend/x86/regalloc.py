@@ -60,32 +60,6 @@ class X86_64_RegisterManager(X86RegisterManager):
         r15: 5,
     }
 
-class FloatConstants(object):
-    BASE_CONSTANT_SIZE = 1000
-
-    def __init__(self):
-        self.cur_array_free = 0
-        self.const_id = 0
-
-    def _get_new_array(self):
-        n = self.BASE_CONSTANT_SIZE
-        # known to leak
-        self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n,
-                                       flavor='raw', track_allocation=False)
-        self.cur_array_free = n
-    _get_new_array._dont_inline_ = True
-
-    def record_float(self, floatval):
-        if self.cur_array_free == 0:
-            self._get_new_array()
-        arr = self.cur_array
-        n = self.cur_array_free - 1
-        arr[n] = floatval
-        self.cur_array_free = n
-        self.const_id += 1
-        return (self.const_id, rffi.cast(lltype.Signed, arr) + n * 8)
-
-
 class X86XMMRegisterManager(RegisterManager):
 
     box_types = [FLOAT]
@@ -93,19 +67,10 @@ class X86XMMRegisterManager(RegisterManager):
     # we never need lower byte I hope
     save_around_call_regs = all_regs
 
-    def __init__(self, longevity, frame_manager=None, assembler=None):
-        RegisterManager.__init__(self, longevity, frame_manager=frame_manager,
-                                 assembler=assembler)
-        if assembler is None:
-            self.float_constants = FloatConstants()
-        else:
-            if assembler._float_constants is None:
-                assembler._float_constants = FloatConstants()
-            self.float_constants = assembler._float_constants
-
     def convert_to_imm(self, c):
-        const_id, adr = self.float_constants.record_float(c.getfloat())
-        return ConstFloatLoc(adr, const_id)
+        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        return ConstFloatLoc(adr)
 
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,
@@ -136,7 +101,6 @@ class X86FrameManager(FrameManager):
             return StackLoc(i, get_ebp_ofs(i), 1, box_type)
 
 class RegAlloc(object):
-    exc = False
 
     def __init__(self, assembler, translate_support_code=False):
         assert isinstance(translate_support_code, bool)
@@ -163,7 +127,7 @@ class RegAlloc(object):
             xmm_reg_mgr_cls = X86_64_XMMRegisterManager
         else:
             raise AssertionError("Word size should be 4 or 8")
-
+            
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
@@ -310,11 +274,22 @@ class RegAlloc(object):
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
 
+    def get_current_depth(self):
+        # return (self.fm.frame_depth, self.param_depth), but trying to share
+        # the resulting tuple among several calls
+        arg0 = self.fm.frame_depth
+        arg1 = self.param_depth
+        result = self.assembler._current_depths_cache
+        if result[0] != arg0 or result[1] != arg1:
+            result = (arg0, arg1)
+            self.assembler._current_depths_cache = result
+        return result
+
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
         self.rm.position += 1
         self.xrm.position += 1
-        current_depths = (self.fm.frame_depth, self.param_depth)
+        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
                                                    arglocs, result_loc,
                                                    current_depths)
@@ -330,11 +305,11 @@ class RegAlloc(object):
                                                       arglocs))
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
-        current_depths = (self.fm.frame_depth, self.param_depth)
+        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)
-        self.possibly_free_vars(guard_op.getfailargs())
+        self.possibly_free_vars(guard_op.getfailargs())        
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -409,7 +384,10 @@ class RegAlloc(object):
         locs = [self.loc(op.getarg(i)) for i in range(op.numargs())]
         locs_are_ref = [op.getarg(i).type == REF for i in range(op.numargs())]
         fail_index = self.assembler.cpu.get_fail_descr_number(op.getdescr())
-        self.assembler.generate_failure(fail_index, locs, self.exc,
+        # note: no exception should currently be set in llop.get_exception_addr
+        # even if this finish may be an exit_frame_with_exception (in this case
+        # the exception instance is in locs[0]).
+        self.assembler.generate_failure(fail_index, locs, False,
                                         locs_are_ref)
         self.possibly_free_vars_for_op(op)
 
@@ -655,7 +633,7 @@ class RegAlloc(object):
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
-
+        
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
@@ -1021,13 +999,13 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
         dst_locations = [loc for loc in nonfloatlocs if loc is not None]
         remap_frame_layout(assembler, src_locations, dst_locations, tmploc)
         # Part about floats
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type == FLOAT]
         dst_locations = [loc for loc in floatlocs if loc is not None]
         remap_frame_layout(assembler, src_locations, dst_locations, xmmtmp)
@@ -1054,7 +1032,8 @@ class RegAlloc(object):
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
                 gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
-        return gcrootmap.compress_callshape(shape)
+        return gcrootmap.compress_callshape(shape,
+                                            self.assembler.datablockwrapper)
 
     def consider_force_token(self, op):
         loc = self.rm.force_allocate_reg(op.result)

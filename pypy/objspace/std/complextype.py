@@ -1,7 +1,7 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.strutil import interp_string_to_float, ParseStringError
+from pypy.objspace.std.strutil import string_to_float, ParseStringError
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
@@ -131,8 +131,8 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
         except ValueError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
         try:
-            realval = interp_string_to_float(space, realstr)
-            imagval = interp_string_to_float(space, imagstr)
+            realval = string_to_float(realstr)
+            imagval = string_to_float(imagstr)
         except ParseStringError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
         else:

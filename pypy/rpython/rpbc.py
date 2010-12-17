@@ -15,11 +15,10 @@ from pypy.rpython.annlowlevel import llstr
 
 from pypy.rpython import callparse
 
-
 def small_cand(rtyper, s_pbc):
     if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets and \
            hasattr(rtyper.type_system.rpbc, 'SmallFunctionSetPBCRepr'):
-        callfamily = s_pbc.descriptions.iterkeys().next().getcallfamily()
+        callfamily = s_pbc.any_description().getcallfamily()
         concretetable, uniquerows = get_concrete_calltable(rtyper, callfamily)
         if len(uniquerows) == 1 and (not s_pbc.subset_of or small_cand(rtyper, s_pbc.subset_of)):
             return True
@@ -31,7 +30,7 @@ class __extend__(annmodel.SomePBC):
             return none_frozen_pbc_repr 
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
-            sample = self.descriptions.keys()[0]
+            sample = self.any_description()
             callfamily = sample.querycallfamily()
             if callfamily and callfamily.total_calltable_size > 0:
                 if sample.overridden:
@@ -181,7 +180,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        self.callfamily = s_pbc.descriptions.iterkeys().next().getcallfamily()
+        self.callfamily = s_pbc.any_description().getcallfamily()
         if len(s_pbc.descriptions) == 1 and not s_pbc.can_be_None:
             # a single function
             self.lowleveltype = Void
@@ -207,7 +206,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         return self, 0
 
     def get_s_signatures(self, shape):
-        funcdesc = self.s_pbc.descriptions.iterkeys().next()
+        funcdesc = self.s_pbc.any_description()
         return funcdesc.get_s_signatures(shape)
 
 ##    def function_signatures(self):
@@ -322,7 +321,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         bk = self.rtyper.annotator.bookkeeper
         args = bk.build_args(opname, hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
-        descs = s_pbc.descriptions.keys()
+        descs = list(s_pbc.descriptions)
         shape, index = description.FunctionDesc.variant_for_call_site(bk, self.callfamily, descs, args)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
@@ -368,7 +367,7 @@ def getPyObjRepr(rtyper, s_pbc):
     return robject.pyobj_repr
 
 def getFrozenPBCRepr(rtyper, s_pbc):
-    descs = s_pbc.descriptions.keys()
+    descs = list(s_pbc.descriptions)
     assert len(descs) >= 1
     if len(descs) == 1 and not s_pbc.can_be_None:
         return SingleFrozenPBCRepr(descs[0])
@@ -530,7 +529,7 @@ class MethodOfFrozenPBCRepr(Repr):
 
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
-        self.funcdesc = s_pbc.descriptions.keys()[0].funcdesc
+        self.funcdesc = s_pbc.any_description().funcdesc
 
         # a hack to force the underlying function to show up in call_families
         # (generally not needed, as normalizecalls() should ensure this,
@@ -662,7 +661,7 @@ class AbstractClassesPBCRepr(Repr):
         and the ClassRepr of the class which stores this attribute in
         its vtable.
         """
-        classdescs = self.s_pbc.descriptions.keys()
+        classdescs = list(self.s_pbc.descriptions)
         access = classdescs[0].queryattrfamily(attrname)
         for classdesc in classdescs[1:]:
             access1 = classdesc.queryattrfamily(attrname)
@@ -819,7 +818,7 @@ class AbstractMethodsPBCRepr(Repr):
         if s_pbc.isNone():
             raise TyperError("unsupported: variable of type "
                              "bound-method-object or None")
-        mdescs = s_pbc.descriptions.keys()
+        mdescs = list(s_pbc.descriptions)
         methodname = mdescs[0].name
         classdef = mdescs[0].selfclassdef
         flags    = mdescs[0].flags

@@ -177,24 +177,15 @@ class AddressLoc(AssemblerLocation):
 
 class ConstFloatLoc(AssemblerLocation):
     # XXX: We have to use this class instead of just AddressLoc because
-    # AddressLoc is "untyped" and also we to have need some sort of unique
-    # identifier that we can use in _getregkey (for jump.py)
-
+    # we want a width of 8  (... I think.  Check this!)
     _immutable_ = True
-
     width = 8
 
-    def __init__(self, address, const_id):
+    def __init__(self, address):
         self.value = address
-        self.const_id = const_id
 
     def __repr__(self):
-        return '<ConstFloatLoc(%s, %s)>' % (self.value, self.const_id)
-
-    def _getregkey(self):
-        # XXX: 1000 is kind of magic: We just don't want to be confused
-        # with any registers
-        return 1000 + self.const_id
+        return '<ConstFloatLoc @%s>' % (self.value,)
 
     def location_code(self):
         return 'j'
@@ -334,9 +325,9 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if possible_code == 'i':
-                        offset = intmask(val - (self.tell() + 5))
-                        if rx86.fits_in_32bits(offset):
+                        if self.WORD == 4:
                             _rx86_getattr(self, name + "_l")(val)
+                            self.add_pending_relocation()
                         else:
                             assert self.WORD == 8
                             self._load_scratch(val)

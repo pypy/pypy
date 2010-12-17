@@ -24,6 +24,3 @@
  - sort out pypy's buffer protocol. PyPy's buffer right now don't support
    raw memory (except array which supports it in a hackish way), which
    should be fixed in order to make it nicely work with cpyext.
-
- - Fix Makefile generation on Windows when --shared is used (mandatory when
-   cpyext is used with -Ojit)

@@ -1,7 +1,5 @@
 import py
 
-option = py.test.config.option
-
 def pytest_addoption(parser):
     group = parser.getgroup("JIT options")
     group.addoption('--slow', action="store_true",

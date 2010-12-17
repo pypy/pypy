@@ -309,6 +309,7 @@ STANDARD_DEFINES = '''
 #define _POSIX_C_SOURCE 200112L
 /* Define on FreeBSD to activate all library features */
 #define __BSD_VISIBLE 1
+#define __XSI_VISIBLE 700
 /* Windows: winsock/winsock2 mess */
 #define WIN32_LEAN_AND_MEAN
 '''

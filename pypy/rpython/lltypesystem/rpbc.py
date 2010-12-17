@@ -127,7 +127,7 @@ class SmallFunctionSetPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        self.callfamily = s_pbc.descriptions.iterkeys().next().getcallfamily()
+        self.callfamily = s_pbc.any_description().getcallfamily()
         concretetable, uniquerows = get_concrete_calltable(self.rtyper,
                                                            self.callfamily)
         assert len(uniquerows) == 1
@@ -166,7 +166,7 @@ class SmallFunctionSetPBCRepr(Repr):
         return self, 0
 
     def get_s_signatures(self, shape):
-        funcdesc = self.s_pbc.descriptions.iterkeys().next()
+        funcdesc = self.s_pbc.any_description()
         return funcdesc.get_s_signatures(shape)
 
     def convert_desc(self, funcdesc):
@@ -230,7 +230,7 @@ class SmallFunctionSetPBCRepr(Repr):
         bk = self.rtyper.annotator.bookkeeper
         args = bk.build_args(opname, hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
-        descs = s_pbc.descriptions.keys()
+        descs = list(s_pbc.descriptions)
         shape, index = description.FunctionDesc.variant_for_call_site(bk, self.callfamily, descs, args)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness

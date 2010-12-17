@@ -174,6 +174,8 @@ class BaseBackendTest(Runner):
         assert not wr_i1() and not wr_guard()
 
     def test_compile_bridge(self):
+        self.cpu.total_compiled_loops = 0
+        self.cpu.total_compiled_bridges = 0
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
@@ -199,13 +201,17 @@ class BaseBackendTest(Runner):
         ]
         bridge[1].setfailargs([i1b])
 
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
 
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
+
+        assert self.cpu.total_compiled_loops == 1
+        assert self.cpu.total_compiled_bridges == 1
+        return looptoken
 
     def test_compile_bridge_with_holes(self):
         i0 = BoxInt()
@@ -233,7 +239,7 @@ class BaseBackendTest(Runner):
         ]
         bridge[1].setfailargs([i1b])
 
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
 
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
@@ -1050,7 +1056,7 @@ class BaseBackendTest(Runner):
             ResOperation(rop.JUMP, [f3] + fboxes2[1:], None, descr=looptoken),
         ]
 
-        self.cpu.compile_bridge(faildescr1, fboxes2, bridge)
+        self.cpu.compile_bridge(faildescr1, fboxes2, bridge, looptoken)
 
         for i in range(len(fboxes)):
             self.cpu.set_future_value_float(i, 13.5 + 6.73 * i)
@@ -1196,6 +1202,13 @@ class BaseBackendTest(Runner):
         yield nan_and_infinity, rop.FLOAT_NE,  operator.ne,  all_cases_binary
         yield nan_and_infinity, rop.FLOAT_GT,  operator.gt,  all_cases_binary
         yield nan_and_infinity, rop.FLOAT_GE,  operator.ge,  all_cases_binary
+
+    def test_noops(self):
+        c_box = self.alloc_string("hi there").constbox()
+        c_nest = ConstInt(0)
+        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest], 'void')
+        self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
+                                               c_nest, c_nest], 'void')
 
 
 class LLtypeBackendTest(BaseBackendTest):
@@ -2244,6 +2257,20 @@ class LLtypeBackendTest(BaseBackendTest):
                                          'int', descr=calldescr)
             assert res.value == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
+
+    def test_free_loop_and_bridges(self):
+        from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not a subclass of llmodel.AbstractLLCPU")
+        if hasattr(self.cpu, 'setup_once'):
+            self.cpu.setup_once()
+        mem0 = self.cpu.asmmemmgr.total_mallocs
+        looptoken = self.test_compile_bridge()
+        mem1 = self.cpu.asmmemmgr.total_mallocs
+        self.cpu.free_loop_and_bridges(looptoken.compiled_loop_token)
+        mem2 = self.cpu.asmmemmgr.total_mallocs
+        assert mem2 < mem1
+        assert mem2 == mem0
 
 
 class OOtypeBackendTest(BaseBackendTest):

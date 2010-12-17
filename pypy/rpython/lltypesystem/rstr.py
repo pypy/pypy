@@ -242,10 +242,7 @@ FAST_FIND = 1
 FAST_RFIND = 2
 
 
-# XXX: This should be set to the number of bits in a long.  Having a lower
-# value here doesn't break anything, it just decreases the accuracy of the
-# bloom filter heuristic, which results in a worse runtime (but correct results)
-BLOOM_WIDTH = 32
+from pypy.rlib.rarithmetic import LONG_BIT as BLOOM_WIDTH
 
 
 def bloom_add(mask, c):

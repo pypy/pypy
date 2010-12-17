@@ -1,4 +1,4 @@
 import py
 
-def pytest_collect_directory():
-    py.test.skip("llvm backend tests skipped for now")
+def pytest_ignore_collect(path):
+    return True

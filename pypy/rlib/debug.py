@@ -53,13 +53,11 @@ class DebugLog(list):
 
 _log = None       # patched from tests to be an object of class DebugLog
                   # or compatible
-_stderr = sys.stderr   # alternatively, this is patched from tests
-                       # (redirects debug_print(), but not debug_start/stop)
 
 def debug_print(*args):
     for arg in args:
-        print >> _stderr, arg,
-    print >> _stderr
+        print >> sys.stderr, arg,
+    print >> sys.stderr
     if _log is not None:
         _log.debug_print(*args)
 
@@ -87,13 +85,15 @@ else:
     _stop_colors = ""
 
 def debug_start(category):
-    print >> sys.stderr, '%s[%s] {%s%s' % (_start_colors_1, time.clock(),
+    c = int(time.clock() * 100)
+    print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_start(category)
 
 def debug_stop(category):
-    print >> sys.stderr, '%s[%s] %s}%s' % (_start_colors_2, time.clock(),
+    c = int(time.clock() * 100)
+    print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_stop(category)
@@ -220,31 +220,6 @@ class Entry(ExtRegistryEntry):
         else:
             from pypy.annotation.annrpython import log
             log.WARNING('make_sure_not_resized called, but has no effect since list_comprehension is off')
-        return s_arg
-    
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        return hop.inputarg(hop.args_r[0], arg=0)
-
-def make_sure_not_modified(arg):
-    """ Function checking whether annotation of SomeList is never resized
-    and never modified, useful for debugging. Does nothing when run directly
-    """
-    return arg
-
-class Entry(ExtRegistryEntry):
-    _about_ = make_sure_not_modified
-
-    def compute_result_annotation(self, s_arg):
-        from pypy.annotation.model import SomeList
-        assert isinstance(s_arg, SomeList)
-        # the logic behind it is that we try not to propagate
-        # make_sure_not_resized, when list comprehension is not on
-        if self.bookkeeper.annotator.translator.config.translation.list_comprehension_operations:
-            s_arg.listdef.never_mutate()
-        else:
-            from pypy.annotation.annrpython import log
-            log.WARNING('make_sure_not_modified called, but has no effect since list_comprehension is off')
         return s_arg
     
     def specialize_call(self, hop):

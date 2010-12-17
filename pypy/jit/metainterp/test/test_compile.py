@@ -42,7 +42,6 @@ class FakeLogger:
 
 class FakeState:
     optimize_loop = staticmethod(optimize.optimize_loop)
-    debug_level = 0
 
 class FakeGlobalData:
     loopnumbering = 0
@@ -54,6 +53,8 @@ class FakeMetaInterpStaticData:
 
     stats = Stats()
     profiler = jitprof.EmptyProfiler()
+    warmrunnerdesc = None
+    jit_ffi = False
     def log(self, msg, event_kind=None):
         pass
 
@@ -207,14 +208,12 @@ def test_compile_tmp_callback():
         class ExitFrameWithExceptionRef(Exception):
             pass
     FakeMetaInterpSD.cpu = cpu
-    class FakeJitDriverSD:
-        pass
     cpu.set_future_value_int(0, -156)
     cpu.set_future_value_int(1, -178)
     cpu.set_future_value_int(2, -190)
     fail_descr = cpu.execute_token(loop_token)
     try:
-        fail_descr.handle_fail(FakeMetaInterpSD(), FakeJitDriverSD())
+        fail_descr.handle_fail(FakeMetaInterpSD(), None)
     except FakeMetaInterpSD.ExitFrameWithExceptionRef, e:
         assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), e.args[1]) == llexc
     else:
