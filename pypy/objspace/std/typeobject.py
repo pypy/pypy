@@ -136,7 +136,7 @@ class W_TypeObject(W_Object):
 
     def mutated(w_self):
         space = w_self.space
-        assert w_self.is_heaptype() or not space.config.objspace.std.immutable_builtintypes
+        assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
             not space.config.objspace.std.newshortcut):
@@ -159,8 +159,8 @@ class W_TypeObject(W_Object):
             w_subclass.mutated()
 
     def version_tag(w_self):
-        if (not we_are_jitted() or w_self.is_heaptype() or not
-            w_self.space.config.objspace.std.immutable_builtintypes):
+        if (not we_are_jitted() or w_self.is_heaptype() or
+            w_self.space.config.objspace.std.mutable_builtintypes):
             return w_self._version_tag
         # heap objects cannot get their version_tag changed
         return w_self._pure_version_tag()
@@ -798,7 +798,7 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
             space.set(w_descr, w_type, w_value)
             return
     
-    if (space.config.objspace.std.immutable_builtintypes
+    if (not space.config.objspace.std.mutable_builtintypes
             and not w_type.is_heaptype()):
         msg = "can't set attributes on type object '%s'"
         raise operationerrfmt(space.w_TypeError, msg, w_type.name)
@@ -820,7 +820,7 @@ def delattr__Type_ANY(space, w_type, w_name):
         if space.is_data_descr(w_descr):
             space.delete(w_descr, w_type)
             return
-    if (space.config.objspace.std.immutable_builtintypes
+    if (not space.config.objspace.std.mutable_builtintypes
             and not w_type.is_heaptype()):
         msg = "can't delete attributes on type object '%s'"
         raise operationerrfmt(space.w_TypeError, msg, w_type.name)

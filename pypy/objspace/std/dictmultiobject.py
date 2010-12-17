@@ -819,42 +819,6 @@ def dict_popitem__DictMulti(space, w_dict):
                              space.wrap("popitem(): dictionary is empty"))
     return space.newtuple([w_key, w_value])
 
-app = gateway.applevel('''
-    def dictrepr(currently_in_repr, d):
-        # Now we only handle one implementation of dicts, this one.
-        # The fix is to move this to dicttype.py, and do a
-        # multimethod lookup mapping str to StdObjSpace.str
-        # This cannot happen until multimethods are fixed. See dicttype.py
-            dict_id = id(d)
-            if dict_id in currently_in_repr:
-                return '{...}'
-            currently_in_repr[dict_id] = 1
-            try:
-                items = []
-                # XXX for now, we cannot use iteritems() at app-level because
-                #     we want a reasonable result instead of a RuntimeError
-                #     even if the dict is mutated by the repr() in the loop.
-                for k, v in dict.items(d):
-                    items.append(repr(k) + ": " + repr(v))
-                return "{" +  ', '.join(items) + "}"
-            finally:
-                try:
-                    del currently_in_repr[dict_id]
-                except:
-                    pass
-''', filename=__file__)
-
-dictrepr = app.interphook("dictrepr")
-
-def repr__DictMulti(space, w_dict):
-    if w_dict.length() == 0:
-        return space.wrap('{}')
-    ec = space.getexecutioncontext()
-    w_currently_in_repr = ec._py_repr
-    if w_currently_in_repr is None:
-        w_currently_in_repr = ec._py_repr = space.newdict()
-    return dictrepr(space, w_currently_in_repr, w_dict)
-
 
 # ____________________________________________________________
 # Iteration

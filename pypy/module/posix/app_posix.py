@@ -109,7 +109,7 @@ if osname == 'posix':
 
         def close(self):
             import os
-            file.close(self)
+            super(popenfile, self).close()
             pid = self._childpid
             if pid is not None:
                 self._childpid = None
