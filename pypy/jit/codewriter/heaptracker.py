@@ -84,6 +84,7 @@ def vtable2descr(cpu, vtable):
         # Build the dict {vtable: sizedescr} at runtime.
         # This is necessary because the 'vtables' are just pointers to
         # static data, so they can't be used as keys in prebuilt dicts.
+        assert cpu._all_size_descrs_with_vtable is not None
         d = cpu._vtable_to_descr_dict
         if d is None:
             d = cpu._vtable_to_descr_dict = {}

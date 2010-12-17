@@ -18,6 +18,7 @@ class AbstractCPU(object):
     _all_size_descrs_with_vtable = None
     _vtable_to_descr_dict = None
 
+
     def __init__(self):
         self.fail_descr_list = []
         self.fail_descr_free_list = []
