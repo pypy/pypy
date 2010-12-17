@@ -943,7 +943,7 @@ class AppTestTypeObject:
 class AppTestMutableBuiltintypes:
 
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.immutable_builtintypes": False})
+        cls.space = gettestobjspace(**{"objspace.std.mutable_builtintypes": True})
 
     def test_del_type_mro(self):
         del type.mro
