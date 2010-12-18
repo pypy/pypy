@@ -5,13 +5,6 @@
 #include "structmember.h"
 #include "structseq.h"
 
-#ifdef Py_TYPE
-#error "Please remove these definitions"
-#else
-#define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
-#define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
-#endif
-
 static char visible_length_key[] = "n_sequence_fields";
 static char real_length_key[] = "n_fields";
 static char unnamed_fields_key[] = "n_unnamed_fields";

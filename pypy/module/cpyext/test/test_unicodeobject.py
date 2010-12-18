@@ -65,6 +65,15 @@ class TestUnicode(BaseApiTest):
         assert rffi.wcharp2unicode(buf) == 'a'
         rffi.free_wcharp(buf)
 
+    def test_fromstring(self, space, api):
+        s = rffi.str2charp(u'späm'.encode("utf-8"))
+        w_res = api.PyUnicode_FromString(s)
+        assert space.unwrap(w_res) == u'späm'
+
+        w_res = api.PyUnicode_FromStringAndSize(s, 4)
+        assert space.unwrap(w_res) == u'spä'
+        rffi.free_charp(s)
+
     def test_AsUTF8String(self, space, api):
         w_u = space.wrap(u'späm')
         w_res = api.PyUnicode_AsUTF8String(w_u)
@@ -112,6 +121,12 @@ class TestUnicode(BaseApiTest):
     def test_TOUPPER(self, space, api):
         assert api.Py_UNICODE_TOUPPER(u'ä') == u'Ä'
         assert api.Py_UNICODE_TOUPPER(u'Ä') == u'Ä'
+
+    def test_fromobject(self, space, api):
+        w_u = space.wrap(u'a')
+        assert api.PyUnicode_FromObject(w_u) is w_u
+        assert space.unwrap(
+            api.PyUnicode_FromObject(space.wrap('test'))) == 'test'
 
     def test_decode(self, space, api):
         b_text = rffi.str2charp('caf\x82xx')
@@ -207,3 +222,6 @@ class TestUnicode(BaseApiTest):
 
         test("\xFE\xFF\x00\x61\x00\x62\x00\x63\x00\x64", 0, 1)
         test("\xFF\xFE\x61\x00\x62\x00\x63\x00\x64\x00", 0, -1)
+
+    def test_compare(self, space, api):
+        assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1

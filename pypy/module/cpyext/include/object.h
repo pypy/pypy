@@ -55,11 +55,9 @@ typedef struct {
                 }				\
         } while (0)
 
-#if 0  /* This will be added with python 2.6 */
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
-#endif /* This will be added with python 2.6 */
 
 #define Py_None (&_Py_NoneStruct)
 
@@ -460,6 +458,11 @@ manually remove this flag though!
 
 #define PyObject_GC_New(type, typeobj) \
                 ( (type *) _PyObject_GC_New(typeobj) )
+
+/* A dummy PyGC_Head, just to please some tests. Don't use it! */
+typedef union _gc_head {
+    char dummy;
+} PyGC_Head;
 
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments

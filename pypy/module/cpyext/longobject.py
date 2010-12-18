@@ -1,8 +1,9 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (cpython_api, PyObject, build_type_checkers,
-                                    CONST_STRING, ADDR)
+                                    CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -38,6 +39,13 @@ def PyLong_AsUnsignedLong(space, w_long):
     raised."""
     return rffi.cast(rffi.ULONG, space.uint_w(w_long))
 
+@cpython_api([PyObject], rffi.ULONG, error=-1)
+def PyLong_AsUnsignedLongMask(space, w_long):
+    """Return a C unsigned long from a Python long integer, without checking
+    for overflow.
+    """
+    return PyInt_AsUnsignedLongMask(space, w_long)
+
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyLong_AsLong(space, w_long):
     """
@@ -61,6 +69,57 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
     return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
+
+@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
+def PyLong_AsUnsignedLongLongMask(space, w_long):
+    """Will first attempt to cast the object to a PyIntObject or
+    PyLongObject, if it is not already one, and then return its value as
+    unsigned long long, without checking for overflow.
+    """
+    num = space.bigint_w(w_long)
+    return num.ulonglongmask()
+
+@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], lltype.Signed,
+             error=-1)
+def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
+    """
+    Return a C long representation of the contents of pylong.  If pylong is
+    greater than LONG_MAX or less than LONG_MIN, set *overflow to 1 or -1,
+    respectively, and return -1; otherwise, set *overflow to 0.  If any other
+    exception occurs (for example a TypeError or MemoryError), then -1 will be
+    returned and *overflow will be 0."""
+    overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
+    try:
+        return space.int_w(w_long)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    if space.is_true(space.gt(w_long, space.wrap(0))):
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
+    else:
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
+    return -1
+
+@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
+             error=-1)
+def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
+    """
+    Return a C long long representation of the contents of pylong.  If pylong is
+    greater than PY_LLONG_MAX or less than PY_LLONG_MIN, set *overflow to 1 or
+    -1, respectively, and return -1; otherwise, set *overflow to 0.  If any
+    other exception occurs (for example a TypeError or MemoryError), then -1
+    will be returned and *overflow will be 0."""
+    overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
+    try:
+        return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    if space.is_true(space.gt(w_long, space.wrap(0))):
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
+    else:
+        overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
+    return -1
 
 @cpython_api([lltype.Float], PyObject)
 def PyLong_FromDouble(space, val):
@@ -108,4 +167,14 @@ def PyLong_AsVoidPtr(space, w_long):
     with PyLong_FromVoidPtr().
     For values outside 0..LONG_MAX, both signed and unsigned integers are accepted."""
     return rffi.cast(rffi.VOIDP_real, space.uint_w(w_long))
+
+@cpython_api([PyObject], rffi.SIZE_T, error=-1)
+def _PyLong_NumBits(space, w_long):
+    return space.uint_w(space.call_method(w_long, "bit_length"))
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def _PyLong_Sign(space, w_long):
+    assert isinstance(w_long, W_LongObject)
+    return w_long.num.sign
+
 

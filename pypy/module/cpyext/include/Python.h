@@ -34,7 +34,23 @@
 # endif
 # define Py_LOCAL_INLINE(type) static __inline type __fastcall
 #endif
-#define DL_IMPORT(RTYPE) PyAPI_FUNC(RTYPE)
+
+/* Deprecated DL_IMPORT and DL_EXPORT macros */
+#ifdef _WIN32
+# if defined(Py_BUILD_CORE)
+#  define DL_IMPORT(RTYPE) __declspec(dllexport) RTYPE
+#  define DL_EXPORT(RTYPE) __declspec(dllexport) RTYPE
+# else
+#  define DL_IMPORT(RTYPE) __declspec(dllimport) RTYPE
+#  define DL_EXPORT(RTYPE) __declspec(dllexport) RTYPE
+# endif
+#endif
+#ifndef DL_EXPORT
+#       define DL_EXPORT(RTYPE) RTYPE
+#endif
+#ifndef DL_IMPORT
+#       define DL_IMPORT(RTYPE) RTYPE
+#endif
 
 #include <stdlib.h>
 
@@ -57,10 +73,6 @@ typedef long Py_ssize_t;
 #define Py_CHARMASK(c)		((unsigned char)((c) & 0xff))
 #endif
 
-#ifndef DL_EXPORT	/* declarations for DLL import/export */
-#define DL_EXPORT(RTYPE) RTYPE
-#endif
-
 #define statichere static
 
 #define Py_MEMCPY memcpy
@@ -68,6 +80,7 @@ typedef long Py_ssize_t;
 #include <pypy_macros.h>
 
 #include "patchlevel.h"
+#include "pyconfig.h"
 
 #include "object.h"
 #include "pyport.h"
@@ -79,8 +92,6 @@ typedef long Py_ssize_t;
 #include <assert.h>
 #include <locale.h>
 #include <ctype.h>
-
-#include "pyconfig.h"
 
 #include "boolobject.h"
 #include "floatobject.h"
@@ -101,6 +112,7 @@ typedef long Py_ssize_t;
 #include "eval.h"
 #include "pymem.h"
 #include "pycobject.h"
+#include "pycapsule.h"
 #include "bufferobject.h"
 #include "sliceobject.h"
 #include "datetime.h"

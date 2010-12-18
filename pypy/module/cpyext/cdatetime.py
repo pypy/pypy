@@ -18,8 +18,7 @@ PyDateTime_CAPI = cpython_struct(
      ('DeltaType', PyTypeObjectPtr),
      ))
 
-@cpython_api([], lltype.Ptr(PyDateTime_CAPI),
-             error=lltype.nullptr(PyDateTime_CAPI))
+@cpython_api([], lltype.Ptr(PyDateTime_CAPI))
 def _PyDateTime_Import(space):
     datetimeAPI = lltype.malloc(PyDateTime_CAPI, flavor='raw',
                                 track_allocation=False)
