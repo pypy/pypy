@@ -49,10 +49,6 @@ dict_reversed   = SMM('__reversed__',      1)
 def dict_reversed__ANY(space, w_dict):
     raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
 
-#dict_fromkeys   = MultiMethod('fromkeys',      2, varargs=True)
-# This can return when multimethods have been fixed
-#dict_str        = StdObjSpace.str
-
 register_all(vars(), globals())
 
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
@@ -60,7 +56,7 @@ def descr_fromkeys(space, w_type, w_keys, w_fill=None):
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
         w_fill = space.w_None
-    if w_type is space.w_dict:
+    if space.is_w(w_type, space.w_dict):
         w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
         for w_key in space.listview(w_keys):
             w_dict.setitem(w_key, w_fill)
@@ -69,6 +65,40 @@ def descr_fromkeys(space, w_type, w_keys, w_fill=None):
         for w_key in space.listview(w_keys):
             space.setitem(w_dict, w_key, w_fill)
     return w_dict
+
+
+app = gateway.applevel('''
+    def dictrepr(currently_in_repr, d):
+        if len(d) == 0:
+            return "{}"
+        dict_id = id(d)
+        if dict_id in currently_in_repr:
+            return '{...}'
+        currently_in_repr[dict_id] = 1
+        try:
+            items = []
+            # XXX for now, we cannot use iteritems() at app-level because
+            #     we want a reasonable result instead of a RuntimeError
+            #     even if the dict is mutated by the repr() in the loop.
+            for k, v in dict.items(d):
+                items.append(repr(k) + ": " + repr(v))
+            return "{" +  ', '.join(items) + "}"
+        finally:
+            try:
+                del currently_in_repr[dict_id]
+            except:
+                pass
+''', filename=__file__)
+
+dictrepr = app.interphook("dictrepr")
+
+
+def descr_repr(space, w_dict):
+    ec = space.getexecutioncontext()
+    w_currently_in_repr = ec._py_repr
+    if w_currently_in_repr is None:
+        w_currently_in_repr = ec._py_repr = space.newdict()
+    return dictrepr(space, w_currently_in_repr, w_dict)
 
 
 # ____________________________________________________________
@@ -95,6 +125,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
                                  [gateway.ObjSpace,
                                   gateway.W_Root,gateway.Arguments]),
     __hash__ = no_hash_descr,
+    __repr__ = gateway.interp2app(descr_repr),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     )
 dict_typedef.registermethods(globals())

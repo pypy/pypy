@@ -4,71 +4,32 @@ from pypy.module.cpyext.api import (
 from pypy.rpython.lltypesystem import rffi, lltype
 
 # we don't really care
-PyTypeObjectPtr = lltype.Void
-Py_ssize_t = lltype.Void
-PyMethodDef = lltype.Void
-PyGetSetDef = lltype.Void
-PyMemberDef = lltype.Void
-Py_buffer = lltype.Void
-Py_complex = lltype.Void
-va_list = lltype.Void
-PyDateTime_Date = lltype.Void
-PyDateTime_DateTime = lltype.Void
-PyDateTime_Time = lltype.Void
-wrapperbase = lltype.Void
-FILE = lltype.Void
-PyFileObject = lltype.Void
-PyCodeObject = lltype.Void
-PyFrameObject = lltype.Void
-_inittab = lltype.Void
-PyThreadState = lltype.Void
-PyInterpreterState = lltype.Void
-#PyOS_sighandler_t = lltype.Void
-Py_UNICODE = lltype.Void
-PyCompilerFlags = lltype.Void
-_node = lltype.Void
+PyTypeObjectPtr = rffi.VOIDP
+Py_ssize_t = rffi.VOIDP
+PyMethodDef = rffi.VOIDP
+PyGetSetDef = rffi.VOIDP
+PyMemberDef = rffi.VOIDP
+Py_buffer = rffi.VOIDP
+Py_complex = rffi.VOIDP
+va_list = rffi.VOIDP
+PyDateTime_Date = rffi.VOIDP
+PyDateTime_DateTime = rffi.VOIDP
+PyDateTime_Time = rffi.VOIDP
+wrapperbase = rffi.VOIDP
+FILE = rffi.VOIDP
+PyFileObject = rffi.VOIDP
+PyCodeObject = rffi.VOIDP
+PyFrameObject = rffi.VOIDP
+_inittab = rffi.VOIDP
+PyThreadState = rffi.VOIDP
+PyInterpreterState = rffi.VOIDP
+PyOS_sighandler_t = rffi.VOIDP
+Py_UNICODE = rffi.VOIDP
+PyCompilerFlags = rffi.VOIDP
+_node = rffi.VOIDP
 
 @cpython_api([PyObject], lltype.Void)
 def _PyObject_Del(space, op):
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyMethodDef], PyObject)
-def Py_InitModule(space, name, methods):
-    """Create a new module object based on a name and table of functions,
-    returning the new module object.
-    
-    Older versions of Python did not support NULL as the value for the
-    methods argument."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyMethodDef, rffi.CCHARP], PyObject)
-def Py_InitModule3(space, name, methods, doc):
-    """Create a new module object based on a name and table of functions,
-    returning the new module object.  If doc is non-NULL, it will be used
-    to define the docstring for the module.
-    
-    Older versions of Python did not support NULL as the value for the
-    methods argument."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.CCHARP, va_list], rffi.INT_real, error=0)
-def PyArg_VaParse(space, args, format, vargs):
-    """Identical to PyArg_ParseTuple(), except that it accepts a va_list
-    rather than a variable number of arguments."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, rffi.CCHARP, rffi.CCHARP, va_list], rffi.INT_real, error=0)
-def PyArg_VaParseTupleAndKeywords(space, args, kw, format, keywords, vargs):
-    """Identical to PyArg_ParseTupleAndKeywords(), except that it accepts a
-    va_list rather than a variable number of arguments."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, va_list], PyObject)
-def Py_VaBuildValue(space, format, vargs):
-    """Identical to Py_BuildValue(), except that it accepts a va_list
-    rather than a variable number of arguments."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=0)
@@ -261,11 +222,6 @@ def PyBuffer_FillInfo(space, view, obj, buf, len, readonly, infoflags):
     length.  Return 0 on success and -1 (with raising an error) on error."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyMemoryView_FromObject(space, obj):
-    """Return a memoryview object from an object that defines the buffer interface."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyByteArray_Check(space, o):
     """Return true if the object o is a bytearray object or an instance of a
@@ -400,13 +356,6 @@ def PyCode_New(space, argcount, nlocals, stacksize, flags, code, consts, names, 
     create a frame, use PyCode_NewEmpty() instead.  Calling
     PyCode_New() directly can bind you to a precise Python
     version since the definition of the bytecode changes often."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def PyCode_NewEmpty(space, filename, funcname, firstlineno):
-    """Return a new empty code object with the specified filename,
-    function name, and first line number.  It is illegal to
-    exec or eval() the resulting code object."""
     raise NotImplementedError
 
 @cpython_api([Py_complex, Py_complex], Py_complex)
@@ -627,14 +576,6 @@ def PyDictProxy_New(space, dict):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyDict_Contains(space, p, key):
-    """Determine if dictionary p contains key.  If an item in p is matches
-    key, return 1, otherwise return 0.  On error, return -1.
-    This is equivalent to the Python expression key in p.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyDict_DelItemString(space, p, key):
     """Remove the entry in dictionary p which has a key specified by the string
@@ -716,13 +657,6 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     described there."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.INT_real], rffi.INT_real, error=-1)
-def PyErr_WarnPy3k(space, message, stacklevel):
-    """Issue a DeprecationWarning with the given message and stacklevel
-    if the Py_Py3kWarningFlag flag is enabled.
-    """
-    raise NotImplementedError
-
 @cpython_api([], lltype.Void)
 def PyErr_SetInterrupt(space, ):
     """
@@ -746,14 +680,6 @@ def PySignal_SetWakeupFd(space, fd):
     This is equivalent to signal.set_wakeup_fd() in Python, but without any
     error checking.  fd should be a valid file descriptor.  The function should
     only be called from the main thread."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARP, PyObject, PyObject], PyObject)
-def PyErr_NewExceptionWithDoc(space, name, doc, base, dict):
-    """Same as PyErr_NewException(), except that the new exception class can
-    easily be given a docstring: If doc is non-NULL, it will be used as the
-    docstring for the exception class.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject], lltype.Void)
@@ -877,13 +803,6 @@ def PyFile_WriteObject(space, obj, p, flags):
 def PyFile_WriteString(space, s, p):
     """Write string s to file object p.  Return 0 on success or -1 on
     failure; the appropriate exception will be set."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.CCHARPP], PyObject)
-def PyFloat_FromString(space, str, pend):
-    """Create a PyFloatObject object based on the string value in str, or
-    NULL on failure.  The pend argument is ignored.  It remains only for
-    backward compatibility."""
     raise NotImplementedError
 
 @cpython_api([rffi.VOIDP_real], PyObject)
@@ -1024,22 +943,6 @@ def _PyObject_GC_UNTRACK(space, op):
     extension modules."""
     raise NotImplementedError
 
-@cpython_api([PyObject], lltype.Void)
-def Py_VISIT(space, o):
-    """Call the visit callback, with arguments o and arg. If visit returns
-    a non-zero value, then return it.  Using this macro, tp_traverse
-    handlers look like:
-    
-    static int
-    my_traverse(Noddy *self, visitproc visit, void *arg)
-    {
-        Py_VISIT(self->foo);
-        Py_VISIT(self->bar);
-        return 0;
-    }
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyGen_Check(space, gen):
     """Return true if ob is a generator object; ob must not be NULL."""
@@ -1056,18 +959,6 @@ def PyGen_New(space, frame):
     """Create and return a new generator object based on the frame object. A
     reference to frame is stolen by this function. The parameter must not be
     NULL."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyImport_ImportModuleNoBlock(space, name):
-    """This version of PyImport_ImportModule() does not block. It's intended
-    to be used in C functions that import other modules to execute a function.
-    The import may block if another thread holds the import lock. The function
-    PyImport_ImportModuleNoBlock() never blocks. It first tries to fetch
-    the module from sys.modules and falls back to PyImport_ImportModule()
-    unless the lock is held, in which case the function will raise an
-    ImportError.
-    """
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject], PyObject)
@@ -1789,43 +1680,10 @@ def PyThreadState_Next(space, tstate):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.CCHARPP, rffi.INT_real], PyObject)
-def PyInt_FromString(space, str, pend, base):
-    """Return a new PyIntObject or PyLongObject based on the string
-    value in str, which is interpreted according to the radix in base.  If
-    pend is non-NULL, *pend will point to the first character in str which
-    follows the representation of the number.  If base is 0, the radix will be
-    determined based on the leading characters of str: if str starts with
-    '0x' or '0X', radix 16 will be used; if str starts with '0', radix
-    8 will be used; otherwise radix 10 will be used.  If base is not 0, it
-    must be between 2 and 36, inclusive.  Leading spaces are ignored.  If
-    there are no digits, ValueError will be raised.  If the string represents
-    a number too large to be contained within the machine's long int type
-    and overflow warnings are being suppressed, a PyLongObject will be
-    returned.  If overflow warnings are not being suppressed, NULL will be
-    returned in this case."""
-    raise NotImplementedError
-
 @cpython_api([rffi.SIZE_T], PyObject)
 def PyInt_FromSize_t(space, ival):
     """Create a new integer object with a value of ival. If the value exceeds
     LONG_MAX, a long integer object is returned.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.ULONG, error=-1)
-def PyInt_AsUnsignedLongMask(space, io):
-    """Will first attempt to cast the object to a PyIntObject or
-    PyLongObject, if it is not already one, and then return its value as
-    unsigned long.  This function does not check for overflow.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.LONGLONG, error=-1)
-def PyInt_AsUnsignedLongLongMask(space, io):
-    """Will first attempt to cast the object to a PyIntObject or
-    PyLongObject, if it is not already one, and then return its value as
-    unsigned long long, without checking for overflow.
     """
     raise NotImplementedError
 
@@ -1853,29 +1711,6 @@ def PySeqIter_Check(space, seq):
 def PyCallIter_Check(space, iter):
     """Return true if the type of op is PyCallIter_Type.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PyList_GET_ITEM(space, list, i):
-    """Macro form of PyList_GetItem() without error checking.
-    
-    This macro used an int for i. This might require changes in
-    your code for properly supporting 64-bit systems."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t, PyObject], lltype.Void)
-def PyList_SET_ITEM(space, list, i, o):
-    """Macro form of PyList_SetItem() without error checking. This is
-    normally only used to fill in new lists where there is no previous content.
-    
-    This macro "steals" a reference to item, and, unlike
-    PyList_SetItem(), does not discard a reference to any item that
-    it being replaced; any reference in list at position i will be
-    leaked.
-    
-    This macro used an int for i. This might require
-    changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
@@ -1917,30 +1752,6 @@ def PyLong_FromUnicode(space, u, length, base):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INTP], lltype.Signed, error=-1)
-def PyLong_AsLongAndOverflow(space, pylong, overflow):
-    """Return a C long representation of the contents of
-    pylong.  If pylong is greater than LONG_MAX or less
-    than LONG_MIN, set *overflow to 1 or -1,
-    respectively, and return -1; otherwise, set *overflow to
-    0.  If any other exception occurs (for example a TypeError or
-    MemoryError), then -1 will be returned and *overflow will
-    be 0.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INTP], rffi.LONGLONG, error=-1)
-def PyLong_AsLongLongAndOverflow(space, pylong, overflow):
-    """Return a C long long representation of the contents of
-    pylong.  If pylong is greater than PY_LLONG_MAX or less
-    than PY_LLONG_MIN, set *overflow to 1 or -1,
-    respectively, and return -1; otherwise, set *overflow to
-    0.  If any other exception occurs (for example a TypeError or
-    MemoryError), then -1 will be returned and *overflow will
-    be 0.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], Py_ssize_t)
 def PyLong_AsSsize_t(space, pylong):
     """
@@ -1950,20 +1761,6 @@ def PyLong_AsSsize_t(space, pylong):
     Return a C Py_ssize_t representation of the contents of pylong.  If
     pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
     and -1 will be returned.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.ULONG, error=-1)
-def PyLong_AsUnsignedLongMask(space, io):
-    """Return a C unsigned long from a Python long integer, without checking
-    for overflow.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
-def PyLong_AsUnsignedLongLongMask(space, io):
-    """Return a C unsigned long long from a Python long integer, without
-    checking for overflow.
     """
     raise NotImplementedError
 
@@ -2398,20 +2195,6 @@ def PySlice_GetIndices(space, slice, length, start, stop, step):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], Py_ssize_t)
-def PyString_GET_SIZE(space, string):
-    """Macro form of PyString_Size() but without error checking.
-    
-    This macro returned an int type. This might require changes in
-    your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
-def PyString_AS_STRING(space, string):
-    """Macro form of PyString_AsString() but without error checking.  Only
-    string objects are supported; no Unicode objects should be passed."""
-    raise NotImplementedError
-
 @cpython_api([PyObjectP], lltype.Void)
 def PyString_InternInPlace(space, string):
     """Intern the argument *string in place.  The argument must be the address of a
@@ -2590,15 +2373,6 @@ def Py_AtExit(space, func):
     the cleanup function, no Python APIs should be called by func."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PyTuple_GET_ITEM(space, p, pos):
-    """Like PyTuple_GetItem(), but does no checking of its arguments.
-    
-    This function used an int type for pos. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    borrow_from()
-    raise NotImplementedError
-
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PyTuple_GetSlice(space, p, low, high):
     """Take a slice of the tuple pointed to by p from low to high and return it
@@ -2606,17 +2380,6 @@ def PyTuple_GetSlice(space, p, low, high):
     
     This function used an int type for low and high. This might
     require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t, PyObject], lltype.Void)
-def PyTuple_SET_ITEM(space, p, pos, o):
-    """Like PyTuple_SetItem(), but does no error checking, and should only be
-    used to fill in brand new tuples.
-    
-    This function "steals" a reference to o.
-    
-    This function used an int type for pos. This might require
-    changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -2637,12 +2400,6 @@ def PyType_Modified(space, type):
     subtypes.  This function must be called after any manual
     modification of the attributes or base classes of the type.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_HasFeature(space, o, feature):
-    """Return true if the type object o sets the feature feature.  Type features
-    are denoted by single bit flags."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -2699,12 +2456,6 @@ def Py_UNICODE_TODIGIT(space, ch):
 def Py_UNICODE_TONUMERIC(space, ch):
     """Return the character ch converted to a double. Return -1.0 if this is not
     possible.  This macro does not raise exceptions."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_FromObject(space, obj):
-    """Shortcut for PyUnicode_FromEncodedObject(obj, NULL, "strict") which is used
-    throughout the interpreter whenever coercion to Unicode is needed."""
     raise NotImplementedError
 
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
@@ -3091,12 +2842,6 @@ def PyUnicode_Replace(space, str, substr, replstr, maxcount):
     
     This function used an int type for maxcount. This might
     require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
-def PyUnicode_Compare(space, left, right):
-    """Compare two strings and return -1, 0, 1 for less than, equal, and greater than,
-    respectively."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)

@@ -3,7 +3,8 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.methodobject import PyMethodDef
 from pypy.module.cpyext.api import ApiFunction
 from pypy.module.cpyext.pyobject import PyObject, make_ref, Py_DecRef
-from pypy.module.cpyext.methodobject import PyDescr_NewMethod
+from pypy.module.cpyext.methodobject import (
+    PyDescr_NewMethod, PyCFunction_typedef)
 from pypy.rpython.lltypesystem import rffi, lltype
 
 class AppTestMethodObject(AppTestCpythonExtensionBase):
@@ -50,6 +51,16 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
+            ('isSameFunction', 'METH_O',
+             '''
+             PyCFunction ptr = PyCFunction_GetFunction(args);
+             if (!ptr) return NULL;
+             if (ptr == foo_getarg_O)
+                 Py_RETURN_TRUE;
+             else
+                 Py_RETURN_FALSE;
+             '''
+             ),
             ])
         assert mod.getarg_O(1) == 1
         raises(TypeError, mod.getarg_O)
@@ -64,6 +75,8 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_OLD(1, 2) == (1, 2)
 
         assert mod.isCFunction(mod.getarg_O) == "getarg_O"
+        assert mod.isSameFunction(mod.getarg_O)
+        raises(TypeError, mod.isSameFunction, 1)
 
 class TestPyCMethodObject(BaseApiTest):
     def test_repr(self, space):
@@ -78,7 +91,8 @@ class TestPyCMethodObject(BaseApiTest):
         ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
         namebuf = rffi.str2charp('func')
         ml.c_ml_name = namebuf
-        ml.c_ml_meth = c_func.get_llhelper(space)
+        ml.c_ml_meth = rffi.cast(PyCFunction_typedef,
+                                 c_func.get_llhelper(space))
 
         method = PyDescr_NewMethod(space, space.w_str, ml)
         assert repr(method).startswith(

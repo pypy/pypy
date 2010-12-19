@@ -190,6 +190,9 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations,
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new bridge")
+    if metainterp_sd.warmrunnerdesc is not None:    # for tests
+        metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
+            original_loop_token)
 
 # ____________________________________________________________
 

@@ -301,7 +301,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False),        
+                   default=False),
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
@@ -310,8 +310,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         ChoiceOption("multimethods", "the multimethod implementation to use",
                      ["doubledispatch", "mrd"],
                      default="mrd"),
-        BoolOption("immutable_builtintypes",
-                   "Forbid the changing of builtin types", default=True),
+        BoolOption("mutable_builtintypes",
+                   "Allow the changing of builtin types", default=False,
+                   requires=[("objspace.std.builtinshortcut", True)]),
      ]),
 ])
 

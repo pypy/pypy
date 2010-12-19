@@ -193,7 +193,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
       the API headers.
     """
     if error is _NOT_SPECIFIED:
-        if restype is PyObject:
+        if isinstance(restype, lltype.Ptr):
             error = lltype.nullptr(restype.TO)
         elif restype is lltype.Void:
             error = CANNOT_FAIL
@@ -308,7 +308,7 @@ SYMBOLS_C = [
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
 
-    'PyErr_Format', 'PyErr_NewException',
+    'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
@@ -746,6 +746,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
         ("SIZEOF_VOID_P", rffi.VOIDP),
         ("SIZEOF_SIZE_T", rffi.SIZE_T),
+        ("SIZEOF_TIME_T", rffi.TIME_T),
         ("SIZEOF_LONG", rffi.LONG),
         ("SIZEOF_SHORT", rffi.SHORT),
         ("SIZEOF_INT", rffi.INT)

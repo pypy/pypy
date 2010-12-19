@@ -122,7 +122,7 @@ def PyUnicode_AS_UNICODE(space, ref):
         ref_unicode.c_buffer = rffi.unicode2wcharp(u)
     return ref_unicode.c_buffer
 
-@cpython_api([PyObject], rffi.CWCHARP, error=lltype.nullptr(rffi.CWCHARP.TO))
+@cpython_api([PyObject], rffi.CWCHARP)
 def PyUnicode_AsUnicode(space, ref):
     """Return a read-only pointer to the Unicode object's internal Py_UNICODE
     buffer, NULL if unicode is not a Unicode object."""
@@ -253,6 +253,15 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
         w_errors = space.w_None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
 
+@cpython_api([PyObject], PyObject)
+def PyUnicode_FromObject(space, w_obj):
+    """Shortcut for PyUnicode_FromEncodedObject(obj, NULL, "strict") which is used
+    throughout the interpreter whenever coercion to Unicode is needed."""
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return w_obj
+    else:
+        return space.call_function(space.w_unicode, w_obj)
+
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     """Coerce an encoded object obj to an Unicode object and return a reference with
@@ -286,6 +295,25 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
         raise OperationError(space.w_TypeError,
                              space.wrap("decoding Unicode is not supported"))
     return space.call_function(w_meth, w_encoding, w_errors)
+
+@cpython_api([CONST_STRING], PyObject)
+def PyUnicode_FromString(space, s):
+    """Create a Unicode object from an UTF-8 encoded null-terminated char buffer"""
+    w_str = space.wrap(rffi.charp2str(s))
+    return space.call_method(w_str, 'decode', space.wrap("utf-8"))
+
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject)
+def PyUnicode_FromStringAndSize(space, s, size):
+    """Create a Unicode Object from the char buffer u. The bytes will be
+    interpreted as being UTF-8 encoded. u may also be NULL which causes the
+    contents to be undefined. It is the user's responsibility to fill in the
+    needed data. The buffer is copied into the new object. If the buffer is not
+    NULL, the return value might be a shared object. Therefore, modification of
+    the resulting Unicode object is only allowed when u is NULL."""
+    if not s:
+        raise NotImplementedError
+    w_str = space.wrap(rffi.charpsize2str(s, size))
+    return space.call_method(w_str, 'decode', space.wrap("utf-8"))
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsUTF8String(space, w_unicode):
@@ -405,3 +433,10 @@ if sys.platform == 'win32':
         else:
             w_errors = space.w_None
         return space.call_method(w_str, 'decode', w_encoding, w_errors)
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
+def PyUnicode_Compare(space, w_left, w_right):
+    """Compare two strings and return -1, 0, 1 for less than, equal, and greater
+    than, respectively."""
+    return space.int_w(space.cmp(w_left, w_right))
+

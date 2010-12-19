@@ -1,9 +1,10 @@
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import (cpython_api, PyObject, CANNOT_FAIL,
-                                    build_type_checkers, Py_ssize_t)
-
+from pypy.module.cpyext.api import (
+    cpython_api, build_type_checkers, PyObject,
+    CONST_STRING, CANNOT_FAIL, Py_ssize_t)
+from pypy.rlib.rarithmetic import r_uint
 
 PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
 
@@ -35,6 +36,20 @@ def PyInt_AsUnsignedLong(space, w_obj):
                              space.wrap("an integer is required, got NULL"))
     return space.uint_w(space.int(w_obj))
 
+@cpython_api([PyObject], rffi.ULONG, error=-1)
+def PyInt_AsUnsignedLongMask(space, w_obj):
+    """Will first attempt to cast the object to a PyIntObject or
+    PyLongObject, if it is not already one, and then return its value as
+    unsigned long.  This function does not check for overflow.
+    """
+    w_int = space.int(w_obj)
+    if space.is_true(space.isinstance(w_int, space.w_int)):
+        num = space.int_w(w_int)
+        return r_uint(num)
+    else:
+        num = space.bigint_w(w_int)
+        return num.uintmask()
+
 @cpython_api([PyObject], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_AS_LONG(space, w_int):
     """Return the value of the object w_int. No error checking is performed."""
@@ -58,3 +73,26 @@ def PyInt_FromSsize_t(space, ival):
     returned.
     """
     return space.wrap(ival) # XXX this is wrong on win64
+
+@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
+def PyInt_FromString(space, str, pend, base):
+    """Return a new PyIntObject or PyLongObject based on the string
+    value in str, which is interpreted according to the radix in base.  If
+    pend is non-NULL, *pend will point to the first character in str which
+    follows the representation of the number.  If base is 0, the radix will be
+    determined based on the leading characters of str: if str starts with
+    '0x' or '0X', radix 16 will be used; if str starts with '0', radix
+    8 will be used; otherwise radix 10 will be used.  If base is not 0, it
+    must be between 2 and 36, inclusive.  Leading spaces are ignored.  If
+    there are no digits, ValueError will be raised.  If the string represents
+    a number too large to be contained within the machine's long int type
+    and overflow warnings are being suppressed, a PyLongObject will be
+    returned.  If overflow warnings are not being suppressed, NULL will be
+    returned in this case."""
+    s = rffi.charp2str(str)
+    w_str = space.wrap(s)
+    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    if pend:
+        pend[0] = rffi.ptradd(str, len(s))
+    return space.call_function(space.w_int, w_str, w_base)
+

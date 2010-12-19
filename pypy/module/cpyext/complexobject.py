@@ -36,7 +36,7 @@ def PyComplex_ImagAsDouble(space, w_obj):
 
 # lltype does not handle functions returning a structure.  This implements a
 # helper function, which takes as argument a reference to the return value.
-@cpython_api([PyObject, Py_complex_ptr], lltype.Void, error=None)
+@cpython_api([PyObject, Py_complex_ptr], lltype.Void)
 def _PyComplex_AsCComplex(space, w_obj, result):
     """Return the Py_complex value of the complex number op.
 
