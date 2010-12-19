@@ -21,7 +21,7 @@ integer_converters = unrolling_iterable([
     (T_USHORT, rffi.USHORT, PyInt_AsUnsignedLong),
     (T_UINT,   rffi.UINT,   PyInt_AsUnsignedLong),
     (T_ULONG,  rffi.ULONG,  PyInt_AsUnsignedLong),
-    (T_BYTE,   rffi.UCHAR,  PyInt_AsLong),
+    (T_BYTE,   rffi.SIGNEDCHAR, PyInt_AsLong),
     (T_UBYTE,  rffi.UCHAR,  PyInt_AsUnsignedLong),
     (T_BOOL,   rffi.UCHAR,  PyInt_AsLong),
     (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble),
@@ -42,7 +42,10 @@ def PyMember_GetOne(space, obj, w_member):
         if typ == member_type:
             result = rffi.cast(rffi.CArrayPtr(lltyp), addr)
             if lltyp is rffi.FLOAT:
-                w_result = space.wrap(rffi.cast(rffi.DOUBLE, result[0]))
+                w_result = space.wrap(lltype.cast_primitive(lltype.Float,
+                                                            result[0]))
+            elif typ == T_BOOL:
+                w_result = space.wrap(result[0] != '\x00')
             else:
                 w_result = space.wrap(result[0])
             return w_result
