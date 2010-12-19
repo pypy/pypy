@@ -45,7 +45,8 @@ def PyMember_GetOne(space, obj, w_member):
                 w_result = space.wrap(lltype.cast_primitive(lltype.Float,
                                                             result[0]))
             elif typ == T_BOOL:
-                w_result = space.wrap(result[0] != '\x00')
+                x = rffi.cast(lltype.Signed, result[0])
+                w_result = space.wrap(x != 0)
             else:
                 w_result = space.wrap(result[0])
             return w_result
