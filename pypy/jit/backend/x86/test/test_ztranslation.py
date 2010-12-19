@@ -189,14 +189,14 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
 
         @dont_look_inside
         def f(x, total):
-            if x <= 3:
+            if x <= 30:
                 raise ImDone(total * 10)
-            if x > 20:
+            if x > 200:
                 return 2
             raise ValueError
         @dont_look_inside
         def g(x):
-            if x > 15:
+            if x > 150:
                 raise ValueError
             return 2
         class Base:
@@ -207,7 +207,7 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
                 return 1
         @dont_look_inside
         def h(x):
-            if x < 2000:
+            if x < 20000:
                 return Sub()
             else:
                 return Base()
@@ -238,8 +238,8 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
         logfile = udir.join('test_ztranslation.log')
         os.environ['PYPYLOG'] = 'jit-log-opt:%s' % (logfile,)
         try:
-            res = self.meta_interp(main, [40])
-            assert res == main(40)
+            res = self.meta_interp(main, [400])
+            assert res == main(400)
         finally:
             del os.environ['PYPYLOG']
 
@@ -248,5 +248,7 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
             if 'guard_class' in line:
                 guard_class += 1
         # if we get many more guard_classes, it means that we generate
-        # guards that always fail
-        assert 0 < guard_class <= 4
+        # guards that always fail (the following assert's original purpose
+        # is to catch the following case: each GUARD_CLASS is misgenerated
+        # and always fails with "gcremovetypeptr")
+        assert 0 < guard_class < 10
