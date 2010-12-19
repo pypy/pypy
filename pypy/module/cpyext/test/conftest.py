@@ -9,7 +9,7 @@ def pytest_ignore_collect(path, config):
     return False
 
 def pytest_funcarg__space(request):
-    return gettestobjspace(usemodules=['cpyext', 'thread'])
+    return gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
 
 def pytest_funcarg__api(request):
     return request.cls.api

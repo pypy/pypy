@@ -328,18 +328,6 @@ def PyInstance_New(space, cls, arg, kw):
     used as the positional and keyword parameters to the object's constructor."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.VOIDP_real, error=lltype.nullptr(rffi.VOIDP.TO))
-def PyCObject_GetDesc(space, self):
-    """Return the description void * that the PyCObject self was
-    created with."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.VOIDP_real], rffi.INT_real, error=0)
-def PyCObject_SetVoidPtr(space, self, cobj):
-    """Set the void pointer inside self to cobj. The PyCObject must not
-    have an associated destructor. Return true on success, false on failure."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCode_Check(space, co):
     """Return true if co is a code object"""

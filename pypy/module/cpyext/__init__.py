@@ -12,30 +12,8 @@ class Module(MixedModule):
     appleveldefs = {
     }
 
-    def setup_after_space_initialization(self):
-        """NOT_RPYTHON"""
-        state = self.space.fromcache(State)
-        if not self.space.config.translating:
-            state.api_lib = str(api.build_bridge(self.space))
-        else:
-            api.setup_library(self.space)
-
     def startup(self, space):
-        state = space.fromcache(State)
-        from pypy.module.cpyext.typeobject import setup_new_method_def
-        from pypy.module.cpyext.pyobject import RefcountState
-        setup_new_method_def(space)
-        if not we_are_translated():
-            space.setattr(space.wrap(self),
-                          space.wrap('api_lib'),
-                          space.wrap(state.api_lib))
-        else:
-            refcountstate = space.fromcache(RefcountState)
-            refcountstate.init_r2w_from_w2r()
-
-        for func in api.INIT_FUNCTIONS:
-            func(space)
-            state.check_and_raise_exception()
+        space.fromcache(State).startup(space)
 
 # import these modules to register api functions by side-effect
 import pypy.module.cpyext.thread
@@ -70,6 +48,7 @@ import pypy.module.cpyext.weakrefobject
 import pypy.module.cpyext.funcobject
 import pypy.module.cpyext.classobject
 import pypy.module.cpyext.pypyintf
+import pypy.module.cpyext.memoryobject
 import pypy.module.cpyext.codecs
 
 # now that all rffi_platform.Struct types are registered, configure them
