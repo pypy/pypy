@@ -9,6 +9,7 @@ syntax: regexp
 ^pypy/bin/pypy-c
 ^pypy/translator/jvm/src/pypy/.+\.class$
 ^pypy/module/cpyext/test/.+\.errors$
+^pypy/module/cpyext/test/.+\.o$
 ^pypy/doc/.+\.html$
 ^pypy/doc/basicblock\.asc$
 ^pypy/doc/.+\.svninfo$
