@@ -43,6 +43,8 @@ class Inliner(object):
         return newop
     
     def inline_arg(self, arg):
+        if arg is None:
+            return None
         if isinstance(arg, Const):
             return arg
         return self.argmap[arg]
@@ -264,7 +266,9 @@ class UnrollOptimizer(Optimization):
                 newop = self.inliner.inline_op(op, True)
             except KeyError:
                 debug_print("create_short_preamble failed due to",
-                            "new boxes created during optimization")
+                            "new boxes created during optimization.",
+                            "op:", op.getopnum(),
+                            "at position: ", preamble_i)
                 return None
                 
             if self.sameop(newop, loop_ops[loop_i]) \

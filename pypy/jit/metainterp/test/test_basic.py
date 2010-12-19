@@ -1880,8 +1880,8 @@ class BasicTests:
             assert c1.val == c2.val
             assert d1.val == d2.val
             return a1.val + b1.val + c1.val + d1.val
-        res = self.meta_interp(g, [6, 14])
-        assert res == g(6, 14)
+        res = self.meta_interp(g, [3, 14])
+        assert res == g(3, 14)
 
     def test_specialied_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
