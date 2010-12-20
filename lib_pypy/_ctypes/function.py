@@ -247,7 +247,7 @@ class CFuncPtr(_CData):
         try:
             return self._typemap[shape]
         except KeyError:
-            print 'unknown shape %s' % shape
+            print 'unknown shape %s' % (shape,)
             assert False, 'TODO5'
 
 
