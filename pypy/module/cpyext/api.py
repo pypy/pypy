@@ -939,7 +939,9 @@ def load_extension_module(space, path, name):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
     state = space.fromcache(State)
-    state.package_context = name
+    if state.find_extension(name, path) is not None:
+        return
+    state.package_context = name, path
     try:
         from pypy.rlib import rdynload
         try:
@@ -964,7 +966,8 @@ def load_extension_module(space, path, name):
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()
     finally:
-        state.package_context = None
+        state.package_context = None, None
+    state.fixup_extension(name, path)
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
