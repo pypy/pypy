@@ -213,6 +213,7 @@ class TestFunctions(BaseCTypesTestChecker):
 
     def test_errors_1(self):
         f = dll._testfunc_p_p
+        f.argtypes = [POINTER(c_int)]
         f.restype = c_int
 
         class X(Structure):
