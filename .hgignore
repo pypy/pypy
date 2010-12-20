@@ -5,6 +5,7 @@ syntax: glob
 syntax: regexp
 ^testresult$
 ^site-packages$
+^bin$
 ^pypy/module/cpyext/src/.+\.o$
 ^pypy/bin/pypy-c
 ^pypy/translator/jvm/src/pypy/.+\.class$
