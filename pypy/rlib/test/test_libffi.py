@@ -2,9 +2,9 @@ import py
 import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
-from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.rarithmetic import r_singlefloat, r_longlong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name
-from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
+from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types, longlong2float, float2longlong
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -51,6 +51,12 @@ class TestLibffiMisc(BaseFfiTest):
         del lib
         assert not ALLOCATED
 
+    def test_longlong_as_float(self):
+        maxint64 = r_longlong(9223372036854775807)
+        d = longlong2float(maxint64)
+        ll = float2longlong(d)
+        assert ll == maxint64
+        
 
 class TestLibffiCall(BaseFfiTest):
     """
@@ -113,6 +119,8 @@ class TestLibffiCall(BaseFfiTest):
         for arg in args:
             if isinstance(arg, r_singlefloat):
                 chain.arg_singlefloat(float(arg))
+            elif isinstance(arg, r_longlong):
+                chain.arg_longlong(longlong2float(arg))
             else:
                 chain.arg(arg)
         return func.call(chain, RESULT)
@@ -282,6 +290,29 @@ class TestLibffiCall(BaseFfiTest):
         res = self.call(func, [x, y], rffi.FLOAT, init_result=0.0)
         expected = c_float(c_float(12.34).value + c_float(56.78).value).value
         assert res == expected
+
+    def test_longlong_args(self):
+        """
+            long long sum_xy_longlong(long long x, long long y)
+            {
+                return x+y;
+            }
+        """
+        maxint32 = 2147483647 # we cannot really go above maxint on 64 bits
+                              # (and we would not test anything, as there long
+                              # is the same as long long)
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_longlong', [types.slonglong, types.slonglong], types.slonglong)
+        x = r_longlong(maxint32+1)
+        y = r_longlong(maxint32+2)
+        res = self.call(func, [x, y], rffi.LONGLONG, init_result=0)
+        if sys.maxint == maxint32:
+            # obscure, on 32bit it's really a long long, so it returns a
+            # DOUBLE because of the JIT hack
+            res = float2longlong(res)
+        expected = maxint32*2 + 3
+        assert res == expected
+
 
     def test_wrong_number_of_arguments(self):
         from pypy.rpython.llinterp import LLException
