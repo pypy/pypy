@@ -420,7 +420,11 @@ class CFuncPtr(_CData):
             if result == 0:
                 result = None
             else:
-                assert False, 'TODO'
+                # XXX: I could not find a more direct way to create a pointer
+                # to this specific address
+                address = result
+                result = restype()
+                result._buffer[0] = address
         elif restype._ffishape == 'z':
             result = restype(result).value # XXX: maybe it's the general way to do it?
         return result
