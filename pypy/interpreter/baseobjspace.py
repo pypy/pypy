@@ -1126,6 +1126,11 @@ class ObjSpace(object):
             buffer = self.buffer_w(w_obj)
             return buffer.as_str()
 
+    def str_or_None_w(self, w_obj):
+        if self.is_w(w_obj, self.w_None):
+            return None
+        return self.str_w(w_obj)
+
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
