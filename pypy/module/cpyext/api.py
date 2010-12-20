@@ -193,7 +193,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
       the API headers.
     """
     if error is _NOT_SPECIFIED:
-        if restype is PyObject:
+        if isinstance(restype, lltype.Ptr):
             error = lltype.nullptr(restype.TO)
         elif restype is lltype.Void:
             error = CANNOT_FAIL
@@ -308,7 +308,7 @@ SYMBOLS_C = [
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
 
-    'PyErr_Format', 'PyErr_NewException',
+    'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
@@ -319,6 +319,11 @@ SYMBOLS_C = [
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
     'PyCObject_Type', 'init_pycobject',
+
+    'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
+    'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
+    'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
+    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -564,9 +569,11 @@ def setup_va_functions(eci):
 def setup_init_functions(eci):
     init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void, compilation_info=eci)
     init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void, compilation_info=eci)
+    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void, compilation_info=eci)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
         lambda space: init_pycobject(),
+        lambda space: init_capsule(),
     ])
 
 def init_function(func):
@@ -657,6 +664,8 @@ def build_bridge(space):
     import ctypes
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
+    space.fromcache(State).install_dll(eci)
+
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext
@@ -746,6 +755,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
         ("SIZEOF_VOID_P", rffi.VOIDP),
         ("SIZEOF_SIZE_T", rffi.SIZE_T),
+        ("SIZEOF_TIME_T", rffi.TIME_T),
         ("SIZEOF_LONG", rffi.LONG),
         ("SIZEOF_SHORT", rffi.SHORT),
         ("SIZEOF_INT", rffi.INT)
@@ -835,6 +845,25 @@ def build_eci(building_bridge, export_symbols, code):
             structs.append('%s %s = NULL;' % (typ, name))
     struct_source = '\n'.join(structs)
 
+    separate_module_sources = [code, struct_source]
+
+    if sys.platform == 'win32':
+        get_pythonapi_source = '''
+        #include <windows.h>
+        HANDLE pypy_get_pythonapi_handle() {
+            MEMORY_BASIC_INFORMATION  mi;
+            memset(&mi, 0, sizeof(mi));
+
+            if( !VirtualQueryEx(GetCurrentProcess(), &pypy_get_pythonapi_handle,
+                                &mi, sizeof(mi)) )
+                return 0;
+
+            return (HMODULE)mi.AllocationBase;
+        }
+        '''
+        separate_module_sources.append(get_pythonapi_source)
+        export_symbols_eci.append('pypy_get_pythonapi_handle')
+
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
         separate_module_files=[source_dir / "varargwrapper.c",
@@ -848,12 +877,14 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "object.c",
                                source_dir / "cobject.c",
                                source_dir / "structseq.c",
+                               source_dir / "capsule.c",
                                ],
-        separate_module_sources = [code, struct_source],
+        separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
         compile_extra=compile_extra,
         **kwds
         )
+
     return eci
 
 
@@ -871,6 +902,8 @@ def setup_library(space):
     code = "#include <Python.h>\n" + "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code)
+
+    space.fromcache(State).install_dll(eci)
 
     run_bootstrap_functions(space)
     setup_va_functions(eci)

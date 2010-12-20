@@ -19,7 +19,7 @@ def PyPy_GetReference(space, arg):
 
 class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
-        cls.space = space = gettestobjspace(usemodules=['cpyext', 'thread'])
+        cls.space = space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
 
         # warm up reference counts:
         # - the posix module allocates a HCRYPTPROV on Windows

@@ -2,7 +2,8 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import lltype
-
+from pypy.rlib.rdynload import DLLHANDLE
+import sys
 
 class State:
     def __init__(self, space):
@@ -42,6 +43,46 @@ class State:
         if always:
             raise OperationError(self.space.w_SystemError, self.space.wrap(
                 "Function returned an error result without setting an exception"))
+
+    def build_api(self, space):
+        """NOT_RPYTHON
+        This function is called when at object space creation,
+        and drives the compilation of the cpyext library
+        """
+        from pypy.module.cpyext import api
+        state = self.space.fromcache(State)
+        if not self.space.config.translating:
+            state.api_lib = str(api.build_bridge(self.space))
+        else:
+            api.setup_library(self.space)
+
+    def install_dll(self, eci):
+        """NOT_RPYTHON
+        Called when the dll has been compiled"""
+        if sys.platform == 'win32':
+            self.get_pythonapi_handle = rffi.llexternal(
+                'pypy_get_pythonapi_handle', [], DLLHANDLE,
+                compilation_info=eci)
+
+    def startup(self, space):
+        "This function is called when the program really starts"
+
+        from pypy.module.cpyext.typeobject import setup_new_method_def
+        from pypy.module.cpyext.pyobject import RefcountState
+        from pypy.module.cpyext.api import INIT_FUNCTIONS
+
+        setup_new_method_def(space)
+        if not we_are_translated():
+            space.setattr(space.wrap(self),
+                          space.wrap('api_lib'),
+                          space.wrap(self.api_lib))
+        else:
+            refcountstate = space.fromcache(RefcountState)
+            refcountstate.init_r2w_from_w2r()
+
+        for func in INIT_FUNCTIONS:
+            func(space)
+            self.check_and_raise_exception()
 
     def get_programname(self):
         if not self.programname:
