@@ -136,6 +136,7 @@ class GuardOpAssembler(object):
     def _emit_guard(self, op, arglocs, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
+        self.guard_descrs.append(descr)
         if not we_are_translated() and hasattr(op, 'getfailargs'):
            print 'Failargs: ', op.getfailargs()
 

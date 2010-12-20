@@ -65,6 +65,7 @@ class AssemblerARM(ResOpAssembler):
     def setup(self):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.mc = ARMv7Builder()
+        self.guard_descrs = []
 
     def setup_once(self):
         # Addresses of functions called by new_xxx operations
@@ -357,10 +358,10 @@ class AssemblerARM(ResOpAssembler):
         loop_start = self.materialize_loop(looptoken)
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_direct_bootstrap_code = loop_start + direct_bootstrap_code
-
+        self.update_descrs_for_bridges(loop_start)
         if log:
             print 'Loop', inputargs, operations
-            self.mc._dump_trace(loop_start, 'loop.asm')
+            self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling loop with token %r' % looptoken
         self.teardown()
 
@@ -384,11 +385,13 @@ class AssemblerARM(ResOpAssembler):
         self._patch_sp_offset(sp_patch_location, regalloc)
 
         bridge_start = self.materialize_loop(original_loop_token)
+        self.update_descrs_for_bridges(bridge_start)
 
         self.patch_trace(faildescr, original_loop_token, bridge_start, regalloc)
         if log:
             print 'Bridge', inputargs, operations
-            self.mc._dump_trace(bridge_start, 'bridge.asm')
+            self.mc._dump_trace(bridge_start, 'bridge_%d.asm' %
+            self.cpu.total_compiled_bridges)
         self.teardown()
 
     def materialize_loop(self, looptoken):
@@ -396,8 +399,13 @@ class AssemblerARM(ResOpAssembler):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
+    def update_descrs_for_bridges(self, block_start):
+        for descr in self.guard_descrs:
+            descr._arm_block_start = block_start
+
     def teardown(self):
         self.mc = None
+        self.guard_descrs = None
         #self.looppos = -1
         #self.currently_compiling_loop = None
 
@@ -499,7 +507,7 @@ class AssemblerARM(ResOpAssembler):
         # The first instruction (word) is not overwritten, because it is the
         # one that actually checks the condition
         b = ARMv7Builder()
-        patch_addr = looptoken._arm_bootstrap_code + faildescr._arm_guard_pos
+        patch_addr = faildescr._arm_block_start + faildescr._arm_guard_pos
         b.B(bridge_addr)
         b.copy_to_raw_memory(patch_addr)
 
