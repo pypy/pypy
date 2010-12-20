@@ -336,3 +336,6 @@ class CDLL(object):
     def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         return Func(name, argtypes, restype, dlsym(self.lib, name),
                     flags=flags, keepalive=self)
+
+    def getaddressindll(self, name):
+        return dlsym(self.lib, name)

@@ -77,7 +77,14 @@ class AppTestFfi:
         libm = CDLL(self.libm_name)
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         assert pow.getaddr() == self.pow_addr
-        
+
+    def test_getaddressindll(self):
+        import sys
+        from _ffi import CDLL, types
+        libm = CDLL(self.libm_name)
+        pow_addr = libm.getaddressindll('pow')
+        assert pow_addr == self.pow_addr & (sys.maxint*2-1)
+
     def test_int_args(self):
         """
             int sum_xy(int x, int y)

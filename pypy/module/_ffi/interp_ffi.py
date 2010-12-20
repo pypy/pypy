@@ -209,6 +209,16 @@ class W_CDLL(Wrappable):
             
         return W_FuncPtr(func)
 
+    @unwrap_spec('self', ObjSpace, str)
+    def getaddressindll(self, space, name):
+        try:
+            address_as_uint = rffi.cast(lltype.Unsigned,
+                                        self.cdll.getaddressindll(name))
+        except KeyError:
+            raise operationerrfmt(space.w_ValueError,
+                                  "No symbol %s found in library %s", name, self.name)
+        return space.wrap(address_as_uint)
+
 
 @unwrap_spec(ObjSpace, W_Root, str)
 def descr_new_cdll(space, w_type, name):
@@ -219,6 +229,7 @@ W_CDLL.typedef = TypeDef(
     'CDLL',
     __new__     = interp2app(descr_new_cdll),
     getfunc     = interp2app(W_CDLL.getfunc),
+    getaddressindll = interp2app(W_CDLL.getaddressindll),
     )
 
 # ========================================================================
