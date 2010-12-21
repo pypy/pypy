@@ -40,9 +40,9 @@ performance might be lower.  We did not investigate much so far.
 More highlights
 ===============
 
-* We migrated to Mercurial (thanks Antocuni and Ronny for the
-  effort) and moved to bitbucket.  The new command to check out
-  a copy of PyPy is::
+* We migrated to Mercurial (thanks to Ronny Pfannschmidt and Antonio Cuni) for
+  the effort) and moved to bitbucket.  The new command to check out a copy of
+  PyPy is::
     
         hg clone http://bitbucket.org/pypy/pypy
 
