@@ -306,7 +306,7 @@ class TestLibffiCall(BaseFfiTest):
         x = r_longlong(maxint32+1)
         y = r_longlong(maxint32+2)
         res = self.call(func, [x, y], rffi.LONGLONG, init_result=0)
-        if sys.maxint == maxint32:
+        if types.slonglong is not types.slong:
             # obscure, on 32bit it's really a long long, so it returns a
             # DOUBLE because of the JIT hack
             res = float2longlong(res)
