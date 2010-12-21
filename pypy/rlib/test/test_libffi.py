@@ -2,7 +2,7 @@ import py
 import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
-from pypy.rlib.rarithmetic import r_singlefloat, r_longlong
+from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name
 from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types, longlong2float, float2longlong
 
@@ -120,6 +120,9 @@ class TestLibffiCall(BaseFfiTest):
             if isinstance(arg, r_singlefloat):
                 chain.arg_singlefloat(float(arg))
             elif isinstance(arg, r_longlong):
+                chain.arg_longlong(longlong2float(arg))
+            elif isinstance(arg, r_ulonglong):
+                arg = rffi.cast(rffi.LONGLONG, arg)
                 chain.arg_longlong(longlong2float(arg))
             else:
                 chain.arg(arg)
@@ -302,7 +305,8 @@ class TestLibffiCall(BaseFfiTest):
                               # (and we would not test anything, as there long
                               # is the same as long long)
         libfoo = self.get_libfoo()
-        func = (libfoo, 'sum_xy_longlong', [types.slonglong, types.slonglong], types.slonglong)
+        func = (libfoo, 'sum_xy_longlong', [types.slonglong, types.slonglong],
+                types.slonglong)
         x = r_longlong(maxint32+1)
         y = r_longlong(maxint32+2)
         res = self.call(func, [x, y], rffi.LONGLONG, init_result=0)
@@ -313,6 +317,30 @@ class TestLibffiCall(BaseFfiTest):
         expected = maxint32*2 + 3
         assert res == expected
 
+    def test_ulonglong_args(self):
+        """
+            unsigned long long sum_xy_ulonglong(unsigned long long x,
+                                                unsigned long long y)
+            {
+                return x+y;
+            }
+        """
+        maxint64 = 9223372036854775807 # maxint64+1 does not fit into a
+                                       # longlong, but it does into a
+                                       # ulonglong
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_ulonglong', [types.ulonglong, types.ulonglong],
+                types.ulonglong)
+        x = r_ulonglong(maxint64+1)
+        y = r_ulonglong(2)
+        res = self.call(func, [x, y], rffi.ULONGLONG, init_result=0)
+        if types.ulonglong is not types.ulong:
+            # obscure, on 32bit it's really a long long, so it returns a
+            # DOUBLE because of the JIT hack
+            res = float2longlong(res)
+            res = rffi.cast(rffi.ULONGLONG, res)
+        expected = maxint64 + 3
+        assert res == expected
 
     def test_wrong_number_of_arguments(self):
         from pypy.rpython.llinterp import LLException

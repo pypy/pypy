@@ -108,8 +108,8 @@ class ArgChain(object):
             val = rffi.cast(rffi.LONG, val)
         elif TYPE is rffi.DOUBLE:
             cls = FloatArg
-        elif TYPE in (rffi.LONGLONG, rffi.ULONGLONG):
-            raise TypeError, 'r_(u)longlong not supported by arg(), use arg_longlong()'
+        elif TYPE is rffi.LONGLONG or TYPE is rffi.ULONGLONG:
+            raise TypeError, 'r_(u)longlong not supported by arg(), use arg_(u)longlong()'
         elif TYPE is rffi.FLOAT:
             raise TypeError, 'r_singlefloat not supported by arg(), use arg_singlefloat()'
         else:
@@ -264,9 +264,10 @@ class Func(AbstractFuncPtr):
             # XXX: even if RESULT is FLOAT, we still return a DOUBLE, else the
             # jit complains. Note that the jit is disabled in this case
             return self._do_call_single_float(self.funcsym, ll_args)
-        elif RESULT is rffi.LONGLONG:
+        elif RESULT is rffi.LONGLONG or RESULT is rffi.ULONGLONG:
             # XXX: even if RESULT is LONGLONG, we still return a DOUBLE, else the
             # jit complains. Note that the jit is disabled in this case
+            # (it's not a typo, we really return a DOUBLE)
             return self._do_call_longlong(self.funcsym, ll_args)
         elif RESULT is lltype.Void:
             return self._do_call_void(self.funcsym, ll_args)
