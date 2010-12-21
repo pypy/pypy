@@ -30,7 +30,7 @@ Note again that we do support compiling and using C extension
 modules from CPython (``pypy setup.py install``).  However, this
 is still an alpha feature, and the most complex modules typically
 fail for various reasons; others work (e.g. ``PIL``) but take a
-serious performance hit.
+serious performance hit.  Also, for Mac OS X see below.
 
 Please note also that PyPy's performance was optimized almost
 exclusively on Linux.  It seems from some reports that on Windows
