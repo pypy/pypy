@@ -294,7 +294,7 @@ class TestLibffiCall(BaseFfiTest):
         expected = c_float(c_float(12.34).value + c_float(56.78).value).value
         assert res == expected
 
-    def test_longlong_args(self):
+    def test_slonglong_args(self):
         """
             long long sum_xy_longlong(long long x, long long y)
             {
@@ -309,7 +309,8 @@ class TestLibffiCall(BaseFfiTest):
                 types.slonglong)
         x = r_longlong(maxint32+1)
         y = r_longlong(maxint32+2)
-        res = self.call(func, [x, y], rffi.LONGLONG, init_result=0)
+        zero = longlong2float(r_longlong(0))
+        res = self.call(func, [x, y], rffi.LONGLONG, init_result=zero)
         if types.slonglong is not types.slong:
             # obscure, on 32bit it's really a long long, so it returns a
             # DOUBLE because of the JIT hack

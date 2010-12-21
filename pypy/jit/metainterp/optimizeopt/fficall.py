@@ -5,6 +5,8 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
+
 
 class FuncInfo(object):
 
@@ -18,7 +20,11 @@ class FuncInfo(object):
         self.funcval = funcval
         self.opargs = []
         argtypes, restype = self._get_signature(funcval)
-        self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        try:
+            self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        except UnsupportedKind:
+            # e.g., I or U for long longs
+            self.descr = None
         self.prepare_op = prepare_op
 
     def _get_signature(self, funcval):

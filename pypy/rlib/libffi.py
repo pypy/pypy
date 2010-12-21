@@ -60,11 +60,10 @@ class types(object):
         elif ffi_type is types.uint16:  return 'u'
         elif ffi_type is types.sint32:  return 'i'
         elif ffi_type is types.uint32:  return 'u'
-        ## we only support integers that fit in a lltype.Signed (==rffi.LONG)
-        ## (on 64-bit platforms, types.sint64 is types.slong and the case is
-        ## caught above)
-        ## elif ffi_type is types.sint64:  return 'i'
-        ## elif ffi_type is types.uint64:  return 'u'
+        ## (note that on 64-bit platforms, types.sint64 is types.slong and the
+        ## case is caught above)
+        elif ffi_type is types.sint64:  return 'I'
+        elif ffi_type is types.uint64:  return 'U'
         raise KeyError
 
 types._import()
@@ -192,6 +191,8 @@ class LongLongArg(AbstractArg):
 
 DOUBLE_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.DOUBLE))
 LONGLONG_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.LONGLONG))
+
+@jit.dont_look_inside
 def longlong2float(llval):
     d_array = lltype.malloc(DOUBLE_ARRAY_PTR.TO, 1, flavor='raw')
     ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)
@@ -200,6 +201,7 @@ def longlong2float(llval):
     lltype.free(d_array, flavor='raw')
     return floatval
 
+@jit.dont_look_inside
 def float2longlong(floatval):
     d_array = lltype.malloc(DOUBLE_ARRAY_PTR.TO, 1, flavor='raw')
     ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)

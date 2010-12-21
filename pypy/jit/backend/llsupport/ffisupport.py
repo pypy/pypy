@@ -3,6 +3,9 @@ from pypy.jit.metainterp import history
 from pypy.jit.backend.llsupport.descr import DynamicIntCallDescr, NonGcPtrCallDescr,\
     FloatCallDescr, VoidCallDescr
 
+class UnsupportedKind(Exception):
+    pass
+
 def get_call_descr_dynamic(ffi_args, ffi_result, extrainfo=None):
     """Get a call descr: the types of result and args are represented by
     rlib.libffi.types.*"""
@@ -33,7 +36,7 @@ def get_ffi_type_kind(ffi_type):
         return history.FLOAT
     elif kind == 'v':
         return history.VOID
-    assert False, "Unsupported kind '%s'" % kind
+    raise UnsupportedKind("Unsupported kind '%s'" % kind)
 
 def is_ffi_type_signed(ffi_type):
     from pypy.rlib.libffi import types
