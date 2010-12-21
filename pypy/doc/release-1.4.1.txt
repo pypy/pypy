@@ -63,8 +63,8 @@ More highlights
   it does on CPython --- if you have a clue what it does there
   ``:-)`` )
 
-* Fix cpyext on Mac OS X.  (Loading C extension modules in PyPy
-  is still considered *alpha stage!*)
+* cpyext on Mac OS X: it still does not seem to work.  I get
+  systematically a segfault in dlopen().  Contributions welcome.
 
 * Fix two corner cases in the GC (one in minimark, one in
   asmgcc+JIT).  This notably prevented "pypy translate.py -Ojit"
