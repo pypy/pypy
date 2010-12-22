@@ -81,9 +81,27 @@ class W_FuncPtr(Wrappable):
                 argchain.arg(space.float_w(w_arg))
             elif kind == 's':
                 argchain.arg_singlefloat(space.float_w(w_arg))
+            elif kind == 'I' or kind == 'U':
+                # we are on 32 bit and using long longs. Too bad, we can't jit it
+                self.arg_longlong(space, argchain, kind, w_arg)
             else:
                 assert False, "Argument kind '%s' not supported" % kind
         return argchain
+
+    @jit.dont_look_inside
+    def arg_longlong(self, space, argchain, kind, w_arg):
+        bigarg = space.bigint_w(w_arg)
+        if kind == 'I':
+            llval = bigarg.tolonglong()
+        elif kind == 'U':
+            ullval = bigarg.toulonglong()
+            llval = rffi.cast(rffi.LONGLONG, ullval)
+        else:
+            assert False
+        # this is a hack: we store the 64 bits of the long long into the
+        # 64 bits of a float (i.e., a C double)
+        floatval = libffi.longlong2float(llval)
+        argchain.arg_longlong(floatval)
 
     @unwrap_spec('self', ObjSpace, 'args_w')
     def call(self, space, args_w):
@@ -101,7 +119,10 @@ class W_FuncPtr(Wrappable):
             # the result is a float, but widened to be inside a double
             floatres = self.func.call(argchain, rffi.FLOAT)
             return space.wrap(floatres)
+        elif reskind == 'I' or reskind == 'U':
+            return self._call_longlong(space, argchain, reskind)
         else:
+            assert reskind == 'v'
             voidres = self.func.call(argchain, lltype.Void)
             assert voidres is None
             return space.w_None
@@ -160,6 +181,20 @@ class W_FuncPtr(Wrappable):
             raise OperationError(space.w_ValueError,
                                  space.wrap('Unsupported restype'))
         return space.wrap(intres)
+
+    @jit.dont_look_inside
+    def _call_longlong(self, space, argchain, reskind):
+        # this is a hack: we store the 64 bits of the long long into the 64
+        # bits of a float (i.e., a C double)
+        floatres = self.func.call(argchain, rffi.LONGLONG)
+        llres = libffi.float2longlong(floatres)
+        if reskind == 'I':
+            return space.wrap(llres)
+        elif reskind == 'U':
+            ullres = rffi.cast(rffi.ULONGLONG, llres)
+            return space.wrap(ullres)
+        else:
+            assert False
 
     @unwrap_spec('self', ObjSpace)
     def getaddr(self, space):

@@ -186,6 +186,49 @@ class AppTestFfi:
         assert res == self.f_12_34_plus_56_78
 
 
+    def test_slonglong_args(self):
+        """
+            long long sum_xy_longlong(long long x, long long y)
+            {
+                return x+y;
+            }
+        """
+        from _ffi import CDLL, types
+        maxint32 = 2147483647 # we cannot really go above maxint on 64 bits
+                              # (and we would not test anything, as there long
+                              # is the same as long long)
+
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_longlong', [types.slonglong, types.slonglong],
+                                types.slonglong)
+        x = maxint32+1
+        y = maxint32+2
+        res = sum_xy(x, y)
+        expected = maxint32*2 + 3
+        assert res == expected
+
+    def test_ulonglong_args(self):
+        """
+            unsigned long long sum_xy_ulonglong(unsigned long long x,
+                                                unsigned long long y)
+            {
+                return x+y;
+            }
+        """
+        from _ffi import CDLL, types
+        maxint64 = 9223372036854775807 # maxint64+1 does not fit into a
+                                       # longlong, but it does into a
+                                       # ulonglong
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_ulonglong', [types.ulonglong, types.ulonglong],
+                                types.ulonglong)
+        x = maxint64+1
+        y = 2
+        res = sum_xy(x, y)
+        expected = maxint64 + 3
+        assert res == expected
+
+
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
