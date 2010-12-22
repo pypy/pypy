@@ -43,8 +43,8 @@ class Inliner(object):
         return newop
     
     def inline_arg(self, arg):
-        if arg is None:
-            return None
+        #if arg is None:
+        #    return None
         if isinstance(arg, Const):
             return arg
         return self.argmap[arg]
