@@ -88,7 +88,6 @@ class AssemblerARM(ResOpAssembler):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
 
-
     def setup_failure_recovery(self):
 
         @rgc.no_collect

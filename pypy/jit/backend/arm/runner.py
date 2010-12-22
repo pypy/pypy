@@ -26,7 +26,7 @@ class ArmCPU(AbstractLLCPU):
         self.assembler.setup_once()
 
     def finish_once(self):
-        self.assembler.finish_once()
+        pass
 
     def compile_loop(self, inputargs, operations, looptoken, log=True):
         self.assembler.assemble_loop(inputargs, operations,
