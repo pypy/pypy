@@ -1,4 +1,4 @@
-import sys
+import sys, py
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.longobject import W_LongObject
@@ -95,6 +95,23 @@ class TestLongObject(BaseApiTest):
         w_l = api.PyLong_FromVoidPtr(lltype.nullptr(rffi.VOIDP.TO))
         assert space.unwrap(w_l) == 0L
         assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP_real.TO)
+
+    def test_sign_and_bits(self, space, api):
+        if space.is_true(space.lt(space.sys.get('version_info'),
+                                  space.wrap((2, 7)))):
+            py.test.skip("unsupported before Python 2.7")
+
+        assert api._PyLong_Sign(space.wrap(0L)) == 0
+        assert api._PyLong_Sign(space.wrap(2L)) == 1
+        assert api._PyLong_Sign(space.wrap(-2L)) == -1
+
+        assert api._PyLong_NumBits(space.wrap(0)) == 0
+        assert api._PyLong_NumBits(space.wrap(1)) == 1
+        assert api._PyLong_NumBits(space.wrap(-1)) == 1
+        assert api._PyLong_NumBits(space.wrap(2)) == 2
+        assert api._PyLong_NumBits(space.wrap(-2)) == 2
+        assert api._PyLong_NumBits(space.wrap(3)) == 2
+        assert api._PyLong_NumBits(space.wrap(-3)) == 2
 
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):

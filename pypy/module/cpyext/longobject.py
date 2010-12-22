@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (cpython_api, PyObject, build_type_checkers,
-                                    CONST_STRING, ADDR)
+                                    CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
@@ -167,4 +167,14 @@ def PyLong_AsVoidPtr(space, w_long):
     with PyLong_FromVoidPtr().
     For values outside 0..LONG_MAX, both signed and unsigned integers are accepted."""
     return rffi.cast(rffi.VOIDP_real, space.uint_w(w_long))
+
+@cpython_api([PyObject], rffi.SIZE_T, error=-1)
+def _PyLong_NumBits(space, w_long):
+    return space.uint_w(space.call_method(w_long, "bit_length"))
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def _PyLong_Sign(space, w_long):
+    assert isinstance(w_long, W_LongObject)
+    return w_long.num.sign
+
 

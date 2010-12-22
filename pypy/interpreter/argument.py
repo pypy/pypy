@@ -105,14 +105,11 @@ class Arguments(object):
         make_sure_not_resized(self.arguments_w)
         if w_stararg is not None:
             self._combine_starargs_wrapped(w_stararg)
-        if w_starstararg is not None:
-            self._combine_starstarargs_wrapped(w_starstararg)
-            # if we have a call where **args are used at the callsite
-            # we shouldn't let the JIT see the argument matching
-            self._dont_jit = True
-        else:
-            self._dont_jit = False
-        
+        # if we have a call where **args are used at the callsite
+        # we shouldn't let the JIT see the argument matching
+        self._dont_jit = (w_starstararg is not None and
+                          self._combine_starstarargs_wrapped(w_starstararg))
+
     def __repr__(self):
         """ NOT_RPYTHON """
         name = self.__class__.__name__
@@ -160,10 +157,20 @@ class Arguments(object):
             raise OperationError(space.w_TypeError,
                                  space.wrap("argument after ** must be "
                                             "a dictionary"))
-        keywords_w = [None] * space.int_w(space.len(w_starstararg))
-        keywords = [None] * space.int_w(space.len(w_starstararg))
+        if space.is_true(w_starstararg):
+            self._do_combine_starstarargs_wrapped(w_starstararg)
+            return True
+        else:
+            return False    # empty dict; don't disable the JIT
+
+    def _do_combine_starstarargs_wrapped(self, w_starstararg):
+        space = self.space
+        keys_w = space.unpackiterable(w_starstararg)
+        length = len(keys_w)
+        keywords_w = [None] * length
+        keywords = [None] * length
         i = 0
-        for w_key in space.unpackiterable(w_starstararg):
+        for w_key in keys_w:
             try:
                 key = space.str_w(w_key)
             except OperationError, e:

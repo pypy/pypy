@@ -267,10 +267,12 @@ class TestGateway:
         space = self.space
         w = space.wrap
         def g3_ss(space, s0, s1):
+            if s1 is None:
+                return space.wrap(42)
             return space.wrap(s0+s1)       
         app_g3_ss = gateway.interp2app_temp(g3_ss,
                                          unwrap_spec=[gateway.ObjSpace,
-                                                      str,str])
+                                                      str, 'str_or_None'])
         w_app_g3_ss = space.wrap(app_g3_ss) 
         assert self.space.eq_w(
             space.call(w_app_g3_ss, 
@@ -280,6 +282,11 @@ class TestGateway:
         assert self.space.eq_w(
             space.call_function(w_app_g3_ss, w('foo'), w('bar')),
             w('foobar'))
+        assert self.space.eq_w(
+            space.call_function(w_app_g3_ss, w('foo'), space.w_None),
+            w(42))
+        space.raises_w(space.w_TypeError, space.call_function,
+                       w_app_g3_ss, space.w_None, w('bar'))
 
     def test_interp2app_unwrap_spec_int_float(self):
         space = self.space

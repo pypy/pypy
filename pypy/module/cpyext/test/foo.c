@@ -7,6 +7,18 @@ typedef struct {
     PyObject *foo_object;
     char *foo_string;
     char foo_string_inplace[5];
+    short foo_short;
+    long foo_long;
+    unsigned short foo_ushort;
+    unsigned int foo_uint;
+    unsigned long foo_ulong;
+    signed char foo_byte;
+    unsigned char foo_ubyte;
+    unsigned char foo_bool;
+    float foo_float;
+    double foo_double;
+    long long foo_longlong;
+    unsigned long long foo_ulonglong;
 } fooobject;
 
 static PyTypeObject footype;
@@ -148,6 +160,19 @@ static PyMemberDef foo_members[] = {
     {"string_member_inplace", T_STRING_INPLACE,
      offsetof(fooobject, foo_string_inplace), 0, "An inplace string."},
     {"char_member", T_CHAR, offsetof(fooobject, foo_string_inplace), 0, NULL},
+
+    {"short_member", T_SHORT, offsetof(fooobject, foo_short), 0, NULL},
+    {"long_member", T_LONG, offsetof(fooobject, foo_long), 0, NULL},
+    {"ushort_member", T_USHORT, offsetof(fooobject, foo_ushort), 0, NULL},
+    {"uint_member", T_UINT, offsetof(fooobject, foo_uint), 0, NULL},
+    {"ulong_member", T_ULONG, offsetof(fooobject, foo_ulong), 0, NULL},
+    {"byte_member", T_BYTE, offsetof(fooobject, foo_byte), 0, NULL},
+    {"ubyte_member", T_UBYTE, offsetof(fooobject, foo_ubyte), 0, NULL},
+    {"bool_member", T_BOOL, offsetof(fooobject, foo_bool), 0, NULL},
+    {"float_member", T_FLOAT, offsetof(fooobject, foo_float), 0, NULL},
+    {"double_member", T_DOUBLE, offsetof(fooobject, foo_double), 0, NULL},
+    {"longlong_member", T_LONGLONG, offsetof(fooobject, foo_longlong), 0, NULL},
+    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},
     {NULL}  /* Sentinel */
 };
 

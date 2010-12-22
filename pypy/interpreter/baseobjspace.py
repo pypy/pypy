@@ -555,6 +555,9 @@ class ObjSpace(object):
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
+        if self.config.objspace.usemodules.cpyext:
+            from pypy.module.cpyext.state import State
+            self.fromcache(State).build_api(self)
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')
@@ -1122,6 +1125,11 @@ class ObjSpace(object):
                 raise
             buffer = self.buffer_w(w_obj)
             return buffer.as_str()
+
+    def str_or_None_w(self, w_obj):
+        if self.is_w(w_obj, self.w_None):
+            return None
+        return self.str_w(w_obj)
 
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
