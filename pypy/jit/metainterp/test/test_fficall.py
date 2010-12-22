@@ -1,9 +1,10 @@
 
 import py
-from pypy.rlib.rarithmetic import r_singlefloat, r_longlong
+from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.libffi import ArgChain, longlong2float, float2longlong
+from pypy.rlib.libffi import IS_32_BIT
 from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
@@ -20,17 +21,26 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
         """
         #
         lib, name, argtypes, restype = funcspec
-        args = unrolling_iterable(args)
+        method_and_args = []
+        for argval in args:
+            if type(argval) is r_singlefloat:
+                method_name = 'arg_singlefloat'
+                argval = float(argval)
+            elif IS_32_BIT and type(argval) in [r_longlong, r_ulonglong]:
+                method_name = 'arg_longlong'
+                argval = rffi.cast(rffi.LONGLONG, argval)
+                argval = longlong2float(argval)
+            else:
+                method_name = 'arg'
+            method_and_args.append((method_name, argval))
+        method_and_args = unrolling_iterable(method_and_args)
         #
         reds = ['n', 'res', 'func']
-        if type(init_result) is float:
+        if (RESULT in [rffi.FLOAT, rffi.DOUBLE] or
+            IS_32_BIT and RESULT in [rffi.LONGLONG, rffi.ULONGLONG]):
             reds = ['n', 'func', 'res'] # floats must be *after* refs
         driver = JitDriver(reds=reds, greens=[])
         #
-        @specialize.memo()
-        def memo_longlong2float(llval):
-            return longlong2float(llval)
-        
         def f(n):
             func = lib.getpointer(name, argtypes, restype)
             res = init_result
@@ -39,17 +49,12 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                 driver.can_enter_jit(n=n, res=res, func=func)
                 func = hint(func, promote=True)
                 argchain = ArgChain()
-                for argval in args: # this loop is unrolled
-                    if type(argval) is r_singlefloat:
-                        argchain.arg_singlefloat(float(argval))
-                    elif type(argval) is r_longlong:
-                        argchain.arg_longlong(memo_longlong2float(argval))
-                    else:
-                        argchain.arg(argval)
+                # this loop is unrolled
+                for method_name, argval in method_and_args:
+                    getattr(argchain, method_name)(argval)
                 res = func.call(argchain, RESULT)
                 n += 1
             return res
         #
         res = self.meta_interp(f, [0], jit_ffi=True, backendopt=True)
         return res
-

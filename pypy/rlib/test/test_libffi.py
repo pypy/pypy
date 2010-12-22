@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name
-from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types, longlong2float, float2longlong
+from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
+from pypy.rlib.libffi import longlong2float, float2longlong, IS_32_BIT
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -125,9 +126,9 @@ class TestLibffiCall(BaseFfiTest):
         for arg in args:
             if isinstance(arg, r_singlefloat):
                 chain.arg_singlefloat(float(arg))
-            elif isinstance(arg, r_longlong):
+            elif IS_32_BIT and isinstance(arg, r_longlong):
                 chain.arg_longlong(longlong2float(arg))
-            elif isinstance(arg, r_ulonglong):
+            elif IS_32_BIT and isinstance(arg, r_ulonglong):
                 arg = rffi.cast(rffi.LONGLONG, arg)
                 chain.arg_longlong(longlong2float(arg))
             else:
@@ -317,7 +318,7 @@ class TestLibffiCall(BaseFfiTest):
         y = r_longlong(maxint32+2)
         zero = longlong2float(r_longlong(0))
         res = self.call(func, [x, y], rffi.LONGLONG, init_result=zero)
-        if types.slonglong is not types.slong:
+        if IS_32_BIT:
             # obscure, on 32bit it's really a long long, so it returns a
             # DOUBLE because of the JIT hack
             res = float2longlong(res)
@@ -341,7 +342,7 @@ class TestLibffiCall(BaseFfiTest):
         x = r_ulonglong(maxint64+1)
         y = r_ulonglong(2)
         res = self.call(func, [x, y], rffi.ULONGLONG, init_result=0)
-        if types.ulonglong is not types.ulong:
+        if IS_32_BIT:
             # obscure, on 32bit it's really a long long, so it returns a
             # DOUBLE because of the JIT hack
             res = float2longlong(res)

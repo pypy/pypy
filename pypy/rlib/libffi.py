@@ -82,6 +82,8 @@ def _fits_into_long(TYPE):
 
 # ======================================================================
 
+IS_32_BIT = (r_uint.BITS == 32)
+
 @specialize.memo()
 def _check_type(TYPE):
     if isinstance(TYPE, lltype.Ptr):
@@ -124,6 +126,7 @@ class ArgChain(object):
         the conversions.  Note that if you use long longs, the call won't
         be jitted at all.
         """
+        assert IS_32_BIT      # use a normal integer on 64-bit platforms
         self._append(LongLongArg(val))
 
     def arg_singlefloat(self, val):
@@ -290,6 +293,7 @@ class Func(AbstractFuncPtr):
             # XXX: even if RESULT is LONGLONG, we still return a DOUBLE, else the
             # jit complains. Note that the jit is disabled in this case
             # (it's not a typo, we really return a DOUBLE)
+            assert IS_32_BIT
             return self._do_call_longlong(self.funcsym, ll_args)
         elif RESULT is lltype.Void:
             return self._do_call_void(self.funcsym, ll_args)
