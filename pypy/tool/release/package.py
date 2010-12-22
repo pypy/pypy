@@ -78,7 +78,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        os.system("strip -x " + str(archive_pypy_c))    # ignore errors
+        #
+        # 'strip' fun: see https://codespeak.net/issue/pypy-dev/issue587
+        if sys.platform == 'darwin':
+            os.system("strip -x " + str(archive_pypy_c))    # ignore errors
+        else:
+            os.system("strip " + str(archive_pypy_c))    # ignore errors
+        #
         if USE_TARFILE_MODULE:
             import tarfile
             tf = tarfile.open(str(builddir.join(name + '.tar.bz2')), 'w:bz2')
