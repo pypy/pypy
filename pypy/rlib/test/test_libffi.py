@@ -314,9 +314,14 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy_longlong', [types.slonglong, types.slonglong],
                 types.slonglong)
-        x = r_longlong(maxint32+1)
-        y = r_longlong(maxint32+2)
-        zero = longlong2float(r_longlong(0))
+        if IS_32_BIT:
+            x = r_longlong(maxint32+1)
+            y = r_longlong(maxint32+2)
+            zero = longlong2float(r_longlong(0))
+        else:
+            x = maxint32+1
+            y = maxint32+2
+            zero = 0
         res = self.call(func, [x, y], rffi.LONGLONG, init_result=zero)
         if IS_32_BIT:
             # obscure, on 32bit it's really a long long, so it returns a
