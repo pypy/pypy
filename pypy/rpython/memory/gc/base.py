@@ -40,8 +40,7 @@ class GCBase(object):
         # More stuff that needs to be initialized when the GC is already
         # fully working.  (Only called by gctransform/framework for now.)
         from pypy.rpython.memory.gc import env
-        if env.read_from_env('PYPY_GC_DEBUG') > 0:
-            self.DEBUG = True
+        self.DEBUG = env.read_from_env('PYPY_GC_DEBUG')
 
     def _teardown(self):
         pass

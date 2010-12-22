@@ -16,6 +16,7 @@ class TestW_DictObject:
         space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
+        assert d.r_dict_content is None
 
     def test_nonempty(self):
         space = self.space
@@ -505,6 +506,7 @@ class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
         raises(TypeError, "{}[['x']]")
+        raises(TypeError, "del {}[['x']]")
 
     def test_string_subclass_via_setattr(self):
         class A(object):

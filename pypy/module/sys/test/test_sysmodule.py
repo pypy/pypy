@@ -440,9 +440,6 @@ class AppTestSysModulePortedFromCPython:
 
     def test_pypy_attributes(self):
         assert isinstance(sys.pypy_objspaceclass, str)
-        assert isinstance(sys.pypy_svn_url, tuple)
-        url = sys.pypy_svn_url
-        assert isinstance(url[0], str)
         vi = sys.pypy_version_info
         assert isinstance(vi, tuple)
         assert len(vi) == 5
@@ -451,16 +448,25 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
-        assert url[1] == vi[4]
 
     def test_allattributes(self):
         sys.__dict__   # check that we don't crash initializing any attribute
 
     def test_subversion(self):
-        project, svnbranch, revision = sys.subversion
+        assert sys.subversion == ('PyPy', '', '')
+
+    def test__mercurial(self):
+        import re
+        project, hgtag, hgid = sys._mercurial
         assert project == 'PyPy'
-        assert svnbranch == svnbranch.strip('/')
-        assert revision.isdigit()
+        # the tag or branch may be anything, including the empty string
+        assert isinstance(hgtag, str)
+        # the id is either nothing, or an id of 12 hash digits, with a possible
+        # suffix of '+' if there are local modifications
+        assert hgid == '' or re.match('[0-9a-f]{12}\+?', hgid)
+        # the id should also show up in sys.version
+        if hgid != '':
+            assert hgid in sys.version
 
     def test_trace_exec_execfile(self):
         found = []

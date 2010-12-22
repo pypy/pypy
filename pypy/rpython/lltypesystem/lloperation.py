@@ -526,6 +526,8 @@ LL_OPERATIONS = {
     'get_stack_depth_limit':LLOp(sideeffects=False),
     'set_stack_depth_limit':LLOp(),
 
+    'stack_current':        LLOp(sideeffects=False),
+
     # __________ misc operations __________
 
     'keepalive':            LLOp(),

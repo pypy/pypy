@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 """
 Syntax:
-    python logparser.py <action> <logfilename> <options...>
+    python logparser.py <action> <logfilename> <output> <options...>
 
 Actions:
     draw-time   draw a timeline image of the log (format PNG by default)

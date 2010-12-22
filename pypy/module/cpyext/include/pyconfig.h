@@ -10,11 +10,11 @@ extern "C" {
 #define HAVE_LONG_LONG 1
 #define HAVE_STDARG_PROTOTYPES 1
 #define PY_FORMAT_LONG_LONG "ll"
-#define PY_LONG_LONG long long
 #define PY_FORMAT_SIZE_T "z"
 #define WITH_DOC_STRINGS
 #define HAVE_UNICODE
 #define WITHOUT_COMPLEX
+#define HAVE_WCHAR_H 1
 
 /* PyPy supposes Py_UNICODE == wchar_t */
 #define HAVE_USABLE_WCHAR_T 1

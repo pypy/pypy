@@ -16,10 +16,10 @@ from pypy.module.cpyext.pyobject import (
     track_reference, RefcountState, borrow_from)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext import structmemberdefs
-from pypy.module.cpyext.modsupport import convert_method_defs, PyCFunction
+from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.methodobject import (
-    PyDescr_NewWrapper, PyCFunction_NewEx)
+    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
 from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
@@ -208,7 +208,7 @@ def get_new_method_def(space):
 
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
-    ptr.c_ml_meth = rffi.cast(PyCFunction,
+    ptr.c_ml_meth = rffi.cast(PyCFunction_typedef,
         llhelper(tp_new_wrapper.api_func.functype,
                  tp_new_wrapper.api_func.get_wrapper(space)))
 

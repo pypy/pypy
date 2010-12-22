@@ -4,6 +4,7 @@ import os, time, sys
 from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.translator.c.test.test_genc import compile
+from pypy.translator.c.test.test_standalone import StandaloneTests
 posix = __import__(os.name)
 
 # note: clock synchronizes itself!
@@ -404,6 +405,28 @@ def test_os_rename():
     assert os.path.exists(tmpfile2)
     assert not os.path.exists(tmpfile1)
 
+if hasattr(os, 'mkfifo'):
+    def test_os_mkfifo():
+        tmpfile = str(udir.join('test_os_mkfifo.txt'))
+        def does_stuff():
+            os.mkfifo(tmpfile, 0666)
+        f1 = compile(does_stuff, [])
+        f1()
+        import stat
+        st = os.lstat(tmpfile)
+        assert stat.S_ISFIFO(st.st_mode)
+
+if hasattr(os, 'mknod'):
+    def test_os_mknod():
+        import stat
+        tmpfile = str(udir.join('test_os_mknod.txt'))
+        def does_stuff():
+            os.mknod(tmpfile, 0600 | stat.S_IFIFO, 0)
+        f1 = compile(does_stuff, [])
+        f1()
+        st = os.lstat(tmpfile)
+        assert stat.S_ISFIFO(st.st_mode)
+
 def test_os_umask():
     def does_stuff():
         mask1 = os.umask(0660)
@@ -515,6 +538,62 @@ elif hasattr(os, 'waitpid'):
         status1 = f1()
         # for what reason do they want us to shift by 8? See the doc
         assert status1 >> 8 == 4
+
+if hasattr(os, 'kill'):
+    def test_kill_to_send_sigusr1():
+        import signal
+        from pypy.module.signal import interp_signal
+        def does_stuff():
+            interp_signal.pypysig_setflag(signal.SIGUSR1)
+            os.kill(os.getpid(), signal.SIGUSR1)
+            interp_signal.pypysig_ignore(signal.SIGUSR1)
+            while True:
+                n = interp_signal.pypysig_poll()
+                if n < 0 or n == signal.SIGUSR1:
+                    break
+            return n
+        f1 = compile(does_stuff, [])
+        got_signal = f1()
+        assert got_signal == signal.SIGUSR1
+
+if hasattr(os, 'killpg'):
+    def test_killpg():
+        import signal
+        from pypy.module.signal import interp_signal
+        def does_stuff():
+            interp_signal.pypysig_setflag(signal.SIGUSR1)
+            os.killpg(os.getpgrp(), signal.SIGUSR1)
+            interp_signal.pypysig_ignore(signal.SIGUSR1)
+            while True:
+                n = interp_signal.pypysig_poll()
+                if n < 0 or n == signal.SIGUSR1:
+                    break
+            return n
+        f1 = compile(does_stuff, [])
+        got_signal = f1()
+        assert got_signal == signal.SIGUSR1
+
+if hasattr(os, 'chown') and hasattr(os, 'lchown'):
+    def test_os_chown_lchown():
+        path1 = udir.join('test_os_chown_lchown-1.txt')
+        path2 = udir.join('test_os_chown_lchown-2.txt')
+        path1.write('foobar')
+        path2.mksymlinkto('some-broken-symlink')
+        tmpfile1 = str(path1)
+        tmpfile2 = str(path2)
+        def does_stuff():
+            # xxx not really a test, just checks that they are callable
+            os.chown(tmpfile1, os.getuid(), os.getgid())
+            os.lchown(tmpfile1, os.getuid(), os.getgid())
+            os.lchown(tmpfile2, os.getuid(), os.getgid())
+            try:
+                os.chown(tmpfile2, os.getuid(), os.getgid())
+            except OSError:
+                pass
+            else:
+                raise AssertionError("os.chown(broken symlink) should raise")
+        f1 = compile(does_stuff, [])
+        f1()
 
 # ____________________________________________________________
 
@@ -755,3 +834,47 @@ if hasattr(os, 'uname'):
         for i in range(5):
             res = func(i)
             assert res == os.uname()[i]
+
+if hasattr(os, 'getloadavg'):
+    def test_os_getloadavg():
+        def does_stuff():
+            a, b, c = os.getloadavg()
+            print a, b, c
+            return a + b + c
+        f = compile(does_stuff, [])
+        res = f()
+        assert type(res) is float and res >= 0.0
+
+if hasattr(os, 'fchdir'):
+    def test_os_fchdir():
+        def does_stuff():
+            fd = os.open('/', os.O_RDONLY, 0400)
+            try:
+                os.fchdir(fd)
+                s = os.getcwd()
+            finally:
+                os.close(fd)
+            return s == '/'
+        f = compile(does_stuff, [])
+        localdir = os.getcwd()
+        try:
+            res = f()
+        finally:
+            os.chdir(localdir)
+        assert res == True
+
+# ____________________________________________________________
+
+
+class TestExtFuncStandalone(StandaloneTests):
+
+    if hasattr(os, 'nice'):
+        def test_os_nice(self):
+            def does_stuff(argv):
+                res =  os.nice(3)
+                print 'os.nice returned', res
+                return 0
+            t, cbuilder = self.compile(does_stuff)
+            data = cbuilder.cmdexec('')
+            res = os.nice(0) + 3
+            assert data.startswith('os.nice returned %d\n' % res)

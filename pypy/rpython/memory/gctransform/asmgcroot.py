@@ -306,6 +306,16 @@ class AsmStackRootWalker(BaseRootWalker):
                 if item:
                     self._shape_decompressor.setaddr(item)
                     return
+            # there is a rare risk that the array contains *two* entries
+            # with the same key, one of which is dead (null value), and we
+            # found the dead one above.  Solve this case by replacing all
+            # dead keys with nulls, sorting again, and then trying again.
+            replace_dead_entries_with_nulls(gcmapstart2, gcmapend2)
+            sort_gcmap(gcmapstart2, gcmapend2)
+            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
+            if item:
+                self._shape_decompressor.setaddr(item)
+                return
         # the item may have been not found because the main array was
         # not sorted.  Sort it and try again.
         win32_follow_gcmap_jmp(gcmapstart, gcmapend)
@@ -400,6 +410,15 @@ def sort_gcmap(gcmapstart, gcmapend):
           rffi.cast(rffi.SIZE_T, count),
           rffi.cast(rffi.SIZE_T, arrayitemsize),
           llhelper(QSORT_CALLBACK_PTR, _compare_gcmap_entries))
+
+def replace_dead_entries_with_nulls(start, end):
+    # replace the dead entries (null value) with a null key.
+    count = (end - start) // arrayitemsize - 1
+    while count >= 0:
+        item = start + count * arrayitemsize
+        if item.address[1] == llmemory.NULL:
+            item.address[0] = llmemory.NULL
+        count -= 1
 
 if sys.platform == 'win32':
     def win32_follow_gcmap_jmp(start, end):

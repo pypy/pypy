@@ -95,6 +95,22 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.char_member == "a"
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
+        #
+        import sys
+        bignum = sys.maxint - 42
+        obj.short_member = -12345;     assert obj.short_member == -12345
+        obj.long_member = -bignum;     assert obj.long_member == -bignum
+        obj.ushort_member = 45678;     assert obj.ushort_member == 45678
+        obj.uint_member = 3000000000;  assert obj.uint_member == 3000000000
+        obj.ulong_member = 2*bignum;   assert obj.ulong_member == 2*bignum
+        obj.byte_member = -99;         assert obj.byte_member == -99
+        obj.ubyte_member = 199;        assert obj.ubyte_member == 199
+        obj.bool_member = True;        assert obj.bool_member is True
+        obj.float_member = 9.25;       assert obj.float_member == 9.25
+        obj.double_member = 9.25;      assert obj.double_member == 9.25
+        obj.longlong_member = -2**59;  assert obj.longlong_member == -2**59
+        obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
+        #
         self.cleanup_references()
 
     def test_staticmethod(self):

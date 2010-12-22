@@ -948,6 +948,9 @@ class LLFrame(object):
     def op_set_stack_depth_limit(self):
         raise NotImplementedError("set_stack_depth_limit")
 
+    def op_stack_current(self):
+        return 0
+
     # operations on pyobjects!
     for opname in lloperation.opimpls.keys():
         exec py.code.Source("""
