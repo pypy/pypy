@@ -52,11 +52,17 @@ class TestLibffiMisc(BaseFfiTest):
         assert not ALLOCATED
 
     def test_longlong_as_float(self):
+        from pypy.translator.c.test.test_genc import compile
         maxint64 = r_longlong(9223372036854775807)
-        d = longlong2float(maxint64)
-        ll = float2longlong(d)
-        assert ll == maxint64
-        
+        def fn(x):
+            d = longlong2float(x)
+            ll = float2longlong(d)
+            return ll
+        assert fn(maxint64) == maxint64
+        #
+        fn2 = compile(fn, [r_longlong])
+        res = fn2(maxint64)
+        assert res == maxint64
 
 class TestLibffiCall(BaseFfiTest):
     """
