@@ -3,7 +3,7 @@ import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
-from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name
+from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
 from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
 from pypy.rlib.libffi import longlong2float, float2longlong, IS_32_BIT
 
@@ -131,6 +131,10 @@ class TestLibffiCall(BaseFfiTest):
             elif IS_32_BIT and isinstance(arg, r_ulonglong):
                 arg = rffi.cast(rffi.LONGLONG, arg)
                 chain.arg_longlong(longlong2float(arg))
+            elif isinstance(arg, tuple):
+                methname, arg = arg
+                meth = getattr(chain, methname)
+                meth(arg)
             else:
                 chain.arg(arg)
         return func.call(chain, RESULT)
@@ -375,3 +379,31 @@ class TestLibffiCall(BaseFfiTest):
 
         my_raises("self.call(func, [38], rffi.LONG)") # one less
         my_raises("self.call(func, [38, 12.3, 42], rffi.LONG)") # one more
+
+
+    def test_byval_argument(self):
+        """
+            struct Point {
+                long x;
+                long y;
+            };
+
+            #include <stdio.h>
+            long sum_point(struct Point p) {
+                printf("&p = %ld, p.x = %ld, p.y = %ld\\n", &p, p.x, p.y);
+                return p.x + p.y;
+            }
+        """
+        libfoo = CDLL(self.libfoo_name)
+        ffi_point_struct = make_struct_ffitype_e(0, 0, [types.slong, types.slong])
+        ffi_point = ffi_point_struct.ffistruct
+        func = (libfoo, 'sum_point', [ffi_point], types.slong)
+        #
+        ARRAY = rffi.CArray(rffi.LONG)
+        buf = lltype.malloc(ARRAY, 2, flavor='raw')
+        buf[0] = 30
+        buf[1] = 12
+        adr = rffi.cast(rffi.ULONG, buf)
+        res = self.call(func, [('arg_raw', adr)], rffi.LONG, init_result=0)
+        assert res == 42
+        lltype.free(ffi_point_struct, flavor='raw')
