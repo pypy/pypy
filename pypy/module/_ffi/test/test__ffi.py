@@ -252,6 +252,28 @@ class AppTestFfi:
         res = sum_point(p.buffer)
         assert res == 42
 
+    def test_byval_result(self):
+        """
+            struct Point make_point(long x, long y) {
+                struct Point p;
+                p.x = x;
+                p.y = y;
+                return p;
+            }
+        """
+        import _rawffi
+        from _ffi import CDLL, types
+        POINT = _rawffi.Structure([('x', 'l'), ('y', 'l')])
+        ffi_point = POINT.get_ffi_type()
+        libfoo = CDLL(self.libfoo_name)
+        make_point = libfoo.getfunc('make_point', [types.slong, types.slong], ffi_point)
+        #
+        adr = make_point(12, 34)
+        p = POINT.fromaddress(adr)
+        assert p.x == 12
+        assert p.y == 34
+        p.free()
+
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)

@@ -124,6 +124,9 @@ class W_FuncPtr(Wrappable):
             return space.wrap(floatres)
         elif reskind == 'I' or reskind == 'U':
             return self._call_longlong(space, argchain, reskind)
+        elif reskind == 'S':
+            # we return the address of the buffer as an integer
+            return self._call_uint(space, argchain)
         else:
             assert reskind == 'v'
             voidres = self.func.call(argchain, lltype.Void)
@@ -171,7 +174,7 @@ class W_FuncPtr(Wrappable):
             # special case
             uintres = call(argchain, rffi.ULONG)
             return space.wrap(uintres)
-        elif restype is libffi.types.pointer:
+        elif restype is libffi.types.pointer or restype.c_type == libffi.FFI_TYPE_STRUCT:
             uintres = rffi.cast(rffi.ULONG, call(argchain, rffi.VOIDP))
             return space.wrap(uintres)
         elif restype is libffi.types.uint:
