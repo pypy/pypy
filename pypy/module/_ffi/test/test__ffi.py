@@ -251,6 +251,7 @@ class AppTestFfi:
         p.y = 12
         res = sum_point(p.buffer)
         assert res == 42
+        p.free()
 
     def test_byval_result(self):
         """
