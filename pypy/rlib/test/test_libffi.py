@@ -388,9 +388,7 @@ class TestLibffiCall(BaseFfiTest):
                 long y;
             };
 
-            #include <stdio.h>
             long sum_point(struct Point p) {
-                printf("&p = %ld, p.x = %ld, p.y = %ld\\n", &p, p.x, p.y);
                 return p.x + p.y;
             }
         """
