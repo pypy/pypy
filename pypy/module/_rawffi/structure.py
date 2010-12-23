@@ -158,7 +158,8 @@ W_Structure.typedef = TypeDef(
     size        = interp_attrproperty('size', W_Structure),
     alignment   = interp_attrproperty('alignment', W_Structure),
     fieldoffset = interp2app(W_Structure.descr_fieldoffset),
-    size_alignment = interp2app(W_Structure.descr_size_alignment)
+    size_alignment = interp2app(W_Structure.descr_size_alignment),
+    get_ffi_type   = interp2app(W_Structure.descr_get_ffi_type),
 )
 W_Structure.typedef.acceptable_as_base_class = False
 

@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
 from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 from pypy.rlib.clibffi import *
@@ -245,6 +245,14 @@ class W_DataShape(Wrappable):
 
     def get_basic_ffi_type(self):
         raise NotImplementedError
+
+    @unwrap_spec('self', ObjSpace)
+    def descr_get_ffi_type(self, space):
+        # XXX: this assumes that you have the _ffi module enabled. In the long
+        # term, probably we will move the code for build structures and arrays
+        # from _rawffi to _ffi
+        from pypy.module._ffi.interp_ffi import W_FFIType
+        return W_FFIType('<name>', self.get_basic_ffi_type())
 
     def descr_size_alignment(self, space, n=1):
         return space.newtuple([space.wrap(self.size * n),

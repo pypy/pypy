@@ -35,7 +35,7 @@ class AppTestFfi:
         from pypy.rpython.lltypesystem import rffi
         from pypy.rlib.libffi import get_libc_name, CDLL, types
         from pypy.rlib.test.test_libffi import get_libm_name
-        space = gettestobjspace(usemodules=('_ffi',))
+        space = gettestobjspace(usemodules=('_ffi', '_rawffi'))
         cls.space = space
         cls.w_libfoo_name = space.wrap(cls.prepare_c_example())
         cls.w_libc_name = space.wrap(get_libc_name())
@@ -228,6 +228,29 @@ class AppTestFfi:
         expected = maxint64 + 3
         assert res == expected
 
+    def test_byval(self):
+        """
+            struct Point {
+                long x;
+                long y;
+            };
+
+            long sum_point(struct Point p) {
+                return p.x + p.y;
+            }
+        """
+        # failing test so far
+        import _rawffi
+        from _ffi import CDLL, types
+        POINT = _rawffi.Structure([('x', 'l'), ('y', 'l')])
+        ffi_point = POINT.get_ffi_type()
+        libfoo = CDLL(self.libfoo_name)
+        sum_point = libfoo.getfunc('sum_point', [ffi_point], types.slong)
+        p = POINT()
+        p.x = 30
+        p.y = 12
+        res = sum_point(p)
+        assert res == 42
 
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types
