@@ -760,7 +760,7 @@ def cast_primitive(TGT, value):
     raise TypeError, "unsupported cast"
 
 def _cast_whatever(TGT, value):
-    from pypy.rpython.lltypesystem import llmemory
+    from pypy.rpython.lltypesystem import llmemory, rffi
     ORIG = typeOf(value)
     if ORIG == TGT:
         return value
@@ -776,6 +776,8 @@ def _cast_whatever(TGT, value):
                 return cast_pointer(TGT, value)
         elif ORIG == llmemory.Address:
             return llmemory.cast_adr_to_ptr(value, TGT)
+        elif TGT == rffi.VOIDP and ORIG == Unsigned:
+            return rffi.cast(TGT, value)
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
         return llmemory.cast_ptr_to_adr(value)
     elif TGT == Signed and isinstance(ORIG, Ptr) and ORIG.TO._gckind == 'raw':

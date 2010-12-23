@@ -30,6 +30,8 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                 method_name = 'arg_longlong'
                 argval = rffi.cast(rffi.LONGLONG, argval)
                 argval = longlong2float(argval)
+            elif isinstance(argval, tuple):
+                method_name, argval = argval
             else:
                 method_name = 'arg'
             method_and_args.append((method_name, argval))
