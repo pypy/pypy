@@ -65,8 +65,12 @@ class types(object):
         elif ffi_type is types.sint64:  return 'I'
         elif ffi_type is types.uint64:  return 'U'
         #
-        elif ffi_type.c_type == FFI_TYPE_STRUCT: return 'S'
+        elif types.is_struct(ffi_type): return 'S'
         raise KeyError
+
+    @staticmethod
+    def is_struct(ffi_type):
+        return intmask(ffi_type.c_type) == intmask(FFI_TYPE_STRUCT)
 
 types._import()
 
@@ -407,7 +411,7 @@ class Func(AbstractFuncPtr):
         if RESULT is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RESULT))
             buf = rffi.cast(TP, ll_result)
-            if self.restype.c_type == FFI_TYPE_STRUCT:
+            if types.is_struct(self.restype):
                 # for structs, we directly return the buffer and transfer the
                 # ownership
                 res = rffi.cast(RESULT, buf)
@@ -431,7 +435,7 @@ class Func(AbstractFuncPtr):
         # if it's a struct, the buffer is not freed and the ownership is
         # already of the caller (in case of ll_args buffers) or transferred to
         # it (in case of ll_result buffer)
-        if ffitype.c_type != FFI_TYPE_STRUCT:
+        if not types.is_struct(ffitype):
             lltype.free(buf, flavor='raw')
 
 

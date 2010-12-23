@@ -37,7 +37,7 @@ def build_ffi_types():
     from pypy.rlib.clibffi import FFI_TYPE_P
     tdict = {}
     for key, value in libffi.types.__dict__.iteritems():
-        if key == 'getkind' or key.startswith('__'):
+        if key == 'getkind' or key == 'is_struct' or key.startswith('__'):
             continue
         assert lltype.typeOf(value) == FFI_TYPE_P
         tdict[key] = W_FFIType(key, value)
