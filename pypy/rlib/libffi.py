@@ -4,7 +4,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat
 from pypy.rlib import jit
 from pypy.rlib import clibffi
 from pypy.rlib.clibffi import get_libc_name, FUNCFLAG_CDECL, AbstractFuncPtr, \
-    push_arg_as_ffiptr, c_ffi_call
+    push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 
 class types(object):
@@ -64,6 +64,10 @@ class types(object):
         ## case is caught above)
         elif ffi_type is types.sint64:  return 'I'
         elif ffi_type is types.uint64:  return 'U'
+        #
+        elif ffi_type.c_type == FFI_TYPE_STRUCT:
+            # it's a struct
+            return 'u' # XXX?
         raise KeyError
 
 types._import()

@@ -82,7 +82,7 @@ class W_FuncPtr(Wrappable):
             elif kind == 's':
                 argchain.arg_singlefloat(space.float_w(w_arg))
             elif kind == 'I' or kind == 'U':
-                # we are on 32 bit and using long longs. Too bad, we can't jit it
+                assert libffi.IS_32_BIT
                 self.arg_longlong(space, argchain, kind, w_arg)
             else:
                 assert False, "Argument kind '%s' not supported" % kind

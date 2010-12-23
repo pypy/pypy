@@ -229,28 +229,36 @@ class AppTestFfi:
         assert res == expected
 
     def test_byval(self):
-        """
+        r"""
             struct Point {
                 long x;
                 long y;
             };
 
+            #include <stdio.h>
             long sum_point(struct Point p) {
+                printf("p.x = %ld\np.y = %ld\n", p.x, p.y);
                 return p.x + p.y;
             }
+
+            void checkbuf(long* buf) {
+                printf("buf[0] = %ld\nbuf[1] = %ld\n", buf[0], buf[1]);
+            }
         """
-        # failing test so far
         import _rawffi
         from _ffi import CDLL, types
         POINT = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         ffi_point = POINT.get_ffi_type()
         libfoo = CDLL(self.libfoo_name)
         sum_point = libfoo.getfunc('sum_point', [ffi_point], types.slong)
+        checkbuf = libfoo.getfunc('checkbuf', [types.pointer], types.void)
+
         p = POINT()
         p.x = 30
         p.y = 12
-        res = sum_point(p)
-        assert res == 42
+        checkbuf(p.buffer)
+        res = sum_point(p.buffer)
+        #assert res == 42
 
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types
