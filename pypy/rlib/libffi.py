@@ -65,9 +65,7 @@ class types(object):
         elif ffi_type is types.sint64:  return 'I'
         elif ffi_type is types.uint64:  return 'U'
         #
-        elif ffi_type.c_type == FFI_TYPE_STRUCT:
-            # it's a struct
-            return 'u' # XXX?
+        elif ffi_type.c_type == FFI_TYPE_STRUCT: return 'S'
         raise KeyError
 
 types._import()
@@ -122,6 +120,9 @@ class ArgChain(object):
         self._append(cls(val))
         return self
 
+    def arg_raw(self, val):
+        self._append(RawArg(val))
+
     def arg_longlong(self, val):
         """
         Note: this is a hack. So far, the JIT does not support long longs, so
@@ -163,6 +164,7 @@ class IntArg(AbstractArg):
     def push(self, func, ll_args, i):
         func._push_int(self.intval, ll_args, i)
 
+
 class FloatArg(AbstractArg):
     """ An argument holding a python float (i.e. a C double)
     """
@@ -173,6 +175,15 @@ class FloatArg(AbstractArg):
     def push(self, func, ll_args, i):
         func._push_float(self.floatval, ll_args, i)
 
+class RawArg(AbstractArg):
+    """ An argument holding a raw pointer to put inside ll_args
+    """
+
+    def __init__(self, intval):
+        self.ptrval = rffi.cast(rffi.CCHARP, intval)
+
+    def push(self, func, ll_args, i):
+        func._push_raw(self.ptrval, ll_args, i)
 
 class SingleFloatArg(AbstractArg):
     """ An argument representing a C float (but holding a C double)
@@ -326,6 +337,10 @@ class Func(AbstractFuncPtr):
     @enforceargs( None, int,   None,    int) # fix the annotation for tests
     def _push_int(self, value, ll_args, i):
         self._push_arg(value, ll_args, i)
+
+    @jit.dont_look_inside
+    def _push_raw(self, value, ll_args, i):
+        ll_args[i] = value
 
     @jit.oopspec('libffi_push_float(self, value, ll_args, i)')
     @enforceargs(   None, float, None,    int) # fix the annotation for tests
