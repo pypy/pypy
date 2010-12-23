@@ -251,3 +251,12 @@ class AppTestMath:
                 fail_msg += ' ({})'.format(accuracy_failure)
             failures.append(fail_msg)
         assert not failures
+
+    def test_trunc(self):
+        import math
+        assert math.trunc(1.9) == 1.0
+        raises((AttributeError, TypeError), math.trunc, 1.9j)
+        class foo(object):
+            def __trunc__(self):
+                return "truncated"
+        assert math.trunc(foo()) == "truncated"
