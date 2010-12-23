@@ -397,14 +397,14 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = CDLL(self.libfoo_name)
         ffi_point_struct = make_struct_ffitype_e(0, 0, [types.slong, types.slong])
         ffi_point = ffi_point_struct.ffistruct
-        func = (libfoo, 'sum_point', [ffi_point], types.slong)
+        sum_point = (libfoo, 'sum_point', [ffi_point], types.slong)
         #
         ARRAY = rffi.CArray(rffi.LONG)
         buf = lltype.malloc(ARRAY, 2, flavor='raw')
         buf[0] = 30
         buf[1] = 12
         adr = rffi.cast(rffi.ULONG, buf)
-        res = self.call(func, [('arg_raw', adr)], rffi.LONG, init_result=0)
+        res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG, init_result=0)
         assert res == 42
         lltype.free(ffi_point_struct, flavor='raw')
 
