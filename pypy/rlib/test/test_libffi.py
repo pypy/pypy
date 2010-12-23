@@ -406,6 +406,10 @@ class TestLibffiCall(BaseFfiTest):
         adr = rffi.cast(rffi.ULONG, buf)
         res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG, init_result=0)
         assert res == 42
+        # check that we still have the ownership on the buffer
+        assert buf[0] == 30
+        assert buf[1] == 12
+        lltype.free(buf, flavor='raw')
         lltype.free(ffi_point_struct, flavor='raw')
 
     def test_byval_result(self):

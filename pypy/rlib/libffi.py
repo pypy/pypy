@@ -420,13 +420,19 @@ class Func(AbstractFuncPtr):
         return res
 
     def _free_buffers(self, ll_result, ll_args):
-        if ll_result and self.restype.c_type != FFI_TYPE_STRUCT:
-            # if it's a struct, the buffer is not freed and the ownership is
-            # transferred to the caller
-            lltype.free(ll_result, flavor='raw')
+        if ll_result:
+            self._free_buffer_maybe(ll_result, self.restype)
         for i in range(len(self.argtypes)):
-            lltype.free(ll_args[i], flavor='raw')
+            argtype = self.argtypes[i]
+            self._free_buffer_maybe(ll_args[i], argtype)
         lltype.free(ll_args, flavor='raw')
+
+    def _free_buffer_maybe(self, buf, ffitype):
+        # if it's a struct, the buffer is not freed and the ownership is
+        # already of the caller (in case of ll_args buffers) or transferred to
+        # it (in case of ll_result buffer)
+        if ffitype.c_type != FFI_TYPE_STRUCT:
+            lltype.free(buf, flavor='raw')
 
 
 # ======================================================================
