@@ -364,9 +364,14 @@ class ARMRegisterManager(RegisterManager):
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
         self.assembler.load(y, imm(y_val))
 
-        arglocs = self._prepare_guard(op, [x, y])
+        offset = self.cpu.vtable_offset
+        offset_loc, offset_box = self._ensure_value_is_boxed(ConstInt(offset), boxes)
+        boxes.append(offset_box)
+        arglocs = self._prepare_guard(op, [x, y, offset_loc])
         self.possibly_free_vars(boxes)
+
         return arglocs
+
 
     def prepare_op_jump(self, op, fcond):
         descr = op.getdescr()

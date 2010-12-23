@@ -203,14 +203,20 @@ class GuardOpAssembler(object):
         return fcond
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
-        offset = self.cpu.vtable_offset
+        offset = locs[2]
         if offset is not None:
-            assert offset == 0
-            self.mc.LDR_ri(r.ip.value, locs[0].value, offset)
+            if offset.is_imm():
+                self.mc.LDR_ri(r.ip.value, locs[0].value, offset.value)
+            else:
+                assert offset.is_reg()
+                self.mc.LDR_rr(r.ip.value, locs[0].value, offset.value)
             self.mc.CMP_rr(r.ip.value, locs[1].value)
         else:
             raise NotImplementedError
             # XXX port from x86 backend once gc support is in place
+
+        return self._emit_guard(op, locs[3:], c.EQ)
+
 
         return self._emit_guard(op, locs[2:], c.EQ)
 
