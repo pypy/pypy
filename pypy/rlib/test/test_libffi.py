@@ -407,3 +407,26 @@ class TestLibffiCall(BaseFfiTest):
         res = self.call(func, [('arg_raw', adr)], rffi.LONG, init_result=0)
         assert res == 42
         lltype.free(ffi_point_struct, flavor='raw')
+
+    def test_byval_result(self):
+        """
+            struct Point make_point(long x, long y) {
+                struct Point p;
+                p.x = x;
+                p.y = y;
+                return p;
+            }
+        """
+        libfoo = CDLL(self.libfoo_name)
+        ffi_point_struct = make_struct_ffitype_e(0, 0, [types.slong, types.slong])
+        ffi_point = ffi_point_struct.ffistruct
+
+        libfoo = CDLL(self.libfoo_name)
+        make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
+        #
+        PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
+        p = self.call(make_point, [12, 34], PTR, init_result=0)
+        assert p[0] == 12
+        assert p[1] == 34
+        lltype.free(p, flavor='raw')
+        lltype.free(ffi_point_struct, flavor='raw')

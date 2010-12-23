@@ -406,7 +406,13 @@ class Func(AbstractFuncPtr):
                             rffi.cast(rffi.VOIDPP, ll_args))
         if RESULT is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RESULT))
-            res = rffi.cast(TP, ll_result)[0]
+            buf = rffi.cast(TP, ll_result)
+            if self.restype.c_type == FFI_TYPE_STRUCT:
+                # for structs, we directly return the buffer and transfer the
+                # ownership
+                res = rffi.cast(RESULT, buf)
+            else:
+                res = buf[0]
         else:
             res = None
         self._free_buffers(ll_result, ll_args)
@@ -414,7 +420,9 @@ class Func(AbstractFuncPtr):
         return res
 
     def _free_buffers(self, ll_result, ll_args):
-        if ll_result:
+        if ll_result and self.restype.c_type != FFI_TYPE_STRUCT:
+            # if it's a struct, the buffer is not freed and the ownership is
+            # transferred to the caller
             lltype.free(ll_result, flavor='raw')
         for i in range(len(self.argtypes)):
             lltype.free(ll_args[i], flavor='raw')
