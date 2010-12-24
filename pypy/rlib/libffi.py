@@ -300,7 +300,9 @@ class Func(AbstractFuncPtr):
             i += 1
             arg = arg.next
         #
-        if _fits_into_long(RESULT):
+        if types.is_struct(self.restype):
+            res = self._do_call_raw(self.funcsym, ll_args)
+        elif _fits_into_long(RESULT):
             res = self._do_call_int(self.funcsym, ll_args)
         elif RESULT is rffi.DOUBLE:
             return self._do_call_float(self.funcsym, ll_args)
@@ -374,6 +376,11 @@ class Func(AbstractFuncPtr):
     def _do_call_single_float(self, funcsym, ll_args):
         single_res = self._do_call(funcsym, ll_args, rffi.FLOAT)
         return float(single_res)
+
+    @jit.dont_look_inside
+    def _do_call_raw(self, funcsym, ll_args):
+        # same as _do_call_int, but marked as jit.dont_look_inside
+        return self._do_call(funcsym, ll_args, rffi.LONG)
 
     @jit.dont_look_inside
     def _do_call_longlong(self, funcsym, ll_args):

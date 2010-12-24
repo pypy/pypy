@@ -427,7 +427,7 @@ class TestLibffiCall(BaseFfiTest):
         make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
         #
         PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
-        p = self.call(make_point, [12, 34], PTR, init_result=0)
+        p = self.call(make_point, [12, 34], PTR, init_result=lltype.nullptr(PTR.TO))
         assert p[0] == 12
         assert p[1] == 34
         lltype.free(p, flavor='raw')
