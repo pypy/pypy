@@ -107,7 +107,7 @@ class TestLibffiCall(BaseFfiTest):
     def get_libfoo(self):
         return self.CDLL(self.libfoo_name)
 
-    def call(self, funcspec, args, RESULT, init_result=0):
+    def call(self, funcspec, args, RESULT, init_result=0, before_iteration_hook=None):
         """
         Call the specified function after constructing and ArgChain with the
         arguments in ``args``.
@@ -426,8 +426,14 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = CDLL(self.libfoo_name)
         make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
         #
+        def before_iteration_hook(p):
+            # this is needed else in metainterp/test/test_fficall we leak all
+            # the intermediate results
+            lltype.free(p, flavor='raw')
+        #
         PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
-        p = self.call(make_point, [12, 34], PTR, init_result=lltype.nullptr(PTR.TO))
+        p = self.call(make_point, [12, 34], PTR, init_result=lltype.nullptr(PTR.TO),
+                      before_iteration_hook=before_iteration_hook)
         assert p[0] == 12
         assert p[1] == 34
         lltype.free(p, flavor='raw')

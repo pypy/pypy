@@ -14,7 +14,8 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
 
     # ===> ../../../rlib/test/test_libffi.py
 
-    def call(self, funcspec, args, RESULT, init_result=0):
+    def call(self, funcspec, args, RESULT, init_result=0,
+             before_iteration_hook=None):
         """
         Call the function specified by funcspec in a loop, and let the jit to
         see and optimize it.
@@ -49,6 +50,8 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
             while n < 10:
                 driver.jit_merge_point(n=n, res=res, func=func)
                 driver.can_enter_jit(n=n, res=res, func=func)
+                if before_iteration_hook:
+                    before_iteration_hook(res)
                 func = hint(func, promote=True)
                 argchain = ArgChain()
                 # this loop is unrolled
