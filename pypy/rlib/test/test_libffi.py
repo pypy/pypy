@@ -401,7 +401,7 @@ class TestLibffiCall(BaseFfiTest):
         buf = lltype.malloc(ARRAY, 2, flavor='raw')
         buf[0] = 30
         buf[1] = 12
-        adr = rffi.cast(rffi.ULONG, buf)
+        adr = rffi.cast(rffi.VOIDP, buf)
         res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG, init_result=0)
         assert res == 42
         # check that we still have the ownership on the buffer

@@ -183,8 +183,8 @@ class RawArg(AbstractArg):
     """ An argument holding a raw pointer to put inside ll_args
     """
 
-    def __init__(self, intval):
-        self.ptrval = rffi.cast(rffi.CCHARP, intval)
+    def __init__(self, ptrval):
+        self.ptrval = ptrval
 
     def push(self, func, ll_args, i):
         func._push_raw(self.ptrval, ll_args, i)
@@ -412,6 +412,7 @@ class Func(AbstractFuncPtr):
             TP = lltype.Ptr(rffi.CArray(RESULT))
             buf = rffi.cast(TP, ll_result)
             if types.is_struct(self.restype):
+                assert RESULT == rffi.LONG
                 # for structs, we directly return the buffer and transfer the
                 # ownership
                 res = rffi.cast(RESULT, buf)

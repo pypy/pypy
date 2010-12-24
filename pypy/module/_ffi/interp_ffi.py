@@ -81,7 +81,9 @@ class W_FuncPtr(Wrappable):
                 argchain.arg(space.float_w(w_arg))
             elif kind == 'S': # struct
                 # arg_raw directly takes value to put inside ll_args
-                argchain.arg_raw(intmask(space.uint_w(w_arg)))
+                uintval = space.uint_w(w_arg)
+                ptrval = rffi.cast(rffi.VOIDP, uintval)
+                argchain.arg_raw(ptrval)
             elif kind == 's':
                 argchain.arg_singlefloat(space.float_w(w_arg))
             elif kind == 'I' or kind == 'U':
