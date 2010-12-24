@@ -174,7 +174,7 @@ class W_FuncPtr(Wrappable):
             # special case
             uintres = call(argchain, rffi.ULONG)
             return space.wrap(uintres)
-        elif restype is libffi.types.pointer or restype.c_type == libffi.FFI_TYPE_STRUCT:
+        elif restype is libffi.types.pointer or libffi.types.is_struct(restype):
             uintres = rffi.cast(rffi.ULONG, call(argchain, rffi.VOIDP))
             return space.wrap(uintres)
         elif restype is libffi.types.uint:
