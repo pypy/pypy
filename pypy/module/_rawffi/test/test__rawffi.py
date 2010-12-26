@@ -223,6 +223,16 @@ class AppTestFfi:
         else:
             raise AssertionError("did not fail??")
 
+    def test_libload_None(self):
+        if self.iswin32:
+            skip("unix specific")
+        import _rawffi
+        # this should return *all* loaded libs, dlopen(NULL)
+        dll = _rawffi.CDLL(None)
+        # Assume CPython, or PyPy compiled with cpyext
+        res = dll.ptr('Py_IsInitialized', [], 'l')()
+        assert res[0] == 1
+
     def test_libc_load(self):
         import _rawffi
         _rawffi.get_libc()

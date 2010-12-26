@@ -214,7 +214,7 @@ def descr_new_cdll(space, w_type, name):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(W_CDLL(space, name, cdll))
-descr_new_cdll.unwrap_spec = [ObjSpace, W_Root, str]
+descr_new_cdll.unwrap_spec = [ObjSpace, W_Root, 'str_or_None']
 
 W_CDLL.typedef = TypeDef(
     'CDLL',

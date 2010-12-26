@@ -929,20 +929,28 @@ getintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
 
 class scoped_str2charp:
     def __init__(self, value):
-        self.buf = str2charp(value)
+        if value is not None:
+            self.buf = str2charp(value)
+        else:
+            self.buf = lltype.nullptr(CCHARP.TO)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
-        free_charp(self.buf)
+        if self.buf:
+            free_charp(self.buf)
 
 
 class scoped_unicode2wcharp:
     def __init__(self, value):
-        self.buf = unicode2wcharp(value)
+        if value is not None:
+            self.buf = unicode2wcharp(value)
+        else:
+            self.buf = lltype.nullptr(CWCHARP.TO)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
-        free_wcharp(self.buf)
+        if self.buf:
+            free_wcharp(self.buf)
 
 
 class scoped_nonmovingbuffer:
