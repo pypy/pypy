@@ -854,7 +854,7 @@ class PyPyCJITTests(object):
                             else: sa += 20000
                             i += 0.25
                         return sa
-                    '''%(op1, float(a)/4.0, op2, float(b)/4.0), 109, ([], res))
+                    '''%(op1, float(a)/4.0, op2, float(b)/4.0), 156, ([], res))
                     
 
     def test_boolrewrite_correct_reflex(self):
@@ -896,7 +896,7 @@ class PyPyCJITTests(object):
                             else: sa += 20000
                             i += 0.25
                         return sa
-                    '''%(op1, float(a)/4.0, float(b)/4.0, op2), 109, ([], res))
+                    '''%(op1, float(a)/4.0, float(b)/4.0, op2), 156, ([], res))
 
     def test_boolrewrite_ptr(self):
         # XXX this test is way too imprecise in what it is actually testing
