@@ -301,7 +301,7 @@ class LoopTest(object):
         res = self.meta_interp(f, [2, 3])
         assert res == expected
 
-    def test_loop_in_bridge(self):
+    def test_loop_in_bridge1(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y', 'res'])
         bytecode = "abs>cxXyY"
         def f(y):
@@ -344,6 +344,61 @@ class LoopTest(object):
         res = self.meta_interp(f, [12])
         print res
         assert res == expected
+
+    def test_nested_loops_discovered_by_bridge(self):
+        # This is an bytecode implementation of the loop below. With
+        # threshold=3 the first trace produced will start with a failing
+        # test j <= i from the inner loop followed by one iteration of the
+        # outer loop followed by one iteration of the inner loop. A bridge
+        # is then created by tracing the inner loop again.
+        #
+        #   i = j = x = 0
+        #   while i < n:
+        #       j = 0   
+        #       while j <= i:
+        #           j = j + 1
+        #           x = x + (i&j)
+        #       i = i + 1
+        
+        myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'j', 'n', 'x'])
+        bytecode = "IzJxji"
+        def f(n, threshold):
+            myjitdriver.set_param('threshold', threshold)        
+            i = j = x = 0
+            pos = 0
+            op = '-'
+            while pos < len(bytecode):
+                myjitdriver.jit_merge_point(pos=pos, i=i, j=j, n=n, x=x)
+                op = bytecode[pos]
+                if op == 'z':
+                    j = 0
+                elif op == 'i':
+                    i += 1
+                    pos = 0
+                    myjitdriver.can_enter_jit(pos=pos, i=i, j=j, n=n, x=x)
+                    continue
+                elif op == 'j':
+                    j += 1
+                    pos = 2
+                    myjitdriver.can_enter_jit(pos=pos, i=i, j=j, n=n, x=x)
+                    continue
+                elif op == 'I':
+                    if not (i < n):
+                        pos = 5
+                elif op == 'J':
+                    if not (j <= i):
+                        pos = 4
+                elif op == 'x':
+                    x = x + (i&j)
+
+                pos += 1
+
+            return x
+
+        for th in (3, 1, 2, 4, 5): # Start with the interesting case
+            expected = f(25, th)
+            res = self.meta_interp(f, [25, th])
+            assert res == expected
 
     def test_three_nested_loops(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x'])
