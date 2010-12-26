@@ -1809,7 +1809,7 @@ class BasicTests:
         assert res == 8
         py.test.raises(AssertGreenFailed, self.interp_operations, f, [8, 0])
 
-    def test_multiple_specialied_versions(self):
+    def test_multiple_specialied_versions1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
         class Base:
             def __init__(self, val):

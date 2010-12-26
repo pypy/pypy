@@ -43,8 +43,8 @@ class Inliner(object):
         return newop
     
     def inline_arg(self, arg):
-        #if arg is None:
-        #    return None
+        if arg is None:
+            return None
         if isinstance(arg, Const):
             return arg
         return self.argmap[arg]
@@ -227,19 +227,16 @@ class UnrollOptimizer(Optimization):
     def sameop(self, op1, op2):
         if op1.getopnum() != op2.getopnum():
             return False
-        
+
         args1 = op1.getarglist()
         args2 = op2.getarglist()
         if len(args1) != len(args2):
             return False
         for i in range(len(args1)):
             box1, box2 = args1[i], args2[i]
-            if box1 in self.optimizer.values:
-                box1 = self.optimizer.values[box1].force_box()
-            if box2 in self.optimizer.values:
-                box2 = self.optimizer.values[box2].force_box()
-
-            if box1 is not box2:
+            val1 = self.optimizer.getvalue(box1)
+            val2 = self.optimizer.getvalue(box2)
+            if val1 is not val2:
                 return False
 
         if not op1.is_guard():
@@ -275,7 +272,7 @@ class UnrollOptimizer(Optimization):
                and loop_i < len(loop_ops)-1:
                 loop_i += 1
             else:
-                if not state.safe_to_move(op):                    
+                if not state.safe_to_move(op):
                     debug_print("create_short_preamble failed due to",
                                 "unsafe op:", op.getopnum(),
                                 "at position: ", preamble_i)
