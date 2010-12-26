@@ -301,6 +301,50 @@ class LoopTest(object):
         res = self.meta_interp(f, [2, 3])
         assert res == expected
 
+    def test_loop_in_bridge(self):
+        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y', 'res'])
+        bytecode = "abs>cxXyY"
+        def f(y):
+            res = x = 0
+            i = 0
+            op = '-'
+            while i < len(bytecode):
+                myjitdriver.jit_merge_point(i=i, x=x, y=y, res=res)
+                op = bytecode[i]
+                if op == 'a':
+                    res += 1
+                elif op == 'b':
+                    res += 10
+                elif op == 'c':
+                    res += 10000
+                elif op == 's':
+                    x = y
+                elif op == 'y':
+                    y -= 1
+                elif op == 'Y':
+                    if y:
+                        i = 1
+                        myjitdriver.can_enter_jit(i=i, x=x, y=y, res=res)
+                        continue
+                elif op == 'x':
+                    x -= 1
+                elif op == 'X':
+                    if x > 0:
+                        i -= 2
+                        myjitdriver.can_enter_jit(i=i, x=x, y=y, res=res)
+                        continue
+                elif op == '>':
+                    if y > 6:
+                        i += 4
+                        continue
+                i += 1
+            return res
+
+        expected = f(12)
+        res = self.meta_interp(f, [12])
+        print res
+        assert res == expected
+
     def test_three_nested_loops(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x'])
         bytecode = ".+357"
