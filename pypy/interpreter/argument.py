@@ -105,14 +105,11 @@ class Arguments(object):
         make_sure_not_resized(self.arguments_w)
         if w_stararg is not None:
             self._combine_starargs_wrapped(w_stararg)
-        if w_starstararg is not None:
-            self._combine_starstarargs_wrapped(w_starstararg)
-            # if we have a call where **args are used at the callsite
-            # we shouldn't let the JIT see the argument matching
-            self._dont_jit = True
-        else:
-            self._dont_jit = False
-        
+        # if we have a call where **args are used at the callsite
+        # we shouldn't let the JIT see the argument matching
+        self._dont_jit = (w_starstararg is not None and
+                          self._combine_starstarargs_wrapped(w_starstararg))
+
     def __repr__(self):
         """ NOT_RPYTHON """
         name = self.__class__.__name__
@@ -171,6 +168,14 @@ class Arguments(object):
                                    "a mapping, not %s" % (typename,)))
                 raise
             keys_w = space.unpackiterable(w_keys)
+        if keys_w:
+            self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
+            return True
+        else:
+            return False    # empty dict; don't disable the JIT
+
+    def _do_combine_starstarargs_wrapped(self, keys_w, w_starstararg):
+        space = self.space
         keywords_w = [None] * len(keys_w)
         keywords = [None] * len(keys_w)
         i = 0

@@ -46,6 +46,8 @@ class AppTestApi:
 
     def test_dllhandle(self):
         import sys
+        if sys.version_info < (2, 6):
+            skip("Python >= 2.6 only")
         assert sys.dllhandle
         assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
         import ctypes # slow
@@ -220,6 +222,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         else:
             return os.path.dirname(mod)
 
+    def reimport_module(self, mod, name):
+        api.load_extension_module(self.space, mod, name)
+        return self.space.getitem(
+            self.space.sys.get('modules'),
+            self.space.wrap(name))
+
     def import_extension(self, modname, functions, prologue=""):
         methods_table = []
         codes = []
@@ -259,6 +267,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names = []
 
         self.w_import_module = self.space.wrap(self.import_module)
+        self.w_reimport_module = self.space.wrap(self.reimport_module)
         self.w_import_extension = self.space.wrap(self.import_extension)
         self.w_compile_module = self.space.wrap(self.compile_module)
         self.w_record_imported_module = self.space.wrap(
@@ -707,3 +716,43 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         p = mod.get_programname()
         print p
         assert 'py' in p
+
+    def test_no_double_imports(self):
+        import sys, os
+        try:
+            init = """
+            static int _imported_already = 0;
+            FILE *f = fopen("_imported_already", "w");
+            fprintf(f, "imported_already: %d\\n", _imported_already);
+            fclose(f);
+            _imported_already = 1;
+            if (Py_IsInitialized()) {
+                Py_InitModule("foo", NULL);
+            }
+            """
+            self.import_module(name='foo', init=init)
+            assert 'foo' in sys.modules
+
+            f = open('_imported_already')
+            data = f.read()
+            f.close()
+            assert data == 'imported_already: 0\n'
+
+            f = open('_imported_already', 'w')
+            f.write('not again!\n')
+            f.close()
+            m1 = sys.modules['foo']
+            m2 = self.reimport_module(m1.__file__, name='foo')
+            assert m1 is m2
+            assert m1 is sys.modules['foo']
+
+            f = open('_imported_already')
+            data = f.read()
+            f.close()
+            assert data == 'not again!\n'
+
+        finally:
+            try:
+                os.unlink('_imported_already')
+            except OSError:
+                pass

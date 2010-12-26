@@ -213,12 +213,14 @@ class W_File(W_AbstractStream):
         stream.truncate(size)
 
     def direct_write(self, data):
+        self.softspace = 0
         self.getstream().write(data)
 
     def direct_writelines(self, w_lines):    # note: a wrapped list!
         stream = self.getstream()
         space = self.space
         w_iterator = space.iter(w_lines)
+        self.softspace = 0
         while True:
             try:
                 w_line = space.next(w_iterator)

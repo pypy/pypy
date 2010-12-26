@@ -9,7 +9,7 @@ from pypy.translator.platform import platform
 CPYTHON_VERSION            = (2, 7, 0, "final", 42)   #XXX # sync patchlevel.h
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 4, 0, "beta", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (1, 4, 1, "beta", 0)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)

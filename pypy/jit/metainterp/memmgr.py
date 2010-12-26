@@ -32,6 +32,9 @@ class MemoryManager(object):
         # enough.  But in this day and age, you'd still never have the
         # patience of waiting for a slowly-increasing 64-bit number to
         # overflow :-)
+
+        # According to my estimates it's about 5e9 years given 1000 loops
+        # per second
         self.current_generation = r_int64(1)
         self.next_check = r_int64(-1)
         self.alive_loops = {}

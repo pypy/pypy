@@ -692,8 +692,12 @@ class AppTestPosix:
         def test_mknod(self):
             import stat
             os = self.posix
-            # not very useful: os.mknod() without specifying 'mode'
-            os.mknod(self.path2 + 'test_mknod-1')
+            # os.mknod() may require root priviledges to work at all
+            try:
+                # not very useful: os.mknod() without specifying 'mode'
+                os.mknod(self.path2 + 'test_mknod-1')
+            except OSError, e:
+                skip("os.mknod(): got %r" % (e,))
             st = os.lstat(self.path2 + 'test_mknod-1')
             assert stat.S_ISREG(st.st_mode)
             # os.mknod() with S_IFIFO

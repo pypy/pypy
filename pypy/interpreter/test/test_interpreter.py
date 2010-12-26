@@ -156,6 +156,21 @@ class TestInterpreter:
             '''
         self.codetest(code, 'f', [])
 
+    def test_import_default_arg(self):
+        # CPython does not always call __import__() with 5 arguments,
+        # but only if the 5th one is not -1.
+        real_call_function = self.space.call_function
+        space = self.space
+        def safe_call_function(w_obj, *arg_w):
+            assert not arg_w or not space.eq_w(arg_w[-1], space.wrap(-1))
+            return real_call_function(w_obj, *arg_w)
+        self.space.call_function = safe_call_function
+        code = '''
+            def f():
+                import sys
+            '''
+        self.codetest(code, 'f', [])
+
     def test_call_star_starstar(self):
         code = '''\
             def f1(n):
