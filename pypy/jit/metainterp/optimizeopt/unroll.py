@@ -253,10 +253,11 @@ class UnrollOptimizer(Optimization):
         preamble_ops = preamble.operations
         loop_ops = loop.operations
 
+        boxmap = BoxMap()
         state = ExeState()
         short_preamble = []
         loop_i = preamble_i = 0
-        while preamble_i < len(preamble_ops)-1:
+        while preamble_i < len(preamble_ops):
 
             op = preamble_ops[preamble_i]
             try:
@@ -269,7 +270,15 @@ class UnrollOptimizer(Optimization):
                 return None
                 
             if self.sameop(newop, loop_ops[loop_i]) \
-               and loop_i < len(loop_ops)-1:
+               and loop_i < len(loop_ops):
+                try:
+                    boxmap.link_ops(op, loop_ops[loop_i])
+                except ImpossibleLink:
+                    debug_print("create_short_preamble failed due to",
+                                "impossible link of "
+                                "op:", op.getopnum(),
+                                "at position: ", preamble_i)
+                    return None
                 loop_i += 1
             else:
                 if not state.safe_to_move(op):
@@ -282,28 +291,18 @@ class UnrollOptimizer(Optimization):
             state.update(op)
             preamble_i += 1
 
-        if loop_i < len(loop_ops)-1:
+        if loop_i < len(loop_ops):
             debug_print("create_short_preamble failed due to",
                         "loop contaning ops not in preamble"
                         "at position", loop_i)
             return None
 
-        jumpargs = [None] * len(loop.inputargs)
-        allboxes = preamble.inputargs[:]
-        for op in short_preamble:
-            if op.result:
-                allboxes.append(op.result)
-            
-        for result in allboxes:
-            box = self.inliner.inline_arg(result)
-            for i in range(len(loop.inputargs)):
-                b = loop.inputargs[i]
-                if self.optimizer.getvalue(box) is self.optimizer.getvalue(b):
-                    jumpargs[i] = result
-                    break
         
-        for a in jumpargs:
-            if a is None:
+        jumpargs = []
+        for i in range(len(loop.inputargs)):
+            try:
+                jumpargs.append(boxmap.get_preamblebox(loop.inputargs[i]))
+            except KeyError:
                 debug_print("create_short_preamble failed due to",
                             "input arguments not located")
                 return None
@@ -367,6 +366,44 @@ class ExeState(object):
             self.unsafe_getitem[descr] = True
             return
         self.heap_dirty = True
+
+class ImpossibleLink(Exception):
+    pass
+
+class BoxMap(object):
+    def __init__(self):
+        self.map = {}
+
+    
+    def link_ops(self, preambleop, loopop):
+        pargs = preambleop.getarglist()
+        largs = loopop.getarglist()
+        if len(pargs) != len(largs):
+            raise ImpossibleLink
+        for i in range(len(largs)):
+            pbox, lbox = pargs[i], largs[i]
+            self.link_boxes(pbox, lbox)
+
+        if preambleop.result:
+            if not loopop.result:
+                raise ImpossibleLink
+            self.link_boxes(preambleop.result, loopop.result)
+        
+
+    def link_boxes(self, pbox, lbox):
+        if lbox in self.map:
+            if self.map[lbox] is not pbox:
+                raise ImpossibleLink
+        else:
+            if isinstance(lbox, Const):
+                if not isinstance(pbox, Const) or not pbox.same_constant(lbox):
+                    raise ImpossibleLink
+            else:
+                self.map[lbox] = pbox
+
+
+    def get_preamblebox(self, loopbox):
+        return self.map[loopbox]
 
 class OptInlineShortPreamble(Optimization):
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
