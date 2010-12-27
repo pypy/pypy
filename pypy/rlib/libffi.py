@@ -274,8 +274,8 @@ class Func(AbstractFuncPtr):
     # ========================================================================
 
     @jit.unroll_safe
-    @specialize.arg(2)
-    def call(self, argchain, RESULT):
+    @specialize.arg(2, 3)
+    def call(self, argchain, RESULT, is_struct=False):
         # WARNING!  This code is written carefully in a way that the JIT
         # optimizer will see a sequence of calls like the following:
         #
@@ -300,9 +300,11 @@ class Func(AbstractFuncPtr):
             i += 1
             arg = arg.next
         #
-        if types.is_struct(self.restype):
+        if is_struct:
+            assert types.is_struct(self.restype)
             res = self._do_call_raw(self.funcsym, ll_args)
         elif _fits_into_long(RESULT):
+            assert not types.is_struct(self.restype)
             res = self._do_call_int(self.funcsym, ll_args)
         elif RESULT is rffi.DOUBLE:
             return self._do_call_float(self.funcsym, ll_args)

@@ -107,7 +107,7 @@ class TestLibffiCall(BaseFfiTest):
     def get_libfoo(self):
         return self.CDLL(self.libfoo_name)
 
-    def call(self, funcspec, args, RESULT, init_result=0, before_iteration_hook=None):
+    def call(self, funcspec, args, RESULT, init_result=0, is_struct=False):
         """
         Call the specified function after constructing and ArgChain with the
         arguments in ``args``.
@@ -137,7 +137,7 @@ class TestLibffiCall(BaseFfiTest):
                 meth(arg)
             else:
                 chain.arg(arg)
-        return func.call(chain, RESULT)
+        return func.call(chain, RESULT, is_struct=is_struct)
 
     def check_loops(self, *args, **kwds):
         """
@@ -426,14 +426,9 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = CDLL(self.libfoo_name)
         make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
         #
-        def before_iteration_hook(p):
-            # this is needed else in metainterp/test/test_fficall we leak all
-            # the intermediate results
-            lltype.free(p, flavor='raw')
-        #
         PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
         p = self.call(make_point, [12, 34], PTR, init_result=lltype.nullptr(PTR.TO),
-                      before_iteration_hook=before_iteration_hook)
+                      is_struct=True)
         assert p[0] == 12
         assert p[1] == 34
         lltype.free(p, flavor='raw')
