@@ -316,6 +316,7 @@ class AppTestFfi:
         res = _rawffi.wcharp2unicode(a.buffer)
         assert isinstance(res, unicode)
         assert res == u'xx'
+        a.free()
 
     def test_raw_callable(self):
         import _rawffi
