@@ -172,13 +172,16 @@ class W_FuncPtr(Wrappable):
         # handled by the ULONG case).
         restype = self.func.restype
         call = self.func.call
-        is_struct = libffi.types.is_struct(restype)
         if restype is libffi.types.ulong:
             # special case
             uintres = call(argchain, rffi.ULONG)
             return space.wrap(uintres)
-        elif restype is libffi.types.pointer or is_struct:
-            ptrres = call(argchain, rffi.VOIDP, is_struct=is_struct)
+        elif restype is libffi.types.pointer:
+            ptrres = call(argchain, rffi.VOIDP)
+            uintres = rffi.cast(rffi.ULONG, ptrres)
+            return space.wrap(uintres)
+        elif libffi.types.is_struct(restype):
+            ptrres = call(argchain, rffi.VOIDP, is_struct=True)
             uintres = rffi.cast(rffi.ULONG, ptrres)
             return space.wrap(uintres)
         elif restype is libffi.types.uint:
