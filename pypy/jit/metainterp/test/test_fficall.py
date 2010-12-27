@@ -9,6 +9,7 @@ from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.rlib.objectmodel import specialize
+from pypy.tool.sourcetools import func_with_new_name
 
 class TestFfiCall(LLJitMixin, _TestLibffiCall):
 
@@ -60,3 +61,8 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
         #
         res = self.meta_interp(f, [0], jit_ffi=True, backendopt=True)
         return res
+
+    def test_byval_result(self):
+        _TestLibffiCall.test_byval_result(self)
+    test_byval_result.__doc__ = _TestLibffiCall.test_byval_result.__doc__
+    test_byval_result.dont_track_allocations = True
