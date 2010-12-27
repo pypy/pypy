@@ -69,6 +69,7 @@ class types(object):
         raise KeyError
 
     @staticmethod
+    @jit.purefunction
     def is_struct(ffi_type):
         return intmask(ffi_type.c_type) == intmask(FFI_TYPE_STRUCT)
 
