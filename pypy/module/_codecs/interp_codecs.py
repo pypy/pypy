@@ -380,18 +380,22 @@ def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
     assert hasattr(runicode, rname)
     def wrap_encoder(space, uni, errors="strict"):
+        if errors is None:
+            errors = 'strict'
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
         return space.newtuple([space.wrap(result), space.wrap(len(uni))])
     wrap_encoder.func_name = rname
-    wrap_encoder.unwrap_spec = [ObjSpace, unicode, str]
+    wrap_encoder.unwrap_spec = [ObjSpace, unicode, 'str_or_None']
     globals()[name] = wrap_encoder
 
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
     assert hasattr(runicode, rname)
     def wrap_decoder(space, string, errors="strict", w_final=False):
+        if errors is None:
+            errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
@@ -399,7 +403,7 @@ def make_decoder_wrapper(name):
                                 final, state.decode_error_handler)
         return space.newtuple([space.wrap(result), space.wrap(consumed)])
     wrap_decoder.func_name = rname
-    wrap_decoder.unwrap_spec = [ObjSpace, 'bufferstr', str, W_Root]
+    wrap_decoder.unwrap_spec = [ObjSpace, 'bufferstr', 'str_or_None', W_Root]
     globals()[name] = wrap_decoder
 
 for encoders in [

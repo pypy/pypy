@@ -3,6 +3,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp import resoperation, history
 from pypy.jit.metainterp.jitexc import JitException
+from pypy.rlib.debug import make_sure_not_resized
 
 class InvalidLoop(JitException):
     """Raised when the optimize*.py detect that the loop that
@@ -77,6 +78,8 @@ def descrlist_dict():
 # ____________________________________________________________
 
 def args_eq(args1, args2):
+    make_sure_not_resized(args1)
+    make_sure_not_resized(args2)
     if len(args1) != len(args2):
         return False
     for i in range(len(args1)):
@@ -93,6 +96,7 @@ def args_eq(args1, args2):
     return True
 
 def args_hash(args):
+    make_sure_not_resized(args)
     res = 0x345678
     for arg in args:
         if isinstance(arg, history.Const):
@@ -104,5 +108,3 @@ def args_hash(args):
 
 def args_dict():
     return r_dict(args_eq, args_hash)
-
-

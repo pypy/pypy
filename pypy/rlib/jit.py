@@ -387,8 +387,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         from pypy.annotation import model as annmodel
 
         if self.instance.__name__ == 'jit_merge_point':
-            if not self.annotate_hooks(**kwds_s):
-                return None      # wrong order, try again later
+            self.annotate_hooks(**kwds_s)
 
         driver = self.instance.im_self
         keys = kwds_s.keys()
@@ -424,13 +423,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
         h = self.annotate_hook
-        return (h(driver.get_jitcell_at, driver.greens, **kwds_s)
-            and h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
-            and h(driver.get_printable_location, driver.greens, **kwds_s))
+        h(driver.get_jitcell_at, driver.greens, **kwds_s)
+        h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
+        h(driver.get_printable_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
-            return True
+            return
         bk = self.bookkeeper
         s_func = bk.immutablevalue(func)
         uniquekey = 'jitdriver.%s' % func.func_name
@@ -441,12 +440,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             else:
                 objname, fieldname = name.split('.')
                 s_instance = kwds_s['s_' + objname]
-                s_arg = s_instance.classdef.about_attribute(fieldname)
-                if s_arg is None:
-                    return False     # wrong order, try again later
+                attrdef = s_instance.classdef.find_attribute(fieldname)
+                position = self.bookkeeper.position_key
+                attrdef.read_locations[position] = True
+                s_arg = attrdef.getvalue()
+                assert s_arg is not None
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
-        return True
 
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype

@@ -11,9 +11,16 @@ syntax: regexp
 ^pypy/translator/jvm/src/pypy/.+\.class$
 ^pypy/module/cpyext/test/.+\.errors$
 ^pypy/module/cpyext/test/.+\.o$
+^pypy/module/cpyext/test/.+\.obj$
+^pypy/module/cpyext/test/.+\.manifest$
+^pypy/module/cpyext/src/.+\.obj$
 ^pypy/doc/.+\.html$
 ^pypy/doc/basicblock\.asc$
 ^pypy/doc/.+\.svninfo$
+^pypy/translator/c/src/libffi_msvc/.+\.obj$
+^pypy/translator/c/src/libffi_msvc/.+\.dll$
+^pypy/translator/c/src/libffi_msvc/.+\.lib$
+^pypy/translator/c/src/libffi_msvc/.+\.exp$
 ^pypy/translator/jvm/\.project$
 ^pypy/translator/jvm/\.classpath$
 ^pypy/translator/jvm/eclipse-bin$

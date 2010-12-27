@@ -463,14 +463,18 @@ class Optimizer(Optimization):
         return op
 
     def make_args_key(self, op):
-        args = []
-        for i in range(op.numargs()):
+        n = op.numargs()
+        args = [None] * (n + 1)
+        for i in range(n):
             arg = op.getarg(i)
-            if arg in self.values:
-                args.append(self.values[arg].get_key_box())
+            try:
+                value = self.values[arg]
+            except KeyError:
+                pass
             else:
-                args.append(arg)
-        args.append(ConstInt(op.getopnum()))
+                arg = value.get_key_box()
+            args[i] = arg
+        args[n] = ConstInt(op.getopnum())
         return args
 
     def optimize_default(self, op):
