@@ -435,6 +435,7 @@ class CFuncPtr(_CData):
             else:
                 # XXX: I could not find a more direct way to create a pointer
                 # to this specific address
+                # XXX: maybe this creates even a memory leak?
                 address = result
                 result = restype()
                 result._buffer[0] = address
