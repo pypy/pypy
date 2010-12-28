@@ -786,6 +786,12 @@ class __extend__(pyframe.PyFrame):
         w_fromlist = self.popvalue()
 
         w_flag = self.popvalue()
+        try:
+            if space.int_w(w_flag) == -1:
+                w_flag = None
+        except OperationError, e:
+            if e.async(space):
+                raise
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
