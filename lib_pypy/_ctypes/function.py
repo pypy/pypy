@@ -396,7 +396,7 @@ class CFuncPtr(_CData):
         newargs = []
         # XXX: investigate the difference between _ffishape and _ffiargshape
         for argtype, arg in zip(argtypes, args):
-            if argtype._ffishape == 'u':
+            if argtype._ffishape == 'u' or argtype._ffishape == 'c':
                 # XXX: who should do this conversion? Maybe _ffi?
                 value = arg.value
                 assert isinstance(value, basestring) and len(value) == 1
