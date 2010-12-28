@@ -247,9 +247,12 @@ class CFuncPtr(_CData):
         try:
             return self._typemap[shape]
         except KeyError:
-            print 'unknown shape %s' % (shape,)
-            assert False, 'TODO5'
-
+            pass
+        if self._is_struct_shape(shape):
+            return shape[0].get_ffi_type()
+        #
+        print 'unknown shape %s' % (shape,)
+        assert False, 'TODO5'
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and argtypes is self._argtypes_:
@@ -391,6 +394,7 @@ class CFuncPtr(_CData):
         """
         assert len(argtypes) == len(args)
         newargs = []
+        # XXX: investigate the difference between _ffishape and _ffiargshape
         for argtype, arg in zip(argtypes, args):
             if argtype._ffishape == 'u':
                 # XXX: who should do this conversion? Maybe _ffi?
@@ -401,10 +405,19 @@ class CFuncPtr(_CData):
                 value = arg._get_buffer_value()
             elif argtype._ffishape == 'z':
                 value = arg._get_buffer_value()
+            elif self._is_struct_shape(arg._ffiargshape):
+                value = arg._get_buffer_value()
             else:
                 value = arg.value
             newargs.append(value)
         return newargs
+
+    def _is_struct_shape(self, _ffishape):
+        # see the corresponding code to set the shape in _ctypes.structure._set_shape
+        return (isinstance(_ffishape, tuple) and
+                len(_ffishape) == 2 and
+                isinstance(_ffishape[0], _rawffi.Structure) and
+                _ffishape[1] == 1)
 
     def _wrap_result(self, restype, result):
         """
