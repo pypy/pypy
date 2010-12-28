@@ -199,7 +199,7 @@ class CFuncPtr(_CData):
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
         result = funcptr(*newargs)
-        result = self._wrap_result(restype, result)
+        result = self._build_result(restype, result, argtypes, newargs)
         #
         ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
         ##                       for arg in args])
@@ -445,11 +445,21 @@ class CFuncPtr(_CData):
             result = restype.from_address(result)
         return result
 
-    def _build_result(self, restype, resbuffer, argtypes, argsandobjs):
+    def _build_result(self, restype, result, argtypes, argsandobjs):
         """Build the function result:
            If there is no OUT parameter, return the actual function result
            If there is one OUT parameter, return it
            If there are many OUT parameters, return a tuple"""
+
+        # XXX: note for the future: the function used to take a "resbuffer",
+        # i.e. an array of ints. Now it takes a result, which is already a
+        # python object. All places that do "resbuffer[0]" should check that
+        # result is actually an int and just use it.
+        #
+        # Also, argsandobjs used to be "args" in __call__, now it's "newargs"
+        # (i.e., the already unwrapped objects). It's used only when we have a
+        # PARAMFLAG_FOUT and it's probably wrong, I'll fix it when I find a
+        # failing test
 
         retval = None
 
@@ -469,9 +479,9 @@ class CFuncPtr(_CData):
                     val = val.value
                 retval = checker(val)
             elif not isinstance(restype, _CDataMeta):
-                retval = restype(resbuffer[0])
+                retval = restype(result)
             else:
-                retval = restype._CData_retval(resbuffer)
+                retval = self._wrap_result(restype, result)
 
         results = []
         if self._paramflags:
