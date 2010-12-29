@@ -1,5 +1,6 @@
 """ Libffi wrapping
 """
+from __future__ import with_statement
 
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
