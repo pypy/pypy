@@ -10,7 +10,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.module._rawffi.interp_rawffi import segfault_exception
+from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
@@ -23,35 +23,93 @@ def unpack_fields(space, w_fields):
     fields = []
     for w_tup in fields_w:
         l_w = space.unpackiterable(w_tup)
-        if not len(l_w) == 2:
+        len_l = len(l_w)
+
+        if len_l == 2:
+            bitsize = 0
+        elif len_l == 3:
+            bitsize = l_w[2]
+        else:
             raise OperationError(space.w_ValueError, space.wrap(
-                "Expected list of 2-size tuples"))
+                "Expected list of 2- or 3-size tuples"))
         name = space.str_w(l_w[0])
         tp = unpack_shape_with_length(space, l_w[1])
-        fields.append((name, tp))
+        fields.append((name, tp, bitsize))
     return fields
 
 def round_up(size, alignment):
     return (size + alignment - 1) & -alignment
 
-def size_alignment_pos(fields, is_union=False):
+NO_BITFIELD, NEW_BITFIELD, CONT_BITFIELD, EXPAND_BITFIELD = range(4)
+
+def size_alignment_pos(fields, is_union=False, pack=0):
     size = 0
     alignment = 1
     pos = []
-    for fieldname, fieldtype in fields:
+    bitsizes = []
+    bitoffset = 0
+    last_size = 0
+    for fieldname, fieldtype, bitsize in fields:
         # fieldtype is a W_Array
         fieldsize = fieldtype.size
         fieldalignment = fieldtype.alignment
+        if pack:
+            fieldalignment = min(fieldalignment, pack)
         alignment = max(alignment, fieldalignment)
+
+        if not bitsize:
+            # not a bit field
+            field_type = NO_BITFIELD
+            last_size = 0
+            bitoffset = 0
+        elif (last_size and # we have a bitfield open
+              (not _MS_WINDOWS or fieldsize * 8 == last_size) and
+              fieldsize * 8 <= last_size and
+              bitoffset + bitsize <= last_size):
+              # continue bit field
+              field_type = CONT_BITFIELD
+        elif (not _MS_WINDOWS and
+              last_size and # we have a bitfield open
+              fieldsize * 8 >= last_size and
+              bitoffset + bitsize <= fieldsize * 8):
+              # expand bit field
+              field_type = EXPAND_BITFIELD
+        else:
+              # start new bitfield
+              field_type = NEW_BITFIELD
+              bitoffset = 0
+              last_size = fieldsize * 8
+
         if is_union:
             pos.append(0)
             size = max(size, fieldsize)
         else:
-            size = round_up(size, fieldalignment)
-            pos.append(size)
-            size += intmask(fieldsize)
+            if field_type == NO_BITFIELD:
+                # the usual case
+                size = round_up(size, fieldalignment)
+                pos.append(size)
+                size += intmask(fieldsize)
+                bitsizes.append(fieldsize)
+            elif field_type == NEW_BITFIELD:
+                bitsizes.append((bitsize << 16) + bitoffset)
+                bitoffset = bitsize
+                size = round_up(size, fieldalignment)
+                pos.append(size)
+                size += fieldsize
+            elif field_type == CONT_BITFIELD:
+                bitsizes.append((bitsize << 16) + bitoffset)
+                bitoffset += bitsize
+                # offset is already updated for the NEXT field
+                pos.append(size - fieldsize)
+            elif field_type == EXPAND_BITFIELD:
+                size += fieldsize - last_size / 8
+                last_size = fieldsize * 8
+                bitsizes.append((bitsize << 16) + bitoffset)
+                bitoffset += bitsize
+                # offset is already updated for the NEXT field
+                pos.append(size - fieldsize)
     size = round_up(size, alignment)
-    return size, alignment, pos
+    return size, alignment, pos, bitsizes
 
 
 class W_Structure(W_DataShape):
@@ -59,19 +117,21 @@ class W_Structure(W_DataShape):
         name_to_index = {}
         if fields is not None:
             for i in range(len(fields)):
-                name, tp = fields[i]
+                name, tp, bitsize = fields[i]
                 if name in name_to_index:
                     raise operationerrfmt(space.w_ValueError,
                         "duplicate field name %s", name)
                 name_to_index[name] = i
-            size, alignment, pos = size_alignment_pos(fields, is_union)
+            size, alignment, pos, bitfields = size_alignment_pos(fields, is_union)
         else: # opaque case
             fields = []
             pos = []
+            bitfields = []
         self.fields = fields
         self.size = size
         self.alignment = alignment                
         self.ll_positions = pos
+        self.ll_bitfields = bitfields
         self.name_to_index = name_to_index
 
     def allocate(self, space, length, autofree=False):
@@ -92,7 +152,7 @@ class W_Structure(W_DataShape):
     descr_call.unwrap_spec = ['self', ObjSpace, int]
 
     def descr_repr(self, space):
-        fieldnames = ' '.join(["'%s'" % name for name, _ in self.fields])
+        fieldnames = ' '.join(["'%s'" % name for name, _, _ in self.fields])
         return space.wrap("<_rawffi.Structure %s (%d, %d)>" % (fieldnames,
                                                                self.size,
                                                                self.alignment))
@@ -118,7 +178,7 @@ class W_Structure(W_DataShape):
             # Seeing no corresponding doc in clibffi, let's just repeat
             # the field 5 times...
             fieldtypes = []
-            for name, tp in self.fields:
+            for name, tp, bitsize in self.fields:
                 basic_ffi_type = tp.get_basic_ffi_type()
                 basic_size, _ = size_alignment(basic_ffi_type)
                 total_size = tp.size
@@ -189,7 +249,7 @@ class W_StructureInstance(W_DataInstance):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
         i = self.shape.getindex(space, attr)
-        _, tp = self.shape.fields[i]
+        _, tp, _ = self.shape.fields[i]
         return wrap_value(space, cast_pos, self, i, tp.itemcode)
     getattr.unwrap_spec = ['self', ObjSpace, str]
 
@@ -197,7 +257,7 @@ class W_StructureInstance(W_DataInstance):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
         i = self.shape.getindex(space, attr)
-        _, tp = self.shape.fields[i]
+        _, tp, _ = self.shape.fields[i]
         unwrap_value(space, push_field, self, i, tp.itemcode, w_value)
     setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
