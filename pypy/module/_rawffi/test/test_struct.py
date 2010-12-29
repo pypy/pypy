@@ -53,6 +53,3 @@ def test_bitsizes():
 
     assert pos      == [getattr(X, name).offset for (name, _, _) in fields]
     assert bitsizes == [getattr(X, name).size   for (name, _, _) in fields]
-
-    # TODO: test a normal struct containing a big array > 0x10000.
-    # Make sure we don't take this for a bitsize...

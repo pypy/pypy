@@ -461,6 +461,20 @@ class AppTestFfi:
         free_double_struct = lib.ptr("free_double_struct", ['P'], None)
         free_double_struct(res)
 
+    def test_structure_bitfields(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'I', 1),
+                               ('B', 'I', 2),
+                               ('C', 'i', 2)])
+        x = X()
+        x.A = 0xf
+        x.B = 0xf
+        x.C = 0xf
+        assert x.A == 1
+        assert x.B == 3
+        assert x.C == -2
+        x.free()
+
     def test_array(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)

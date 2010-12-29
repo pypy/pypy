@@ -14,7 +14,8 @@ from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
-from pypy.module._rawffi.interp_rawffi import size_alignment
+from pypy.module._rawffi.interp_rawffi import size_alignment, LL_TYPEMAP
+from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.rlib import clibffi
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -48,7 +49,9 @@ def size_alignment_pos(fields, is_union=False, pack=0):
     pos = []
     bitsizes = []
     bitoffset = 0
+    has_bitfield = False
     last_size = 0
+
     for fieldname, fieldtype, bitsize in fields:
         # fieldtype is a W_Array
         fieldsize = fieldtype.size
@@ -77,11 +80,13 @@ def size_alignment_pos(fields, is_union=False, pack=0):
         else:
               # start new bitfield
               field_type = NEW_BITFIELD
+              has_bitfield = True
               bitoffset = 0
               last_size = fieldsize * 8
 
         if is_union:
             pos.append(0)
+            bitsizes.append(fieldsize)
             size = max(size, fieldsize)
         else:
             if field_type == NO_BITFIELD:
@@ -108,6 +113,9 @@ def size_alignment_pos(fields, is_union=False, pack=0):
                 bitoffset += bitsize
                 # offset is already updated for the NEXT field
                 pos.append(size - fieldsize)
+
+    if not has_bitfield:
+        bitsizes = None
     size = round_up(size, alignment)
     return size, alignment, pos, bitsizes
 
@@ -122,16 +130,17 @@ class W_Structure(W_DataShape):
                     raise operationerrfmt(space.w_ValueError,
                         "duplicate field name %s", name)
                 name_to_index[name] = i
-            size, alignment, pos, bitfields = size_alignment_pos(fields, is_union)
+            size, alignment, pos, bitsizes = size_alignment_pos(
+                fields, is_union)
         else: # opaque case
             fields = []
             pos = []
-            bitfields = []
+            bitsizes = None
         self.fields = fields
         self.size = size
         self.alignment = alignment                
         self.ll_positions = pos
-        self.ll_bitfields = bitfields
+        self.ll_bitsizes = bitsizes
         self.name_to_index = name_to_index
 
     def allocate(self, space, length, autofree=False):
@@ -222,17 +231,61 @@ W_Structure.typedef = TypeDef(
 )
 W_Structure.typedef.acceptable_as_base_class = False
 
+def LOW_BIT(x):
+    return x & 0xFFFF
+def NUM_BITS(x):
+    return x >> 16
+def BIT_MASK(x):
+    return (1 << x) - 1
+
 def push_field(self, num, value):
     ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[num])
     TP = lltype.typeOf(value)
     T = lltype.Ptr(rffi.CArray(TP))
+
+    # Handle bitfields
+    for c in unroll_letters_for_numbers:
+        if LL_TYPEMAP[c] is TP and self.shape.ll_bitsizes:
+            # Modify the current value with the bitfield changed
+            bitsize = self.shape.ll_bitsizes[num]
+            numbits = NUM_BITS(bitsize)
+            lowbit = LOW_BIT(bitsize)
+            if numbits:
+                current = rffi.cast(T, ptr)[0]
+                bitmask = BIT_MASK(numbits)
+                current &= ~ (bitmask << lowbit)
+                current |= (value & bitmask) << lowbit
+                value = current
+            break
+
     rffi.cast(T, ptr)[0] = value
 push_field._annspecialcase_ = 'specialize:argtype(2)'
-    
+
 def cast_pos(self, i, ll_t):
     pos = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
     TP = lltype.Ptr(rffi.CArray(ll_t))
-    return rffi.cast(TP, pos)[0]
+    value = rffi.cast(TP, pos)[0]
+
+    # Handle bitfields
+    for c in unroll_letters_for_numbers:
+        if LL_TYPEMAP[c] is ll_t and self.shape.ll_bitsizes:
+            bitsize = self.shape.ll_bitsizes[i]
+            numbits = NUM_BITS(bitsize)
+            lowbit = LOW_BIT(bitsize)
+            if numbits:
+                if ll_t._type.SIGN:
+                    value >>= lowbit
+                    sign = (value >> (numbits - 1)) & 1
+                    value &= BIT_MASK(numbits - 1)
+                    if sign:
+                        value = ~value
+                else:
+                    # unsigned is easier
+                    value >>= lowbit
+                    value &= BIT_MASK(numbits)
+            break
+
+    return value
 cast_pos._annspecialcase_ = 'specialize:arg(2)'
 
 class W_StructureInstance(W_DataInstance):
