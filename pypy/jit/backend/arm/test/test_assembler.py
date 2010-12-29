@@ -112,6 +112,40 @@ class TestRunningAssembler():
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 9
 
+    def test_B_offs_imm(self):
+        self.a.mc.PUSH([reg.value for reg in r.callee_saved_registers])
+        self.a.mc.MOV_ri(r.r0.value, 0)
+        self.a.mc.MOV_ri(r.r1.value, 0)
+        self.a.mc.CMP_rr(r.r0.value, r.r1.value)
+        pos = self.a.mc.currpos()
+        self.a.mc.MOV_ri(r.r0.value, 123, cond=c.NE)
+
+        for x in range(15):
+            self.a.mc.POP([reg.value for reg in r.callee_restored_registers], cond=c.NE)
+
+        self.a.mc.MOV_ri(r.r1.value, 33)
+        self.a.mc.MOV_ri(r.r0.value, 23)
+        self.a.mc.CMP_rr(r.r0.value, r.r1.value)
+        self.a.mc.B_offs(pos)
+        assert run_asm(self.a) == 123
+
+    def test_B_offs_reg(self):
+        self.a.mc.PUSH([reg.value for reg in r.callee_saved_registers])
+        self.a.mc.MOV_ri(r.r0.value, 0)
+        self.a.mc.MOV_ri(r.r1.value, 0)
+        self.a.mc.CMP_rr(r.r0.value, r.r1.value)
+        pos = self.a.mc.currpos()
+        self.a.mc.MOV_ri(r.r0.value, 123, cond=c.NE)
+
+        for x in range(100):
+            self.a.mc.POP([reg.value for reg in r.callee_restored_registers], cond=c.NE)
+
+        self.a.mc.MOV_ri(r.r1.value, 33)
+        self.a.mc.MOV_ri(r.r0.value, 23)
+        self.a.mc.CMP_rr(r.r0.value, r.r1.value)
+        self.a.mc.B_offs(pos)
+        assert run_asm(self.a) == 123
+
     def test_call_python_func(self):
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, callme))
