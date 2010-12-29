@@ -15,6 +15,8 @@ def compile_shared():
     output_dir = tempfile.mkdtemp()
 
     from distutils.ccompiler import new_compiler
+    from distutils import sysconfig
+
     compiler = new_compiler()
     compiler.output_dir = output_dir
 
@@ -30,14 +32,13 @@ def compile_shared():
     object_filename = res[0]
 
     # set link options
+    output_filename = '_ctypes_test' + sysconfig.get_config_var('SO')
     if sys.platform == 'win32':
-        output_filename = '_ctypes_test.pyd'
         # XXX libpypy-c.lib is currently not installed automatically
         library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST'] # needed for VC10
     else:
-        output_filename = '_ctypes_test.so'
         libraries = []
         extra_ldargs = []
 
