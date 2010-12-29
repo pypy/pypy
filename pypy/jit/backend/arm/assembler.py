@@ -272,8 +272,8 @@ class AssemblerARM(ResOpAssembler):
     def gen_func_epilog(self, mc=None, cond=c.AL):
         if mc is None:
             mc = self.mc
-        mc.MOV_rr(r.sp.value, r.fp.value)
-        mc.ADD_ri(r.sp.value, r.sp.value, WORD)
+        mc.MOV_rr(r.sp.value, r.fp.value, cond=cond)
+        mc.ADD_ri(r.sp.value, r.sp.value, WORD, cond=cond)
         mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
