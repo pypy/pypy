@@ -12,6 +12,7 @@ from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
                                         INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.backend.arm.opassembler import ResOpAssembler
@@ -297,7 +298,6 @@ class AssemblerARM(ResOpAssembler):
         looptoken._arm_arglocs = arglocs
         return arglocs
 
-    direct_bootstrap_code_size=100*WORD
     def gen_direct_bootstrap_code(self, arglocs, loop_head, regalloc):
         self.gen_func_prolog()
         if len(arglocs) > 4:
@@ -357,7 +357,7 @@ class AssemblerARM(ResOpAssembler):
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_direct_bootstrap_code = loop_start + direct_bootstrap_code
         self.update_descrs_for_bridges(loop_start)
-        if log:
+        if log and not we_are_translated():
             print 'Loop', inputargs, operations
             self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling loop with token %r' % looptoken
@@ -386,7 +386,7 @@ class AssemblerARM(ResOpAssembler):
         self.update_descrs_for_bridges(bridge_start)
 
         self.patch_trace(faildescr, original_loop_token, bridge_start, regalloc)
-        if log:
+        if log and not we_are_translated():
             print 'Bridge', inputargs, operations
             self.mc._dump_trace(bridge_start, 'bridge_%d.asm' %
             self.cpu.total_compiled_bridges)
