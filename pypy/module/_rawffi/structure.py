@@ -28,7 +28,7 @@ def unpack_fields(space, w_fields):
         if len_l == 2:
             bitsize = 0
         elif len_l == 3:
-            bitsize = l_w[2]
+            bitsize = space.int_w(l_w[2])
         else:
             raise OperationError(space.w_ValueError, space.wrap(
                 "Expected list of 2- or 3-size tuples"))
