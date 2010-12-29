@@ -4,27 +4,7 @@ from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
 import inspect
 
-def round_up(size, alignment):
-    return (size + alignment - 1) & -alignment
-
-def fields_positions(fields):
-    import ctypes
-    size = 0
-    alignment = 1
-    pos = []
-    for field in fields:
-        fieldname = field[0]
-        ctype = field[1]
-        fieldsize = ctypes.sizeof(ctype)
-        fieldalignment = ctypes.alignment(ctype)
-        alignment = max(alignment, fieldalignment)
-
-        size = round_up(size, fieldalignment)
-        pos.append(size)
-        size += fieldsize
-    return pos
-
-def names_and_fields(_fields_, superclass, anon=None, is_union=False):
+def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
     # _fields_: list of (name, ctype, [optional_bitfield])
     if isinstance(_fields_, tuple):
         _fields_ = list(_fields_)
@@ -34,7 +14,7 @@ def names_and_fields(_fields_, superclass, anon=None, is_union=False):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
         if isinstance(tp, StructOrUnionMeta):
             tp._make_final()
-    import ctypes
+
     all_fields = []
     for cls in reversed(inspect.getmro(superclass)):
         # The first field comes from the most base class
@@ -43,31 +23,37 @@ def names_and_fields(_fields_, superclass, anon=None, is_union=False):
     names = [f[0] for f in all_fields]
     rawfields = [(f[0], f[1]._ffishape)
                  for f in all_fields]
-    if not is_union:
-        pos = fields_positions(all_fields)
-    else:
-        pos = [0] * len(all_fields)
+
+    _set_shape(self, rawfields, self._is_union)
+
     fields = {}
     for i, field in enumerate(all_fields):
         name = field[0]
-        ctype = field[1]
-        fields[name] = Field(name, pos[i], ctypes.sizeof(ctype), ctype, i)
-    if anon:
+        value = field[1]
+        fields[name] = Field(name,
+                             self._ffistruct.fieldoffset(name),
+                             value._sizeofinstances(),
+                             value, i)
+
+    if anonymous_fields:
         resnames = []
-        for i, (name, value) in enumerate(all_fields):
-            if name in anon:
+        for i, field in enumerate(all_fields):
+            name = field[0]
+            value = field[1]
+            startpos = self._ffistruct.fieldoffset(name)
+            if name in anonymous_fields:
                 for subname in value._names:
                     resnames.append(subname)
-                    relpos = pos[i] + value._fieldtypes[subname].offset
+                    relpos = startpos + value._fieldtypes[subname].offset
                     subvalue = value._fieldtypes[subname].ctype
-                    fields[subname] = Field(subname, relpos,
-                                            ctypes.sizeof(subvalue), subvalue,
-                                            i)
-                    # XXX we never set rawfields here, let's wait for a test
+                    fields[subname] = Field(subname,
+                                            relpos, subvalue._sizeofinstances(),
+                                            subvalue, i)
             else:
                 resnames.append(name)
         names = resnames
-    return names, rawfields, fields
+    self._names = names
+    self._fieldtypes = fields
 
 class Field(object):
     def __init__(self, name, offset, size, ctype, num):
@@ -100,11 +86,11 @@ def struct_setattr(self, name, value):
             raise AttributeError("_fields_ is final")
         if self in [v for k, v in value]:
             raise AttributeError("Structure or union cannot contain itself")
-        self._names, rawfields, self._fieldtypes = names_and_fields(
+        names_and_fields(
+            self,
             value, self.__bases__[0],
-            self.__dict__.get('_anonymous_', None), self._is_union)
+            self.__dict__.get('_anonymous_', None))
         _CDataMeta.__setattr__(self, '_fields_', value)
-        _set_shape(self, rawfields, self._is_union)
         return
     _CDataMeta.__setattr__(self, name, value)
 
@@ -122,10 +108,10 @@ class StructOrUnionMeta(_CDataMeta):
             for item in typedict.get('_anonymous_', []):
                 if item not in dict(typedict['_fields_']):
                     raise AttributeError("Anonymous field not found")
-            res._names, rawfields, res._fieldtypes = names_and_fields(
+            names_and_fields(
+                res,
                 typedict['_fields_'], cls[0],
-                typedict.get('_anonymous_', None), self._is_union)
-            _set_shape(res, rawfields, self._is_union)
+                typedict.get('_anonymous_', None))
 
         return res
 
