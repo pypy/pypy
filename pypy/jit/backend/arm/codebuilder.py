@@ -60,23 +60,19 @@ class AbstractARMv7Builder(object):
             self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
 
     def B_offs(self, target_ofs, c=cond.AL):
-        target = target_ofs-arch.PC_OFFSET/2
         pos = self.currpos()
         if target_ofs > pos:
             raise NotImplementedError
         else:
+            target_ofs = pos - target_ofs
+            target = WORD + target_ofs + arch.PC_OFFSET/2
             if target >= 0 and target <= 0xFF:
-                pos = self.currpos()
-                target_ofs = pos - target_ofs
-                target = WORD + target_ofs + arch.PC_OFFSET/2
                 self.SUB_ri(reg.pc.value, reg.pc.value, target, cond=c)
             else:
                 assert c == cond.AL
                 self.LDR_ri(reg.ip.value, reg.pc.value, cond=c)
                 self.SUB_rr(reg.pc.value, reg.pc.value, reg.ip.value, cond=c)
-                pos = self.currpos()
-                target_ofs = pos - target_ofs
-                target = WORD + target_ofs + arch.PC_OFFSET/2
+                target += 2 * WORD
                 self.write32(target)
 
     def BL(self, target, c=cond.AL):
@@ -176,6 +172,7 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
 
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
+        self._dump(addr, "jit-backend-dump", 'arm')
 
     def currpos(self):
         return self.get_relative_pos()
