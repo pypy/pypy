@@ -24,31 +24,35 @@ def test_sizeof():
     assert sizeof(unpack('qcccc')) == s_q + alignment_of_q
 
 def test_bitsizes():
-    c_int = letter2tp('space', 'i')
-    c_short = letter2tp('space', 'h')
-    fields = [("A", c_int, 1),
-              ("B", c_int, 2),
-              ("C", c_int, 3),
-              ("D", c_int, 4),
-              ("E", c_int, 5),
-              ("F", c_int, 6),
-              ("G", c_int, 7),
-              ("H", c_int, 8),
-              ("I", c_int, 9),
+    fields = [("A", 'i', 1),
+              ("B", 'i', 2),
+              ("C", 'i', 3),
+              ("D", 'i', 4),
+              ("E", 'i', 5),
+              ("F", 'i', 6),
+              ("G", 'i', 7),
+              ("H", 'i', 8),
+              ("I", 'i', 9),
 
-              ("M", c_short, 1),
-              ("N", c_short, 2),
-              ("O", c_short, 3),
-              ("P", c_short, 4),
-              ("Q", c_short, 5),
-              ("R", c_short, 6),
-              ("S", c_short, 7)]
-    size, alignment, pos, bitsizes = size_alignment_pos(fields)
+              ("M", 'h', 1),
+              ("N", 'h', 2),
+              ("O", 'h', 3),
+              ("P", 'h', 4),
+              ("Q", 'h', 5),
+              ("R", 'h', 6),
+              ("S", 'h', 7)]
+    size, alignment, pos, bitsizes = size_alignment_pos(
+        [(name, letter2tp('space', t), size)
+         for (name, t, size) in fields])
     assert size == 12
-    assert pos == [0, 0, 0, 0, 0, 0, 0, 4, 4, 8, 8, 8, 8, 8, 10, 10]
-    assert bitsizes == [
-        0x10000, 0x20001, 0x30003, 0x40006, 0x5000a, 0x6000f, 0x70015, 0x80000, 0x90008,
-        0x10000, 0x20001, 0x30003, 0x40006, 0x5000a, 0x60000, 0x70006]
+
+    import ctypes
+    class X(ctypes.Structure):
+        _fields_ = [(name, {'i':ctypes.c_int, 'h': ctypes.c_short}[t], size)
+                    for (name, t, size) in fields]
+
+    assert pos      == [getattr(X, name).offset for (name, _, _) in fields]
+    assert bitsizes == [getattr(X, name).size   for (name, _, _) in fields]
 
     # TODO: test a normal struct containing a big array > 0x10000.
     # Make sure we don't take this for a bitsize...
