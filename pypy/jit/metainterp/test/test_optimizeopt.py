@@ -870,6 +870,37 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_dont_delay_setfields(self):
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=nextdescr)
+        i2 = int_sub(i1, 1)
+        i2b = int_is_true(i2)
+        guard_true(i2b) []
+        setfield_gc(p2, i2, descr=nextdescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        jump(p2, p3)
+        """
+        preamble = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=nextdescr)
+        i2 = int_sub(i1, 1)
+        i2b = int_is_true(i2)
+        guard_true(i2b) []
+        setfield_gc(p2, i2, descr=nextdescr)
+        jump(p2, i2)
+        """
+        expected = """
+        [p2, i1]
+        i2 = int_sub(i1, 1)
+        i2b = int_is_true(i2)
+        guard_true(i2b) []
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, i2, descr=nextdescr)
+        jump(p3, i2)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     # ----------
 
     def test_fold_guard_no_exception(self):
