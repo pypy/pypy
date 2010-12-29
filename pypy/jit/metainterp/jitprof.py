@@ -21,6 +21,7 @@ OPT_FORCINGS
 ABORT_TOO_LONG
 ABORT_BRIDGE
 ABORT_ESCAPE
+ABORT_BAD_LOOP
 NVIRTUALS
 NVHOLES
 NVREUSED
@@ -177,6 +178,7 @@ class Profiler(BaseProfiler):
         self._print_intline("abort: trace too long", cnt[ABORT_TOO_LONG])
         self._print_intline("abort: compiling", cnt[ABORT_BRIDGE])
         self._print_intline("abort: vable escape", cnt[ABORT_ESCAPE])
+        self._print_intline("abort: bad loop", cnt[ABORT_BAD_LOOP])
         self._print_intline("nvirtuals", cnt[NVIRTUALS])
         self._print_intline("nvholes", cnt[NVHOLES])
         self._print_intline("nvreused", cnt[NVREUSED])
