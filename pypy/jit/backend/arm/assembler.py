@@ -268,7 +268,6 @@ class AssemblerARM(ResOpAssembler):
         while(self.mc.currpos() % FUNC_ALIGN != 0):
             self.mc.writechar(chr(0))
 
-    epilog_size = 3*WORD
     def gen_func_epilog(self, mc=None, cond=c.AL):
         if mc is None:
             mc = self.mc
