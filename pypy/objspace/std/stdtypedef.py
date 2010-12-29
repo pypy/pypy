@@ -146,7 +146,7 @@ _gettypeerrormsg._annspecialcase_ = 'specialize:memo'
 
 def _gettypenames(space, *args_w):
     if args_w:
-        typename = space.type(args_w[-1]).getname(space, '?')
+        typename = space.type(args_w[-1]).getname(space)
         return _gettypenames(space, *args_w[:-1]) + (typename,)
     return ()
 _gettypenames._always_inline_ = True

@@ -63,7 +63,7 @@ completely controlled by the controller."""
             return v(space, w_type, w_controller)
     raise operationerrfmt(space.w_TypeError, 
         "'%s' object could not be wrapped (YET)",
-        w_type.getname(space, "?"))
+        w_type.getname(space))
 
 def register_proxyable(space, cls):
     tpdef = cls.typedef
