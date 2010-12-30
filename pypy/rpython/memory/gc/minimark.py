@@ -177,14 +177,10 @@ class MiniMarkGC(MovingGCBase):
         "card_page_indices": 128,
 
         # Objects whose total size is at least 'large_object' bytes are
-        # allocated out of the nursery immediately.  If the object
-        # has GC pointers in its varsized part, we use instead the
-        # higher limit 'large_object_gcptrs'.  The idea is that
-        # separately allocated objects are allocated immediately "old"
-        # and it's not good to have too many pointers from old to young
-        # objects.
-        "large_object": 1600*WORD,
-        "large_object_gcptrs": 8250*WORD,
+        # allocated out of the nursery immediately, as old objects.  The
+        # minimal allocated size of the nursery is 1.9x the following
+        # number (by default, at least 500KB on 32-bit and 1000KB on 64-bit).
+        "large_object": 65792*WORD,
         }
 
     def __init__(self, config,
@@ -197,7 +193,6 @@ class MiniMarkGC(MovingGCBase):
                  growth_rate_max=2.5,   # for tests
                  card_page_indices=0,
                  large_object=8*WORD,
-                 large_object_gcptrs=10*WORD,
                  ArenaCollectionClass=None,
                  **kwds):
         MovingGCBase.__init__(self, config, **kwds)
@@ -219,12 +214,9 @@ class MiniMarkGC(MovingGCBase):
             while (1 << self.card_page_shift) < self.card_page_indices:
                 self.card_page_shift += 1
         #
-        # 'large_object' and 'large_object_gcptrs' limit how big objects
-        # can be in the nursery, so they give a lower bound on the allowed
-        # size of the nursery.
+        # 'large_object' limit how big objects can be in the nursery, so
+        # it gives a lower bound on the allowed size of the nursery.
         self.nonlarge_max = large_object - 1
-        self.nonlarge_gcptrs_max = large_object_gcptrs - 1
-        assert self.nonlarge_max <= self.nonlarge_gcptrs_max
         #
         self.nursery      = NULL
         self.nursery_free = NULL
@@ -291,7 +283,9 @@ class MiniMarkGC(MovingGCBase):
         else:
             #
             defaultsize = self.nursery_size
-            minsize = 2 * (self.nonlarge_gcptrs_max + 1)
+            minsize = int(1.9 * self.nonlarge_max)
+            if we_are_translated():
+                minsize = (minsize + 4095) & ~4095
             self.nursery_size = minsize
             self.allocate_nursery()
             #
@@ -303,8 +297,8 @@ class MiniMarkGC(MovingGCBase):
             # forces a minor collect for every malloc.  Useful to debug
             # external factors, like trackgcroot or the handling of the write
             # barrier.  Implemented by still using 'minsize' for the nursery
-            # size (needed to handle e.g. mallocs of 8249 words) but hacking
-            # at the current nursery position in collect_and_reserve().
+            # size (needed to handle mallocs just below 'large_objects') but
+            # hacking at the current nursery position in collect_and_reserve().
             if newsize <= 0:
                 newsize = env.estimate_best_nursery_size()
                 if newsize <= 0:
@@ -345,7 +339,7 @@ class MiniMarkGC(MovingGCBase):
 
 
     def _nursery_memory_size(self):
-        extra = self.nonlarge_gcptrs_max + 1
+        extra = self.nonlarge_max + 1
         return self.nursery_size + extra
 
     def _alloc_nursery(self):
@@ -489,16 +483,11 @@ class MiniMarkGC(MovingGCBase):
         # below 'nonlarge_max'.  All the following logic is usually
         # constant-folded because self.nonlarge_max, size and itemsize
         # are all constants (the arguments are constant due to
-        # inlining) and self.has_gcptr_in_varsize() is constant-folded.
-        if self.has_gcptr_in_varsize(typeid):
-            nonlarge_max = self.nonlarge_gcptrs_max
-        else:
-            nonlarge_max = self.nonlarge_max
-
+        # inlining).
         if not raw_malloc_usage(itemsize):
-            too_many_items = raw_malloc_usage(nonvarsize) > nonlarge_max
+            too_many_items = raw_malloc_usage(nonvarsize) > self.nonlarge_max
         else:
-            maxlength = nonlarge_max - raw_malloc_usage(nonvarsize)
+            maxlength = self.nonlarge_max - raw_malloc_usage(nonvarsize)
             maxlength = maxlength // raw_malloc_usage(itemsize)
             too_many_items = length > maxlength
 
@@ -623,7 +612,7 @@ class MiniMarkGC(MovingGCBase):
             # Check if we need to introduce the card marker bits area.
             if (self.card_page_indices <= 0  # <- this check is constant-folded
                 or not self.has_gcptr_in_varsize(typeid) or
-                raw_malloc_usage(totalsize) <= self.nonlarge_gcptrs_max):
+                raw_malloc_usage(totalsize) <= self.nonlarge_max):
                 #
                 # In these cases, we don't want a card marker bits area.
                 # This case also includes all fixed-size objects.
