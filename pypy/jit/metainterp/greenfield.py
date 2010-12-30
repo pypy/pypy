@@ -15,7 +15,7 @@ class GreenFieldInfo(object):
                 seen.add(objname)
         assert len(seen) == 1, (
             "Current limitation: you can only give one instance with green "
-            "fields.  Found %r" % seen.keys())
+            "fields.  Found %r" % list(seen))
         self.red_index = jd.jitdriver.reds.index(objname)
         #
         # a list of (GTYPE, fieldname)
