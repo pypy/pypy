@@ -460,6 +460,13 @@ class BaseBackendTest(Runner):
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=dyn_calldescr)
             assert res.value == 2 * num
+
+            # last, try it with one constant argument
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox, ConstInt(num), BoxInt(num)],
+                                         'int', descr=calldescr)
+            assert res.value == 2 * num
             
 
         if cpu.supports_floats:

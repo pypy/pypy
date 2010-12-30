@@ -271,7 +271,8 @@ class OpAssembler(object):
             regalloc.before_call(save_all_regs=spill_all_regs)
         else:
             if result:
-                if reg_args > 0 and regalloc.stays_alive(args[0]):
+                # XXX maybe move instance check to llsupport/regalloc
+                if reg_args > 0 and isinstance(args[0], Box) and regalloc.stays_alive(args[0]):
                     regalloc.force_spill_var(args[0])
                 self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
             else:
