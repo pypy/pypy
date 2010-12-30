@@ -375,9 +375,9 @@ class ObjSpace(object):
         else:
             name = importname
 
-        w_name = self.wrap(name)
-        w_mod = self.wrap(Module(self, w_name))
-        self.builtin_modules[name] = w_mod
+        mod = Module(self, self.wrap(name))
+        mod.install()
+
         return name
 
     def getbuiltinmodule(self, name, force_init=False):
