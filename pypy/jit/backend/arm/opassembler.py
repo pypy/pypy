@@ -141,8 +141,8 @@ class GuardOpAssembler(object):
            print 'Failargs: ', op.getfailargs()
 
         self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size-PC_OFFSET, cond=fcond)
-        self.mc.PUSH([reg.value for reg in r.caller_resp])
         descr._arm_guard_pos = self.mc.currpos()
+        self.mc.PUSH([reg.value for reg in r.caller_resp])
         addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
         self.mc.BL(addr)
         self.mc.POP([reg.value for reg in r.caller_resp])
@@ -216,10 +216,6 @@ class GuardOpAssembler(object):
             # XXX port from x86 backend once gc support is in place
 
         return self._emit_guard(op, locs[3:], c.EQ)
-
-
-        return self._emit_guard(op, locs[2:], c.EQ)
-
 
 
 class OpAssembler(object):
