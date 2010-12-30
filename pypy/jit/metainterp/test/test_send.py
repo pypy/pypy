@@ -210,6 +210,7 @@ class SendTests:
         # InvalidLoop condition, and was then unrolled, giving two copies
         # of the body in a single bigger loop with no failing guard except
         # the final one.
+        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)
@@ -251,6 +252,7 @@ class SendTests:
         assert res == f(3, 28)
         res = self.meta_interp(f, [4, 28])
         assert res == f(4, 28)
+        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)

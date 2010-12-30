@@ -164,7 +164,6 @@ class VirtualTests:
                                 getfield_gc=0, setfield_gc=0)
 
     def test_two_loops_with_virtual(self):
-        #py.test.skip("We don't know how to virtualize across bridges right now")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def f(n):
             node = self._new()
@@ -176,7 +175,7 @@ class VirtualTests:
                 next = self._new()
                 next.value = node.value + n
                 next.extra = node.extra + 1
-                if next.extra == 4:
+                if next.extra == 5:
                     next.value += 100
                     next.extra = 0
                 node = next
@@ -204,14 +203,14 @@ class VirtualTests:
                 next = self._new()
                 next.value = node.value + n
                 next.extra = node.extra + 1
-                if next.extra == 4:
+                if next.extra == 5:
                     next.value = externfn(next)
                     next.extra = 0
                 node = next
                 n -= 1
             return node.value
-        res = self.meta_interp(f, [15], policy=StopAtXPolicy(externfn))
-        assert res == f(15)
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(externfn))
+        assert res == f(20)
         self.check_loop_count(2)
         self.check_loops(**{self._new_op: 1})
         self.check_loops(int_mul=0, call=1)
