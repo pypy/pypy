@@ -401,7 +401,7 @@ class CFuncPtr(_CData):
                 value = arg.value
                 assert isinstance(value, basestring) and len(value) == 1
                 value = ord(value)
-            elif shape == 'P':
+            elif shape == 'P' or shape == 'O':
                 value = arg._get_buffer_value()
             elif shape == 'z' or shape == 'Z':
                 value = arg._get_buffer_value()
