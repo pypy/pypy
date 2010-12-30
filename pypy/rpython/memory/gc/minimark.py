@@ -177,9 +177,10 @@ class MiniMarkGC(MovingGCBase):
         "card_page_indices": 128,
 
         # Objects whose total size is at least 'large_object' bytes are
-        # allocated out of the nursery immediately, but still as young
-        # objects.
-        "large_object": 2048*WORD,
+        # allocated out of the nursery immediately, as old objects.  The
+        # minimal allocated size of the nursery is 1.9x the following
+        # number (by default, at least 500KB on 32-bit and 1000KB on 64-bit).
+        "large_object": 65792*WORD,
         }
 
     def __init__(self, config,
@@ -282,7 +283,9 @@ class MiniMarkGC(MovingGCBase):
         else:
             #
             defaultsize = self.nursery_size
-            minsize = 2 * (self.nonlarge_max + 1)
+            minsize = int(1.9 * self.nonlarge_max)
+            if we_are_translated():
+                minsize = (minsize + 4095) & ~4095
             self.nursery_size = minsize
             self.allocate_nursery()
             #
@@ -294,8 +297,8 @@ class MiniMarkGC(MovingGCBase):
             # forces a minor collect for every malloc.  Useful to debug
             # external factors, like trackgcroot or the handling of the write
             # barrier.  Implemented by still using 'minsize' for the nursery
-            # size (needed to handle e.g. mallocs of 8249 words) but hacking
-            # at the current nursery position in collect_and_reserve().
+            # size (needed to handle mallocs just below 'large_objects') but
+            # hacking at the current nursery position in collect_and_reserve().
             if newsize <= 0:
                 newsize = env.estimate_best_nursery_size()
                 if newsize <= 0:
