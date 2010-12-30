@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import jit
 from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 
 class W_FFIType(Wrappable):
     def __init__(self, name, ffitype):
@@ -21,7 +21,6 @@ class W_FFIType(Wrappable):
     @unwrap_spec('self', ObjSpace)
     def str(self, space):
         return space.wrap('<ffi type %s>' % self.name)
-
 
 
 W_FFIType.typedef = TypeDef(
@@ -46,6 +45,15 @@ def build_ffi_types():
 W_types.typedef = TypeDef(
     'types',
     **build_ffi_types())
+
+
+def unwrap_ffitype(space, w_argtype, allow_void=False):
+    res = space.interp_w(W_FFIType, w_argtype).ffitype
+    if res is libffi.types.void and not allow_void:
+        msg = 'void is not a valid argument type'
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    return res
+
 
 # ========================================================================
 
@@ -216,10 +224,21 @@ class W_FuncPtr(Wrappable):
         """
         return space.wrap(rffi.cast(rffi.LONG, self.func.funcsym))
 
+@unwrap_spec(ObjSpace, W_Root, r_uint, str, W_Root, W_Root)
+def descr_fromaddr(space, w_cls, addr, name, w_argtypes, w_restype):
+    argtypes = [unwrap_ffitype(space, w_argtype) for w_argtype in
+                space.listview(w_argtypes)]
+    restype = unwrap_ffitype(space, w_restype, allow_void=True)
+    addr = rffi.cast(rffi.VOIDP, addr)
+    func = libffi.Func(name, argtypes, restype, addr)
+    return W_FuncPtr(func)
+    
+
 W_FuncPtr.typedef = TypeDef(
-    'FuncPtr',
+    '_ffi.FuncPtr',
     __call__ = interp2app(W_FuncPtr.call),
     getaddr = interp2app(W_FuncPtr.getaddr),
+    fromaddr = interp2app(descr_fromaddr, as_classmethod=True)
     )
 
 
@@ -236,19 +255,11 @@ class W_CDLL(Wrappable):
         self.name = name
         self.space = space
 
-    def ffitype(self, w_argtype, allow_void=False):
-        res = self.space.interp_w(W_FFIType, w_argtype).ffitype
-        if res is libffi.types.void and not allow_void:
-            space = self.space
-            msg = 'void is not a valid argument type'
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        return res
-
     @unwrap_spec('self', ObjSpace, str, W_Root, W_Root)
     def getfunc(self, space, name, w_argtypes, w_restype):
-        argtypes = [self.ffitype(w_argtype) for w_argtype in
+        argtypes = [unwrap_ffitype(space, w_argtype) for w_argtype in
                     space.listview(w_argtypes)]
-        restype = self.ffitype(w_restype, allow_void=True)
+        restype = unwrap_ffitype(space, w_restype, allow_void=True)
         try:
             func = self.cdll.getpointer(name, argtypes, restype)
         except KeyError:
@@ -274,7 +285,7 @@ def descr_new_cdll(space, w_type, name):
 
 
 W_CDLL.typedef = TypeDef(
-    'CDLL',
+    '_ffi.CDLL',
     __new__     = interp2app(descr_new_cdll),
     getfunc     = interp2app(W_CDLL.getfunc),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
