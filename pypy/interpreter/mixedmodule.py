@@ -31,11 +31,13 @@ class MixedModule(Module):
         space.builtin_modules"""
         Module.install(self)
         if hasattr(self, "submodules"):
-            name = self.space.unwrap(self.w_name)
+            space = self.space
+            name = space.unwrap(self.w_name)
             for sub_name, module_cls in self.submodules.iteritems():
-                module_name = self.space.wrap("%s.%s" % (name, sub_name))
-                m = module_cls(self.space, module_name)
+                module_name = space.wrap("%s.%s" % (name, sub_name))
+                m = module_cls(space, module_name)
                 m.install()
+                space.setitem(self.w_dict, space.wrap(sub_name), space.wrap(m))
 
     def init(self, space):
         """This is called each time the module is imported or reloaded
