@@ -395,29 +395,30 @@ class CFuncPtr(_CData):
         newargs = []
         # XXX: investigate the difference between _ffishape and _ffiargshape
         for argtype, arg in zip(argtypes, args):
-            if argtype._ffishape == 'u' or argtype._ffishape == 'c':
+            shape = argtype._ffiargshape
+            if shape == 'u' or shape == 'c':
                 # XXX: who should do this conversion? Maybe _ffi?
                 value = arg.value
                 assert isinstance(value, basestring) and len(value) == 1
                 value = ord(value)
-            elif argtype._ffishape == 'P':
+            elif shape == 'P':
                 value = arg._get_buffer_value()
-            elif argtype._ffishape == 'z':
+            elif shape == 'z':
                 value = arg._get_buffer_value()
-            elif self._is_struct_shape(arg._ffiargshape):
+            elif self._is_struct_shape(shape):
                 value = arg._get_buffer_value()
             else:
                 value = arg.value
             newargs.append(value)
         return newargs
 
-    def _is_struct_shape(self, _ffishape):
+    def _is_struct_shape(self, shape):
         # see the corresponding code to set the shape in _ctypes.structure._set_shape
-        return (isinstance(_ffishape, tuple) and
-                len(_ffishape) == 2 and
-                isinstance(_ffishape[0], _rawffi.Structure) and
-                _ffishape[1] == 1)
-
+        return (isinstance(shape, tuple) and
+                len(shape) == 2 and
+                isinstance(shape[0], _rawffi.Structure) and
+                shape[1] == 1)
+    
     def _wrap_result(self, restype, result):
         """
         Convert from low-level repr of the result to the high-level python
