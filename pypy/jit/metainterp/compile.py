@@ -106,8 +106,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
     try:
         old_loop_token = jitdriver_sd.warmstate.optimize_loop(
             metainterp_sd, old_loop_tokens, loop)
-    except InvalidLoop as e:
-        #import traceback; import pdb; pdb.set_trace()
+    except InvalidLoop:
         return None
     if old_loop_token is not None:
         metainterp.staticdata.log("reusing old loop")
