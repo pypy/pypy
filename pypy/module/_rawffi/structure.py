@@ -17,7 +17,7 @@ from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import size_alignment, LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.rlib import clibffi
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint, signedtype
 
 def unpack_fields(space, w_fields):
     fields_w = space.unpackiterable(w_fields)
@@ -255,7 +255,7 @@ def push_field(self, num, value):
                 bitmask = BIT_MASK(numbits)
                 current &= ~ (bitmask << lowbit)
                 current |= (value & bitmask) << lowbit
-                value = current
+                value = rffi.cast(TP, current)
             break
 
     rffi.cast(T, ptr)[0] = value
@@ -273,7 +273,7 @@ def cast_pos(self, i, ll_t):
             numbits = NUM_BITS(bitsize)
             lowbit = LOW_BIT(bitsize)
             if numbits:
-                if ll_t._type.SIGN:
+                if ll_t is lltype.Bool or signedtype(ll_t._type):
                     value >>= lowbit
                     sign = (value >> (numbits - 1)) & 1
                     value &= BIT_MASK(numbits - 1)

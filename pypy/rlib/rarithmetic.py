@@ -252,6 +252,7 @@ def signedtype(t):
         return True
     else:
         return t.SIGNED
+signedtype._annspecialcase_ = 'specialize:memo'
 
 def normalizedinttype(t):
     if t is int:
