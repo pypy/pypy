@@ -10,13 +10,18 @@ class Module(Wrappable):
 
     def __init__(self, space, w_name, w_dict=None):
         self.space = space
-        if w_dict is None: 
+        if w_dict is None:
             w_dict = space.newdict(module=True)
-        self.w_dict = w_dict 
-        self.w_name = w_name 
+        self.w_dict = w_dict
+        self.w_name = w_name
         if w_name is not None:
             space.setitem(w_dict, space.new_interned_str('__name__'), w_name)
         self.startup_called = False
+
+    def install(self):
+        """NOT_RPYTHON: installs this module into space.builtin_modules"""
+        w_mod = self.space.wrap(self)
+        self.space.builtin_modules[self.space.unwrap(self.w_name)] = w_mod
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON: to allow built-in modules to do some more setup
@@ -50,14 +55,14 @@ class Module(Wrappable):
     def descr_module__init__(self, w_name, w_doc=None):
         space = self.space
         self.w_name = w_name
-        if w_doc is None:  
+        if w_doc is None:
             w_doc = space.w_None
         space.setitem(self.w_dict, space.new_interned_str('__name__'), w_name)
         space.setitem(self.w_dict, space.new_interned_str('__doc__'), w_doc)
 
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.wrap('__name__'))
-        if (w_name is None or 
+        if (w_name is None or
             not space.is_true(space.isinstance(w_name, space.w_str))):
             # maybe raise exception here (XXX this path is untested)
             return space.w_None
@@ -67,9 +72,9 @@ class Module(Wrappable):
             from pypy.interpreter.mixedmodule import MixedModule
             w_mod    = space.getbuiltinmodule('_pickle_support')
             mod      = space.interp_w(MixedModule, w_mod)
-            new_inst = mod.get('module_new')            
+            new_inst = mod.get('module_new')
             return space.newtuple([new_inst, space.newtuple([w_name,
-                                    self.getdict()]), 
+                                    self.getdict()]),
                                   ])
         #already imported case
         w_import = space.builtin.get('__import__')
