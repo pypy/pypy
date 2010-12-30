@@ -238,7 +238,7 @@ def encode_object(space, w_object, encoding, errors):
     if not space.is_true(space.isinstance(w_retval, space.w_str)):
         raise operationerrfmt(space.w_TypeError,
             "encoder did not return an string object (type '%s')",
-            space.type(w_retval).getname(space, '?'))
+            space.type(w_retval).getname(space))
     return w_retval
 
 def decode_object(space, w_obj, encoding, errors):
@@ -271,7 +271,7 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     if not space.is_true(space.isinstance(w_retval, space.w_unicode)):
         raise operationerrfmt(space.w_TypeError,
             "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space, '?'))
+            space.type(w_retval).getname(space))
     return w_retval
 
 def unicode_from_object(space, w_obj):

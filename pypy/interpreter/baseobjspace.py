@@ -55,7 +55,7 @@ class W_Root(object):
         return False
 
     def setdict(self, space, w_dict):
-        typename = space.type(self).getname(space, '?')
+        typename = space.type(self).getname(space)
         raise operationerrfmt(space.w_TypeError,
                               "attribute '__dict__' of %s objects "
                               "is not writable", typename)
@@ -72,7 +72,7 @@ class W_Root(object):
         raise NotImplementedError("only for interp-level user subclasses "
                                   "from typedef.py")
 
-    def getname(self, space, default):
+    def getname(self, space, default='?'):
         try:
             return space.str_w(space.getattr(self, space.wrap('__name__')))
         except OperationError, e:
@@ -117,7 +117,7 @@ class W_Root(object):
             classname = wrappable_class_name(RequiredClass)
         msg = "'%s' object expected, got '%s' instead"
         raise operationerrfmt(space.w_TypeError, msg,
-            classname, self.getclass(space).getname(space, '?'))
+            classname, self.getclass(space).getname(space))
 
     # used by _weakref implemenation
 
@@ -125,7 +125,7 @@ class W_Root(object):
         return None
 
     def setweakref(self, space, weakreflifeline):
-        typename = space.type(self).getname(space, '?')
+        typename = space.type(self).getname(space)
         raise operationerrfmt(space.w_TypeError,
             "cannot create weak reference to '%s' object", typename)
 
@@ -733,7 +733,7 @@ class ObjSpace(object):
             msg = "'%s' object expected, got '%s' instead"
             raise operationerrfmt(self.w_TypeError, msg,
                 wrappable_class_name(RequiredClass),
-                w_obj.getclass(self).getname(self, '?'))
+                w_obj.getclass(self).getname(self))
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
@@ -1054,7 +1054,7 @@ class ObjSpace(object):
                 raise
             msg = "%s must be an integer, not %s"
             raise operationerrfmt(self.w_TypeError, msg,
-                objdescr, self.type(w_obj).getname(self, '?'))
+                objdescr, self.type(w_obj).getname(self))
         try:
             index = self.int_w(w_index)
         except OperationError, err:
@@ -1070,7 +1070,7 @@ class ObjSpace(object):
                 raise operationerrfmt(
                     w_exception,
                     "cannot fit '%s' into an index-sized "
-                    "integer", self.type(w_obj).getname(self, '?'))
+                    "integer", self.type(w_obj).getname(self))
         else:
             return index
 

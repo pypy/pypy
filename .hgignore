@@ -6,14 +6,13 @@ syntax: regexp
 ^testresult$
 ^site-packages$
 ^bin$
-^pypy/module/cpyext/src/.+\.o$
 ^pypy/bin/pypy-c
-^pypy/translator/jvm/src/pypy/.+\.class$
+^pypy/module/cpyext/src/.+\.o$
+^pypy/module/cpyext/src/.+\.obj$
 ^pypy/module/cpyext/test/.+\.errors$
 ^pypy/module/cpyext/test/.+\.o$
 ^pypy/module/cpyext/test/.+\.obj$
 ^pypy/module/cpyext/test/.+\.manifest$
-^pypy/module/cpyext/src/.+\.obj$
 ^pypy/doc/.+\.html$
 ^pypy/doc/basicblock\.asc$
 ^pypy/doc/.+\.svninfo$
@@ -24,6 +23,7 @@ syntax: regexp
 ^pypy/translator/jvm/\.project$
 ^pypy/translator/jvm/\.classpath$
 ^pypy/translator/jvm/eclipse-bin$
+^pypy/translator/jvm/src/pypy/.+\.class$
 ^pypy/translator/benchmark/docutils$
 ^pypy/translator/benchmark/templess$
 ^pypy/translator/benchmark/gadfly$
@@ -33,6 +33,7 @@ syntax: regexp
 ^pypy/translator/goal/pypy-translation-snapshot$
 ^pypy/translator/goal/pypy-c
 ^pypy/translator/goal/.+\.exe$
+^pypy/translator/goal/.+\.dll$
 ^pypy/translator/goal/target.+-c$
 ^pypy/_cache$
 ^site-packages/.+\.egg$
