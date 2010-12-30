@@ -403,7 +403,7 @@ class CFuncPtr(_CData):
                 value = ord(value)
             elif shape == 'P':
                 value = arg._get_buffer_value()
-            elif shape == 'z':
+            elif shape == 'z' or shape == 'Z':
                 value = arg._get_buffer_value()
             elif self._is_struct_shape(shape):
                 value = arg._get_buffer_value()
