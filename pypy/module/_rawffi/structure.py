@@ -176,6 +176,14 @@ class W_Structure(W_DataShape):
         return space.wrap(self.ll_positions[index])
     descr_fieldoffset.unwrap_spec = ['self', ObjSpace, str]
 
+    def descr_fieldsize(self, space, attr):
+        index = self.getindex(space, attr)
+        if self.ll_bitsizes and index < len(self.ll_bitsizes):
+            return space.wrap(self.ll_bitsizes[index])
+        else:
+            return space.wrap(self.fields[index].size)
+    descr_fieldsize.unwrap_spec = ['self', ObjSpace, str]
+
     # get the corresponding ffi_type
     ffi_struct = lltype.nullptr(clibffi.FFI_STRUCT_P.TO)
 
@@ -227,6 +235,7 @@ W_Structure.typedef = TypeDef(
     size        = interp_attrproperty('size', W_Structure),
     alignment   = interp_attrproperty('alignment', W_Structure),
     fieldoffset = interp2app(W_Structure.descr_fieldoffset),
+    fieldsize   = interp2app(W_Structure.descr_fieldsize),
     size_alignment = interp2app(W_Structure.descr_size_alignment)
 )
 W_Structure.typedef.acceptable_as_base_class = False

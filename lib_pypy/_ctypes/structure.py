@@ -33,7 +33,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         value = field[1]
         fields[name] = Field(name,
                              self._ffistruct.fieldoffset(name),
-                             value._sizeofinstances(),
+                             self._ffistruct.fieldsize(name),
                              value, i)
 
     if anonymous_fields:
