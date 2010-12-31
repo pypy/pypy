@@ -4,7 +4,6 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable,\
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module._rawffi.structure import unpack_fields
 from pypy.module._rawffi.array import get_elem, push_elem
 from pypy.module._rawffi.interp_rawffi import W_DataInstance, letter2tp, \
      wrap_value, unwrap_value, unwrap_truncate_int
