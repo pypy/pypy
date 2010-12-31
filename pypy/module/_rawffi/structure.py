@@ -276,13 +276,13 @@ def cast_pos(self, i, ll_t):
                 if ll_t is lltype.Bool or signedtype(ll_t._type):
                     value >>= lowbit
                     sign = (value >> (numbits - 1)) & 1
-                    value &= BIT_MASK(numbits - 1)
+                    value &= rffi.cast(ll_t, BIT_MASK(numbits - 1))
                     if sign:
                         value = ~value
                 else:
                     # unsigned is easier
                     value >>= lowbit
-                    value &= BIT_MASK(numbits)
+                    value &= rffi.cast(ll_t, BIT_MASK(numbits))
             break
 
     return value
