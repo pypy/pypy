@@ -255,6 +255,10 @@ def AddressDict(length_estimate=0):
     else:
         return BasicAddressDict()
 
+def null_address_dict():
+    from pypy.rpython.memory import lldict
+    return lltype.nullptr(lldict.DICT)
+
 class BasicAddressDict(object):
 
     def __init__(self):
