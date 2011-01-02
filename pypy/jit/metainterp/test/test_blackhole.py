@@ -145,6 +145,18 @@ def test_convert_and_run_from_pyjitpl():
 
 class TestBlackhole(LLJitMixin):
 
+    def test_blackholeinterp_cache_basic(self):
+        class FakeJitcode:
+            def num_regs_r(self):
+                return 0
+        interp1 = getblackholeinterp({})
+        interp1.jitcode = FakeJitcode()
+        builder = interp1.builder
+        interp2 = builder.acquire_interp()
+        builder.release_interp(interp1)
+        interp3 = builder.acquire_interp()
+        assert builder.num_interpreters == 2
+        
     def test_blackholeinterp_cache(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
         def choices(x):
@@ -177,8 +189,8 @@ class TestBlackhole(LLJitMixin):
         #
         assert res == sum([choices(x) for x in range(1, 8)])
         builder = pyjitpl._warmrunnerdesc.metainterp_sd.blackholeinterpbuilder
-        assert builder.num_interpreters == 2
-        assert len(seen) == 2 * 3
+        assert builder.num_interpreters == 1
+        assert len(seen) == 1 * 3
 
     def test_blackholeinterp_cache_exc(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
@@ -208,4 +220,4 @@ class TestBlackhole(LLJitMixin):
         assert res == sum([py.test.raises(FooError, choices, x).value.num
                            for x in range(1, 8)])
         builder = pyjitpl._warmrunnerdesc.metainterp_sd.blackholeinterpbuilder
-        assert builder.num_interpreters == 2
+        assert builder.num_interpreters == 1

@@ -5,6 +5,7 @@ from pypy.jit.metainterp.resume import Snapshot
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
+from pypy.jit.metainterp.jitexc import JitException
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
@@ -367,7 +368,7 @@ class ExeState(object):
             return
         self.heap_dirty = True
 
-class ImpossibleLink(Exception):
+class ImpossibleLink(JitException):
     pass
 
 class BoxMap(object):
