@@ -60,7 +60,7 @@ forcings:               1
 abort: trace too long:  10
 abort: compiling:       11
 abort: vable escape:    12
-abort: bad loop: 	135
+abort: bad loop:        135
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
