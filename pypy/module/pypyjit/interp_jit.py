@@ -38,7 +38,6 @@ def set_jitcell_at(newcell, next_instr, bytecode):
 
 def confirm_enter_jit(next_instr, bytecode, frame, ec):
     return (frame.w_f_trace is None and
-            ec.profilefunc is None and
             ec.w_tracefunc is None)
 
 def can_never_inline(next_instr, bytecode):
