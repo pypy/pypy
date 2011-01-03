@@ -287,7 +287,7 @@ def str_join__Rope_ANY(space, w_self, w_list):
                 raise operationerrfmt(
                     space.w_TypeError,
                     "sequence item %d: expected string, %s "
-                    "found", i, space.type(w_s).getname(space, "?"))
+                    "found", i, space.type(w_s).getname(space))
             assert isinstance(w_s, W_RopeObject)
             node = w_s._node
             l.append(node)

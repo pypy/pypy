@@ -341,7 +341,7 @@ def str_join__String_ANY(space, w_self, w_list):
                 raise operationerrfmt(
                     space.w_TypeError,
                     "sequence item %d: expected string, %s "
-                    "found", i, space.type(w_s).getname(space, '?'))
+                    "found", i, space.type(w_s).getname(space))
             reslen += len(space.str_w(w_s))
         reslen += len(self) * (len(list_w) - 1)
         sb = StringBuilder(reslen)

@@ -336,7 +336,7 @@ class W_TypeObject(W_Object):
         if not isinstance(w_subtype, W_TypeObject):
             raise operationerrfmt(space.w_TypeError,
                 "X is not a type object ('%s')",
-                space.type(w_subtype).getname(space, '?'))
+                space.type(w_subtype).getname(space))
         if not w_subtype.issubtype(w_self):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s): %s is not a subtype of %s",
@@ -892,7 +892,7 @@ def mro_error(space, orderlists):
         # explicit error message for this specific case
         raise operationerrfmt(space.w_TypeError,
                               "duplicate base class '%s'",
-                              candidate.getname(space,"?"))
+                              candidate.getname(space))
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)
@@ -900,7 +900,7 @@ def mro_error(space, orderlists):
     del cycle[:cycle.index(candidate)]
     cycle.append(candidate)
     cycle.reverse()
-    names = [cls.getname(space, "?") for cls in cycle]
+    names = [cls.getname(space) for cls in cycle]
     raise OperationError(space.w_TypeError,
         space.wrap("cycle among base classes: " + ' < '.join(names)))
 

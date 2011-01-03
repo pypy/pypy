@@ -5,11 +5,11 @@
 options:
   -i             inspect interactively after running script
   -O             dummy optimization flag for compatibility with C Python
-  -c CMD         program passed in as CMD (terminates option list)
+  -c cmd         program passed in as CMD (terminates option list)
   -S             do not 'import site' on initialization
   -u             unbuffered binary stdout and stderr
   -h, --help     show this help message and exit
-  -m             library module to be run as a script (terminates option list)
+  -m mod         library module to be run as a script (terminates option list)
   -W arg         warning control (arg is action:message:category:module:lineno)
   -E             ignore environment variables (such as PYTHONPATH)
   --version      print the PyPy version
@@ -128,7 +128,8 @@ def print_info(*args):
     raise SystemExit
 
 def print_help(*args):
-    print 'usage: %s [options]' % (sys.executable,)
+    print 'usage: %s [options] [-c cmd|-m mod|file.py|-] [arg...]' % (
+        sys.executable,)
     print __doc__.rstrip()
     if 'pypyjit' in sys.builtin_module_names:
         _print_jit_help()

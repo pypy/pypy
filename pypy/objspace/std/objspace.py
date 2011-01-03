@@ -344,7 +344,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             raise operationerrfmt(self.w_TypeError,
                 "%s.__new__(%s): only for the type %s",
-                w_type.name, w_subtype.getname(self, '?'), w_type.name)
+                w_type.name, w_subtype.getname(self), w_type.name)
         return instance
     allocate_instance._annspecialcase_ = "specialize:arg(1)"
 

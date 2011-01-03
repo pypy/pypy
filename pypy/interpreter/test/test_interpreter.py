@@ -165,11 +165,14 @@ class TestInterpreter:
             assert not arg_w or not space.eq_w(arg_w[-1], space.wrap(-1))
             return real_call_function(w_obj, *arg_w)
         self.space.call_function = safe_call_function
-        code = '''
-            def f():
-                import sys
-            '''
-        self.codetest(code, 'f', [])
+        try:
+            code = '''
+                def f():
+                    import sys
+                '''
+            self.codetest(code, 'f', [])
+        finally:
+            del self.space.call_function
 
     def test_call_star_starstar(self):
         code = '''\

@@ -506,7 +506,7 @@ class Member(Wrappable):
                                   " objects doesn't apply to '%s' object",
                                   self.name,
                                   self.w_cls.name,
-                                  space.type(w_obj).getname(space, '?'))
+                                  space.type(w_obj).getname(space))
     
     def descr_member_get(space, member, w_obj, w_w_cls=None):
         """member.__get__(obj[, type]) -> value
@@ -583,7 +583,7 @@ from pypy.interpreter.special import NotImplemented, Ellipsis
 def descr_get_dict(space, w_obj):
     w_dict = w_obj.getdict()
     if w_dict is None:
-        typename = space.type(w_obj).getname(space, '?')
+        typename = space.type(w_obj).getname(space)
         raise operationerrfmt(space.w_TypeError,
                               "descriptor '__dict__' doesn't apply to"
                               " '%s' objects", typename)
