@@ -485,7 +485,7 @@ class CFuncPtr(_CData):
         elif restype is not None:
             checker = getattr(self.restype, '_check_retval_', None)
             if checker:
-                val = restype(resbuffer[0])
+                val = restype(result)
                 # the original ctypes seems to make the distinction between
                 # classes defining a new type, and their subclasses
                 if '_type_' in restype.__dict__:
