@@ -160,9 +160,9 @@ class TestBlackhole(LLJitMixin):
     def test_blackholeinterp_cache_normal(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
         def choices(x):
-            if x == 0:
-                return 0
-            return 34871
+            if x == 0:       # <- this is the test that eventually succeeds,
+                return 0     #    requiring a blackhole interp in a call stack
+            return 34871     #    of two functions (hence num_interpreters==2)
         def f(x):
             y = 0
             cont = 1
