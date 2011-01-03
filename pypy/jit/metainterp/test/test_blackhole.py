@@ -156,23 +156,21 @@ class TestBlackhole(LLJitMixin):
         builder.release_interp(interp1)
         interp3 = builder.acquire_interp()
         assert builder.num_interpreters == 2
-        
-    def test_blackholeinterp_cache(self):
+
+    def test_blackholeinterp_cache_normal(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
         def choices(x):
-            if x == 2: return 10
-            if x == 3: return 199
-            if x == 4: return 124
-            if x == 5: return -521
-            if x == 6: return 8917
-            if x == 7: return -387
+            if x == 0:
+                return 0
             return 34871
         def f(x):
             y = 0
-            while x > 0:
+            cont = 1
+            while cont:
                 myjitdriver.can_enter_jit(x=x, y=y)
                 myjitdriver.jit_merge_point(x=x, y=y)
-                y += choices(x)
+                cont = choices(x)
+                y += cont
                 x -= 1
             return y
         #
@@ -189,8 +187,8 @@ class TestBlackhole(LLJitMixin):
         #
         assert res == sum([choices(x) for x in range(1, 8)])
         builder = pyjitpl._warmrunnerdesc.metainterp_sd.blackholeinterpbuilder
-        assert builder.num_interpreters == 1
-        assert len(seen) == 1 * 3
+        assert builder.num_interpreters == 2
+        assert len(seen) == 2 * 3
 
     def test_blackholeinterp_cache_exc(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
@@ -198,21 +196,19 @@ class TestBlackhole(LLJitMixin):
             def __init__(self, num):
                 self.num = num
         def choices(x):
-            if x == 2: raise FooError(10)
-            if x == 3: raise FooError(199)
-            if x == 4: raise FooError(124)
-            if x == 5: raise FooError(-521)
-            if x == 6: raise FooError(8917)
-            if x == 7: raise FooError(-387)
+            if x == 0:
+                raise FooError(0)
             raise FooError(34871)
         def f(x):
             y = 0
-            while x > 0:
+            while True:
                 myjitdriver.can_enter_jit(x=x, y=y)
                 myjitdriver.jit_merge_point(x=x, y=y)
                 try:
                     choices(x)
                 except FooError, e:
+                    if e.num == 0:
+                        break
                     y += e.num
                 x -= 1
             return y
@@ -220,4 +216,4 @@ class TestBlackhole(LLJitMixin):
         assert res == sum([py.test.raises(FooError, choices, x).value.num
                            for x in range(1, 8)])
         builder = pyjitpl._warmrunnerdesc.metainterp_sd.blackholeinterpbuilder
-        assert builder.num_interpreters == 1
+        assert builder.num_interpreters == 2
