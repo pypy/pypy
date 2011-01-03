@@ -11,9 +11,6 @@ from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
 ERR_WRONG_SECOND = "complex() can't take second arg if first is a string"
 ERR_MALFORMED = "complex() arg is a malformed string"
 
-OVERFLOWED_FLOAT = 1e200
-OVERFLOWED_FLOAT *= OVERFLOWED_FLOAT
-
 complex_conjugate = StdObjSpaceMultiMethod('conjugate', 1,
                                            doc="(A+Bj).conjugate() -> A-Bj")
 
@@ -139,12 +136,6 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
             imagval = string_to_float(imagstr)
         except ParseStringError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
-        else:
-            # check for overflow
-            if (abs(realval) == OVERFLOWED_FLOAT or
-                abs(imagval) == OVERFLOWED_FLOAT):
-                raise OperationError(space.w_ValueError,space.wrap(
-                                    "complex() literal too large to convert"))
 
     else:
         # non-string arguments

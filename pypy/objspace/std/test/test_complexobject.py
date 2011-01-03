@@ -330,9 +330,10 @@ class AppTestAppComplexTest:
         assert x.foo == 42
         assert type(complex(x)) == complex
     
-    def test_overflow(self):
-        h = self.helper
-        raises(ValueError, complex, unicode("1"*500))
+    def test_infinity(self):
+        inf = 1e200*1e200
+        assert complex("1"*500) == complex(inf)
+        assert complex("-inf") == complex(-inf)
         
     def test_repr(self):
         assert repr(1+6j) == '(1+6j)'
