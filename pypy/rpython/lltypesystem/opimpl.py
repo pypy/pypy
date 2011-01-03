@@ -76,13 +76,13 @@ def get_primitive_op_src(fullopname):
                 return adjust_result(func(x))
         else:
             def op_function(x, y):
-                if not (isinstance(x, AddressAsInt) and argtype is int):
-                    if not isinstance(x, argtype):
-                        raise TypeError("%r arg 1 must be %s, got %r instead" % (
+                if not isinstance(x, argtype):
+                    if not (isinstance(x, AddressAsInt) and argtype is int):
+                        raise TypeError("%r arg 1 must be %s, got %r instead"% (
                             fullopname, typname, type(x).__name__))
-                if not (isinstance(y, AddressAsInt) and argtype is int):
-                    if not isinstance(y, argtype):
-                        raise TypeError("%r arg 2 must be %s, got %r instead" % (
+                if not isinstance(y, argtype):
+                    if not (isinstance(y, AddressAsInt) and argtype is int):
+                        raise TypeError("%r arg 2 must be %s, got %r instead"% (
                             fullopname, typname, type(y).__name__))
                 return adjust_result(func(x, y))
 
