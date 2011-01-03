@@ -143,6 +143,9 @@ def get_dllhandle(space):
     if not space.config.objspace.usemodules._rawffi:
         return space.wrap(0)
 
+    return _get_dllhandle(space)
+
+def _get_dllhandle(space):
     # Retrieve cpyext api handle
     from pypy.module.cpyext.api import State
     handle = space.fromcache(State).get_pythonapi_handle()
