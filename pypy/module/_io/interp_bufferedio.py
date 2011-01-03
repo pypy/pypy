@@ -73,15 +73,16 @@ W_BufferedIOBase.typedef = TypeDef(
     )
 
 class RawBuffer(RWBuffer):
-    def __init__(self, buf, length):
+    def __init__(self, buf, start, length):
         self.buf = buf
+        self.start = start
         self.length = length
 
     def getlength(self):
         return self.length
 
     def setitem(self, index, char):
-        self.buf[index] = char
+        self.buf[self.start + index] = char
 
 class BufferedMixin:
     _mixin_ = True
@@ -90,7 +91,7 @@ class BufferedMixin:
         W_IOBase.__init__(self, space)
         self.state = STATE_ZERO
 
-        self.buffer = lltype.nullptr(rffi.CCHARP.TO)
+        self.buffer = None
 
         self.abs_pos = 0    # Absolute position inside the raw stream (-1 if
                             # unknown).
@@ -121,10 +122,7 @@ class BufferedMixin:
             raise OperationError(space.w_ValueError, space.wrap(
                 "buffer size must be strictly positive"))
 
-        if self.buffer:
-            lltype.free(self.buffer, flavor='raw')
-        self.buffer = lltype.malloc(rffi.CCHARP.TO, self.buffer_size,
-                                    flavor='raw')
+        self.buffer = ['\0'] * self.buffer_size
 
         ## XXX cannot free a Lock?
         ## if self.lock:
@@ -204,7 +202,9 @@ class BufferedMixin:
 
     def _readahead(self):
         if self.readable and self.read_end != -1:
-            return self.read_end - self.pos
+            available = self.read_end - self.pos
+            assert available >= 0
+            return available
         return 0
 
     def _raw_offset(self):
@@ -241,7 +241,9 @@ class BufferedMixin:
                 else:
                     offset = pos
                 if -self.pos <= offset <= available:
-                    self.pos += offset
+                    newpos = self.pos + offset
+                    assert newpos >= 0
+                    self.pos = newpos
                     return space.wrap(current - available + offset)
 
         # Fallback: invoke raw seek() method and clear buffer
@@ -412,8 +414,7 @@ class BufferedMixin:
             # buffer.
             have = self._readahead()
             if have > 0:
-                data = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos),
-                                          have)
+                data = ''.join(self.buffer[self.pos:self.pos+have])
                 return space.wrap(data)
 
             # Fill the buffer from the raw stream, and copy it to the result
@@ -423,7 +424,7 @@ class BufferedMixin:
             except BlockingIOError:
                 size = 0
             self.pos = 0
-            data = rffi.charpsize2str(self.buffer, size)
+            data = ''.join(self.buffer[:size])
             return space.wrap(data)
 
     @unwrap_spec('self', ObjSpace, int)
@@ -460,9 +461,9 @@ class BufferedMixin:
                     have = 0
             if size > have:
                 size = have
-            data = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos),
-                                      size)
-            self.pos += size
+            endpos = self.pos + size
+            data = ''.join(self.buffer[self.pos:endpos])
+            self.pos = endpos
             return space.wrap(data)
 
     def _read_all(self, space):
@@ -472,8 +473,7 @@ class BufferedMixin:
         current_size = self._readahead()
         data = None
         if current_size:
-            data = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos),
-                                      current_size)
+            data = ''.join(self.buffer[self.pos:self.pos + current_size])
             builder.append(data)
         self._reader_reset_buf()
         # We're going past the buffer's bounds, flush it
@@ -499,7 +499,7 @@ class BufferedMixin:
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
-        w_buf = space.wrap(RawBuffer(rffi.ptradd(buffer, start), length))
+        w_buf = space.wrap(RawBuffer(buffer, start, length))
         w_size = space.call_method(self.w_raw, "readinto", w_buf)
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
@@ -529,72 +529,73 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        with rffi.scoped_alloc_buffer(n) as result_buffer:
-            remaining = n
-            written = 0
-            data = None
-            if current_size:
-                for i in range(current_size):
-                    result_buffer.raw[written + i] = self.buffer[self.pos + i]
-                remaining -= current_size
-                written += current_size
-            self._reader_reset_buf()
+        result_buffer = ['\0'] * n
+        remaining = n
+        written = 0
+        data = None
+        if current_size:
+            for i in range(current_size):
+                result_buffer[written + i] = self.buffer[self.pos + i]
+            remaining -= current_size
+            written += current_size
+        self._reader_reset_buf()
 
-            # XXX potential bug in CPython? The following is not enabled.
-            # We're going past the buffer's bounds, flush it
-            ## if self.writable:
-            ##     self._writer_flush_unlocked(space, restore_pos=True)
+        # XXX potential bug in CPython? The following is not enabled.
+        # We're going past the buffer's bounds, flush it
+        ## if self.writable:
+        ##     self._writer_flush_unlocked(space, restore_pos=True)
 
-            # Read whole blocks, and don't buffer them
-            while remaining > 0:
-                r = self.buffer_size * (remaining // self.buffer_size)
-                if r == 0:
-                    break
-                try:
-                    size = self._raw_read(space, result_buffer.raw, written, r)
-                except BlockingIOError:
-                    if written == 0:
-                        return None
-                    size = 0
-                if size == 0:
-                    return result_buffer.str(intmask(written))
-                remaining -= size
+        # Read whole blocks, and don't buffer them
+        while remaining > 0:
+            r = self.buffer_size * (remaining // self.buffer_size)
+            if r == 0:
+                break
+            try:
+                size = self._raw_read(space, result_buffer, written, r)
+            except BlockingIOError:
+                if written == 0:
+                    return None
+                size = 0
+            if size == 0:
+                return ''.join(result_buffer[:written])
+            remaining -= size
+            written += size
+
+        self.pos = 0
+        self.raw_pos = 0
+        self.read_end = 0
+
+        while remaining > 0 and self.read_end < self.buffer_size:
+            try:
+                size = self._fill_buffer(space)
+            except BlockingIOError:
+                # EOF or read() would block
+                if written == 0:
+                    return None
+                size = 0
+            if size == 0:
+                break
+
+            if remaining > 0:
+                if size > remaining:
+                    size = remaining
+                for i in range(size):
+                    result_buffer[written + i] = self.buffer[self.pos + i]
+                self.pos += size
+
                 written += size
+                remaining -= size
 
-            self.pos = 0
-            self.raw_pos = 0
-            self.read_end = 0
-
-            while remaining > 0 and self.read_end < self.buffer_size:
-                try:
-                    size = self._fill_buffer(space)
-                except BlockingIOError:
-                    # EOF or read() would block
-                    if written == 0:
-                        return None
-                    size = 0
-                if size == 0:
-                    break
-
-                if remaining > 0:
-                    if size > remaining:
-                        size = remaining
-                    for i in range(size):
-                        result_buffer.raw[written + i] = self.buffer[self.pos + i]
-                    self.pos += size
-
-                    written += size
-                    remaining -= size
-
-            return result_buffer.str(intmask(written))
+        return ''.join(result_buffer[:written])
 
     def _read_fast(self, n):
         """Read n bytes from the buffer if it can, otherwise return None.
            This function is simple enough that it can run unlocked."""
         current_size = self._readahead()
         if n <= current_size:
-            res = rffi.charpsize2str(rffi.ptradd(self.buffer, self.pos), n)
-            self.pos += n
+            endpos = self.pos + n
+            res = ''.join(self.buffer[self.pos:endpos])
+            self.pos = endpos
             return res
         return None
 
@@ -602,6 +603,7 @@ class BufferedMixin:
     # Write methods
 
     def _adjust_position(self, new_pos):
+        assert new_pos >= 0
         self.pos = new_pos
         if self.readable and self.read_end != -1 and self.read_end < new_pos:
             self.read_end = self.pos
@@ -647,7 +649,9 @@ class BufferedMixin:
                     self.buffer[i - self.write_pos] = self.buffer[i]
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
-                self.pos -= self.write_pos
+                newpos = self.pos - self.write_pos
+                assert newpos >= 0
+                self.pos = newpos
                 self.write_pos = 0
                 available = self.buffer_size - self.write_end
                 if size <= available:

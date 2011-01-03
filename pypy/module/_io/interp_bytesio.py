@@ -78,7 +78,7 @@ class W_BytesIO(W_BufferedIOBase):
         self._check_closed(space)
         buf = space.buffer_w(w_data)
         length = buf.getlength()
-        if length == 0:
+        if length <= 0:
             return
 
         if self.pos + length > len(self.buf):
