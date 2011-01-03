@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.function import Method, Function
+from pypy.rlib import jit
 import time, sys
 
 class W_StatsEntry(Wrappable):
@@ -100,6 +101,15 @@ class ProfilerEntry(object):
                             factor * self.tt, factor * self.it, w_sublist)
         return space.wrap(w_se)
 
+    @jit.purefunction
+    def _get_or_make_subentry(self, entry):
+        try:
+            return self.calls[entry]
+        except KeyError:
+            subentry = ProfilerSubEntry(entry.frame)
+            self.calls[entry] = subentry
+            return subentry
+
 class ProfilerSubEntry(object):
     def __init__(self, frame):
         self.frame = frame
@@ -123,11 +133,7 @@ class ProfilerContext(object):
         entry.recursionLevel += 1
         if profobj.subcalls and self.previous:
             caller = self.previous.entry
-            try:
-                subentry = caller.calls[entry]
-            except KeyError:
-                subentry = ProfilerSubEntry(entry.frame)
-                caller.calls[entry] = subentry
+            subentry = caller._get_or_make_subentry(entry)
             subentry.recursionLevel += 1
         self.t0 = profobj.timer()
 
@@ -229,45 +235,56 @@ class W_Profiler(Wrappable):
         space.getexecutioncontext().setllprofile(lsprof_call, space.wrap(self))
     enable.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
+    @jit.purefunction
+    def _get_or_make_entry(self, f_code, make=True):
+        try:
+            return self.data[f_code]
+        except KeyError:
+            if make:
+                entry = ProfilerEntry(f_code)
+                self.data[f_code] = entry
+                return entry
+            return None
+
+    @jit.purefunction
+    def _get_or_make_builtin_entry(self, key, make=True):
+        try:
+            return self.builtin_data[key]
+        except KeyError:
+            if make:
+                entry = ProfilerEntry(self.space.wrap(key))
+                self.builtin_data[key] = entry
+                return entry
+            return None
+
     def _enter_call(self, f_code):
         # we have a superb gc, no point in freelist :)
-        try:
-            entry = self.data[f_code]
-        except KeyError:
-            entry = ProfilerEntry(f_code)
-            self.data[f_code] = entry
+        entry = self._get_or_make_entry(f_code)
         self.current_context = ProfilerContext(self, entry)
 
     def _enter_return(self, f_code):
         context = self.current_context
         if context is None:
             return
-        try:
-            entry = self.data[f_code]
+        entry = self._get_or_make_entry(f_code, False)
+        if entry is not None:
             context._stop(self, entry)
-        except KeyError:
-            pass
         self.current_context = context.previous
 
     def _enter_builtin_call(self, key):
-        try:
-            entry = self.builtin_data[key]
-        except KeyError:
-            entry = ProfilerEntry(self.space.wrap(key))
-            self.builtin_data[key] = entry
-        self.current_context = ProfilerContext(self, entry)        
+        entry = self._get_or_make_builtin_entry(key)
+        self.current_context = ProfilerContext(self, entry)
 
     def _enter_builtin_return(self, key):
         context = self.current_context
         if context is None:
             return
-        try:
-            entry = self.builtin_data[key]
+        entry = self._get_or_make_builtin_entry(key, False)
+        if entry is not None:
             context._stop(self, entry)
-        except KeyError:
-            pass
-        self.current_context = context.previous        
+        self.current_context = context.previous
 
+    @jit.unroll_safe
     def _flush_unmatched(self):
         context = self.current_context
         while context:
