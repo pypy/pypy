@@ -2,6 +2,7 @@
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.basics import ArgumentError, keepalive_key
 import _rawffi
+import _ffi
 import sys
 import traceback
 
@@ -45,7 +46,8 @@ class CFuncPtr(_CData):
     _needs_free = False
     callable = None
     _ptr = None
-    _buffer = None
+    _buffer = None # XXX: maybe we should kill it when jitypes2 is complete
+    _address = None
     # win32 COM properties
     _paramflags = None
     _com_index = None
@@ -115,10 +117,9 @@ class CFuncPtr(_CData):
 
         if isinstance(argument, (int, long)):
             # direct construction from raw address
-            ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
-            self._ptr = _rawffi.FuncPtr(argument, ffiargs, ffires,
-                                        self._flags_)
-            self._buffer = self._ptr.byptr()
+            argshapes, resshape = self._ffishapes(self._argtypes_, self._restype_)
+            self._address = argument
+            self._ptr = self._getfuncptr_fromaddress(self._address, argshapes, resshape)
         elif callable(argument):
             # A callback into python
             self.callable = argument
@@ -253,6 +254,11 @@ class CFuncPtr(_CData):
         print 'unknown shape %s' % (shape,)
         assert False, 'TODO5'
 
+    def _getfuncptr_fromaddress(self, address, argshapes, resshape):
+        ffiargs = [self._shape_to_ffi_type(shape) for shape in argshapes]
+        ffires = self._shape_to_ffi_type(resshape)
+        return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
+
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and argtypes is self._argtypes_:
             return self._ptr
@@ -261,7 +267,14 @@ class CFuncPtr(_CData):
             restype = ctypes.c_int
         argshapes = [arg._ffiargshape for arg in argtypes]
         resshape = restype._ffiargshape
+        if self._address is not None:
+            ptr = self._getfuncptr_fromaddress(self._address, argshapes, resshape)
+            if argtypes is self._argtypes_:
+                self._ptr = ptr
+            return ptr
+
         if self._buffer is not None:
+            assert False, 'TODO'
             ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape,
                                   self._flags_)
             if argtypes is self._argtypes_:
