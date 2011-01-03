@@ -452,7 +452,7 @@ class CFuncPtr(_CData):
                 address = result
                 result = restype()
                 result._buffer[0] = address
-        elif restype._ffishape == 'z':
+        elif restype._ffishape == 'z' or restype._ffishape == 'Z':
             result = restype(result).value # XXX: maybe it's the general way to do it?
         elif self._is_struct_shape(restype._ffishape):
             result = restype.from_address(result)
