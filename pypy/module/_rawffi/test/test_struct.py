@@ -53,3 +53,14 @@ def test_bitsizes():
 
     assert pos      == [getattr(X, name).offset for (name, _, _) in fields]
     assert bitsizes == [getattr(X, name).size   for (name, _, _) in fields]
+
+def test_bitsizes_longlong():
+    fields = [("a", 'q', 1),
+              ("b", 'q', 62),
+              ("c", 'q', 1)]
+    size, alignment, pos, bitsizes = size_alignment_pos(
+        [(name, letter2tp('space', t), size)
+         for (name, t, size) in fields])
+    assert size == 8
+    assert pos == [0, 0, 0]
+    assert bitsizes == [0x10000, 0x3e0001, 0x1003f]

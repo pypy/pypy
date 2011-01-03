@@ -220,10 +220,14 @@ class StructOrUnion(_CData):
             field = self._fieldtypes[name]
         except KeyError:
             return _CData.__getattribute__(self, name)
-        fieldtype = field.ctype
-        offset = field.num
-        suba = self._subarray(fieldtype, name)
-        return fieldtype._CData_output(suba, self, offset)
+        if field.size >> 16:
+            # bitfield member, use direct access
+            return self._buffer.__getattr__(name)
+        else:
+            fieldtype = field.ctype
+            offset = field.num
+            suba = self._subarray(fieldtype, name)
+            return fieldtype._CData_output(suba, self, offset)
 
     def _get_buffer_for_param(self):
         return self

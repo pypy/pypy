@@ -472,8 +472,16 @@ class AppTestFfi:
         x.C = 0xf
         assert x.A == 1
         assert x.B == 3
-        assert x.C == -2
+        assert x.C == -1
         x.free()
+
+        Y = _rawffi.Structure([('a', 'i', 1),
+                               ('b', 'i', 30),
+                               ('c', 'i', 1)])
+        y = Y()
+        y.a, y.b, y.c = -1, -7, 0
+        assert (y.a, y.b, y.c) == (-1, -7, 0)
+        y.free()
 
     def test_array(self):
         import _rawffi

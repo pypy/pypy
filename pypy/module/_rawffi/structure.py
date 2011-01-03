@@ -181,7 +181,7 @@ class W_Structure(W_DataShape):
         if self.ll_bitsizes and index < len(self.ll_bitsizes):
             return space.wrap(self.ll_bitsizes[index])
         else:
-            return space.wrap(self.fields[index].size)
+            return space.wrap(self.fields[index][1].size)
     descr_fieldsize.unwrap_spec = ['self', ObjSpace, str]
 
     # get the corresponding ffi_type
@@ -284,16 +284,12 @@ def cast_pos(self, i, ll_t):
             lowbit = LOW_BIT(bitsize)
             if numbits:
                 value = widen(value)
+                value >>= lowbit
+                value &= BIT_MASK(numbits)
                 if ll_t is lltype.Bool or signedtype(ll_t._type):
-                    value >>= lowbit
                     sign = (value >> (numbits - 1)) & 1
-                    value &= BIT_MASK(numbits - 1)
                     if sign:
-                        value = ~value
-                else:
-                    # unsigned is easier
-                    value >>= lowbit
-                    value &= BIT_MASK(numbits)
+                        value = value - (1 << numbits)
                 value = rffi.cast(ll_t, value)
             break
 
