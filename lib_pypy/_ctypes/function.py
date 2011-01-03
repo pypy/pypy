@@ -107,6 +107,14 @@ class CFuncPtr(_CData):
             restype = 'O' # void
         return argtypes, restype
 
+    def _set_address(self, address):
+        if not self._buffer:
+            self._buffer = _rawffi.Array('P')(1)
+        self._buffer[0] = address
+
+    def _get_address(self):
+        return self._buffer[0]
+
     def __init__(self, *args):
         self.name = None
         self._objects = {keepalive_key(0):self}
@@ -117,9 +125,9 @@ class CFuncPtr(_CData):
 
         if isinstance(argument, (int, long)):
             # direct construction from raw address
+            self._set_address(argument)
             argshapes, resshape = self._ffishapes(self._argtypes_, self._restype_)
-            self._address = argument
-            self._ptr = self._getfuncptr_fromaddress(self._address, argshapes, resshape)
+            self._ptr = self._getfuncptr_fromaddress(argshapes, resshape)
         elif callable(argument):
             # A callback into python
             self.callable = argument
@@ -136,8 +144,7 @@ class CFuncPtr(_CData):
                 self.dll = ctypes.CDLL(self.dll)
             # we need to check dll anyway
             ptr = self._getfuncptr([], ctypes.c_int)
-            #self._buffer = ptr.byptr()
-            self._buffer = None
+            self._set_address(ptr.getaddr())
 
         elif (sys.platform == 'win32' and
               len(args) >= 2 and isinstance(args[0], (int, long))):
@@ -152,7 +159,7 @@ class CFuncPtr(_CData):
         elif len(args) == 0:
             # Empty function object.
             # this is needed for casts
-            self._buffer = _rawffi.Array('P')(1)
+            self._set_address(0)
             return
         else:
             raise TypeError("Unknown constructor %s" % (args,))
@@ -254,7 +261,8 @@ class CFuncPtr(_CData):
         print 'unknown shape %s' % (shape,)
         assert False, 'TODO5'
 
-    def _getfuncptr_fromaddress(self, address, argshapes, resshape):
+    def _getfuncptr_fromaddress(self, argshapes, resshape):
+        address = self._get_address()
         ffiargs = [self._shape_to_ffi_type(shape) for shape in argshapes]
         ffires = self._shape_to_ffi_type(resshape)
         return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
@@ -267,16 +275,8 @@ class CFuncPtr(_CData):
             restype = ctypes.c_int
         argshapes = [arg._ffiargshape for arg in argtypes]
         resshape = restype._ffiargshape
-        if self._address is not None:
-            ptr = self._getfuncptr_fromaddress(self._address, argshapes, resshape)
-            if argtypes is self._argtypes_:
-                self._ptr = ptr
-            return ptr
-
         if self._buffer is not None:
-            assert False, 'TODO'
-            ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape,
-                                  self._flags_)
+            ptr = self._getfuncptr_fromaddress(argshapes, resshape)
             if argtypes is self._argtypes_:
                 self._ptr = ptr
             return ptr
