@@ -361,7 +361,7 @@ class BaseArrayTests:
     def test_reversingslice_pre26(self):
         import sys
         if sys.version_info >= (2, 6):
-            py.test.skip('arrays can handle more slice opps than lists in 2.6')
+            skip('arrays can handle more slice ops than lists in 2.6')
 
         for a in range(-4, 5):
             for b in range(-4, 5):
@@ -814,6 +814,11 @@ class BaseArrayTests:
         b.byteswap()
         assert a != b
 
+    def test_weakref(self):
+        import weakref
+        a = self.array('c', 'Hi!')
+        r = weakref.ref(a)
+        assert r() is a
 
 class TestCPythonsOwnArray(BaseArrayTests):
 

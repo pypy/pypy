@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root, \
      ApplevelClass
@@ -88,22 +88,21 @@ def descr_typecode(space, self):
     return space.wrap(self.typecode)
 
 
-type_typedef = StdTypeDef(
+class W_ArrayBase(W_Object):
+    @staticmethod
+    def register(typeorder):
+        typeorder[W_ArrayBase] = []
+
+W_ArrayBase.typedef = StdTypeDef(
     'array',
     __new__ = interp2app(w_array),
     __module__   = 'array',
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
+    __weakref__ = make_weakref_descr(W_ArrayBase),
     )
-type_typedef.registermethods(globals())
+W_ArrayBase.typedef.registermethods(globals())
 
-
-class W_ArrayBase(W_Object):
-    typedef = type_typedef
-
-    @staticmethod
-    def register(typeorder):
-        typeorder[W_ArrayBase] = []
 
 class TypeCode(object):
     def __init__(self, itemtype, unwrap, canoverflow=False, signed=False):
@@ -219,6 +218,7 @@ def make_array(mytype):
             return result
 
         def __del__(self):
+            self.clear_all_weakrefs()
             self.setlen(0)
 
         def setlen(self, size):
