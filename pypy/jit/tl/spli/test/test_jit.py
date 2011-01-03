@@ -39,6 +39,7 @@ class TestSPLIJit(JitMixin):
         self.check_loops(new_with_vtable=0)
 
     def test_bridge(self):
+        py.test.skip('We currently cant virtualize across bridges')
         def f(a, b):
             total = 0
             i = 0
@@ -54,6 +55,7 @@ class TestSPLIJit(JitMixin):
         self.check_loops(new_with_vtable=0)
 
     def test_bridge_bad_case(self):
+        py.test.skip('We currently cant virtualize across bridges')
         def f(a, b):
             i = 0
             while i < 100:

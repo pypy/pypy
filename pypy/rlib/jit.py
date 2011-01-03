@@ -257,7 +257,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 OPTIMIZER_SIMPLE = 0
-OPTIMIZER_NO_PERFECTSPEC = 1
+OPTIMIZER_NO_UNROLL = 1
 OPTIMIZER_FULL = 2
 
 PARAMETERS = {'threshold': 1000,

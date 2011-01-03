@@ -162,6 +162,17 @@ class VStringPlainValue(VAbstractStringValue):
             for value in self._chars:
                 value.get_args_for_fail(modifier)
 
+    def FIXME_enum_forced_boxes(self, boxes, already_seen):
+        key = self.get_key_box()
+        if key in already_seen:
+            return
+        already_seen[key] = None
+        if self.box is None:
+            for box in self._chars:
+                box.enum_forced_boxes(boxes, already_seen)
+        else:
+            boxes.append(self.box)
+
     def _make_virtual(self, modifier):
         return modifier.make_vstrplain(self.mode is mode_unicode)
 
@@ -169,12 +180,22 @@ class VStringPlainValue(VAbstractStringValue):
 class VStringConcatValue(VAbstractStringValue):
     """The concatenation of two other strings."""
 
-    def setup(self, left, right, lengthbox):
+    lengthbox = None     # or the computed length
+
+    def setup(self, left, right):
         self.left = left
         self.right = right
-        self.lengthbox = lengthbox
 
-    def getstrlen(self, _, mode):
+    def getstrlen(self, newoperations, mode):
+        if self.lengthbox is None:
+            len1box = self.left.getstrlen(newoperations, mode)
+            if len1box is None:
+                return None
+            len2box = self.right.getstrlen(newoperations, mode)
+            if len2box is None:
+                return None
+            self.lengthbox = _int_add(newoperations, len1box, len2box)
+            # ^^^ may still be None, if newoperations is None
         return self.lengthbox
 
     @specialize.arg(1)
@@ -203,6 +224,18 @@ class VStringConcatValue(VAbstractStringValue):
             modifier.register_virtual_fields(self.keybox, [leftbox, rightbox])
             self.left.get_args_for_fail(modifier)
             self.right.get_args_for_fail(modifier)
+
+    def FIXME_enum_forced_boxes(self, boxes, already_seen):
+        key = self.get_key_box()
+        if key in already_seen:
+            return
+        already_seen[key] = None
+        if self.box is None:
+            self.left.enum_forced_boxes(boxes, already_seen)
+            self.right.enum_forced_boxes(boxes, already_seen)
+            self.lengthbox = None
+        else:
+            boxes.append(self.box)
 
     def _make_virtual(self, modifier):
         return modifier.make_vstrconcat(self.mode is mode_unicode)
@@ -250,6 +283,18 @@ class VStringSliceValue(VAbstractStringValue):
             self.vstart.get_args_for_fail(modifier)
             self.vlength.get_args_for_fail(modifier)
 
+    def FIXME_enum_forced_boxes(self, boxes, already_seen):
+        key = self.get_key_box()
+        if key in already_seen:
+            return
+        already_seen[key] = None
+        if self.box is None:
+            self.vstr.enum_forced_boxes(boxes, already_seen)
+            self.vstart.enum_forced_boxes(boxes, already_seen)
+            self.vlength.enum_forced_boxes(boxes, already_seen)
+        else:
+            boxes.append(self.box)
+
     def _make_virtual(self, modifier):
         return modifier.make_vstrslice(self.mode is mode_unicode)
 
@@ -288,6 +333,8 @@ def _int_add(newoperations, box1, box2):
             return ConstInt(box1.value + box2.value)
     elif isinstance(box2, ConstInt) and box2.value == 0:
         return box1
+    if newoperations is None:
+        return None
     resbox = BoxInt()
     newoperations.append(ResOperation(rop.INT_ADD, [box1, box2], resbox))
     return resbox
@@ -318,7 +365,12 @@ def _strgetitem(newoperations, strbox, indexbox, mode):
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
+    enabled = True
 
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        self.enabled = True
+        return self
+    
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
         self.make_equal_to(box, vvalue)
@@ -447,11 +499,8 @@ class OptString(optimizer.Optimization):
         vleft.ensure_nonnull()
         vright.ensure_nonnull()
         newoperations = self.optimizer.newoperations
-        len1box = vleft.getstrlen(newoperations, mode)
-        len2box = vright.getstrlen(newoperations, mode)
-        lengthbox = _int_add(newoperations, len1box, len2box)
         value = self.make_vstring_concat(op.result, op, mode)
-        value.setup(vleft, vright, lengthbox)
+        value.setup(vleft, vright)
         return True
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
@@ -600,6 +649,10 @@ class OptString(optimizer.Optimization):
         self.optimizer.newoperations.append(op)
 
     def propagate_forward(self, op):
+        if not self.enabled:
+            self.emit_operation(op)
+            return
+            
         opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:
@@ -607,6 +660,7 @@ class OptString(optimizer.Optimization):
                 break
         else:
             self.emit_operation(op)
+
 
 optimize_ops = _findall(OptString, 'optimize_')
 

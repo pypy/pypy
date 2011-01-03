@@ -1,11 +1,12 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.jit.metainterp.optimizeopt.virtualize import VirtualValue, OptValue, VArrayValue
+from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
+from pypy.jit.metainterp.optimizeopt.virtualize import VirtualValue, VArrayValue
 from pypy.jit.metainterp.optimizeopt.virtualize import VStructValue
 from pypy.jit.metainterp.resume import *
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from pypy.jit.metainterp.history import ConstPtr, ConstFloat
-from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
+from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 from pypy.jit.metainterp import executor
 from pypy.jit.codewriter import heaptracker
 

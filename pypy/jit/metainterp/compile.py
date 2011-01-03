@@ -12,7 +12,6 @@ from pypy.jit.metainterp.history import TreeLoop, Box, History, LoopToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.specnode import NotSpecNode, more_general_specnodes
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.resume import NUMBERING
@@ -38,23 +37,24 @@ def show_loop(metainterp_sd, loop=None, error=None):
             extraloops = [loop]
         metainterp_sd.stats.view(errmsg=errmsg, extraloops=extraloops)
 
-def create_empty_loop(metainterp):
+def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
-    return TreeLoop(name)
+    return TreeLoop(name_prefix + name)
 
 def make_loop_token(nb_args, jitdriver_sd):
     loop_token = LoopToken()
-    loop_token.specnodes = [prebuiltNotSpecNode] * nb_args
     loop_token.outermost_jitdriver_sd = jitdriver_sd
     return loop_token
 
-def record_loop_or_bridge(loop):
+def record_loop_or_bridge(metainterp_sd, loop):
     """Do post-backend recordings and cleanups on 'loop'.
     """
     # get the original loop token (corresponding to 'loop', or if that is
     # a bridge, to the loop that this bridge belongs to)
     looptoken = loop.token
     assert looptoken is not None
+    if metainterp_sd.warmrunnerdesc is not None:    # for tests
+        assert looptoken.generation > 0     # has been registered with memmgr
     wref = weakref.ref(looptoken)
     for op in loop.operations:
         descr = op.getdescr()
@@ -71,14 +71,17 @@ def record_loop_or_bridge(loop):
             if descr is not looptoken:
                 looptoken.record_jump_to(descr)
             op.setdescr(None)    # clear reference, mostly for tests
+            if not we_are_translated():
+                op._jumptarget_number = descr.number
     # mostly for tests: make sure we don't keep a reference to the LoopToken
     loop.token = None
     if not we_are_translated():
-        loop._number = looptoken.number
+        loop._looptoken_number = looptoken.number
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, start):
+def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
+                     full_preamble_needed=True):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
@@ -95,6 +98,11 @@ def compile_new_loop(metainterp, old_loop_tokens, start):
     loop_token = make_loop_token(len(loop.inputargs), jitdriver_sd)
     loop.token = loop_token
     loop.operations[-1].setdescr(loop_token)     # patch the target of the JUMP
+
+    loop.preamble = create_empty_loop(metainterp, 'Preamble ')
+    loop.preamble.inputargs = loop.inputargs
+    loop.preamble.token = make_loop_token(len(loop.inputargs), jitdriver_sd)
+
     try:
         old_loop_token = jitdriver_sd.warmstate.optimize_loop(
             metainterp_sd, old_loop_tokens, loop)
@@ -103,23 +111,33 @@ def compile_new_loop(metainterp, old_loop_tokens, start):
     if old_loop_token is not None:
         metainterp.staticdata.log("reusing old loop")
         return old_loop_token
-    send_loop_to_backend(metainterp_sd, loop, "loop")
-    insert_loop_token(old_loop_tokens, loop_token)
-    record_loop_or_bridge(loop)
-    return loop_token
+
+    if loop.preamble.operations is not None:
+        send_loop_to_backend(metainterp_sd, loop, "loop")
+        record_loop_or_bridge(metainterp_sd, loop)
+        token = loop.preamble.token
+        if full_preamble_needed or not loop.preamble.token.short_preamble:
+            send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
+            insert_loop_token(old_loop_tokens, loop.preamble.token)
+            jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
+                greenkey, loop.preamble.token)
+            record_loop_or_bridge(metainterp_sd, loop.preamble)
+        return token
+    else:
+        send_loop_to_backend(metainterp_sd, loop, "loop")
+        insert_loop_token(old_loop_tokens, loop_token)
+        jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
+            greenkey, loop.token)
+        record_loop_or_bridge(metainterp_sd, loop)
+        return loop_token
 
 def insert_loop_token(old_loop_tokens, loop_token):
     # Find where in old_loop_tokens we should insert this new loop_token.
     # The following algo means "as late as possible, but before another
     # loop token that would be more general and so completely mask off
     # the new loop_token".
-    for i in range(len(old_loop_tokens)):
-        if more_general_specnodes(old_loop_tokens[i].specnodes,
-                                  loop_token.specnodes):
-            old_loop_tokens.insert(i, loop_token)
-            break
-    else:
-        old_loop_tokens.append(loop_token)
+    # XXX do we still need a list?
+    old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(metainterp_sd, loop, type):
     globaldata = metainterp_sd.globaldata
@@ -128,6 +146,11 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     globaldata.loopnumbering += 1
 
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type)
+    short = loop.token.short_preamble
+    if short:
+        metainterp_sd.logger_ops.log_short_preamble(short[-1].inputargs,
+                                                    short[-1].operations)
+
     if not we_are_translated():
         show_loop(metainterp_sd, loop)
         loop.check_consistency()
@@ -209,13 +232,10 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
-prebuiltNotSpecNode = NotSpecNode()
-
 class TerminatingLoopToken(LoopToken):
     terminating = True
 
     def __init__(self, nargs, finishdescr):
-        self.specnodes = [prebuiltNotSpecNode]*nargs
         self.finishdescr = finishdescr
 
 def make_done_loop_tokens():
@@ -568,14 +588,40 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
         prepare_last_operation(new_loop, target_loop_token)
         resumekey.compile_and_attach(metainterp, new_loop)
-        record_loop_or_bridge(new_loop)
+        compile_known_target_bridges(metainterp, new_loop)
+        record_loop_or_bridge(metainterp_sd, new_loop)
     return target_loop_token
+
+# For backends that not supports emitting guards with preset jump
+# targets, emit mini-bridges containing the jump
+def compile_known_target_bridges(metainterp, bridge):
+    for op in bridge.operations:
+        if op.is_guard():
+            target = op.getjumptarget()
+            if target:
+                mini = create_empty_loop(metainterp, 'fallback')
+                mini.inputargs = op.getfailargs()[:]
+                jmp = ResOperation(rop.JUMP, mini.inputargs[:], None, target)
+                mini.operations = [jmp]
+                descr = op.getdescr()
+                assert isinstance(descr, ResumeGuardDescr)
+                mini.token = bridge.token
+                
+                #descr.compile_and_attach(metainterp, mini)
+                if not we_are_translated():
+                    descr._debug_suboperations = mini.operations
+                send_bridge_to_backend(metainterp.staticdata, descr,
+                                       mini.inputargs, mini.operations,
+                                       bridge.token)
+                record_loop_or_bridge(metainterp.staticdata, mini)
+
 
 def prepare_last_operation(new_loop, target_loop_token):
     op = new_loop.operations[-1]
     if not isinstance(target_loop_token, TerminatingLoopToken):
         # normal case
-        op.setdescr(target_loop_token)     # patch the jump target
+        #op.setdescr(target_loop_token)     # patch the jump target
+        pass
     else:
         # The target_loop_token is a pseudo loop token,
         # e.g. loop_tokens_done_with_this_frame_void[0]

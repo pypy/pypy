@@ -373,6 +373,13 @@ def compile_add_jump_target(loop, loop_target):
     else:
         log.info("compiling new bridge")
 
+def compile_add_guard_jump_target(loop, loop_target):
+    loop = _from_opaque(loop)
+    loop_target = _from_opaque(loop_target)
+    op = loop.operations[-1]
+    assert op.is_guard()
+    op.jump_target = loop_target
+
 def compile_add_fail(loop, fail_index):
     loop = _from_opaque(loop)
     index = len(loop.operations)-1
@@ -1634,6 +1641,7 @@ setannotation(compile_add_int_result, annmodel.SomeInteger())
 setannotation(compile_add_ref_result, annmodel.SomeInteger())
 setannotation(compile_add_float_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
+setannotation(compile_add_guard_jump_target, annmodel.s_None)
 setannotation(compile_add_fail, annmodel.SomeInteger())
 setannotation(compile_add_fail_arg, annmodel.s_None)
 setannotation(compile_redirect_fail, annmodel.s_None)

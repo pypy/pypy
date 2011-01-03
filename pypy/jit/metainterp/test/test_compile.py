@@ -1,32 +1,29 @@
 from pypy.jit.metainterp.history import LoopToken, ConstInt, History, Stats
 from pypy.jit.metainterp.history import BoxInt, INT
-from pypy.jit.metainterp.specnode import NotSpecNode, ConstantSpecNode
 from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
-from pypy.jit.metainterp import optimize, jitprof, typesystem, compile
-from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
+from pypy.jit.metainterp import nounroll_optimize, jitprof, typesystem, compile
+from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 from pypy.jit.tool.oparser import parse
 
 
 def test_insert_loop_token():
+    # XXX this test is a bit useless now that there are no specnodes
     lst = []
     #
     tok1 = LoopToken()
-    tok1.specnodes = [NotSpecNode()]
     insert_loop_token(lst, tok1)
     assert lst == [tok1]
     #
     tok2 = LoopToken()
-    tok2.specnodes = [ConstantSpecNode(ConstInt(8))]
     insert_loop_token(lst, tok2)
-    assert lst == [tok2, tok1]
+    assert lst == [tok1, tok2]
     #
     tok3 = LoopToken()
-    tok3.specnodes = [ConstantSpecNode(ConstInt(-13))]
     insert_loop_token(lst, tok3)
-    assert lst == [tok2, tok3, tok1]
+    assert lst == [tok1, tok2, tok3]
 
 
 class FakeCPU:
@@ -41,7 +38,10 @@ class FakeLogger:
         pass
 
 class FakeState:
-    optimize_loop = staticmethod(optimize.optimize_loop)
+    optimize_loop = staticmethod(nounroll_optimize.optimize_loop)
+
+    def attach_unoptimized_bridge_from_interp(*args):
+        pass
 
 class FakeGlobalData:
     loopnumbering = 0
@@ -86,7 +86,7 @@ def test_compile_new_loop():
     metainterp.history.inputargs = loop.inputargs[:]
     #
     loop_tokens = []
-    loop_token = compile_new_loop(metainterp, loop_tokens, 0)
+    loop_token = compile_new_loop(metainterp, loop_tokens, [], 0)
     assert loop_tokens == [loop_token]
     assert loop_token.number == 1
     assert staticdata.globaldata.loopnumbering == 2
@@ -102,11 +102,11 @@ def test_compile_new_loop():
     metainterp.history.operations = loop.operations[:]
     metainterp.history.inputargs = loop.inputargs[:]
     #
-    loop_token_2 = compile_new_loop(metainterp, loop_tokens, 0)
+    loop_token_2 = compile_new_loop(metainterp, loop_tokens, [], 0)
     assert loop_token_2 is loop_token
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0
-    assert staticdata.globaldata.loopnumbering == 2    
+    assert staticdata.globaldata.loopnumbering == 2
 
 
 def test_resume_guard_counters():
