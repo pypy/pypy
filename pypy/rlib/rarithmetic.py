@@ -566,6 +566,7 @@ DIST_FINITE   = 1
 DIST_NAN      = 2
 DIST_INFINITY = 3
 
+# Equivalent to CPython's PyOS_double_to_string
 def _formatd(x, code, precision, flags):
     "NOT_RPYTHON"
     if flags & DTSF_ALT:

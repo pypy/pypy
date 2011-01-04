@@ -89,7 +89,8 @@ int buflen = 120;
 char* LL_strtod_formatd(double x, char code, int precision) {
 	int res;
 	const char* fmt;
-        if (code == 'f') fmt = "%.*f";
+        if (code == 'e') fmt = "%.*e";
+        else if (code == 'f') fmt = "%.*f";
         else if (code == 'g') fmt = "%.*g";
         else {
             strcpy(buffer, "??.?"); /* should not occur */
