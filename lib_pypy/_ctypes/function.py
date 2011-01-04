@@ -440,6 +440,8 @@ class CFuncPtr(_CData):
         shape = restype._ffishape
         if shape == 'u': # XXX: who should be responsible of this conversion?
             result = unichr(result)
+        elif shape == 'c':
+            result = chr(result)
         #
         if self._is_struct_shape(shape):
             buf = shape[0].fromaddress(result)

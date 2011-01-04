@@ -91,6 +91,13 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(0, 0, 0, 0, 0, 0)
         assert result == u'\x00'
 
+    def test_char_result(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_char
+        result = f(0, 0, 0, 0, 0, 0)
+        assert result == '\x00'
+
     def test_voidresult(self):
         f = dll._testfunc_v
         f.restype = None
