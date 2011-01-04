@@ -190,7 +190,7 @@ Specification: Generators and Exception Propagation
       File "<stdin>", line 1, in ?
       File "<stdin>", line 2, in g
       File "<stdin>", line 2, in f
-    ZeroDivisionError: integer division or modulo by zero
+    ZeroDivisionError: integer division by zero
     >>> k.next()  # and the generator cannot be resumed
     Traceback (most recent call last):
       File "<stdin>", line 1, in ?
@@ -1757,6 +1757,7 @@ Our ill-behaved code should be invoked during GC:
 >>> g = f()
 >>> g.next()
 >>> del g
+>>> gc_collect()
 >>> sys.stderr.getvalue().startswith(
 ...     "Exception RuntimeError: 'generator ignored GeneratorExit' in "
 ... )
@@ -1822,6 +1823,9 @@ Prior to adding cycle-GC support to itertools.tee, this code would leak
 references. We add it to the standard suite so the routine refleak-tests
 would trigger if it starts being uncleanable again.
 
+>>> import gc
+>>> def gc_collect(): gc.collect()
+
 >>> import itertools
 >>> def leak():
 ...     class gen:
@@ -1873,9 +1877,10 @@ to test.
 ...
 ...     l = Leaker()
 ...     del l
+...     gc_collect()
 ...     err = sys.stderr.getvalue().strip()
 ...     err.startswith(
-...         "Exception RuntimeError: RuntimeError() in <"
+...         "Exception RuntimeError: RuntimeError() in "
 ...     )
 ...     err.endswith("> ignored")
 ...     len(err.splitlines())
