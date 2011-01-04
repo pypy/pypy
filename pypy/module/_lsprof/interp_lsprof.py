@@ -77,7 +77,7 @@ def stats(space, values, factor):
     l_w = []
     for v in values:
         if v.callcount != 0:
-            l_w.append(v.stats(space, factor))
+            l_w.append(v.stats(space, None, factor))
     return space.newlist(l_w)
 
 class ProfilerSubEntry(object):
@@ -109,7 +109,7 @@ class ProfilerEntry(ProfilerSubEntry):
         ProfilerSubEntry.__init__(self, frame)
         self.calls = {}
 
-    def stats(self, space, factor):
+    def stats(self, space, dummy, factor):
         if self.calls:
             w_sublist = space.newlist([sub_entry.stats(space, self, factor)
                                        for sub_entry in self.calls.values()])
