@@ -11,6 +11,7 @@ class GeneratorIterator(Wrappable):
     def __init__(self, frame):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
+        self.pycode = frame.pycode
         self.running = False
 
     def descr__repr__(self, space):
@@ -133,7 +134,7 @@ return next yielded value or raise StopIteration."""
             return space.w_None
 
     def descr_gi_code(space, self):
-        return self.frame.pycode
+        return self.pycode
 
     def descr__name__(space, self):
         code_name = self.frame.pycode.co_name
