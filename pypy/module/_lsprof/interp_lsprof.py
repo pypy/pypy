@@ -102,13 +102,15 @@ class ProfilerEntry(object):
         return space.wrap(w_se)
 
     @jit.purefunction
-    def _get_or_make_subentry(self, entry):
+    def _get_or_make_subentry(self, entry, make=True):
         try:
             return self.calls[entry]
         except KeyError:
-            subentry = ProfilerSubEntry(entry.frame)
-            self.calls[entry] = subentry
-            return subentry
+            if make:
+                subentry = ProfilerSubEntry(entry.frame)
+                self.calls[entry] = subentry
+                return subentry
+            return None
 
 class ProfilerSubEntry(object):
     def __init__(self, frame):
@@ -152,11 +154,8 @@ class ProfilerContext(object):
         entry.callcount += 1
         if profobj.subcalls and self.previous:
             caller = self.previous.entry
-            try:
-                subentry = caller.calls[entry]
-            except KeyError:
-                pass
-            else:
+            subentry = caller._get_or_make_subentry(entry, False)
+            if subentry is not None:
                 subentry.recursionLevel -= 1
                 if subentry.recursionLevel == 0:
                     subentry.tt += tt
