@@ -1320,7 +1320,33 @@ class PyPyCJITTests(object):
         assert call.getarg(1).value == 2.0
         assert call.getarg(2).value == 3.0
 
-    # test_circular
+    def test_xor(self):
+        values = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
+        for a in values:
+            for b in values:
+                if a^b >= 0:
+                    r = 2000
+                else:
+                    r = 0
+                if a > 0 and b > 1:
+                    ops = 0
+                else:
+                    ops = 0
+                
+                self.run_source('''
+                def main(a, b):
+                    i = sa = 0
+                    while i < 2000:
+                        if a > 0: # Specialises the loop
+                            pass
+                        if b > 1:
+                            pass
+                        if a^b >= 0:
+                            sa += 1
+                        i += 1
+                    return sa
+                ''', ops, ([a, b], r))
+        
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):

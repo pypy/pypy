@@ -3868,6 +3868,136 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bound_xor(self):
+        ops = """
+        [i0, i1, i2]
+        it1 = int_ge(i1, 0)
+        guard_true(it1) []
+        it2 = int_gt(i2, 0)
+        guard_true(it2) []
+        ix1 = int_xor(i0, i0)
+        ix1t = int_ge(ix1, 0)
+        guard_true(ix1t) []
+        ix2 = int_xor(i0, i1)
+        ix2t = int_ge(ix2, 0)
+        guard_true(ix2t) []
+        ix3 = int_xor(i1, i0)
+        ix3t = int_ge(ix3, 0)
+        guard_true(ix3t) []
+        ix4 = int_xor(i1, i2)
+        ix4t = int_ge(ix4, 0)
+        guard_true(ix4t) []
+        jump(i0, i1, i2)
+        """
+        preamble = """
+        [i0, i1, i2]
+        it1 = int_ge(i1, 0)
+        guard_true(it1) []
+        it2 = int_gt(i2, 0)
+        guard_true(it2) []
+        ix2 = int_xor(i0, i1)
+        ix2t = int_ge(ix2, 0)
+        guard_true(ix2t) []
+        ix3 = int_xor(i1, i0)
+        ix3t = int_ge(ix3, 0)
+        guard_true(ix3t) []
+        ix4 = int_xor(i1, i2)
+        jump(i0, i1, i2)
+        """
+        expected = """
+        [i0, i1, i2]
+        jump(i0, i1, i2)        
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_bound_int_is_zero(self):
+        ops = """
+        [i1, i2a, i2b, i2c]
+        i3 = int_is_zero(i1)
+        i4 = int_gt(i2a, 7)
+        guard_true(i4) []
+        i5 = int_is_zero(i2a)
+        guard_false(i5) []
+        i6 = int_le(i2b, -7)
+        guard_true(i6) []
+        i7 = int_is_zero(i2b)
+        guard_false(i7) []
+        i8 = int_gt(i2c, -7)
+        guard_true(i8) []
+        i9 = int_is_zero(i2c)        
+        jump(i1, i2a, i2b, i2c)
+        """
+        preamble = """
+        [i1, i2a, i2b, i2c]
+        i3 = int_is_zero(i1)
+        i4 = int_gt(i2a, 7)
+        guard_true(i4) []
+        i6 = int_le(i2b, -7)
+        guard_true(i6) []
+        i8 = int_gt(i2c, -7)
+        guard_true(i8) []
+        i9 = int_is_zero(i2c)        
+        jump(i1, i2a, i2b, i2c)
+        """
+        expected = """
+        [i0, i1, i2, i3]
+        jump(i0, i1, i2, i3)        
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_division(self):
+        ops = """
+        [i7, i6, i8]
+        it1 = int_gt(i7, 0)
+        guard_true(it1) []
+        it2 = int_gt(i6, 0)
+        guard_true(it2) []
+        i13 = int_is_zero(i6)
+        guard_false(i13) []
+        i15 = int_and(i8, i6)
+        i17 = int_eq(i15, -1)
+        guard_false(i17) []
+        i18 = int_floordiv(i7, i6)
+        i19 = int_xor(i7, i6)
+        i21 = int_lt(i19, 0)
+        i22 = int_mod(i7, i6)
+        i23 = int_is_true(i22)
+        i24 = int_and(i21, i23)
+        i25 = int_sub(i18, i24)
+        jump(i7, i25, i8)
+        """
+        preamble = """
+        [i7, i6, i8]
+        it1 = int_gt(i7, 0)
+        guard_true(it1) []
+        it2 = int_gt(i6, 0)
+        guard_true(it2) []
+        i15 = int_and(i8, i6)
+        i17 = int_eq(i15, -1)
+        guard_false(i17) []
+        i18 = int_floordiv(i7, i6)
+        i19 = int_xor(i7, i6)
+        i22 = int_mod(i7, i6)
+        i23 = int_is_true(i22)
+        jump(i7, i18, i8)
+        """
+        expected = """
+        [i7, i6, i8]
+        it2 = int_gt(i6, 0)
+        guard_true(it2) []
+        i15 = int_and(i8, i6)
+        i17 = int_eq(i15, -1)
+        guard_false(i17) []
+        i18 = int_floordiv(i7, i6)
+        i19 = int_xor(i7, i6)
+        i22 = int_mod(i7, i6)
+        i23 = int_is_true(i22)
+        jump(i7, i18, i8)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+
+
     def test_subsub_ovf(self):
         ops = """
         [i0]
