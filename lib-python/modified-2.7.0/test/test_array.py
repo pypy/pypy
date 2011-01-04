@@ -769,6 +769,7 @@ class BaseTest(unittest.TestCase):
         p = proxy(s)
         self.assertEqual(p.tostring(), s.tostring())
         s = None
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, len, p)
 
     def test_bug_782369(self):
