@@ -396,6 +396,18 @@ class AppTestProxy(object):
             print s
             assert "dead" in s
 
+    def test_unicode(self):
+        import _weakref
+        class C(object):
+            def __str__(self):
+                return "string"
+            def __unicode__(self):
+                return u"unicode"
+        instance = C()
+        assert "__unicode__" in dir(_weakref.proxy(instance))
+        assert str(_weakref.proxy(instance)) == "string"
+        assert unicode(_weakref.proxy(instance)) == u"unicode"
+
     def test_eq(self):
         import _weakref
         class A(object):
