@@ -438,25 +438,17 @@ class CFuncPtr(_CData):
         one: e.g., if the restype is a pointer 0 is converted to None, and
         for chars we convert the int value with chr, etc.
         """
-        if not restype:
-            return None
-        elif restype._ffishape == 'u':
+        shape = restype._ffishape
+        if shape == 'u': # XXX: who should be responsible of this conversion?
             result = unichr(result)
-        elif restype._ffishape == 'P':
-            if result == 0:
-                result = None
-            else:
-                # XXX: I could not find a more direct way to create a pointer
-                # to this specific address
-                # XXX: maybe this creates even a memory leak?
-                address = result
-                result = restype()
-                result._buffer[0] = address
-        elif restype._ffishape == 'z' or restype._ffishape == 'Z':
-            result = restype(result).value # XXX: maybe it's the general way to do it?
-        elif self._is_struct_shape(restype._ffishape):
-            result = restype.from_address(result)
-        return result
+        #
+        if self._is_struct_shape(shape):
+            buf = shape[0].fromaddress(result)
+        else:
+            buf = _rawffi.Array(shape)(1)
+            buf[0] = result
+        retval = restype._CData_retval(buf)
+        return retval
 
     def _build_result(self, restype, result, argtypes, argsandobjs):
         """Build the function result:
