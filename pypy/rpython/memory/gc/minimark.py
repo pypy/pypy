@@ -643,6 +643,8 @@ class MiniMarkGC(MovingGCBase):
                 extra_words = self.card_marking_words_for_length(length)
                 cardheadersize = WORD * extra_words
                 extra_flags = GCFLAG_HAS_CARDS
+                # note that if 'can_make_young', then card marking will only
+                # be used later, after (and if) the object becomes old
             #
             # Detect very rare cases of overflows
             if raw_malloc_usage(totalsize) > (sys.maxint - (WORD-1)
@@ -786,8 +788,10 @@ class MiniMarkGC(MovingGCBase):
         # "is a valid addr to a young object?"
         # but it's ok to occasionally return True accidentally.
         # Maybe the best implementation would be a bloom filter
-        # of some kind to avoid reading '*addr'.  For now we use
-        # the following algorithm instead.
+        # of some kind instead of the dictionary lookup that is
+        # sometimes done below.  But the expected common answer
+        # is "Yes" because addr points to the nursery, so it may
+        # not be useful to optimize the other case too much.
         #
         # First, if 'addr' appears to be a pointer to some place within
         # the nursery, return True
@@ -847,6 +851,14 @@ class MiniMarkGC(MovingGCBase):
         return intmask(
             ((r_uint(length) + ((8 << self.card_page_shift) - 1)) >>
              (self.card_page_shift + 3)))
+
+    def debug_check_consistency(self):
+        if self.DEBUG:
+            ll_assert(not self.young_rawmalloced_objects,
+                      "young raw-malloced objects in a major collection")
+            ll_assert(not self.young_objects_with_weakrefs.non_empty(),
+                      "young objects with weakrefs in a major collection")
+            MovingGCBase.debug_check_consistency(self)
 
     def debug_check_object(self, obj):
         # after a minor or major collection, no object should be in the nursery
@@ -1216,10 +1228,11 @@ class MiniMarkGC(MovingGCBase):
             # misses by reading a flag in the header of all the 'objs' that
             # arrive here.
             if (bool(self.young_rawmalloced_objects)
-                and self.young_rawmalloced_objects.contains(obj)
-                and (self.header(obj).tid & GCFLAG_VISITED) == 0):
-                self.header(obj).tid |= GCFLAG_VISITED
-                self.old_objects_pointing_to_young.append(obj)
+                and self.young_rawmalloced_objects.contains(obj)):
+                # 'obj' points to a young, raw-malloced object
+                if (self.header(obj).tid & GCFLAG_VISITED) == 0:
+                    self.header(obj).tid |= GCFLAG_VISITED
+                    self.old_objects_pointing_to_young.append(obj)
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
@@ -1708,6 +1721,16 @@ class MiniMarkGC(MovingGCBase):
                 else:
                     (obj + offset).address[0] = llmemory.NULL
                     continue    # no need to remember this weakref any longer
+            #
+            elif (bool(self.young_rawmalloced_objects) and
+                  self.young_rawmalloced_objects.contains(pointing_to)):
+                # young weakref to a young raw-malloced object
+                if self.header(pointing_to).tid & GCFLAG_VISITED:
+                    pass    # survives, but does not move
+                else:
+                    (obj + offset).address[0] = llmemory.NULL
+                    continue    # no need to remember this weakref any longer
+            #
             self.old_objects_with_weakrefs.append(obj)
 
 
