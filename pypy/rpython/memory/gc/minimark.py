@@ -1218,6 +1218,7 @@ class MiniMarkGC(MovingGCBase):
 
     def _trace_drag_out(self, root, ignored):
         obj = root.address[0]
+        #print '_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj)
         #
         # If 'obj' is not in the nursery, nothing to change -- expect
         # that we must set GCFLAG_VISITED on young raw-malloced objects.
