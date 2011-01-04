@@ -406,31 +406,6 @@ class RPythonAnnotator(object):
 
     #___ simplification (should be moved elsewhere?) _______
 
-    # it should be!
-    # now simplify_calls is moved to transform.py.
-    # i kept reverse_binding here for future(?) purposes though. --sanxiyn
-
-    def reverse_binding(self, known_variables, cell):
-        """This is a hack."""
-        # In simplify_calls, when we are trying to create the new
-        # SpaceOperation, all we have are SomeValues.  But SpaceOperations take
-        # Variables, not SomeValues.  Trouble is, we don't always have a
-        # Variable that just happens to be bound to the given SomeValue.
-        # A typical example would be if the tuple of arguments was created
-        # from another basic block or even another function.  Well I guess
-        # there is no clean solution, short of making the transformations
-        # more syntactic (e.g. replacing a specific sequence of SpaceOperations
-        # with another one).  This is a real hack because we have to use
-        # the identity of 'cell'.
-        if cell.is_constant():
-            return Constant(cell.const)
-        else:
-            for v in known_variables:
-                if self.bindings[v] is cell:
-                    return v
-            else:
-                raise CannotSimplify
-
     def simplify(self, block_subset=None, extra_passes=None):
         # Generic simplifications
         transform.transform_graph(self, block_subset=block_subset,
@@ -781,10 +756,6 @@ def consider_op_%s(self, arg1, arg2, *args):
 
 # register simple operations handling
 RPythonAnnotator._registeroperations(annmodel)
-
-
-class CannotSimplify(Exception):
-    pass
 
 
 class BlockedInference(Exception):
