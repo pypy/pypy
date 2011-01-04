@@ -134,7 +134,7 @@ class ProfilerContext(object):
         self.previous = profobj.current_context
         entry.recursionLevel += 1
         if profobj.subcalls and self.previous:
-            caller = self.previous.entry
+            caller = jit.hint(self.previous.entry, promote=True)
             subentry = caller._get_or_make_subentry(entry)
             subentry.recursionLevel += 1
         self.t0 = profobj.timer()
@@ -153,7 +153,7 @@ class ProfilerContext(object):
         entry.it += it
         entry.callcount += 1
         if profobj.subcalls and self.previous:
-            caller = self.previous.entry
+            caller = jit.hint(self.previous.entry, promote=True)
             subentry = caller._get_or_make_subentry(entry, False)
             if subentry is not None:
                 subentry.recursionLevel -= 1
