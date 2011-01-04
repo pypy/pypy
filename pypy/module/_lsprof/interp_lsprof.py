@@ -80,7 +80,7 @@ def stats(space, values, factor):
             l_w.append(v.stats(space, factor))
     return space.newlist(l_w)
 
-class ProfilerEntry(object):
+class ProfilerSubEntry(object):
     def __init__(self, frame):
         self.frame = frame
         self.tt = 0
@@ -88,6 +88,25 @@ class ProfilerEntry(object):
         self.callcount = 0
         self.recursivecallcount = 0
         self.recursionLevel = 0
+
+    def stats(self, space, parent, factor):
+        w_sse = W_StatsSubEntry(space, self.frame,
+                                self.callcount, self.recursivecallcount,
+                                factor * self.tt, factor * self.it)
+        return space.wrap(w_sse)
+
+    def _stop(self, tt, it):
+        self.recursionLevel -= 1
+        if self.recursionLevel == 0:
+            self.tt += tt
+        else:
+            self.recursivecallcount += 1
+        self.it += it
+        self.callcount += 1
+
+class ProfilerEntry(ProfilerSubEntry):
+    def __init__(self, frame):
+        ProfilerSubEntry.__init__(self, frame)
         self.calls = {}
 
     def stats(self, space, factor):
@@ -112,21 +131,6 @@ class ProfilerEntry(object):
                 return subentry
             return None
 
-class ProfilerSubEntry(object):
-    def __init__(self, frame):
-        self.frame = frame
-        self.tt = 0
-        self.it = 0
-        self.callcount = 0
-        self.recursivecallcount = 0
-        self.recursionLevel = 0
-
-    def stats(self, space, parent, factor):
-        w_sse = W_StatsSubEntry(space, self.frame,
-                                self.callcount, self.recursivecallcount,
-                                factor * self.tt, factor * self.it)
-        return space.wrap(w_sse)
-
 class ProfilerContext(object):
     def __init__(self, profobj, entry):
         self.entry = entry
@@ -140,29 +144,16 @@ class ProfilerContext(object):
         self.t0 = profobj.timer()
 
     def _stop(self, profobj, entry):
-        # XXX factor out two pieces of the same code
         tt = profobj.timer() - self.t0
         it = tt - self.subt
         if self.previous:
             self.previous.subt += tt
-        entry.recursionLevel -= 1
-        if entry.recursionLevel == 0:
-            entry.tt += tt
-        else:
-            entry.recursivecallcount += 1
-        entry.it += it
-        entry.callcount += 1
+        entry._stop(tt, it)
         if profobj.subcalls and self.previous:
             caller = jit.hint(self.previous.entry, promote=True)
             subentry = caller._get_or_make_subentry(entry, False)
             if subentry is not None:
-                subentry.recursionLevel -= 1
-                if subentry.recursionLevel == 0:
-                    subentry.tt += tt
-                else:
-                    subentry.recursivecallcount += 1
-                subentry.it += it
-                subentry.callcount += 1
+                subentry._stop(tt, it)
 
 def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
