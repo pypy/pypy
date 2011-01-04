@@ -579,6 +579,11 @@ def _formatd(x, code, precision, flags):
         fmt = "%%%s.%d%s" % (alt, precision, code)
     s = fmt % (x,)
 
+    return s
+
+def formatd(x, code, precision, flags=0):
+    s = _formatd(x, code, precision, flags)
+
     if flags & DTSF_ADD_DOT_0:
         # We want float numbers to be recognizable as such,
         # i.e., they should contain a decimal point or an exponent.
@@ -593,8 +598,6 @@ def _formatd(x, code, precision, flags):
         s = s[:-2]
 
     return s
-def formatd(x, code, precision, flags=0):
-    return _formatd(x, code, precision, flags)
 
 formatd_max_length = 120
 
