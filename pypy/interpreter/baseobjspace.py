@@ -375,9 +375,9 @@ class ObjSpace(object):
         else:
             name = importname
 
-        mod = Module(self, self.wrap(name))
-        mod.install()
-
+        w_name = self.wrap(name)
+        w_mod = self.wrap(Module(self, w_name))
+        self.builtin_modules[name] = w_mod
         return name
 
     def getbuiltinmodule(self, name, force_init=False):
@@ -456,23 +456,22 @@ class ObjSpace(object):
         from pypy.module.exceptions import Module
         w_name = self.wrap('exceptions')
         self.exceptions_module = Module(self, w_name)
-        self.exceptions_module.install()
+        self.builtin_modules['exceptions'] = self.wrap(self.exceptions_module)
 
         from pypy.module.sys import Module
         w_name = self.wrap('sys')
         self.sys = Module(self, w_name)
-        self.sys.install()
+        self.builtin_modules['sys'] = self.wrap(self.sys)
 
         from pypy.module.imp import Module
         w_name = self.wrap('imp')
-        mod = Module(self, w_name)
-        mod.install()
+        self.builtin_modules['imp'] = self.wrap(Module(self, w_name))
 
         from pypy.module.__builtin__ import Module
         w_name = self.wrap('__builtin__')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
-        self.builtin.install()
+        self.builtin_modules['__builtin__'] = self.wrap(w_builtin)
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
         bootstrap_modules = set(('sys', 'imp', '__builtin__', 'exceptions'))
