@@ -1,3 +1,4 @@
+import py
 
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
                                            Arguments)
@@ -6,7 +7,21 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.function import Method, Function
 from pypy.rlib import jit
+from pypy.rpython.lltypesystem import rffi
+from pypy.tool.autopath import pypydir
+
 import time, sys
+
+# timer
+
+eci = rffi.ExternalCompilationInfo(
+    include_dirs = [str(py.path.local(pypydir).join('translator', 'c'))],
+    includes=["src/timer.h"],
+    separate_module_sources = [' '],
+    )
+read_timestamp_double = rffi.llexternal(
+    'pypy_read_timestamp_double', [], rffi.DOUBLE,
+    compilation_info=eci, _nowrapper=True)
 
 class W_StatsEntry(Wrappable):
     def __init__(self, space, frame, callcount, reccallcount, tt, it,
@@ -213,7 +228,7 @@ class W_Profiler(Wrappable):
         if self.w_callable:
             space = self.space
             return space.float_w(space.call_function(self.w_callable))
-        return time.time()
+        return read_timestamp_double()
 
     def enable(self, space, w_subcalls=NoneNotWrapped,
                w_builtins=NoneNotWrapped):

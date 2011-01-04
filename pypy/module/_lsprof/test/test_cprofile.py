@@ -1,6 +1,14 @@
 import py
 from pypy.conftest import gettestobjspace, option
 
+def test_timer():
+    from pypy.module._lsprof.interp_lsprof import read_timestamp_double
+    import time
+    t1 = read_timestamp_double()
+    for i in range(1000000): pass
+    t2 = read_timestamp_double()
+    assert t2 - t1 > 0.01 # very approxiamte test, but well
+
 class AppTestCProfile(object):
     keywords = {}
 
