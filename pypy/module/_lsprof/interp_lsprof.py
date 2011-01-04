@@ -258,6 +258,7 @@ class W_Profiler(Wrappable):
 
     def _enter_call(self, f_code):
         # we have a superb gc, no point in freelist :)
+        self = jit.hint(self, promote=True)
         entry = self._get_or_make_entry(f_code)
         self.current_context = ProfilerContext(self, entry)
 
@@ -265,12 +266,14 @@ class W_Profiler(Wrappable):
         context = self.current_context
         if context is None:
             return
+        self = jit.hint(self, promote=True)
         entry = self._get_or_make_entry(f_code, False)
         if entry is not None:
             context._stop(self, entry)
         self.current_context = context.previous
 
     def _enter_builtin_call(self, key):
+        self = jit.hint(self, promote=True)
         entry = self._get_or_make_builtin_entry(key)
         self.current_context = ProfilerContext(self, entry)
 
@@ -278,6 +281,7 @@ class W_Profiler(Wrappable):
         context = self.current_context
         if context is None:
             return
+        self = jit.hint(self, promote=True)
         entry = self._get_or_make_builtin_entry(key, False)
         if entry is not None:
             context._stop(self, entry)
