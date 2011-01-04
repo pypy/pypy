@@ -6,7 +6,7 @@ import cStringIO
 import pickletools
 import copy_reg
 
-from test.test_support import TestFailed, have_unicode, TESTFN
+from test.test_support import TestFailed, have_unicode, TESTFN, impl_detail
 
 # Tests that try a number of pickle protocols should have a
 #     for proto in protocols:
@@ -949,6 +949,7 @@ class AbstractPickleTests(unittest.TestCase):
                              "Failed protocol %d: %r != %r"
                              % (proto, obj, loaded))
 
+    @impl_detail("pypy does not store attribute names", pypy=False)
     def test_attribute_name_interning(self):
         # Test that attribute names of pickled objects are interned when
         # unpickling.
