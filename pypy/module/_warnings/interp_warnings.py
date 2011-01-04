@@ -211,15 +211,31 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     space.call_method(w_stderr, "write", space.wrap(message))
 
     # Print "  source_line\n"
-    if w_sourceline:
-        line = space.str_w(w_sourceline)
-        message = "\n"
-        for i in range(len(line)):
-            c = line[i]
-            if c not in ' \t\014':
-                message = "  %s\n" % (line[i:],)
-                break
-        space.call_method(w_stderr, "write", space.wrap(message))
+    if not w_sourceline:
+        try:
+            # sourceline = linecache.getline(filename, lineno).strip()
+            w_builtins = space.getbuiltinmodule('__builtin__')
+            w_linecachemodule = space.call_method(w_builtins, '__import__',
+                                                  space.wrap("linecache"))
+            w_sourceline = space.call_method(w_linecachemodule, "getline",
+                                             w_filename, space.wrap(lineno))
+            w_sourceline = space.call_method(w_sourceline, "strip")
+        except OperationError:
+            w_sourceline = None
+
+    if not w_sourceline:
+        return
+    line = space.str_w(w_sourceline)
+    if not line:
+        return
+
+    message = "\n"
+    for i in range(len(line)):
+        c = line[i]
+        if c not in ' \t\014':
+            message = "  %s\n" % (line[i:],)
+            break
+    space.call_method(w_stderr, "write", space.wrap(message))
 
 def do_warn(space, w_message, w_category, stacklevel):
     context_w = setup_context(space, stacklevel)

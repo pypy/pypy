@@ -43,5 +43,20 @@ class AppTestWarnings:
             assert len(w) == 0
         warnings.defaultaction = 'default'
 
+    def test_show_source_line(self):
+        import warnings
+        import sys, StringIO
+        from test.warning_tests import inner
+        # With showarning() missing, make sure that output is okay.
+        del warnings.showwarning
 
+        stderr = sys.stderr
+        try:
+            sys.stderr = StringIO.StringIO()
+            inner('test message')
+            result = sys.stderr.getvalue()
+        finally:
+            sys.stderr = stderr
 
+        assert result.count('\n') == 2
+        assert '  warnings.warn(message, ' in result
