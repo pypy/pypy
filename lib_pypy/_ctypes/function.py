@@ -406,7 +406,6 @@ class CFuncPtr(_CData):
         """
         assert len(argtypes) == len(args)
         newargs = []
-        # XXX: investigate the difference between _ffishape and _ffiargshape
         for argtype, arg in zip(argtypes, args):
             shape = argtype._ffiargshape
             if shape == 'u' or shape == 'c':
