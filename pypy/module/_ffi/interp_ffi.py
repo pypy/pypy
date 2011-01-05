@@ -133,6 +133,7 @@ class W_FuncPtr(Wrappable):
             floatres = self.func.call(argchain, rffi.FLOAT)
             return space.wrap(floatres)
         elif reskind == 'I' or reskind == 'U':
+            assert libffi.IS_32_BIT
             return self._call_longlong(space, argchain, reskind)
         elif reskind == 'S':
             # we return the address of the buffer as an integer
