@@ -5,9 +5,9 @@ def test_timer():
     from pypy.module._lsprof.interp_lsprof import read_timestamp_double
     import time
     t1 = read_timestamp_double()
-    for i in range(1000000): pass
+    time.sleep(1)
     t2 = read_timestamp_double()
-    assert t2 - t1 > 0.01 # very approxiamte test, but well
+    assert 0.9 < t2 - t1 < 1.9
 
 class AppTestCProfile(object):
     keywords = {}
