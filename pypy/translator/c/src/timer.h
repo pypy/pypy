@@ -12,11 +12,15 @@ double pypy_read_timestamp_double(void);
 
 #  ifdef _WIN32
     double pypy_read_timestamp_double(void) {
+        static double pypy_timer_scale = 0.0;
         long long timestamp;
         long long scale;
         QueryPerformanceCounter((LARGE_INTEGER*)&(timestamp));
-        QueryPerformanceFrequency((LARGE_INTEGER*)&(scale));
-        return ((double)timestamp) / scale;
+        if (pypy_timer_scale == 0.0) {
+          QueryPerformanceFrequency((LARGE_INTEGER*)&(scale));
+          pypy_timer_scale = 1.0 / (double)scale;
+        }
+        return ((double)timestamp) * pypy_timer_scale;
     }
 
 #  else
