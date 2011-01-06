@@ -196,7 +196,11 @@ def _rtype_template(hop, func, implicit_excs=[]):
         repr = signed_repr
     else:
         repr = r_result
-    vlist = hop.inputargs(repr, repr)
+    if func.startswith(('lshift', 'rshift')):
+        repr2 = signed_repr
+    else:
+        repr2 = repr
+    vlist = hop.inputargs(repr, repr2)
     hop.exception_is_here()
 
     prefix = repr.opprefix

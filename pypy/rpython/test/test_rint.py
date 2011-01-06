@@ -4,7 +4,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_int64
+from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 
@@ -230,6 +230,24 @@ class BaseTestRint(BaseRtypingTest):
             assert res == 1
             res = self.interpret(f, [r_int64(-1)<<(r_longlong.BITS-1)])
             assert res == 0
+
+    def test_lshift_rshift(self):
+        for name, f in [('_lshift', lambda x, y: x << y),
+                        ('_rshift', lambda x, y: x >> y)]:
+            for inttype in (int, r_uint, r_int64, r_ulonglong):
+                res = self.interpret(f, [inttype(2147483647), 12])
+                if inttype is int:
+                    assert res == intmask(f(2147483647, 12))
+                else:
+                    assert res == inttype(f(2147483647, 12))
+                #
+                # check that '*_[lr]shift' take an inttype and an
+                # int as arguments, without the need for a
+                # 'cast_int_to_{uint,longlong,...}'
+                _, _, graph = self.gengraph(f, [inttype, int])
+                block = graph.startblock
+                assert len(block.operations) == 1
+                assert block.operations[0].opname.endswith(name)
 
     div_mod_iteration_count = 1000
     def test_div_mod(self):
