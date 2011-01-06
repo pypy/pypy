@@ -114,10 +114,8 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         self.emit_operation(op)
-        if v1.intbound.known_ge(IntBound(0, 0)) and \
-           v2.intbound.known_ge(IntBound(0, 0)):
-            r = self.getvalue(op.result)
-            r.intbound.make_ge(IntLowerBound(0))
+        r = self.getvalue(op.result)
+        r.intbound.intersect(v1.intbound.div_bound(v2.intbound))
 
     def optimize_INT_ADD_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
