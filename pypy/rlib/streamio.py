@@ -962,7 +962,9 @@ class TextInputFilter(Stream):
                 self.atcr = False
 
             if data.endswith("\r"):
-                data = data[:len(data) - 1]
+                end = len(data) - 1
+                assert end >= 0
+                data = data[:end]
                 n += 1
                 self.atcr = True
 
