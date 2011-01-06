@@ -62,6 +62,18 @@ class OptIntBounds(Optimization):
     optimize_GUARD_FALSE = optimize_GUARD_TRUE
     optimize_GUARD_VALUE = optimize_GUARD_TRUE
 
+    def optimize_INT_XOR(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+        if v1 is v2:
+            self.make_constant_int(op.result, 0)
+            return
+        self.emit_operation(op)
+        if v1.intbound.known_ge(IntBound(0, 0)) and \
+           v2.intbound.known_ge(IntBound(0, 0)):
+            r = self.getvalue(op.result)
+            r.intbound.make_ge(IntLowerBound(0))
+
     def optimize_INT_AND(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
@@ -97,6 +109,15 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         r = self.getvalue(op.result)
         r.intbound.intersect(v1.intbound.mul_bound(v2.intbound))
+
+    def optimize_INT_FLOORDIV(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+        self.emit_operation(op)
+        if v1.intbound.known_ge(IntBound(0, 0)) and \
+           v2.intbound.known_ge(IntBound(0, 0)):
+            r = self.getvalue(op.result)
+            r.intbound.make_ge(IntLowerBound(0))
 
     def optimize_INT_ADD_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
