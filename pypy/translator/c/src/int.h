@@ -104,10 +104,6 @@
 	OP_INT_LSHIFT(x,y,r); \
 	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \
 		FAIL_OVF("x<<y losing bits or changing sign")
-#define OP_LLONG_LSHIFT_OVF(x,y,r) \
-	OP_LLONG_LSHIFT(x,y,r); \
-	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG, r, (y))) \
-		FAIL_OVF("x<<y losing bits or changing sign")
 
 /* floor division */
 
