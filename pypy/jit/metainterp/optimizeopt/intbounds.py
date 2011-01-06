@@ -117,6 +117,20 @@ class OptIntBounds(Optimization):
         r = self.getvalue(op.result)
         r.intbound.intersect(v1.intbound.div_bound(v2.intbound))
 
+    def optimize_INT_LSHIFT(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+        self.emit_operation(op)
+        r = self.getvalue(op.result)
+        r.intbound.intersect(v1.intbound.lshift_bound(v2.intbound))
+
+    def optimize_INT_RSHIFT(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+        self.emit_operation(op)
+        r = self.getvalue(op.result)
+        r.intbound.intersect(v1.intbound.rshift_bound(v2.intbound))
+
     def optimize_INT_ADD_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
@@ -338,6 +352,14 @@ class OptIntBounds(Optimization):
         b = r.intbound.div_bound(v1.intbound)
         if v2.intbound.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
+
+    def propagate_bounds_INT_LSHIFT(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+        r = self.getvalue(op.result)
+        b = r.intbound.rshift_bound(v2.intbound)
+        if v1.intbound.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
 
     propagate_bounds_INT_ADD_OVF  = propagate_bounds_INT_ADD
     propagate_bounds_INT_SUB_OVF  = propagate_bounds_INT_SUB
