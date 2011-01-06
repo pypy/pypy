@@ -6,7 +6,6 @@ from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.history import make_hashable_int
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
@@ -256,7 +255,7 @@ class UnrollOptimizer(Optimization):
         loop_ops = loop.operations
 
         boxmap = BoxMap()
-        state = ExeState(self.optimizer)
+        state = ExeState()
         short_preamble = []
         loop_i = preamble_i = 0
         while preamble_i < len(preamble_ops):
@@ -331,8 +330,7 @@ class UnrollOptimizer(Optimization):
         return short_preamble
 
 class ExeState(object):
-    def __init__(self, optimizer):
-        self.optimizer = optimizer
+    def __init__(self):
         self.heap_dirty = False
         self.unsafe_getitem = {}
 
@@ -353,16 +351,6 @@ class ExeState(object):
             if descr in self.unsafe_getitem:
                 return False
             return True
-        elif opnum == rop.CALL:
-            arg = op.getarg(0)
-            if isinstance(arg, Const):
-                key = make_hashable_int(arg.getint())
-                resvalue = self.optimizer.loop_invariant_results.get(key, None)
-                if resvalue:
-                    return True # This once was CALL_LOOPINVARIANT
-                                # FIXME: Can we realy be sure of that?
-        elif opnum == rop.GUARD_NO_EXCEPTION:
-            return True # FIXME: Is this safe?
         return False
     
     def update(self, op):
