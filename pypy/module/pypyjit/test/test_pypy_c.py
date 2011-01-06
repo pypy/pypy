@@ -82,6 +82,8 @@ class PyPyCJITTests(object):
     def run_source(self, source, expected_max_ops, *testcases, **kwds):
         assert isinstance(expected_max_ops, int)
         threshold = kwds.pop('threshold', 3)
+        self.count_debug_merge_point = \
+                                     kwds.pop('count_debug_merge_point', True)
         if kwds:
             raise TypeError, 'Unsupported keyword arguments: %s' % kwds.keys()
         source = py.code.Source(source)
@@ -154,14 +156,16 @@ class PyPyCJITTests(object):
         sliced_loops = [] # contains all bytecodes of all loops
         total_ops = 0
         for loop in loops:
-            total_ops += len(loop.operations)
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     sliced_loop = BytecodeTrace()
                     sliced_loop.bytecode = op.getarg(0)._get_str().rsplit(" ", 1)[1]
                     sliced_loops.append(sliced_loop)
+                    if self.count_debug_merge_point:
+                        total_ops += 1
                 else:
                     sliced_loop.append(op)
+                    total_ops += 1
         return loops, sliced_loops, total_ops
 
     def check_0_op_bytecodes(self):
@@ -1328,10 +1332,7 @@ class PyPyCJITTests(object):
                     r = 2000
                 else:
                     r = 0
-                if a > 0 and b > 1:
-                    ops = 0
-                else:
-                    ops = 0
+                ops = 46
                 
                 self.run_source('''
                 def main(a, b):
@@ -1346,6 +1347,37 @@ class PyPyCJITTests(object):
                         i += 1
                     return sa
                 ''', ops, ([a, b], r))
+        
+    def test_shift(self):
+        from sys import maxint
+        maxvals = (-maxint-1, -maxint, maxint-1, maxint)
+        for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
+            for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
+                r = 0
+                if (a >> b) >= 0:
+                    r += 2000
+                if (a << b) > 2:
+                    r += 20000000
+                if abs(a) < 10 and b < 5:
+                    ops = 13
+                else:
+                    ops = 29
+
+                self.run_source('''
+                def main(a, b):
+                    i = sa = 0
+                    while i < 2000:
+                        if a > 0: # Specialises the loop
+                            pass
+                        if b < 2 and b > 0:
+                            pass
+                        if (a >> b) >= 0:
+                            sa += 1
+                        if (a << b) > 2:
+                            sa += 10000
+                        i += 1
+                    return sa
+                ''', ops, ([a, b], r), count_debug_merge_point=False)
         
 
 class AppTestJIT(PyPyCJITTests):
