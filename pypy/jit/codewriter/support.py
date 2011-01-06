@@ -19,6 +19,8 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+from pypy.rlib.longlong2float import longlong2float, float2longlong
 
 def getargtypes(annotator, values):
     if values is None:    # for backend tests producing stand-alone exe's
@@ -220,6 +222,16 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
+
+
+# long long support
+# -----------------
+
+def _ll_2_llong_add(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    z = x + y
+    return longlong2float(z)
 
 
 # libffi support

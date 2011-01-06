@@ -46,6 +46,8 @@ class EffectInfo(object):
     OS_LIBFFI_PREPARE           = 60
     OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
+    #
+    OS_LLONG_ADD                = 70
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,

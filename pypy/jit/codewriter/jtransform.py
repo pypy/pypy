@@ -779,6 +779,21 @@ class Transformer(object):
         return result
 
     # ----------
+    # Long longs, for 32-bit only.  Supported operations are left unmodified,
+    # and unsupported ones are turned into a call to a function from
+    # jit.codewriter.support.
+
+    def rewrite_op_llong_add(self, op):
+        if 'add' in self.cpu.supports_longlong:
+            return op
+        else:
+            op1 = self.prepare_builtin_call(op, 'llong_add', op.args)
+            return self._handle_oopspec_call(op1, op.args,
+                                             EffectInfo.OS_LLONG_ADD)
+
+    rewrite_op_ullong_add = rewrite_op_llong_add
+
+    # ----------
     # Renames, from the _old opname to the _new one.
     # The new operation is optionally further processed by rewrite_operation().
     for _old, _new in [('bool_not', 'int_is_zero'),
