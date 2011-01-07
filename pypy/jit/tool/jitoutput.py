@@ -24,6 +24,7 @@ REGEXES = [
     (('abort.trace_too_long',), '^abort: trace too long:\s+(\d+)$'),
     (('abort.compiling',), '^abort: compiling:\s+(\d+)$'),
     (('abort.vable_escape',), '^abort: vable escape:\s+(\d+)$'),
+    (('abort.bad_loop',), '^abort: bad loop:\s+(\d+)$'),
     (('nvirtuals',), '^nvirtuals:\s+(\d+)$'),
     (('nvholes',), '^nvholes:\s+(\d+)$'),
     (('nvreused',), '^nvreused:\s+(\d+)$'),

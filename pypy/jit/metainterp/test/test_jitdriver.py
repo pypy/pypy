@@ -42,7 +42,7 @@ class MultipleJitDriversTests:
         # at the generated machine code
         self.check_loop_count(5)
         self.check_tree_loop_count(4)    # 2 x loop, 2 x enter bridge
-        self.check_enter_count(7)
+        self.check_enter_count(5)
 
     def test_inline(self):
         # this is not an example of reasonable code: loop1() is unrolled

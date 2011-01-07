@@ -18,7 +18,7 @@ def init__ANY(space, w_obj, __args__):
     pass
 
 def typed_unwrap_error_msg(space, expected, w_obj):
-    type_name = space.type(w_obj).getname(space, '?')
+    type_name = space.type(w_obj).getname(space)
     return space.wrap("expected %s, got %s object" % (expected, type_name))
 
 def int_w__ANY(space,w_obj):

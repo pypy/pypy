@@ -3,7 +3,7 @@ from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
-from pypy.rpython.memory.support import AddressDict
+from pypy.rpython.memory.support import AddressDict, null_address_dict
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
@@ -26,6 +26,7 @@ class GCBase(object):
         self.AddressStack = get_address_stack(chunk_size)
         self.AddressDeque = get_address_deque(chunk_size)
         self.AddressDict = AddressDict
+        self.null_address_dict = null_address_dict
         self.config = config
         assert isinstance(translated_to_c, bool)
         self.translated_to_c = translated_to_c

@@ -444,7 +444,7 @@ class Method(Wrappable):
             pre = "bound"
         else:
             pre = "unbound"
-        return "%s method %s" % (pre, self.w_function.getname(self.space, '?'))
+        return "%s method %s" % (pre, self.w_function.getname(self.space))
 
     def call_args(self, args):
         space = self.space
@@ -493,13 +493,13 @@ class Method(Wrappable):
 
     def descr_method_repr(self):
         space = self.space
-        name = self.w_function.getname(self.space, '?')
+        name = self.w_function.getname(self.space)
         # XXX do we handle all cases sanely here?
         if space.is_w(self.w_class, space.w_None):
             w_class = space.type(self.w_instance)
         else:
             w_class = self.w_class
-        typename = w_class.getname(self.space, '?')
+        typename = w_class.getname(self.space)
         if self.w_instance is None:
             s = "<unbound method %s.%s>" % (typename, name)
             return space.wrap(s)
@@ -591,7 +591,7 @@ class ClassMethod(Wrappable):
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         if not space.is_true(space.callable(w_function)):
-            typename = space.type(w_function).getname(space, '?')
+            typename = space.type(w_function).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not callable", typename)
         instance = space.allocate_instance(ClassMethod, w_subtype)

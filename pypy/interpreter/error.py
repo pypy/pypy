@@ -212,7 +212,7 @@ class OperationError(Exception):
             w_inst = w_type
             w_instclass = space.exception_getclass(w_inst)
             if not space.exception_is_valid_class_w(w_instclass):
-                instclassname = w_instclass.getname(space, '?')
+                instclassname = w_instclass.getname(space)
                 msg = ("exceptions must be classes, or instances, "
                        "or strings (deprecated), not %s")
                 raise operationerrfmt(space.w_TypeError, msg, instclassname)

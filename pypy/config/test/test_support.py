@@ -45,7 +45,7 @@ def test_cpuinfo():
     saved = os.environ
     try:
         os.environ = FakeEnviron(None)
-        assert detect_number_of_processors(StringIO(cpuinfo)) == 4
+        assert detect_number_of_processors(StringIO(cpuinfo)) == 3
         assert detect_number_of_processors('random crap that does not exist') == 1
         os.environ = FakeEnviron('-j2')
         assert detect_number_of_processors(StringIO(cpuinfo)) == 1

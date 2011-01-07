@@ -178,12 +178,12 @@ def _ll_1_jit_force_virtual(inst):
 def _ll_2_int_floordiv_ovf_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_floordiv_ovf(x, y):
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:        
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
@@ -195,12 +195,12 @@ def _ll_2_int_floordiv_zer(x, y):
 def _ll_2_int_mod_ovf_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_mod(lltype.Signed, x, y)
 
 def _ll_2_int_mod_ovf(x, y):
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_mod(lltype.Signed, x, y)
 
