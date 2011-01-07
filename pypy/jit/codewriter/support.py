@@ -241,10 +241,90 @@ def _ll_1_llong_invert(x):
     y = ~x
     return longlong2float(y)
 
+def _ll_2_llong_lt(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return x < y
+
+def _ll_2_llong_le(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return x <= y
+
+def _ll_2_llong_eq(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return x == y
+
+def _ll_2_llong_ne(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return x != y
+
+def _ll_2_llong_gt(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return x > y
+
+def _ll_2_llong_ge(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return x >= y
+
+def _ll_2_llong_ult(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return r_ulonglong(x) < r_ulonglong(y)
+
+def _ll_2_llong_ule(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return r_ulonglong(x) <= r_ulonglong(y)
+
+def _ll_2_llong_ugt(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return r_ulonglong(x) > r_ulonglong(y)
+
+def _ll_2_llong_uge(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    return r_ulonglong(x) >= r_ulonglong(y)
+
 def _ll_2_llong_add(xf, yf):
     x = float2longlong(xf)
     y = float2longlong(yf)
     z = x + y
+    return longlong2float(z)
+
+def _ll_2_llong_sub(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    z = x - y
+    return longlong2float(z)
+
+def _ll_2_llong_mul(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    z = x * y
+    return longlong2float(z)
+
+def _ll_2_llong_and(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    z = x & y
+    return longlong2float(z)
+
+def _ll_2_llong_or(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    z = x | y
+    return longlong2float(z)
+
+def _ll_2_llong_xor(xf, yf):
+    x = float2longlong(xf)
+    y = float2longlong(yf)
+    z = x ^ y
     return longlong2float(z)
 
 def _ll_1_llong_from_int(x):

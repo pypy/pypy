@@ -47,7 +47,8 @@ class TestLongLong:
             assert op1.opname == 'residual_call_irf_f'
         else:
             assert op1.opname == 'residual_call_irf_i'
-        assert op1.args[0].value == opname.lstrip('u')
+        gotindex = getattr(EffectInfo, 'OS_' + op1.args[0].value.upper())
+        assert gotindex == oopspecindex
         assert op1.args[1] == 'calldescr-%d' % oopspecindex
         assert list(op1.args[2]) == []
         assert list(op1.args[3]) == []
@@ -72,30 +73,47 @@ class TestLongLong:
                 T = lltype.SignedLongLong
             self.do_check(opname, oopspecindex, [T], T)
 
-##                ('llong_lt', EffectInfo.OS_LLONG_LT),
-##                ('llong_le', EffectInfo.OS_LLONG_LE),
-##                ('llong_eq', EffectInfo.OS_LLONG_EQ),
-##                ('llong_ne', EffectInfo.OS_LLONG_NE),
-##                ('llong_gt', EffectInfo.OS_LLONG_GT),
-##                ('llong_ge', EffectInfo.OS_LLONG_GE),
+    def test_comparison(self):
+        for opname, oopspecindex in [
+                ('llong_lt',  EffectInfo.OS_LLONG_LT),
+                ('llong_le',  EffectInfo.OS_LLONG_LE),
+                ('llong_eq',  EffectInfo.OS_LLONG_EQ),
+                ('llong_ne',  EffectInfo.OS_LLONG_NE),
+                ('llong_gt',  EffectInfo.OS_LLONG_GT),
+                ('llong_ge',  EffectInfo.OS_LLONG_GE),
+                ('ullong_lt', EffectInfo.OS_LLONG_ULT),
+                ('ullong_le', EffectInfo.OS_LLONG_ULE),
+                ('ullong_eq', EffectInfo.OS_LLONG_EQ),
+                ('ullong_ne', EffectInfo.OS_LLONG_NE),
+                ('ullong_gt', EffectInfo.OS_LLONG_UGT),
+                ('ullong_ge', EffectInfo.OS_LLONG_UGE),
+                ]:
+            if opname.startswith('u'):
+                T = lltype.UnsignedLongLong
+            else:
+                T = lltype.SignedLongLong
+            self.do_check(opname, oopspecindex, [T, T], lltype.Bool)
 
     def test_binary_op(self):
-        self.do_check('llong_add', EffectInfo.OS_LLONG_ADD,
-                      [lltype.SignedLongLong, lltype.SignedLongLong],
-                      lltype.SignedLongLong)
-        self.do_check('ullong_add', EffectInfo.OS_LLONG_ADD,
-                      [lltype.UnsignedLongLong, lltype.UnsignedLongLong],
-                      lltype.UnsignedLongLong)
-
-##        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
-##        for opname, oopspecindex in [
-##                ('llong_add',    EffectInfo.OS_LLONG_ADD),
-##                ('llong_sub',    EffectInfo.OS_LLONG_SUB),
-##                ('llong_mul',    EffectInfo.OS_LLONG_MUL),
-##                ('llong_and',    EffectInfo.OS_LLONG_AND),
-##                ('llong_or',     EffectInfo.OS_LLONG_OR),
-##                ('llong_xor',    EffectInfo.OS_LLONG_XOR),
-
+        for opname, oopspecindex in [
+                ('llong_add',    EffectInfo.OS_LLONG_ADD),
+                ('llong_sub',    EffectInfo.OS_LLONG_SUB),
+                ('llong_mul',    EffectInfo.OS_LLONG_MUL),
+                ('llong_and',    EffectInfo.OS_LLONG_AND),
+                ('llong_or',     EffectInfo.OS_LLONG_OR),
+                ('llong_xor',    EffectInfo.OS_LLONG_XOR),
+                ('ullong_add',   EffectInfo.OS_LLONG_ADD),
+                ('ullong_sub',   EffectInfo.OS_LLONG_SUB),
+                ('ullong_mul',   EffectInfo.OS_LLONG_MUL),
+                ('ullong_and',   EffectInfo.OS_LLONG_AND),
+                ('ullong_or',    EffectInfo.OS_LLONG_OR),
+                ('ullong_xor',   EffectInfo.OS_LLONG_XOR),
+                ]:
+            if opname.startswith('u'):
+                T = lltype.UnsignedLongLong
+            else:
+                T = lltype.SignedLongLong
+            self.do_check(opname, oopspecindex, [T, T], T)
 
 
 
@@ -103,53 +121,11 @@ class TestLongLong:
 ##                ('', EffectInfo.OS_LLONG_RSHIFT),
 
 
-##    'llong_is_true':        LLOp(canfold=True),
-##    'llong_neg':            LLOp(canfold=True),
-##    'llong_neg_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
-##    'llong_abs':            LLOp(canfold=True),
-##    'llong_abs_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
-##    'llong_invert':         LLOp(canfold=True),
-
-##    'llong_add':            LLOp(canfold=True),
-##    'llong_sub':            LLOp(canfold=True),
-##    'llong_mul':            LLOp(canfold=True),
-##    'llong_floordiv':       LLOp(canfold=True),
-##    'llong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
-##    'llong_mod':            LLOp(canfold=True),
-##    'llong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
-##    'llong_lt':             LLOp(canfold=True),
-##    'llong_le':             LLOp(canfold=True),
-##    'llong_eq':             LLOp(canfold=True),
-##    'llong_ne':             LLOp(canfold=True),
-##    'llong_gt':             LLOp(canfold=True),
-##    'llong_ge':             LLOp(canfold=True),
-##    'llong_and':            LLOp(canfold=True),
-##    'llong_or':             LLOp(canfold=True),
 ##    'llong_lshift':         LLOp(canfold=True),
 ##    'llong_rshift':         LLOp(canfold=True),
-##    'llong_xor':            LLOp(canfold=True),
 
-##    'ullong_is_true':       LLOp(canfold=True),
-##    'ullong_invert':        LLOp(canfold=True),
-
-##    'ullong_add':           LLOp(canfold=True),
-##    'ullong_sub':           LLOp(canfold=True),
-##    'ullong_mul':           LLOp(canfold=True),
-##    'ullong_floordiv':      LLOp(canfold=True),
-##    'ullong_floordiv_zer':  LLOp(canraise=(ZeroDivisionError,), tryfold=True),
-##    'ullong_mod':           LLOp(canfold=True),
-##    'ullong_mod_zer':       LLOp(canraise=(ZeroDivisionError,), tryfold=True),
-##    'ullong_lt':            LLOp(canfold=True),
-##    'ullong_le':            LLOp(canfold=True),
-##    'ullong_eq':            LLOp(canfold=True),
-##    'ullong_ne':            LLOp(canfold=True),
-##    'ullong_gt':            LLOp(canfold=True),
-##    'ullong_ge':            LLOp(canfold=True),
-##    'ullong_and':           LLOp(canfold=True),
-##    'ullong_or':            LLOp(canfold=True),
 ##    'ullong_lshift':        LLOp(canfold=True),
 ##    'ullong_rshift':        LLOp(canfold=True),
-##    'ullong_xor':           LLOp(canfold=True),
 
 ##            ]:
 

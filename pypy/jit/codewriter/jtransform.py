@@ -804,13 +804,38 @@ class Transformer(object):
                 args[i] = v_x
         return args
 
-    for _op in ['is_true',
-                'neg',
-                'invert',
-                'add',
-                ]:
+    for _op, _oopspec in [('llong_is_true', 'IS_TRUE'),
+                          ('ullong_is_true','IS_TRUE'),
+                          ('llong_neg',     'NEG'),
+                          ('llong_invert',  'INVERT'),
+                          ('ullong_invert', 'INVERT'),
+                          ('llong_lt',      'LT'),
+                          ('llong_le',      'LE'),
+                          ('llong_eq',      'EQ'),
+                          ('llong_ne',      'NE'),
+                          ('llong_gt',      'GT'),
+                          ('llong_ge',      'GE'),
+                          ('ullong_lt',     'ULT'),
+                          ('ullong_le',     'ULE'),
+                          ('ullong_eq',     'EQ'),
+                          ('ullong_ne',     'NE'),
+                          ('ullong_gt',     'UGT'),
+                          ('ullong_ge',     'UGE'),
+                          ('llong_add',     'ADD'),
+                          ('llong_sub',     'SUB'),
+                          ('llong_mul',     'MUL'),
+                          ('llong_and',     'AND'),
+                          ('llong_or',      'OR'),
+                          ('llong_xor',     'XOR'),
+                          ('ullong_add',    'ADD'),
+                          ('ullong_sub',    'SUB'),
+                          ('ullong_mul',    'MUL'),
+                          ('ullong_and',    'AND'),
+                          ('ullong_or',     'OR'),
+                          ('ullong_xor',    'XOR'),
+                          ]:
         exec py.code.Source('''
-            def rewrite_op_llong_%s(self, op):
+            def rewrite_op_%s(self, op):
                 oplist = []
                 args = self._remove_longlong_constants(op.args, oplist)
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
@@ -818,8 +843,7 @@ class Transformer(object):
                                                 EffectInfo.OS_LLONG_%s)
                 oplist.append(op2)
                 return oplist
-            rewrite_op_ullong_%s = rewrite_op_llong_%s
-        ''' % (_op, _op, _op.upper(), _op, _op)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
     # ----------
     # Renames, from the _old opname to the _new one.
