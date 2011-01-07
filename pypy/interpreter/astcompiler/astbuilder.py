@@ -1095,7 +1095,7 @@ class ASTBuilder(object):
                 if not e.match(space, space.w_UnicodeError):
                     raise
                 # UnicodeError in literal: turn into SyntaxError
-                self.error(e.errorstr(space, use_str=True), atom_node)
+                self.error(e.errorstr(space), atom_node)
                 sub_strings_w = [] # please annotator
             # This implements implicit string concatenation.
             if len(sub_strings_w) > 1:
