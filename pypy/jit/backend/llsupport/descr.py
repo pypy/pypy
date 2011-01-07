@@ -337,7 +337,7 @@ def cast_to_float(x):
         return longlong2float(r_longlong(x))
     assert isinstance(x, float)
     return x
-cast_to_float._annspecialcase_ = 'specialize:arg(0)'
+cast_to_float._annspecialcase_ = 'specialize:argtype(0)'
 
 
 class BaseIntCallDescr(BaseCallDescr):
