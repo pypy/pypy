@@ -1115,7 +1115,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
 
     def visit_GeneratorExp(self, genexp):
-        self._compile_comprehension(genexp, "<genexp>", GenExpCodeGenerator)
+        self._compile_comprehension(genexp, "<genexpr>", GenExpCodeGenerator)
 
     def visit_SetComp(self, setcomp):
         self._compile_comprehension(setcomp, "<setcomp>",
