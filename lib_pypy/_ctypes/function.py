@@ -301,8 +301,10 @@ class CFuncPtr(_CData):
             for i in range(33):
                 mangled_name = "_%s@%d" % (self.name, i*4)
                 try:
-                    return cdll.ptr(mangled_name, argshapes, resshape,
-                                    self._flags_)
+                    return cdll.getfunc(mangled_name,
+                                        ffi_argtypes, ffi_restype,
+                                        # XXX self._flags_
+                                        )
                 except AttributeError:
                     pass
             raise
