@@ -1287,6 +1287,7 @@ class PyPyCJITTests(object):
         assert call.getarg(2).value == 3.0
 
     def test_ctypes_call(self):
+        py.test.skip('fixme')
         from pypy.rlib.test.test_libffi import get_libm_name
         libm_name = get_libm_name(sys.platform)
         out = self.run_source('''
