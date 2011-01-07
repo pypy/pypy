@@ -157,6 +157,8 @@ class AppTestBytesArray:
         b.extend(buffer('jkl'))
         assert b == 'abcdefghijkl'
 
+        raises(TypeError, b.extend, u"unicode")
+
     def test_delslice(self):
         b = bytearray('abcdefghi')
         del b[5:8]

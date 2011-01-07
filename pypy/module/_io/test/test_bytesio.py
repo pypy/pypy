@@ -4,6 +4,10 @@ class AppTestBytesIO:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_io'])
 
+    def test_init(self):
+        import _io
+        raises(TypeError, _io.BytesIO, u"12345")
+
     def test_capabilities(self):
         import _io
         f = _io.BytesIO()

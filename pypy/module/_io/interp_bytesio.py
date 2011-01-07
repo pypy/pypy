@@ -76,6 +76,9 @@ class W_BytesIO(W_BufferedIOBase):
     @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._check_closed(space)
+        if space.isinstance_w(w_data, space.w_unicode):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "bytes string of buffer expected"))
         buf = space.buffer_w(w_data)
         length = buf.getlength()
         if length <= 0:

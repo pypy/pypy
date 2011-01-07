@@ -365,6 +365,9 @@ def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
 
 def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
+    if space.isinstance_w(w_other, space.w_unicode):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "bytes string of buffer expected"))
     w_bytearray.data += [c for c in space.bufferstr_w(w_other)]
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
