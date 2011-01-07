@@ -1698,7 +1698,13 @@ class Assembler386(object):
         self._emit_call(x, arglocs, 3, tmp=tmp)
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
-            self.mc.FSTP_b(resloc.value)   # float return
+            # a float or a long long return
+            from pypy.jit.backend.llsupport.descr import LongLongCallDescr
+            if isinstance(op.getdescr(), LongLongCallDescr):
+                self.mc.MOV_br(resloc.value, eax.value)      # long long
+                self.mc.MOV_br(resloc.value + 4, edx.value)
+            else:
+                self.mc.FSTP_b(resloc.value)   # float return
         elif size == WORD:
             assert resloc is eax or resloc is xmm0    # a full word
         elif size == 0:
