@@ -136,34 +136,39 @@ class PyPyCJITTests(object):
         return result
 
     def parse_loops(self, opslogfile, filepath, filter_loops):
-        from pypy.jit.tool.oparser import parse
         from pypy.tool import logparser
         assert opslogfile.check()
         log = logparser.parse_log_file(str(opslogfile))
         parts = logparser.extract_category(log, 'jit-log-opt-')
         self.rawloops = [part for part in parts
                          if not from_entry_bridge(part, parts)]
-        # skip entry bridges, they can contain random things
-        self.loops = [parse(part, no_namespace=True) for part in self.rawloops]
+        self.loops, self.all_bytecodes, self.bytecode_by_loop, self.total_ops = \
+                                   self.parse_rawloops(self.rawloops, filter_loops)
+        self.check_0_op_bytecodes()
+
+    def parse_rawloops(self, rawloops, filter_loops):
+        from pypy.jit.tool.oparser import parse
+        loops = [parse(part, no_namespace=True) for part in self.rawloops]
         if filter_loops:
             self.loops = self.filter_loops(filepath, self.loops)
-        self.all_bytecodes = []    # contains all bytecodes of all loops
-        self.bytecode_by_loop = {} # contains all bytecodes divided by loops
-        self.total_ops = 0
-        for loop in self.loops:
+        all_bytecodes = []    # contains all bytecodes of all loops
+        bytecode_by_loop = {} # contains all bytecodes divided by loops
+        total_ops = 0
+        for loop in loops:
             loop_bytecodes = []
-            self.bytecode_by_loop[loop] = loop_bytecodes
-            self.total_ops += len(loop.operations)
+            bytecode_by_loop[loop] = loop_bytecodes
+            total_ops += len(loop.operations)
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     bytecode = BytecodeTrace()
                     bytecode.opcode = op.getarg(0)._get_str().rsplit(" ", 1)[1]
                     bytecode.debug_merge_point = op
                     loop_bytecodes.append(bytecode)
-                    self.all_bytecodes.append(bytecode)
+                    all_bytecodes.append(bytecode)
                 else:
                     bytecode.append(op)
-        self.check_0_op_bytecodes()
+        return loops, all_bytecodes, bytecode_by_loop, total_ops
+        
 
     def filter_loops(self, filepath, loops):
         newloops = []
