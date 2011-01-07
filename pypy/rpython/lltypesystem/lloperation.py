@@ -288,9 +288,7 @@ LL_OPERATIONS = {
 
     'llong_is_true':        LLOp(canfold=True),
     'llong_neg':            LLOp(canfold=True),
-    'llong_neg_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_abs':            LLOp(canfold=True),
-    'llong_abs_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_invert':         LLOp(canfold=True),
 
     'llong_add':            LLOp(canfold=True),
