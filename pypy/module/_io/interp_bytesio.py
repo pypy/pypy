@@ -183,6 +183,24 @@ class W_BytesIO(W_BufferedIOBase):
     def closed_get_w(space, self):
         return space.wrap(self.buf is None)
 
+    @unwrap_spec('self', ObjSpace)
+    def getstate_w(self, space):
+        w_content = space.wrap(buffer2string(self.buf, 0, self.string_size))
+        return space.newtuple([
+            w_content,
+            space.wrap(self.pos),
+            self.getdict()])
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def setstate_w(self, space, w_state):
+        w_content, w_pos, w_dict = space.unpackiterable(w_state, 3)
+        pos = space.int_w(w_pos)
+        self.buf = []
+        self.write_w(space, w_content)
+        self.pos = pos
+        if not space.is_w(w_dict, space.w_None):
+            space.call_method(self.getdict(), "update", w_dict)
+
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BytesIO),
@@ -201,5 +219,7 @@ W_BytesIO.typedef = TypeDef(
     seekable = interp2app(W_BytesIO.seekable_w),
     close = interp2app(W_BytesIO.close_w),
     closed = GetSetProperty(W_BytesIO.closed_get_w),
+    __getstate__ = interp2app(W_BytesIO.getstate_w),
+    __setstate__ = interp2app(W_BytesIO.setstate_w),
     )
 
