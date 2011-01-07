@@ -783,14 +783,39 @@ class Transformer(object):
     # and unsupported ones are turned into a call to a function from
     # jit.codewriter.support.
 
+    @staticmethod
+    def _is_longlong(TYPE):
+        return TYPE == lltype.SignedLongLong or TYPE == lltype.UnsignedLongLong
+
+    def _remove_longlong_constants(self, args, oplist):
+        for i in range(len(args)):
+            if (isinstance(args[i], Constant) and
+                    self._is_longlong(args[i].concretetype)):
+                v_x = varoftype(args[i].concretetype)
+                value = args[i].value
+                assert -2147483648 <= value <= 2147483647     # XXX!
+                c_x = Constant(int(value), lltype.Signed)
+                op0 = SpaceOperation('llong_from_int', [c_x], v_x)
+                op1 = self.prepare_builtin_call(op0, "llong_from_int", [c_x])
+                op2 = self._handle_oopspec_call(op1, [c_x],
+                                                EffectInfo.OS_LLONG_FROM_INT)
+                oplist.append(op2)
+                args = args[:]
+                args[i] = v_x
+        return args
+
     for _op in ['is_true',
                 'add',
                 ]:
         exec py.code.Source('''
             def rewrite_op_llong_%s(self, op):
-                op1 = self.prepare_builtin_call(op, "llong_%s", op.args)
-                return self._handle_oopspec_call(op1, op.args,
-                                                 EffectInfo.OS_LLONG_%s)
+                oplist = []
+                args = self._remove_longlong_constants(op.args, oplist)
+                op1 = self.prepare_builtin_call(op, "llong_%s", args)
+                op2 = self._handle_oopspec_call(op1, args,
+                                                EffectInfo.OS_LLONG_%s)
+                oplist.append(op2)
+                return oplist
             rewrite_op_ullong_%s = rewrite_op_llong_%s
         ''' % (_op, _op, _op.upper(), _op, _op)).compile()
 

@@ -237,6 +237,10 @@ def _ll_2_llong_add(xf, yf):
     z = x + y
     return longlong2float(z)
 
+def _ll_1_llong_from_int(x):
+    xf = r_longlong(x)
+    return longlong2float(xf)
+
 
 # libffi support
 # --------------

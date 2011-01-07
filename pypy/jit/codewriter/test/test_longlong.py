@@ -22,8 +22,8 @@ class FakeBuiltinCallControl:
         return False
 
 class FakeCPU:
-    def __init__(self, supports_longlong):
-        self.supports_longlong = supports_longlong
+    def __init__(self):
+        self.supports_longlong = []
         self.rtyper = FakeRTyper()
 
 
@@ -36,8 +36,8 @@ class TestLongLong:
         vlist = [varoftype(ARG) for ARG in ARGS]
         v_result = varoftype(RESULT)
         op = SpaceOperation(opname, vlist, v_result)
-        tr = Transformer(FakeCPU([]), FakeBuiltinCallControl())
-        op1 = tr.rewrite_operation(op)
+        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+        [op1] = tr.rewrite_operation(op)
         #
         def is_ll(TYPE):
             return (TYPE == lltype.SignedLongLong or
@@ -61,7 +61,7 @@ class TestLongLong:
                       [lltype.SignedLongLong], lltype.Bool)
 
 ##    def test_unary_op(self):
-##        tr = Transformer(FakeCPU([]), FakeBuiltinCallControl())
+##        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
 ##        for opname, oopspecindex in [
 ##                ('llong_neg',     EffectInfo.OS_LLONG_NEG),
 ##                ('llong_invert',  EffectInfo.OS_LLONG_INVERT),
@@ -84,7 +84,7 @@ class TestLongLong:
                       [lltype.UnsignedLongLong, lltype.UnsignedLongLong],
                       lltype.UnsignedLongLong)
 
-##        tr = Transformer(FakeCPU([]), FakeBuiltinCallControl())
+##        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
 ##        for opname, oopspecindex in [
 ##                ('llong_add',    EffectInfo.OS_LLONG_ADD),
 ##                ('llong_sub',    EffectInfo.OS_LLONG_SUB),
@@ -158,14 +158,26 @@ class TestLongLong:
 ##                ('', EffectInfo.OS_LLONG_TO_FLOAT),
 
 
-##    def test_prebuilt_constant_32(self):
-##        c_x = const(r_longlong(-171))
-##        op = SpaceOperation('foobar', [c_x], None)
-##        oplist = Transformer(FakeCPU(['foobar'])).rewrite_operation(op)
-##        assert len(oplist) == 2
-##        assert oplist[0].opname == 'cast_int_to_longlong'
-##        assert oplist[0].args == [c_x]
-##        v = oplist[0].result
-##        assert isinstance(v, Variable)
-##        assert oplist[1].opname == 'foobar'
-##        assert oplist[1].args == [v]
+    def test_prebuilt_constant_32(self):
+        c_x = const(r_longlong(-171))
+        v_y = varoftype(lltype.SignedLongLong)
+        v_z = varoftype(lltype.SignedLongLong)
+        op = SpaceOperation('llong_add', [c_x, v_y], v_z)
+        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+        oplist = tr.rewrite_operation(op)
+        assert len(oplist) == 2
+        assert oplist[0].opname == 'residual_call_irf_f'
+        assert oplist[0].args[0].value == 'llong_from_int'
+        assert oplist[0].args[1] == 'calldescr-84'
+        assert list(oplist[0].args[2]) == [const(-171)]
+        assert list(oplist[0].args[3]) == []
+        assert list(oplist[0].args[4]) == []
+        v_x = oplist[0].result
+        assert isinstance(v_x, Variable)
+        assert oplist[1].opname == 'residual_call_irf_f'
+        assert oplist[1].args[0].value == 'llong_add'
+        assert oplist[1].args[1] == 'calldescr-70'
+        assert list(oplist[1].args[2]) == []
+        assert list(oplist[1].args[3]) == []
+        assert list(oplist[1].args[4]) == [v_x, v_y]
+        assert oplist[1].result == v_z
