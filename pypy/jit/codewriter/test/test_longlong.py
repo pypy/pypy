@@ -60,14 +60,17 @@ class TestLongLong:
         self.do_check('ullong_is_true', EffectInfo.OS_LLONG_IS_TRUE,
                       [lltype.SignedLongLong], lltype.Bool)
 
-##    def test_unary_op(self):
-##        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
-##        for opname, oopspecindex in [
-##                ('llong_neg',     EffectInfo.OS_LLONG_NEG),
-##                ('llong_invert',  EffectInfo.OS_LLONG_INVERT),
-                
-##                ('ullong_is_true', EffectInfo.OS_LLONG_IS_TRUE),
-##                ('ullong_neg', EffectInfo.OS_LLONG_NEG),
+    def test_unary_op(self):
+        for opname, oopspecindex in [
+                ('llong_neg',      EffectInfo.OS_LLONG_NEG),
+                ('llong_invert',   EffectInfo.OS_LLONG_INVERT),
+                ('ullong_invert',  EffectInfo.OS_LLONG_INVERT),
+                ]:
+            if opname.startswith('u'):
+                T = lltype.UnsignedLongLong
+            else:
+                T = lltype.SignedLongLong
+            self.do_check(opname, oopspecindex, [T], T)
 
 ##                ('llong_lt', EffectInfo.OS_LLONG_LT),
 ##                ('llong_le', EffectInfo.OS_LLONG_LE),
@@ -181,3 +184,13 @@ class TestLongLong:
         assert list(oplist[1].args[3]) == []
         assert list(oplist[1].args[4]) == [v_x, v_y]
         assert oplist[1].result == v_z
+
+    def test_prebuilt_constant_64(self):
+        py.test.skip("in-progress")
+        c_x = const(r_longlong(3000000000))
+        v_y = varoftype(lltype.SignedLongLong)
+        v_z = varoftype(lltype.SignedLongLong)
+        op = SpaceOperation('llong_add', [c_x, v_y], v_z)
+        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+        oplist = tr.rewrite_operation(op)
+        xxx

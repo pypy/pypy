@@ -231,6 +231,16 @@ def _ll_1_llong_is_true(xf):
     x = float2longlong(xf)
     return bool(x)
 
+def _ll_1_llong_neg(x):
+    x = float2longlong(xf)
+    y = -x
+    return longlong2float(y)
+
+def _ll_1_llong_invert(x):
+    x = float2longlong(xf)
+    y = ~x
+    return longlong2float(y)
+
 def _ll_2_llong_add(xf, yf):
     x = float2longlong(xf)
     y = float2longlong(yf)
@@ -238,8 +248,8 @@ def _ll_2_llong_add(xf, yf):
     return longlong2float(z)
 
 def _ll_1_llong_from_int(x):
-    xf = r_longlong(x)
-    return longlong2float(xf)
+    y = r_longlong(x)
+    return longlong2float(y)
 
 
 # libffi support

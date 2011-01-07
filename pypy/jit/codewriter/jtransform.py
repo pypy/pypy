@@ -792,9 +792,9 @@ class Transformer(object):
             if (isinstance(args[i], Constant) and
                     self._is_longlong(args[i].concretetype)):
                 v_x = varoftype(args[i].concretetype)
-                value = args[i].value
-                assert -2147483648 <= value <= 2147483647     # XXX!
-                c_x = Constant(int(value), lltype.Signed)
+                value = int(args[i].value)
+                assert type(value) is int     # XXX!
+                c_x = Constant(value, lltype.Signed)
                 op0 = SpaceOperation('llong_from_int', [c_x], v_x)
                 op1 = self.prepare_builtin_call(op0, "llong_from_int", [c_x])
                 op2 = self._handle_oopspec_call(op1, [c_x],
@@ -805,6 +805,8 @@ class Transformer(object):
         return args
 
     for _op in ['is_true',
+                'neg',
+                'invert',
                 'add',
                 ]:
         exec py.code.Source('''
