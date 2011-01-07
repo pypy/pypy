@@ -446,7 +446,7 @@ class CFuncPtr(_CData):
         if self._is_struct_shape(shape):
             buf = shape[0].fromaddress(result)
         else:
-            buf = _rawffi.Array(shape)(1)
+            buf = _rawffi.Array(shape)(1, autofree=True)
             buf[0] = result
         retval = restype._CData_retval(buf)
         return retval
