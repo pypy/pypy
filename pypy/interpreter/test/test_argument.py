@@ -495,10 +495,10 @@ class TestErrorHandling(object):
         assert s == "foo() takes at most 2 arguments (3 given)"
         err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
         s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 argument (0 given)"
+        assert s == "foo() takes at least 1 argument (1 given)"
         err = ArgErrCount(2, 1, 1, False, True, [], 0)
         s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 argument (2 given)"
+        assert s == "foo() takes exactly 1 argument (3 given)"
 
 
     def test_unknown_keywords(self):
@@ -513,6 +513,19 @@ class TestErrorHandling(object):
         err = ArgErrMultipleValues('bla')
         s = err.getmsg('foo')
         assert s == "foo() got multiple values for keyword argument 'bla'"
+
+class AppTestArgument:
+    def test_error_message(self):
+        exc = raises(TypeError, (lambda a, b=2: 0), b=3)
+        assert exc.value.message == "<lambda>() takes at least 1 argument (1 given)"
+        exc = raises(TypeError, (lambda: 0), b=3)
+        assert exc.value.message == "<lambda>() takes no argument (1 given)"
+        exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
+        assert exc.value.message == "<lambda>() takes exactly 2 arguments (4 given)"
+        exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
+        assert exc.value.message == "<lambda>() takes at most 2 arguments (4 given)"
+        exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
+        assert exc.value.message == "<lambda>() takes at most 2 arguments (3 given)"
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
                                    w_stararg=None, w_starstararg=None):
