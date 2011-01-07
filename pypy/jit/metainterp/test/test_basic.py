@@ -1269,7 +1269,7 @@ class BasicTests:
             # On 64-bit platforms, long longs == longs.  On 32-bit platforms,
             # this function should be either completely marked as residual
             # (backends with supports_longlong==False), or be compiled as a
-            # sequence of residual calls.
+            # sequence of residual calls (with long long arguments).
             n = r_longlong(n)
             m = r_longlong(m)
             return intmask((n*m + p) // o)
@@ -1277,6 +1277,20 @@ class BasicTests:
             return g(n, m, o, p) // 3
         res = self.interp_operations(f, [1000000000, 90, 91, -17171])
         assert res == ((1000000000 * 90 - 17171) // 91) // 3
+
+    def test_long_long_field(self):
+        from pypy.rlib.rarithmetic import r_longlong, intmask
+        class A:
+            pass
+        def g(a, n, m):
+            a.n = r_longlong(n)
+            a.m = r_longlong(m)
+            a.n -= a.m
+            return intmask(a.n)
+        def f(n, m):
+            return g(A(), n, m)
+        res = self.interp_operations(f, [2147483647, -21474])
+        assert res == intmask(2147483647 + 21474)
 
     def test_free_object(self):
         import weakref
