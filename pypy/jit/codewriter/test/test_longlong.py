@@ -39,20 +39,22 @@ class TestLongLong:
         tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
         [op1] = tr.rewrite_operation(op)
         #
-        def is_ll(TYPE):
+        def is_llf(TYPE):
             return (TYPE == lltype.SignedLongLong or
-                    TYPE == lltype.UnsignedLongLong)
-        assert [ARG for ARG in ARGS if is_ll(ARG)]
-        if is_ll(RESULT):
+                    TYPE == lltype.UnsignedLongLong or
+                    TYPE == lltype.Float)
+        if is_llf(RESULT):
             assert op1.opname == 'residual_call_irf_f'
         else:
             assert op1.opname == 'residual_call_irf_i'
         gotindex = getattr(EffectInfo, 'OS_' + op1.args[0].value.upper())
         assert gotindex == oopspecindex
         assert op1.args[1] == 'calldescr-%d' % oopspecindex
-        assert list(op1.args[2]) == []
+        assert list(op1.args[2]) == [v for v in vlist
+                                     if not is_llf(v.concretetype)]
         assert list(op1.args[3]) == []
-        assert list(op1.args[4]) == vlist
+        assert list(op1.args[4]) == [v for v in vlist
+                                     if is_llf(v.concretetype)]
         assert op1.result == v_result
 
     def test_is_true(self):
@@ -115,27 +117,28 @@ class TestLongLong:
                 T = lltype.SignedLongLong
             self.do_check(opname, oopspecindex, [T, T], T)
 
+    def test_shifts(self):
+        for opname, oopspecindex in [
+                ('llong_lshift',  EffectInfo.OS_LLONG_LSHIFT),
+                ('llong_rshift',  EffectInfo.OS_LLONG_RSHIFT),
+                ('ullong_lshift', EffectInfo.OS_LLONG_LSHIFT),
+                ('ullong_rshift', EffectInfo.OS_LLONG_URSHIFT),
+                ]:
+            if opname.startswith('u'):
+                T = lltype.UnsignedLongLong
+            else:
+                T = lltype.SignedLongLong
+            self.do_check(opname, oopspecindex, [T, lltype.Signed], T)
 
-
-##                ('llong_lshift', EffectInfo.OS_LLONG_LSHIFT),
-##                ('', EffectInfo.OS_LLONG_RSHIFT),
-
-
-##    'llong_lshift':         LLOp(canfold=True),
-##    'llong_rshift':         LLOp(canfold=True),
-
-##    'ullong_lshift':        LLOp(canfold=True),
-##    'ullong_rshift':        LLOp(canfold=True),
-
-##            ]:
-
-
-
-##                ('', EffectInfo.OS_LLONG_FROM_INT),
-##                ('', EffectInfo.OS_LLONG_TO_INT),
-##                ('', EffectInfo.OS_LLONG_FROM_FLOAT),
-##                ('', EffectInfo.OS_LLONG_TO_FLOAT),
-
+    def test_casts(self):
+        self.do_check('cast_int_to_longlong', EffectInfo.OS_LLONG_FROM_INT,
+                      [lltype.Signed], lltype.SignedLongLong)
+        self.do_check('truncate_longlong_to_int', EffectInfo.OS_LLONG_TO_INT,
+                      [lltype.SignedLongLong], lltype.Signed)
+        self.do_check('cast_float_to_longlong', EffectInfo.OS_LLONG_FROM_FLOAT,
+                      [lltype.Float], lltype.SignedLongLong)
+        self.do_check('cast_longlong_to_float', EffectInfo.OS_LLONG_TO_FLOAT,
+                      [lltype.SignedLongLong], lltype.Float)
 
     def test_prebuilt_constant_32(self):
         c_x = const(r_longlong(-171))

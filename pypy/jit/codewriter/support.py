@@ -19,7 +19,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
-from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, intmask
 from pypy.rlib.longlong2float import longlong2float, float2longlong
 
 def getargtypes(annotator, values):
@@ -327,9 +327,36 @@ def _ll_2_llong_xor(xf, yf):
     z = x ^ y
     return longlong2float(z)
 
+def _ll_2_llong_lshift(xf, y):
+    x = float2longlong(xf)
+    z = x << y
+    return longlong2float(z)
+
+def _ll_2_llong_rshift(xf, y):
+    x = float2longlong(xf)
+    z = x >> y
+    return longlong2float(z)
+
+def _ll_2_llong_urshift(xf, y):
+    x = float2longlong(xf)
+    z = r_ulonglong(x) >> y
+    return longlong2float(r_longlong(z))
+
 def _ll_1_llong_from_int(x):
     y = r_longlong(x)
     return longlong2float(y)
+
+def _ll_1_llong_to_int(xf):
+    x = float2longlong(xf)
+    return intmask(x)
+
+def _ll_1_llong_from_float(xf):
+    y = r_longlong(xf)
+    return longlong2float(y)
+
+def _ll_1_llong_to_float(xf):
+    x = float2longlong(xf)
+    return float(x)
 
 
 # libffi support

@@ -833,6 +833,14 @@ class Transformer(object):
                           ('ullong_and',    'AND'),
                           ('ullong_or',     'OR'),
                           ('ullong_xor',    'XOR'),
+                          ('llong_lshift',  'LSHIFT'),
+                          ('llong_rshift',  'RSHIFT'),
+                          ('ullong_lshift', 'LSHIFT'),
+                          ('ullong_rshift', 'URSHIFT'),
+                          ('cast_int_to_longlong',     'FROM_INT'),
+                          ('truncate_longlong_to_int', 'TO_INT'),
+                          ('cast_float_to_longlong',   'FROM_FLOAT'),
+                          ('cast_longlong_to_float',   'TO_FLOAT'),
                           ]:
         exec py.code.Source('''
             def rewrite_op_%s(self, op):
