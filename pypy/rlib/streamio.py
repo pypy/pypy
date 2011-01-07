@@ -934,59 +934,41 @@ class TextInputFilter(Stream):
         else:
             data = self.do_read(n)
 
-        result = ""
-
-        while True:
-            if not data:
-                break
-
-            # The following whole ugly mess is because we need to keep
-            # track of exactly which line separators we have seen for
-            # self.newlines, grumble, grumble.  This has an
-            # interesting corner-case.
-            #
-            # Consider a file consisting of exactly one line ending
-            # with '\r'.  The first time you read(), you will not know
-            # whether it is a CR separator or half of a CRLF
-            # separator.  Neither will be marked as seen, since you
-            # are waiting for your next read to determine what you
-            # have seen.  But there's no more to read ...
-
-            previous_atcr = self.atcr
-
-            if self.atcr:
-                if data.startswith("\n"):
+        # The following whole ugly mess is because we need to keep track of
+        # exactly which line separators we have seen for self.newlines,
+        # grumble, grumble.  This has an interesting corner-case.
+        #
+        # Consider a file consisting of exactly one line ending with '\r'.
+        # The first time you read(), you will not know whether it is a
+        # CR separator or half of a CRLF separator.  Neither will be marked
+        # as seen, since you are waiting for your next read to determine
+        # what you have seen.  But there's no more to read ...
+                        
+        if self.atcr:
+            if data.startswith("\n"):
+                data = data[1:]
+                self.CRLF = True
+                if not data:
+                    data = self.do_read(n)
+            else:
+                self.CR = True
+            self.atcr = False
+            
+        for i in range(len(data)):
+            if data[i] == '\n':
+                if i > 0 and data[i-1] == '\r':
                     self.CRLF = True
                 else:
+                    self.NL = True
+            elif data[i] == '\r':
+                if i < len(data)-1 and data[i+1] != '\n':
                     self.CR = True
-                self.atcr = False
-
-            if data.endswith("\r"):
-                data = data[:len(data) - 1]
-                n += 1
-                self.atcr = True
-
-            for i in range(len(data)):
-                if data[i] == '\n':
-                    if i > 0 and data[i-1] == '\r':
-                        self.CRLF = True
-                    elif not previous_atcr:
-                        self.NL = True
-                elif data[i] == '\r':
-                    if i < len(data)-1 and data[i+1] != '\n':
-                        self.CR = True
-
-            result += data
-            n -= len(data)
-            if n <= 0:
-                break
-
-            data = self.do_read(n)
-
-        if "\r" in result:
-            result = replace_crlf_with_lf(result)
-
-        return result
+                    
+        if "\r" in data:
+            self.atcr = data.endswith("\r")
+            data = replace_crlf_with_lf(data)
+            
+        return data
 
     def readline(self):
         result = []
