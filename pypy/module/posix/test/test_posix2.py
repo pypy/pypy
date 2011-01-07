@@ -13,7 +13,7 @@ import signal
 
 def setup_module(mod):
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix'])
+        mod.space = gettestobjspace(usemodules=['posix', 'fcntl'])
     else:
         # On windows, os.popen uses the subprocess module
         mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread'])
@@ -247,12 +247,18 @@ class AppTestPosix:
         ex(self.posix.dup, UNUSEDFD)
 
     def test_fdopen(self):
+        import errno
         path = self.path
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY, 0777)
         f = posix.fdopen(fd, "r")
         f.close()
-        raises(OSError, posix.fdopen, fd)
+
+        # Ensure that fcntl is not faked
+        import fcntl
+        assert fcntl.__file__.endswith('pypy/module/fcntl')
+        exc = raises(OSError, posix.fdopen, fd)
+        assert exc.value.errno == errno.EBADF
 
     def test_fdopen_hackedbuiltins(self):
         "Same test, with __builtins__.file removed"
