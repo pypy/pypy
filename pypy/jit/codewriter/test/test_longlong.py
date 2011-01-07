@@ -1,6 +1,6 @@
 import py, sys
 
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype
@@ -165,11 +165,28 @@ class TestLongLong:
         assert oplist[1].result == v_z
 
     def test_prebuilt_constant_64(self):
-        py.test.skip("in-progress")
-        c_x = const(r_longlong(3000000000))
-        v_y = varoftype(lltype.SignedLongLong)
-        v_z = varoftype(lltype.SignedLongLong)
-        op = SpaceOperation('llong_add', [c_x, v_y], v_z)
-        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
-        oplist = tr.rewrite_operation(op)
-        xxx
+        for value in [3000000000, -3000000000, 12345678987654321]:
+            v_hi = intmask(value >> 32)
+            v_lo = intmask(value)
+            c_x = const(r_longlong(value))
+            v_y = varoftype(lltype.SignedLongLong)
+            v_z = varoftype(lltype.SignedLongLong)
+            op = SpaceOperation('llong_add', [c_x, v_y], v_z)
+            tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+            oplist = tr.rewrite_operation(op)
+            assert len(oplist) == 2
+            assert oplist[0].opname == 'residual_call_irf_f'
+            assert oplist[0].args[0].value == 'llong_from_two_ints'
+            assert oplist[0].args[1] == 'calldescr-93'
+            assert list(oplist[0].args[2]) == [const(v_hi), const(v_lo)]
+            assert list(oplist[0].args[3]) == []
+            assert list(oplist[0].args[4]) == []
+            v_x = oplist[0].result
+            assert isinstance(v_x, Variable)
+            assert oplist[1].opname == 'residual_call_irf_f'
+            assert oplist[1].args[0].value == 'llong_add'
+            assert oplist[1].args[1] == 'calldescr-70'
+            assert list(oplist[1].args[2]) == []
+            assert list(oplist[1].args[3]) == []
+            assert list(oplist[1].args[4]) == [v_x, v_y]
+            assert oplist[1].result == v_z

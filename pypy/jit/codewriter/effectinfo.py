@@ -73,6 +73,7 @@ class EffectInfo(object):
     OS_LLONG_UGT                = 90
     OS_LLONG_UGE                = 91
     OS_LLONG_URSHIFT            = 92
+    OS_LLONG_FROM_TWO_INTS      = 93
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,

@@ -800,14 +800,27 @@ class Transformer(object):
         for i in range(len(args)):
             if (isinstance(args[i], Constant) and
                     self._is_longlong(args[i].concretetype)):
+                from pypy.rlib.rarithmetic import intmask
                 v_x = varoftype(args[i].concretetype)
                 value = int(args[i].value)
-                assert type(value) is int     # XXX!
-                c_x = Constant(value, lltype.Signed)
-                op0 = SpaceOperation('llong_from_int', [c_x], v_x)
-                op1 = self.prepare_builtin_call(op0, "llong_from_int", [c_x])
-                op2 = self._handle_oopspec_call(op1, [c_x],
-                                                EffectInfo.OS_LLONG_FROM_INT)
+                if value == intmask(value):
+                    # a long long constant, but it fits in 32 bits
+                    c_x = Constant(value, lltype.Signed)
+                    op0 = SpaceOperation('llong_from_int', [c_x], v_x)
+                    op1 = self.prepare_builtin_call(op0, "llong_from_int",
+                                                    [c_x])
+                    op2 = self._handle_oopspec_call(op1, [c_x],
+                                                  EffectInfo.OS_LLONG_FROM_INT)
+                else:
+                    # a long long constant, requires two ints
+                    c_hi = Constant(intmask(value >> 32), lltype.Signed)
+                    c_lo = Constant(intmask(value), lltype.Signed)
+                    op0 = SpaceOperation('llong_from_two_ints', [c_hi, c_lo],
+                                         v_x)
+                    op1 = self.prepare_builtin_call(op0, "llong_from_two_ints",
+                                                    [c_hi, c_lo])
+                    op2 = self._handle_oopspec_call(op1, [c_hi, c_lo],
+                                             EffectInfo.OS_LLONG_FROM_TWO_INTS)
                 oplist.append(op2)
                 args = args[:]
                 args[i] = v_x

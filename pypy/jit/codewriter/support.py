@@ -295,6 +295,9 @@ def _ll_2_llong_urshift(xull, y):
 def _ll_1_llong_from_int(x):
     return r_longlong(x)
 
+def _ll_2_llong_from_two_ints(x_lo, x_hi):
+    return (r_longlong(x_hi) << 32) | r_longlong(r_uint(x_lo))
+
 def _ll_1_llong_to_int(xll):
     return intmask(xll)
 
