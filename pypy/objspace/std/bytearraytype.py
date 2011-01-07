@@ -78,6 +78,19 @@ def descr__new__(space, w_bytearraytype,
 
     return new_bytearray(space, w_bytearraytype, data)
 
+@gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root)
+def descr_bytearray__reduce__(space, w_self):
+    from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+    assert isinstance(w_self, W_BytearrayObject)
+    w_dict = w_self.getdict()
+    if w_dict is None:
+        w_dict = space.w_None
+    return space.newtuple([
+        space.type(w_self), space.newtuple([
+            space.wrap(''.join(w_self.data).decode('latin-1')),
+            space.wrap('latin-1')]),
+        w_dict])
+
 # ____________________________________________________________
 
 bytearray_typedef = StdTypeDef("bytearray",
@@ -87,5 +100,6 @@ bytearray(sequence) -> bytearray initialized from sequence\'s items
 If the argument is a bytearray, the return value is the same object.''',
     __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
+    __reduce__ = gateway.interp2app(descr_bytearray__reduce__),
     )
 bytearray_typedef.registermethods(globals())

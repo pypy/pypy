@@ -157,6 +157,8 @@ class AppTestBytesArray:
         b.extend(buffer('jkl'))
         assert b == 'abcdefghijkl'
 
+        raises(TypeError, b.extend, u"unicode")
+
     def test_delslice(self):
         b = bytearray('abcdefghi')
         del b[5:8]
@@ -197,3 +199,7 @@ class AppTestBytesArray:
 
     def test_int(self):
         assert int(bytearray('-1234')) == -1234
+
+    def test_reduce(self):
+        assert bytearray('caf\xe9').__reduce__() == (
+            bytearray, (u'caf\xe9', 'latin-1'), None)

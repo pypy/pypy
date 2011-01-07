@@ -56,7 +56,7 @@ class OperationError(Exception):
             s = self._compute_value()
         return '[%s: %s]' % (self.w_type, s)
 
-    def errorstr(self, space):
+    def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
         w_value = self.get_w_value(space)
         if space is None:
@@ -74,7 +74,10 @@ class OperationError(Exception):
                 exc_value = ""
             else:
                 try:
-                    exc_value = space.str_w(space.repr(w_value))
+                    if use_repr:
+                        exc_value = space.str_w(space.repr(w_value))
+                    else:
+                        exc_value = space.str_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
                     exc_value = "<oups, exception object itself cannot be str'd>"
@@ -230,8 +233,8 @@ class OperationError(Exception):
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
                 objrepr = '?'
-        msg = 'Exception %s in %s%s ignored\n' % (self.errorstr(space),
-                                                  where, objrepr)
+        msg = 'Exception %s in %s%s ignored\n' % (
+            self.errorstr(space, use_repr=True), where, objrepr)
         try:
             space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
         except OperationError:

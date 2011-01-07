@@ -25,7 +25,7 @@ def _to_complex(x):
     if isinstance(x, complex):
         return x
     if isinstance(x, (str, unicode)):
-        return x          # and let it fail later
+        raise TypeError('float or complex required')
     return complex(x)
 
 def _prodi(x):
