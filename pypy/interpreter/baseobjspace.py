@@ -1013,20 +1013,9 @@ class ObjSpace(object):
                 (start, stop, step)
         """
         if self.is_true(self.isinstance(w_index_or_slice, self.w_slice)):
-            w_indices = self.call_method(w_index_or_slice, "indices",
-                                         self.wrap(seqlength))
-            w_start, w_stop, w_step = self.fixedview(w_indices, 3)
-            start = self.int_w(w_start)
-            stop  = self.int_w(w_stop)
-            step  = self.int_w(w_step)
-            if step == 0:
-                raise OperationError(self.w_ValueError,
-                                     self.wrap("slice step cannot be zero"))
-            if start < 0:
-                start = 0
-            if stop < start:
-                stop = start
-            assert stop <= seqlength
+            from pypy.objspace.std.sliceobject import W_SliceObject
+            assert isinstance(w_index_or_slice, W_SliceObject)
+            start, stop, step = w_index_or_slice.indices3(self, seqlength)
         else:
             start = self.int_w(w_index_or_slice)
             if start < 0:
@@ -1034,9 +1023,31 @@ class ObjSpace(object):
             if not (0 <= start < seqlength):
                 raise OperationError(self.w_IndexError,
                                      self.wrap("index out of range"))
-            stop  = 0
-            step  = 0
+            stop = 0
+            step = 0
         return start, stop, step
+
+    def decode_index4(self, w_index_or_slice, seqlength):
+        """Helper for custom sequence implementations
+             -> (index, 0, 0, 1) or
+                (start, stop, step, slice_length)
+        """
+        if self.is_true(self.isinstance(w_index_or_slice, self.w_slice)):
+            from pypy.objspace.std.sliceobject import W_SliceObject
+            assert isinstance(w_index_or_slice, W_SliceObject)
+            start, stop, step, length = w_index_or_slice.indices4(self,
+                                                                  seqlength)
+        else:
+            start = self.int_w(w_index_or_slice)
+            if start < 0:
+                start += seqlength
+            if not (0 <= start < seqlength):
+                raise OperationError(self.w_IndexError,
+                                     self.wrap("index out of range"))
+            stop = 0
+            step = 0
+            length = 1
+        return start, stop, step, length
 
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         """Return w_obj.__index__() as an RPython int.
