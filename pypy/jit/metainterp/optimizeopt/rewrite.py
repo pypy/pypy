@@ -4,6 +4,7 @@ from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -378,6 +379,21 @@ class OptRewrite(Optimization):
         if length and length.getint() == 0:
             return True # 0-length arraycopy
         return False
+
+    def optimize_INT_FLOORDIV(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+
+        if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
+            val = v2.box.getint()
+            shift = 0
+            while (1 << shift) < val:
+                shift += 1
+            if (1 << shift) == val:
+                op = op.copy_and_change(rop.INT_RSHIFT,
+                                        args = [op.getarg(0), ConstInt(shift)])
+        self.emit_operation(op)
+
 
 optimize_ops = _findall(OptRewrite, 'optimize_')
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')

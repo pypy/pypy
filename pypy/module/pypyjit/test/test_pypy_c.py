@@ -1378,6 +1378,38 @@ class PyPyCJITTests(object):
                         i += 1
                     return sa
                 ''', ops, ([a, b], r), count_debug_merge_point=False)
+
+    def test_division_to_rshift(self):
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        a1, b1, res1 = 10, 20, 0
+        a2, b2, res2 = 10, -20, 0
+        a3, b3, res3 = -10, -20, 0
+        def dd(a, b, aval, bval):
+            m = {'a': aval, 'b': bval}
+            if not isinstance(a, int):
+                a=m[a]
+            if not isinstance(b, int):
+                b=m[b]
+            return a/b
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s / %s\n' % (a, b)
+                res1 += dd(a, b, a1, b1)
+                res2 += dd(a, b, a2, b2)
+                res3 += dd(a, b, a3, b3)
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+%s                
+                i += 1
+            return sa
+        ''' % code, 0,   ([a1, b1], 2000 * res1),
+                         ([a2, b2], 2000 * res2),
+                         ([a3, b3], 2000 * res3),
+                         count_debug_merge_point=False)
         
 
 class AppTestJIT(PyPyCJITTests):

@@ -4035,7 +4035,44 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, preamble)
 
-
+    def test_division_to_rshift(self):
+        ops = """
+        [i1, i2]
+        it = int_gt(i1, 0) 
+        guard_true(it)[]
+        i3 = int_floordiv(i1, i2)
+        i4 = int_floordiv(2, i2)
+        i5 = int_floordiv(i1, 2)
+        i6 = int_floordiv(3, i2)
+        i7 = int_floordiv(i1, 3)
+        i8 = int_floordiv(4, i2)
+        i9 = int_floordiv(i1, 4)
+        i10 = int_floordiv(i1, 0)
+        i11 = int_floordiv(i1, 1)
+        i12 = int_floordiv(i2, 2)
+        i13 = int_floordiv(i2, 3)
+        i14 = int_floordiv(i2, 4)
+        jump(i5, i14)
+        """
+        expected = """
+        [i1, i2]
+        it = int_gt(i1, 0) 
+        guard_true(it)[]        
+        i3 = int_floordiv(i1, i2)
+        i4 = int_floordiv(2, i2)
+        i5 = int_rshift(i1, 1)
+        i6 = int_floordiv(3, i2)
+        i7 = int_floordiv(i1, 3)
+        i8 = int_floordiv(4, i2)
+        i9 = int_rshift(i1, 2)        
+        i10 = int_floordiv(i1, 0)
+        i11 = int_rshift(i1, 0)
+        i12 = int_floordiv(i2, 2)
+        i13 = int_floordiv(i2, 3)
+        i14 = int_floordiv(i2, 4)
+        jump(i5, i14)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_subsub_ovf(self):
         ops = """
