@@ -158,8 +158,7 @@ def flock(space, w_fd, op):
     if has_flock:
         rv = c_flock(fd, op)
         if rv < 0:
-            raise OperationError(space.w_IOError,
-                space.wrap(_get_error_msg()))
+            raise _get_error(space, "flock")
     else:
         l = _check_flock_op(space, op)
         rffi.setintfield(l, 'c_l_whence', 0)
@@ -249,8 +248,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
             arg = rffi.charpsize2str(ll_arg, len(arg))
             lltype.free(ll_arg, flavor='raw')
             if rv < 0:
-                raise OperationError(space.w_IOError,
-                    space.wrap(_get_error_msg()))
+                raise _get_error(space, "ioctl")
             rwbuffer.setslice(0, arg)
             return space.wrap(rv)
 
@@ -274,8 +272,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
         arg = rffi.charpsize2str(ll_arg, len(arg))
         lltype.free(ll_arg, flavor='raw')
         if rv < 0:
-            raise OperationError(space.w_IOError,
-                space.wrap(_get_error_msg()))
+            raise _get_error(space, "ioctl")
         return space.wrap(arg)
 
     raise OperationError(space.w_TypeError,
