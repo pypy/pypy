@@ -1,8 +1,9 @@
-from pypy.module._io.interp_textio import W_TextIOBase
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.module._io.interp_textio import W_TextIOBase
+from pypy.module._io.interp_iobase import convert_size
 
 class W_StringIO(W_TextIOBase):
     def __init__(self, space):
@@ -15,11 +16,15 @@ class W_StringIO(W_TextIOBase):
     def _check_initialized(self):
         pass
 
-    @unwrap_spec(ObjSpace, W_Root)
-    def descr_new(space, w_subtype):
-        self = space.allocate_instance(W_StringIO, w_subtype)
-        W_StringIO.__init__(self, space)
-        return space.wrap(self)
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def descr_init(self, space, w_initvalue=None):
+        # In case __init__ is called multiple times
+        self.buf = []
+        self.pos = 0
+
+        if not space.is_w(w_initvalue, space.w_None):
+            self.write_w(space, w_initvalue)
+            self.pos = 0
 
     def resize_buffer(self, newlength):
         if len(self.buf) > newlength:
@@ -54,6 +59,17 @@ class W_StringIO(W_TextIOBase):
             self.write(string)
         return space.wrap(size)
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def read_w(self, space, w_size=None):
+        size = convert_size(space, w_size)
+        start = self.pos
+        if size >= 0:
+            end = start + size
+        else:
+            end = len(self.buf)
+        self.pos = end
+        return space.wrap(u''.join(self.buf[start:end]))
+
     @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
         self._check_initialized()
@@ -62,8 +78,10 @@ class W_StringIO(W_TextIOBase):
 
 W_StringIO.typedef = TypeDef(
     'StringIO', W_TextIOBase.typedef,
-    __new__  = interp2app(W_StringIO.descr_new.im_func),
+    __new__  = generic_new_descr(W_StringIO),
+    __init__ = interp2app(W_StringIO.descr_init),
     write=interp2app(W_StringIO.write_w),
+    read=interp2app(W_StringIO.read_w),
     getvalue=interp2app(W_StringIO.getvalue_w),
     )
 

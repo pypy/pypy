@@ -5,3 +5,5 @@ class AppTestStringIO:
         sio.write(u'Hello ')
         sio.write(u'world')
         assert sio.getvalue() == u'Hello world'
+
+        assert io.StringIO(u"hello").read() == u'hello'

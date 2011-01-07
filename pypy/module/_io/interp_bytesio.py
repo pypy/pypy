@@ -197,6 +197,9 @@ class W_BytesIO(W_BufferedIOBase):
         pos = space.int_w(w_pos)
         self.buf = []
         self.write_w(space, w_content)
+        if pos < 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "position value cannot be negative"))
         self.pos = pos
         if not space.is_w(w_dict, space.w_None):
             space.call_method(self.getdict(), "update", w_dict)
