@@ -249,6 +249,12 @@ class BaseTestRint(BaseRtypingTest):
                 assert len(block.operations) == 1
                 assert block.operations[0].opname.endswith(name)
 
+    def test_cast_uint_to_longlong(self):
+        def f(x):
+            return r_longlong(r_uint(x))
+        res = self.interpret(f, [-42])
+        assert res == (sys.maxint+1) * 2 - 42
+
     div_mod_iteration_count = 1000
     def test_div_mod(self):
         import random
