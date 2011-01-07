@@ -165,6 +165,24 @@ def normalizedinttype(t):
         assert t.BITS <= r_longlong.BITS
         return build_int(None, t.SIGNED, r_longlong.BITS)
 
+def most_neg_value_of_same_type(x):
+    from pypy.rpython.lltypesystem import lltype
+    return most_neg_value_of(lltype.typeOf(x))
+most_neg_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
+
+def most_neg_value_of(tp):
+    from pypy.rpython.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return -sys.maxint-1
+    r_class = rffi.platform.numbertype_to_rclass[tp]
+    assert issubclass(r_class, base_int)
+    if r_class.SIGNED:
+        return r_class(-(r_class.MASK >> 1) - 1)
+    else:
+        return r_class(0)
+most_neg_value_of._annspecialcase_ = 'specialize:memo'
+
+
 class base_int(long):
     """ fake unsigned integer implementation """
 

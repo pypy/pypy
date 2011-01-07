@@ -86,15 +86,18 @@ class Test_rbigint(object):
 
     def test_args_from_int(self):
         BASE = 1 << SHIFT
+        MAX = int(BASE-1)
         assert rbigint.fromrarith_int(0).eq(rbigint([0], 0))
         assert rbigint.fromrarith_int(17).eq(rbigint([17], 1))
-        assert rbigint.fromrarith_int(BASE-1).eq(rbigint([intmask(BASE-1)], 1))
-        assert rbigint.fromrarith_int(BASE).eq(rbigint([0, 1], 1))
-        assert rbigint.fromrarith_int(BASE**2).eq(rbigint([0, 0, 1], 1))
+        assert rbigint.fromrarith_int(MAX).eq(rbigint([MAX], 1))
+        assert rbigint.fromrarith_int(r_longlong(BASE)).eq(rbigint([0, 1], 1))
+        assert rbigint.fromrarith_int(r_longlong(BASE**2)).eq(
+            rbigint([0, 0, 1], 1))
         assert rbigint.fromrarith_int(-17).eq(rbigint([17], -1))
-        assert rbigint.fromrarith_int(-(BASE-1)).eq(rbigint([intmask(BASE-1)], -1))
-        assert rbigint.fromrarith_int(-BASE).eq(rbigint([0, 1], -1))
-        assert rbigint.fromrarith_int(-(BASE**2)).eq(rbigint([0, 0, 1], -1))
+        assert rbigint.fromrarith_int(-MAX).eq(rbigint([MAX], -1))
+        assert rbigint.fromrarith_int(-MAX-1).eq(rbigint([0, 1], -1))
+        assert rbigint.fromrarith_int(r_longlong(-(BASE**2))).eq(
+            rbigint([0, 0, 1], -1))
 #        assert rbigint.fromrarith_int(-sys.maxint-1).eq((
 #            rbigint.digits_for_most_neg_long(-sys.maxint-1), -1)
 
