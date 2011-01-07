@@ -47,7 +47,27 @@ class EffectInfo(object):
     OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
     #
+    OS_LLONG_IS_TRUE            = 67
+    OS_LLONG_NEG                = 68
+    OS_LLONG_INVERT             = 69
     OS_LLONG_ADD                = 70
+    OS_LLONG_SUB                = 71
+    OS_LLONG_MUL                = 72
+    OS_LLONG_LT                 = 73
+    OS_LLONG_LE                 = 74
+    OS_LLONG_EQ                 = 75
+    OS_LLONG_NE                 = 76
+    OS_LLONG_GT                 = 77
+    OS_LLONG_GE                 = 78
+    OS_LLONG_AND                = 79
+    OS_LLONG_OR                 = 80
+    OS_LLONG_LSHIFT             = 81
+    OS_LLONG_RSHIFT             = 82
+    OS_LLONG_XOR                = 83
+    OS_LLONG_FROM_INT           = 84
+    OS_LLONG_TO_INT             = 85
+    OS_LLONG_FROM_FLOAT         = 86
+    OS_LLONG_TO_FLOAT           = 87
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,

@@ -227,6 +227,10 @@ def _ll_1_int_abs(x):
 # long long support
 # -----------------
 
+def _ll_1_llong_is_true(xf):
+    x = float2longlong(xf)
+    return bool(x)
+
 def _ll_2_llong_add(xf, yf):
     x = float2longlong(xf)
     y = float2longlong(yf)

@@ -783,15 +783,16 @@ class Transformer(object):
     # and unsupported ones are turned into a call to a function from
     # jit.codewriter.support.
 
-    def rewrite_op_llong_add(self, op):
-        if 'add' in self.cpu.supports_longlong:
-            return op
-        else:
-            op1 = self.prepare_builtin_call(op, 'llong_add', op.args)
-            return self._handle_oopspec_call(op1, op.args,
-                                             EffectInfo.OS_LLONG_ADD)
-
-    rewrite_op_ullong_add = rewrite_op_llong_add
+    for _op in ['is_true',
+                'add',
+                ]:
+        exec py.code.Source('''
+            def rewrite_op_llong_%s(self, op):
+                op1 = self.prepare_builtin_call(op, "llong_%s", op.args)
+                return self._handle_oopspec_call(op1, op.args,
+                                                 EffectInfo.OS_LLONG_%s)
+            rewrite_op_ullong_%s = rewrite_op_llong_%s
+        ''' % (_op, _op, _op.upper(), _op, _op)).compile()
 
     # ----------
     # Renames, from the _old opname to the _new one.
