@@ -14,7 +14,8 @@ from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
-def _get_jitcodes(testself, CPUClass, func, values, type_system):
+def _get_jitcodes(testself, CPUClass, func, values, type_system,
+                  supports_longlong=False, **kwds):
     from pypy.jit.codewriter import support, codewriter
     from pypy.jit.metainterp import simple_optimize
 
@@ -58,7 +59,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     testself.cw = cw
     policy = JitPolicy()
-    policy.set_supports_longlong(True)
+    policy.set_supports_longlong(supports_longlong)
     cw.find_all_graphs(policy)
     #
     testself.warmrunnerstate = FakeWarmRunnerState()
@@ -158,7 +159,7 @@ class JitMixin:
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
-        _get_jitcodes(self, self.CPUClass, f, args, self.type_system)
+        _get_jitcodes(self, self.CPUClass, f, args, self.type_system, **kwds)
         # try to run it with blackhole.py
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
@@ -1268,14 +1269,20 @@ class BasicTests:
         def g(n, m, o, p):
             # On 64-bit platforms, long longs == longs.  On 32-bit platforms,
             # this function should be either completely marked as residual
-            # (backends with supports_longlong==False), or be compiled as a
+            # (with supports_longlong==False), or be compiled as a
             # sequence of residual calls (with long long arguments).
             n = r_longlong(n)
             m = r_longlong(m)
             return intmask((n*m + p) // o)
         def f(n, m, o, p):
             return g(n, m, o, p) // 3
-        res = self.interp_operations(f, [1000000000, 90, 91, -17171])
+        #
+        res = self.interp_operations(f, [1000000000, 90, 91, -17171],
+                                     supports_longlong=False)
+        assert res == ((1000000000 * 90 - 17171) // 91) // 3
+        #
+        res = self.interp_operations(f, [1000000000, 90, 91, -17171],
+                                     supports_longlong=True)
         assert res == ((1000000000 * 90 - 17171) // 91) // 3
 
     def test_long_long_field(self):
@@ -1289,7 +1296,13 @@ class BasicTests:
             return intmask(a.n)
         def f(n, m):
             return g(A(), n, m)
-        res = self.interp_operations(f, [2147483647, -21474])
+        #
+        res = self.interp_operations(f, [2147483647, -21474],
+                                     supports_longlong=False)
+        assert res == intmask(2147483647 + 21474)
+        #
+        res = self.interp_operations(f, [2147483647, -21474],
+                                     supports_longlong=True)
         assert res == intmask(2147483647 + 21474)
 
     def test_free_object(self):
