@@ -20,7 +20,6 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, intmask
-from pypy.rlib.longlong2float import longlong2float, float2longlong
 
 def getargtypes(annotator, values):
     if values is None:    # for backend tests producing stand-alone exe's
@@ -192,7 +191,7 @@ def _ll_2_int_floordiv_ovf(x, y):
 def _ll_2_int_floordiv_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
-    return llop.int_floordiv_zer(lltype.Signed, x, y)
+    return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_mod_ovf_zer(x, y):
     if y == 0:
@@ -227,136 +226,122 @@ def _ll_1_int_abs(x):
 # long long support
 # -----------------
 
-def _ll_1_llong_is_true(xf):
-    x = float2longlong(xf)
-    return bool(x)
+def _ll_1_llong_is_true(xll):
+    return bool(xll)
 
-def _ll_1_llong_neg(x):
-    x = float2longlong(xf)
-    y = -x
-    return longlong2float(y)
+def _ll_1_llong_neg(xll):
+    return -xll
 
-def _ll_1_llong_invert(x):
-    x = float2longlong(xf)
-    y = ~x
-    return longlong2float(y)
+def _ll_1_llong_invert(xll):
+    return ~xll
 
-def _ll_2_llong_lt(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return x < y
+def _ll_2_llong_lt(xll, yll):
+    return xll < yll
 
-def _ll_2_llong_le(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return x <= y
+def _ll_2_llong_le(xll, yll):
+    return xll <= yll
 
-def _ll_2_llong_eq(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return x == y
+def _ll_2_llong_eq(xll, yll):
+    return xll == yll
 
-def _ll_2_llong_ne(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return x != y
+def _ll_2_llong_ne(xll, yll):
+    return xll != yll
 
-def _ll_2_llong_gt(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return x > y
+def _ll_2_llong_gt(xll, yll):
+    return xll > yll
 
-def _ll_2_llong_ge(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return x >= y
+def _ll_2_llong_ge(xll, yll):
+    return xll >= yll
 
-def _ll_2_llong_ult(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return r_ulonglong(x) < r_ulonglong(y)
+def _ll_2_llong_ult(xull, yull):
+    return xull < yull
 
-def _ll_2_llong_ule(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return r_ulonglong(x) <= r_ulonglong(y)
+def _ll_2_llong_ule(xull, yull):
+    return xull <= yull
 
-def _ll_2_llong_ugt(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return r_ulonglong(x) > r_ulonglong(y)
+def _ll_2_llong_ugt(xull, yull):
+    return xull > yull
 
-def _ll_2_llong_uge(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    return r_ulonglong(x) >= r_ulonglong(y)
+def _ll_2_llong_uge(xull, yull):
+    return xull >= yull
 
-def _ll_2_llong_add(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    z = x + y
-    return longlong2float(z)
+def _ll_2_llong_add(xll, yll):
+    return xll + yll
 
-def _ll_2_llong_sub(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    z = x - y
-    return longlong2float(z)
+def _ll_2_llong_sub(xll, yll):
+    return xll - yll
 
-def _ll_2_llong_mul(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    z = x * y
-    return longlong2float(z)
+def _ll_2_llong_mul(xll, yll):
+    return xll * yll
 
-def _ll_2_llong_and(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    z = x & y
-    return longlong2float(z)
+def _ll_2_llong_and(xll, yll):
+    return xll & yll
 
-def _ll_2_llong_or(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    z = x | y
-    return longlong2float(z)
+def _ll_2_llong_or(xll, yll):
+    return xll | yll
 
-def _ll_2_llong_xor(xf, yf):
-    x = float2longlong(xf)
-    y = float2longlong(yf)
-    z = x ^ y
-    return longlong2float(z)
+def _ll_2_llong_xor(xll, yll):
+    return xll ^ yll
 
-def _ll_2_llong_lshift(xf, y):
-    x = float2longlong(xf)
-    z = x << y
-    return longlong2float(z)
+def _ll_2_llong_lshift(xll, y):
+    return xll << y
 
-def _ll_2_llong_rshift(xf, y):
-    x = float2longlong(xf)
-    z = x >> y
-    return longlong2float(z)
+def _ll_2_llong_rshift(xll, y):
+    return xll >> y
 
-def _ll_2_llong_urshift(xf, y):
-    x = float2longlong(xf)
-    z = r_ulonglong(x) >> y
-    return longlong2float(r_longlong(z))
+def _ll_2_llong_urshift(xull, y):
+    return xull >> y
 
 def _ll_1_llong_from_int(x):
-    y = r_longlong(x)
-    return longlong2float(y)
+    return r_longlong(x)
 
-def _ll_1_llong_to_int(xf):
-    x = float2longlong(xf)
-    return intmask(x)
+def _ll_1_llong_to_int(xll):
+    return intmask(xll)
 
 def _ll_1_llong_from_float(xf):
-    y = r_longlong(xf)
-    return longlong2float(y)
+    return r_longlong(xf)
 
-def _ll_1_llong_to_float(xf):
-    x = float2longlong(xf)
-    return float(x)
+def _ll_1_llong_to_float(xll):
+    return float(xll)
+
+
+def _ll_1_llong_abs(xll):
+    if xll < 0:
+        return -xll
+    else:
+        return xll
+
+def _ll_2_llong_floordiv(xll, yll):
+    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_llong_floordiv_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_llong_mod(xll, yll):
+    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_llong_mod_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_floordiv(xll, yll):
+    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_floordiv_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_mod(xll, yll):
+    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_mod_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
 
 
 # libffi support

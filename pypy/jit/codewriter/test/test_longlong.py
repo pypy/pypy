@@ -22,8 +22,8 @@ class FakeBuiltinCallControl:
         return False
 
 class FakeCPU:
+    supports_longlong = True
     def __init__(self):
-        self.supports_longlong = []
         self.rtyper = FakeRTyper()
 
 

@@ -57,7 +57,9 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
     cpu = CPUClass(rtyper, stats, None, False)
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     testself.cw = cw
-    cw.find_all_graphs(JitPolicy())
+    policy = JitPolicy()
+    policy.set_supports_longlong(True)
+    cw.find_all_graphs(policy)
     #
     testself.warmrunnerstate = FakeWarmRunnerState()
     testself.warmrunnerstate.cpu = cpu
@@ -1263,17 +1265,18 @@ class BasicTests:
 
     def test_long_long(self):
         from pypy.rlib.rarithmetic import r_longlong, intmask
-        def g(n, m, o):
-            # This function should be completely marked as residual by
-            # codewriter.py on 32-bit platforms.  On 64-bit platforms,
-            # this function should be JITted and the test should pass too.
+        def g(n, m, o, p):
+            # On 64-bit platforms, long longs == longs.  On 32-bit platforms,
+            # this function should be either completely marked as residual
+            # (backends with supports_longlong==False), or be compiled as a
+            # sequence of residual calls.
             n = r_longlong(n)
             m = r_longlong(m)
-            return intmask((n*m) // o)
-        def f(n, m, o):
-            return g(n, m, o) // 3
-        res = self.interp_operations(f, [1000000000, 90, 91])
-        assert res == (1000000000 * 90 // 91) // 3
+            return intmask((n*m + p) // o)
+        def f(n, m, o, p):
+            return g(n, m, o, p) // 3
+        res = self.interp_operations(f, [1000000000, 90, 91, -17171])
+        assert res == ((1000000000 * 90 - 17171) // 91) // 3
 
     def test_free_object(self):
         import weakref
