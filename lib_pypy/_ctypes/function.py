@@ -46,7 +46,7 @@ class CFuncPtr(_CData):
     _needs_free = False
     callable = None
     _ptr = None
-    _buffer = None # XXX: maybe we should kill it when jitypes2 is complete
+    _buffer = None
     _address = None
     # win32 COM properties
     _paramflags = None
@@ -207,10 +207,6 @@ class CFuncPtr(_CData):
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
         result = funcptr(*newargs)
         result = self._build_result(restype, result, argtypes, newargs)
-        #
-        ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
-        ##                       for arg in args])
-        ## result = self._build_result(restype, resbuffer, argtypes, args)
 
         # The 'errcheck' protocol
         if self._errcheck_:
