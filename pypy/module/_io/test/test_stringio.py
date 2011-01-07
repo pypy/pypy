@@ -8,6 +8,14 @@ class AppTestStringIO:
 
         assert io.StringIO(u"hello").read() == u'hello'
 
+    def test_capabilities(self):
+        import io
+        sio = io.StringIO()
+        assert sio.readable()
+        assert sio.writable()
+        assert sio.seekable()
+        sio.close()
+
     def test_closed(self):
         import io
         sio = io.StringIO()

@@ -78,6 +78,18 @@ class W_StringIO(W_TextIOBase):
         return space.wrap(u''.join(self.buf))
 
     @unwrap_spec('self', ObjSpace)
+    def readable_w(self, space):
+        return space.w_True
+
+    @unwrap_spec('self', ObjSpace)
+    def writable_w(self, space):
+        return space.w_True
+
+    @unwrap_spec('self', ObjSpace)
+    def seekable_w(self, space):
+        return space.w_True
+
+    @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         self.buf = None
 
@@ -91,6 +103,9 @@ W_StringIO.typedef = TypeDef(
     write=interp2app(W_StringIO.write_w),
     read=interp2app(W_StringIO.read_w),
     getvalue=interp2app(W_StringIO.getvalue_w),
+    readable = interp2app(W_StringIO.readable_w),
+    writable = interp2app(W_StringIO.writable_w),
+    seekable = interp2app(W_StringIO.seekable_w),
     close = interp2app(W_StringIO.close_w),
     closed = GetSetProperty(W_StringIO.closed_get_w),
     )
