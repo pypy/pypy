@@ -1013,6 +1013,7 @@ class TextInputFilter(Stream):
             pos += 1
             self.atcr = False
             if self.buf == "\n":
+                self.CRLF = True
                 self.buf = ""
         return pos - len(self.buf)
 

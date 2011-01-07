@@ -116,6 +116,18 @@ class AppTestFile(object):
         f.close()
         assert f.newlines == "\r\n"
 
+        # now use readline()
+        f = self.file(self.temppath, "rU")
+        res = f.readline()
+        assert res == "\n"
+        # this tell() is necessary for CPython as well to update f.newlines
+        f.tell()
+        assert f.newlines == "\r\n"
+        res = f.readline()
+        assert res == ""
+        assert f.newlines == "\r\n"
+        f.close()
+
     def test_unicode(self):
         import os
         f = self.file(self.temppath, "w")
