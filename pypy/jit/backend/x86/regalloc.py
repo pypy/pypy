@@ -677,14 +677,20 @@ class RegAlloc(object):
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
-        effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
-            if oopspecindex in (EffectInfo.OS_LLONG_ADD,
-                                EffectInfo.OS_LLONG_SUB):
-                return self._consider_llong_binop_rr(op)
-            if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
-                return self._consider_llong_to_int(op)
+        if IS_X86_32:
+            # support for some of the llong operations,
+            # which only exist on x86-32
+            effectinfo = op.getdescr().get_extra_info()
+            if effectinfo is not None:
+                oopspecindex = effectinfo.oopspecindex
+                if oopspecindex in (EffectInfo.OS_LLONG_ADD,
+                                    EffectInfo.OS_LLONG_SUB,
+                                    EffectInfo.OS_LLONG_AND,
+                                    EffectInfo.OS_LLONG_OR,
+                                    EffectInfo.OS_LLONG_XOR):
+                    return self._consider_llong_binop_rr(op)
+                if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
+                    return self._consider_llong_to_int(op)
         #
         self._consider_call(op)
 

@@ -1100,7 +1100,10 @@ class Assembler386(object):
         self.mc.DIV_r(ecx.value)
 
     genop_llong_add = _binaryop("PADDQ", True)
-    genop_llong_sub = _binaryop("PSUBQ", True)
+    genop_llong_sub = _binaryop("PSUBQ")
+    genop_llong_and = _binaryop("PAND",  True)
+    genop_llong_or  = _binaryop("POR",   True)
+    genop_llong_xor = _binaryop("PXOR",  True)
 
     def genop_llong_to_int(self, op, arglocs, resloc):
         loc = arglocs[0]

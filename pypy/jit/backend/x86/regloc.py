@@ -459,6 +459,9 @@ class LocationCodeBuilder(object):
 
     PADDQ = _binaryop('PADDQ')
     PSUBQ = _binaryop('PSUBQ')
+    PAND  = _binaryop('PAND')
+    POR   = _binaryop('POR')
+    PXOR  = _binaryop('PXOR')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')
