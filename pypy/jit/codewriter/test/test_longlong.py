@@ -178,7 +178,7 @@ class TestLongLong:
             assert oplist[0].opname == 'residual_call_irf_f'
             assert oplist[0].args[0].value == 'llong_from_two_ints'
             assert oplist[0].args[1] == 'calldescr-93'
-            assert list(oplist[0].args[2]) == [const(v_hi), const(v_lo)]
+            assert list(oplist[0].args[2]) == [const(v_lo), const(v_hi)]
             assert list(oplist[0].args[3]) == []
             assert list(oplist[0].args[4]) == []
             v_x = oplist[0].result

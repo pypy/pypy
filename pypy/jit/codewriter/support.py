@@ -19,7 +19,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
-from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, intmask
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 
 def getargtypes(annotator, values):
     if values is None:    # for backend tests producing stand-alone exe's
@@ -305,10 +305,10 @@ def _ll_2_llong_urshift(xull, y):
     return xull >> y
 
 def _ll_1_llong_from_int(x):
-    return r_longlong(x)
+    return r_longlong(intmask(x))
 
 def _ll_2_llong_from_two_ints(x_lo, x_hi):
-    z = (r_ulonglong(x_hi) << 32) | r_ulonglong(r_uint(x_lo))
+    z = (r_ulonglong(r_uint(x_hi)) << 32) | r_ulonglong(r_uint(x_lo))
     return u_to_longlong(z)
 
 def _ll_1_llong_to_int(xll):
@@ -318,7 +318,7 @@ def _ll_1_llong_from_float(xf):
     return r_longlong(xf)
 
 def _ll_1_llong_to_float(xll):
-    return float(xll)
+    return float(rffi.cast(lltype.SignedLongLong, xll))
 
 
 def _ll_1_llong_abs(xll):

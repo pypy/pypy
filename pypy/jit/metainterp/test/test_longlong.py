@@ -5,6 +5,7 @@ class WrongResult(Exception):
     pass
 
 def compare(xll, highres, lores):
+    xll = r_ulonglong(xll)
     if intmask(xll) != lores:
         raise WrongResult
     if intmask(xll >> 32) != highres:
@@ -117,13 +118,15 @@ class LongLongTests:
         def f(n1, n2):
             # n == 30002000000000
             n = (r_ulonglong(n1) << 32) | r_ulonglong(n2)
+            compare(n, 6985, 1653437440)
             compare(n < n,  0, 0)
             compare(n <= n, 0, 1)
             compare(n == n, 0, 1)
             compare(n != n, 0, 0)
             compare(n >  n, 0, 0)
             compare(n >= n, 0, 1)
-            o = n + 1000000000
+            o = (r_ulonglong(n1) << 32) | r_ulonglong(r_uint(n2) + 1000000000)
+            compare(o, 6985, -1641529856)
             compare(n <  o, 0, 1)     # low word differs
             compare(n <= o, 0, 1)
             compare(o <  n, 0, 0)
@@ -146,6 +149,7 @@ class LongLongTests:
             compare(n == p, 0, 0)
             compare(n != p, 0, 1)
             return 1
+        f(6985, 1653437440)
         self.interp_operations(f, [6985, 1653437440])
 
     def test_unsigned_binops(self):

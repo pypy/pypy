@@ -814,11 +814,11 @@ class Transformer(object):
                     # a long long constant, requires two ints
                     c_hi = Constant(intmask(value >> 32), lltype.Signed)
                     c_lo = Constant(intmask(value), lltype.Signed)
-                    op0 = SpaceOperation('llong_from_two_ints', [c_hi, c_lo],
+                    op0 = SpaceOperation('llong_from_two_ints', [c_lo, c_hi],
                                          v_x)
                     op1 = self.prepare_builtin_call(op0, "llong_from_two_ints",
-                                                    [c_hi, c_lo])
-                    op2 = self._handle_oopspec_call(op1, [c_hi, c_lo],
+                                                    [c_lo, c_hi])
+                    op2 = self._handle_oopspec_call(op1, [c_lo, c_hi],
                                              EffectInfo.OS_LLONG_FROM_TWO_INTS)
                 oplist.append(op2)
                 args = args[:]
@@ -862,6 +862,8 @@ class Transformer(object):
                           ('truncate_longlong_to_int', 'TO_INT'),
                           ('cast_float_to_longlong',   'FROM_FLOAT'),
                           ('cast_longlong_to_float',   'TO_FLOAT'),
+                          # internal pseuso-operation:
+                          ('two_ints_to_longlong',     'FROM_TWO_INTS'),
                           ]:
         exec py.code.Source('''
             def rewrite_op_%s(self, op):
@@ -878,11 +880,18 @@ class Transformer(object):
         fromll = self._is_longlong(op.args[0].concretetype)
         toll   = self._is_longlong(op.result.concretetype)
         if fromll != toll:
+            args = op.args
             if fromll:
                 opname = 'truncate_longlong_to_int'
             else:
-                opname = 'cast_int_to_longlong'
-            op1 = SpaceOperation(opname, op.args, op.result)
+                from pypy.rpython.lltypesystem import rffi
+                if rffi.cast(op.args[0].concretetype, -1) < 0:
+                    opname = 'cast_int_to_longlong'
+                else:
+                    opname = 'two_ints_to_longlong'
+                    c_hi = Constant(0, lltype.Signed)
+                    args = [args[0], c_hi]
+            op1 = SpaceOperation(opname, args, op.result)
             return self.rewrite_operation(op1)
 
     # ----------
