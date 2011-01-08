@@ -986,8 +986,6 @@ class Assembler386(object):
     genop_float_sub = _binaryop('SUBSD')
     genop_float_mul = _binaryop('MULSD', True)
     genop_float_truediv = _binaryop('DIVSD')
-    genop_llong_add = _binaryop("PADDQ", True)
-    genop_llong_sub = _binaryop("PSUBQ", True)
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -1100,6 +1098,20 @@ class Assembler386(object):
     def genop_uint_floordiv(self, op, arglocs, resloc):
         self.mc.XOR_rr(edx.value, edx.value)
         self.mc.DIV_r(ecx.value)
+
+    genop_llong_add = _binaryop("PADDQ", True)
+    genop_llong_sub = _binaryop("PSUBQ", True)
+
+    def genop_llong_to_int(self, op, arglocs, resloc):
+        loc = arglocs[0]
+        assert isinstance(resloc, RegLoc)
+        if isinstance(loc, RegLoc):
+            self.mc.MOVD_rx(resloc.value, loc.value)
+        elif isinstance(loc, StackLoc):
+            self.mc.MOV_rb(resloc.value, loc.value)
+        else:
+            not_implemented("llong_to_int: %s" % (loc,))
+
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax

@@ -186,6 +186,15 @@ class LongLongTests:
                                      supports_longlong=True)
         assert res == intmask(2147483647 + 21474)
 
+    def test_truncate(self):
+        def f(n):
+            m = r_longlong(n) << 20
+            return r_uint(m)
+        res = self.interp_operations(f, [0x01234567])
+        assert res == 0x56700000
+        res = self.interp_operations(f, [0x56789ABC])
+        assert intmask(res) == intmask(0xABC00000)
+
 
 class TestLLtype(LongLongTests, LLJitMixin):
     pass

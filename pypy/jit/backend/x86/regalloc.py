@@ -630,7 +630,7 @@ class RegAlloc(object):
         self.Perform(op, [loc0], loc1)
         self.rm.possibly_free_var(op.getarg(0))
 
-    def _consider_llong_binop(self, op):
+    def _consider_llong_binop_rr(self, op):
         # must force both arguments into registers, because we don't
         # know if they will be suitably aligned
         args = [op.getarg(1), op.getarg(2)]
@@ -638,6 +638,13 @@ class RegAlloc(object):
         loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)
         self.PerformLLong(op, [loc0, loc1], loc0)
         self.xrm.possibly_free_vars(args)
+
+    def _consider_llong_to_int(self, op):
+        # accept an argument in a xmm register or in the stack
+        loc1 = self.xrm.loc(op.getarg(1))
+        loc0 = self.rm.force_allocate_reg(op.result)
+        self.PerformLLong(op, [loc1], loc0)
+        self.xrm.possibly_free_var(op.getarg(1))
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
@@ -675,7 +682,9 @@ class RegAlloc(object):
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex in (EffectInfo.OS_LLONG_ADD,
                                 EffectInfo.OS_LLONG_SUB):
-                return self._consider_llong_binop(op)
+                return self._consider_llong_binop_rr(op)
+            if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
+                return self._consider_llong_to_int(op)
         #
         self._consider_call(op)
 
