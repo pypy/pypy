@@ -334,7 +334,7 @@ def cast_to_float(x):
     if isinstance(x, r_longlong):
         return longlong2float(x)
     if isinstance(x, r_ulonglong):
-        return longlong2float(r_longlong(x))
+        return longlong2float(rffi.cast(lltype.SignedLongLong, x))
     assert isinstance(x, float)
     return x
 cast_to_float._annspecialcase_ = 'specialize:argtype(0)'
