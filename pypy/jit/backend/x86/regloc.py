@@ -457,6 +457,9 @@ class LocationCodeBuilder(object):
     ANDPD = _binaryop('ANDPD')
     XORPD = _binaryop('XORPD')
 
+    PADDQ = _binaryop('PADDQ')
+    PSUBQ = _binaryop('PSUBQ')
+
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')
 

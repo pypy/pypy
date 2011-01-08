@@ -13,6 +13,7 @@ from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
@@ -280,6 +281,11 @@ class RegAlloc(object):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform(op, arglocs, result_loc)
+
+    def PerformLLong(self, op, arglocs, result_loc):
+        if not we_are_translated():
+            self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
+        self.assembler.regalloc_perform_llong(op, arglocs, result_loc)
 
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
@@ -624,6 +630,15 @@ class RegAlloc(object):
         self.Perform(op, [loc0], loc1)
         self.rm.possibly_free_var(op.getarg(0))
 
+    def _consider_llong_binop(self, op):
+        # must force both arguments into registers, because we don't
+        # know if they will be suitably aligned
+        args = [op.getarg(1), op.getarg(2)]
+        loc1 = self.xrm.make_sure_var_in_reg(args[1], imm_fine=False)
+        loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)
+        self.PerformLLong(op, [loc0, loc1], loc0)
+        self.xrm.possibly_free_vars(args)
+
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
         self.rm.before_call(force_store, save_all_regs=save_all_regs)
@@ -655,6 +670,13 @@ class RegAlloc(object):
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex in (EffectInfo.OS_LLONG_ADD,
+                                EffectInfo.OS_LLONG_SUB):
+                return self._consider_llong_binop(op)
+        #
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):

@@ -37,6 +37,7 @@ from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.history import ConstInt, BoxInt
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -767,6 +768,11 @@ class Assembler386(object):
     def regalloc_perform_discard(self, op, arglocs):
         genop_discard_list[op.getopnum()](self, op, arglocs)
 
+    def regalloc_perform_llong(self, op, arglocs, resloc):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        genop_llong_list[oopspecindex](self, op, arglocs, resloc)
+
     def regalloc_perform_with_guard(self, op, guard_op, faillocs,
                                     arglocs, resloc, current_depths):
         faildescr = guard_op.getdescr()
@@ -980,6 +986,8 @@ class Assembler386(object):
     genop_float_sub = _binaryop('SUBSD')
     genop_float_mul = _binaryop('MULSD', True)
     genop_float_truediv = _binaryop('DIVSD')
+    genop_llong_add = _binaryop("PADDQ", True)
+    genop_llong_sub = _binaryop("PSUBQ", True)
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -1938,6 +1946,7 @@ class Assembler386(object):
         
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
+genop_llong_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
@@ -1949,6 +1958,10 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_guard_'):]
         num = getattr(rop, opname.upper())
         genop_guard_list[num] = value
+    elif name.startswith('genop_llong_'):
+        opname = name[len('genop_llong_'):]
+        num = getattr(EffectInfo, 'OS_LLONG_' + opname.upper())
+        genop_llong_list[num] = value
     elif name.startswith('genop_'):
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())

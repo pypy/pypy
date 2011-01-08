@@ -545,6 +545,9 @@ class AbstractX86CodeBuilder(object):
     CVTTSD2SI_rx = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), register(2), '\xC0')
     CVTTSD2SI_rb = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), stack_bp(2))
 
+    PADDQ_xx = xmminsn('\x66', rex_nw, '\x0F\xD4', register(1, 8), register(2), '\xC0')
+    PSUBQ_xx = xmminsn('\x66', rex_nw, '\x0F\xFB', register(1, 8), register(2), '\xC0')
+
     # ------------------------------------------------------------
 
 Conditions = {
