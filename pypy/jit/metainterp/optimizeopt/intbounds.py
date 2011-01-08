@@ -6,8 +6,8 @@ from pypy.jit.metainterp.history import Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
 class OptIntBounds(Optimization):
-    """Keeps track of the bounds placed on integers by the guards and
-       remove redundant guards"""
+    """Keeps track of the bounds placed on integers by guards and remove
+       redundant guards"""
 
     def setup(self):
         self.posponedop = None
