@@ -386,10 +386,10 @@ class OptRewrite(Optimization):
 
         if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
             val = v2.box.getint()
-            shift = 0
-            while (1 << shift) < val:
-                shift += 1
-            if (1 << shift) == val:
+            if val & (val - 1) == 0 and val > 0: # val == 2**shift
+                shift = 0
+                while (1 << shift) < val:
+                    shift += 1
                 op = op.copy_and_change(rop.INT_RSHIFT,
                                         args = [op.getarg(0), ConstInt(shift)])
         self.emit_operation(op)
