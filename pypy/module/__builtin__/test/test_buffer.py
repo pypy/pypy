@@ -160,6 +160,17 @@ class AppTestBuffer:
         raises(ValueError, buffer, a, -1)
         raises(ValueError, buffer, a, 0, -2)
 
+    def test_slice(self):
+        # Test extended slicing by comparing with list slicing.
+        s = "".join(chr(c) for c in list(range(255, -1, -1)))
+        b = buffer(s)
+        indices = (0, None, 1, 3, 19, 300, -1, -2, -31, -300)
+        for start in indices:
+            for stop in indices:
+                # Skip step 0 (invalid)
+                for step in indices[1:]:
+                    assert b[start:stop:step] == s[start:stop:step]
+
 class AppTestMemoryView:
     def test_basic(self):
         v = memoryview("abc")
