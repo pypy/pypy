@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import r_longlong, r_uint, intmask
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 
 class WrongResult(Exception):
@@ -41,6 +41,7 @@ class LongLongTests:
             compare(n, -6985, 346562560)
             compare(m, -5, 1474836480)
             if not n: raise WrongResult
+            if not r_longlong(m2): raise WrongResult
             if n-n: raise WrongResult
             compare(-n, 6984, -346562560)
             compare(~n, 6984, -346562561)
@@ -55,6 +56,12 @@ class LongLongTests:
         def f(n1, n2):
             # n == -30000000000000
             n = (r_longlong(n1) << 32) | r_longlong(n2)
+            compare(n < n,  0, 0)
+            compare(n <= n, 0, 1)
+            compare(n == n, 0, 1)
+            compare(n != n, 0, 0)
+            compare(n >  n, 0, 0)
+            compare(n >= n, 0, 1)
             o = n + 2000000000
             compare(o, -6985, -1948404736)
             compare(n <  o, 0, 1)     # low word differs
@@ -65,6 +72,8 @@ class LongLongTests:
             compare(n >= o, 0, 0)
             compare(o >  n, 0, 1)
             compare(o >= n, 0, 1)
+            compare(n == o, 0, 0)
+            compare(n != o, 0, 1)
             p = -o
             compare(n <  p, 0, 1)     # high word differs
             compare(n <= p, 0, 1)
@@ -74,8 +83,84 @@ class LongLongTests:
             compare(n >= p, 0, 0)
             compare(p >  n, 0, 1)
             compare(p >= n, 0, 1)
+            compare(n == p, 0, 0)
+            compare(n != p, 0, 1)
             return 1
         self.interp_operations(f, [-6985, 346562560])
+
+    def test_binops(self):
+        def f(n1, n2, m1, m2, ii):
+            # n == -30000000000000, m == -20000000000, ii == 42
+            n = (r_longlong(n1) << 32) | r_longlong(n2)
+            m = (r_longlong(m1) << 32) | r_longlong(m2)
+            compare(n & m, -6989, 346562560)
+            compare(n | m, -1, 1474836480)
+            compare(n ^ m, 6988, 1128273920)
+            compare(n << 1, -13970, 693125120)
+            compare(r_longlong(5) << ii, 5120, 0)
+            compare(n >> 1, -3493, -1974202368)
+            compare(n >> 42, -1, -7)
+            return 1
+        self.interp_operations(f, [-6985, 346562560, -5, 1474836480, 42])
+
+    def test_floats(self):
+        def f(i):
+            # i == 1000000000
+            f = i * 123.5
+            n = r_longlong(f)
+            compare(n, 28, -1054051584)
+            return float(n)
+        res = self.interp_operations(f, [1000000000])
+        assert res == 123500000000.0
+
+    def test_unsigned_compare_ops(self):
+        def f(n1, n2):
+            # n == 30002000000000
+            n = (r_ulonglong(n1) << 32) | r_ulonglong(n2)
+            compare(n < n,  0, 0)
+            compare(n <= n, 0, 1)
+            compare(n == n, 0, 1)
+            compare(n != n, 0, 0)
+            compare(n >  n, 0, 0)
+            compare(n >= n, 0, 1)
+            o = n + 1000000000
+            compare(n <  o, 0, 1)     # low word differs
+            compare(n <= o, 0, 1)
+            compare(o <  n, 0, 0)
+            compare(o <= n, 0, 0)
+            compare(n >  o, 0, 0)
+            compare(n >= o, 0, 0)
+            compare(o >  n, 0, 1)
+            compare(o >= n, 0, 1)
+            compare(n == o, 0, 0)
+            compare(n != o, 0, 1)
+            p = ~n
+            compare(n <  p, 0, 1)     # high word differs
+            compare(n <= p, 0, 1)
+            compare(p <  n, 0, 0)
+            compare(p <= n, 0, 0)
+            compare(n >  p, 0, 0)
+            compare(n >= p, 0, 0)
+            compare(p >  n, 0, 1)
+            compare(p >= n, 0, 1)
+            compare(n == p, 0, 0)
+            compare(n != p, 0, 1)
+            return 1
+        self.interp_operations(f, [6985, 1653437440])
+
+    def test_unsigned_binops(self):
+        def f(n1, n2, ii):
+            # n == 30002000000000, ii == 42
+            n = (r_ulonglong(n1) << 32) | r_ulonglong(n2)
+            compare(n << 1, 13970, -988092416)
+            compare(r_ulonglong(5) << ii, 5120, 0)
+            compare(n >> 1, 3492, -1320764928)
+            compare(n >> 42, 0, 6)
+            p = ~n
+            compare(p >> 1, 2147480155, 1320764927)
+            compare(p >> 42, 0, 4194297)
+            return 1
+        self.interp_operations(f, [6985, 1653437440, 42])
 
     def test_long_long_field(self):
         from pypy.rlib.rarithmetic import r_longlong, intmask

@@ -298,6 +298,7 @@ class BlackholeInterpreter(object):
             except JitException:
                 raise     # go through
             except Exception, e:
+                #import sys, pdb; pdb.post_mortem(sys.exc_info()[2])
                 lle = get_llexception(self.cpu, e)
                 self.handle_exception_in_frame(lle)
 

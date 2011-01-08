@@ -199,7 +199,6 @@ class Transformer(object):
 
     rewrite_op_cast_pointer = rewrite_op_same_as
     rewrite_op_cast_opaque_ptr = rewrite_op_same_as   # rlib.rerased
-    def rewrite_op_cast_primitive(self, op): pass
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
@@ -874,6 +873,17 @@ class Transformer(object):
                 oplist.append(op2)
                 return oplist
         ''' % (_op, _oopspec.lower(), _oopspec)).compile()
+
+    def rewrite_op_cast_primitive(self, op):
+        fromll = self._is_longlong(op.args[0].concretetype)
+        toll   = self._is_longlong(op.result.concretetype)
+        if fromll != toll:
+            if fromll:
+                opname = 'truncate_longlong_to_int'
+            else:
+                opname = 'cast_int_to_longlong'
+            op1 = SpaceOperation(opname, op.args, op.result)
+            return self.rewrite_operation(op1)
 
     # ----------
     # Renames, from the _old opname to the _new one.

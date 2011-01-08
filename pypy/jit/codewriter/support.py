@@ -226,14 +226,19 @@ def _ll_1_int_abs(x):
 # long long support
 # -----------------
 
+def u_to_longlong(x):
+    return rffi.cast(lltype.SignedLongLong, x)
+
 def _ll_1_llong_is_true(xll):
     return bool(xll)
 
 def _ll_1_llong_neg(xll):
-    return -xll
+    y = -r_ulonglong(xll)
+    return u_to_longlong(y)
 
 def _ll_1_llong_invert(xll):
-    return ~xll
+    y = ~r_ulonglong(xll)
+    return u_to_longlong(y)
 
 def _ll_2_llong_lt(xll, yll):
     return xll < yll
@@ -266,25 +271,32 @@ def _ll_2_llong_uge(xull, yull):
     return xull >= yull
 
 def _ll_2_llong_add(xll, yll):
-    return xll + yll
+    z = r_ulonglong(xll) + r_ulonglong(yll)
+    return u_to_longlong(z)
 
 def _ll_2_llong_sub(xll, yll):
-    return xll - yll
+    z = r_ulonglong(xll) - r_ulonglong(yll)
+    return u_to_longlong(z)
 
 def _ll_2_llong_mul(xll, yll):
-    return xll * yll
+    z = r_ulonglong(xll) * r_ulonglong(yll)
+    return u_to_longlong(z)
 
 def _ll_2_llong_and(xll, yll):
-    return xll & yll
+    z = r_ulonglong(xll) & r_ulonglong(yll)
+    return u_to_longlong(z)
 
 def _ll_2_llong_or(xll, yll):
-    return xll | yll
+    z = r_ulonglong(xll) | r_ulonglong(yll)
+    return u_to_longlong(z)
 
 def _ll_2_llong_xor(xll, yll):
-    return xll ^ yll
+    z = r_ulonglong(xll) ^ r_ulonglong(yll)
+    return u_to_longlong(z)
 
 def _ll_2_llong_lshift(xll, y):
-    return xll << y
+    z = r_ulonglong(xll) << y
+    return u_to_longlong(z)
 
 def _ll_2_llong_rshift(xll, y):
     return xll >> y
@@ -296,7 +308,8 @@ def _ll_1_llong_from_int(x):
     return r_longlong(x)
 
 def _ll_2_llong_from_two_ints(x_lo, x_hi):
-    return (r_longlong(x_hi) << 32) | r_longlong(r_uint(x_lo))
+    z = (r_ulonglong(x_hi) << 32) | r_ulonglong(r_uint(x_lo))
+    return u_to_longlong(z)
 
 def _ll_1_llong_to_int(xll):
     return intmask(xll)
