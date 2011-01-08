@@ -1402,7 +1402,7 @@ class PyPyCJITTests(object):
                 sa += (c<<100)>>100
                 i += 1
             return long(sa)
-        ''', 93, *tests, count_debug_merge_point=False)
+        ''', 93, count_debug_merge_point=False, *tests)
         
     def test_division_to_rshift(self):
         avalues = ('a', 'b', 7, -42, 8)
