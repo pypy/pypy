@@ -401,3 +401,8 @@ def test_most_neg_value_of():
     llmin = -(2**(r_longlong.BITS-1))
     assert most_neg_value_of_same_type(r_longlong(123)) == llmin
     assert most_neg_value_of_same_type(r_ulonglong(123)) == 0
+
+def test_r_ulonglong():
+    x = r_longlong(-1)
+    y = r_ulonglong(x)
+    assert long(y) == 2**r_ulonglong.BITS - 1

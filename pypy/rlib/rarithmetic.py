@@ -342,7 +342,7 @@ class signed_int(base_int):
 class unsigned_int(base_int):
     SIGNED = False
     def __new__(klass, val=0):
-        if type(val) is float:
+        if isinstance(val, (float, long)):
             val = long(val)
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
