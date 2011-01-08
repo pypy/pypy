@@ -1291,47 +1291,6 @@ class BasicTests:
         res = self.interp_operations(f, [5])
         assert res == f(5)
 
-    def test_long_long(self):
-        from pypy.rlib.rarithmetic import r_longlong, intmask
-        def g(n, m, o, p):
-            # On 64-bit platforms, long longs == longs.  On 32-bit platforms,
-            # this function should be either completely marked as residual
-            # (with supports_longlong==False), or be compiled as a
-            # sequence of residual calls (with long long arguments).
-            n = r_longlong(n)
-            m = r_longlong(m)
-            return intmask((n*m + p) // o)
-        def f(n, m, o, p):
-            return g(n, m, o, p) // 3
-        #
-        res = self.interp_operations(f, [1000000000, 90, 91, -17171],
-                                     supports_longlong=False)
-        assert res == ((1000000000 * 90 - 17171) // 91) // 3
-        #
-        res = self.interp_operations(f, [1000000000, 90, 91, -17171],
-                                     supports_longlong=True)
-        assert res == ((1000000000 * 90 - 17171) // 91) // 3
-
-    def test_long_long_field(self):
-        from pypy.rlib.rarithmetic import r_longlong, intmask
-        class A:
-            pass
-        def g(a, n, m):
-            a.n = r_longlong(n)
-            a.m = r_longlong(m)
-            a.n -= a.m
-            return intmask(a.n)
-        def f(n, m):
-            return g(A(), n, m)
-        #
-        res = self.interp_operations(f, [2147483647, -21474],
-                                     supports_longlong=False)
-        assert res == intmask(2147483647 + 21474)
-        #
-        res = self.interp_operations(f, [2147483647, -21474],
-                                     supports_longlong=True)
-        assert res == intmask(2147483647 + 21474)
-
     def test_free_object(self):
         import weakref
         from pypy.rlib import rgc
