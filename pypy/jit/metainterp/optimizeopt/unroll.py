@@ -23,7 +23,8 @@ class Inliner(object):
            self.argmap[inputargs[i]] = jump_args[i]
         self.snapshot_map = {None: None}
 
-    def inline_op(self, newop, ignore_result=False, clone=True):
+    def inline_op(self, newop, ignore_result=False, clone=True,
+                  ignore_failargs=False):
         if clone:
             newop = newop.clone()
         args = newop.getarglist()
@@ -31,8 +32,10 @@ class Inliner(object):
 
         if newop.is_guard():
             args = newop.getfailargs()
-            if args:
+            if args and not ignore_failargs:
                 newop.setfailargs([self.inline_arg(a) for a in args])
+            else:
+                newop.setfailargs([])
 
         if newop.result and not ignore_result:
             old_result = newop.result
@@ -267,7 +270,8 @@ class UnrollOptimizer(Optimization):
 
             op = preamble_ops[preamble_i]
             try:
-                newop = self.inliner.inline_op(op, True)
+                newop = self.inliner.inline_op(op, ignore_result=True,
+                                               ignore_failargs=True)
             except KeyError:
                 debug_print("create_short_preamble failed due to",
                             "new boxes created during optimization.",
