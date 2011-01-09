@@ -552,8 +552,9 @@ class AbstractX86CodeBuilder(object):
     PAND_xx = xmminsn('\x66', rex_nw, '\x0F\xDB', register(1, 8), register(2), '\xC0')
     POR_xx  = xmminsn('\x66', rex_nw, '\x0F\xEB', register(1, 8), register(2), '\xC0')
     PXOR_xx = xmminsn('\x66', rex_nw, '\x0F\xEF', register(1, 8), register(2), '\xC0')
-    # PSLLQ
     PUNPCKLDQ_xx = xmminsn('\x66', rex_nw, '\x0F\x62', register(1, 8), register(2), '\xC0')
+    PMOVMSKB_rx = xmminsn('\x66', rex_w, '\x0F\xD7', register(1, 8), register(2), '\xC0')
+    PCMPEQD_xx = xmminsn('\x66', rex_nw, '\x0F\x76', register(1, 8), register(2), '\xC0')
 
     # ------------------------------------------------------------
 

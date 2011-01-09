@@ -631,13 +631,29 @@ class RegAlloc(object):
         self.Perform(op, [loc0], loc1)
         self.rm.possibly_free_var(op.getarg(0))
 
-    def _consider_llong_binop_rr(self, op):
-        # must force both arguments into registers, because we don't
+    def _consider_llong_binop_xx(self, op):
+        # must force both arguments into xmm registers, because we don't
         # know if they will be suitably aligned
         args = [op.getarg(1), op.getarg(2)]
         loc1 = self.xrm.make_sure_var_in_reg(args[1], imm_fine=False)
         loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)
         self.PerformLLong(op, [loc0, loc1], loc0)
+        self.xrm.possibly_free_vars(args)
+
+    def _consider_llong_cmp_xx(self, op):
+        # must force both arguments into xmm registers, because we don't
+        # know if they will be suitably aligned
+        args = [op.getarg(1), op.getarg(2)]
+        loc1 = self.xrm.make_sure_var_in_reg(args[0], imm_fine=False)
+        loc2 = self.xrm.make_sure_var_in_reg(args[1], args, imm_fine=False)
+        tmpxvar = TempBox()
+        loc3 = self.xrm.force_allocate_reg(tmpxvar, args)
+        self.xrm.possibly_free_var(tmpxvar)
+        tmpvar = TempBox()
+        loc4 = self.rm.force_allocate_reg(tmpvar)
+        loc0 = self.rm.force_allocate_reg(op.result, [tmpvar])
+        self.rm.possibly_free_var(tmpvar)
+        self.PerformLLong(op, [loc1, loc2, loc3, loc4], loc0)
         self.xrm.possibly_free_vars(args)
 
     def _consider_llong_to_int(self, op):
@@ -746,13 +762,15 @@ class RegAlloc(object):
                                     EffectInfo.OS_LLONG_AND,
                                     EffectInfo.OS_LLONG_OR,
                                     EffectInfo.OS_LLONG_XOR):
-                    return self._consider_llong_binop_rr(op)
+                    return self._consider_llong_binop_xx(op)
                 if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
                     return self._consider_llong_to_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_INT:
                     return self._consider_llong_from_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_TWO_INTS:
                     return self._consider_llong_from_two_ints(op)
+                if oopspecindex == EffectInfo.OS_LLONG_EQ:
+                    return self._consider_llong_cmp_xx(op)
         #
         self._consider_call(op)
 

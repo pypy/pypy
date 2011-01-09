@@ -1148,6 +1148,20 @@ class Assembler386(object):
                 self.mc.MOVD_xr(loc3.value, loc2.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc3.value)
 
+    def genop_llong_eq(self, op, arglocs, resloc):
+        loc1, loc2, locxtmp, loctmp = arglocs
+        self.mc.MOVSD_xx(locxtmp.value, loc1.value)
+        self.mc.PCMPEQD_xx(locxtmp.value, loc2.value)
+        self.mc.PMOVMSKB_rx(loctmp.value, locxtmp.value)
+        # Now the lower 8 bits of resloc contain 0x00, 0x0F, 0xF0 or 0xFF
+        # depending on the result of the comparison of each of the two
+        # double-words of loc1 and loc2.  The higher 8 bits contain random
+        # results.  We want to map 0xFF to 1, and 0x00, 0x0F and 0xF0 to 0.
+        self.mc.MOV_rr(resloc.value, loctmp.value)
+        self.mc.SHR_ri(loctmp.value, 4)
+        self.mc.AND_ri(resloc.value, 1)
+        self.mc.AND_rr(resloc.value, loctmp.value)
+
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
         loc_vtable = arglocs[-1]
