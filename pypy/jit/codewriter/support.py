@@ -232,10 +232,6 @@ def u_to_longlong(x):
 def _ll_1_llong_is_true(xll):
     return bool(xll)
 
-def _ll_1_llong_neg(xll):
-    y = -r_ulonglong(xll)
-    return u_to_longlong(y)
-
 def _ll_1_llong_invert(xll):
     y = ~r_ulonglong(xll)
     return u_to_longlong(y)

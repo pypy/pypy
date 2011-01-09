@@ -48,7 +48,6 @@ class EffectInfo(object):
     OS_LIBFFI_CALL              = 62
     #
     OS_LLONG_IS_TRUE            = 67
-    OS_LLONG_NEG                = 68
     OS_LLONG_INVERT             = 69
     OS_LLONG_ADD                = 70
     OS_LLONG_SUB                = 71

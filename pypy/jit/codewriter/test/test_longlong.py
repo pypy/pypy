@@ -63,9 +63,32 @@ class TestLongLong:
         self.do_check('ullong_is_true', EffectInfo.OS_LLONG_IS_TRUE,
                       [lltype.SignedLongLong], lltype.Bool)
 
+    def test_llong_neg(self):
+        T = lltype.SignedLongLong
+        v = varoftype(T)
+        v_result = varoftype(T)
+        op = SpaceOperation('llong_neg', [v], v_result)
+        tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+        oplist = tr.rewrite_operation(op)
+        assert len(oplist) == 2
+        assert oplist[0].opname == 'residual_call_irf_f'
+        assert oplist[0].args[0].value == 'llong_from_int'
+        assert oplist[0].args[1] == 'calldescr-84'
+        assert list(oplist[0].args[2]) == [const(0)]
+        assert list(oplist[0].args[3]) == []
+        assert list(oplist[0].args[4]) == []
+        v_x = oplist[0].result
+        assert isinstance(v_x, Variable)
+        assert oplist[1].opname == 'residual_call_irf_f'
+        assert oplist[1].args[0].value == 'llong_sub'
+        assert oplist[1].args[1] == 'calldescr-71'
+        assert list(oplist[1].args[2]) == []
+        assert list(oplist[1].args[3]) == []
+        assert list(oplist[1].args[4]) == [v_x, v]
+        assert oplist[1].result == v_result
+
     def test_unary_op(self):
         for opname, oopspecindex in [
-                ('llong_neg',      EffectInfo.OS_LLONG_NEG),
                 ('llong_invert',   EffectInfo.OS_LLONG_INVERT),
                 ('ullong_invert',  EffectInfo.OS_LLONG_INVERT),
                 ]:
