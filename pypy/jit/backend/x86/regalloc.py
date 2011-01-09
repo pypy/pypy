@@ -649,11 +649,8 @@ class RegAlloc(object):
         tmpxvar = TempBox()
         loc3 = self.xrm.force_allocate_reg(tmpxvar, args)
         self.xrm.possibly_free_var(tmpxvar)
-        tmpvar = TempBox()
-        loc4 = self.rm.force_allocate_reg(tmpvar)
-        loc0 = self.rm.force_allocate_reg(op.result, [tmpvar])
-        self.rm.possibly_free_var(tmpvar)
-        self.PerformLLong(op, [loc1, loc2, loc3, loc4], loc0)
+        loc0 = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
+        self.PerformLLong(op, [loc1, loc2, loc3], loc0)
         self.xrm.possibly_free_vars(args)
 
     def _consider_llong_to_int(self, op):
@@ -769,7 +766,8 @@ class RegAlloc(object):
                     return self._consider_llong_from_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_TWO_INTS:
                     return self._consider_llong_from_two_ints(op)
-                if oopspecindex == EffectInfo.OS_LLONG_EQ:
+                if (oopspecindex == EffectInfo.OS_LLONG_EQ or
+                    oopspecindex == EffectInfo.OS_LLONG_NE):
                     return self._consider_llong_cmp_xx(op)
         #
         self._consider_call(op)

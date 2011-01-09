@@ -448,6 +448,7 @@ class AbstractX86CodeBuilder(object):
     OR_ri,  OR_rr,  OR_rb,  _, _, OR_rm,  OR_rj  = common_modes(1)
     AND_ri, AND_rr, AND_rb, _, _, AND_rm, AND_rj = common_modes(4)
     SUB_ri, SUB_rr, SUB_rb, _, _, SUB_rm, SUB_rj = common_modes(5)
+    SBB_ri, SBB_rr, SBB_rb, _, _, SBB_rm, SBB_rj = common_modes(3)
     XOR_ri, XOR_rr, XOR_rb, _, _, XOR_rm, XOR_rj = common_modes(6)
     CMP_ri, CMP_rr, CMP_rb, CMP_bi, CMP_br, CMP_rm, CMP_rj = common_modes(7)
 
@@ -462,6 +463,8 @@ class AbstractX86CodeBuilder(object):
     CMP_ji = select_8_or_32_bit_immed(CMP_ji8, CMP_ji32)
 
     CMP32_mi = insn(rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
+
+    CMP8_ri = insn(rex_nw, '\x80', byte_register(1), '\xF8', immediate(2, 'b'))
 
     AND8_rr = insn(rex_w, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
