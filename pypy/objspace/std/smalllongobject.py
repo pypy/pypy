@@ -14,7 +14,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.interpreter.error import OperationError
 
-LONGLONG_MIN = (-1) << (LONGLONG_BIT-1)
+LONGLONG_MIN = r_longlong((-1) << (LONGLONG_BIT-1))
 
 
 class W_SmallLongObject(W_Object):
