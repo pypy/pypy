@@ -38,7 +38,7 @@ def main(argv):
             pycode.exec_code(space, w_dict, w_dict)
         except OperationError, e:
             print "OperationError:"
-            print " operror-type: " + e.w_type.getname(space, '?')
+            print " operror-type: " + e.w_type.getname(space)
             print " operror-value: " + space.str_w(space.str(e.get_w_value(space)))
             return 1
         return 0

@@ -912,6 +912,9 @@ class LLFrame(object):
     def op_gc_dump_rpy_heap(self):
         raise NotImplementedError("gc_dump_rpy_heap")
 
+    def op_gc_typeids_z(self):
+        raise NotImplementedError("gc_typeids_z")
+
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
 
@@ -944,6 +947,9 @@ class LLFrame(object):
 
     def op_set_stack_depth_limit(self):
         raise NotImplementedError("set_stack_depth_limit")
+
+    def op_stack_current(self):
+        return 0
 
     # operations on pyobjects!
     for opname in lloperation.opimpls.keys():

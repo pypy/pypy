@@ -1,4 +1,5 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 import sys
 
 class TestIntObject(BaseApiTest):
@@ -19,13 +20,33 @@ class TestIntObject(BaseApiTest):
         assert api.PyErr_Occurred() is space.w_TypeError
         api.PyErr_Clear()
 
+        assert api.PyInt_AsLong(None) == -1
+        assert api.PyErr_Occurred() is space.w_TypeError
+        api.PyErr_Clear()
+
         assert api.PyInt_AsUnsignedLong(space.wrap(sys.maxint)) == sys.maxint
         assert api.PyInt_AsUnsignedLong(space.wrap(-5)) == sys.maxint * 2 + 1
         assert api.PyErr_Occurred() is space.w_ValueError
         api.PyErr_Clear()
+
+        assert (api.PyInt_AsUnsignedLongMask(space.wrap(sys.maxint))
+                == sys.maxint)
+        assert (api.PyInt_AsUnsignedLongMask(space.wrap(10**30))
+                == 10**30 % ((sys.maxint + 1) * 2))
 
     def test_coerce(self, space, api):
         class Coerce(object):
             def __int__(self):
                 return 42
         assert api.PyInt_AsLong(space.wrap(Coerce())) == 42
+
+class AppTestIntObject(AppTestCpythonExtensionBase):
+    def test_fromstring(self):
+        module = self.import_extension('foo', [
+            ("from_string", "METH_NOARGS",
+             """
+                 return PyInt_FromString("1234", NULL, 16);
+             """),
+            ])
+        assert module.from_string() == 0x1234
+        assert type(module.from_string()) is int

@@ -19,6 +19,7 @@ ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 # global synonyms for some types
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
+from pypy.rpython.lltypesystem.llmemory import AddressAsInt
 
 if r_longlong is r_int:
     r_longlong_arg = (r_longlong, int)
@@ -76,11 +77,13 @@ def get_primitive_op_src(fullopname):
         else:
             def op_function(x, y):
                 if not isinstance(x, argtype):
-                    raise TypeError("%r arg 1 must be %s, got %r instead" % (
-                        fullopname, typname, type(x).__name__))
+                    if not (isinstance(x, AddressAsInt) and argtype is int):
+                        raise TypeError("%r arg 1 must be %s, got %r instead"% (
+                            fullopname, typname, type(x).__name__))
                 if not isinstance(y, argtype):
-                    raise TypeError("%r arg 2 must be %s, got %r instead" % (
-                        fullopname, typname, type(y).__name__))
+                    if not (isinstance(y, AddressAsInt) and argtype is int):
+                        raise TypeError("%r arg 2 must be %s, got %r instead"% (
+                            fullopname, typname, type(y).__name__))
                 return adjust_result(func(x, y))
 
     return func_with_new_name(op_function, 'op_' + fullopname)

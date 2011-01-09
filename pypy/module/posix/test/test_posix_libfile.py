@@ -50,3 +50,18 @@ class AppTestPosix:
         f.close()   # should wait here
         end_time = time.time()
         assert end_time - start_time >= 1.9
+
+    def test_popen_and_rebind_file_in___builtin__(self):
+        import sys
+        if sys.platform.startswith('win'):
+            skip("unix specific")
+        #
+        import __builtin__
+        posix = self.posix
+        orig_file = file
+        try:
+            f = posix.popen('true')
+            __builtin__.file = lambda x : explode
+            f.close()
+        finally:
+            __builtin__.file = orig_file

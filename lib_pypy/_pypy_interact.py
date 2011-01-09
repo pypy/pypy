@@ -4,6 +4,13 @@ import sys
 
 
 def interactive_console(mainmodule=None):
+    # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
+    # mimics what CPython does in pythonrun.c
+    if not hasattr(sys, 'ps1'):
+        sys.ps1 = '>>>> '
+    if not hasattr(sys, 'ps2'):
+        sys.ps2 = '.... '
+    #
     try:
         from _pypy_irc_topic import some_topic
         text = "And now for something completely different: ``%s''" % (
@@ -15,6 +22,7 @@ def interactive_console(mainmodule=None):
         print text
     except ImportError:
         pass
+    #
     try:
         from pyrepl.simple_interact import check
         if not check():

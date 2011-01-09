@@ -227,7 +227,7 @@ def ll_deallocator(addr):
         # refcount is at zero, temporarily bump it to 1:
         gcheader.refcount = 1
         destr_v = cast_pointer(DESTR_ARG, v)
-        ll_call_destructor(destrptr, destr_v)
+        ll_call_destructor(destrptr, destr_v, %r)
         refcount = gcheader.refcount - 1
         gcheader.refcount = refcount
         if refcount == 0:
@@ -239,7 +239,7 @@ def ll_deallocator(addr):
     pop_alive(exc_instance)
     # XXX layering of exceptiontransform versus gcpolicy
 
-""" % (body, TYPE._gckind)
+""" % (TYPE.__name__, body, TYPE._gckind)
         else:
             call_del = None
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))

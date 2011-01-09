@@ -105,26 +105,32 @@ class SPLIFrame(object):
         self.stack_depth += 1
 
     def pop(self):
-        self.stack_depth -= 1
-        val = self.value_stack[self.stack_depth]
-        self.value_stack[self.stack_depth] = None
+        sd = self.stack_depth - 1
+        assert sd >= 0
+        self.stack_depth = sd
+        val = self.value_stack[sd]
+        self.value_stack[sd] = None
         return val
 
     def pop_many(self, n):
         return [self.pop() for i in range(n)]
 
     def peek(self):
-        return self.value_stack[self.stack_depth - 1]
+        sd = self.stack_depth - 1
+        assert sd >= 0
+        return self.value_stack[sd]
 
     def POP_TOP(self, _, next_instr, code):
         self.pop()
         return next_instr
 
     def LOAD_FAST(self, name_index, next_instr, code):
+        assert name_index >= 0
         self.push(self.locals[name_index])
         return next_instr
 
     def STORE_FAST(self, name_index, next_instr, code):
+        assert name_index >= 0
         self.locals[name_index] = self.pop()
         return next_instr
 

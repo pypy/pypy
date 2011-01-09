@@ -180,9 +180,8 @@ def descr__repr__(space, ref):
 reprdescr = interp2app(descr__repr__, unwrap_spec=[ObjSpace, W_WeakrefBase])
 
 W_Weakref.typedef = TypeDef("weakref",
-    __doc__ = """A weak reference to an object 'obj'.  A 'callback' can given,
-which is called with the weak reference as an argument when 'obj'
-is about to be finalized.""",
+    __doc__ = """A weak reference to an object 'obj'.  A 'callback' can be given,
+which is called with 'obj' as an argument when it is about to be finalized.""",
     __new__ = interp2app(descr__new__weakref,
                          unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root,
                                       Arguments]),

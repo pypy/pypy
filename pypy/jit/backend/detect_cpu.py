@@ -31,10 +31,21 @@ def autodetect_main_model():
                 'i86pc': 'x86',    # Solaris/Intel
                 'x86':   'x86',    # Apple
                 'Power Macintosh': 'ppc',
-                'x86_64': 'x86', 
+                'x86_64': 'x86',
+                'amd64': 'x86'     # freebsd
                 }[mach]
     except KeyError:
-        raise ProcessorAutodetectError, "unsupported processor '%s'" % mach
+        return mach
+
+def autodetect_main_model_and_size():
+    model = autodetect_main_model()
+    if sys.maxint == 2**31-1:
+        model += '_32'
+    elif sys.maxint == 2**63-1:
+        model += '_64'
+    else:
+        raise AssertionError, "bad value for sys.maxint"
+    return model
 
 def autodetect():
     model = autodetect_main_model()

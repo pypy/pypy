@@ -1381,6 +1381,15 @@ class _parentable(_container):
         self._check()   # no double-frees
         self._storage = None
 
+    def _protect(self):
+        result = self._storage
+        self._free()   # no double-frees or double-protects
+        return result
+
+    def _unprotect(self, saved_storage):
+        assert self._storage is None
+        self._storage = saved_storage
+
     def _was_freed(self):
         if self._storage is None:
             return True
@@ -1867,6 +1876,13 @@ def free(p, flavor, track_allocation=True):
     if track_allocation:
         leakfinder.remember_free(p._obj0)
     p._obj0._free()
+
+def render_immortal(p, track_allocation=True):
+    T = typeOf(p)
+    if not isinstance(T, Ptr) or p._togckind() != 'raw':
+        raise TypeError, "free(): only for pointers to non-gc containers"
+    if track_allocation:
+        leakfinder.remember_free(p._obj0)
 
 def _make_scoped_allocator(T):
     class ScopedAlloc:

@@ -24,13 +24,13 @@ class Object(Object):
         hasdict = False
 
 def test_plain_attribute():
-    space = " "
     w_cls = "class"
     aa = PlainAttribute(("b", DICT),
                         PlainAttribute(("a", DICT),
                                        Terminator(space, w_cls)))
     assert aa.space is space
-    assert aa.w_cls is w_cls
+    assert aa.terminator.w_cls is w_cls
+    assert aa.get_terminator() is aa.terminator
 
     obj = Object()
     obj.map, obj.storage = aa, [10, 20]
@@ -604,7 +604,8 @@ class AppTestWithMapDictAndCounters(object):
         from pypy.interpreter import gateway
         cls.space = gettestobjspace(
             **{"objspace.std.withmapdict": True,
-               "objspace.std.withmethodcachecounter": True})
+               "objspace.std.withmethodcachecounter": True,
+               "objspace.opcodes.CALL_METHOD": True})
         #
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('func_code'))
@@ -784,6 +785,135 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 0, 1)
         res = self.check(f, 'x')
         assert res == (0, 0, 1)
+
+    def test_call_method_uses_cache(self):
+        # bit sucky
+        global C
+
+        class C(object):
+            def m(*args):
+                return args
+        C.sm = staticmethod(C.m.im_func)
+        C.cm = classmethod(C.m.im_func)
+
+        exec """if 1:
+
+            def f():
+                c = C()
+                res = c.m(1)
+                assert res == (c, 1)
+                return 42
+
+            def g():
+                c = C()
+                res = c.sm(1)
+                assert res == (1, )
+                return 42
+
+            def h():
+                c = C()
+                res = c.cm(1)
+                assert res == (C, 1)
+                return 42
+        """
+        res = self.check(f, 'm')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'm')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'm')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'm')
+        assert res == (0, 1, 0)
+
+        # static methods are not cached
+        res = self.check(g, 'sm')
+        assert res == (0, 0, 0)
+        res = self.check(g, 'sm')
+        assert res == (0, 0, 0)
+
+        # neither are class methods
+        res = self.check(h, 'cm')
+        assert res == (0, 0, 0)
+        res = self.check(h, 'cm')
+        assert res == (0, 0, 0)
+
+    def test_mix_cache_bug(self):
+        # bit sucky
+        global C
+
+        class C(object):
+            def m(*args):
+                return args
+
+        exec """if 1:
+
+            def f():
+                c = C()
+                res = c.m(1)
+                assert res == (c, 1)
+                bm = c.m
+                res = bm(1)
+                assert res == (c, 1)
+                return 42
+
+        """
+        res = self.check(f, 'm')
+        assert res == (1, 1, 1)
+        res = self.check(f, 'm')
+        assert res == (0, 2, 1)
+        res = self.check(f, 'm')
+        assert res == (0, 2, 1)
+        res = self.check(f, 'm')
+        assert res == (0, 2, 1)
+
+class AppTestGlobalCaching(AppTestWithMapDict):
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmethodcachecounter": True,
+               "objspace.std.withmapdict": True,
+               "objspace.opcodes.CALL_METHOD": True})
+
+    def test_mix_classes(self):
+        import __pypy__
+        class A(object):
+            def f(self):
+                return 42
+        class B(object):
+            def f(self):
+                return 43
+        class C(object):
+            def f(self):
+                return 44
+        l = [A(), B(), C()] * 10
+        __pypy__.reset_method_cache_counter()
+        # 'exec' to make sure that a.f() is compiled with CALL_METHOD
+        exec """for i, a in enumerate(l):
+                    assert a.f() == 42 + i % 3
+"""
+        cache_counter = __pypy__.mapdict_cache_counter("f")
+        assert cache_counter[0] >= 15
+        assert cache_counter[1] >= 3 # should be (27, 3)
+        assert sum(cache_counter) == 30
+
+    def test_mix_classes_attribute(self):
+        import __pypy__
+        class A(object):
+            def __init__(self):
+                self.x = 42
+        class B(object):
+            def __init__(self):
+                self.x = 43
+        class C(object):
+            def __init__(self):
+                self.x = 44
+        l = [A(), B(), C()] * 10
+        __pypy__.reset_method_cache_counter()
+        for i, a in enumerate(l):
+            assert a.x == 42 + i % 3
+        cache_counter = __pypy__.mapdict_cache_counter("x")
+        assert cache_counter[0] >= 15
+        assert cache_counter[1] >= 3 # should be (27, 3)
+        assert sum(cache_counter) == 30
 
 class TestDictSubclassShortcutBug(object):
     def setup_class(cls):

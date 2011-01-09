@@ -1,10 +1,11 @@
 
 import py
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import JitDriver, DEBUG_PROFILE
+from pypy.rlib.jit import JitDriver
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.jitprof import Profiler, JITPROF_LINES
 from pypy.jit.tool.jitoutput import parse_prof
+from pypy.tool.logparser import parse_log, extract_category
 
 def test_really_run():
     """ This test checks whether output of jitprof did not change.
@@ -21,25 +22,27 @@ def test_really_run():
     cap = py.io.StdCaptureFD()
     try:
         ll_meta_interp(f, [10], CPUClass=runner.LLtypeCPU, type_system='lltype',
-                       ProfilerClass=Profiler, debug_level=DEBUG_PROFILE)
+                       ProfilerClass=Profiler)
     finally:
         out, err = cap.reset()
-    err = "\n".join(err.splitlines()[-JITPROF_LINES:])
-    print err
-    assert err.count("\n") == JITPROF_LINES - 1
-    info = parse_prof(err)
+
+    log = parse_log(err.splitlines(True))
+    err_sections = list(extract_category(log, 'jit-summary'))
+    [err1] = err_sections    # there should be exactly one jit-summary
+    assert err1.count("\n") == JITPROF_LINES
+    info = parse_prof(err1)
     # assert did not crash
     # asserts below are a bit delicate, possibly they might be deleted
     assert info.tracing_no == 1
     assert info.asm_no == 1
     assert info.blackhole_no == 1
-    assert info.backend_no == 1
+    assert info.backend_no == 2
     assert info.ops.total == 2
     assert info.recorded_ops.total == 2
     assert info.recorded_ops.calls == 0
     assert info.guards == 1
-    assert info.opt_ops == 6
-    assert info.opt_guards == 1
+    assert info.opt_ops == 11
+    assert info.opt_guards == 2
     assert info.forcings == 0
 
 DATA = '''Tracing:         1       0.006992
@@ -57,9 +60,14 @@ forcings:               1
 abort: trace too long:  10
 abort: compiling:       11
 abort: vable escape:    12
+abort: bad loop:        135
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
+Total # of loops:       100
+Total # of bridges:     300
+Freed # of loops:       99
+Freed # of bridges:     299
 '''
 
 def test_parse():
@@ -80,6 +88,7 @@ def test_parse():
     assert info.abort.trace_too_long == 10
     assert info.abort.compiling == 11
     assert info.abort.vable_escape == 12
+    assert info.abort.bad_loop == 135
     assert info.nvirtuals == 13
     assert info.nvholes == 14
     assert info.nvreused == 15

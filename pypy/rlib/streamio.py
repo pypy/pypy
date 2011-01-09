@@ -12,7 +12,7 @@ Based on sio.py from Guido van Rossum.
   * some other methods also have no default parameters.
   * close() should be called exactly once and no further operations performed;
     there is no __del__() closing the stream for you.
-  * some methods may raise NotImplementedError.
+  * some methods may raise MyNotImplementedError.
   * peek() returns some (or no) characters that have already been read ahead.
   * flushable() returns True/False if flushing that stream is useful/pointless.
 
@@ -53,6 +53,12 @@ OS_MODE = {('r', False): O_RDONLY,
            ('a', False): O_WRONLY | O_CREAT,
            ('a', True):  O_RDWR   | O_CREAT,
            }
+
+class MyNotImplementedError(Exception):
+    """
+    Catching NotImplementedError is not RPython, so we use this custom class
+    instead of it
+    """
 
 # ____________________________________________________________
 
@@ -209,16 +215,16 @@ class Stream(object):
     some methods."""
 
     def read(self, n):
-        raise NotImplementedError
+        raise MyNotImplementedError
 
     def write(self, data):
-        raise NotImplementedError
+        raise MyNotImplementedError
 
     def tell(self):
-        raise NotImplementedError
+        raise MyNotImplementedError
 
     def seek(self, offset, whence):
-        raise NotImplementedError
+        raise MyNotImplementedError
 
     def readall(self):
         bufsize = 8192
@@ -251,7 +257,7 @@ class Stream(object):
         return ''.join(result)
 
     def truncate(self, size):
-        raise NotImplementedError
+        raise MyNotImplementedError
 
     def flush_buffers(self):
         pass
@@ -487,7 +493,7 @@ class BufferingInputStream(Stream):
         if self.lines or self.buf:
             try:
                 self.do_seek(self.tell(), 0)
-            except NotImplementedError:
+            except MyNotImplementedError:
                 pass
             else:
                 self.lines = []
@@ -535,14 +541,14 @@ class BufferingInputStream(Stream):
             self.buf = ""
             try:
                 self.do_seek(offset, 1)
-            except NotImplementedError:
+            except MyNotImplementedError:
                 intoffset = offset2int(offset)
                 self.read(intoffset)
             return
         if whence == 2:
             try:
                 self.do_seek(offset, 2)
-            except NotImplementedError:
+            except MyNotImplementedError:
                 pass
             else:
                 self.lines = []
@@ -1019,7 +1025,7 @@ class TextInputFilter(Stream):
         if self.buf:
             try:
                 self.base.seek(-len(self.buf), 1)
-            except NotImplementedError:
+            except MyNotImplementedError:
                 pass
             else:
                 self.buf = ""

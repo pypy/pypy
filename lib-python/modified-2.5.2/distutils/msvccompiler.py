@@ -25,17 +25,20 @@ from distutils.ccompiler import CCompiler, gen_lib_options
 from distutils import log
 from distutils.util import get_platform
 
-import _winreg
+try:
+    import _winreg
+except ImportError:
+    pass
+else:
+    RegOpenKeyEx = _winreg.OpenKeyEx
+    RegEnumKey = _winreg.EnumKey
+    RegEnumValue = _winreg.EnumValue
+    RegError = _winreg.error
 
-RegOpenKeyEx = _winreg.OpenKeyEx
-RegEnumKey = _winreg.EnumKey
-RegEnumValue = _winreg.EnumValue
-RegError = _winreg.error
-
-HKEYS = (_winreg.HKEY_USERS,
-         _winreg.HKEY_CURRENT_USER,
-         _winreg.HKEY_LOCAL_MACHINE,
-         _winreg.HKEY_CLASSES_ROOT)
+    HKEYS = (_winreg.HKEY_USERS,
+             _winreg.HKEY_CURRENT_USER,
+             _winreg.HKEY_LOCAL_MACHINE,
+             _winreg.HKEY_CLASSES_ROOT)
 
 VS_BASE = r"Software\Microsoft\VisualStudio\%0.1f"
 VSEXPRESS_BASE = r"Software\Microsoft\VCExpress\%0.1f"

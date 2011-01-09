@@ -134,7 +134,7 @@ class W_TypeObject(W_Object):
 
     def mutated(w_self):
         space = w_self.space
-        assert w_self.is_heaptype() or not space.config.objspace.std.immutable_builtintypes
+        assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
             not space.config.objspace.std.newshortcut):
@@ -157,8 +157,8 @@ class W_TypeObject(W_Object):
             w_subclass.mutated()
 
     def version_tag(w_self):
-        if (not we_are_jitted() or w_self.is_heaptype() or not
-            w_self.space.config.objspace.std.immutable_builtintypes):
+        if (not we_are_jitted() or w_self.is_heaptype() or
+            w_self.space.config.objspace.std.mutable_builtintypes):
             return w_self._version_tag
         # heap objects cannot get their version_tag changed
         return w_self._pure_version_tag()
@@ -334,7 +334,7 @@ class W_TypeObject(W_Object):
         if not isinstance(w_subtype, W_TypeObject):
             raise operationerrfmt(space.w_TypeError,
                 "X is not a type object ('%s')",
-                space.type(w_subtype).getname(space, '?'))
+                space.type(w_subtype).getname(space))
         if not space.is_true(space.issubtype(w_subtype, w_self)):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s): %s is not a subtype of %s",
@@ -784,7 +784,7 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
             space.set(w_descr, w_type, w_value)
             return
     
-    if (space.config.objspace.std.immutable_builtintypes
+    if (not space.config.objspace.std.mutable_builtintypes
             and not w_type.is_heaptype()):
         msg = "can't set attributes on type object '%s'"
         raise operationerrfmt(space.w_TypeError, msg, w_type.name)
@@ -803,7 +803,7 @@ def delattr__Type_ANY(space, w_type, w_name):
         if space.is_data_descr(w_descr):
             space.delete(w_descr, w_type)
             return
-    if (space.config.objspace.std.immutable_builtintypes
+    if (not space.config.objspace.std.mutable_builtintypes
             and not w_type.is_heaptype()):
         msg = "can't delete attributes on type object '%s'"
         raise operationerrfmt(space.w_TypeError, msg, w_type.name)
@@ -875,7 +875,7 @@ def mro_error(space, orderlists):
         # explicit error message for this specific case
         raise operationerrfmt(space.w_TypeError,
                               "duplicate base class '%s'",
-                              candidate.getname(space,"?"))
+                              candidate.getname(space))
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)
@@ -883,7 +883,7 @@ def mro_error(space, orderlists):
     del cycle[:cycle.index(candidate)]
     cycle.append(candidate)
     cycle.reverse()
-    names = [cls.getname(space, "?") for cls in cycle]
+    names = [cls.getname(space) for cls in cycle]
     raise OperationError(space.w_TypeError,
         space.wrap("cycle among base classes: " + ' < '.join(names)))
 

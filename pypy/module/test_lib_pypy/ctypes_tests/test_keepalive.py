@@ -99,7 +99,7 @@ class TestKeepalive:
     def test_primitive(self):
         if not hasattr(sys, 'pypy_translation_info'):
             py.test.skip("pypy white-box test")
-        assert c_char_p("abc")._objects['0']._buffer[0] == "a"
+        assert c_char_p("abc")._objects._buffer[0] == "a"
         assert c_int(3)._objects is None
 
     def test_pointer_to_pointer(self):
@@ -123,7 +123,7 @@ class TestKeepalive:
             pass
         cf = CFUNCTYPE(c_int, c_int)(f)
         p1 = cast(cf, c_void_p)
-        assert p1._objects == {'1': cf, '0': {'0': cf}}
+        assert p1._objects == {id(cf): cf, '0': cf}
 
     def test_array_of_struct_with_pointer(self):
         class S(Structure):
@@ -221,7 +221,7 @@ class TestKeepalive:
         import gc; gc.collect()
         print 'x =', repr(x)
         assert x.value == 'hellohello'
-        assert x._objects.keys() == ['0']
+        assert x._objects == 'hellohello'
         #
         class datum(Structure):
             _fields_ = [

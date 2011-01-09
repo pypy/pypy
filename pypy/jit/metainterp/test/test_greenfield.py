@@ -49,7 +49,7 @@ class GreenFieldsTests:
         #
         res = self.meta_interp(g, [7])
         assert res == -22
-        self.check_loop_count(4)
+        self.check_loop_count(6)
         self.check_loops(guard_value=0)
 
 

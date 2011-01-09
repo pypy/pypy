@@ -1,5 +1,5 @@
 import sys
-from pypy.rlib.debug import check_nonneg, make_sure_not_modified
+from pypy.rlib.debug import check_nonneg
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rsre import rsre_char
 from pypy.tool.sourcetools import func_with_new_name
@@ -471,7 +471,6 @@ def sre_match(ctx, ppos, ptr, marks):
     while True:
         op = ctx.pat(ppos)
         ppos += 1
-        make_sure_not_modified(ctx.pattern)
 
         #jit.jit_debug("sre_match", op, ppos, ptr)
         #

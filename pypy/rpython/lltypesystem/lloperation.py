@@ -288,9 +288,7 @@ LL_OPERATIONS = {
 
     'llong_is_true':        LLOp(canfold=True),
     'llong_neg':            LLOp(canfold=True),
-    'llong_neg_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_abs':            LLOp(canfold=True),
-    'llong_abs_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_invert':         LLOp(canfold=True),
 
     'llong_add':            LLOp(canfold=True),
@@ -476,6 +474,7 @@ LL_OPERATIONS = {
     'gc_get_rpy_type_index': LLOp(),
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
+    'gc_typeids_z'        : LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
     
@@ -524,6 +523,8 @@ LL_OPERATIONS = {
     'stack_capture':        LLOp(canraise=(StackException, RuntimeError)),
     'get_stack_depth_limit':LLOp(sideeffects=False),
     'set_stack_depth_limit':LLOp(),
+
+    'stack_current':        LLOp(sideeffects=False),
 
     # __________ misc operations __________
 

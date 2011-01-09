@@ -432,7 +432,8 @@ class CallbackFuncPtr(AbstractFuncPtr):
                  flags=FUNCFLAG_CDECL):
         AbstractFuncPtr.__init__(self, "callback", argtypes, restype, flags)
         self.ll_closure = closureHeap.alloc()
-        self.ll_userdata = lltype.malloc(USERDATA_P.TO, flavor='raw')
+        self.ll_userdata = lltype.malloc(USERDATA_P.TO, flavor='raw',
+                                         track_allocation=False)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
         res = c_ffi_prep_closure(self.ll_closure, self.ll_cif,
@@ -447,7 +448,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
             closureHeap.free(self.ll_closure)
             self.ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
         if self.ll_userdata:
-            lltype.free(self.ll_userdata, flavor='raw')
+            lltype.free(self.ll_userdata, flavor='raw', track_allocation=False)
             self.ll_userdata = lltype.nullptr(USERDATA_P.TO)
 
 class RawFuncPtr(AbstractFuncPtr):

@@ -453,6 +453,9 @@ def free(s_p, s_flavor, s_track_allocation=None):
     #p = lltype.malloc(T, flavor=s_flavor.const)
     #lltype.free(p, flavor=s_flavor.const)
 
+def render_immortal(s_p, s_track_allocation=None):
+    assert s_track_allocation is None or s_track_allocation.is_constant()
+
 def typeOf(s_val):
     lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
     return immutablevalue(lltype)
@@ -520,6 +523,7 @@ def constPtr(T):
 
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.free] = free
+BUILTIN_ANALYZERS[lltype.render_immortal] = render_immortal
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.cast_primitive] = cast_primitive
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr

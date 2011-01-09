@@ -104,7 +104,8 @@ def _should_widen_type(tp):
         return False
     r_class = rffi.platform.numbertype_to_rclass[tp]
     assert issubclass(r_class, base_int)
-    return r_class.BITS < LONG_BIT
+    return r_class.BITS < LONG_BIT or (
+        r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
 del _bits, _itest, _Ltest
@@ -403,6 +404,11 @@ r_ulonglong = build_int('r_ulonglong', False, 64)
 
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
+if r_longlong is not r_int:
+    r_int64 = r_longlong
+else:
+    r_int64 = int
+
 
 # float as string  -> sign, beforept, afterpt, exponent
 
@@ -515,6 +521,11 @@ class r_singlefloat(object):
     def __cmp__(self, other):
         raise TypeError("not supported on r_singlefloat instances")
 
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and self._bytes == other._bytes
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
     _type_ = r_singlefloat

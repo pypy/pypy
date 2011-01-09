@@ -70,3 +70,11 @@ class TestSequence(BaseApiTest):
         assert space.unwrap(space.next(w_iter)) == 2
         exc = raises(OperationError, space.next, w_iter)
         assert exc.value.match(space, space.w_StopIteration)
+
+    def test_contains(self, space, api):
+        w_t = space.wrap((1, 'ha'))
+        assert api.PySequence_Contains(w_t, space.wrap(u'ha'))
+        assert not api.PySequence_Contains(w_t, space.wrap(2))
+        assert api.PySequence_Contains(space.w_None, space.wrap(2)) == -1
+        assert api.PyErr_Occurred()
+        api.PyErr_Clear()

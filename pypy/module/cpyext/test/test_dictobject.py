@@ -29,6 +29,9 @@ class TestDictObject(BaseApiTest):
         rffi.free_charp(buf)
         assert not api.PyErr_Occurred()
 
+        assert api.PyDict_Contains(d, space.wrap("c"))
+        assert not api.PyDict_Contains(d, space.wrap("z"))
+
         assert api.PyDict_DelItem(d, space.wrap("c")) == 0
         assert api.PyDict_DelItem(d, space.wrap("name")) < 0
         assert api.PyErr_Occurred() is space.w_KeyError

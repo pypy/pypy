@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
 from pypy.objspace.flow.model import flatten, mkentrymap, c_last_exception
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
-from pypy.objspace.flow.objspace import FlowObjSpace 
+from pypy.objspace.flow.objspace import FlowObjSpace, error
 from pypy.objspace.flow import objspace, flowcontext
 from pypy import conftest
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -953,6 +953,22 @@ class TestFlowObjSpace(Base):
                 assert op.args[0] == Constant(g)
 
 
+    def test_cannot_catch_special_exceptions(self):
+        def f():
+            try:
+                f()
+            except NotImplementedError:
+                pass
+        py.test.raises(error.FlowingError, "self.codetest(f)")
+        #
+        def f():
+            try:
+                f()
+            except AssertionError:
+                pass
+        py.test.raises(error.FlowingError, "self.codetest(f)")
+
+
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):
         cls.space = FlowObjSpace()
@@ -1012,6 +1028,15 @@ class TestGenInterpStyle(Base):
         expected = [Exception, TypeError]
         expected.sort()
         assert excfound == expected
+
+    def test_can_catch_special_exceptions(self):
+        def f():
+            try:
+                f()
+            except NotImplementedError:
+                pass
+        graph = self.codetest(f)
+        # assert did not crash
 
 
 DATA = {'x': 5,

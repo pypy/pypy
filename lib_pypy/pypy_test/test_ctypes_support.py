@@ -22,12 +22,11 @@ def test_stdlib_and_errno():
     assert get_errno() == 0
 
 def test_argument_conversion_and_checks():
-    import ctypes
-    libc = ctypes.cdll.LoadLibrary("libc.so.6")
-    libc.strlen.argtypes = ctypes.c_char_p,
-    libc.strlen.restype = ctypes.c_size_t
-    assert libc.strlen("eggs") == 4
-    
+    strlen = standard_c_lib.strlen
+    strlen.argtypes = [c_char_p]
+    strlen.restype = c_size_t
+    assert strlen("eggs") == 4
+
     # Should raise ArgumentError, not segfault
-    py.test.raises(ctypes.ArgumentError, libc.strlen, False)
+    py.test.raises(ArgumentError, strlen, False)
 

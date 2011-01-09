@@ -296,6 +296,7 @@ class AppTestFfi:
         assert _rawffi.charp2string(res[0]) is None
         arg1.free()
         arg2.free()
+        a.free()
 
     def test_raw_callable(self):
         import _rawffi
@@ -862,6 +863,7 @@ class AppTestFfi:
             assert "Procedure called with too many arguments" in e.message
         else:
             assert 0, "Did not raise"
+        arg.free()
 
     def test_struct_byvalue(self):
         import _rawffi, sys

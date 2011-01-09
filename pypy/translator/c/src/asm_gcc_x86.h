@@ -2,6 +2,8 @@
  * It replaces some complex macros with native assembler instructions.
  */
 
+#if 0     /* --- disabled: does not give any speed-up --- */
+
 #undef OP_INT_ADD_OVF
 #define OP_INT_ADD_OVF(x,y,r)                   \
     asm volatile(                               \
@@ -50,6 +52,13 @@
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
 
+extern void op_int_overflowed(void)
+     asm ("_op_int_overflowed")
+     __attribute__((used));
+
+#endif  /* 0 */
+
+
 /* Pentium only! */
 #define READ_TIMESTAMP(val) \
      asm volatile("rdtsc" : "=A" (val))
@@ -62,19 +71,15 @@
 // I don't know how important it is, comment talks about time warps
 
 
-/* prototypes */
-
-extern void op_int_overflowed(void)
-     asm ("_op_int_overflowed")
-     __attribute__((used));
-
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
 
+#  if 0   /* disabled */
 void op_int_overflowed(void)
 {
   FAIL_OVF("integer operation");
 }
+#  endif
 
 #endif

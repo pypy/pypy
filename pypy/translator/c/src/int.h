@@ -2,40 +2,27 @@
 /************************************************************/
  /***  C header subsection: operations between ints        ***/
 
-#ifndef LLONG_MAX
-# if SIZEOF_LONG_LONG == 8
-#  define LLONG_MAX 0X7FFFFFFFFFFFFFFFLL
-# else
-#  error "fix LLONG_MAX"
-# endif
-#endif
-
-#ifndef LLONG_MIN
-# define LLONG_MIN (-LLONG_MAX-1)
-#endif
 
 /*** unary operations ***/
 
-#define OP_INT_IS_TRUE(x,r)   OP_INT_NE(x,0,r)
-
-#define OP_INT_INVERT(x,r)    r = ~((x))
-
-#define OP_INT_NEG(x,r)    r = -(x)
+#define OP_INT_IS_TRUE(x,r)   r = ((x) != 0)
+#define OP_INT_INVERT(x,r)    r = ~(x)
+#define OP_INT_NEG(x,r)       r = -(x)
 
 #define OP_INT_NEG_OVF(x,r) \
-    if ((x) == LONG_MIN) FAIL_OVF("integer negate"); \
+	if ((x) == LONG_MIN) FAIL_OVF("integer negate"); \
 	OP_INT_NEG(x,r)
 #define OP_LLONG_NEG_OVF(x,r) \
-    if ((x) == LLONG_MIN) FAIL_OVF("integer negate"); \
+	if ((x) == LLONG_MIN) FAIL_OVF("integer negate"); \
 	OP_LLONG_NEG(x,r)
 
 #define OP_INT_ABS(x,r)    r = (x) >= 0 ? x : -(x)
 
 #define OP_INT_ABS_OVF(x,r) \
-    if ((x) == LONG_MIN) FAIL_OVF("integer absolute"); \
+	if ((x) == LONG_MIN) FAIL_OVF("integer absolute"); \
 	OP_INT_ABS(x,r)
 #define OP_LLONG_ABS_OVF(x,r) \
-    if ((x) == LLONG_MIN) FAIL_OVF("integer absolute"); \
+	if ((x) == LLONG_MIN) FAIL_OVF("integer absolute"); \
 	OP_LLONG_ABS(x,r)
 
 /***  binary operations ***/
@@ -59,48 +46,41 @@
 
 #define OP_INT_ADD(x,y,r)     r = (x) + (y)
 
+/* cast to avoid undefined behaviour on overflow */
 #define OP_INT_ADD_OVF(x,y,r) \
-	OP_INT_ADD(x,y,r); \
-	if ((r^(x)) >= 0 || (r^(y)) >= 0); \
-	else FAIL_OVF("integer addition")
+        r = (long)((unsigned long)x + y); \
+        if ((r^x) < 0 && (r^y) < 0) FAIL_OVF("integer addition")
 
 #define OP_LLONG_ADD_OVF(x,y,r) \
-	OP_LLONG_ADD(x,y,r); \
-	if ((r^(x)) >= 0 || (r^(y)) >= 0); \
-	else FAIL_OVF("integer addition")
+        r = (long long)((unsigned long long)x + y); \
+        if ((r^x) < 0 && (r^y) < 0) FAIL_OVF("integer addition")
 
 #define OP_INT_ADD_NONNEG_OVF(x,y,r)  /* y can be assumed >= 0 */ \
-    r = (long)((unsigned long)x + (unsigned long)y); \
-    if (r >= (x)); \
-    else FAIL_OVF("integer addition")
-/* Can a C compiler be too clever and think it can "prove" that
- * r >= x always holds above?  Yes.  Hence the casting. */
+        r = (long)((unsigned long)x + y); \
+        if ((r&~x) < 0) FAIL_OVF("integer addition")
 
 #define OP_INT_SUB(x,y,r)     r = (x) - (y)
 
 #define OP_INT_SUB_OVF(x,y,r) \
-	OP_INT_SUB(x,y,r); \
-	if ((r^(x)) >= 0 || (r^~(y)) >= 0); \
-	else FAIL_OVF("integer subtraction")
+        r = (long)((unsigned long)x - y); \
+        if ((r^x) < 0 && (r^~y) < 0) FAIL_OVF("integer subtraction")
 
 #define OP_LLONG_SUB_OVF(x,y,r) \
-	OP_LLONG_SUB(x,y,r); \
-	if ((r^(x)) >= 0 || (r^~(y)) >= 0); \
-	else FAIL_OVF("integer subtraction")
+        r = (long long)((unsigned long long)x - y); \
+        if ((r^x) < 0 && (r^~y) < 0) FAIL_OVF("integer subtraction")
 
 #define OP_INT_MUL(x,y,r)     r = (x) * (y)
 
-#if SIZE_OF_LONG == SIZE_OF_LONG_LONG
-#define OP_INT_MUL_OVF(x,y,r) \
-	r = op_llong_mul_ovf(x, y)
-#else
+#if SIZEOF_LONG * 2 <= SIZEOF_LONG_LONG
 #define OP_INT_MUL_OVF(x,y,r) \
 	{ \
-		PY_LONG_LONG lr = (PY_LONG_LONG)(x) * (PY_LONG_LONG)(y); \
-		r = (long)lr; \
-		if ((PY_LONG_LONG)r == lr); \
-		else FAIL_OVF("integer multiplication"); \
+		long long _lr = (long long)x * y; \
+		r = (long)_lr; \
+		if (_lr != (long long)r) FAIL_OVF("integer multiplication"); \
 	}
+#else
+#define OP_INT_MUL_OVF(x,y,r) \
+	r = op_llong_mul_ovf(x, y)   /* long == long long */
 #endif
 
 #define OP_LLONG_MUL_OVF(x,y,r) \
@@ -136,34 +116,48 @@
 #define OP_LLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 #define OP_ULLONG_FLOORDIV(x,y,r) r = (x) / (y)
 
-#define OP_INT_FLOORDIV_OVF(x,y,r) \
-	if ((y) == -1 && (x) == LONG_MIN) \
-            { FAIL_OVF("integer division"); } \
-        else OP_INT_FLOORDIV(x,y,r)
-#define OP_LLONG_FLOORDIV_OVF(x,y,r) \
-	if ((y) == -1 && (x) == LLONG_MIN) \
-            { FAIL_OVF("integer division"); } \
-        else OP_LLONG_FLOORDIV(x,y,r)
+#define OP_INT_FLOORDIV_OVF(x,y,r)                      \
+	if ((y) == -1 && (x) == LONG_MIN)               \
+	    { FAIL_OVF("integer division"); r=0; }      \
+	else                                            \
+	    r = (x) / (y)
+#define OP_LLONG_FLOORDIV_OVF(x,y,r)                    \
+	if ((y) == -1 && (x) == LLONG_MIN)              \
+	    { FAIL_OVF("integer division"); r=0; }      \
+	else                                            \
+	    r = (x) / (y)
 
-#define OP_INT_FLOORDIV_ZER(x,y,r) \
-	if ((y)) { OP_INT_FLOORDIV(x,y,r); } \
-	else FAIL_ZER("integer division")
-#define OP_UINT_FLOORDIV_ZER(x,y,r) \
-	if ((y)) { OP_UINT_FLOORDIV(x,y,r); } \
-	else FAIL_ZER("unsigned integer division")
-#define OP_LLONG_FLOORDIV_ZER(x,y,r) \
-	if ((y)) { OP_LLONG_FLOORDIV(x,y,r); } \
-	else FAIL_ZER("integer division")
-#define OP_ULLONG_FLOORDIV_ZER(x,y,r) \
-	if ((y)) { OP_ULLONG_FLOORDIV(x,y,r); } \
-	else FAIL_ZER("unsigned integer division")
+#define OP_INT_FLOORDIV_ZER(x,y,r)                      \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer division"); r=0; }      \
+	else                                            \
+	    r = (x) / (y)
+#define OP_UINT_FLOORDIV_ZER(x,y,r)                             \
+	if ((y) == 0)                                           \
+	    { FAIL_ZER("unsigned integer division"); r=0; }     \
+	else                                                    \
+	    r = (x) / (y)
+#define OP_LLONG_FLOORDIV_ZER(x,y,r)                    \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer division"); r=0; }      \
+	else                                            \
+	    r = (x) / (y)
+#define OP_ULLONG_FLOORDIV_ZER(x,y,r)                           \
+	if ((y) == 0)                                           \
+	    { FAIL_ZER("unsigned integer division"); r=0; }     \
+	else                                                    \
+	    r = (x) / (y)
 
-#define OP_INT_FLOORDIV_OVF_ZER(x,y,r) \
-	if ((y)) { OP_INT_FLOORDIV_OVF(x,y,r); } \
-	else FAIL_ZER("integer division")
-#define OP_LLONG_FLOORDIV_OVF_ZER(x,y,r) \
-	if ((y)) { OP_LLONG_FLOORDIV_OVF(x,y,r); } \
-	else FAIL_ZER("integer division")
+#define OP_INT_FLOORDIV_OVF_ZER(x,y,r)                  \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer division"); r=0; }      \
+	else                                            \
+	    { OP_INT_FLOORDIV_OVF(x,y,r); }
+#define OP_LLONG_FLOORDIV_OVF_ZER(x,y,r)                \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer division"); r=0; }      \
+	else                                            \
+	    { OP_LLONG_FLOORDIV_OVF(x,y,r); }
 
 /* modulus */
 
@@ -172,34 +166,47 @@
 #define OP_LLONG_MOD(x,y,r)   r = (x) % (y)
 #define OP_ULLONG_MOD(x,y,r)  r = (x) % (y)
 
-#define OP_INT_MOD_OVF(x,y,r) \
-	if ((y) == -1 && (x) == LONG_MIN) \
-            { FAIL_OVF("integer modulo"); }\
-        else OP_INT_MOD(x,y,r)
-#define OP_LLONG_MOD_OVF(x,y,r) \
-	if ((y) == -1 && (x) == LLONG_MIN) \
-            { FAIL_OVF("integer modulo"); }\
-        else OP_LLONG_MOD(x,y,r)
+#define OP_INT_MOD_OVF(x,y,r)                           \
+	if ((y) == -1 && (x) == LONG_MIN)               \
+	    { FAIL_OVF("integer modulo"); r=0; }        \
+	else                                            \
+	    r = (x) % (y)
+#define OP_LLONG_MOD_OVF(x,y,r)                         \
+	if ((y) == -1 && (x) == LLONG_MIN)              \
+	    { FAIL_OVF("integer modulo"); r=0; }        \
+	else                                            \
+	    r = (x) % (y)
+#define OP_INT_MOD_ZER(x,y,r)                           \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer modulo"); r=0; }        \
+	else                                            \
+	    r = (x) % (y)
+#define OP_UINT_MOD_ZER(x,y,r)                                  \
+	if ((y) == 0)                                           \
+	    { FAIL_ZER("unsigned integer modulo"); r=0; }       \
+	else                                                    \
+	    r = (x) % (y)
+#define OP_LLONG_MOD_ZER(x,y,r)                         \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer modulo"); r=0; }        \
+	else                                            \
+	    r = (x) % (y)
+#define OP_ULLONG_MOD_ZER(x,y,r)                                \
+	if ((y) == 0)                                           \
+	    { FAIL_ZER("unsigned integer modulo"); r=0; }       \
+	else                                                    \
+	    r = (x) % (y)
 
-#define OP_INT_MOD_ZER(x,y,r) \
-	if ((y)) { OP_INT_MOD(x,y,r); } \
-	else FAIL_ZER("integer modulo")
-#define OP_UINT_MOD_ZER(x,y,r) \
-	if ((y)) { OP_UINT_MOD(x,y,r); } \
-	else FAIL_ZER("unsigned integer modulo")
-#define OP_LLONG_MOD_ZER(x,y,r) \
-	if ((y)) { OP_LLONG_MOD(x,y,r); } \
-	else FAIL_ZER("integer modulo")
-#define OP_ULLONG_MOD_ZER(x,y,r) \
-	if ((y)) { OP_ULLONG_MOD(x,y,r); } \
-	else FAIL_ZER("integer modulo")
-
-#define OP_INT_MOD_OVF_ZER(x,y,r) \
-	if ((y)) { OP_INT_MOD_OVF(x,y,r); } \
-	else FAIL_ZER("integer modulo")
-#define OP_LLONG_MOD_OVF_ZER(x,y,r) \
-	if ((y)) { OP_LLONG_MOD_OVF(x,y,r); } \
-	else FAIL_ZER("integer modulo")
+#define OP_INT_MOD_OVF_ZER(x,y,r)                       \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer modulo"); r=0; }        \
+	else                                            \
+	    { OP_INT_MOD_OVF(x,y,r); }
+#define OP_LLONG_MOD_OVF_ZER(x,y,r)                     \
+	if ((y) == 0)                                   \
+	    { FAIL_ZER("integer modulo"); r=0; }        \
+	else                                            \
+	    { OP_LLONG_MOD_OVF(x,y,r); }
 
 /* bit operations */
 
@@ -233,18 +240,17 @@
 
 /* prototypes */
 
-PY_LONG_LONG op_llong_mul_ovf(PY_LONG_LONG a, PY_LONG_LONG b);
+long long op_llong_mul_ovf(long long a, long long b);
 
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-PY_LONG_LONG
-op_llong_mul_ovf(PY_LONG_LONG a, PY_LONG_LONG b)
+long long op_llong_mul_ovf(long long a, long long b)
 {
 	double doubled_longprod;	/* (double)longprod */
 	double doubleprod;		/* (double)a * (double)b */
-        PY_LONG_LONG longprod;
+	long long longprod;
 
 	longprod = a * b;
 	doubleprod = (double)a * (double)b;
@@ -270,7 +276,7 @@ op_llong_mul_ovf(PY_LONG_LONG a, PY_LONG_LONG b)
 		if (32.0 * absdiff <= absprod)
 			return longprod;
 
-                FAIL_OVF("integer multiplication");
+		FAIL_OVF("integer multiplication");
 		return -1;
 	}
 }

@@ -42,8 +42,14 @@ def optimize_loop(metainterp_sd, old_loops, loop):
                 descr.store_final_boxes(op, newboxes)
             newoperations.extend(transform(op))
         loop.operations = newoperations
+        jumpop = newoperations[-1]
+        if jumpop.getopnum() == rop.JUMP:
+            jumpop.setdescr(loop.token)
         return None
 
 def optimize_bridge(metainterp_sd, old_loops, loop):
     optimize_loop(metainterp_sd, [], loop)
+    jumpop = loop.operations[-1]
+    if jumpop.getopnum() == rop.JUMP:
+        jumpop.setdescr(old_loops[0])
     return old_loops[0]

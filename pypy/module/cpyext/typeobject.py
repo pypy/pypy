@@ -16,15 +16,15 @@ from pypy.module.cpyext.pyobject import (
     track_reference, RefcountState, borrow_from)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext import structmemberdefs
-from pypy.module.cpyext.modsupport import convert_method_defs, PyCFunction
+from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.methodobject import (
-    PyDescr_NewWrapper, PyCFunction_NewEx)
+    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
 from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
-    PyNumberMethods)
+    PyNumberMethods, PySequenceMethods)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.interpreter.error import OperationError
@@ -136,6 +136,8 @@ def update_all_slots(space, w_type, pto):
             if not struct:
                 if slot_names[0] == 'c_tp_as_number':
                     STRUCT_TYPE = PyNumberMethods
+                elif slot_names[0] == 'c_tp_as_sequence':
+                    STRUCT_TYPE = PySequenceMethods
                 else:
                     raise AssertionError(
                         "Structure not allocated: %s" % (slot_names[0],))
@@ -182,10 +184,10 @@ def tp_new_wrapper(space, self, w_args, w_kwds):
 
     subtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_subtype))
     try:
-        obj = generic_cpy_call(space, tp_new, subtype, w_args, w_kwds)
+        w_obj = generic_cpy_call(space, tp_new, subtype, w_args, w_kwds)
     finally:
         Py_DecRef(space, w_subtype)
-    return obj
+    return w_obj
 
 @specialize.memo()
 def get_new_method_def(space):
@@ -193,16 +195,20 @@ def get_new_method_def(space):
     if state.new_method_def:
         return state.new_method_def
     from pypy.module.cpyext.modsupport import PyMethodDef
-    ptr = lltype.malloc(PyMethodDef, flavor="raw", zero=True)
+    ptr = lltype.malloc(PyMethodDef, flavor="raw", zero=True,
+                        immortal=True)
     ptr.c_ml_name = rffi.str2charp("__new__")
+    lltype.render_immortal(ptr.c_ml_name)
     rffi.setintfield(ptr, 'c_ml_flags', METH_VARARGS | METH_KEYWORDS)
-    ptr.c_ml_doc = rffi.str2charp("T.__new__(S, ...) -> a new object with type S, a subtype of T")
+    ptr.c_ml_doc = rffi.str2charp(
+        "T.__new__(S, ...) -> a new object with type S, a subtype of T")
+    lltype.render_immortal(ptr.c_ml_doc)
     state.new_method_def = ptr
     return ptr
 
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
-    ptr.c_ml_meth = rffi.cast(PyCFunction,
+    ptr.c_ml_meth = rffi.cast(PyCFunction_typedef,
         llhelper(tp_new_wrapper.api_func.functype,
                  tp_new_wrapper.api_func.get_wrapper(space)))
 
@@ -388,6 +394,8 @@ def type_dealloc(space, obj):
             lltype.free(obj_pto.c_tp_as_buffer, flavor='raw')
         if obj_pto.c_tp_as_number:
             lltype.free(obj_pto.c_tp_as_number, flavor='raw')
+        if obj_pto.c_tp_as_sequence:
+            lltype.free(obj_pto.c_tp_as_sequence, flavor='raw')
         Py_DecRef(space, base_pyo)
         rffi.free_charp(obj_pto.c_tp_name)
         PyObject_dealloc(space, obj)
@@ -576,7 +584,8 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        pto.c_tp_dict = make_ref(space, w_obj.getdict())
+        w_dict = space.newdict(from_strdict_shared=w_obj.dict_w)
+        pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

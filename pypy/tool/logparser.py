@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 """
 Syntax:
-    python logparser.py <action> <logfilename> <options...>
+    python logparser.py <action> <logfilename> <output> <options...>
 
 Actions:
     draw-time   draw a timeline image of the log (format PNG by default)
@@ -12,14 +12,6 @@ from pypy.rlib.debug import DebugLog
 from pypy.tool import progressbar
 
 def parse_log_file(filename, verbose=True):
-    r_start = re.compile(r"\[([0-9a-fA-F]+)\] \{([\w-]+)$")
-    r_stop  = re.compile(r"\[([0-9a-fA-F]+)\] ([\w-]+)\}$")
-    lasttime = 0
-    log = DebugLog()
-    time_decrase = False
-    performance_log = True
-    nested = 0
-    #
     f = open(filename, 'r')
     if f.read(2) == 'BZ':
         f.close()
@@ -30,19 +22,33 @@ def parse_log_file(filename, verbose=True):
     lines = f.readlines()
     f.close()
     #
-    if sys.stdout.isatty():
+    return parse_log(lines, verbose=verbose)
+
+def parse_log(lines, verbose=False):
+    color = "(?:\x1b.*?m)?"
+    r_start = re.compile(color + r"\[([0-9a-fA-F]+)\] \{([\w-]+)" + color + "$")
+    r_stop  = re.compile(color + r"\[([0-9a-fA-F]+)\] ([\w-]+)\}" + color + "$")
+    lasttime = 0
+    log = DebugLog()
+    time_decrase = False
+    performance_log = True
+    nested = 0
+    #
+    if verbose and sys.stdout.isatty():
         progress = progressbar.ProgressBar(color='green')
+        counter = 0
+    else:
+        progress = None
     single_percent = len(lines) / 100
     if verbose:
-        vnext = single_percent
+        vnext = 0
     else:
-        vnext = len(lines)
-    counter = 0
+        vnext = -1
     for i, line in enumerate(lines):
         if i == vnext:
-            counter += 1
-            if sys.stdout.isatty():
+            if progress is not None:
                 progress.render(counter)
+                counter += 1
                 vnext += single_percent
             else:
                 sys.stderr.write('%d%%..' % int(100.0*i/len(lines)))
@@ -86,6 +92,27 @@ def extract_category(log, catprefix='', toplevel=False):
         resulttext.append('')
         got.insert(0, '\n'.join(resulttext))
     return got
+
+def print_log(log):
+    for entry in log:
+        if entry[0] == 'debug_print':
+            print entry[1]
+        else:
+            print "{%s" % entry[0]
+            if len(entry)>3:
+                print_log(entry[3])
+            print "%s}" % entry[0]
+
+def kill_category(log, catprefix=''):
+    newlog = []
+    for entry in log:
+        if not entry[0].startswith(catprefix):
+            if len(entry) > 3:
+                newlog.append(entry[:3] + 
+                              (kill_category(entry[3], catprefix),))
+            else:
+                newlog.append(entry)
+    return newlog
 
 def getsubcategories(log):
     return [entry for entry in log if entry[0] != 'debug_print']

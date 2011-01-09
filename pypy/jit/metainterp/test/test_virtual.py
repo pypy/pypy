@@ -12,7 +12,7 @@ class VirtualTests:
     def _freeze_(self):
         return True
 
-    def test_virtualized(self):
+    def test_virtualized1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def f(n):
             node = self._new()
@@ -34,6 +34,54 @@ class VirtualTests:
         self.check_loops(new=0, new_with_vtable=0,
                                 getfield_gc=0, setfield_gc=0)
 
+    def test_virtualized2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node1', 'node2'])
+        def f(n):
+            node1 = self._new()
+            node1.value = 0
+            node2 = self._new()
+            node2.value = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node1=node1, node2=node2)
+                myjitdriver.jit_merge_point(n=n, node1=node1, node2=node2)
+                next1 = self._new()
+                next1.value = node1.value + n + node2.value
+                next2 = self._new()
+                next2.value = next1.value
+                node1 = next1
+                node2 = next2
+                n -= 1
+            return node1.value * node2.value
+        assert f(10) == self.meta_interp(f, [10])
+        self.check_loops(new=0, new_with_vtable=0,
+                         getfield_gc=0, setfield_gc=0)
+
+    def test_virtualized_circular1(self):
+        class MyNode():
+            pass
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
+        def f(n):
+            node = MyNode()
+            node.value = 0
+            node.extra = 0
+            node.ref = node
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                next = MyNode()
+                next.value = node.ref.value + n
+                next.extra = node.ref.extra + 1
+                next.ref = next
+                node = next
+                n -= 1
+            return node.value * node.extra
+        assert f(10) == 55 * 10
+        res = self.meta_interp(f, [10])
+        assert res == 55 * 10
+        self.check_loop_count(1)
+        self.check_loops(new=0, new_with_vtable=0,
+                                getfield_gc=0, setfield_gc=0)
+
     def test_virtualized_float(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def f(n):
@@ -44,6 +92,24 @@ class VirtualTests:
                 myjitdriver.jit_merge_point(n=n, node=node)
                 next = self._new()
                 next.floatval = node.floatval + .5
+                n -= 1
+            return node.floatval
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_loop_count(1)
+        self.check_loops(new=0, float_add=0)
+
+    def test_virtualized_float2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
+        def f(n):
+            node = self._new()
+            node.floatval = 0.0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                next = self._new()
+                next.floatval = node.floatval + .5
+                node = next
                 n -= 1
             return node.floatval
         res = self.meta_interp(f, [10])
@@ -109,7 +175,7 @@ class VirtualTests:
                 next = self._new()
                 next.value = node.value + n
                 next.extra = node.extra + 1
-                if next.extra == 4:
+                if next.extra == 5:
                     next.value += 100
                     next.extra = 0
                 node = next
@@ -137,16 +203,16 @@ class VirtualTests:
                 next = self._new()
                 next.value = node.value + n
                 next.extra = node.extra + 1
-                if next.extra == 4:
+                if next.extra == 5:
                     next.value = externfn(next)
                     next.extra = 0
                 node = next
                 n -= 1
             return node.value
-        res = self.meta_interp(f, [11], policy=StopAtXPolicy(externfn))
-        assert res == f(11)
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(externfn))
+        assert res == f(20)
         self.check_loop_count(2)
-        self.check_loops(**{self._new_op: 2})     # XXX was 1
+        self.check_loops(**{self._new_op: 1})
         self.check_loops(int_mul=0, call=1)
 
     def test_two_virtuals(self):
@@ -171,6 +237,32 @@ class VirtualTests:
         res = self.meta_interp(f, [12])
         assert res == 78
         self.check_loops(new_with_vtable=0, new=0)
+
+    def test_specialied_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def binop(self, other):
+                return A(self.val + other.val)
+        def f(x, y):
+            res = A(0)
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, res=res)
+                res = res.binop(A(y))
+                if y<7:
+                    res = x
+                    x = A(1)
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            assert a1.val == a2.val
+            return a1.val
+        res = self.meta_interp(g, [6, 14])
+        assert res == g(6, 14)
 
     def test_both_virtual_and_field_variable(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -298,10 +390,9 @@ class VirtualTests:
 
         self.check_tree_loop_count(2)      # the loop and the entry path
         # we get:
-        #    ENTER             - compile the new loop
-        #    ENTER             - compile the entry bridge
+        #    ENTER             - compile the new loop and entry bridge
         #    ENTER             - compile the leaving path
-        self.check_enter_count(3)
+        self.check_enter_count(2)
 
 class VirtualMiscTests:
 

@@ -16,13 +16,14 @@ from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.tupleobject import W_TupleObject
 
+PyCFunction_typedef = rffi.COpaquePtr('PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
 PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject], PyObject))
 
 PyMethodDef = cpython_struct(
     'PyMethodDef',
     [('ml_name', rffi.CCHARP),
-     ('ml_meth', PyCFunction),
+     ('ml_meth', PyCFunction_typedef),
      ('ml_flags', rffi.INT_real),
      ('ml_doc', rffi.CCHARP),
      ])
@@ -70,12 +71,14 @@ class W_PyCFunctionObject(Wrappable):
         if space.is_true(w_kw) and not flags & METH_KEYWORDS:
             raise OperationError(space.w_TypeError, space.wrap(
                 rffi.charp2str(self.ml.c_ml_name) + "() takes no keyword arguments"))
+
+        func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
         if flags & METH_KEYWORDS:
             func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
             return generic_cpy_call(space, func, w_self, w_args, w_kw)
         elif flags & METH_NOARGS:
             if len(w_args.wrappeditems) == 0:
-                return generic_cpy_call(space, self.ml.c_ml_meth, w_self, None)
+                return generic_cpy_call(space, func, w_self, None)
             raise OperationError(space.w_TypeError, space.wrap(
                 rffi.charp2str(self.ml.c_ml_name) + "() takes no arguments"))
         elif flags & METH_O:
@@ -86,9 +89,9 @@ class W_PyCFunctionObject(Wrappable):
                         rffi.charp2str(self.ml.c_ml_name), 
                         len(w_args.wrappeditems))))
             w_arg = w_args.wrappeditems[0]
-            return generic_cpy_call(space, self.ml.c_ml_meth, w_self, w_arg)
+            return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
-            return generic_cpy_call(space, self.ml.c_ml_meth, w_self, w_args)
+            return generic_cpy_call(space, func, w_self, w_args)
         else: # METH_OLDARGS, the really old style
             size = len(w_args.wrappeditems)
             if size == 1:
@@ -97,7 +100,7 @@ class W_PyCFunctionObject(Wrappable):
                 w_arg = None
             else:
                 w_arg = w_args
-            return generic_cpy_call(space, self.ml.c_ml_meth, w_self, w_arg)
+            return generic_cpy_call(space, func, w_self, w_arg)
 
     def get_doc(space, self):
         doc = self.ml.c_ml_doc
@@ -230,6 +233,11 @@ W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject], PyObject)
 def PyCFunction_NewEx(space, ml, w_self, w_name):
     return space.wrap(W_PyCFunctionObject(space, ml, w_self, w_name))
+
+@cpython_api([PyObject], PyCFunction_typedef)
+def PyCFunction_GetFunction(space, w_obj):
+    cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
+    return cfunction.ml.c_ml_meth
 
 @cpython_api([PyObject], PyObject)
 def PyStaticMethod_New(space, w_func):

@@ -8,7 +8,7 @@ class FakeEC(object):
     pass
 
 class FakeActionFlag(object):
-    def register_action(self, action):
+    def register_periodic_action(self, action, use_bytecode_counter):
         pass
     def get(self):
         return 0

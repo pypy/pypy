@@ -43,6 +43,93 @@ crashing_demo_script = getscript("""
     """)
 
 
+class TestParseCommandLine:
+
+    def check_options(self, options, sys_argv, **expected):
+        assert sys.argv == sys_argv
+        for key, value in expected.items():
+            assert options[key] == value
+        for key, value in options.items():
+            if key not in expected:
+                assert not value, (
+                    "option %r has unexpectedly the value %r" % (key, value))
+
+    def check(self, argv, **expected):
+        import StringIO
+        from pypy.translator.goal import app_main
+        saved_sys_argv = sys.argv[:]
+        saved_sys_stdout = sys.stdout
+        saved_sys_stderr = sys.stdout
+        app_main.os = os
+        try:
+            sys.stdout = sys.stderr = StringIO.StringIO()
+            try:
+                options = app_main.parse_command_line(argv)
+            except SystemExit:
+                output = expected['output_contains']
+                assert output in sys.stdout.getvalue()
+            else:
+                self.check_options(options, **expected)
+        finally:
+            sys.argv[:] = saved_sys_argv
+            sys.stdout = saved_sys_stdout
+            sys.stderr = saved_sys_stderr
+
+    def test_all_combinations_I_can_think_of(self):
+        self.check([], sys_argv=[''], run_stdin=True)
+        self.check(['-'], sys_argv=['-'], run_stdin=True)
+        self.check(['-S'], sys_argv=[''], run_stdin=True, no_site=1)
+        self.check(['-OO'], sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-O', '-O'], sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-Qnew'], sys_argv=[''], run_stdin=True, division_new=1)
+        self.check(['-Qold'], sys_argv=[''], run_stdin=True, division_new=0)
+        self.check(['-Qwarn'], sys_argv=[''], run_stdin=True, division_warning=1)
+        self.check(['-Qwarnall'], sys_argv=[''], run_stdin=True,
+                   division_warning=2)
+        self.check(['-Q', 'new'], sys_argv=[''], run_stdin=True, division_new=1)
+        self.check(['-SOQnew'], sys_argv=[''], run_stdin=True,
+                   no_site=1, optimize=1, division_new=1)
+        self.check(['-SOQ', 'new'], sys_argv=[''], run_stdin=True,
+                   no_site=1, optimize=1, division_new=1)
+        self.check(['-i'], sys_argv=[''], run_stdin=True,
+                   interactive=1, inspect=1)
+        self.check(['-h'], output_contains='usage:')
+        self.check(['-S', '-tO', '-h'], output_contains='usage:')
+        self.check(['-S', '-thO'], output_contains='usage:')
+        self.check(['-S', '-tO', '--help'], output_contains='usage:')
+        self.check(['-S', '-tO', '--info'], output_contains='translation')
+        self.check(['-S', '-tO', '--version'], output_contains='Python')
+        self.check(['-S', '-tOV'], output_contains='Python')
+        self.check(['--jit', 'foobar', '-S'], sys_argv=[''],
+                   run_stdin=True, no_site=1)
+        self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass'], sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass','x'], sys_argv=['-c','x'], run_command='pass')
+        self.check(['-Sc', 'pass'], sys_argv=['-c'], run_command='pass',
+                   no_site=1)
+        self.check(['-Scpass'], sys_argv=['-c'], run_command='pass', no_site=1)
+        self.check(['-c', '', ''], sys_argv=['-c', ''], run_command='')
+        self.check(['-mfoo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True)
+        self.check(['-m', 'foo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True)
+        self.check(['-Smfoo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True, no_site=1)
+        self.check(['-Sm', 'foo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True, no_site=1)
+        self.check(['-', 'foo', 'bar'], sys_argv=['-', 'foo', 'bar'],
+                   run_stdin=True)
+        self.check(['foo', 'bar'], sys_argv=['foo', 'bar'])
+        self.check(['foo', '-i'], sys_argv=['foo', '-i'])
+        self.check(['-i', 'foo'], sys_argv=['foo'], interactive=1, inspect=1)
+        self.check(['--', 'foo'], sys_argv=['foo'])
+        self.check(['--', '-i', 'foo'], sys_argv=['-i', 'foo'])
+        self.check(['--', '-', 'foo'], sys_argv=['-', 'foo'], run_stdin=True)
+        self.check(['-Wbog'], sys_argv=[''], warnoptions=['bog'], run_stdin=True)
+        self.check(['-W', 'ab', '-SWc'], sys_argv=[''], warnoptions=['ab', 'c'],
+                   run_stdin=True, no_site=1)
+
+
 class TestInteraction:
     """
     These tests require pexpect (UNIX-only).
@@ -95,6 +182,17 @@ class TestInteraction:
         child.expect('>>> ')
         child.sendline('__name__')
         child.expect("'__main__'")
+        child.expect('>>> ')
+        child.sendline('import sys')
+        child.expect('>>> ')
+        child.sendline("'' in sys.path")
+        child.expect("True")
+
+    def test_help(self):
+        # test that -h prints the usage, including the name of the executable
+        # which should be /full/path/to/app_main.py in this case
+        child = self.spawn(['-h'])
+        child.expect(r'usage: .*app_main.py \[options\]')
 
     def test_run_script(self):
         child = self.spawn([demo_script])
@@ -212,6 +310,38 @@ class TestInteraction:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
+    def test_ignore_python_startup(self):
+        old = os.environ.get('PYTHONSTARTUP', '')
+        try:
+            os.environ['PYTHONSTARTUP'] = crashing_demo_script
+            child = self.spawn(['-E'])
+            child.expect(re.escape(banner))
+            index = child.expect(['Traceback', '>>> '])
+            assert index == 1      # no traceback
+        finally:
+            os.environ['PYTHONSTARTUP'] = old
+
+    def test_ignore_python_inspect(self):
+        os.environ['PYTHONINSPECT_'] = '1'
+        try:
+            child = self.spawn(['-E', '-c', 'pass'])
+            from pexpect import EOF
+            index = child.expect(['>>> ', EOF])
+            assert index == 1      # no prompt
+        finally:
+            del os.environ['PYTHONINSPECT_']
+
+    def test_ignore_python_path(self):
+        old = os.environ.get('PYTHONPATH', '')
+        try:
+            os.environ['PYTHONPATH'] = 'foobarbaz'
+            child = self.spawn(['-E', '-c', 'import sys; print sys.path'])
+            from pexpect import EOF
+            index = child.expect(['foobarbaz', EOF])
+            assert index == 1      # no foobarbaz
+        finally:
+            os.environ['PYTHONPATH'] = old
+
     def test_unbuffered(self):
         line = 'import os,sys;sys.stdout.write(str(789));os.read(0,1)'
         child = self.spawn(['-u', '-c', line])
@@ -324,6 +454,10 @@ class TestInteraction:
         child = self.spawn(['-mpypy.translator.goal.test2.mymodule'])
         child.expect('mymodule running')
 
+    def test_ps1_only_if_interactive(self):
+        argv = ['-c', 'import sys; print hasattr(sys, "ps1")']
+        child = self.spawn(argv)
+        child.expect('False')
 
 class TestNonInteractive:
 
@@ -375,7 +509,7 @@ class TestNonInteractive:
 
     def test_option_W_crashing(self):
         data = self.run('-W')
-        assert 'Argument expected for the -W option' in data
+        assert "Argument expected for the '-W' option" in data
 
     def test_option_W_arg_ignored(self):
         data = self.run('-Wc')
@@ -463,8 +597,10 @@ class TestNonInteractive:
                 yield
             finally:
                 old_cwd.chdir()
-                os.putenv('PYTHONPATH', old_pythonpath)
-        
+                # Can't call putenv with a None argument.
+                if old_pythonpath is not None:
+                    os.putenv('PYTHONPATH', old_pythonpath)
+
         tmpdir.join('site.py').write('print "SHOULD NOT RUN"')
         runme_py = tmpdir.join('runme.py')
         runme_py.write('print "some text"')
@@ -485,9 +621,12 @@ class TestNonInteractive:
 
         with chdir_and_unset_pythonpath(tmpdir):
             data = self.run(cmdline2, python_flags='-S')
-
         assert data.startswith("some new text\n")
         assert repr(str(tmpdir.join('otherpath'))) in data
+        assert "''" not in data
+
+        data = self.run('-c "import sys; print sys.path"')
+        assert data.startswith("[''")
 
 
 class AppTestAppMain:
@@ -524,7 +663,8 @@ class AppTestAppMain:
             newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
             assert newpath == sys.path
             newpath = app_main.get_library_path(self.fake_exe)
-            assert newpath == self.expected_path
+            # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
+            assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
             sys.path.pop()
 
@@ -537,7 +677,9 @@ class AppTestAppMain:
             app_main.os = os
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
             newpath = app_main.get_library_path(pypy_c)
-            assert len(newpath) == 3
+            # we get at least lib_pypy, lib-python/modified-X.Y.Z,
+            # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
+            assert len(newpath) >= 3
             for p in newpath:
                 assert p.startswith(self.trunkdir)
         finally:

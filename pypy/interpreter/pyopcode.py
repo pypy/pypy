@@ -778,6 +778,12 @@ class __extend__(pyframe.PyFrame):
         # CPython 2.5 adds an extra argument consumed by this opcode
         if self.pycode.magic >= 0xa0df294:
             w_flag = self.popvalue()
+            try:
+                if space.int_w(w_flag) == -1:
+                    w_flag = None
+            except OperationError, e:
+                if e.async(space):
+                    raise
         else:
             w_flag = None
 
@@ -1140,7 +1146,7 @@ class SContinueLoop(SuspendedUnroller):
     state_pack_variables = staticmethod(state_pack_variables)
 
 
-class FrameBlock:
+class FrameBlock(object):
 
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""

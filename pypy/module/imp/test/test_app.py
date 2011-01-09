@@ -47,6 +47,9 @@ class AppTestImpModule:
             elif mode == self.imp.PY_COMPILED:
                 assert suffix in ('.pyc', '.pyo')
                 assert type == 'rb'
+            elif mode == self.imp.C_EXTENSION:
+                assert suffix.endswith(('.pyd', '.so'))
+                assert type == 'rb'
 
 
     def test_obscure_functions(self):

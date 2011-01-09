@@ -93,8 +93,10 @@ class ItemOffset(AddressOffset):
                 return endmarker._as_ptr()
             else:
                 return parent.getitem(index)._as_ptr()
-        elif (isinstance(A, lltype.FixedSizeArray) and
-              array_item_type_match(A.OF, self.TYPE)):
+        elif ((isinstance(A, lltype.FixedSizeArray)
+               or (isinstance(A, lltype.Array) and A._hints.get('nolength',
+                                                                False)))
+              and array_item_type_match(A.OF, self.TYPE)):
             # for array of primitives or pointers
             return lltype.direct_ptradd(firstitemptr, self.repeat)
         else:
@@ -766,8 +768,10 @@ class _gctransformed_wref(lltype._container):
         return '<%s>' % (self,)
     def __str__(self):
         return 'gctransformed_wref(%s)' % (self._ptr,)
-    def _normalizedcontainer(self):
-        return self._ptr._obj
+    def _normalizedcontainer(self, check=True):
+        return self._ptr._getobj(check=check)._normalizedcontainer(check=check)
+    def _was_freed(self):
+        return self._ptr._was_freed()
 
 # ____________________________________________________________
 

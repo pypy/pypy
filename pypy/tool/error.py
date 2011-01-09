@@ -120,7 +120,7 @@ def format_simple_call(annotator, oper, what, msg):
         msg.append("      (%s getting at the binding!)" % (
             e.__class__.__name__,))
         return
-    for desc in descs.keys():
+    for desc in list(descs):
         func = desc.pyobj
         if func is None:
             r = repr(desc)

@@ -92,9 +92,20 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                                      PyDateTimeAPI->TimeType,
                                      PyDateTimeAPI->DeltaType);
              """),
+            ("clear_types", "METH_NOARGS",
+             """
+                 Py_DECREF(PyDateTimeAPI->DateType);
+                 Py_DECREF(PyDateTimeAPI->DateTimeType);
+                 Py_DECREF(PyDateTimeAPI->TimeType);
+                 Py_DECREF(PyDateTimeAPI->DeltaType);
+                 Py_RETURN_NONE;
+             """
+             )
             ])
         import datetime
         assert module.get_types() == (datetime.date,
                                       datetime.datetime,
                                       datetime.time,
                                       datetime.timedelta)
+        module.clear_types()
+        self.cleanup_references()

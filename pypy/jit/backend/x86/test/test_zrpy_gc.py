@@ -550,3 +550,29 @@ class TestCompileFramework(object):
 
     def test_compile_framework_float(self):
         self.run('compile_framework_float')
+
+    def define_compile_framework_minimal_size_in_nursery(self):
+        S = lltype.GcStruct('S')    # no fields!
+        T = lltype.GcStruct('T', ('i', lltype.Signed))
+        @unroll_safe
+        def f42(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            lst1 = []
+            lst2 = []
+            i = 0
+            while i < 42:
+                s1 = lltype.malloc(S)
+                t1 = lltype.malloc(T)
+                t1.i = 10000 + i + n
+                lst1.append(s1)
+                lst2.append(t1)
+                i += 1
+            i = 0
+            while i < 42:
+                check(lst2[i].i == 10000 + i + n)
+                i += 1
+            n -= 1
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        return None, f42, None
+
+    def test_compile_framework_minimal_size_in_nursery(self):
+        self.run('compile_framework_minimal_size_in_nursery')

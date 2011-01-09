@@ -64,6 +64,7 @@ class BaseArrayTests:
             raises(TypeError, self.array, tc, None)
 
     def test_value_range(self):
+        import sys
         values = (-129, 128, -128, 127, 0, 255, -1, 256,
                   -32768, 32767, -32769, 32768, 65535, 65536,
                   -2147483647, -2147483648, 2147483647, 4294967295, 4294967296,
@@ -88,7 +89,12 @@ class BaseArrayTests:
                 a.append(v)
             for i, v in enumerate(ok * 2):
                 assert a[i] == v
-                assert type(a[i]) is pt
+                assert type(a[i]) is pt or (
+                    # A special case: we return ints in Array('I') on 64-bits,
+                    # whereas CPython returns longs.  The difference is
+                    # probably acceptable.
+                    tc == 'I' and
+                    sys.maxint > 2147483647 and type(a[i]) is int)
             for v in ok:
                 a[1] = v
                 assert a[0] == ok[0]

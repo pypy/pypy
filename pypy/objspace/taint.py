@@ -152,7 +152,7 @@ def taint_look(space, w_obj):
     """Print some info about the taintedness of an object. For debugging
 purposes only!"""
     if isinstance(w_obj, W_Tainted):
-        info = space.type(w_obj.w_obj).getname(space, '?')
+        info = space.type(w_obj.w_obj).getname(space)
         msg = space.str_w(w_obj.w_obj.getrepr(space, info))
         msg = 'Taint Box %s\n' % msg
         os.write(2, msg)

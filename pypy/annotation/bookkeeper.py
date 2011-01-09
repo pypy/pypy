@@ -87,13 +87,6 @@ class Stats(object):
         else:
             return obj.knowntype.__name__
 
-    def consider_tuple_iter(self, tup):
-        ctxt = "[%s]" % sys._getframe(4).f_code.co_name
-        if tup.is_constant():
-            return ctxt, tup.const
-        else:
-            return ctxt, tuple([self.typerepr(x) for x in tup.items])
-
     def consider_tuple_random_getitem(self, tup):
         return tuple([self.typerepr(x) for x in tup.items])
 
@@ -269,7 +262,7 @@ class Bookkeeper(object):
                                             args_s, s_result)
 
     def consider_call_site_for_pbc(self, s_callable, opname, args_s, s_result):
-        descs = s_callable.descriptions.keys()
+        descs = list(s_callable.descriptions)
         if not descs:
             return
         family = descs[0].getcallfamily()
@@ -597,7 +590,7 @@ class Bookkeeper(object):
         assert s_attr.is_constant()
         attr = s_attr.const
 
-        descs = pbc.descriptions.keys()
+        descs = list(pbc.descriptions)
         if not descs:
             return s_ImpossibleValue
 
@@ -640,7 +633,7 @@ class Bookkeeper(object):
         """Analyse a call to a SomePBC() with the given args (list of
         annotations).
         """
-        descs = pbc.descriptions.keys()
+        descs = list(pbc.descriptions)
         if not descs:
             return s_ImpossibleValue
         first = descs[0]

@@ -7,9 +7,6 @@ def getsignalname(n):
             return name
     return 'signal %d' % (n,)
 
-timeout = float(sys.argv[1])
-timedout = False
-
 def childkill():
     global timedout
     timedout = True
@@ -20,31 +17,35 @@ def childkill():
     except OSError:
         pass
 
-pid = os.fork()
-if pid == 0:
-    os.execvp(sys.argv[2], sys.argv[2:])
-else: # parent
-    t = threading.Timer(timeout, childkill)
-    t.start()
-    while True:
-        try:
-            pid, status = os.waitpid(pid, 0)
-        except KeyboardInterrupt:
-            continue
-        else:
-            t.cancel()
-            break
-    if os.WIFEXITED(status):
-        sys.exit(os.WEXITSTATUS(status))
-    else:
-        assert os.WIFSIGNALED(status)
-        sign = os.WTERMSIG(status)
-        if timedout and sign == signal.SIGTERM:
-            sys.exit(1)
-        signame = getsignalname(sign)
-        sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")        
-        sys.stderr.write("="*25 + " %-08s " %  signame + "="*25 + "\n")
-        sys.exit(1)
+if __name__ == '__main__':
+    timeout = float(sys.argv[1])
+    timedout = False
 
-    
-    
+    pid = os.fork()
+    if pid == 0:
+        os.execvp(sys.argv[2], sys.argv[2:])
+    else: # parent
+        t = threading.Timer(timeout, childkill)
+        t.start()
+        while True:
+            try:
+                pid, status = os.waitpid(pid, 0)
+            except KeyboardInterrupt:
+                continue
+            else:
+                t.cancel()
+                break
+        if os.WIFEXITED(status):
+            sys.exit(os.WEXITSTATUS(status))
+        else:
+            assert os.WIFSIGNALED(status)
+            sign = os.WTERMSIG(status)
+            if timedout and sign == signal.SIGTERM:
+                sys.exit(1)
+            signame = getsignalname(sign)
+            sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")        
+            sys.stderr.write("="*25 + " %-08s " %  signame + "="*25 + "\n")
+            sys.exit(1)
+
+
+

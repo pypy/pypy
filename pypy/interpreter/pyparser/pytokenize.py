@@ -24,7 +24,7 @@ __all__ = [ "tokenize" ]
 # Automatically generated DFA's
 
 accepts = [True, True, True, True, True, True, True, True,
-           True, True, False, True, True, True, False, False,
+           True, True, False, True, True, True, True, False,
            False, False, True, True, True, False, True,
            False, True, False, True, False, False, True,
            False, False, False, False, True, False, False,
@@ -142,9 +142,11 @@ states = [
     # 14
     {'\n': 13},
     # 15
-    {automata.DEFAULT: 28, '\n': 25, "'": 26, '\\': 27},
+    {automata.DEFAULT: 28, '\n': 25,
+     '\r': 25, "'": 26, '\\': 27},
     # 16
-    {automata.DEFAULT: 31, '\n': 25, '"': 29, '\\': 30},
+    {automata.DEFAULT: 31, '\n': 25,
+     '\r': 25, '"': 29, '\\': 30},
     # 17
     {'\n': 13, '\r': 14},
     # 18
@@ -188,13 +190,15 @@ states = [
     # 27
     {automata.DEFAULT: 35, '\n': 13, '\r': 14},
     # 28
-    {automata.DEFAULT: 28, '\n': 25, "'": 13, '\\': 27},
+    {automata.DEFAULT: 28, '\n': 25,
+     '\r': 25, "'": 13, '\\': 27},
     # 29
     {'"': 13},
     # 30
     {automata.DEFAULT: 36, '\n': 13, '\r': 14},
     # 31
-    {automata.DEFAULT: 31, '\n': 25, '"': 13, '\\': 30},
+    {automata.DEFAULT: 31, '\n': 25,
+     '\r': 25, '"': 13, '\\': 30},
     # 32
     {'+': 37, '-': 37, '0': 38, '1': 38,
      '2': 38, '3': 38, '4': 38, '5': 38,
@@ -208,9 +212,11 @@ states = [
      '4': 34, '5': 34, '6': 34, '7': 34,
      '8': 34, '9': 34, 'J': 13, 'j': 13},
     # 35
-    {automata.DEFAULT: 35, '\n': 25, "'": 13, '\\': 27},
+    {automata.DEFAULT: 35, '\n': 25,
+     '\r': 25, "'": 13, '\\': 27},
     # 36
-    {automata.DEFAULT: 36, '\n': 25, '"': 13, '\\': 30},
+    {automata.DEFAULT: 36, '\n': 25,
+     '\r': 25, '"': 13, '\\': 30},
     # 37
     {'0': 38, '1': 38, '2': 38, '3': 38,
      '4': 38, '5': 38, '6': 38, '7': 38,
@@ -281,7 +287,6 @@ states = [
     {automata.DEFAULT: 3, '"': 1, '\\': 2},
     ]
 doubleDFA = automata.DFA(states, accepts)
-
 
 #_______________________________________________________________________
 # End of automatically generated DFA's

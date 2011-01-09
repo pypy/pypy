@@ -35,3 +35,12 @@ class TestFunctionObject(BaseApiTest):
 
         w_method2 = api.PyMethod_New(w_function, w_self, w_class)
         assert space.eq_w(w_method, w_method2)
+
+    def test_newcode(self, space, api):
+        filename = rffi.str2charp('filename')
+        funcname = rffi.str2charp('funcname')
+        w_code = api.PyCode_NewEmpty(filename, funcname, 3)
+        assert w_code.co_filename == 'filename'
+        assert w_code.co_firstlineno == 3
+        rffi.free_charp(filename)
+        rffi.free_charp(funcname)

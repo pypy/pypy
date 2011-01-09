@@ -84,7 +84,7 @@ class AbstractResOp(object):
         descr = self.getdescr()
         if descr is not None:
             descr = descr.clone_if_mutable()
-        op = ResOperation(self.getopnum(), args, self.result, descr)
+        op = ResOperation(self.getopnum(), args[:], self.result, descr)
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc
@@ -143,6 +143,16 @@ class AbstractResOp(object):
     def can_raise(self):
         return rop._CANRAISE_FIRST <= self.getopnum() <= rop._CANRAISE_LAST
 
+    def is_malloc(self):
+        # a slightly different meaning from can_malloc
+        return rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST
+
+    def can_malloc(self):
+        return self.is_call() or self.is_malloc()
+
+    def is_call(self):
+        return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
+
     def is_ovf(self):
         return rop._OVF_FIRST <= self.getopnum() <= rop._OVF_LAST
 
@@ -188,6 +198,7 @@ class ResOpWithDescr(AbstractResOp):
 class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
+    _jump_target = None
 
     def getfailargs(self):
         return self._fail_args
@@ -195,14 +206,22 @@ class GuardResOp(ResOpWithDescr):
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
+    def getjumptarget(self):
+        return self._jump_target
+
+    def setjumptarget(self, jump_target):
+        self._jump_target = jump_target
+
     def copy_and_change(self, opnum, args=None, result=None, descr=None):
         newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
         newop.setfailargs(self.getfailargs())
+        newop.setjumptarget(self.getjumptarget())
         return newop
 
     def clone(self):
         newop = AbstractResOp.clone(self)
         newop.setfailargs(self.getfailargs())
+        newop.setjumptarget(self.getjumptarget())        
         return newop
 
 
@@ -441,9 +460,13 @@ _oplist = [
     'GETARRAYITEM_RAW/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
+    '_MALLOC_FIRST',
     'NEW/0d',
     'NEW_WITH_VTABLE/1',
     'NEW_ARRAY/1d',
+    'NEWSTR/1',
+    'NEWUNICODE/1',
+    '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
@@ -452,19 +475,18 @@ _oplist = [
     'SETARRAYITEM_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
-    'NEWSTR/1',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
-    'NEWUNICODE/1',
     #'RUNTIMENEW/1',     # ootype operation    
     'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
-    'DEBUG_MERGE_POINT/1',      # debugging only
+    'DEBUG_MERGE_POINT/2',      # debugging only
     'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
+    '_CALL_FIRST',
     'CALL/*d',
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
@@ -473,6 +495,7 @@ _oplist = [
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
                              # CALL_PURE(result, func, arg_1,..,arg_n)
+    '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
     '_OVF_FIRST', # ----- start of is_ovf operations -----
