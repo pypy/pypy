@@ -1,3 +1,4 @@
+import py, sys
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 
@@ -13,6 +14,9 @@ def compare(xll, highres, lores):
 
 
 class LongLongTests:
+    def setup_class(cls):
+        if sys.maxint > 2147483647:
+            py.test.skip("only for 32-bit platforms")
 
     def test_long_long_1(self):
         def g(n, m, o, p):
