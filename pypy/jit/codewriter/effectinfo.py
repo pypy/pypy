@@ -60,7 +60,8 @@ class EffectInfo(object):
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
-        if extraeffect == EffectInfo.EF_LOOPINVARIANT:            
+        if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
+           extraeffect == EffectInfo.EF_PURE:            
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
         else:
