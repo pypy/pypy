@@ -39,6 +39,7 @@ class Transformer(object):
     def optimize_block(self, block):
         if block.operations == ():
             return
+        self.remove_longlong_constants(block)
         self.vable_array_vars = {}
         self.vable_flags = {}
         renamings = {}
@@ -133,6 +134,55 @@ class Transformer(object):
         assert block.exits[0].exitcase is None
         block.exits = block.exits[:1]
         block.exitswitch = None
+
+    def remove_longlong_constants(self, block):
+        # remove all Constant({Un}signedLongLong), and replace them with
+        # cast_int_to_longlong(Constant(Signed)) or
+        # two_ints_to_longlong(Constant(Signed), Constant(Signed)).
+        operations = []
+        all_constants = {}
+        #
+        def _get_const_as_var(c):
+            v = all_constants.get(c)
+            if v is None:
+                from pypy.rlib.rarithmetic import intmask
+                v = varoftype(c.concretetype)
+                value = int(c.value)
+                c_hi = Constant(intmask(value >> 32), lltype.Signed)
+                c_lo = Constant(intmask(value), lltype.Signed)
+                if c_lo.value == value:
+                    # a long long constant, but it fits in 32 bits
+                    op1 = SpaceOperation('cast_int_to_longlong', [c_lo], v)
+                else:
+                    # a 64-bit long long constant, requires two ints
+                    op1 = SpaceOperation('two_ints_to_longlong', [c_lo, c_hi],
+                                         v)
+                operations.append(op1)
+                all_constants[c] = v
+            return v
+        #
+        for op in block.operations:
+            for i, v in enumerate(op.args):
+                if (isinstance(v, Constant) and
+                        self._is_longlong(v.concretetype)):
+                    args = op.args[:]
+                    args[i] = _get_const_as_var(v)
+                    op = SpaceOperation(op.opname, args, op.result)
+            operations.append(op)
+        #
+        last_op = None
+        if block.exitswitch == c_last_exception:
+            last_op = operations.pop()
+        for link in block.exits:
+            for i, v in enumerate(link.args):
+                if (isinstance(v, Constant) and
+                        self._is_longlong(v.concretetype)):
+                    args = link.args[:]
+                    args[i] = _get_const_as_var(v)
+                    link.args = args
+        if last_op is not None:
+            operations.append(last_op)
+        block.operations = operations
 
     # ----------
 
@@ -268,26 +318,10 @@ class Transformer(object):
     # ----------
     # Various kinds of calls
 
-    def remove_longlong_constants(func):
-        """Decorator.  Detect and remove all Constants of type LongLong."""
-        def remove_and_call(self, op):
-            oplist = []
-            op = self._remove_longlong_constants(op, oplist)
-            ops = func(self, op)
-            if oplist:
-                if not isinstance(ops, list):
-                    assert isinstance(ops, SpaceOperation)
-                    ops = [ops]
-                ops = oplist + ops
-            return ops
-        return remove_and_call
-
-    @remove_longlong_constants
     def rewrite_op_direct_call(self, op):
         kind = self.callcontrol.guess_call_kind(op)
         return getattr(self, 'handle_%s_call' % kind)(op)
 
-    @remove_longlong_constants
     def rewrite_op_indirect_call(self, op):
         kind = self.callcontrol.guess_call_kind(op)
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
@@ -511,7 +545,6 @@ class Transformer(object):
                               [op.args[0], arraydescr, op.args[1]],
                               op.result)
 
-    @remove_longlong_constants
     def rewrite_op_setarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
         if self._array_of_voids(ARRAY):
@@ -594,7 +627,6 @@ class Transformer(object):
         return SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
                               [v_inst, descr], op.result)
 
-    @remove_longlong_constants
     def rewrite_op_setfield(self, op):
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
@@ -809,43 +841,16 @@ class Transformer(object):
     # and unsupported ones are turned into a call to a function from
     # jit.codewriter.support.
 
-    @staticmethod
-    def _is_longlong(TYPE):
-        return TYPE == lltype.SignedLongLong or TYPE == lltype.UnsignedLongLong
-
-    def _remove_longlong_constants(self, op, oplist):
-        args = op.args
-        for i in range(len(args)):
-            if (isinstance(args[i], Constant) and
-                    self._is_longlong(args[i].concretetype)):
-                from pypy.rlib.rarithmetic import intmask
-                v_x = varoftype(args[i].concretetype)
-                value = int(args[i].value)
-                if value == intmask(value):
-                    # a long long constant, but it fits in 32 bits
-                    c_x = Constant(value, lltype.Signed)
-                    op0 = SpaceOperation('llong_from_int', [c_x], v_x)
-                    op1 = self.prepare_builtin_call(op0, "llong_from_int",
-                                                    [c_x])
-                    op2 = self._handle_oopspec_call(op1, [c_x],
-                                                  EffectInfo.OS_LLONG_FROM_INT)
-                else:
-                    # a long long constant, requires two ints
-                    c_hi = Constant(intmask(value >> 32), lltype.Signed)
-                    c_lo = Constant(intmask(value), lltype.Signed)
-                    op0 = SpaceOperation('llong_from_two_ints', [c_lo, c_hi],
-                                         v_x)
-                    op1 = self.prepare_builtin_call(op0, "llong_from_two_ints",
-                                                    [c_lo, c_hi])
-                    op2 = self._handle_oopspec_call(op1, [c_lo, c_hi],
-                                             EffectInfo.OS_LLONG_FROM_TWO_INTS)
-                oplist.append(op2)
-                args = args[:]
-                args[i] = v_x
-        if args is op.args:
-            return op
-        else:
-            return SpaceOperation(op.opname, args, op.result)
+    if lltype.SignedLongLong != lltype.Signed:
+        @staticmethod
+        def _is_longlong(TYPE):
+            return (TYPE == lltype.SignedLongLong or
+                    TYPE == lltype.UnsignedLongLong)
+    else:
+        # on 64-bit, _is_longlong() returns always False
+        @staticmethod
+        def _is_longlong(TYPE):
+            return False
 
     for _op, _oopspec in [('llong_invert',  'INVERT'),
                           ('ullong_invert', 'INVERT'),
@@ -885,7 +890,6 @@ class Transformer(object):
                           ('two_ints_to_longlong',     'FROM_TWO_INTS'),
                           ]:
         exec py.code.Source('''
-            @remove_longlong_constants
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
@@ -894,15 +898,32 @@ class Transformer(object):
                 return op2
         ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
+    def _normalize(self, oplist):
+        if isinstance(oplist, SpaceOperation):
+            return [oplist]
+        else:
+            assert type(oplist) is list
+            return oplist
+
     def rewrite_op_llong_neg(self, op):
-        args = [Constant(0, lltype.SignedLongLong), op.args[0]]
+        v = varoftype(lltype.SignedLongLong)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [v, op.args[0]]
         op1 = SpaceOperation('llong_sub', args, op.result)
-        return self.rewrite_operation(op1)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
 
     def rewrite_op_llong_is_true(self, op):
-        args = [op.args[0], Constant(0, lltype.SignedLongLong)]
+        v = varoftype(lltype.SignedLongLong)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [op.args[0], v]
         op1 = SpaceOperation('llong_ne', args, op.result)
-        return self.rewrite_operation(op1)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
 
     rewrite_op_ullong_is_true = rewrite_op_llong_is_true
 
