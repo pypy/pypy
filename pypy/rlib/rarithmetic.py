@@ -115,6 +115,8 @@ def ovfcheck(r):
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
+    assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
+    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
     if type(r) is long:
         raise OverflowError, "signed integer expression did overflow"
     return r

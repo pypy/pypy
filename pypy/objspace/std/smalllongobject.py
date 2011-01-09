@@ -7,12 +7,14 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.rlib.rarithmetic import r_longlong, r_int, r_uint
-from pypy.rlib.rarithmetic import intmask, ovfcheck, LONGLONG_BIT
+from pypy.rlib.rarithmetic import intmask, LONGLONG_BIT
 from pypy.rlib.rbigint import rbigint
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.interpreter.error import OperationError
+
+LONGLONG_MIN = (-1) << (LONGLONG_BIT-1)
 
 
 class W_SmallLongObject(W_Object):
@@ -39,6 +41,16 @@ class W_SmallLongObject(W_Object):
 
 registerimplementation(W_SmallLongObject)
 
+# ____________________________________________________________
+
+from pypy.rpython.lltypesystem import lltype, rffi
+llong_mul_ovf = rffi.llexternal("op_llong_mul_ovf",
+                                [lltype.SignedLongLong] * 2,
+                                lltype.SignedLongLong,
+                                _callable=lambda x, y: x * y,
+                                _nowrapper=True, pure_function=True)
+
+# ____________________________________________________________
 
 def delegate_Bool2SmallLong(space, w_bool):
     return W_SmallLongObject(r_longlong(space.is_true(w_bool)))
@@ -169,7 +181,9 @@ def add__SmallLong_SmallLong(space, w_small1, w_small2):
     x = w_small1.longlong
     y = w_small2.longlong
     try:
-        z = ovfcheck(x + y)
+        z = x + y
+        if ((z^x)&(z^y)) < 0:
+            raise OverflowError
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer addition"))
@@ -184,7 +198,9 @@ def sub__SmallLong_SmallLong(space, w_small1, w_small2):
     x = w_small1.longlong
     y = w_small2.longlong
     try:
-        z = ovfcheck(x - y)
+        z = x - y
+        if ((z^x)&(z^~y)) < 0:
+            raise OverflowError
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer subtraction"))
@@ -199,7 +215,7 @@ def mul__SmallLong_SmallLong(space, w_small1, w_small2):
     x = w_small1.longlong
     y = w_small2.longlong
     try:
-        z = ovfcheck(x * y)
+        z = llong_mul_ovf(x, y)
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer multiplication"))
@@ -216,7 +232,9 @@ def floordiv__SmallLong_SmallLong(space, w_small1, w_small2):
     x = w_small1.longlong
     y = w_small2.longlong
     try:
-        z = ovfcheck(x // y)
+        if y == -1 and x == LONGLONG_MIN:
+            raise OverflowError
+        z = x // y
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer division by zero"))
@@ -236,7 +254,9 @@ def mod__SmallLong_SmallLong(space, w_small1, w_small2):
     x = w_small1.longlong
     y = w_small2.longlong
     try:
-        z = ovfcheck(x % y)
+        if y == -1 and x == LONGLONG_MIN:
+            raise OverflowError
+        z = x % y
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer modulo by zero"))
@@ -254,7 +274,9 @@ def divmod__SmallLong_SmallLong(space, w_small1, w_small2):
     x = w_small1.longlong
     y = w_small2.longlong
     try:
-        z = ovfcheck(x // y)
+        if y == -1 and x == LONGLONG_MIN:
+            raise OverflowError
+        z = x // y
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer divmod by zero"))
@@ -284,11 +306,11 @@ def _impl_pow(space, iv, w_int2, iz=r_longlong(0)):
     try:
         while iw > 0:
             if iw & 1:
-                ix = ovfcheck(ix*temp)
+                ix = llong_mul_ovf(ix, temp)
             iw >>= 1   #/* Shift exponent down by 1 bit */
             if iw==0:
                 break
-            temp = ovfcheck(temp*temp) #/* Square the value of temp */
+            temp = llong_mul_ovf(temp, temp) #/* Square the value of temp */
             if iz:
                 #/* If we did a multiplication, perform a modulo */
                 ix = ix % iz
@@ -322,7 +344,9 @@ def pow_ovr(space, w_int1, w_int2):
 def neg__SmallLong(space, w_small):
     a = w_small.longlong
     try:
-        x = ovfcheck(-a)
+        if a == LONGLONG_MIN:
+            raise OverflowError
+        x = -a
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer negation"))
@@ -361,7 +385,9 @@ def lshift__SmallLong_Int(space, w_small1, w_int2):
     b = w_int2.intval
     if r_uint(b) < LONGLONG_BIT: # 0 <= b < LONGLONG_BIT
         try:
-            c = ovfcheck(a << b)
+            c = a << b
+            if a != (c >> b):
+                raise OverflowError
         except OverflowError:
             raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer left shift"))
