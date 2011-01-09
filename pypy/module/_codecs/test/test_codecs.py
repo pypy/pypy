@@ -36,7 +36,7 @@ class AppTestCodecs:
         assert 1 <= len(u"\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
 
     def test_literals(self):
-        raises(UnicodeError, eval, 'u\'\\Uffffffff\'')
+        raises(SyntaxError, eval, 'u\'\\Uffffffff\'')
 
     def test_insecure_pickle(self):
         import pickle

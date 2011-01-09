@@ -8,8 +8,6 @@ http://buildbot.pypy.org/summary?branch=branch/fast-forward
 Probably easy tasks
 -------------------
 
-- Missing builtin: bytearray (possibly reuse module.__pypy__.bytebuffer)
-
 - New complex syntax::
 
       assert complex("(1+2j)") == (1+2j)
@@ -53,6 +51,10 @@ Medium tasks
 
 Longer tasks
 ------------
+
+- Missing builtin: bytearray (mutable resizable string).  Also ideally
+  refactor stringobject.py and unicodeobject.py to allow more code reuse
+  between these (now) three types.
 
 - Finish the _io module.
 
