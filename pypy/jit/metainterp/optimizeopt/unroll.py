@@ -238,7 +238,10 @@ class UnrollOptimizer(Optimization):
             box1, box2 = args1[i], args2[i]
             val1 = self.optimizer.getvalue(box1)
             val2 = self.optimizer.getvalue(box2)
-            if val1 is not val2:
+            if val1.is_constant() and val2.is_constant():
+                if not val1.box.same_constant(val2.box):
+                    return False
+            elif val1 is not val2:
                 return False
 
         if not op1.is_guard():
@@ -268,7 +271,8 @@ class UnrollOptimizer(Optimization):
                 debug_print("create_short_preamble failed due to",
                             "new boxes created during optimization.",
                             "op:", op.getopnum(),
-                            "at position: ", preamble_i)
+                            "at preamble position: ", preamble_i,
+                            "loop position: ", loop_i)
                 return None
                 
             if self.sameop(newop, loop_ops[loop_i]) \
@@ -279,14 +283,16 @@ class UnrollOptimizer(Optimization):
                     debug_print("create_short_preamble failed due to",
                                 "impossible link of "
                                 "op:", op.getopnum(),
-                                "at position: ", preamble_i)
+                                "at preamble position: ", preamble_i,
+                                "loop position: ", loop_i)
                     return None
                 loop_i += 1
             else:
                 if not state.safe_to_move(op):
                     debug_print("create_short_preamble failed due to",
                                 "unsafe op:", op.getopnum(),
-                                "at position: ", preamble_i)
+                                "at preamble position: ", preamble_i,
+                                "loop position: ", loop_i)
                     return None
                 short_preamble.append(op)
                 
