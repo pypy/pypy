@@ -1130,18 +1130,23 @@ class Assembler386(object):
             self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
 
     def genop_llong_from_two_ints(self, op, arglocs, resloc):
-        assert isinstance(resloc, StackLoc)
-        stackofs = resloc.value
-        loc1, loc2 = arglocs
-        if isinstance(loc1, ImmedLoc):
-            self.mc.MOV_bi(stackofs, loc1.value)
+        assert isinstance(resloc, RegLoc)
+        loc1, loc2, loc3 = arglocs
+        #
+        if isinstance(loc1, ConstFloatLoc):
+            self.mc.MOVSD(resloc, loc1)
         else:
-            self.mc.MOV_br(stackofs, loc1.value)
-        stackofs += 4
-        if isinstance(loc2, ImmedLoc):
-            self.mc.MOV_bi(stackofs, loc2.value)
-        else:
-            self.mc.MOV_br(stackofs, loc2.value)
+            assert isinstance(loc1, RegLoc)
+            self.mc.MOVD_xr(resloc.value, loc1.value)
+        #
+        if loc2 is not None:
+            assert isinstance(loc3, RegLoc)
+            if isinstance(loc2, ConstFloatLoc):
+                self.mc.MOVSD(loc3, loc2)
+            else:
+                assert isinstance(loc2, RegLoc)
+                self.mc.MOVD_xr(loc3.value, loc2.value)
+            self.mc.PUNPCKLDQ_xx(resloc.value, loc3.value)
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax

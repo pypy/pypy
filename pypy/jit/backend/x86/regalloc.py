@@ -20,6 +20,7 @@ from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE, IS_X86_32, IS_X86_64
+from pypy.rlib.rarithmetic import r_longlong, r_uint
 
 class X86RegisterManager(RegisterManager):
 
@@ -646,17 +647,18 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc1], loc0)
         self.xrm.possibly_free_var(op.getarg(1))
 
+    def _loc_of_const_longlong(self, value64):
+        from pypy.rlib.longlong2float import longlong2float
+        c = ConstFloat(longlong2float(value64))
+        return self.xrm.convert_to_imm(c)
+
     def _consider_llong_from_int(self, op):
         assert IS_X86_32
         loc0 = self.xrm.force_allocate_reg(op.result)
         box = op.getarg(1)
         if isinstance(box, ConstInt):
-            from pypy.rlib.longlong2float import longlong2float
-            from pypy.rlib.rarithmetic import r_longlong
-            value = r_longlong(box.value)
-            c = ConstFloat(longlong2float(value))
-            loc1 = self.xrm.convert_to_imm(c)
-            loc2 = loc0    # unused
+            loc1 = self._loc_of_const_longlong(r_longlong(box.value))
+            loc2 = None    # unused
         else:
             # requires the argument to be in eax, and trash edx.
             loc1 = self.rm.make_sure_var_in_reg(box, selected_reg=eax)
@@ -670,12 +672,36 @@ class RegAlloc(object):
         self.rm.possibly_free_var(box)
 
     def _consider_llong_from_two_ints(self, op):
-        # requires the arguments to be in registers or immediates.
-        # requires the result to be in the stack.
-        loc0 = self.fm.loc(op.result)
-        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
-        loc2 = self.rm.make_sure_var_in_reg(op.getarg(2), [op.getarg(1)])
-        self.PerformLLong(op, [loc1, loc2], loc0)
+        assert IS_X86_32
+        box1 = op.getarg(1)
+        box2 = op.getarg(2)
+        loc0 = self.xrm.force_allocate_reg(op.result)
+        #
+        if isinstance(box1, ConstInt) and isinstance(box2, ConstInt):
+            # all-constant arguments: load the result value in a single step
+            value64 = r_longlong(box2.value) << 32
+            value64 |= r_longlong(r_uint(box1.value))
+            loc1 = self._loc_of_const_longlong(value64)
+            loc2 = None    # unused
+            loc3 = None    # unused
+        #
+        else:
+            tmpxvar = TempBox()
+            loc3 = self.xrm.force_allocate_reg(tmpxvar, [op.result])
+            self.xrm.possibly_free_var(tmpxvar)
+            #
+            if isinstance(box1, ConstInt):
+                loc1 = self._loc_of_const_longlong(r_longlong(box1.value))
+            else:
+                loc1 = self.rm.make_sure_var_in_reg(box1, imm_fine=False)
+            #
+            if isinstance(box2, ConstInt):
+                loc2 = self._loc_of_const_longlong(r_longlong(box2.value))
+            else:
+                loc2 = self.rm.make_sure_var_in_reg(box2, [box1],
+                                                    imm_fine=False)
+        #
+        self.PerformLLong(op, [loc1, loc2, loc3], loc0)
         self.rm.possibly_free_vars_for_op(op)
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
