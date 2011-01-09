@@ -546,12 +546,14 @@ class AbstractX86CodeBuilder(object):
     CVTTSD2SI_rb = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), stack_bp(2))
 
     MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
     PADDQ_xx = xmminsn('\x66', rex_nw, '\x0F\xD4', register(1, 8), register(2), '\xC0')
     PSUBQ_xx = xmminsn('\x66', rex_nw, '\x0F\xFB', register(1, 8), register(2), '\xC0')
     PAND_xx = xmminsn('\x66', rex_nw, '\x0F\xDB', register(1, 8), register(2), '\xC0')
     POR_xx  = xmminsn('\x66', rex_nw, '\x0F\xEB', register(1, 8), register(2), '\xC0')
     PXOR_xx = xmminsn('\x66', rex_nw, '\x0F\xEF', register(1, 8), register(2), '\xC0')
     # PSLLQ
+    PUNPCKLDQ_xx = xmminsn('\x66', rex_nw, '\x0F\x62', register(1, 8), register(2), '\xC0')
 
     # ------------------------------------------------------------
 

@@ -1121,10 +1121,13 @@ class Assembler386(object):
             self.mc.MOVSD(resloc, loc)
         else:
             assert loc is eax
-            assert isinstance(resloc, StackLoc)
+            assert isinstance(resloc, RegLoc)
+            loc2 = arglocs[1]
+            assert isinstance(loc2, RegLoc)
             self.mc.CDQ()       # eax -> eax:edx
-            self.mc.MOV_br(resloc.value, eax.value)
-            self.mc.MOV_br(resloc.value + 4, edx.value)
+            self.mc.MOVD_xr(resloc.value, eax.value)
+            self.mc.MOVD_xr(loc2.value, edx.value)
+            self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
 
     def genop_llong_from_two_ints(self, op, arglocs, resloc):
         assert isinstance(resloc, StackLoc)
