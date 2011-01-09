@@ -659,6 +659,15 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc1], loc0)
         self.rm.possibly_free_var(op.getarg(1))
 
+    def _consider_llong_from_two_ints(self, op):
+        # requires the arguments to be in registers or immediates.
+        # requires the result to be in the stack.
+        loc0 = self.fm.loc(op.result)
+        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
+        loc2 = self.rm.make_sure_var_in_reg(op.getarg(2), [op.getarg(1)])
+        self.PerformLLong(op, [loc1, loc2], loc0)
+        self.rm.possibly_free_vars_for_op(op)
+
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
         self.rm.before_call(force_store, save_all_regs=save_all_regs)
@@ -706,6 +715,8 @@ class RegAlloc(object):
                     return self._consider_llong_to_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_INT:
                     return self._consider_llong_from_int(op)
+                if oopspecindex == EffectInfo.OS_LLONG_FROM_TWO_INTS:
+                    return self._consider_llong_from_two_ints(op)
         #
         self._consider_call(op)
 

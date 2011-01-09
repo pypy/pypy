@@ -1127,6 +1127,20 @@ class Assembler386(object):
             self.mc.MOV_br(resloc.value, eax.value)
             self.mc.MOV_br(resloc.value + 4, edx.value)
 
+    def genop_llong_from_two_ints(self, op, arglocs, resloc):
+        assert isinstance(resloc, StackLoc)
+        stackofs = resloc.value
+        loc1, loc2 = arglocs
+        if isinstance(loc1, ImmedLoc):
+            self.mc.MOV_bi(stackofs, loc1.value)
+        else:
+            self.mc.MOV_br(stackofs, loc1.value)
+        stackofs += 4
+        if isinstance(loc2, ImmedLoc):
+            self.mc.MOV_bi(stackofs, loc2.value)
+        else:
+            self.mc.MOV_br(stackofs, loc2.value)
+
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
         loc_vtable = arglocs[-1]
