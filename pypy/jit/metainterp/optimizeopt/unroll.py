@@ -384,6 +384,16 @@ class ExeState(object):
             descr = op.getdescr()
             self.unsafe_getitem[descr] = True
             return
+        if (opnum == rop.SETARRAYITEM_GC or
+            opnum == rop.SETARRAYITEM_RAW):
+            return # These wont clutter the heap accessable by GETFIELD_*
+                   # FIXME: Implement proper support for ARRAYITEMS
+        if opnum == rop.CALL:
+            effectinfo = op.getdescr().get_extra_info()
+            if effectinfo is not None:
+                for fielddescr in effectinfo.write_descrs_fields:
+                    self.unsafe_getitem[fielddescr] = True
+        debug_print("heap dirty due to op ", opnum)
         self.heap_dirty = True
 
 class ImpossibleLink(JitException):
