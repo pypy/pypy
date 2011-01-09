@@ -4,7 +4,7 @@
 
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                         ResOperation, BoxPtr,
+                                         ResOperation, BoxPtr, ConstFloat,
                                          LoopToken, INT, REF, FLOAT)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
@@ -647,17 +647,26 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(1))
 
     def _consider_llong_from_int(self, op):
-        # requires the argument to be in eax, and trash edx.
-        # requires the result to be in the stack.
-        loc0 = self.fm.loc(op.result)
-        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1), selected_reg=eax)
-        if not isinstance(loc1, ImmedLoc):
+        assert IS_X86_32
+        box = op.getarg(1)
+        if isinstance(box, ConstInt):
+            from pypy.rlib.longlong2float import longlong2float
+            from pypy.rlib.rarithmetic import r_longlong
+            import pdb; pdb.set_trace()
+            value = r_longlong(box.value)
+            c = ConstFloat(longlong2float(value))
+            loc1 = self.xrm.convert_to_imm(c)
+            loc0 = self.xrm.force_allocate_reg(op.result)
+        else:
+            # requires the argument to be in eax, and trash edx.
+            # requires the result to be in the stack.
+            loc1 = self.rm.make_sure_var_in_reg(box, selected_reg=eax)
+            loc0 = self.fm.loc(op.result)
             tmpvar = TempBox()
-            self.rm.force_allocate_reg(tmpvar, [op.getarg(1)],
-                                       selected_reg=edx)
+            self.rm.force_allocate_reg(tmpvar, [box], selected_reg=edx)
             self.rm.possibly_free_var(tmpvar)
         self.PerformLLong(op, [loc1], loc0)
-        self.rm.possibly_free_var(op.getarg(1))
+        self.rm.possibly_free_var(box)
 
     def _consider_llong_from_two_ints(self, op):
         # requires the arguments to be in registers or immediates.
