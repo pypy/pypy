@@ -37,7 +37,7 @@ class TestLongLong:
         v_result = varoftype(RESULT)
         op = SpaceOperation(opname, vlist, v_result)
         tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
-        [op1] = tr.rewrite_operation(op)
+        op1 = tr.rewrite_operation(op)
         #
         def is_llf(TYPE):
             return (TYPE == lltype.SignedLongLong or

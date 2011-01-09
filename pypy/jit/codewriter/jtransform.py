@@ -268,10 +268,26 @@ class Transformer(object):
     # ----------
     # Various kinds of calls
 
+    def remove_longlong_constants(func):
+        """Decorator.  Detect and remove all Constants of type LongLong."""
+        def remove_and_call(self, op):
+            oplist = []
+            op = self._remove_longlong_constants(op, oplist)
+            ops = func(self, op)
+            if oplist:
+                if not isinstance(ops, list):
+                    assert isinstance(ops, SpaceOperation)
+                    ops = [ops]
+                ops = oplist + ops
+            return ops
+        return remove_and_call
+
+    @remove_longlong_constants
     def rewrite_op_direct_call(self, op):
         kind = self.callcontrol.guess_call_kind(op)
         return getattr(self, 'handle_%s_call' % kind)(op)
 
+    @remove_longlong_constants
     def rewrite_op_indirect_call(self, op):
         kind = self.callcontrol.guess_call_kind(op)
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
@@ -495,6 +511,7 @@ class Transformer(object):
                               [op.args[0], arraydescr, op.args[1]],
                               op.result)
 
+    @remove_longlong_constants
     def rewrite_op_setarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
         if self._array_of_voids(ARRAY):
@@ -577,6 +594,7 @@ class Transformer(object):
         return SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
                               [v_inst, descr], op.result)
 
+    @remove_longlong_constants
     def rewrite_op_setfield(self, op):
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
@@ -795,7 +813,8 @@ class Transformer(object):
     def _is_longlong(TYPE):
         return TYPE == lltype.SignedLongLong or TYPE == lltype.UnsignedLongLong
 
-    def _remove_longlong_constants(self, args, oplist):
+    def _remove_longlong_constants(self, op, oplist):
+        args = op.args
         for i in range(len(args)):
             if (isinstance(args[i], Constant) and
                     self._is_longlong(args[i].concretetype)):
@@ -823,7 +842,10 @@ class Transformer(object):
                 oplist.append(op2)
                 args = args[:]
                 args[i] = v_x
-        return args
+        if args is op.args:
+            return op
+        else:
+            return SpaceOperation(op.opname, args, op.result)
 
     for _op, _oopspec in [('llong_invert',  'INVERT'),
                           ('ullong_invert', 'INVERT'),
@@ -863,14 +885,13 @@ class Transformer(object):
                           ('two_ints_to_longlong',     'FROM_TWO_INTS'),
                           ]:
         exec py.code.Source('''
+            @remove_longlong_constants
             def rewrite_op_%s(self, op):
-                oplist = []
-                args = self._remove_longlong_constants(op.args, oplist)
+                args = op.args
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s)
-                oplist.append(op2)
-                return oplist
+                return op2
         ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
     def rewrite_op_llong_neg(self, op):
