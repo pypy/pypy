@@ -58,10 +58,29 @@ class TestLongLong:
         assert op1.result == v_result
 
     def test_is_true(self):
-        self.do_check('llong_is_true', EffectInfo.OS_LLONG_IS_TRUE,
-                      [lltype.SignedLongLong], lltype.Bool)
-        self.do_check('ullong_is_true', EffectInfo.OS_LLONG_IS_TRUE,
-                      [lltype.SignedLongLong], lltype.Bool)
+        for opname, T in [('llong_is_true', lltype.SignedLongLong),
+                          ('ullong_is_true', lltype.UnsignedLongLong)]:
+            v = varoftype(T)
+            v_result = varoftype(lltype.Bool)
+            op = SpaceOperation(opname, [v], v_result)
+            tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+            oplist = tr.rewrite_operation(op)
+            assert len(oplist) == 2
+            assert oplist[0].opname == 'residual_call_irf_f'
+            assert oplist[0].args[0].value == 'llong_from_int'
+            assert oplist[0].args[1] == 'calldescr-84'
+            assert list(oplist[0].args[2]) == [const(0)]
+            assert list(oplist[0].args[3]) == []
+            assert list(oplist[0].args[4]) == []
+            v_x = oplist[0].result
+            assert isinstance(v_x, Variable)
+            assert oplist[1].opname == 'residual_call_irf_i'
+            assert oplist[1].args[0].value == 'llong_ne'
+            assert oplist[1].args[1] == 'calldescr-76'
+            assert list(oplist[1].args[2]) == []
+            assert list(oplist[1].args[3]) == []
+            assert list(oplist[1].args[4]) == [v, v_x]
+            assert oplist[1].result == v_result
 
     def test_llong_neg(self):
         T = lltype.SignedLongLong

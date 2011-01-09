@@ -825,9 +825,7 @@ class Transformer(object):
                 args[i] = v_x
         return args
 
-    for _op, _oopspec in [('llong_is_true', 'IS_TRUE'),
-                          ('ullong_is_true','IS_TRUE'),
-                          ('llong_invert',  'INVERT'),
+    for _op, _oopspec in [('llong_invert',  'INVERT'),
                           ('ullong_invert', 'INVERT'),
                           ('llong_lt',      'LT'),
                           ('llong_le',      'LE'),
@@ -879,6 +877,13 @@ class Transformer(object):
         args = [Constant(0, lltype.SignedLongLong), op.args[0]]
         op1 = SpaceOperation('llong_sub', args, op.result)
         return self.rewrite_operation(op1)
+
+    def rewrite_op_llong_is_true(self, op):
+        args = [op.args[0], Constant(0, lltype.SignedLongLong)]
+        op1 = SpaceOperation('llong_ne', args, op.result)
+        return self.rewrite_operation(op1)
+
+    rewrite_op_ullong_is_true = rewrite_op_llong_is_true
 
     def rewrite_op_cast_primitive(self, op):
         fromll = self._is_longlong(op.args[0].concretetype)

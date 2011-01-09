@@ -229,9 +229,6 @@ def _ll_1_int_abs(x):
 def u_to_longlong(x):
     return rffi.cast(lltype.SignedLongLong, x)
 
-def _ll_1_llong_is_true(xll):
-    return bool(xll)
-
 def _ll_1_llong_invert(xll):
     y = ~r_ulonglong(xll)
     return u_to_longlong(y)
