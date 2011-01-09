@@ -82,6 +82,8 @@ class PyPyCJITTests(object):
     def run_source(self, source, expected_max_ops, *testcases, **kwds):
         assert isinstance(expected_max_ops, int)
         threshold = kwds.pop('threshold', 3)
+        self.count_debug_merge_point = \
+                                     kwds.pop('count_debug_merge_point', True)
         if kwds:
             raise TypeError, 'Unsupported keyword arguments: %s' % kwds.keys()
         source = py.code.Source(source)
@@ -154,14 +156,16 @@ class PyPyCJITTests(object):
         sliced_loops = [] # contains all bytecodes of all loops
         total_ops = 0
         for loop in loops:
-            total_ops += len(loop.operations)
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     sliced_loop = BytecodeTrace()
                     sliced_loop.bytecode = op.getarg(0)._get_str().rsplit(" ", 1)[1]
                     sliced_loops.append(sliced_loop)
+                    if self.count_debug_merge_point:
+                        total_ops += 1
                 else:
                     sliced_loop.append(op)
+                    total_ops += 1
         return loops, sliced_loops, total_ops
 
     def check_0_op_bytecodes(self):
@@ -1320,7 +1324,118 @@ class PyPyCJITTests(object):
         assert call.getarg(1).value == 2.0
         assert call.getarg(2).value == 3.0
 
-    # test_circular
+    def test_xor(self):
+        values = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
+        for a in values:
+            for b in values:
+                if a^b >= 0:
+                    r = 2000
+                else:
+                    r = 0
+                ops = 46
+                
+                self.run_source('''
+                def main(a, b):
+                    i = sa = 0
+                    while i < 2000:
+                        if a > 0: # Specialises the loop
+                            pass
+                        if b > 1:
+                            pass
+                        if a^b >= 0:
+                            sa += 1
+                        i += 1
+                    return sa
+                ''', ops, ([a, b], r))
+        
+    def test_shift(self):
+        from sys import maxint
+        maxvals = (-maxint-1, -maxint, maxint-1, maxint)
+        for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
+            for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
+                r = 0
+                if (a >> b) >= 0:
+                    r += 2000
+                if (a << b) > 2:
+                    r += 20000000
+                if abs(a) < 10 and b < 5:
+                    ops = 13
+                else:
+                    ops = 29
+
+                self.run_source('''
+                def main(a, b):
+                    i = sa = 0
+                    while i < 2000:
+                        if a > 0: # Specialises the loop
+                            pass
+                        if b < 2 and b > 0:
+                            pass
+                        if (a >> b) >= 0:
+                            sa += 1
+                        if (a << b) > 2:
+                            sa += 10000
+                        i += 1
+                    return sa
+                ''', ops, ([a, b], r), count_debug_merge_point=False)
+
+    def test_revert_shift(self):
+        from sys import maxint
+        tests = []
+        for a in (1, 4, 8, 100):
+            for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
+                for c in (-10, 10, -maxint/3, maxint/3):
+                    tests.append(([a, b, c], long(4000*(a+b+c))))
+        self.run_source('''
+        def main(a, b, c):
+            from sys import maxint
+            i = sa = 0
+            while i < 2000:
+                if 0 < a < 10: pass
+                if -100 < b < 100: pass
+                if -maxint/2 < c < maxint/2: pass
+                sa += (a<<a)>>a
+                sa += (b<<a)>>a
+                sa += (c<<a)>>a
+                sa += (a<<100)>>100
+                sa += (b<<100)>>100
+                sa += (c<<100)>>100
+                i += 1
+            return long(sa)
+        ''', 93, count_debug_merge_point=False, *tests)
+        
+    def test_division_to_rshift(self):
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        a1, b1, res1 = 10, 20, 0
+        a2, b2, res2 = 10, -20, 0
+        a3, b3, res3 = -10, -20, 0
+        def dd(a, b, aval, bval):
+            m = {'a': aval, 'b': bval}
+            if not isinstance(a, int):
+                a=m[a]
+            if not isinstance(b, int):
+                b=m[b]
+            return a/b
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s / %s\n' % (a, b)
+                res1 += dd(a, b, a1, b1)
+                res2 += dd(a, b, a2, b2)
+                res3 += dd(a, b, a3, b3)
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+%s                
+                i += 1
+            return sa
+        ''' % code, 179, ([a1, b1], 2000 * res1),
+                         ([a2, b2], 2000 * res2),
+                         ([a3, b3], 2000 * res3),
+                         count_debug_merge_point=False)
+        
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
