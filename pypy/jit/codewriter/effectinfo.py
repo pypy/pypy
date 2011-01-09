@@ -60,8 +60,12 @@ class EffectInfo(object):
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
-        result.write_descrs_fields = write_descrs_fields
-        result.write_descrs_arrays = write_descrs_arrays
+        if extraeffect == EffectInfo.EF_LOOPINVARIANT:            
+            result.write_descrs_fields = []
+            result.write_descrs_arrays = []
+        else:
+            result.write_descrs_fields = write_descrs_fields
+            result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
         result.oopspecindex = oopspecindex
         cls._cache[key] = result

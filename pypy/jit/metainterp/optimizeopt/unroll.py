@@ -7,6 +7,7 @@ from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.history import make_hashable_int
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
@@ -349,6 +350,7 @@ class ExeState(object):
     # to preamble
     def safe_to_move(self, op):
         opnum = op.getopnum()
+        descr = op.getdescr()
         if op.is_always_pure() or op.is_foldable_guard():
             return True
         elif opnum == rop.JUMP:
@@ -357,7 +359,6 @@ class ExeState(object):
               opnum == rop.GETFIELD_RAW):
             if self.heap_dirty:
                 return False
-            descr = op.getdescr()
             if descr in self.unsafe_getitem:
                 return False
             return True
@@ -365,7 +366,6 @@ class ExeState(object):
               opnum == rop.GETARRAYITEM_RAW):
             if self.heap_dirty:
                 return False
-            descr = op.getdescr()
             if descr in self.unsafe_getarrayitem:
                 return False
             index = op.getarg(1)
@@ -379,13 +379,17 @@ class ExeState(object):
                     return False
             return True
         elif opnum == rop.CALL:
-            arg = op.getarg(0)
-            if isinstance(arg, Const):
-                key = make_hashable_int(arg.getint())
-                resvalue = self.optimizer.loop_invariant_results.get(key, None)
-                if resvalue:
-                    return True # This once was CALL_LOOPINVARIANT
-                                # FIXME: Can we realy be sure of that?
+            effectinfo = descr.get_extra_info()
+            if effectinfo is not None:
+                if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT:
+                    return True
+            #arg = op.getarg(0)
+            #if isinstance(arg, Const):
+            #    key = make_hashable_int(arg.getint())
+            #    resvalue = self.optimizer.loop_invariant_results.get(key,None)
+            #    if resvalue:
+            #        return True # This once was CALL_LOOPINVARIANT
+            #                    # FIXME: Can we realy be sure of that?
         elif opnum == rop.GUARD_NO_EXCEPTION:
             return True # FIXME: Is this safe?
         return False
