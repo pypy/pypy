@@ -396,7 +396,7 @@ class BaseArrayTests:
         a = self.array('i', s)
         assert a[0] == 1 and a[1] == 2 and a[2] == 3
 
-        unpack = self.struct.unpack
+        from struct import unpack
         values = (-129, 128, -128, 127, 0, 255, -1, 256, -32760, 32760)
         s = self.array('i', values).tostring()
         fmt = 'i' * len(values)
@@ -837,14 +837,6 @@ class AppTestArray(BaseArrayTests):
             import array
             return array.array
         """)
-        cls.w_struct = cls.space.appexec([], """():
-            import struct
-            return struct
-        """)
-        cls.w_rffi = cls.space.appexec([], """():
-            import _rawffi
-            return _rawffi
-        """)
         cls.w_tempfile = cls.space.wrap(
             str(py.test.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
@@ -858,5 +850,6 @@ class AppTestArray(BaseArrayTests):
         bi = a.buffer_info()
         assert bi[0] != 0
         assert bi[1] == 3
-        data = self.rffi.charp2string(bi[0])
+        import _rawffi
+        data = _rawffi.charp2string(bi[0])
         assert data[0:3] == 'Hi!'
