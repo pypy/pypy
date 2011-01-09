@@ -646,6 +646,19 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc1], loc0)
         self.xrm.possibly_free_var(op.getarg(1))
 
+    def _consider_llong_from_int(self, op):
+        # requires the argument to be in eax, and trash edx.
+        # requires the result to be in the stack.
+        loc0 = self.fm.loc(op.result)
+        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1), selected_reg=eax)
+        if not isinstance(loc1, ImmedLoc):
+            tmpvar = TempBox()
+            self.rm.force_allocate_reg(tmpvar, [op.getarg(1)],
+                                       selected_reg=edx)
+            self.rm.possibly_free_var(tmpvar)
+        self.PerformLLong(op, [loc1], loc0)
+        self.rm.possibly_free_var(op.getarg(1))
+
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
         self.rm.before_call(force_store, save_all_regs=save_all_regs)
@@ -691,6 +704,8 @@ class RegAlloc(object):
                     return self._consider_llong_binop_rr(op)
                 if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
                     return self._consider_llong_to_int(op)
+                if oopspecindex == EffectInfo.OS_LLONG_FROM_INT:
+                    return self._consider_llong_from_int(op)
         #
         self._consider_call(op)
 

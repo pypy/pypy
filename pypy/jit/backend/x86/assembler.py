@@ -1115,6 +1115,17 @@ class Assembler386(object):
         else:
             not_implemented("llong_to_int: %s" % (loc,))
 
+    def genop_llong_from_int(self, op, arglocs, resloc):
+        assert isinstance(resloc, StackLoc)
+        loc = arglocs[0]
+        if isinstance(loc, ImmedLoc):
+            self.mc.MOV_bi(resloc.value, loc.value)
+            self.mc.MOV_bi(resloc.value + 4, loc.value >> 31)
+        else:
+            assert loc is eax
+            self.mc.CDQ()       # eax -> eax:edx
+            self.mc.MOV_br(resloc.value, eax.value)
+            self.mc.MOV_br(resloc.value + 4, edx.value)
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
