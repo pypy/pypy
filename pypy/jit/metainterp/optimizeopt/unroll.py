@@ -341,7 +341,9 @@ class ExeState(object):
         self.optimizer = optimizer
         self.heap_dirty = False
         self.unsafe_getitem = {}
-
+        self.unsafe_getarrayitem = {}
+        self.unsafe_getarrayitem_indexes = {}
+        
     # Make sure it is safe to move the instrucions in short_preamble
     # to the top making short_preamble followed by loop equvivalent
     # to preamble
@@ -358,6 +360,23 @@ class ExeState(object):
             descr = op.getdescr()
             if descr in self.unsafe_getitem:
                 return False
+            return True
+        elif (opnum == rop.GETARRAYITEM_GC or
+              opnum == rop.GETARRAYITEM_RAW):
+            if self.heap_dirty:
+                return False
+            descr = op.getdescr()
+            if descr in self.unsafe_getarrayitem:
+                return False
+            index = op.getarg(1)
+            if isinstance(index, Const):
+                d = self.unsafe_getarrayitem_indexes.get(descr, None)
+                if d is not None:
+                    if index.getint() in d:
+                        return False
+            else:
+                if descr in self.unsafe_getarrayitem_indexes:
+                    return False
             return True
         elif opnum == rop.CALL:
             arg = op.getarg(0)
@@ -377,19 +396,26 @@ class ExeState(object):
             op.is_guard()): 
             return
         opnum = op.getopnum()
+        descr = op.getdescr()
         if (opnum == rop.DEBUG_MERGE_POINT):
             return
         if (opnum == rop.SETFIELD_GC or
             opnum == rop.SETFIELD_RAW):
-            descr = op.getdescr()
             self.unsafe_getitem[descr] = True
             return
         if (opnum == rop.SETARRAYITEM_GC or
             opnum == rop.SETARRAYITEM_RAW):
-            return # These wont clutter the heap accessable by GETFIELD_*
-                   # FIXME: Implement proper support for ARRAYITEMS
+            index = op.getarg(1)
+            if isinstance(index, Const):                
+                d = self.unsafe_getarrayitem_indexes.get(descr, None)
+                if d is None:
+                    d = self.unsafe_getarrayitem_indexes[descr] = {}
+                d[index.getint()] = True
+            else:
+                self.unsafe_getarrayitem[descr] = True
+            return
         if opnum == rop.CALL:
-            effectinfo = op.getdescr().get_extra_info()
+            effectinfo = descr.get_extra_info()
             if effectinfo is not None:
                 for fielddescr in effectinfo.write_descrs_fields:
                     self.unsafe_getitem[fielddescr] = True

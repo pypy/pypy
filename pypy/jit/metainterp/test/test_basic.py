@@ -1843,6 +1843,47 @@ class BasicTests:
                           'int_add': 1, 'int_mul': 1, 'int_sub': 2,
                           'int_gt': 2, 'jump': 2})
 
+    def test_multiple_specialied_versions_array(self):
+        myjitdriver = JitDriver(greens = [], reds = ['idx', 'y', 'x', 'res',
+                                                     'array'])
+        class Base:
+            def __init__(self, val):
+                self.val = val
+        class A(Base):
+            def binop(self, other):
+                return A(self.val + other.val)
+        class B(Base):
+            def binop(self, other):
+                return B(self.val * other.val)
+        def f(x, y):
+            res = x
+            array = [1, 2, 3]
+            array[1] = 7
+            idx = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(idx=idx, y=y, x=x, res=res,
+                                          array=array)
+                myjitdriver.jit_merge_point(idx=idx, y=y, x=x, res=res,
+                                            array=array)
+                res = res.binop(x)
+                res.val += array[idx] + array[1]
+                if y < 7:
+                    idx = 2
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            b1 = f(B(x), y)
+            b2 = f(B(x), y)
+            assert a1.val == a2.val
+            assert b1.val == b2.val
+            return a1.val + b1.val
+        res = self.meta_interp(g, [6, 14])
+        assert res == g(6, 14)
+        self.check_loop_count(8)
+        self.check_loops(getarrayitem_gc=16, everywhere=True)
+
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
         class Base:

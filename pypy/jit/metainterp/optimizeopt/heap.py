@@ -51,12 +51,13 @@ class OptHeap(Optimization):
                 if cache.var_index_item:
                     newcache.var_index_item = \
                           cache.var_index_item.get_reconstructed(optimizer, valuemap)
-                if newcache.var_index_indexvalue:
+                if cache.var_index_indexvalue:
                     newcache.var_index_indexvalue = \
                           cache.var_index_indexvalue.get_reconstructed(optimizer, valuemap)
                 for index, fieldvalue in cache.fixed_index_items.items():
                     newcache.fixed_index_items[index] = \
                            fieldvalue.get_reconstructed(optimizer, valuemap)
+
         return new
 
     def clean_caches(self):
