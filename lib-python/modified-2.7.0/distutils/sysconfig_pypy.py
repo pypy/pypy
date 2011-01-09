@@ -9,6 +9,7 @@ from distutils.errors import DistutilsPlatformError
 
 
 PREFIX = os.path.normpath(sys.prefix)
+project_base = os.path.dirname(os.path.abspath(sys.executable))
 python_build = False
 
 
