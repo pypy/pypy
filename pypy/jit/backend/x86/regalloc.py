@@ -652,7 +652,6 @@ class RegAlloc(object):
         if isinstance(box, ConstInt):
             from pypy.rlib.longlong2float import longlong2float
             from pypy.rlib.rarithmetic import r_longlong
-            import pdb; pdb.set_trace()
             value = r_longlong(box.value)
             c = ConstFloat(longlong2float(value))
             loc1 = self.xrm.convert_to_imm(c)
