@@ -155,6 +155,37 @@ class IntBound(object):
         else:
             return IntUnbounded()
 
+    def lshift_bound(self, other):
+        if self.has_upper and self.has_lower and \
+           other.has_upper and other.has_lower and \
+           other.known_ge(IntBound(0, 0)):
+            try:
+                vals = (ovfcheck(self.upper * pow2(other.upper)),
+                        ovfcheck(self.upper * pow2(other.lower)),
+                        ovfcheck(self.lower * pow2(other.upper)),
+                        ovfcheck(self.lower * pow2(other.lower)))
+                return IntBound(min4(vals), max4(vals))
+            except OverflowError:
+                return IntUnbounded()
+        else:
+            return IntUnbounded()
+
+    def rshift_bound(self, other):
+        if self.has_upper and self.has_lower and \
+           other.has_upper and other.has_lower and \
+           other.known_ge(IntBound(0, 0)):
+            try:
+                vals = (ovfcheck(self.upper / pow2(other.upper)),
+                        ovfcheck(self.upper / pow2(other.lower)),
+                        ovfcheck(self.lower / pow2(other.upper)),
+                        ovfcheck(self.lower / pow2(other.lower)))
+                return IntBound(min4(vals), max4(vals))
+            except OverflowError:
+                return IntUnbounded()
+        else:
+            return IntUnbounded()
+
+
     def contains(self, val):
         if self.has_lower and val < self.lower:
             return False
@@ -205,3 +236,11 @@ def min4(t):
 
 def max4(t):
     return max(max(t[0], t[1]), max(t[2], t[3]))
+
+def pow2(x):
+    y = 1 << x
+    if y < 1:
+        raise OverflowError, "pow2 did overflow"
+    return y
+
+        

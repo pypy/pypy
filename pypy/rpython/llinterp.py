@@ -1045,20 +1045,6 @@ class LLFrame(object):
         except OverflowError:
             self.make_llexception()
 
-    def op_llong_neg_ovf(self, x):
-        assert type(x) is r_longlong
-        try:
-            return ovfcheck(-x)
-        except OverflowError:
-            self.make_llexception()
-
-    def op_llong_abs_ovf(self, x):
-        assert type(x) is r_longlong
-        try:
-            return ovfcheck(abs(x))
-        except OverflowError:
-            self.make_llexception()
-
     def op_int_lshift_ovf(self, x, y):
         assert isinstance(x, int)
         assert isinstance(y, int)

@@ -176,6 +176,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
+            if self.config.objspace.std.withsmalllong:
+                from pypy.objspace.std.smalllongobject import W_SmallLongObject
+                from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+                from pypy.rlib.rarithmetic import longlongmax
+                if (not isinstance(x, r_ulonglong)
+                    or x <= r_ulonglong(longlongmax)):
+                    return W_SmallLongObject(r_longlong(x))
             x = widen(x)
             if isinstance(x, int):
                 return self.newint(x)
@@ -202,6 +209,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # The following cases are even stranger.
         # Really really only for tests.
         if type(x) is long:
+            if self.config.objspace.std.withsmalllong:
+                from pypy.rlib.rarithmetic import r_longlong
+                try:
+                    rx = r_longlong(x)
+                except OverflowError:
+                    pass
+                else:
+                    from pypy.objspace.std.smalllongobject import \
+                                                   W_SmallLongObject
+                    return W_SmallLongObject(rx)
             return W_LongObject.fromlong(x)
         if isinstance(x, slice):
             return W_SliceObject(self.wrap(x.start),
@@ -265,6 +282,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ComplexObject(realval, imagval)
 
     def newlong(self, val): # val is an int
+        if self.config.objspace.std.withsmalllong:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject.fromint(val)
         return W_LongObject.fromint(self, val)
 
     def newtuple(self, list_w):

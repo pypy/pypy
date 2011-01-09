@@ -120,6 +120,12 @@ class OptValue(object):
             box = self.box
             assert isinstance(box, Const)
             return box.nonnull()
+        elif self.intbound:
+            if self.intbound.known_gt(IntBound(0, 0)) or \
+               self.intbound.known_lt(IntBound(0, 0)):
+                return True
+            else:
+                return False
         else:
             return False
 
