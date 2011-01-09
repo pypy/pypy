@@ -419,6 +419,9 @@ class ExeState(object):
             if effectinfo is not None:
                 for fielddescr in effectinfo.write_descrs_fields:
                     self.unsafe_getitem[fielddescr] = True
+                for arraydescr in effectinfo.write_descrs_arrays:
+                    self.unsafe_getarrayitem[arraydescr] = True
+                return
         debug_print("heap dirty due to op ", opnum)
         self.heap_dirty = True
 
