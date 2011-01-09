@@ -653,6 +653,22 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc1, loc2, loc3], loc0)
         self.xrm.possibly_free_vars(args)
 
+    def _maybe_consider_llong_lt(self, op):
+        # XXX just a special case for now
+        from pypy.rlib.longlong2float import longlong2float
+        box = op.getarg(2)
+        if not isinstance(box, ConstFloat):
+            return False
+        if not (box.value == longlong2float(r_longlong(0))):
+            return False
+        # "x < 0"
+        box = op.getarg(1)
+        loc1 = self.xrm.make_sure_var_in_reg(box, imm_fine=False)
+        loc0 = self.rm.force_allocate_reg(op.result)
+        self.PerformLLong(op, [loc1], loc0)
+        self.xrm.possibly_free_var(box)
+        return True
+
     def _consider_llong_to_int(self, op):
         # accept an argument in a xmm register or in the stack
         loc1 = self.xrm.loc(op.getarg(1))
@@ -769,6 +785,9 @@ class RegAlloc(object):
                 if (oopspecindex == EffectInfo.OS_LLONG_EQ or
                     oopspecindex == EffectInfo.OS_LLONG_NE):
                     return self._consider_llong_cmp_xx(op)
+                if oopspecindex == EffectInfo.OS_LLONG_LT:
+                    if self._maybe_consider_llong_lt(op):
+                        return
         #
         self._consider_call(op)
 

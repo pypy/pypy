@@ -894,7 +894,8 @@ class Transformer(object):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
-                                                EffectInfo.OS_LLONG_%s)
+                                                EffectInfo.OS_LLONG_%s,
+                                                EffectInfo.EF_PURE)
                 return op2
         ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
@@ -1273,7 +1274,7 @@ class Transformer(object):
 
     def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
-        if extraeffect:
+        if extraeffect is not None:
             calldescr.get_extra_info().extraeffect = extraeffect
         if isinstance(op.args[0].value, str):
             pass  # for tests only

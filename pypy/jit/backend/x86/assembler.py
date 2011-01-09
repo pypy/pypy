@@ -1174,6 +1174,13 @@ class Assembler386(object):
         self.mc.SBB_rr(resloc.value, resloc.value)
         self.mc.NEG_r(resloc.value)
 
+    def genop_llong_lt(self, op, arglocs, resloc):
+        # XXX just a special case for now: "x < 0"
+        loc1, = arglocs
+        self.mc.PMOVMSKB_rx(resloc.value, loc1.value)
+        self.mc.SHR_ri(resloc.value, 7)
+        self.mc.AND_ri(resloc.value, 1)
+
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
         loc_vtable = arglocs[-1]
@@ -1784,6 +1791,7 @@ class Assembler386(object):
             if isinstance(op.getdescr(), LongLongCallDescr):
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
                 self.mc.MOV_br(resloc.value + 4, edx.value)
+                # XXX should ideally not move the result on the stack
             else:
                 self.mc.FSTP_b(resloc.value)   # float return
         elif size == WORD:
