@@ -110,11 +110,12 @@ class ARMRegisterManager(RegisterManager):
 
     def _check_imm_arg(self, arg, size=0xFF, allow_zero=True):
         if isinstance(arg, ConstInt):
+            i = arg.getint()
             if allow_zero:
-                lower_bound = arg.getint() >= 0
+                lower_bound = i >= 0
             else:
-                lower_bound = arg.getint() > 0
-            return arg.getint() <= size and lower_bound
+                lower_bound = i > 0
+            return i <= size and lower_bound
         return False
 
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
@@ -141,7 +142,6 @@ class ARMRegisterManager(RegisterManager):
 
 
     def prepare_op_int_add(self, op, fcond):
-        #XXX check if neg values are supported for imm values
         boxes = list(op.getarglist())
         a0, a1 = boxes
         imm_a0 = self._check_imm_arg(a0)
@@ -165,7 +165,6 @@ class ARMRegisterManager(RegisterManager):
         return [l0, l1, res]
 
     def prepare_op_int_sub(self, op, fcond):
-        #XXX check if neg values are supported for imm values
         boxes = list(op.getarglist())
         a0, a1 = boxes
         imm_a0 = self._check_imm_arg(a0)
@@ -688,7 +687,7 @@ class ARMRegisterManager(RegisterManager):
             arglocs.append(t)
         return arglocs
 
-    #XXX from ../x86/regalloc.py:791
+    # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
         ofs = fielddescr.offset
@@ -696,7 +695,7 @@ class ARMRegisterManager(RegisterManager):
         ptr = fielddescr.is_pointer_field()
         return ofs, size, ptr
 
-    #XXX from ../x86/regalloc.py:779
+    # from ../x86/regalloc.py:779
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
         cpu = self.cpu
