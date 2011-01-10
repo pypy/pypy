@@ -330,6 +330,10 @@ def pytest_runtest_setup(__multicall__, item):
         if not getattr(item.obj, 'dont_track_allocations', False):
             leakfinder.start_tracking_allocations()
 
+def pytest_runtest_call(__multicall__, item):
+    __multicall__.execute()
+    item._success = True
+
 def pytest_runtest_teardown(__multicall__, item):
     __multicall__.execute()
 
@@ -341,7 +345,7 @@ def pytest_runtest_teardown(__multicall__, item):
             item._pypytest_leaks = None
 
         # check for leaks, but only if the test passed so far
-        if item._pypytest_leaks:
+        if getattr(item, '_success', False) and item._pypytest_leaks:
             raise leakfinder.MallocMismatch(item._pypytest_leaks)
 
     if 'pygame' in sys.modules:
