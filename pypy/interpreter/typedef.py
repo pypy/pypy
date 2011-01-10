@@ -626,7 +626,8 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
     return space.newtuple([w_docstring])
 
-weakref_descr = GetSetProperty(descr_get_weakref)
+weakref_descr = GetSetProperty(descr_get_weakref,
+                    doc="list of weak references to the object (if defined)")
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):

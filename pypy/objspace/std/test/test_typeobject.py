@@ -1003,6 +1003,13 @@ class AppTestMutableBuiltintypes:
         del list.a
         raises(AttributeError, "l.a")
 
+    def test_doc(self):
+        class C(object):
+            pass
+
+        assert C.__dict__['__dict__'].__doc__.startswith("dictionary for")
+        assert C.__dict__['__weakref__'].__doc__.startswith("list of weak")
+
 class AppTestGetattributeShortcut:
 
     def setup_class(cls):

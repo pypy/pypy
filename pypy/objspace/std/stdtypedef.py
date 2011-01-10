@@ -38,7 +38,8 @@ def issubtypedef(a, b):
         a = a.base
     return True
 
-std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict)
+std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
+                    doc="dictionary for instance variables (if defined)")
 std_dict_descr.name = '__dict__'
 
 # ____________________________________________________________
