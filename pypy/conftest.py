@@ -334,33 +334,6 @@ class AppError(Exception):
 class PyPyTestFunction(py.test.collect.Function):
     # All PyPy test items catch and display OperationErrors specially.
     #
-    def runtest(self):
-        self.runtest_open()
-        try:
-            self.runtest_perform()
-        finally:
-            self.runtest_close()
-        self.runtest_finish()
-
-    def runtest_open(self):
-        if not getattr(self.obj, 'dont_track_allocations', False):
-            leakfinder.start_tracking_allocations()
-
-    def runtest_perform(self):
-        super(PyPyTestFunction, self).runtest()
-
-    def runtest_close(self):
-        if (not getattr(self.obj, 'dont_track_allocations', False)
-            and leakfinder.TRACK_ALLOCATIONS):
-            self._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
-        else:            # stop_tracking_allocations() already called
-            self._pypytest_leaks = None
-
-    def runtest_finish(self):
-        # check for leaks, but only if the test passed so far
-        if self._pypytest_leaks:
-            raise leakfinder.MallocMismatch(self._pypytest_leaks)
-
     def execute_appex(self, space, target, *args):
         try:
             target(*args)
@@ -378,6 +351,27 @@ class PyPyTestFunction(py.test.collect.Function):
             excinfo = excinfo.value.excinfo
         return super(PyPyTestFunction, self).repr_failure(excinfo)
 
+def pytest_runtest_setup(__multicall__, item):
+    __multicall__.execute()
+    if not getattr(item.obj, 'dont_track_allocations', False):
+        leakfinder.start_tracking_allocations()
+
+def pytest_runtest_teardown(__multicall__, item):
+    __multicall__.execute()
+    if (not getattr(item.obj, 'dont_track_allocations', False)
+        and leakfinder.TRACK_ALLOCATIONS):
+        item._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
+    else:            # stop_tracking_allocations() already called
+        item._pypytest_leaks = None
+
+    # check for leaks, but only if the test passed so far
+    if item._pypytest_leaks:
+        raise leakfinder.MallocMismatch(item._pypytest_leaks)
+
+    if 'pygame' in sys.modules:
+        assert option.view, ("should not invoke Pygame "
+                             "if conftest.option.view is False")
+
 _pygame_imported = False
 
 class IntTestFunction(PyPyTestFunction):
@@ -387,9 +381,9 @@ class IntTestFunction(PyPyTestFunction):
     def _keywords(self):
         return super(IntTestFunction, self)._keywords() + ['interplevel']
 
-    def runtest_perform(self):
+    def runtest(self):
         try:
-            super(IntTestFunction, self).runtest_perform()
+            super(IntTestFunction, self).runtest()
         except OperationError, e:
             check_keyboard_interrupt(e)
             raise
@@ -403,15 +397,6 @@ class IntTestFunction(PyPyTestFunction):
                 cls = cls.__bases__[0]
             raise
 
-    def runtest_finish(self):
-        if 'pygame' in sys.modules:
-            global _pygame_imported
-            if not _pygame_imported:
-                _pygame_imported = True
-                assert option.view, ("should not invoke Pygame "
-                                     "if conftest.option.view is False")
-        super(IntTestFunction, self).runtest_finish()
-
 class AppTestFunction(PyPyTestFunction):
     def _prunetraceback(self, traceback):
         return traceback
@@ -423,7 +408,7 @@ class AppTestFunction(PyPyTestFunction):
     def _keywords(self):
         return ['applevel'] + super(AppTestFunction, self)._keywords()
 
-    def runtest_perform(self):
+    def runtest(self):
         target = self.obj
         if option.runappdirect:
             return target()
@@ -455,7 +440,7 @@ class AppTestMethod(AppTestFunction):
                     space.setattr(w_instance, space.wrap(name[2:]), 
                                   getattr(instance, name)) 
 
-    def runtest_perform(self):
+    def runtest(self):
         target = self.obj
         if option.runappdirect:
             return target()
