@@ -334,6 +334,7 @@ def make_array(mytype):
         start, stop, step, size = space.decode_index4(w_slice, self.len)
         w_a = mytype.w_class(self.space)
         w_a.setlen(size)
+        assert step != 0
         j = 0
         for i in range(start, stop, step):
             w_a.buffer[j] = self.buffer[i]
@@ -353,6 +354,7 @@ def make_array(mytype):
 
     def setitem__Array_Slice_Array(space, self, w_idx, w_item):
         start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+        assert step != 0
         if w_item.len != size:
             w_lst = array_tolist__Array(space, self)
             w_item = space.call_method(w_item, 'tolist')

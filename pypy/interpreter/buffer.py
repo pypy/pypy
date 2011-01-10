@@ -223,6 +223,7 @@ class StringBuffer(Buffer):
 
     def getslice(self, start, stop, step, size):
         if step == 1:
+            assert start >= 0 and stop >= 0
             return self.value[start:stop]
         return "".join([self.value[start + i*step] for i in xrange(size)])
 
