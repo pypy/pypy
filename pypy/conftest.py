@@ -326,20 +326,23 @@ def pytest_runtest_setup(__multicall__, item):
 
     __multicall__.execute()
 
-    if not getattr(item.obj, 'dont_track_allocations', False):
-        leakfinder.start_tracking_allocations()
+    if isinstance(item, py.test.collect.Function):
+        if not getattr(item.obj, 'dont_track_allocations', False):
+            leakfinder.start_tracking_allocations()
 
 def pytest_runtest_teardown(__multicall__, item):
     __multicall__.execute()
-    if (not getattr(item.obj, 'dont_track_allocations', False)
-        and leakfinder.TRACK_ALLOCATIONS):
-        item._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
-    else:            # stop_tracking_allocations() already called
-        item._pypytest_leaks = None
 
-    # check for leaks, but only if the test passed so far
-    if item._pypytest_leaks:
-        raise leakfinder.MallocMismatch(item._pypytest_leaks)
+    if isinstance(item, py.test.collect.Function):
+        if (not getattr(item.obj, 'dont_track_allocations', False)
+            and leakfinder.TRACK_ALLOCATIONS):
+            item._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
+        else:            # stop_tracking_allocations() already called
+            item._pypytest_leaks = None
+
+        # check for leaks, but only if the test passed so far
+        if item._pypytest_leaks:
+            raise leakfinder.MallocMismatch(item._pypytest_leaks)
 
     if 'pygame' in sys.modules:
         assert option.view, ("should not invoke Pygame "
