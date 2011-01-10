@@ -267,10 +267,9 @@ class W_FileConnection(W_BaseConnection):
             lltype.free(message, flavor='raw')
 
     def do_recv_string(self, space, buflength, maxlength):
-        length_ptr = lltype.malloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
-                                   flavor='raw')
-        self._recvall(space, rffi.cast(rffi.CCHARP, length_ptr), 4)
-        length = intmask(length_ptr[0])
+        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as length_ptr:
+            self._recvall(space, rffi.cast(rffi.CCHARP, length_ptr), 4)
+            length = intmask(length_ptr[0])
         if length > maxlength: # bad message, close connection
             self.flags &= ~READABLE
             if self.flags == 0:
@@ -455,6 +454,7 @@ class W_PipeConnection(W_BaseConnection):
             return length, newbuf
         finally:
             lltype.free(read_ptr, flavor='raw')
+            lltype.free(left_ptr, flavor='raw')
 
     def do_poll(self, space, timeout):
         from pypy.module._multiprocessing.interp_win32 import (
