@@ -2474,16 +2474,29 @@ class comprehension(AST):
 
 class excepthandler(AST):
 
-    __slots__ = ('type', 'name', 'body', 'w_body', 'lineno', 'col_offset')
+    __slots__ = ('lineno', 'col_offset')
+
+    def __init__(self, lineno, col_offset):
+        self.lineno = lineno
+        self.col_offset = col_offset
+
+class ExceptHandler(excepthandler):
+
+    __slots__ = ('type', 'name', 'body', 'w_body')
+
+    _lineno_mask = 8
+    _col_offset_mask = 16
 
     def __init__(self, type, name, body, lineno, col_offset):
         self.type = type
         self.name = name
         self.body = body
         self.w_body = None
-        self.lineno = lineno
-        self.col_offset = col_offset
+        excepthandler.__init__(self, lineno, col_offset)
         self.initialization_state = 31
+
+    def walkabout(self, visitor):
+        visitor.visit_ExceptHandler(self)
 
     def mutate_over(self, visitor):
         if self.type:
@@ -2492,14 +2505,11 @@ class excepthandler(AST):
             self.name = self.name.mutate_over(visitor)
         if self.body:
             visitor._mutate_sequence(self.body)
-        return visitor.visit_excepthandler(self)
-
-    def walkabout(self, visitor):
-        visitor.visit_excepthandler(self)
+        return visitor.visit_ExceptHandler(self)
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~3) ^ 28:
-            missing_field(space, self.initialization_state, [None, None, 'body', 'lineno', 'col_offset'], 'excepthandler')
+            missing_field(space, self.initialization_state, [None, None, 'body', 'lineno', 'col_offset'], 'ExceptHandler')
         else:
             if not self.initialization_state & 1:
                 self.type = None
@@ -2519,6 +2529,7 @@ class excepthandler(AST):
         if self.body is not None:
             for node in self.body:
                 node.sync_app_attrs(space)
+
 
 class arguments(AST):
 
@@ -2740,7 +2751,7 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_comprehension(self, node):
         return self.default_visitor(node)
-    def visit_excepthandler(self, node):
+    def visit_ExceptHandler(self, node):
         return self.default_visitor(node)
     def visit_arguments(self, node):
         return self.default_visitor(node)
@@ -3015,7 +3026,7 @@ class GenericASTVisitor(ASTVisitor):
         if node.ifs:
             self.visit_sequence(node.ifs)
 
-    def visit_excepthandler(self, node):
+    def visit_ExceptHandler(self, node):
         if node.type:
             node.type.walkabout(self)
         if node.name:
@@ -6259,27 +6270,55 @@ comprehension.typedef = typedef.TypeDef("comprehension",
 )
 comprehension.typedef.acceptable_as_base_class = False
 
-def excepthandler_get_type(space, w_self):
+def excepthandler_get_lineno(space, w_self):
+    if not w_self.initialization_state & w_self._lineno_mask:
+        w_err = space.wrap("attribute 'lineno' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.lineno)
+
+def excepthandler_set_lineno(space, w_self, w_new_value):
+    w_self.lineno = space.int_w(w_new_value)
+    w_self.initialization_state |= w_self._lineno_mask
+
+def excepthandler_get_col_offset(space, w_self):
+    if not w_self.initialization_state & w_self._col_offset_mask:
+        w_err = space.wrap("attribute 'col_offset' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.col_offset)
+
+def excepthandler_set_col_offset(space, w_self, w_new_value):
+    w_self.col_offset = space.int_w(w_new_value)
+    w_self.initialization_state |= w_self._col_offset_mask
+
+excepthandler.typedef = typedef.TypeDef("excepthandler",
+    AST.typedef,
+    _attributes=_FieldsWrapper(['lineno', 'col_offset']),
+    lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, cls=excepthandler),
+    col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, cls=excepthandler),
+)
+excepthandler.typedef.acceptable_as_base_class = False
+
+def ExceptHandler_get_type(space, w_self):
     if not w_self.initialization_state & 1:
         w_err = space.wrap("attribute 'type' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.type)
 
-def excepthandler_set_type(space, w_self, w_new_value):
+def ExceptHandler_set_type(space, w_self, w_new_value):
     w_self.type = space.interp_w(expr, w_new_value, True)
     w_self.initialization_state |= 1
 
-def excepthandler_get_name(space, w_self):
+def ExceptHandler_get_name(space, w_self):
     if not w_self.initialization_state & 2:
         w_err = space.wrap("attribute 'name' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.name)
 
-def excepthandler_set_name(space, w_self, w_new_value):
+def ExceptHandler_set_name(space, w_self, w_new_value):
     w_self.name = space.interp_w(expr, w_new_value, True)
     w_self.initialization_state |= 2
 
-def excepthandler_get_body(space, w_self):
+def ExceptHandler_get_body(space, w_self):
     if not w_self.initialization_state & 4:
         w_err = space.wrap("attribute 'body' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
@@ -6292,59 +6331,37 @@ def excepthandler_get_body(space, w_self):
         w_self.w_body = w_list
     return w_self.w_body
 
-def excepthandler_set_body(space, w_self, w_new_value):
+def ExceptHandler_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
-def excepthandler_get_lineno(space, w_self):
-    if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'lineno' has not been set")
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.lineno)
-
-def excepthandler_set_lineno(space, w_self, w_new_value):
-    w_self.lineno = space.int_w(w_new_value)
-    w_self.initialization_state |= 8
-
-def excepthandler_get_col_offset(space, w_self):
-    if not w_self.initialization_state & 16:
-        w_err = space.wrap("attribute 'col_offset' has not been set")
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.col_offset)
-
-def excepthandler_set_col_offset(space, w_self, w_new_value):
-    w_self.col_offset = space.int_w(w_new_value)
-    w_self.initialization_state |= 16
-
-_excepthandler_field_unroller = unrolling_iterable(['type', 'name', 'body', 'lineno', 'col_offset'])
-def excepthandler_init(space, w_self, args):
-    w_self = space.descr_self_interp_w(excepthandler, w_self)
+_ExceptHandler_field_unroller = unrolling_iterable(['type', 'name', 'body', 'lineno', 'col_offset'])
+def ExceptHandler_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(ExceptHandler, w_self)
     w_self.w_body = None
     args_w, kwargs_w = args.unpack()
     if args_w:
         if len(args_w) != 5:
-            w_err = space.wrap("excepthandler constructor takes 0 or 5 positional arguments")
+            w_err = space.wrap("ExceptHandler constructor takes 0 or 5 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
-        for field in _excepthandler_field_unroller:
+        for field in _ExceptHandler_field_unroller:
             space.setattr(w_self, space.wrap(field), args_w[i])
             i += 1
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
-excepthandler_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+ExceptHandler_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
-excepthandler.typedef = typedef.TypeDef("excepthandler",
-    AST.typedef,
-    _fields=_FieldsWrapper(['type', 'name', 'body', 'lineno', 'col_offset']),
-    type=typedef.GetSetProperty(excepthandler_get_type, excepthandler_set_type, cls=excepthandler),
-    name=typedef.GetSetProperty(excepthandler_get_name, excepthandler_set_name, cls=excepthandler),
-    body=typedef.GetSetProperty(excepthandler_get_body, excepthandler_set_body, cls=excepthandler),
-    lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, cls=excepthandler),
-    col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, cls=excepthandler),
-    __new__=interp2app(get_AST_new(excepthandler)),
-    __init__=interp2app(excepthandler_init),
+ExceptHandler.typedef = typedef.TypeDef("ExceptHandler",
+    excepthandler.typedef,
+    _fields=_FieldsWrapper(['type', 'name', 'body']),
+    type=typedef.GetSetProperty(ExceptHandler_get_type, ExceptHandler_set_type, cls=ExceptHandler),
+    name=typedef.GetSetProperty(ExceptHandler_get_name, ExceptHandler_set_name, cls=ExceptHandler),
+    body=typedef.GetSetProperty(ExceptHandler_get_body, ExceptHandler_set_body, cls=ExceptHandler),
+    __new__=interp2app(get_AST_new(ExceptHandler)),
+    __init__=interp2app(ExceptHandler_init),
 )
-excepthandler.typedef.acceptable_as_base_class = False
+ExceptHandler.typedef.acceptable_as_base_class = False
 
 def arguments_get_args(space, w_self):
     if not w_self.initialization_state & 1:
