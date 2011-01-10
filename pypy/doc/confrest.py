@@ -31,7 +31,7 @@ pageTracker._trackPageview();
             html.a("documentation", href=self.get_doclink("docindex.html"),
                    class_="menu"),
             " ", 
-            html.a("svn", href="https://codespeak.net/viewvc/pypy/trunk/",
+            html.a("hg", href="https://bitbucket.org/pypy/pypy",
                    class_="menu"),
             " ", 
             html.a("issues",
