@@ -33,8 +33,8 @@ class ResOpGraphPage(GraphPage):
         for graph, highlight in graphs:
             if getattr(graph, 'token', None) is not None:
                 resopgen.jumps_to_graphs[graph.token] = graph
-            if getattr(graph, '_number', None) is not None:
-                resopgen.jumps_to_graphs[graph._number] = graph
+            if getattr(graph, '_looptoken_number', None) is not None:
+                resopgen.jumps_to_graphs[graph._looptoken_number] = graph
         
         for graph, highlight in graphs:
             resopgen.add_graph(graph, highlight)
@@ -170,17 +170,21 @@ class ResOpGen(object):
                              (graphindex, opindex))
                 break
         if op.getopnum() == rop.JUMP:
-            tgt = op.getdescr()
             tgt_g = -1
-            if tgt is None:
-                tgt_g = graphindex
+            tgt = None
+            tgt_number = getattr(op, '_jumptarget_number', None)
+            if tgt_number is not None:
+                tgt = self.jumps_to_graphs.get(tgt_number)
             else:
-                if tgt in self.jumps_to_graphs:
-                    tgt = self.jumps_to_graphs[tgt]
+                tgt_descr = op.getdescr()
+                if tgt_descr is None:
+                    tgt_g = graphindex
                 else:
-                    tgt = self.jumps_to_graphs.get(tgt.number)
-                if tgt is not None:
-                    tgt_g = self.graphs.index(tgt)
+                    tgt = self.jumps_to_graphs.get(tgt_descr.number)
+                    if tgt is None:
+                        tgt = self.jumps_to_graphs.get(tgt_descr)
+            if tgt is not None:
+                tgt_g = self.graphs.index(tgt)
             if tgt_g != -1:
                 self.genedge((graphindex, opstartindex),
                              (tgt_g, 0),

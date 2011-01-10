@@ -62,13 +62,8 @@ OS X and mostly works under Windows too (but is tested there less
 extensively). PyPy needs a CPython running on the target platform to
 bootstrap, as cross compilation is not really meant to work yet.
 At the moment you need CPython 2.4 (with ctypes) or CPython 2.5 or 2.6
-for the translation process.
+for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
 
-PyPy also basically works in a 64-bit Linux environment, but
-*it requires a 32-bit Intel CPU* for the JIT right now.  (It works
-fine in a 32-bit chroot of an Intel 64.). There is also an ongoing
-summer of code project to provide 64bit support for JIT. It's scheduled
-to be finished by end of summer 2010.
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?

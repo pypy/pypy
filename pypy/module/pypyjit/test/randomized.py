@@ -32,8 +32,12 @@ class RandomCode(object):
                ' ' + self.expression()
 
     def test(self):
-        return self.expression() + ' ' + self.sample(self.tests) + \
-               ' ' + self.expression()
+        tst = self.sample(self.tests)
+        if tst:
+            return self.expression() + ' ' + tst + \
+                   ' ' + self.expression()
+        else:
+            return self.expression()
 
     def constant(self):
         return str(self.sample(self.constants))
@@ -81,9 +85,9 @@ class RandomCode(object):
         
 
 class IntBounds(RandomCode):
-    opperators = ('+', '-', '*')
-    tests = ('<', '>', '<=', '>=', '==', '!=')
-    constants = range(-3,4)
+    opperators = ('+', '-', '*', '/', '>>', '<<')
+    tests = ('<', '>', '<=', '>=', '==', '!=', None)
+    constants = range(-3,4) 
     varnames = 'abcd'
 
     def function(self, name='f'):

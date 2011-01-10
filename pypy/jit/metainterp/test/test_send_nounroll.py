@@ -1,13 +1,14 @@
-# xxx mostly pointless
 
 from pypy.jit.metainterp.test import test_loop, test_send
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import OPTIMIZER_SIMPLE
+from pypy.rlib.jit import OPTIMIZER_NO_UNROLL
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
-class LoopDummyTest(test_send.SendTests):
+class LoopNoPSpecTest(test_send.SendTests):
+    optimizer=OPTIMIZER_NO_UNROLL
+    
     def meta_interp(self, func, args, **kwds):
-        return ll_meta_interp(func, args, optimizer=OPTIMIZER_SIMPLE,
+        return ll_meta_interp(func, args, optimizer=self.optimizer,
                               CPUClass=self.CPUClass, 
                               type_system=self.type_system,
                               **kwds)
@@ -21,8 +22,9 @@ class LoopDummyTest(test_send.SendTests):
     def check_jumps(self, maxcount):
         pass
 
-class TestLLtype(LoopDummyTest, LLJitMixin):
+
+class TestLLtype(LoopNoPSpecTest, LLJitMixin):
     pass
 
-class TestOOtype(LoopDummyTest, OOJitMixin):
+class TestOOtype(LoopNoPSpecTest, OOJitMixin):
     pass
