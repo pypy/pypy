@@ -2,7 +2,7 @@
  */
 
 #define READ_TIMESTAMP(val) do {                        \
-    unsigned int _eax, _edx;                            \
-    asm volatile("rdtsc" : "=a" (_eax), "=d" (_edx));   \
-    val = (((unsigned long) _edx) << 32) | _eax;        \
+    unsigned long _rax, _rdx;                           \
+    asm volatile("rdtsc" : "=rax"(_rax), "=rdx"(_rdx)); \
+    val = (_rdx << 32) | _rax;                          \
 } while (0)

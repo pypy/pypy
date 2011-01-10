@@ -84,7 +84,7 @@ class AbstractResOp(object):
         descr = self.getdescr()
         if descr is not None:
             descr = descr.clone_if_mutable()
-        op = ResOperation(self.getopnum(), args, self.result, descr)
+        op = ResOperation(self.getopnum(), args[:], self.result, descr)
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc
@@ -198,6 +198,7 @@ class ResOpWithDescr(AbstractResOp):
 class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
+    _jump_target = None
 
     def getfailargs(self):
         return self._fail_args
@@ -205,14 +206,22 @@ class GuardResOp(ResOpWithDescr):
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
+    def getjumptarget(self):
+        return self._jump_target
+
+    def setjumptarget(self, jump_target):
+        self._jump_target = jump_target
+
     def copy_and_change(self, opnum, args=None, result=None, descr=None):
         newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
         newop.setfailargs(self.getfailargs())
+        newop.setjumptarget(self.getjumptarget())
         return newop
 
     def clone(self):
         newop = AbstractResOp.clone(self)
         newop.setfailargs(self.getfailargs())
+        newop.setjumptarget(self.getjumptarget())        
         return newop
 
 

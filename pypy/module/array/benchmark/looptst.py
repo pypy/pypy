@@ -5,3 +5,5 @@ def h():
         s+=i
         i+=1
     return s
+
+print h()

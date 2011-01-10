@@ -575,7 +575,7 @@ class RecursiveTests:
                 result += f('-c-----------l-', i+100)
         self.meta_interp(g, [10], backendopt=True)
         self.check_aborted_count(1)
-        self.check_history(call_assembler=1, call=0)
+        self.check_loops(call_assembler=1, call=0)
         self.check_tree_loop_count(3)
 
     def test_directly_call_assembler(self):
@@ -599,19 +599,19 @@ class RecursiveTests:
                            get_printable_location = lambda codeno : str(codeno))
 
         def portal(codeno, j):
-            i = 0
+            i = 1
             while 1:
                 driver.jit_merge_point(codeno=codeno, i=i, j=j)
-                if i == 1:
+                if (i >> 1) == 1:
                     if j == 0:
                         return
                     portal(2, j - 1)
-                elif i == 3:
+                elif i == 5:
                     return
                 i += 1
                 driver.can_enter_jit(codeno=codeno, i=i, j=j)
 
-        portal(2, 50)
+        portal(2, 5)
 
         from pypy.jit.metainterp import compile, pyjitpl
         pyjitpl._warmrunnerdesc = None
@@ -623,8 +623,8 @@ class RecursiveTests:
         original_ctc = compile.compile_tmp_callback
         try:
             compile.compile_tmp_callback = my_ctc
-            self.meta_interp(portal, [2, 20], inline=True)
-            self.check_loops(call_assembler=1, call_may_force=0,
+            self.meta_interp(portal, [2, 5], inline=True)
+            self.check_loops(call_assembler=2, call_may_force=0,
                              everywhere=True)
         finally:
             compile.compile_tmp_callback = original_ctc
@@ -652,14 +652,14 @@ class RecursiveTests:
                            get_printable_location = lambda codeno : str(codeno))
 
         def portal(codeno, frame):
-            i = 0
+            i = 1
             while 1:
                 driver.jit_merge_point(codeno=codeno, i=i, frame=frame)
-                if i == 1:
+                if (i >> 1) == 1:
                     if frame.j == 0:
                         return
                     portal(2, Frame(frame.j - 1))
-                elif i == 3:
+                elif i == 5:
                     return
                 i += 1
                 driver.can_enter_jit(codeno=codeno, i=i, frame=frame)
@@ -667,7 +667,7 @@ class RecursiveTests:
         def main(codeno, j):
             portal(codeno, Frame(j))
 
-        main(2, 50)
+        main(2, 5)
 
         from pypy.jit.metainterp import compile, pyjitpl
         pyjitpl._warmrunnerdesc = None
@@ -679,8 +679,8 @@ class RecursiveTests:
         original_ctc = compile.compile_tmp_callback
         try:
             compile.compile_tmp_callback = my_ctc
-            self.meta_interp(main, [2, 20], inline=True)
-            self.check_loops(call_assembler=1, call_may_force=0,
+            self.meta_interp(main, [2, 5], inline=True)
+            self.check_loops(call_assembler=2, call_may_force=0,
                              everywhere=True)
         finally:
             compile.compile_tmp_callback = original_ctc
@@ -1020,7 +1020,7 @@ class RecursiveTests:
         res = self.meta_interp(portal, [2, 0], inline=True,
                                policy=StopAtXPolicy(residual))
         assert res == portal(2, 0)
-        self.check_loops(call_assembler=2)
+        self.check_loops(call_assembler=4, everywhere=True)
 
     def test_inline_without_hitting_the_loop(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i'],
