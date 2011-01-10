@@ -100,14 +100,6 @@ def maketestobjspace(config=None):
     space.eq_w = appsupport.eq_w.__get__(space)
     return space
 
-def pytest_runtest_setup(item):
-    if isinstance(item, PyPyTestFunction):
-        appclass = item.getparent(PyPyClassCollector)
-        if appclass is not None:
-            spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
-            if spaceconfig:
-                appclass.obj.space = gettestobjspace(**spaceconfig)
-
 class TinyObjSpace(object):
     def __init__(self, **kwds):
         import sys
@@ -352,7 +344,15 @@ class PyPyTestFunction(py.test.collect.Function):
         return super(PyPyTestFunction, self).repr_failure(excinfo)
 
 def pytest_runtest_setup(__multicall__, item):
+    if isinstance(item, PyPyTestFunction):
+        appclass = item.getparent(PyPyClassCollector)
+        if appclass is not None:
+            spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
+            if spaceconfig:
+                appclass.obj.space = gettestobjspace(**spaceconfig)
+
     __multicall__.execute()
+
     if not getattr(item.obj, 'dont_track_allocations', False):
         leakfinder.start_tracking_allocations()
 
