@@ -250,8 +250,11 @@ class StringLikeBuffer(Buffer):
         char = s[0]   # annotator hint
         return char
 
-    def getslice(self, start, stop):
+    def getslice(self, start, stop, step, size):
         space = self.space
+        if step != 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "buffer object does not support slicing with a step"))
         s = space.str_w(space.getslice(self.w_obj, space.wrap(start),
                                                    space.wrap(stop)))
         return s
