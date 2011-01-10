@@ -210,6 +210,11 @@ def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
         if not hasattr(__builtin__, helper):
             setattr(__builtin__, helper, getattr(py.test, helper))
 
+def pytest_sessionstart(session):
+    """ before session.main() is called. """
+    # stick py.test raise in module globals -- carefully
+    ensure_pytest_builtin_helpers()
+
 def pytest_pycollect_makemodule(path, parent):
     return PyPyModule(path, parent)
 
@@ -218,11 +223,6 @@ class PyPyModule(py.test.collect.Module):
         and at interp-level (because we need to stick a space 
         at the class) ourselves. 
     """    
-    def __init__(self, *args, **kwargs):
-        if hasattr(sys, 'pypy_objspaceclass'):
-            option.conf_iocapture = "sys" # pypy cannot do FD-based
-        super(PyPyModule, self).__init__(*args, **kwargs)
-
     def accept_regular_test(self):
         if option.runappdirect:
             # only collect regular tests if we are in an 'app_test' directory,
@@ -250,13 +250,6 @@ class PyPyModule(py.test.collect.Module):
         #if name.startswith('AppExpectTest'):
         #    return True
         return False
-
-    def setup(self): 
-        # stick py.test raise in module globals -- carefully
-        ensure_pytest_builtin_helpers() 
-        super(PyPyModule, self).setup() 
-        #    if hasattr(mod, 'objspacename'): 
-        #        mod.space = getttestobjspace(mod.objspacename)
 
     def makeitem(self, name, obj): 
         if isclass(obj) and self.classnamefilter(name): 
@@ -323,28 +316,8 @@ class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo
 
-class PyPyTestFunction(py.test.collect.Function):
-    # All PyPy test items catch and display OperationErrors specially.
-    #
-    def execute_appex(self, space, target, *args):
-        try:
-            target(*args)
-        except OperationError, e:
-            tb = sys.exc_info()[2]
-            if e.match(space, space.w_KeyboardInterrupt):
-                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
-            appexcinfo = appsupport.AppExceptionInfo(space, e) 
-            if appexcinfo.traceback: 
-                raise AppError, AppError(appexcinfo), tb
-            raise
-
-    def repr_failure(self, excinfo):
-        if excinfo.errisinstance(AppError):
-            excinfo = excinfo.value.excinfo
-        return super(PyPyTestFunction, self).repr_failure(excinfo)
-
 def pytest_runtest_setup(__multicall__, item):
-    if isinstance(item, PyPyTestFunction):
+    if isinstance(item, py.test.collect.Function):
         appclass = item.getparent(PyPyClassCollector)
         if appclass is not None:
             spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
@@ -374,7 +347,7 @@ def pytest_runtest_teardown(__multicall__, item):
 
 _pygame_imported = False
 
-class IntTestFunction(PyPyTestFunction):
+class IntTestFunction(py.test.collect.Function):
     def _haskeyword(self, keyword):
         return keyword == 'interplevel' or \
                super(IntTestFunction, self)._haskeyword(keyword)
@@ -397,7 +370,7 @@ class IntTestFunction(PyPyTestFunction):
                 cls = cls.__bases__[0]
             raise
 
-class AppTestFunction(PyPyTestFunction):
+class AppTestFunction(py.test.collect.Function):
     def _prunetraceback(self, traceback):
         return traceback
 
@@ -408,6 +381,18 @@ class AppTestFunction(PyPyTestFunction):
     def _keywords(self):
         return ['applevel'] + super(AppTestFunction, self)._keywords()
 
+    def execute_appex(self, space, target, *args):
+        try:
+            target(*args)
+        except OperationError, e:
+            tb = sys.exc_info()[2]
+            if e.match(space, space.w_KeyboardInterrupt):
+                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
+            appexcinfo = appsupport.AppExceptionInfo(space, e) 
+            if appexcinfo.traceback: 
+                raise AppError, AppError(appexcinfo), tb
+            raise
+
     def runtest(self):
         target = self.obj
         if option.runappdirect:
@@ -417,6 +402,11 @@ class AppTestFunction(PyPyTestFunction):
         func = app2interp_temp(target, filename=filename)
         print "executing", func
         self.execute_appex(space, func, space)
+
+    def repr_failure(self, excinfo):
+        if excinfo.errisinstance(AppError):
+            excinfo = excinfo.value.excinfo
+        return super(AppTestFunction, self).repr_failure(excinfo)
 
     def _getdynfilename(self, func):
         code = getattr(func, 'im_func', func).func_code
