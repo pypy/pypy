@@ -4,7 +4,7 @@ import autopath
 from pypy.conftest import gettestobjspace
 
 class AppTestBuffer:
-    spaceconfig = {'objspace.usemodules.array': True}
+    spaceconfig = dict(usemodules=['array'])
 
     def test_unicode_buffer(self):
         import sys
