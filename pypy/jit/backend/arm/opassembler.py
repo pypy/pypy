@@ -284,7 +284,7 @@ class OpAssembler(object):
             n = stack_args*WORD
             self._adjust_sp(n, fcond=fcond)
             for i in range(4, n_args):
-                self.regalloc_mov(regalloc.loc(args[i]), r.ip)
+                self.mov_loc_loc(regalloc.loc(args[i]), r.ip)
                 self.mc.STR_ri(r.ip.value, r.sp.value, (i-4)*WORD)
 
         #the actual call

@@ -4,6 +4,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.backend.arm.arch import arm_int_div, arm_int_div_sign
 from pypy.jit.backend.arm.assembler import AssemblerARM
+from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.arm.test.support import skip_unless_arm, run_asm
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.metainterp.resoperation import rop
@@ -204,6 +205,20 @@ class TestRunningAssembler():
         self.a.mc.BL(call_addr, c.NE)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 133
+
+    def test_mov_small_imm_loc_to_loc(self):
+        self.a.gen_func_prolog()
+        self.a.mov_loc_loc(imm(12), r.r0)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 12
+
+    def test_mov_large_imm_loc_to_loc(self):
+        self.a.gen_func_prolog()
+        self.a.mov_loc_loc(imm(2478), r.r0)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 2478
+      
+
 
 def callme(inp):
     i = inp + 10

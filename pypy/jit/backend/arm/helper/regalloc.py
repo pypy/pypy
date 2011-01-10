@@ -2,6 +2,17 @@ from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box
+from pypy.jit.metainterp.history import ConstInt
+
+def _check_imm_arg(arg, size=0xFF, allow_zero=True):
+    if isinstance(arg, ConstInt):
+        i = arg.getint()
+        if allow_zero:
+            lower_bound = i >= 0
+        else:
+            lower_bound = i > 0
+        return i <= size and lower_bound
+    return False
 
 def prepare_op_unary_cmp():
     def f(self, op, fcond):
@@ -19,8 +30,8 @@ def prepare_op_ri(imm_size=0xFF, commutative=True, allow_zero=True):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         boxes = list(op.getarglist())
-        imm_a0 = self._check_imm_arg(a0, imm_size, allow_zero=allow_zero)
-        imm_a1 = self._check_imm_arg(a1, imm_size, allow_zero=allow_zero)
+        imm_a0 = _check_imm_arg(a0, imm_size, allow_zero=allow_zero)
+        imm_a1 = _check_imm_arg(a1, imm_size, allow_zero=allow_zero)
         if not imm_a0 and imm_a1:
             l0, box = self._ensure_value_is_boxed(a0)
             boxes.append(box)
@@ -67,8 +78,8 @@ def prepare_cmp_op(inverse=False):
         else:
             arg1, arg0 = boxes
         # XXX consider swapping argumentes if arg0 is const
-        imm_a0 = self._check_imm_arg(arg0)
-        imm_a1 = self._check_imm_arg(arg1)
+        imm_a0 = _check_imm_arg(arg0)
+        imm_a1 = _check_imm_arg(arg1)
 
         l0, box = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
         boxes.append(box)

@@ -5,7 +5,9 @@ from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_op_unary_cmp,
-                                                    prepare_op_ri, prepare_cmp_op)
+                                                    prepare_op_ri,
+                                                    prepare_cmp_op,
+                                                    _check_imm_arg)
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr, Box,
                                         BoxInt, BoxPtr, AbstractFailDescr,
                                         INT, REF, FLOAT, LoopToken)
@@ -108,15 +110,6 @@ class ARMRegisterManager(RegisterManager):
             else:
                 raise ValueError
 
-    def _check_imm_arg(self, arg, size=0xFF, allow_zero=True):
-        if isinstance(arg, ConstInt):
-            i = arg.getint()
-            if allow_zero:
-                lower_bound = i >= 0
-            else:
-                lower_bound = i > 0
-            return i <= size and lower_bound
-        return False
 
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         box = None
@@ -144,8 +137,8 @@ class ARMRegisterManager(RegisterManager):
     def prepare_op_int_add(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
-        imm_a0 = self._check_imm_arg(a0)
-        imm_a1 = self._check_imm_arg(a1)
+        imm_a0 = _check_imm_arg(a0)
+        imm_a1 = _check_imm_arg(a1)
         if not imm_a0 and imm_a1:
             l0, box = self._ensure_value_is_boxed(a0)
             l1 = self.make_sure_var_in_reg(a1, [a0])
@@ -167,8 +160,8 @@ class ARMRegisterManager(RegisterManager):
     def prepare_op_int_sub(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
-        imm_a0 = self._check_imm_arg(a0)
-        imm_a1 = self._check_imm_arg(a1)
+        imm_a0 = _check_imm_arg(a0)
+        imm_a1 = _check_imm_arg(a1)
         if not imm_a0 and imm_a1:
             l0, box = self._ensure_value_is_boxed(a0, boxes)
             l1 = self.make_sure_var_in_reg(a1, [a0])
@@ -301,7 +294,7 @@ class ARMRegisterManager(RegisterManager):
     def prepare_op_guard_value(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
-        imm_a1 = self._check_imm_arg(a1)
+        imm_a1 = _check_imm_arg(a1)
         l0, box = self._ensure_value_is_boxed(a0, boxes)
         boxes.append(box)
         if not imm_a1:
@@ -456,7 +449,7 @@ class ARMRegisterManager(RegisterManager):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                          self.cpu.translate_support_code)
         ofs_box = ConstInt(ofs_length)
-        imm_ofs = self._check_imm_arg(ofs_box)
+        imm_ofs = _check_imm_arg(ofs_box)
 
         if imm_ofs:
             l1 = self.make_sure_var_in_reg(ofs_box, boxes)
@@ -475,7 +468,7 @@ class ARMRegisterManager(RegisterManager):
         boxes.append(box)
 
         a1 = boxes[1]
-        imm_a1 = self._check_imm_arg(a1)
+        imm_a1 = _check_imm_arg(a1)
         if imm_a1:
             ofs_loc = self.make_sure_var_in_reg(a1, boxes)
         else:
@@ -519,7 +512,7 @@ class ARMRegisterManager(RegisterManager):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                          self.cpu.translate_support_code)
         ofs_box = ConstInt(ofs_length)
-        imm_ofs = self._check_imm_arg(ofs_box)
+        imm_ofs = _check_imm_arg(ofs_box)
 
         if imm_ofs:
             l1 = imm(ofs_length)
@@ -566,7 +559,7 @@ class ARMRegisterManager(RegisterManager):
 
     def prepare_op_same_as(self, op, fcond):
         arg = op.getarg(0)
-        imm_arg = self._check_imm_arg(arg)
+        imm_arg = _check_imm_arg(arg)
         if imm_arg:
             argloc = self.make_sure_var_in_reg(arg)
         else:
@@ -632,7 +625,7 @@ class ARMRegisterManager(RegisterManager):
         boxes = [v, res_v]
         itemsize_box = ConstInt(itemsize)
         ofs_items_box = ConstInt(ofs_items)
-        if self._check_imm_arg(ofs_items_box):
+        if _check_imm_arg(ofs_items_box):
             ofs_items_loc = self.convert_to_imm(ofs_items_box)
         else:
             ofs_items_loc, ofs_items_box = self._ensure_value_is_boxed(ofs_items_box, boxes)

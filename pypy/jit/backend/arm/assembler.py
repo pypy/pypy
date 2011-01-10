@@ -4,7 +4,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (ARMRegisterManager, ARMFrameManager,
-                                                            TempInt, TempPtr)
+                                                    _check_imm_arg, TempInt, TempPtr)
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
@@ -517,8 +517,10 @@ class AssemblerARM(ResOpAssembler):
 
     def regalloc_mov(self, prev_loc, loc):
         if prev_loc.is_imm():
-            # XXX check size of imm for current instr
-            self.mc.gen_load_int(loc.value, prev_loc.getint())
+            if _check_imm_arg(ConstInt(prev_loc.getint())):
+                self.mc.MOV_ri(loc.value, prev_loc.getint())
+            else:
+                self.mc.gen_load_int(loc.value, prev_loc.getint())
         elif loc.is_stack():
             self.mc.STR_ri(prev_loc.value, r.fp.value, loc.position*-WORD)
         elif prev_loc.is_stack():
