@@ -489,6 +489,9 @@ class Box(AbstractValue):
     def _get_str(self):    # for debugging only
         return self.constbox()._get_str()
 
+    def forget_value(self):
+        raise NotImplementedError
+
 class BoxInt(Box):
     type = INT
     _attrs_ = ('value',)
@@ -501,6 +504,9 @@ class BoxInt(Box):
                 assert isinstance(value, Symbolic)
         self.value = value
 
+    def forget_value(self):
+        self.value = 0
+        
     def clonebox(self):
         return BoxInt(self.value)
 
@@ -536,6 +542,9 @@ class BoxFloat(Box):
         assert isinstance(floatval, float)
         self.value = floatval
 
+    def forget_value(self):
+        self.value = 0.0
+
     def clonebox(self):
         return BoxFloat(self.value)
 
@@ -567,6 +576,9 @@ class BoxPtr(Box):
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
         assert lltype.typeOf(value) == llmemory.GCREF
         self.value = value
+
+    def forget_value(self):
+        self.value = lltype.nullptr(llmemory.GCREF.TO)
 
     def clonebox(self):
         return BoxPtr(self.value)
@@ -611,6 +623,9 @@ class BoxObj(Box):
     def __init__(self, value=ootype.NULL):
         assert ootype.typeOf(value) is ootype.Object
         self.value = value
+
+    def forget_value(self):
+        self.value = ootype.NULL
 
     def clonebox(self):
         return BoxObj(self.value)
@@ -725,9 +740,9 @@ class LoopToken(AbstractDescr):
     was compiled; but the LoopDescr remains alive and points to the
     generated assembler.
     """
+    short_preamble = None
     terminating = False # see TerminatingLoopToken in compile.py
     outermost_jitdriver_sd = None
-    # specnodes = ...
     # and more data specified by the backend when the loop is compiled
     number = -1
     generation = r_int64(0)

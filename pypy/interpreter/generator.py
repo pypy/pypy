@@ -108,7 +108,7 @@ return next yielded value or raise StopIteration."""
         return self.send_ex(space.w_None, operr)
              
     def descr_next(self):
-        """x.next() -> the next value, or raise StopIteration"""
+        """next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
  
     def descr_close(self):

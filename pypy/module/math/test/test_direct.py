@@ -2,6 +2,7 @@
 """
 
 import py, sys, math
+from pypy.rlib import rarithmetic
 from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
 
 consistent_host = True
@@ -223,7 +224,10 @@ def make_test_case((fnname, args, expected), dict):
     def test_func(self):
         if not consistent_host:
             py.test.skip("inconsistent behavior before 2.6")
-        fn = getattr(math, fnname)
+        try:
+            fn = getattr(math, fnname)
+        except AttributeError:
+            fn = getattr(rarithmetic, fnname)
         do_test(fn, fnname, args, expected)
     #
     dict[fnname] = dict.get(fnname, 0) + 1

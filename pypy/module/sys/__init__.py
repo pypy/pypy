@@ -71,6 +71,7 @@ class Module(MixedModule):
         'meta_path'             : 'space.wrap([])',
         'path_hooks'            : 'space.wrap([])',
         'path_importer_cache'   : 'space.wrap({})',
+        'dont_write_bytecode'   : 'space.w_False',
         
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',

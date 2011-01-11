@@ -347,10 +347,10 @@ class GeneralModuleTests(unittest.TestCase):
             socket.htonl(k)
             socket.htons(k)
         for k in bad_values:
-            self.assertRaises(OverflowError, socket.ntohl, k)
-            self.assertRaises(OverflowError, socket.ntohs, k)
-            self.assertRaises(OverflowError, socket.htonl, k)
-            self.assertRaises(OverflowError, socket.htons, k)
+            self.assertRaises((OverflowError, ValueError), socket.ntohl, k)
+            self.assertRaises((OverflowError, ValueError), socket.ntohs, k)
+            self.assertRaises((OverflowError, ValueError), socket.htonl, k)
+            self.assertRaises((OverflowError, ValueError), socket.htons, k)
 
     def testGetServBy(self):
         eq = self.assertEqual
@@ -390,8 +390,8 @@ class GeneralModuleTests(unittest.TestCase):
         if udpport is not None:
             eq(socket.getservbyport(udpport, 'udp'), service)
         # Make sure getservbyport does not accept out of range ports.
-        self.assertRaises(OverflowError, socket.getservbyport, -1)
-        self.assertRaises(OverflowError, socket.getservbyport, 65536)
+        self.assertRaises((OverflowError, ValueError), socket.getservbyport, -1)
+        self.assertRaises((OverflowError, ValueError), socket.getservbyport, 65536)
 
     def testDefaultTimeout(self):
         # Testing default timeout
@@ -1260,6 +1260,7 @@ class Urllib2FileobjectTest(unittest.TestCase):
             closed = False
             def flush(self): pass
             def close(self): self.closed = True
+            def _decref_socketios(self): pass
 
         # must not close unless we request it: the original use of _fileobject
         # by module socket requires that the underlying socket not be closed until

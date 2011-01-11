@@ -37,4 +37,5 @@ def test_operationerrfmt_empty():
 
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
-    assert operr.errorstr(space) == "ValueError: 'message'"
+    assert operr.errorstr(space) == "ValueError: message"
+    assert operr.errorstr(space, use_repr=True) == "ValueError: 'message'"

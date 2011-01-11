@@ -47,6 +47,15 @@ class AppTestMath:
     def test_fsum(self):
         import math
 
+        # detect evidence of double-rounding: fsum is not always correctly
+        # rounded on machines that suffer from double rounding.
+        # It is a known problem with IA32 floating-point arithmetic.
+        # It should work fine e.g. with x86-64.
+        x, y = 1e16, 2.9999 # use temporary values to defeat peephole optimizer
+        HAVE_DOUBLE_ROUNDING = (x + y == 1e16 + 4)
+        if HAVE_DOUBLE_ROUNDING:
+            skip("fsum is not exact on machines with double rounding")
+
         test_values = [
             ([], 0.0),
             ([0.0], 0.0),

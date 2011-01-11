@@ -331,24 +331,14 @@ def make_array(mytype):
         return self.space.wrap(item)
 
     def getitem__Array_Slice(space, self, w_slice):
-        start, stop, step = space.decode_index(w_slice, self.len)
-        if step < 0:
-            w_lst = array_tolist__Array(space, self)
-            w_lst = space.getitem(w_lst, w_slice)
-            w_a = mytype.w_class(self.space)
-            w_a.fromsequence(w_lst)
-        elif step == 0:
-            raise ValueError('getitem__Array_Slice with step zero')
-        else:
-            size = (stop - start) / step
-            if (stop - start) % step > 0:
-                size += 1
-            w_a = mytype.w_class(self.space)
-            w_a.setlen(size)
-            j = 0
-            for i in range(start, stop, step):
-                w_a.buffer[j] = self.buffer[i]
-                j += 1
+        start, stop, step, size = space.decode_index4(w_slice, self.len)
+        w_a = mytype.w_class(self.space)
+        w_a.setlen(size)
+        assert step != 0
+        j = 0
+        for i in range(start, stop, step):
+            w_a.buffer[j] = self.buffer[i]
+            j += 1
         return w_a
 
     def getslice__Array_ANY_ANY(space, self, w_i, w_j):
@@ -363,18 +353,14 @@ def make_array(mytype):
         self.buffer[idx] = item
 
     def setitem__Array_Slice_Array(space, self, w_idx, w_item):
-        start, stop, step = self.space.decode_index(w_idx, self.len)
-        size = (stop - start) / step
-        if (stop - start) % step > 0:
-            size += 1
-        if w_item.len != size or step < 0:
+        start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+        assert step != 0
+        if w_item.len != size:
             w_lst = array_tolist__Array(space, self)
             w_item = space.call_method(w_item, 'tolist')
             space.setitem(w_lst, w_idx, w_item)
             self.setlen(0)
             self.fromsequence(w_lst)
-        elif step == 0:
-            raise ValueError('setitem__Array_Slice with step zero')
         else:
             j = 0
             for i in range(start, stop, step):

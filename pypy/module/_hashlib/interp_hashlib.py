@@ -21,6 +21,9 @@ class W_Hash(Wrappable):
                                  space.wrap("unknown hash function"))
         ropenssl.EVP_DigestInit(self.ctx, digest)
 
+    def __del__(self):
+        lltype.free(self.ctx, flavor='raw')
+
     @unwrap_spec('self', ObjSpace)
     def descr_repr(self, space):
         addrstring = self.getaddrstring(space)

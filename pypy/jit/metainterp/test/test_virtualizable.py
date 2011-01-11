@@ -11,7 +11,7 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
+from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 
 def promote_virtualizable(*args):
     pass
@@ -197,7 +197,8 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_loops(getfield_gc=1, setfield_gc=1)
+        self.check_loops(getfield_gc=0, setfield_gc=1)
+        self.check_loops(getfield_gc=1, setfield_gc=2, everywhere=True)
 
     # ------------------------------
 
@@ -1130,7 +1131,7 @@ class ImplicitVirtualizableTests:
  
          res = self.meta_interp(f, [10])
          assert res == 55
-         self.check_loops(new_with_vtable=0, ptr_eq=1)
+         self.check_loops(new_with_vtable=0, ptr_eq=1, everywhere=True)
 
     def test_virtual_child_frame_with_arrays(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],

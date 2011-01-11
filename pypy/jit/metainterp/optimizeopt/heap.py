@@ -23,6 +23,42 @@ class OptHeap(Optimization):
         self.lazy_setfields = {}
         self.lazy_setfields_descrs = []     # keys (at least) of previous dict
 
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        new = OptHeap()
+
+        if True:
+            self.force_all_lazy_setfields()
+            assert not self.lazy_setfields_descrs
+            assert not self.lazy_setfields
+        else:
+            new.lazy_setfields_descrs = self.lazy_setfields_descrs
+            new.lazy_setfields = self.lazy_setfields
+        
+        for descr, d in self.cached_fields.items():
+            newd = {}
+            new.cached_fields[descr] = newd
+            for value, fieldvalue in d.items():
+                newd[value.get_reconstructed(optimizer, valuemap)] = \
+                                       fieldvalue.get_reconstructed(optimizer, valuemap)
+            
+        new.cached_arrayitems = {}
+        for descr, d in self.cached_arrayitems.items():
+            newd = {}
+            new.cached_arrayitems[descr] = newd
+            for value, cache in d.items():
+                newcache = CachedArrayItems()
+                newd[value.get_reconstructed(optimizer, valuemap)] = newcache
+                if cache.var_index_item:
+                    newcache.var_index_item = \
+                          cache.var_index_item.get_reconstructed(optimizer, valuemap)
+                if newcache.var_index_indexvalue:
+                    newcache.var_index_indexvalue = \
+                          cache.var_index_indexvalue.get_reconstructed(optimizer, valuemap)
+                for index, fieldvalue in cache.fixed_index_items.items():
+                    newcache.fixed_index_items[index] = \
+                           fieldvalue.get_reconstructed(optimizer, valuemap)
+        return new
+
     def clean_caches(self):
         self.cached_fields.clear()
         self.cached_arrayitems.clear()
@@ -97,7 +133,7 @@ class OptHeap(Optimization):
         self.emitting_operation(op)
         self.next_optimization.propagate_forward(op)
 
-    def emitting_operation(self, op):        
+    def emitting_operation(self, op):
         if op.has_no_side_effect():
             return
         if op.is_ovf():
@@ -107,7 +143,9 @@ class OptHeap(Optimization):
             return
         opnum = op.getopnum()
         if (opnum == rop.SETFIELD_GC or
+            opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_GC or
+            opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.DEBUG_MERGE_POINT):
             return
         assert opnum != rop.CALL_PURE
@@ -147,6 +185,16 @@ class OptHeap(Optimization):
         self.clean_caches()
 
 
+    def turned_constant(self, value):
+        assert value.is_constant()
+        newvalue = self.getvalue(value.box)
+        if value is not newvalue:
+            for d in self.cached_fields.values():
+                if value in d:
+                    d[newvalue] = d[value]
+        # FIXME: Update the other caches too?
+        
+        
     def force_lazy_setfield(self, descr, before_guard=False):
         try:
             op = self.lazy_setfields[descr]

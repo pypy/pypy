@@ -8,7 +8,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import (PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL,
-                           OPTIMIZER_NO_PERFECTSPEC)
+                           OPTIMIZER_NO_UNROLL)
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp import history
@@ -224,10 +224,10 @@ class WarmEnterState(object):
             from pypy.jit.metainterp import simple_optimize
             self.optimize_loop = simple_optimize.optimize_loop
             self.optimize_bridge = simple_optimize.optimize_bridge
-        elif optimizer == OPTIMIZER_NO_PERFECTSPEC:
-            from pypy.jit.metainterp import optimize_nopspec
-            self.optimize_loop = optimize_nopspec.optimize_loop
-            self.optimize_bridge = optimize_nopspec.optimize_bridge
+        elif optimizer == OPTIMIZER_NO_UNROLL:
+            from pypy.jit.metainterp import nounroll_optimize
+            self.optimize_loop = nounroll_optimize.optimize_loop
+            self.optimize_bridge = nounroll_optimize.optimize_bridge
         elif optimizer == OPTIMIZER_FULL:
             from pypy.jit.metainterp import optimize
             self.optimize_loop = optimize.optimize_loop

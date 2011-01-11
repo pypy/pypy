@@ -401,7 +401,7 @@ class ASTBuilder(object):
             target_child = exc.children[3]
             target = self.handle_expr(target_child)
             self.set_context(target, ast.Store)
-        return ast.excepthandler(test, target, suite, exc.lineno, exc.column)
+        return ast.ExceptHandler(test, target, suite, exc.lineno, exc.column)
 
     def handle_try_stmt(self, try_node):
         body = self.handle_suite(try_node.children[2])

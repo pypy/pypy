@@ -275,29 +275,37 @@ def str_rsplit__Rope_Rope_ANY(space, w_self, w_by, w_maxsplit=-1):
 
 def str_join__Rope_ANY(space, w_self, w_list):
     list_w = space.unpackiterable(w_list)
-    if list_w:
-        self = w_self._node
-        l = []
-        for i in range(len(list_w)):
-            w_s = list_w[i]
-            if not space.is_true(space.isinstance(w_s, space.w_str)):
-                if space.is_true(space.isinstance(w_s, space.w_unicode)):
-                    w_u = space.call_function(space.w_unicode, w_self)
-                    return space.call_method(w_u, "join", space.newlist(list_w))
-                raise operationerrfmt(
-                    space.w_TypeError,
-                    "sequence item %d: expected string, %s "
-                    "found", i, space.type(w_s).getname(space))
-            assert isinstance(w_s, W_RopeObject)
-            node = w_s._node
-            l.append(node)
-        try:
-            return W_RopeObject(rope.join(self, l))
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("string too long"))
-    else:
+    size = len(list_w)
+
+    if size == 0:
         return W_RopeObject.EMPTY
+    if size == 1:
+        w_s = list_w[0]
+        # only one item,  return it if it's not a subclass of str
+        if (space.is_w(space.type(w_s), space.w_str) or
+            space.is_w(space.type(w_s), space.w_unicode)):
+            return w_s
+
+    self = w_self._node
+    l = []
+    for i in range(size):
+        w_s = list_w[i]
+        if not space.is_true(space.isinstance(w_s, space.w_str)):
+            if space.is_true(space.isinstance(w_s, space.w_unicode)):
+                w_u = space.call_function(space.w_unicode, w_self)
+                return space.call_method(w_u, "join", space.newlist(list_w))
+            raise operationerrfmt(
+                space.w_TypeError,
+                "sequence item %d: expected string, %s "
+                "found", i, space.type(w_s).getname(space))
+        assert isinstance(w_s, W_RopeObject)
+        node = w_s._node
+        l.append(node)
+    try:
+        return W_RopeObject(rope.join(self, l))
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("string too long"))
 
 def str_rjust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_arg = space.int_w(w_arg)

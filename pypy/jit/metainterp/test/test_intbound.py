@@ -210,6 +210,17 @@ def test_mul_bound():
     assert not a.contains(4)
     assert not a.contains(-3)
 
+def test_shift_bound():
+    for _, _, b1 in some_bounds():
+        for _, _, b2 in some_bounds():
+            bleft = b1.lshift_bound(b2)
+            bright = b1.rshift_bound(b2)
+            for n1 in nbr:
+                for n2 in range(10):
+                    if b1.contains(n1) and b2.contains(n2):
+                        assert bleft.contains(n1 << n2)
+                        assert bright.contains(n1 >> n2)
+
 def test_div_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():

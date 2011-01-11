@@ -563,7 +563,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         for handler in te.handlers:
-            assert isinstance(handler, ast.excepthandler)
+            assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno, True)
             next_except = self.new_block()
             if handler.type:
@@ -1115,7 +1115,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
 
     def visit_GeneratorExp(self, genexp):
-        self._compile_comprehension(genexp, "<genexp>", GenExpCodeGenerator)
+        self._compile_comprehension(genexp, "<genexpr>", GenExpCodeGenerator)
 
     def visit_SetComp(self, setcomp):
         self._compile_comprehension(setcomp, "<setcomp>",

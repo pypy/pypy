@@ -217,7 +217,8 @@ class _socketobject(object):
 
         Return a regular file object corresponding to the socket.  The mode
         and bufsize arguments are as for the built-in open() function."""
-        return _fileobject(self._sock, mode, bufsize)
+        self._io_refs += 1
+        return _fileobject(self, mode, bufsize)
 
     def _decref_socketios(self):
         if self._io_refs > 0:
@@ -297,8 +298,10 @@ class _fileobject(object):
             if self._sock:
                 self.flush()
         finally:
-            if self._close:
-                self._sock.close()
+            if self._sock:
+                if self._close:
+                    self._sock.close()
+                self._sock._decref_socketios()
             self._sock = None
 
     def __del__(self):
