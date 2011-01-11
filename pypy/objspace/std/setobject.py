@@ -411,39 +411,36 @@ def _discard_from_set(space, w_left, w_item):
     """
     Discard an element from a set, with automatic conversion to
     frozenset if the argument is a set.
-
-    Returns None if successfully removed, otherwise the object that
-    wasn't there is returned.
+    Returns True if successfully removed.
     """
     try:
         del w_left.setdata[w_item]
-        return None
+        return True
     except KeyError:
-        return w_item
+        return False
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_f = _convert_set_to_frozenset(space, w_item)
         if w_f is None:
             raise
-        
+
     try:
         del w_left.setdata[w_f]
-        return None
+        return True
     except KeyError:
-        return w_f
+        return False
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        return w_f
-    
+        return False
+
 def set_discard__Set_ANY(space, w_left, w_item):
     _discard_from_set(space, w_left, w_item)
 
 def set_remove__Set_ANY(space, w_left, w_item):
-    w_f = _discard_from_set(space, w_left, w_item)
-    if w_f is not None:
-        space.raise_key_error(w_f)
+    if not _discard_from_set(space, w_left, w_item):
+        space.raise_key_error(w_item)
 
 def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
