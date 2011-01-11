@@ -293,6 +293,7 @@ class INETAddress(IPAddress):
                                space.wrap(self.get_port())])
 
     def from_object(space, w_address):
+        from pypy.interpreter.error import OperationError
         # Parse an app-level object representing an AF_INET address
         try:
             w_host, w_port = space.unpackiterable(w_address, 2)
@@ -300,13 +301,24 @@ class INETAddress(IPAddress):
             raise TypeError("AF_INET address must be a tuple of length 2")
         host = space.str_w(w_host)
         port = space.int_w(w_port)
+
+        if port < 0 or port > 0xffff:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "AF_INET port must be 0-65535."))
+
         return INETAddress(host, port)
     from_object = staticmethod(from_object)
 
     def fill_from_object(self, space, w_address):
         # XXX a bit of code duplication
+        from pypy.interpreter.error import OperationError
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
+
+        if port < 0 or port > 0xffff:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "AF_INET port must be 0-65535."))
+
         a = self.lock(_c.sockaddr_in)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
@@ -384,12 +396,18 @@ class INET6Address(IPAddress):
                                space.wrap(self.get_scope_id())])
 
     def from_object(space, w_address):
+        from pypy.interpreter.error import OperationError
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise TypeError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
+
+        if port < 0 or port > 0xffff:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "AF_INET6 port must be 0-65535."))
+
         if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
@@ -399,11 +417,17 @@ class INET6Address(IPAddress):
 
     def fill_from_object(self, space, w_address):
         # XXX a bit of code duplication
+        from pypy.interpreter.error import OperationError
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
         port = space.int_w(pieces_w[1])
+
+        if port < 0 or port > 0xffff:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "AF_INET6 port must be 0-65535."))
+
         if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])

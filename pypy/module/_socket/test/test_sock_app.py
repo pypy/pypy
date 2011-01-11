@@ -80,6 +80,11 @@ def test_getservbyport():
                          "(_socket, port): return _socket.getservbyport(port)")
     assert space.unwrap(name) == "smtp"
 
+    from pypy.interpreter.error import OperationError
+    exc = raises(OperationError, space.appexec,
+           [w_socket], "(_socket): return _socket.getservbyport(-1)")
+    assert exc.value.match(space, space.w_ValueError)
+
 def test_getprotobyname():
     name = "tcp"
     w_n = space.appexec([w_socket, space.wrap(name)],
@@ -397,6 +402,12 @@ class AppTestSocket:
         for args in tests:
             raises((TypeError, ValueError), s.connect, args)
         s.close()
+
+    def test_bigport(self):
+        import _socket
+        s = _socket.socket()
+        raises(ValueError, s.connect, ("localhost", 1000000))
+        raises(ValueError, s.connect, ("localhost", -1))
 
     def test_NtoH(self):
         import sys
