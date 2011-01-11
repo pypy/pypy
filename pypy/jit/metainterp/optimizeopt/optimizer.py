@@ -238,6 +238,8 @@ class Optimizer(Optimization):
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
+        self.int_to_bool_nullity = {} # a mapping from bool boxes to
+        # respective ints, to know their value
         self.loop_invariant_results = {}
         self.pure_operations = args_dict()
         self.producer = {}

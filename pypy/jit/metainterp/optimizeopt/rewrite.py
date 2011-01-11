@@ -226,9 +226,26 @@ class OptRewrite(Optimization):
         self.optimize_guard(op, constbox, emit_operation, dryrun)
 
     def optimize_GUARD_TRUE(self, op, dryrun=False):
+        value = self.getvalue(op.getarg(0))
+        v = self.optimizer.int_to_bool_nullity.get(value)
+        if v:
+            v, int_is_true = v
+            if int_is_true:
+                if not v.is_nonnull():
+                    v.make_nonnull(len(self.optimizer.newoperations) - 1)
+            else:
+                v.make_constant(CONST_0)
         self.optimize_guard(op, CONST_1, dryrun=dryrun)
 
     def optimize_GUARD_FALSE(self, op, dryrun=False):
+        value = self.getvalue(op.getarg(0))
+        v = self.optimizer.int_to_bool_nullity.get(value)
+        if v:
+            v, int_is_true = v
+            if int_is_true:
+                v.make_constant(ConstInt(0))
+            elif not v.is_nonnull():
+                v.make_nonnull(len(self.optimizer.newoperations) - 1)
         self.optimize_guard(op, CONST_0, dryrun=dryrun)
 
     def optimize_GUARD_CLASS(self, op, dryrun=False):
@@ -304,13 +321,18 @@ class OptRewrite(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_IS_TRUE(self, op):
-        if self.getvalue(op.getarg(0)) in self.optimizer.bool_boxes:
-            self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
+        v = self.getvalue(op.getarg(0))
+        if v in self.optimizer.bool_boxes:
+            self.make_equal_to(op.result, v)
             return
         self._optimize_nullness(op, op.getarg(0), True)
+        self.optimizer.int_to_bool_nullity[self.getvalue(op.result)] = (v, True)
 
     def optimize_INT_IS_ZERO(self, op):
+        v = self.getvalue(op.getarg(0))
         self._optimize_nullness(op, op.getarg(0), False)
+        self.optimizer.int_to_bool_nullity[self.getvalue(op.result)] = (v,
+                                                                        False)
 
     def _optimize_oois_ooisnot(self, op, expect_isnot):
         value0 = self.getvalue(op.getarg(0))
