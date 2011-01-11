@@ -27,6 +27,7 @@ constants = _c.constants
 locals().update(constants) # Define constants from _c
 
 if _c.WIN32:
+    from pypy.rlib import rwin32
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
         res = _c.WSAStartup(1, wsadata)
@@ -1094,8 +1095,12 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-def last_error():
-    return CSocketError(_c.geterrno())
+if _c.WIN32:
+    def last_error():
+        return CSocketError(rwin32.GetLastError())
+else:
+    def last_error():
+        return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'

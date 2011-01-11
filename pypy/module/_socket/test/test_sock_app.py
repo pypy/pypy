@@ -348,7 +348,7 @@ class AppTestSocket:
         assert isinstance(s.fileno(), int)
 
     def test_socket_close(self):
-        import _socket, errno
+        import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         fileno = s.fileno()
         assert s.fileno() >= 0
@@ -651,17 +651,10 @@ class AppTestErrno:
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error
         import errno
-        try:
-            s = socket(AF_INET, SOCK_STREAM)
-            try:
-                import __pypy__
-                print __pypy__.internal_repr(s)
-            except ImportError:
-                pass
-            s.accept()
-        except Exception, e:
-            assert len(e.args) == 2
-            # error is EINVAL, or WSAEINVAL on Windows
-            assert errno.errorcode[e.args[0]].endswith("EINVAL")
-            assert isinstance(e.args[1], str)
-
+        s = socket(AF_INET, SOCK_STREAM)
+        exc = raises(error, s.accept)
+        assert isinstance(exc.value, error)
+        assert isinstance(exc.value, IOError)
+        # error is EINVAL, or WSAEINVAL on Windows
+        assert exc.value.errno == getattr(errno, 'WSAEINVAL', errno.EINVAL)
+        assert isinstance(exc.value.message, str)
