@@ -435,6 +435,7 @@ class BaseServerTestCase(unittest.TestCase):
 
     def tearDown(self):
         # wait on the server thread to terminate
+        test_support.gc_collect() # to close the active connections
         self.evt.wait(10)
 
         # disable traceback reporting
