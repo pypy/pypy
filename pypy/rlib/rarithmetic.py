@@ -165,6 +165,18 @@ def normalizedinttype(t):
         assert t.BITS <= r_longlong.BITS
         return build_int(None, t.SIGNED, r_longlong.BITS)
 
+def highest_bit(n):
+    """
+    Calculates the highest set bit in n.  This function assumes that n is a
+    power of 2 (and thus only has a single set bit).
+    """
+    assert n and (n & (n - 1)) == 0
+    i = -1
+    while n:
+        i += 1
+        n >>= 1
+    return i
+
 class base_int(long):
     """ fake unsigned integer implementation """
 
