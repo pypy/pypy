@@ -1001,7 +1001,7 @@ class RSocket(object):
         finally:
             rffi.free_nonmovingbuffer(data, dataptr)
 
-    def sendall(self, data, flags=0):
+    def sendall(self, data, flags=0, signal_checker=None):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
@@ -1014,6 +1014,8 @@ class RSocket(object):
                 res = self.send_raw(p, remaining, flags)
                 p = rffi.ptradd(p, res)
                 remaining -= res
+                if signal_checker:
+                    signal_checker.check()
         finally:
             rffi.free_nonmovingbuffer(data, dataptr)
 
