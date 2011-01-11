@@ -560,6 +560,7 @@ class TestSet(TestJointOps):
         p = weakref.proxy(s)
         self.assertEqual(str(p), str(s))
         s = None
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, str, p)
 
     # C API test only available in a debug build
@@ -591,6 +592,7 @@ class TestFrozenSet(TestJointOps):
         s.__init__(self.otherword)
         self.assertEqual(s, set(self.word))
 
+    @test_support.impl_detail()
     def test_singleton_empty_frozenset(self):
         f = frozenset()
         efs = [frozenset(), frozenset([]), frozenset(()), frozenset(''),
