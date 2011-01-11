@@ -309,6 +309,7 @@ class TestJointOps(unittest.TestCase):
             fo.close()
             test_support.unlink(test_support.TESTFN)
 
+    @test_support.impl_detail(pypy=False)
     def test_do_not_rehash_dict_keys(self):
         n = 10
         d = dict.fromkeys(map(HashCountingInt, xrange(n)))
