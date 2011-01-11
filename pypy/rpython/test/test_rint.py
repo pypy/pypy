@@ -354,7 +354,7 @@ class BaseTestRint(BaseRtypingTest):
             return objectmodel.compute_hash(x)
         res = self.interpret(f, [123456789])
         assert res == 123456789
-        res = self.interpret(f, [int64(123456789012345678)])
+        res = self.interpret(f, [r_int64(123456789012345678)])
         if sys.maxint == 2147483647:
             # check the way we compute such a hash so far
             assert res == -1506741426 + 9 * 28744523
