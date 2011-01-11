@@ -1337,7 +1337,7 @@ class PyPyCJITTests(object):
                               76, ([], 8.0*2000), threshold=1000)
         pow_addr = int(out.splitlines()[0])
         ops = self.get_by_bytecode('CALL_FUNCTION')
-        assert len(ops) == 2 # we get two loops, because of specialization
+        assert len(ops) == 1
         call_function = ops[0]
         last_ops = [op.getopname() for op in call_function[-5:]]
         assert last_ops == ['force_token',
