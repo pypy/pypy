@@ -563,7 +563,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         for handler in te.handlers:
-            assert isinstance(handler, ast.excepthandler)
+            assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno, True)
             next_except = self.new_block()
             if handler.type:
