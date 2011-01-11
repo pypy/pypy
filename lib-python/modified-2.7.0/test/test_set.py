@@ -773,9 +773,10 @@ class TestBasicOps(unittest.TestCase):
         for v in self.set:
             self.assertIn(v, self.values)
         setiter = iter(self.set)
-        # note: __length_hint__ is an internal undocumented API,
-        # don't rely on it in your own programs
-        self.assertEqual(setiter.__length_hint__(), len(self.set))
+        if test_support.check_impl_detail():
+            # note: __length_hint__ is an internal undocumented API,
+            # don't rely on it in your own programs
+            self.assertEqual(setiter.__length_hint__(), len(self.set))
 
     def test_pickling(self):
         p = pickle.dumps(self.set)
