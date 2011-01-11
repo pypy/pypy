@@ -17,7 +17,13 @@ class AppTestFfi:
 
         c_file = udir.ensure("test__ffi", dir=1).join("foolib.c")
         # automatically collect the C source from the docstrings of the tests
-        snippets = []
+        snippets = ["""
+        #ifdef _WIN32
+        #define DLLEXPORT __declspec(dllexport)
+        #else
+        #define DLLEXPORT
+        #endif
+        """]
         for name in dir(cls):
             if name.startswith('test_'):
                 meth = getattr(cls, name)
@@ -97,7 +103,7 @@ class AppTestFfi:
 
     def test_int_args(self):
         """
-            int sum_xy(int x, int y)
+            DLLEXPORT int sum_xy(int x, int y)
             {
                 return x+y;
             }
@@ -110,8 +116,8 @@ class AppTestFfi:
     def test_void_result(self):
         """
             int dummy = 0;
-            void set_dummy(int val) { dummy = val; }
-            int get_dummy() { return dummy; }
+            DLLEXPORT void set_dummy(int val) { dummy = val; }
+            DLLEXPORT int get_dummy() { return dummy; }
         """
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
@@ -125,8 +131,8 @@ class AppTestFfi:
     def test_pointer_args(self):
         """
             extern int dummy; // defined in test_void_result 
-            int* get_dummy_ptr() { return &dummy; }
-            void set_val_to_ptr(int* ptr, int val) { *ptr = val; }
+            DLLEXPORT int* get_dummy_ptr() { return &dummy; }
+            DLLEXPORT void set_val_to_ptr(int* ptr, int val) { *ptr = val; }
         """
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
@@ -144,7 +150,7 @@ class AppTestFfi:
     def test_huge_pointer_args(self):
         """
             #include <stdlib.h>
-            long is_null_ptr(void* ptr) { return ptr == NULL; }
+            DLLEXPORT long is_null_ptr(void* ptr) { return ptr == NULL; }
         """
         import sys
         from _ffi import CDLL, types
@@ -154,7 +160,7 @@ class AppTestFfi:
 
     def test_unsigned_long_args(self):
         """
-            unsigned long sum_xy_ul(unsigned long x, unsigned long y)
+            DLLEXPORT unsigned long sum_xy_ul(unsigned long x, unsigned long y)
             {
                 return x+y;
             }
@@ -169,7 +175,7 @@ class AppTestFfi:
 
     def test_unsigned_short_args(self):
         """
-            unsigned short sum_xy_us(unsigned short x, unsigned short y)
+            DLLEXPORT unsigned short sum_xy_us(unsigned short x, unsigned short y)
             {
                 return x+y;
             }
@@ -183,7 +189,7 @@ class AppTestFfi:
 
     def test_single_float_args(self):
         """
-            float sum_xy_float(float x, float y)
+            DLLEXPORT float sum_xy_float(float x, float y)
             {
                 return x+y;
             }
@@ -198,7 +204,7 @@ class AppTestFfi:
 
     def test_slonglong_args(self):
         """
-            long long sum_xy_longlong(long long x, long long y)
+            DLLEXPORT long long sum_xy_longlong(long long x, long long y)
             {
                 return x+y;
             }
@@ -219,7 +225,7 @@ class AppTestFfi:
 
     def test_ulonglong_args(self):
         """
-            unsigned long long sum_xy_ulonglong(unsigned long long x,
+            DLLEXPORT unsigned long long sum_xy_ulonglong(unsigned long long x,
                                                 unsigned long long y)
             {
                 return x+y;
@@ -245,7 +251,7 @@ class AppTestFfi:
                 long y;
             };
 
-            long sum_point(struct Point p) {
+            DLLEXPORT long sum_point(struct Point p) {
                 return p.x + p.y;
             }
         """
@@ -265,7 +271,7 @@ class AppTestFfi:
 
     def test_byval_result(self):
         """
-            struct Point make_point(long x, long y) {
+            DLLEXPORT struct Point make_point(long x, long y) {
                 struct Point p;
                 p.x = x;
                 p.y = y;
