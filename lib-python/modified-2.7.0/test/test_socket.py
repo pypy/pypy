@@ -1260,6 +1260,7 @@ class Urllib2FileobjectTest(unittest.TestCase):
             closed = False
             def flush(self): pass
             def close(self): self.closed = True
+            def _decref_socketios(self): pass
 
         # must not close unless we request it: the original use of _fileobject
         # by module socket requires that the underlying socket not be closed until
