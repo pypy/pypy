@@ -9,7 +9,7 @@ from pypy.objspace.std.register_all import register_all
 def descr__repr__(space, w_obj):
     w = space.wrap
     w_type = space.type(w_obj)
-    classname = w_type.getname(space, '?')
+    classname = w_type.getname(space)
     w_module = w_type.lookup("__module__")
     if w_module is not None:
         try:
@@ -32,7 +32,7 @@ def descr_set___class__(space, w_obj, w_newcls):
     if not isinstance(w_newcls, W_TypeObject):
         raise operationerrfmt(space.w_TypeError,
                               "__class__ must be set to new-style class, not '%s' object",
-                              space.type(w_newcls).getname(space, '?'))
+                              space.type(w_newcls).getname(space))
     if not w_newcls.is_heaptype():
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ assignment: only for heap types"))
@@ -44,7 +44,7 @@ def descr_set___class__(space, w_obj, w_newcls):
     else:
         raise operationerrfmt(space.w_TypeError,
                               "__class__ assignment: '%s' object layout differs from '%s'",
-                              w_oldcls.getname(space, '?'), w_newcls.getname(space, '?'))
+                              w_oldcls.getname(space), w_newcls.getname(space))
     
 
 def descr__new__(space, w_type, __args__):

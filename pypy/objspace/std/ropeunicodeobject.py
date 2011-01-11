@@ -30,7 +30,7 @@ def unicode_from_string(space, w_str):
         raise operationerrfmt(
             space.w_TypeError,
             "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space, '?'))
+            space.type(w_retval).getname(space))
     assert isinstance(w_retval, W_RopeUnicodeObject)
     return w_retval
 

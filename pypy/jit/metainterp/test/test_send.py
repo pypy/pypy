@@ -2,10 +2,11 @@ import py
 from pypy.rlib.jit import JitDriver, hint, purefunction
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-
+from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE
 
 class SendTests:
-
+    optimizer=OPTIMIZER_FULL
+    
     def test_green_send(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['counter'])
         lst = ["123", "45"]
@@ -98,7 +99,7 @@ class SendTests:
             return res
         res = self.meta_interp(f, [4, -1])
         assert res == 145
-        self.check_loops(int_add = 1)
+        self.check_loops(int_add = 1, everywhere=True)
 
     def test_oosend_base(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])
@@ -149,9 +150,9 @@ class SendTests:
             def foo(self):
                 return 3
         def externfn(y):
-            if y % 4 == 0: return W1()
-            elif y % 4 == 3: return W2()
-            else: return W3()
+            lst = [W1, W1, W2, W2, W3, W3, W2, W1, W3]
+            W = lst[y % len(lst)]
+            return W()
         def f(y):
             while y > 0:
                 myjitdriver.can_enter_jit(y=y)
@@ -161,10 +162,16 @@ class SendTests:
                 y -= 1
             return 42
         policy = StopAtXPolicy(externfn)
+
         for j in range(69, 75):
             res = self.meta_interp(f, [j], policy=policy)
             assert res == 42
-            self.check_loop_count(3)
+            if self.optimizer != OPTIMIZER_FULL:
+                self.check_enter_count(3)
+                self.check_loop_count(3)
+            else:
+                self.check_enter_count_at_most(5)
+                self.check_loop_count_at_most(5)
 
     def test_oosend_guard_failure(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])
@@ -203,6 +210,7 @@ class SendTests:
         # InvalidLoop condition, and was then unrolled, giving two copies
         # of the body in a single bigger loop with no failing guard except
         # the final one.
+        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)
@@ -244,6 +252,7 @@ class SendTests:
         assert res == f(3, 28)
         res = self.meta_interp(f, [4, 28])
         assert res == f(4, 28)
+        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)
@@ -347,7 +356,10 @@ class SendTests:
         assert res == f(198)
         # we get two TreeLoops: an initial one, and one entering from
         # the interpreter
-        self.check_tree_loop_count(2)
+        if self.optimizer != OPTIMIZER_FULL:
+            self.check_tree_loop_count(1)
+        else:
+            self.check_tree_loop_count(2)
 
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
@@ -400,7 +412,10 @@ class SendTests:
         # we expect 1 loop, 1 entry bridge, and 1 bridge going from the
         # loop back to the start of the entry bridge
         self.check_loop_count(2)        # 1 loop + 1 bridge
-        self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
+        if self.optimizer != OPTIMIZER_FULL:
+            self.check_tree_loop_count(1)   # 1 loop 
+        else:
+            self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
         self.check_aborted_count(0)
 
     def test_three_cases(self):
@@ -421,7 +436,10 @@ class SendTests:
             return node.x
         res = self.meta_interp(f, [55])
         assert res == f(55)
-        self.check_tree_loop_count(2)
+        if self.optimizer != OPTIMIZER_FULL:
+            self.check_tree_loop_count(1)
+        else:
+            self.check_tree_loop_count(2)
 
     def test_three_classes(self):
         class Base:
@@ -451,7 +469,10 @@ class SendTests:
             return n
         res = self.meta_interp(f, [55], policy=StopAtXPolicy(extern))
         assert res == f(55)
-        self.check_tree_loop_count(2)
+        if self.optimizer != OPTIMIZER_FULL:
+            self.check_tree_loop_count(1)
+        else:
+            self.check_tree_loop_count(2)
 
     def test_bug1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])

@@ -3,16 +3,24 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp import resoperation, history
 from pypy.jit.metainterp.jitexc import JitException
+from pypy.rlib.debug import make_sure_not_resized
 
 class InvalidLoop(JitException):
     """Raised when the optimize*.py detect that the loop that
     we are trying to build cannot possibly make sense as a
     long-running loop (e.g. it cannot run 2 complete iterations)."""
 
+class RetraceLoop(JitException):
+    """ Raised when inlining a short preamble resulted in an
+        InvalidLoop. This means the optimized loop is too specialized
+        to be useful here, so we trace it again and produced a second
+        copy specialized in some different way.
+    """
+
 # ____________________________________________________________
 # Misc. utilities
 
-def _findall(Class, name_prefix):
+def _findall(Class, name_prefix, op_prefix=None):
     result = []
     for name in dir(Class):
         if name.startswith(name_prefix):
@@ -20,6 +28,8 @@ def _findall(Class, name_prefix):
             if opname.isupper():
                 assert hasattr(resoperation.rop, opname)
     for value, name in resoperation.opname.items():
+        if op_prefix and not name.startswith(op_prefix):
+            continue
         if hasattr(Class, name_prefix + name):
             result.append((value, getattr(Class, name_prefix + name)))
     return unrolling_iterable(result)
@@ -68,6 +78,8 @@ def descrlist_dict():
 # ____________________________________________________________
 
 def args_eq(args1, args2):
+    make_sure_not_resized(args1)
+    make_sure_not_resized(args2)
     if len(args1) != len(args2):
         return False
     for i in range(len(args1)):
@@ -84,6 +96,7 @@ def args_eq(args1, args2):
     return True
 
 def args_hash(args):
+    make_sure_not_resized(args)
     res = 0x345678
     for arg in args:
         if isinstance(arg, history.Const):
@@ -95,5 +108,3 @@ def args_hash(args):
 
 def args_dict():
     return r_dict(args_eq, args_hash)
-
-

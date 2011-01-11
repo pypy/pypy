@@ -294,7 +294,6 @@ class rbigint(object):
         else:
             result = _x_sub(other, self)
         result.sign *= other.sign
-        result._normalize()
         return result
 
     def sub(self, other):
@@ -554,7 +553,8 @@ class rbigint(object):
         while i > 1 and self.digits[i - 1] == 0:
             i -= 1
         assert i >= 1
-        self.digits = self.digits[:i]
+        if i != self._numdigits():
+            self.digits = self.digits[:i]
         if self._numdigits() == 1 and self.digits[0] == 0:
             self.sign = 0
 

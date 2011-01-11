@@ -19,7 +19,7 @@ from pypy.tool.udir import udir
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
-USE_TARFILE_MODULE = sys.platform == 'win32'
+USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
@@ -40,14 +40,26 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir = None, override_pypy_c = None):
     basedir = py.path.local(basedir)
     if sys.platform == 'win32':
-        basename = 'pypy-c.exe'
+        # Can't rename a DLL
+        if override_pypy_c is not None:
+            rename_pypy_c = py.path.local(override_pypy_c).purebasename
+            pypy_c_dir = py.path.local(override_pypy_c).dirname
+        else:
+            pypy_c_dir = basedir.join('pypy', 'translator', 'goal')
+        pypy_c = pypy_c_dir.join(rename_pypy_c + '.exe')
+        libpypy_c = pypy_c_dir.join('lib' + rename_pypy_c + '.dll')
+        binaries = [(pypy_c, pypy_c.basename),
+                    (libpypy_c, libpypy_c.basename),
+                    (pypy_c_dir.join('libexpat.dll'), 'libexpat.dll')]
     else:
         basename = 'pypy-c'
-    if override_pypy_c is None:
-        pypy_c = basedir.join('pypy', 'translator', 'goal', basename)
-    else:
-        pypy_c = py.path.local(override_pypy_c)
+        if override_pypy_c is None:
+            pypy_c = basedir.join('pypy', 'translator', 'goal', basename)
+        else:
+            pypy_c = py.path.local(override_pypy_c)
+        binaries = [(pypy_c, rename_pypy_c)]
     if not pypy_c.check():
+        print pypy_c
         raise PyPyCNotFound('Please compile pypy first, using translate.py')
     builddir = udir.ensure("build", dir=True)
     pypydir = builddir.ensure(name, dir=True)
@@ -72,28 +84,47 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
     #
-    pypydir.ensure('bin', dir=True)
-    archive_pypy_c = pypydir.join('bin', rename_pypy_c)
-    shutil.copy(str(pypy_c), str(archive_pypy_c))
+    if sys.platform == 'win32':
+        bindir = pypydir
+    else:
+        bindir = pypydir.join('bin')
+        bindir.ensure(dir=True)
+    for source, target in binaries:
+        archive = bindir.join(target)
+        shutil.copy(str(source), str(archive))
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        os.system("strip -x " + str(archive_pypy_c))    # ignore errors
-        if USE_TARFILE_MODULE:
-            import tarfile
-            tf = tarfile.open(str(builddir.join(name + '.tar.bz2')), 'w:bz2')
-            tf.add(name)
-            tf.close()
+        #
+        # 'strip' fun: see https://codespeak.net/issue/pypy-dev/issue587
+        for source, target in binaries:
+            if sys.platform == 'win32':
+                pass
+            elif sys.platform == 'darwin':
+                os.system("strip -x " + str(bindir.join(target)))    # ignore errors
+            else:
+                os.system("strip " + str(bindir.join(target)))    # ignore errors
+        #
+        if USE_ZIPFILE_MODULE:
+            import zipfile
+            archive = str(builddir.join(name + '.zip'))
+            zf = zipfile.ZipFile(archive, 'w',
+                                 compression=zipfile.ZIP_DEFLATED)
+            for (dirpath, dirnames, filenames) in os.walk(name):
+                for fnname in filenames:
+                    filename = os.path.join(dirpath, fnname)
+                    zf.write(filename)
+            zf.close()
         else:
-            e = os.system('tar cvjf ' + str(builddir.join(name + '.tar.bz2')) +
-                          " " + name)
+            archive = str(builddir.join(name + '.tar.bz2'))
+            e = os.system('tar cvjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
         os.chdir(old_dir)
     if copy_to_dir is not None:
-        print "Copying to %s" % copy_to_dir
-        shutil.copy(str(builddir.join(name + '.tar.bz2')), copy_to_dir)
+        print "Copying %s to %s" % (archive, copy_to_dir)
+        shutil.copy(archive, str(copy_to_dir))
     return builddir # for tests
 
 if __name__ == '__main__':

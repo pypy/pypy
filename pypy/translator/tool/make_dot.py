@@ -49,12 +49,17 @@ class DotGen:
                   color="black", 
                   dir="forward",
                   weight="5",
+                  ports=None,
                   ):
         d = locals()
         attrs = [('%s="%s"' % (x, d[x].replace('"', '\\"').replace('\n', '\\n')))
                  for x in ['label', 'style', 'color', 'dir', 'weight']]
         self.emit('edge [%s];' % ", ".join(attrs))
-        self.emit('%s -> %s' % (safename(name1), safename(name2)))
+        if ports:
+            self.emit('%s:%s -> %s:%s' % (safename(name1), ports[0],
+                                          safename(name2), ports[1]))
+        else:
+            self.emit('%s -> %s' % (safename(name1), safename(name2)))
 
     def emit_node(self, name, 
                   shape="diamond", 

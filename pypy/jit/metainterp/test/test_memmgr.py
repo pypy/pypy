@@ -132,7 +132,7 @@ class _TestIntegration(LLJitMixin):
         res = self.meta_interp(f, [], loop_longevity=1)
         assert res == 42
         # we should see a loop for each call to g()
-        self.check_tree_loop_count(8 + 20*2)
+        self.check_tree_loop_count(8 + 20*2*2)
 
     def test_throw_away_old_loops(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
@@ -157,7 +157,7 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [], loop_longevity=3)
         assert res == 42
-        self.check_tree_loop_count(2 + 10*4)   # 42 :-)
+        self.check_tree_loop_count(2 + 10*4*2)
 
     def test_call_assembler_keep_alive(self):
         myjitdriver1 = JitDriver(greens=['m'], reds=['n'])
@@ -191,7 +191,7 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [1], loop_longevity=4, inline=True)
         assert res == 42
-        self.check_tree_loop_count(8)
+        self.check_tree_loop_count(12)
 
 # ____________________________________________________________
 

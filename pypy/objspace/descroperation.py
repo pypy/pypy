@@ -30,7 +30,7 @@ object_delattr._annspecialcase_ = 'specialize:memo'
 
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
-    typename = w_type.getname(space, '?')
+    typename = w_type.getname(space)
     if w_descr is None:
         raise operationerrfmt(space.w_AttributeError,
                               "'%s' object has no attribute '%s'",
@@ -138,7 +138,7 @@ class DescrOperation(object):
             return w_obj.call_args(args)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not callable",
                                   typename)
@@ -155,7 +155,7 @@ class DescrOperation(object):
     def set(space, w_descr, w_obj, w_val):
         w_set = space.lookup(w_descr, '__set__')
         if w_set is None:
-            typename = space.type(w_descr).getname(space, '?')
+            typename = space.type(w_descr).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not a descriptor with set",
                                   typename)
@@ -164,7 +164,7 @@ class DescrOperation(object):
     def delete(space, w_descr, w_obj):
         w_delete = space.lookup(w_descr, '__delete__')
         if w_delete is None:
-            typename = space.type(w_descr).getname(space, '?')
+            typename = space.type(w_descr).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not a descriptor with delete",
                                   typename)
@@ -191,7 +191,7 @@ class DescrOperation(object):
     def setattr(space, w_obj, w_name, w_val):
         w_descr = space.lookup(w_obj, '__setattr__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_AttributeError,
                                   "'%s' object is readonly",
                                   typename)
@@ -200,7 +200,7 @@ class DescrOperation(object):
     def delattr(space, w_obj, w_name):
         w_descr = space.lookup(w_obj, '__delattr__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_AttributeError,
                                   "'%s' object does not support attribute removal",
                                   typename)
@@ -241,7 +241,7 @@ class DescrOperation(object):
         if w_descr is None:
             w_descr = space.lookup(w_obj, '__getitem__')
             if w_descr is None:
-                typename = space.type(w_obj).getname(space, '?')
+                typename = space.type(w_obj).getname(space)
                 raise operationerrfmt(space.w_TypeError,
                                       "'%s' object is not iterable",
                                       typename)
@@ -251,7 +251,7 @@ class DescrOperation(object):
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, 'next')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not an iterator",
                                   typename)
@@ -260,7 +260,7 @@ class DescrOperation(object):
     def getitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not subscriptable",
                                   typename)
@@ -269,7 +269,7 @@ class DescrOperation(object):
     def setitem(space, w_obj, w_key, w_val):
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                               "'%s' object does not support item assignment",
                                   typename)
@@ -278,7 +278,7 @@ class DescrOperation(object):
     def delitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                 "'%s' object does not support item deletion",
                                   typename)
@@ -630,8 +630,8 @@ def _make_binop_impl(symbol, specialnames):
         w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
-        typename1 = w_typ1.getname(space, '?')
-        typename2 = w_typ2.getname(space, '?')
+        typename1 = w_typ1.getname(space)
+        typename2 = w_typ2.getname(space)
         raise operationerrfmt(space.w_TypeError, errormsg,
                               typename1, typename2)
     
@@ -693,7 +693,7 @@ def _make_unaryop_impl(symbol, specialnames):
     def unaryop_impl(space, w_obj):
         w_impl = space.lookup(w_obj, specialname)
         if w_impl is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError, errormsg, typename)
         return space.get_and_call_function(w_impl, w_obj)
     return func_with_new_name(unaryop_impl, 'unaryop_%s_impl'%specialname.strip('_'))
@@ -715,7 +715,7 @@ for targetname, specialname, checkerspec in [
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
-                typename = space.type(w_obj).getname(space, '?')
+                typename = space.type(w_obj).getname(space)
                 raise operationerrfmt(space.w_TypeError,
                       "unsupported operand type for %(targetname)s(): '%%s'",
                                       typename)
@@ -723,7 +723,7 @@ for targetname, specialname, checkerspec in [
 
             if %(checker)s: 
                 return w_result
-            typename = space.type(w_result).getname(space, '?')
+            typename = space.type(w_result).getname(space)
             msg = "%(specialname)s returned non-%(targetname)s (type '%%s')"
             raise operationerrfmt(space.w_TypeError, msg, typename)
         assert not hasattr(DescrOperation, %(targetname)r)
@@ -742,7 +742,7 @@ for targetname, specialname in [
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
-                typename = space.type(w_obj).getname(space, '?')
+                typename = space.type(w_obj).getname(space)
                 raise operationerrfmt(space.w_TypeError,
                       "unsupported operand type for %(targetname)s(): '%%s'",
                                       typename)
@@ -755,7 +755,7 @@ for targetname, specialname in [
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                typename = space.type(w_result).getname(space, '?')
+                typename = space.type(w_result).getname(space)
                 msg = "%(specialname)s returned non-%(targetname)s (type '%%s')"
                 raise operationerrfmt(space.w_TypeError, msg, typename)
             else:

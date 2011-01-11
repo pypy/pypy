@@ -54,7 +54,7 @@ def _precheck_for_new(space, w_type):
     if not isinstance(w_type, W_TypeObject):
         raise operationerrfmt(space.w_TypeError,
                               "X is not a type object (%s)",
-                              space.type(w_type).getname(space, '?'))
+                              space.type(w_type).getname(space))
     return w_type
 
 # ____________________________________________________________
@@ -114,7 +114,7 @@ def descr_set__bases__(space, w_type, w_value):
         raise operationerrfmt(space.w_TypeError,
                               "can only assign tuple to %s.__bases__, not %s",
                               w_type.name,
-                              space.type(w_value).getname(space, '?'))
+                              space.type(w_value).getname(space))
     newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
         raise operationerrfmt(space.w_TypeError,
@@ -137,8 +137,8 @@ def descr_set__bases__(space, w_type, w_value):
         raise operationerrfmt(space.w_TypeError,
                            "__bases__ assignment: '%s' object layout"
                            " differs from '%s'",
-                           w_newbestbase.getname(space, '?'),
-                           w_oldbestbase.getname(space, '?'))
+                           w_newbestbase.getname(space),
+                           w_oldbestbase.getname(space))
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated()

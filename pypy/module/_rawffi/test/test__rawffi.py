@@ -863,6 +863,7 @@ class AppTestFfi:
             assert "Procedure called with too many arguments" in e.message
         else:
             assert 0, "Did not raise"
+        arg.free()
 
     def test_struct_byvalue(self):
         import _rawffi, sys

@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.objectmodel import free_non_gc_object, we_are_translated
 from pypy.rlib.rarithmetic import r_uint, LONG_BIT
 from pypy.rlib.debug import ll_assert
+from pypy.tool.identity_dict import identity_dict
 
 DEFAULT_CHUNK_SIZE = 1019
 
@@ -255,10 +256,14 @@ def AddressDict(length_estimate=0):
     else:
         return BasicAddressDict()
 
+def null_address_dict():
+    from pypy.rpython.memory import lldict
+    return lltype.nullptr(lldict.DICT)
+
 class BasicAddressDict(object):
 
     def __init__(self):
-        self.data = {}
+        self.data = identity_dict()      # {_key(addr): value}
 
     def _key(self, addr):
         "NOT_RPYTHON: prebuilt AddressDicts are not supported"

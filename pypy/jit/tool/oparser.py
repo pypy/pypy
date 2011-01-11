@@ -31,6 +31,9 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
     def getopnum(self):
         return self.OPNUM
 
+    def clone(self):
+        return ESCAPE_OP(self.OPNUM, self.getarglist()[:], self.result, self.getdescr())
+
 class ExtendedTreeLoop(TreeLoop):
 
     def getboxes(self):

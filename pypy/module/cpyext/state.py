@@ -16,14 +16,19 @@ class State:
         self.operror = None
         self.new_method_def = lltype.nullptr(PyMethodDef)
 
-        # When importing a package, use this to keep track of its name.  This is
+        # When importing a package, use this to keep track
+        # of its name and path (as a 2-tuple).  This is
         # necessary because an extension module in a package might not supply
         # its own fully qualified name to Py_InitModule.  If it doesn't, we need
         # to be able to figure out what module is being initialized.  Recursive
         # imports will clobber this value, which might be confusing, but it
         # doesn't hurt anything because the code that cares about it will have
         # already read it by that time.
-        self.package_context = None
+        self.package_context = None, None
+
+        # A mapping {filename: copy-of-the-w_dict}, similar to CPython's
+        # variable 'extensions' in Python/import.c.
+        self.extensions = {}
 
     def set_exception(self, operror):
         self.clear_exception()
@@ -96,3 +101,29 @@ class State:
             self.programname = rffi.str2charp(progname)
             lltype.render_immortal(self.programname)
         return self.programname
+
+    def find_extension(self, name, path):
+        from pypy.module.cpyext.modsupport import PyImport_AddModule
+        from pypy.interpreter.module import Module
+        try:
+            w_dict = self.extensions[path]
+        except KeyError:
+            return None
+        w_mod = PyImport_AddModule(self.space, name)
+        assert isinstance(w_mod, Module)
+        w_mdict = w_mod.getdict()
+        self.space.call_method(w_mdict, 'update', w_dict)
+        return w_mod
+
+    def fixup_extension(self, name, path):
+        from pypy.interpreter.module import Module
+        space = self.space
+        w_modules = space.sys.get('modules')
+        w_mod = space.finditem_str(w_modules, name)
+        if not isinstance(w_mod, Module):
+            msg = "fixup_extension: module '%s' not loaded" % name
+            raise OperationError(space.w_SystemError,
+                                 space.wrap(msg))
+        w_dict = w_mod.getdict()
+        w_copy = space.call_method(w_dict, 'copy')
+        self.extensions[path] = w_copy

@@ -4,17 +4,17 @@ from pypy.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.string import OptString
+from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 
-def optimize_loop_1(metainterp_sd, loop, virtuals=True):
-    """Optimize loop.operations to make it match the input of loop.specnodes
-    and to remove internal overheadish operations.  Note that loop.specnodes
-    must be applicable to the loop; you will probably get an AssertionError
-    if not.
+def optimize_loop_1(metainterp_sd, loop, unroll=True):
+    """Optimize loop.operations to remove internal overheadish operations. 
     """
-    optimizations = [OptIntBounds(),
+    opt_str = OptString()
+    optimizations = [OptInlineShortPreamble(),
+                     OptIntBounds(),
                      OptRewrite(),
                      OptVirtualize(),
-                     OptString(),
+                     opt_str,
                      OptHeap(),
                     ]
     if metainterp_sd.jit_ffi:
@@ -22,11 +22,15 @@ def optimize_loop_1(metainterp_sd, loop, virtuals=True):
         optimizations = optimizations + [
                      OptFfiCall(),
                     ]
-    optimizer = Optimizer(metainterp_sd, loop, optimizations, virtuals)
-    optimizer.propagate_all_forward()
+
+    if unroll:
+        opt_str.enabled = False # FIXME: Workaround to disable string optimisation
+                                # during preamble but to keep it during the loop
+        optimize_unroll(metainterp_sd, loop, optimizations)
+    else:
+        optimizer = Optimizer(metainterp_sd, loop, optimizations)
+        optimizer.propagate_all_forward()
 
 def optimize_bridge_1(metainterp_sd, bridge):
-    """The same, but for a bridge.  The only difference is that we don't
-    expect 'specnodes' on the bridge.
-    """
+    """The same, but for a bridge. """
     optimize_loop_1(metainterp_sd, bridge, False)
