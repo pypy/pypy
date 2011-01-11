@@ -34,6 +34,7 @@ def server(evt, serv, dataq=None):
                     data += item
                 written = conn.send(data)
                 data = data[written:]
+        conn.close()
     except socket.timeout:
         pass
     finally:
