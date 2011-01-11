@@ -318,7 +318,7 @@ class BufferedMixin:
             # Partial writes can return successfully when interrupted by a
             # signal (see write(2)).  We must run signal handlers before
             # blocking another time, possibly indefinitely.
-            # XXX PyErr_CheckSignals()
+            space.getexecutioncontext().checksignals()
 
         if restore_pos:
             forward = rewind - written
