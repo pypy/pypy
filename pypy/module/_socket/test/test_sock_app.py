@@ -351,14 +351,10 @@ class AppTestSocket:
         import _socket, errno
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         fileno = s.fileno()
+        assert s.fileno() >= 0
         s.close()
+        assert s.fileno() < 0
         s.close()
-        try:
-            s.fileno()
-        except _socket.error, ex:
-            assert ex.args[0], errno.EBADF
-        else:
-            assert 0
 
     def test_socket_close_error(self):
         import _socket, os
@@ -657,8 +653,11 @@ class AppTestErrno:
         import errno
         try:
             s = socket(AF_INET, SOCK_STREAM)
-            import __pypy__
-            print __pypy__.internal_repr(s)
+            try:
+                import __pypy__
+                print __pypy__.internal_repr(s)
+            except ImportError:
+                pass
             s.accept()
         except Exception, e:
             assert len(e.args) == 2

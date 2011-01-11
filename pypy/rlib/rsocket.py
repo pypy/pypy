@@ -824,10 +824,7 @@ class RSocket(object):
                                SocketClass=SocketClass)
         
     def fileno(self):
-        fd = self.fd
-        if _c.invalid_socket(fd):
-            raise RSocketError("socket already closed")
-        return fd
+        return self.fd
 
     def getpeername(self):
         """Return the address of the remote endpoint."""
