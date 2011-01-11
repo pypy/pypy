@@ -237,11 +237,11 @@ class AppTestAppSetTest:
 
     def test_autoconvert_key_error(self):
         s = set([frozenset([1, 2]), frozenset([3, 4])])
+        key = set([2, 3])
         try:
-            s.remove(set([2, 3]))
+            s.remove(key)
         except KeyError, e:
-            assert isinstance(e.args[0], frozenset)
-            assert e.args[0] == frozenset([2, 3])
+            assert e.args[0] is key
 
     def test_contains(self):
         letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
