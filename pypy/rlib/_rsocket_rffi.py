@@ -117,6 +117,7 @@ class CConfig:
     INVALID_SOCKET = platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = platform.DefinedConstantInteger('INET_ADDRSTRLEN')
     INET6_ADDRSTRLEN= platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
+    EINTR = platform.DefinedConstantInteger('EINTR')
     EINPROGRESS = platform.DefinedConstantInteger('EINPROGRESS')
     WSAEINPROGRESS = platform.DefinedConstantInteger('WSAEINPROGRESS')
     EWOULDBLOCK = platform.DefinedConstantInteger('EWOULDBLOCK')
@@ -406,6 +407,7 @@ F_SETFL = cConfig.F_SETFL
 FIONBIO = cConfig.FIONBIO
 INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
+EINTR = cConfig.EINTR
 EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT

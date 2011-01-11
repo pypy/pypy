@@ -1011,9 +1011,13 @@ class RSocket(object):
             remaining = len(data)
             p = dataptr
             while remaining > 0:
-                res = self.send_raw(p, remaining, flags)
-                p = rffi.ptradd(p, res)
-                remaining -= res
+                try:
+                    res = self.send_raw(p, remaining, flags)
+                    p = rffi.ptradd(p, res)
+                    remaining -= res
+                except CSocketError, e:
+                    if e.errno != _c.EINTR:
+                        raise
                 if signal_checker:
                     signal_checker.check()
         finally:
