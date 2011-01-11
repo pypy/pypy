@@ -614,54 +614,54 @@ class AppTestDictViews:
         d1 = {'a': 1, 'b': 2}
         d2 = {'b': 3, 'c': 2}
         d3 = {'d': 4, 'e': 5}
-        assert d1.viewkeys() & d1.viewkeys() == {'a', 'b'}
-        assert d1.viewkeys() & d2.viewkeys() == {'b'}
+        assert d1.viewkeys() & d1.viewkeys() == set('ab')
+        assert d1.viewkeys() & d2.viewkeys() == set('b')
         assert d1.viewkeys() & d3.viewkeys() == set()
-        assert d1.viewkeys() & set(d1.viewkeys()) == {'a', 'b'}
-        assert d1.viewkeys() & set(d2.viewkeys()) == {'b'}
+        assert d1.viewkeys() & set(d1.viewkeys()) == set('ab')
+        assert d1.viewkeys() & set(d2.viewkeys()) == set('b')
         assert d1.viewkeys() & set(d3.viewkeys()) == set()
 
-        assert d1.viewkeys() | d1.viewkeys() == {'a', 'b'}
-        assert d1.viewkeys() | d2.viewkeys() == {'a', 'b', 'c'}
-        assert d1.viewkeys() | d3.viewkeys() == {'a', 'b', 'd', 'e'}
-        assert d1.viewkeys() | set(d1.viewkeys()) == {'a', 'b'}
-        assert d1.viewkeys() | set(d2.viewkeys()) == {'a', 'b', 'c'}
-        assert d1.viewkeys() | set(d3.viewkeys()) == {'a', 'b', 'd', 'e'}
+        assert d1.viewkeys() | d1.viewkeys() == set('ab')
+        assert d1.viewkeys() | d2.viewkeys() == set('abc')
+        assert d1.viewkeys() | d3.viewkeys() == set('abde')
+        assert d1.viewkeys() | set(d1.viewkeys()) == set('ab')
+        assert d1.viewkeys() | set(d2.viewkeys()) == set('abc')
+        assert d1.viewkeys() | set(d3.viewkeys()) == set('abde')
 
         assert d1.viewkeys() ^ d1.viewkeys() == set()
-        assert d1.viewkeys() ^ d2.viewkeys() == {'a', 'c'}
-        assert d1.viewkeys() ^ d3.viewkeys() == {'a', 'b', 'd', 'e'}
+        assert d1.viewkeys() ^ d2.viewkeys() == set('ac')
+        assert d1.viewkeys() ^ d3.viewkeys() == set('abde')
         assert d1.viewkeys() ^ set(d1.viewkeys()) == set()
-        assert d1.viewkeys() ^ set(d2.viewkeys()) == {'a', 'c'}
-        assert d1.viewkeys() ^ set(d3.viewkeys()) == {'a', 'b', 'd', 'e'}
+        assert d1.viewkeys() ^ set(d2.viewkeys()) == set('ac')
+        assert d1.viewkeys() ^ set(d3.viewkeys()) == set('abde')
 
     def test_items_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'a': 2, 'b': 2}
         d3 = {'d': 4, 'e': 5}
-        assert d1.viewitems() & d1.viewitems() == {('a', 1), ('b', 2)}
-        assert d1.viewitems() & d2.viewitems() == {('b', 2)}
+        assert d1.viewitems() & d1.viewitems() == set([('a', 1), ('b', 2)])
+        assert d1.viewitems() & d2.viewitems() == set([('b', 2)])
         assert d1.viewitems() & d3.viewitems() == set()
-        assert d1.viewitems() & set(d1.viewitems()) == {('a', 1), ('b', 2)}
-        assert d1.viewitems() & set(d2.viewitems()) == {('b', 2)}
+        assert d1.viewitems() & set(d1.viewitems()) == set([('a', 1), ('b', 2)])
+        assert d1.viewitems() & set(d2.viewitems()) == set([('b', 2)])
         assert d1.viewitems() & set(d3.viewitems()) == set()
 
-        assert d1.viewitems() | d1.viewitems() == {('a', 1), ('b', 2)}
+        assert d1.viewitems() | d1.viewitems() == set([('a', 1), ('b', 2)])
         assert (d1.viewitems() | d2.viewitems() ==
-                {('a', 1), ('a', 2), ('b', 2)})
+                set([('a', 1), ('a', 2), ('b', 2)]))
         assert (d1.viewitems() | d3.viewitems() ==
-                {('a', 1), ('b', 2), ('d', 4), ('e', 5)})
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
         assert (d1.viewitems() | set(d1.viewitems()) ==
-                {('a', 1), ('b', 2)})
+                set([('a', 1), ('b', 2)]))
         assert (d1.viewitems() | set(d2.viewitems()) ==
-                {('a', 1), ('a', 2), ('b', 2)})
+                set([('a', 1), ('a', 2), ('b', 2)]))
         assert (d1.viewitems() | set(d3.viewitems()) ==
-                {('a', 1), ('b', 2), ('d', 4), ('e', 5)})
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
         assert d1.viewitems() ^ d1.viewitems() == set()
-        assert d1.viewitems() ^ d2.viewitems() == {('a', 1), ('a', 2)}
+        assert d1.viewitems() ^ d2.viewitems() == set([('a', 1), ('a', 2)])
         assert (d1.viewitems() ^ d3.viewitems() ==
-                         {('a', 1), ('b', 2), ('d', 4), ('e', 5)})
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
 
 class AppTestModuleDict(object):
