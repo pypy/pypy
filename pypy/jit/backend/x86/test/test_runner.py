@@ -33,6 +33,7 @@ class TestX86(LLtypeBackendTest):
     
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
+        self.cpu.setup_once()
 
     def test_execute_ptr_operation(self):
         cpu = self.cpu
@@ -81,7 +82,7 @@ class TestX86(LLtypeBackendTest):
         # relative addressing to work properly.
         addr = rffi.cast(lltype.Signed, addr)
         
-        self.cpu.assembler.setup()
+        self.cpu.assembler.setup_once()
         self.cpu.assembler.malloc_func_addr = addr
         ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
@@ -329,7 +330,11 @@ class TestX86(LLtypeBackendTest):
                         assert result != expected
 
     def test_compile_bridge_check_profile_info(self):
-        from pypy.jit.backend.x86.test.test_assembler import FakeProfileAgent
+        class FakeProfileAgent(object):
+            def __init__(self):
+                self.functions = []
+            def native_code_written(self, name, address, size):
+                self.functions.append((name, address, size))
         self.cpu.profile_agent = agent = FakeProfileAgent()
 
         i0 = BoxInt()
@@ -338,6 +343,7 @@ class TestX86(LLtypeBackendTest):
         faildescr1 = BasicFailDescr(1)
         faildescr2 = BasicFailDescr(2)
         looptoken = LoopToken()
+        looptoken.number = 17
         class FakeString(object):
             def __init__(self, val):
                 self.val = val
@@ -356,7 +362,7 @@ class TestX86(LLtypeBackendTest):
         operations[3].setfailargs([i1])
         self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
-        assert name == "Loop # 0: hello"
+        assert name == "Loop # 17: hello"
         assert loopaddress <= looptoken._x86_loop_code
         assert loopsize >= 40 # randomish number
 
@@ -370,7 +376,7 @@ class TestX86(LLtypeBackendTest):
         ]
         bridge[1].setfailargs([i1b])
 
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge)        
+        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
         name, address, size = agent.functions[1]
         assert name == "Bridge # 0: bye"
         # Would be exactly ==, but there are some guard failure recovery
@@ -397,104 +403,15 @@ class TestX86(LLtypeBackendTest):
         assert res.value == 4.0
 
 
-class TestX86OverflowMC(TestX86):
-
-    def setup_method(self, meth):
-        self.cpu = CPU(rtyper=None, stats=FakeStats())
-        self.cpu.assembler.mc_size = 1024
-
-    def test_overflow_mc(self):
-        ops = []
-        base_v = BoxInt()
-        v = base_v
-        for i in range(1024):
-            next_v = BoxInt()
-            ops.append(ResOperation(rop.INT_ADD, [v, ConstInt(1)], next_v))
-            v = next_v
-        ops.append(ResOperation(rop.FINISH, [v], None,
-                                descr=BasicFailDescr()))
-        looptoken = LoopToken()
-        self.cpu.assembler.setup()
-        old_mc_mc = self.cpu.assembler.mc._mc
-        self.cpu.compile_loop([base_v], ops, looptoken)
-        assert self.cpu.assembler.mc._mc != old_mc_mc   # overflowed
-        self.cpu.set_future_value_int(0, base_v.value)
-        self.cpu.execute_token(looptoken)
-        assert self.cpu.get_latest_value_int(0) == 1024
-
-    def test_overflow_guard_float_cmp(self):
-        # The float comparisons on x86 tend to use small relative jumps,
-        # which may run into trouble if they fall on the edge of a
-        # MachineCodeBlock change.
-        a = BoxFloat(1.0)
-        b = BoxFloat(2.0)
-        failed = BoxInt(41)
-        finished = BoxInt(42)
-
-        # We select guards that will always succeed, so that execution will
-        # continue through the entire set of comparisions
-        ops_to_test = (
-            (rop.FLOAT_LT, [a, b], rop.GUARD_TRUE),
-            (rop.FLOAT_LT, [b, a], rop.GUARD_FALSE),
-
-            (rop.FLOAT_LE, [a, a], rop.GUARD_TRUE),
-            (rop.FLOAT_LE, [a, b], rop.GUARD_TRUE),
-            (rop.FLOAT_LE, [b, a], rop.GUARD_FALSE),
-
-            (rop.FLOAT_EQ, [a, a], rop.GUARD_TRUE),
-            (rop.FLOAT_EQ, [a, b], rop.GUARD_FALSE),
-
-            (rop.FLOAT_NE, [a, b], rop.GUARD_TRUE),
-            (rop.FLOAT_NE, [a, a], rop.GUARD_FALSE),
-
-            (rop.FLOAT_GT, [b, a], rop.GUARD_TRUE),
-            (rop.FLOAT_GT, [a, b], rop.GUARD_FALSE),
-
-            (rop.FLOAT_GE, [a, a], rop.GUARD_TRUE),
-            (rop.FLOAT_GE, [b, a], rop.GUARD_TRUE),
-            (rop.FLOAT_GE, [a, b], rop.GUARD_FALSE),
-        )
-
-        for float_op, args, guard_op in ops_to_test:
-            ops = []
-
-            for i in range(200):
-                cmp_result = BoxInt()
-                ops.append(ResOperation(float_op, args, cmp_result))
-                ops.append(ResOperation(guard_op, [cmp_result], None, descr=BasicFailDescr()))
-                ops[-1].setfailargs([failed])
-
-            ops.append(ResOperation(rop.FINISH, [finished], None, descr=BasicFailDescr()))
-
-            looptoken = LoopToken()
-            self.cpu.compile_loop([a, b, failed, finished], ops, looptoken)
-            self.cpu.set_future_value_float(0, a.value)
-            self.cpu.set_future_value_float(1, b.value)
-            self.cpu.set_future_value_int(2, failed.value)
-            self.cpu.set_future_value_int(3, finished.value)
-            self.cpu.execute_token(looptoken)
-
-            # Really just a sanity check. We're actually interested in
-            # whether the test segfaults.
-            assert self.cpu.get_latest_value_int(0) == finished.value
-
-    def test_overflow_guard_exception(self):
-        for i in range(50):
-            self.test_exceptions()
-
-
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):
-        self.pypylog = os.environ.get('PYPYLOG', None)
-        self.logfile = str(udir.join('x86_runner.log'))
-        os.environ['PYPYLOG'] = "mumble:" + self.logfile
         self.cpu = CPU(rtyper=None, stats=FakeStats())
-
-    def teardown_method(self, meth):
-        if self.pypylog is not None:
-            os.environ['PYPYLOG'] = self.pypylog
+        self.cpu.setup_once()
 
     def test_debugger_on(self):
+        from pypy.tool.logparser import parse_log_file, extract_category
+        from pypy.rlib import debug
+        
         loop = """
         [i0]
         debug_merge_point('xyz', 0)
@@ -504,17 +421,19 @@ class TestDebuggingAssembler(object):
         jump(i1)
         """
         ops = parse(loop)
-        self.cpu.assembler.set_debug(True)
-        self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(ops.token)
-        # check debugging info
-        name, struct = self.cpu.assembler.loop_run_counters[0]
-        assert name == 0       # 'xyz'
-        assert struct.i == 10
-        self.cpu.finish_once()
-        lines = py.path.local(self.logfile + ".count").readlines()
-        assert lines[0] == '0:10\n'  # '10      xyz\n'
+        debug._log = dlog = debug.DebugLog()
+        try:
+            self.cpu.assembler.set_debug(True)
+            self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
+            self.cpu.set_future_value_int(0, 0)
+            self.cpu.execute_token(ops.token)
+            # check debugging info
+            struct = self.cpu.assembler.loop_run_counters[0]
+            assert struct.i == 10
+            self.cpu.finish_once()
+        finally:
+            debug._log = None
+        assert ('jit-backend-counts', [('debug_print', '0:10')]) in dlog
 
     def test_debugger_checksum(self):
         loop = """

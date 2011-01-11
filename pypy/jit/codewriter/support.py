@@ -168,6 +168,9 @@ _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
 
+def _ll_1_gc_id(ptr):
+    return llop.gc_id(lltype.Signed, ptr)
+
 def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
@@ -175,12 +178,12 @@ def _ll_1_jit_force_virtual(inst):
 def _ll_2_int_floordiv_ovf_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_floordiv_ovf(x, y):
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:        
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
@@ -192,12 +195,12 @@ def _ll_2_int_floordiv_zer(x, y):
 def _ll_2_int_mod_ovf_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_mod(lltype.Signed, x, y)
 
 def _ll_2_int_mod_ovf(x, y):
-    if ((x + sys.maxint) & y) == -1:    # detect "x = -sys.maxint-1, y = -1".
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_mod(lltype.Signed, x, y)
 
@@ -548,6 +551,9 @@ def get_oostring_oopspec(op):
 def get_identityhash_oopspec(op):
     return 'gc_identityhash', op.args
 
+def get_gcid_oopspec(op):
+    return 'gc_id', op.args
+
 
 RENAMED_ADT_NAME = {
     'list': {
@@ -578,6 +584,8 @@ def decode_builtin_call(op):
         return get_oostring_oopspec(op)
     elif op.opname == 'gc_identityhash':
         return get_identityhash_oopspec(op)
+    elif op.opname == 'gc_id':
+        return get_gcid_oopspec(op)
     else:
         raise ValueError(op.opname)
 

@@ -16,15 +16,15 @@ from pypy.module.cpyext.pyobject import (
     track_reference, RefcountState, borrow_from)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext import structmemberdefs
-from pypy.module.cpyext.modsupport import convert_method_defs, PyCFunction
+from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.methodobject import (
-    PyDescr_NewWrapper, PyCFunction_NewEx)
+    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
 from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
-    PyNumberMethods)
+    PyNumberMethods, PySequenceMethods)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.interpreter.error import OperationError
@@ -136,6 +136,8 @@ def update_all_slots(space, w_type, pto):
             if not struct:
                 if slot_names[0] == 'c_tp_as_number':
                     STRUCT_TYPE = PyNumberMethods
+                elif slot_names[0] == 'c_tp_as_sequence':
+                    STRUCT_TYPE = PySequenceMethods
                 else:
                     raise AssertionError(
                         "Structure not allocated: %s" % (slot_names[0],))
@@ -206,7 +208,7 @@ def get_new_method_def(space):
 
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
-    ptr.c_ml_meth = rffi.cast(PyCFunction,
+    ptr.c_ml_meth = rffi.cast(PyCFunction_typedef,
         llhelper(tp_new_wrapper.api_func.functype,
                  tp_new_wrapper.api_func.get_wrapper(space)))
 
@@ -392,6 +394,8 @@ def type_dealloc(space, obj):
             lltype.free(obj_pto.c_tp_as_buffer, flavor='raw')
         if obj_pto.c_tp_as_number:
             lltype.free(obj_pto.c_tp_as_number, flavor='raw')
+        if obj_pto.c_tp_as_sequence:
+            lltype.free(obj_pto.c_tp_as_sequence, flavor='raw')
         Py_DecRef(space, base_pyo)
         rffi.free_charp(obj_pto.c_tp_name)
         PyObject_dealloc(space, obj)
@@ -432,12 +436,6 @@ def type_attach(space, py_obj, w_type):
 
     finish_type_1(space, pto)
     finish_type_2(space, pto, w_type)
-
-    if space.type(w_type).is_cpytype():
-        # XXX Types with a C metatype are never freed, try to see why...
-        render_immortal(pto, w_type)
-        lltype.render_immortal(pto)
-        lltype.render_immortal(pto.c_tp_name)
 
     pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
     if pto.c_tp_base:
@@ -544,24 +542,11 @@ def type_realize(space, py_obj):
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    render_immortal(py_type, w_obj)
 
     state = space.fromcache(RefcountState)
     state.non_heaptypes_w.append(w_obj)
 
     return w_obj
-
-def render_immortal(py_type, w_obj):
-    lltype.render_immortal(py_type.c_tp_bases)
-    lltype.render_immortal(py_type.c_tp_mro)
-
-    assert isinstance(w_obj, W_TypeObject)
-    if w_obj.is_cpytype():
-        lltype.render_immortal(py_type.c_tp_dict)
-    else:
-        lltype.render_immortal(py_type.c_tp_name)
-    if not w_obj.is_cpytype() and w_obj.is_heaptype():
-        lltype.render_immortal(py_type)
 
 def finish_type_1(space, pto):
     """
@@ -599,7 +584,8 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        pto.c_tp_dict = make_ref(space, w_obj.getdict())
+        w_dict = space.newdict(from_strdict_shared=w_obj.dict_w)
+        pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

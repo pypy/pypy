@@ -8,7 +8,6 @@ from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
 
 
-PyCFunction = Ptr(FuncType([PyObject, PyObject], PyObject))
 P, FT, PyO = Ptr, FuncType, PyObject
 PyOPtr = Ptr(lltype.Array(PyO, hints={'nolength': True}))
 

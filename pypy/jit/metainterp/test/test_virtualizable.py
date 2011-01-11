@@ -11,7 +11,7 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
+from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 
 def promote_virtualizable(*args):
     pass
@@ -197,7 +197,8 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_loops(getfield_gc=1, setfield_gc=1)
+        self.check_loops(getfield_gc=0, setfield_gc=1)
+        self.check_loops(getfield_gc=1, setfield_gc=2, everywhere=True)
 
     # ------------------------------
 
@@ -480,9 +481,13 @@ class ImplicitVirtualizableTests:
                 myjitdriver.jit_merge_point(frame=frame, n=n, x=x)
                 frame.s = hint(frame.s, promote=True)
                 n -= 1
-                x += frame.l[frame.s]
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
                 frame.s += 1
-                x += frame.l[frame.s]
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
                 x += len(frame.l)
                 frame.s -= 1
             return x
@@ -994,7 +999,9 @@ class ImplicitVirtualizableTests:
                 jitdriver.can_enter_jit(frame=frame, n=n)
                 jitdriver.jit_merge_point(frame=frame, n=n)
                 popped = frame.stack[frame.stackpos]
-                frame.stackpos -= 1
+                sp = frame.stackpos - 1
+                assert sp >= 0
+                frame.stackpos = sp
                 to_push = intmask(popped * 3)
                 frame.stack[frame.stackpos] = to_push
                 frame.stackpos += 1
@@ -1124,7 +1131,7 @@ class ImplicitVirtualizableTests:
  
          res = self.meta_interp(f, [10])
          assert res == 55
-         self.check_loops(new_with_vtable=0, ptr_eq=1)
+         self.check_loops(new_with_vtable=0, ptr_eq=1, everywhere=True)
 
     def test_virtual_child_frame_with_arrays(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],

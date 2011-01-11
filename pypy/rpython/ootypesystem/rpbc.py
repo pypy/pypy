@@ -49,7 +49,7 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
         return hop.genop('runtimenew', [v_class], resulttype=resulttype)
 
     def getlowleveltype(self):
-        classdescs = self.s_pbc.descriptions.keys()
+        classdescs = list(self.s_pbc.descriptions)
         # if any of the classdefs get the lowleveltype ootype.Class,
         # we can only pick ootype.Class for us too.  Otherwise META.
         for classdesc in classdescs:
@@ -70,7 +70,7 @@ def row_method_name(methodname, rowname):
 class MethodImplementations(object):
 
     def __init__(self, rtyper, methdescs):
-        samplemdesc = methdescs.iterkeys().next()
+        samplemdesc = iter(methdescs).next()
         concretetable, uniquerows = get_concrete_calltable(rtyper,
                                              samplemdesc.funcdesc.getcallfamily())
         self.row_mapping = {}
@@ -117,7 +117,7 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
     concretetable = None # set by _setup_repr_final
 
     def _setup_repr_final(self):
-        sampledesc = self.s_pbc.descriptions.iterkeys().next()
+        sampledesc = self.s_pbc.any_description()
         self.concretetable, _ = get_concrete_calltable(self.rtyper,
                                              sampledesc.funcdesc.getcallfamily())
 

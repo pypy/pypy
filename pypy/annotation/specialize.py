@@ -345,7 +345,8 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
             key.append(s.const)
         elif isinstance(s, SomePBC) and len(s.descriptions) == 1:
             # for test_specialize_arg_bound_method
-            key.append(s.descriptions.keys()[0])
+            desc, = s.descriptions
+            key.append(desc)
         else:
             raise Exception("specialize:arg(%d): argument not constant: %r"
                             % (i, s))

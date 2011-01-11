@@ -93,8 +93,10 @@ class ItemOffset(AddressOffset):
                 return endmarker._as_ptr()
             else:
                 return parent.getitem(index)._as_ptr()
-        elif (isinstance(A, lltype.FixedSizeArray) and
-              array_item_type_match(A.OF, self.TYPE)):
+        elif ((isinstance(A, lltype.FixedSizeArray)
+               or (isinstance(A, lltype.Array) and A._hints.get('nolength',
+                                                                False)))
+              and array_item_type_match(A.OF, self.TYPE)):
             # for array of primitives or pointers
             return lltype.direct_ptradd(firstitemptr, self.repeat)
         else:

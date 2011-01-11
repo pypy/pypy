@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
-from pypy.rpython.memory.gc.base import MovingGCBase, read_from_env
+from pypy.rpython.memory.gc.base import MovingGCBase
+from pypy.rpython.memory.gc import env
 from pypy.rlib.debug import ll_assert, have_debug_prints
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
@@ -110,10 +111,10 @@ class MarkCompactGC(MovingGCBase):
         return next
 
     def setup(self):
-        envsize = read_from_env('PYPY_MARKCOMPACTGC_MAX')
+        envsize = env.read_from_env('PYPY_MARKCOMPACTGC_MAX')
         if envsize >= 4096:
             self.space_size = envsize & ~4095
-        mincollect = read_from_env('PYPY_MARKCOMPACTGC_MIN')
+        mincollect = env.read_from_env('PYPY_MARKCOMPACTGC_MIN')
         if mincollect >= 4096:
             self.min_next_collect_after = mincollect
 

@@ -533,7 +533,7 @@ EXPORT(UN) ret_un_func(UN inp)
 	return inp;
 }
 
-int my_unused_function(void)
+EXPORT(int) my_unused_function(void)
 {
     return 42;
 }

@@ -16,6 +16,7 @@ class AnsiLog:
         'WARNING': ((31,), False),
         'event': ((1,), True),
         'ERROR': ((1, 31), False),
+        'Error': ((1, 31), False),
         'info': ((35,), False),
         'stub': ((34,), False),
     }

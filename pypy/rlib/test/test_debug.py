@@ -42,14 +42,14 @@ def test_check_nonneg():
     py.test.raises(IntegerCanBeNegative, interpret, g, [9])
 
 def test_make_sure_not_resized():
-    from pypy.annotation.listdef import TooLateForChange
+    from pypy.annotation.listdef import ListChangeUnallowed
     def f():
         result = [1,2,3]
         make_sure_not_resized(result)
         result.append(4)
         return len(result)
 
-    py.test.raises(TooLateForChange, interpret, f, [], 
+    py.test.raises(ListChangeUnallowed, interpret, f, [], 
                    list_comprehension_operations=True)
 
 

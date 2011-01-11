@@ -99,6 +99,9 @@ class ArrayMeta(_CDataMeta):
                 if len(value) > self._length_:
                     raise ValueError("Invalid length")
                 value = self(*value)
+            elif not isinstance(value, self):
+                raise TypeError("expected string or Unicode object, %s found"
+                                % (value.__class__.__name__,))
         else:
             if isinstance(value, tuple):
                 if len(value) > self._length_:
@@ -107,22 +110,43 @@ class ArrayMeta(_CDataMeta):
         return _CDataMeta.from_param(self, value)
 
 def array_get_slice_params(self, index):
-    if index.step is not None:
-        raise TypeError("3 arg slices not supported (for no reason)")
-    start = index.start or 0
-    stop = index.stop or self._length_
-    return start, stop
+    if hasattr(self, '_length_'):
+        start, stop, step = index.indices(self._length_)
+    else:
+        step = index.step
+        if step is None:
+            step = 1
+        start = index.start
+        stop = index.stop
+        if start is None:
+            if step > 0:
+                start = 0
+            else:
+                raise ValueError("slice start is required for step < 0")
+        if stop is None:
+            raise ValueError("slice stop is required")
+
+    return start, stop, step
 
 def array_slice_setitem(self, index, value):
-    start, stop = self._get_slice_params(index)
-    if stop - start != len(value):
+    start, stop, step = self._get_slice_params(index)
+
+    if ((step < 0 and stop >= start) or
+        (step > 0 and start >= stop)):
+        slicelength = 0
+    elif step < 0:
+        slicelength = (stop - start + 1) / step + 1
+    else:
+        slicelength = (stop - start - 1) / step + 1;
+
+    if slicelength != len(value):
         raise ValueError("Can only assign slices of the same length")
-    for i in range(start, stop):
-        self[i] = value[i - start]
+    for i, j in enumerate(range(start, stop, step)):
+        self[j] = value[i]
 
 def array_slice_getitem(self, index):
-    start, stop = self._get_slice_params(index)
-    l = [self[i] for i in range(start, stop)]
+    start, stop, step = self._get_slice_params(index)
+    l = [self[i] for i in range(start, stop, step)]
     letter = getattr(self._type_, '_type_', None)
     if letter == 'c':
         return "".join(l)
@@ -135,7 +159,8 @@ class Array(_CData):
     _ffiargshape = 'P'
 
     def __init__(self, *args):
-        self._buffer = self._ffiarray(self._length_, autofree=True)
+        if not hasattr(self, '_buffer'):
+            self._buffer = self._ffiarray(self._length_, autofree=True)
         for i, arg in enumerate(args):
             self[i] = arg
 
@@ -162,9 +187,10 @@ class Array(_CData):
             self._slice_setitem(index, value)
             return
         index = self._fix_index(index)
-        if ensure_objects(value) is not None:
-            store_reference(self, index, value._objects)
-        arg = self._type_._CData_value(value)
+        cobj = self._type_.from_param(value)
+        if ensure_objects(cobj) is not None:
+            store_reference(self, index, cobj._objects)
+        arg = cobj._get_buffer_value()
         if self._type_._fficompositesize is None:
             self._buffer[index] = arg
             # something more sophisticated, cannot set field directly
@@ -183,7 +209,7 @@ class Array(_CData):
         return self._length_
 
     def _get_buffer_for_param(self):
-        return CArgObject(self._buffer.byptr())
+        return CArgObject(self, self._buffer.byptr())
 
     def _get_buffer_value(self):
         return self._buffer.buffer

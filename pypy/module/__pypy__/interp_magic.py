@@ -51,3 +51,9 @@ def mapdict_cache_counter(space, name):
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])
 mapdict_cache_counter.unwrap_spec = [ObjSpace, str]
+
+def builtinify(space, w_func):
+    from pypy.interpreter.function import Function, BuiltinFunction
+    func = space.interp_w(Function, w_func)
+    bltn = BuiltinFunction(func)
+    return space.wrap(bltn)

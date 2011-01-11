@@ -17,6 +17,10 @@ if sys.platform == 'win32':
 from ctypes_support import standard_c_lib as libc
 from ctypes import Structure, POINTER, c_int, c_char_p
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
+
 uid_t = c_int
 gid_t = c_int
 
@@ -79,10 +83,12 @@ _endpwent = libc.endpwent
 _endpwent.argtypes = None
 _endpwent.restype = None
 
+@builtinify
 def mkpwent(pw):
     pw = pw.contents
     return struct_passwd(pw)
 
+@builtinify
 def getpwuid(uid):
     """
     getpwuid(uid) -> (pw_name,pw_passwd,pw_uid,
@@ -95,6 +101,7 @@ def getpwuid(uid):
         raise KeyError("getpwuid(): uid not found: %s" % uid)
     return mkpwent(pw)
 
+@builtinify
 def getpwnam(name):
     """
     getpwnam(name) -> (pw_name,pw_passwd,pw_uid,
@@ -109,9 +116,10 @@ def getpwnam(name):
         raise KeyError("getpwname(): name not found: %s" % name)
     return mkpwent(pw)
 
+@builtinify
 def getpwall():
     """
-    "getpwall() -> list_of_entries
+    getpwall() -> list_of_entries
     Return a list of all available password database entries, in arbitrary order.
     See pwd.__doc__ for more on password database entries.
     """

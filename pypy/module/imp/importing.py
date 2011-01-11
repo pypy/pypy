@@ -76,7 +76,7 @@ def find_modtype(space, filepart):
 
     return SEARCH_ERROR, None, None
 
-if sys.platform in ['linux2', 'freebsd']:
+if sys.platform == 'linux2' or 'freebsd' in sys.platform:
     def case_ok(filename):
         return True
 else:
@@ -529,7 +529,7 @@ def reload(space, w_module):
             space.sys.setmodule(w_module)
             raise
     finally:
-        space.reloading_modules.clear()
+        del space.reloading_modules[modulename]
 
 
 # __________________________________________________________________

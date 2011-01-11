@@ -7,7 +7,9 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     srccount = {}    # maps dst_locations to how many times the same
                      # location appears in src_locations
     for dst in dst_locations:
-        srccount[dst._getregkey()] = 0
+        key = dst._getregkey()
+        assert key not in srccount, "duplicate value in dst_locations!"
+        srccount[key] = 0
     for i in range(len(dst_locations)):
         src = src_locations[i]
         if isinstance(src, ImmedLoc):

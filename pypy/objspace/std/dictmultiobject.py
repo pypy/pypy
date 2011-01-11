@@ -57,7 +57,6 @@ class W_DictMultiObject(W_Object):
                 w_type = space.w_dict
             w_self = space.allocate_instance(W_DictMultiObject, w_type)
             W_DictMultiObject.__init__(w_self, space)
-            w_self.initialize_as_rdict()
             return w_self
 
     def __init__(self, space):
@@ -98,29 +97,39 @@ class W_DictMultiObject(W_Object):
     # implementation methods
     def impl_getitem(self, w_key):
         #return w_value or None
-        raise NotImplementedError("abstract base class")
+        # in case the key is unhashable, try to hash it
+        self.space.hash(w_key)
+        # return None anyway
+        return None
 
     def impl_getitem_str(self, key):
         #return w_value or None
-        raise NotImplementedError("abstract base class")
+        return None
+
+    def impl_setitem(self, w_key, w_value):
+        self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
     def impl_setitem_str(self, key, w_value):
-        raise NotImplementedError("abstract base class")
-
-    def impl_setitem(self,  w_key, w_value):
-        raise NotImplementedError("abstract base class")
+        self._as_rdict().impl_fallback_setitem_str(key, w_value)
 
     def impl_delitem(self, w_key):
-        raise NotImplementedError("abstract base class")
+        # in case the key is unhashable, try to hash it
+        self.space.hash(w_key)
+        raise KeyError
 
     def impl_length(self):
-        raise NotImplementedError("abstract base class")
+        return 0
 
     def impl_iter(self):
-        raise NotImplementedError("abstract base class")
+        # XXX I guess it's not important to be fast in this case?
+        return self._as_rdict().impl_fallback_iter()
 
     def impl_clear(self):
-        raise NotImplementedError("abstract base class")
+        self.r_dict_content = None
+
+    def _as_rdict(self):
+        r_dict_content = self.initialize_as_rdict()
+        return self
 
     def impl_keys(self):
         iterator = self.impl_iter()
@@ -799,42 +808,6 @@ def dict_popitem__DictMulti(space, w_dict):
         raise OperationError(space.w_KeyError,
                              space.wrap("popitem(): dictionary is empty"))
     return space.newtuple([w_key, w_value])
-
-app = gateway.applevel('''
-    def dictrepr(currently_in_repr, d):
-        # Now we only handle one implementation of dicts, this one.
-        # The fix is to move this to dicttype.py, and do a
-        # multimethod lookup mapping str to StdObjSpace.str
-        # This cannot happen until multimethods are fixed. See dicttype.py
-            dict_id = id(d)
-            if dict_id in currently_in_repr:
-                return '{...}'
-            currently_in_repr[dict_id] = 1
-            try:
-                items = []
-                # XXX for now, we cannot use iteritems() at app-level because
-                #     we want a reasonable result instead of a RuntimeError
-                #     even if the dict is mutated by the repr() in the loop.
-                for k, v in dict.items(d):
-                    items.append(repr(k) + ": " + repr(v))
-                return "{" +  ', '.join(items) + "}"
-            finally:
-                try:
-                    del currently_in_repr[dict_id]
-                except:
-                    pass
-''', filename=__file__)
-
-dictrepr = app.interphook("dictrepr")
-
-def repr__DictMulti(space, w_dict):
-    if w_dict.length() == 0:
-        return space.wrap('{}')
-    ec = space.getexecutioncontext()
-    w_currently_in_repr = ec._py_repr
-    if w_currently_in_repr is None:
-        w_currently_in_repr = ec._py_repr = space.newdict()
-    return dictrepr(space, w_currently_in_repr, w_dict)
 
 
 # ____________________________________________________________

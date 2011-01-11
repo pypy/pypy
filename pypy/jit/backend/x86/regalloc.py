@@ -60,32 +60,6 @@ class X86_64_RegisterManager(X86RegisterManager):
         r15: 5,
     }
 
-class FloatConstants(object):
-    BASE_CONSTANT_SIZE = 1000
-
-    def __init__(self):
-        self.cur_array_free = 0
-        self.const_id = 0
-
-    def _get_new_array(self):
-        n = self.BASE_CONSTANT_SIZE
-        # known to leak
-        self.cur_array = lltype.malloc(rffi.CArray(lltype.Float), n,
-                                       flavor='raw', track_allocation=False)
-        self.cur_array_free = n
-    _get_new_array._dont_inline_ = True
-
-    def record_float(self, floatval):
-        if self.cur_array_free == 0:
-            self._get_new_array()
-        arr = self.cur_array
-        n = self.cur_array_free - 1
-        arr[n] = floatval
-        self.cur_array_free = n
-        self.const_id += 1
-        return (self.const_id, rffi.cast(lltype.Signed, arr) + n * 8)
-
-
 class X86XMMRegisterManager(RegisterManager):
 
     box_types = [FLOAT]
@@ -93,20 +67,11 @@ class X86XMMRegisterManager(RegisterManager):
     # we never need lower byte I hope
     save_around_call_regs = all_regs
 
-    def __init__(self, longevity, frame_manager=None, assembler=None):
-        RegisterManager.__init__(self, longevity, frame_manager=frame_manager,
-                                 assembler=assembler)
-        if assembler is None:
-            self.float_constants = FloatConstants()
-        else:
-            if assembler._float_constants is None:
-                assembler._float_constants = FloatConstants()
-            self.float_constants = assembler._float_constants
-
     def convert_to_imm(self, c):
-        const_id, adr = self.float_constants.record_float(c.getfloat())
-        return ConstFloatLoc(adr, const_id)
-        
+        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        return ConstFloatLoc(adr)
+
     def after_call(self, v):
         # the result is stored in st0, but we don't have this around,
         # so genop_call will move it to some frame location immediately
@@ -136,7 +101,6 @@ class X86FrameManager(FrameManager):
             return StackLoc(i, get_ebp_ofs(i), 1, box_type)
 
 class RegAlloc(object):
-    exc = False
 
     def __init__(self, assembler, translate_support_code=False):
         assert isinstance(translate_support_code, bool)
@@ -320,11 +284,22 @@ class RegAlloc(object):
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
 
+    def get_current_depth(self):
+        # return (self.fm.frame_depth, self.param_depth), but trying to share
+        # the resulting tuple among several calls
+        arg0 = self.fm.frame_depth
+        arg1 = self.param_depth
+        result = self.assembler._current_depths_cache
+        if result[0] != arg0 or result[1] != arg1:
+            result = (arg0, arg1)
+            self.assembler._current_depths_cache = result
+        return result
+
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
         self.rm.position += 1
         self.xrm.position += 1
-        current_depths = (self.fm.frame_depth, self.param_depth)
+        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
                                                    arglocs, result_loc,
                                                    current_depths)
@@ -340,7 +315,7 @@ class RegAlloc(object):
                                                       arglocs))
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
-        current_depths = (self.fm.frame_depth, self.param_depth)                
+        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)
@@ -400,35 +375,42 @@ class RegAlloc(object):
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
         # operations that is a "last-time-seen"
-        longevity = {}
-        start_live = {}
-        for inputarg in inputargs:
-            start_live[inputarg] = 0
-        for i in range(len(operations)):
+        produced = {}
+        last_used = {}
+        for i in range(len(operations)-1, -1, -1):
             op = operations[i]
-            if op.result is not None:
-                start_live[op.result] = i
+            if op.result:
+                if op.result not in last_used and op.has_no_side_effect():
+                    continue
+                assert op.result not in produced
+                produced[op.result] = i
             for j in range(op.numargs()):
                 arg = op.getarg(j)
-                if isinstance(arg, Box):
-                    if arg not in start_live:
-                        not_implemented("Bogus arg in operation %d at %d" %
-                                        (op.getopnum(), i))
-                    longevity[arg] = (start_live[arg], i)
+                if isinstance(arg, Box) and arg not in last_used:
+                    last_used[arg] = i
             if op.is_guard():
                 for arg in op.getfailargs():
                     if arg is None: # hole
                         continue
                     assert isinstance(arg, Box)
-                    if arg not in start_live:
-                        not_implemented("Bogus arg in guard %d at %d" %
-                                        (op.getopnum(), i))
-                    longevity[arg] = (start_live[arg], i)
+                    if arg not in last_used:
+                        last_used[arg] = i
+                        
+        longevity = {}
+        for arg in produced:
+            if arg in last_used:
+                assert isinstance(arg, Box)
+                assert produced[arg] < last_used[arg]
+                longevity[arg] = (produced[arg], last_used[arg])
+                del last_used[arg]
         for arg in inputargs:
-            if arg not in longevity:
-                longevity[arg] = (-1, -1)
-        for arg in longevity:
             assert isinstance(arg, Box)
+            if arg not in last_used:
+                longevity[arg] = (-1, -1)
+            else:
+                longevity[arg] = (0, last_used[arg])
+                del last_used[arg]
+        assert len(last_used) == 0
         return longevity
 
     def loc(self, v):
@@ -452,7 +434,10 @@ class RegAlloc(object):
         locs = [self.loc(op.getarg(i)) for i in range(op.numargs())]
         locs_are_ref = [op.getarg(i).type == REF for i in range(op.numargs())]
         fail_index = self.assembler.cpu.get_fail_descr_number(op.getdescr())
-        self.assembler.generate_failure(fail_index, locs, self.exc,
+        # note: no exception should currently be set in llop.get_exception_addr
+        # even if this finish may be an exit_frame_with_exception (in this case
+        # the exception instance is in locs[0]).
+        self.assembler.generate_failure(fail_index, locs, False,
                                         locs_are_ref)
         self.possibly_free_vars_for_op(op)
 
@@ -1097,7 +1082,8 @@ class RegAlloc(object):
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
                 gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
-        return gcrootmap.compress_callshape(shape)
+        return gcrootmap.compress_callshape(shape,
+                                            self.assembler.datablockwrapper)
 
     def consider_force_token(self, op):
         loc = self.rm.force_allocate_reg(op.result)

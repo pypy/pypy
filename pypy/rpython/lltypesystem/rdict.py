@@ -581,7 +581,7 @@ def ll_dict_lookup(d, key, hash):
 def ll_dict_lookup_clean(d, hash):
     # a simplified version of ll_dict_lookup() which assumes that the
     # key is new, and the dictionary doesn't contain deleted entries.
-    # It only find the next free slot for the given hash.
+    # It only finds the next free slot for the given hash.
     entries = d.entries
     mask = len(entries) - 1
     i = hash & mask

@@ -5,7 +5,7 @@ from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
-    PyMethodDef, PyCFunction, PyStaticMethod_New)
+    PyMethodDef, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
@@ -54,9 +54,10 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
     modname = rffi.charp2str(name)
     state = space.fromcache(State)
-    w_mod = PyImport_AddModule(space, state.package_context)
+    f_name, f_path = state.package_context
+    w_mod = PyImport_AddModule(space, f_name)
 
-    dict_w = {}
+    dict_w = {'__file__': space.wrap(f_path)}
     convert_method_defs(space, dict_w, methods, None, w_self, modname)
     for key, w_value in dict_w.items():
         space.setattr(w_mod, space.wrap(key), w_value)

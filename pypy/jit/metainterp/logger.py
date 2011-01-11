@@ -38,6 +38,11 @@ class Logger(object):
             self._log_operations(inputargs, operations)
             debug_stop("jit-log-opt-bridge")
 
+    def log_short_preamble(self, inputargs, operations):
+        debug_start("jit-log-short-preamble")
+        self._log_operations(inputargs, operations)
+        debug_stop("jit-log-short-preamble")            
+
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
 

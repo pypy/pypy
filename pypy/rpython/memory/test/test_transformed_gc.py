@@ -1482,7 +1482,6 @@ class TestMiniMarkGC(TestHybridGC):
                          'arena_size': 64*WORD,
                          'small_request_threshold': 5*WORD,
                          'large_object': 8*WORD,
-                         'large_object_gcptrs': 10*WORD,
                          'card_page_indices': 4,
                          'translated_to_c': False,
                          }

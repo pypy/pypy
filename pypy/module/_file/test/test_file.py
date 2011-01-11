@@ -171,7 +171,18 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         raises(ValueError, self.file, self.temppath, "aU")
         raises(ValueError, self.file, self.temppath, "wU+")
         raises(ValueError, self.file, self.temppath, "")
-        
+
+    def test_write_resets_softspace(self):
+        f = self.file(self.temppath, "w")
+        print >> f, '.',
+        f.write(',')
+        print >> f, '.',
+        f.close()
+        f = self.file(self.temppath, "r")
+        res = f.read()
+        assert res == ".,."
+        f.close()
+
 class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,
     # because on top of py.py the inner calls to os.write() don't

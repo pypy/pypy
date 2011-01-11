@@ -55,7 +55,7 @@ class W_Root(object):
         return False
 
     def setdict(self, space, w_dict):
-        typename = space.type(self).getname(space, '?')
+        typename = space.type(self).getname(space)
         raise operationerrfmt(space.w_TypeError,
                               "attribute '__dict__' of %s objects "
                               "is not writable", typename)
@@ -72,7 +72,7 @@ class W_Root(object):
         raise NotImplementedError("only for interp-level user subclasses "
                                   "from typedef.py")
 
-    def getname(self, space, default):
+    def getname(self, space, default='?'):
         try:
             return space.str_w(space.getattr(self, space.wrap('__name__')))
         except OperationError, e:
@@ -117,7 +117,7 @@ class W_Root(object):
             classname = wrappable_class_name(RequiredClass)
         msg = "'%s' object expected, got '%s' instead"
         raise operationerrfmt(space.w_TypeError, msg,
-            classname, self.getclass(space).getname(space, '?'))
+            classname, self.getclass(space).getname(space))
 
     # used by _weakref implemenation
 
@@ -125,7 +125,7 @@ class W_Root(object):
         return None
 
     def setweakref(self, space, weakreflifeline):
-        typename = space.type(self).getname(space, '?')
+        typename = space.type(self).getname(space)
         raise operationerrfmt(space.w_TypeError,
             "cannot create weak reference to '%s' object", typename)
 
@@ -147,7 +147,7 @@ class W_Root(object):
 
     __already_enqueued_for_destruction = False
 
-    def _enqueue_for_destruction(self, space):
+    def _enqueue_for_destruction(self, space, call_user_del=True):
         """Put the object in the destructor queue of the space.
         At a later, safe point in time, UserDelAction will use
         space.userdel() to call the object's app-level __del__ method.
@@ -160,7 +160,8 @@ class W_Root(object):
                 return
             self.__already_enqueued_for_destruction = True
         self.clear_all_weakrefs()
-        space.user_del_action.register_dying_object(self)
+        if call_user_del:
+            space.user_del_action.register_dying_object(self)
 
     def _call_builtin_destructor(self):
         pass     # method overridden in typedef.py
@@ -363,8 +364,6 @@ class ObjSpace(object):
 
     def setbuiltinmodule(self, importname):
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
-        import sys
-
         fullname = "pypy.module.%s" % importname
 
         Module = __import__(fullname,
@@ -554,6 +553,9 @@ class ObjSpace(object):
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
+        if self.config.objspace.usemodules.cpyext:
+            from pypy.module.cpyext.state import State
+            self.fromcache(State).build_api(self)
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')
@@ -729,7 +731,7 @@ class ObjSpace(object):
             msg = "'%s' object expected, got '%s' instead"
             raise operationerrfmt(self.w_TypeError, msg,
                 wrappable_class_name(RequiredClass),
-                w_obj.getclass(self).getname(self, '?'))
+                w_obj.getclass(self).getname(self))
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
@@ -796,8 +798,8 @@ class ObjSpace(object):
 
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance            
-            from pypy.interpreter.function import Function        
+            # XXX start of hack for performance
+            from pypy.interpreter.function import Function
             if isinstance(w_callable, Function):
                 return w_callable.call_obj_args(w_obj, args)
             # XXX end of hack for performance
@@ -861,14 +863,14 @@ class ObjSpace(object):
 
     def call_args_and_c_profile(self, frame, w_func, args):
         ec = self.getexecutioncontext()
-        ec.c_call_trace(frame, w_func)
+        ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
             w_value = e.get_w_value(self)
             ec.c_exception_trace(frame, w_value)
             raise
-        ec.c_return_trace(frame, w_func)
+        ec.c_return_trace(frame, w_func, args)
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):
@@ -1050,7 +1052,7 @@ class ObjSpace(object):
                 raise
             msg = "%s must be an integer, not %s"
             raise operationerrfmt(self.w_TypeError, msg,
-                objdescr, self.type(w_obj).getname(self, '?'))
+                objdescr, self.type(w_obj).getname(self))
         try:
             index = self.int_w(w_index)
         except OperationError, err:
@@ -1066,7 +1068,7 @@ class ObjSpace(object):
                 raise operationerrfmt(
                     w_exception,
                     "cannot fit '%s' into an index-sized "
-                    "integer", self.type(w_obj).getname(self, '?'))
+                    "integer", self.type(w_obj).getname(self))
         else:
             return index
 
@@ -1121,6 +1123,11 @@ class ObjSpace(object):
                 raise
             buffer = self.buffer_w(w_obj)
             return buffer.as_str()
+
+    def str_or_None_w(self, w_obj):
+        if self.is_w(w_obj, self.w_None):
+            return None
+        return self.str_w(w_obj)
 
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
@@ -1181,6 +1188,30 @@ class ObjSpace(object):
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
+
+    def c_filedescriptor_w(self, w_fd):
+        if (not self.isinstance_w(w_fd, self.w_int) and
+            not self.isinstance_w(w_fd, self.w_long)):
+            try:
+                w_fileno = self.getattr(w_fd, self.wrap("fileno"))
+            except OperationError, e:
+                if e.match(self, self.w_AttributeError):
+                    raise OperationError(self.w_TypeError,
+                        self.wrap("argument must be an int, or have a fileno() "
+                            "method.")
+                    )
+                raise
+            w_fd = self.call_function(w_fileno)
+            if not self.isinstance_w(w_fd, self.w_int):
+                raise OperationError(self.w_TypeError,
+                    self.wrap("fileno() must return an integer")
+                )
+        fd = self.int_w(w_fd)
+        if fd < 0:
+            raise operationerrfmt(self.w_ValueError,
+                "file descriptor cannot be a negative integer (%d)", fd
+            )
+        return fd
 
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
@@ -1381,4 +1412,3 @@ ObjSpace.IrregularOpTable = [
     'call_args',
     'marshal_w',
     ]
-

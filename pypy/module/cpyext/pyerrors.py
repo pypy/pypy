@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, Py_DecRef, borrow_from)
+    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef, borrow_from)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.rlib.rposix import get_errno
@@ -80,6 +80,21 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     Py_DecRef(space, w_value)
     Py_DecRef(space, w_traceback)
 
+@cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
+def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
+    """Under certain circumstances, the values returned by PyErr_Fetch() below
+    can be "unnormalized", meaning that *exc is a class object but *val is
+    not an instance of the  same class.  This function can be used to instantiate
+    the class in that case.  If the values are already normalized, nothing happens.
+    The delayed normalization is implemented to improve performance."""
+    operr = OperationError(from_ref(space, exc_p[0]),
+                           from_ref(space, val_p[0]))
+    operr.normalize_exception(space)
+    Py_DecRef(space, exc_p[0])
+    Py_DecRef(space, val_p[0])
+    exc_p[0] = make_ref(space, operr.w_type)
+    val_p[0] = make_ref(space, operr.get_w_value(space))
+
 @cpython_api([], lltype.Void)
 def PyErr_BadArgument(space):
     """This is a shorthand for PyErr_SetString(PyExc_TypeError, message), where
@@ -114,10 +129,29 @@ def PyErr_SetFromErrno(space, w_type):
     function around a system call can write return PyErr_SetFromErrno(type);
     when the system call returns an error.
     Return value: always NULL."""
+    PyErr_SetFromErrnoWithFilename(space, w_type,
+                                   lltype.nullptr(rffi.CCHARP.TO))
+
+@cpython_api([PyObject, rffi.CCHARP], PyObject)
+def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
+    """Similar to PyErr_SetFromErrno(), with the additional behavior that if
+    filename is not NULL, it is passed to the constructor of type as a third
+    parameter.  In the case of exceptions such as IOError and OSError,
+    this is used to define the filename attribute of the exception instance.
+    Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = get_errno()
     msg = os.strerror(errno)
-    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    if llfilename:
+        w_filename = rffi.charp2str(llfilename)
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg),
+                                      space.wrap(w_filename))
+    else:
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
@@ -241,3 +275,12 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 def PyErr_Print(space):
     """Alias for PyErr_PrintEx(1)."""
     PyErr_PrintEx(space, 1)
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PyTraceBack_Print(space, w_tb, w_file):
+    space.call_method(w_file, "write", space.wrap(
+        'Traceback (most recent call last):\n'))
+    w_traceback = space.call_method(space.builtin, '__import__',
+                                    space.wrap("traceback"))
+    space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
+    return 0

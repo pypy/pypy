@@ -74,7 +74,7 @@ class BasicBlock(object):
 
     def generate(self, dotgen, counts):
         val = counts.get(self.key, 0)
-        if val > counts.threshold:
+        if False: #val > counts.threshold:
             fillcolor = get_gradient_color(self.ratio)
         else:
             fillcolor = "white"

@@ -1,18 +1,15 @@
-from pypy.jit.metainterp.specnode import SpecNode, NotSpecNode, ConstantSpecNode
-from pypy.jit.metainterp.specnode import AbstractVirtualStructSpecNode
-from pypy.jit.metainterp.specnode import VirtualInstanceSpecNode
-from pypy.jit.metainterp.specnode import VirtualArraySpecNode
-from pypy.jit.metainterp.specnode import VirtualStructSpecNode
+from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
+from pypy.jit.metainterp.optimizeutil import descrlist_dict
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp.optimizeopt.optimizer import *
+from pypy.jit.metainterp.optimizeopt import optimizer
 
 
-class AbstractVirtualValue(OptValue):
+class AbstractVirtualValue(optimizer.OptValue):
     _attrs_ = ('optimizer', 'keybox', 'source_op', '_cached_vinfo')
     box = None
-    level = LEVEL_NONNULL
+    level = optimizer.LEVEL_NONNULL
     _cached_vinfo = None
 
     def __init__(self, optimizer, keybox, source_op=None):
@@ -47,6 +44,9 @@ class AbstractVirtualValue(OptValue):
     def _really_force(self):
         raise NotImplementedError("abstract base")
 
+    def reconstruct_for_next_iteration(self, _optimizer):
+        return optimizer.OptValue(self.force_box())
+
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
         result = descrlist_dict()
@@ -67,7 +67,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         return self._fields.get(ofs, default)
 
     def setfield(self, ofs, fieldvalue):
-        assert isinstance(fieldvalue, OptValue)
+        assert isinstance(fieldvalue, optimizer.OptValue)
         self._fields[ofs] = fieldvalue
 
     def _really_force(self):
@@ -123,9 +123,32 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
+    def enum_forced_boxes(self, boxes, already_seen):
+        key = self.get_key_box()
+        if key in already_seen:
+            return
+        already_seen[key] = None
+        if self.box is None:
+            lst = self._get_field_descr_list()
+            for ofs in lst:
+                self._fields[ofs].enum_forced_boxes(boxes, already_seen)
+        else:
+            boxes.append(self.box)
+
+    def reconstruct_for_next_iteration(self, optimizer):
+        self.optimizer = optimizer
+        return self
+
+    def reconstruct_childs(self, new, valuemap):
+        assert isinstance(new, AbstractVirtualStructValue)
+        if new.box is None:
+            lst = self._get_field_descr_list()
+            for ofs in lst:
+                new._fields[ofs] = \
+                      self._fields[ofs].get_reconstructed(new.optimizer, valuemap)
 
 class VirtualValue(AbstractVirtualStructValue):
-    level = LEVEL_KNOWNCLASS
+    level = optimizer.LEVEL_KNOWNCLASS
 
     def __init__(self, optimizer, known_class, keybox, source_op=None):
         AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
@@ -138,6 +161,8 @@ class VirtualValue(AbstractVirtualStructValue):
 
     def __repr__(self):
         cls_name = self.known_class.value.adr.ptr._obj._TYPE._name
+        if self._fields is None:
+            return '<VirtualValue FORCED cls=%s>' % (cls_name,)
         field_names = [field.name for field in self._fields]
         return "<VirtualValue cls=%s fields=%s>" % (cls_name, field_names)
 
@@ -167,7 +192,7 @@ class VArrayValue(AbstractVirtualValue):
         return res
 
     def setitem(self, index, itemvalue):
-        assert isinstance(itemvalue, OptValue)
+        assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
 
     def _really_force(self):
@@ -202,79 +227,33 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
+    def enum_forced_boxes(self, boxes, already_seen):
+        key = self.get_key_box()
+        if key in already_seen:
+            return
+        already_seen[key] = None
+        if self.box is None:
+            for itemvalue in self._items:
+                itemvalue.enum_forced_boxes(boxes, already_seen)
+        else:
+            boxes.append(self.box)
 
-class __extend__(SpecNode):
-    def setup_virtual_node(self, optimizer, box, newinputargs):
-        raise NotImplementedError
-    def teardown_virtual_node(self, optimizer, value, newexitargs):
-        raise NotImplementedError
+    def reconstruct_for_next_iteration(self, optimizer):
+        self.optimizer = optimizer
+        return self
 
-class __extend__(NotSpecNode):
-    def setup_virtual_node(self, optimizer, box, newinputargs):
-        newinputargs.append(box)
-    def teardown_virtual_node(self, optimizer, value, newexitargs):
-        newexitargs.append(value.force_box())
+    def reconstruct_childs(self, new, valuemap):
+        assert isinstance(new, VArrayValue)
+        if new.box is None:
+            for i in range(len(self._items)):
+                new._items[i] = self._items[i].get_reconstructed(new.optimizer,
+                                                                 valuemap)
 
-class __extend__(ConstantSpecNode):
-    def setup_virtual_node(self, optimizer, box, newinputargs):
-        optimizer.make_constant(box, self.constbox)
-    def teardown_virtual_node(self, optimizer, value, newexitargs):
-        pass
-
-class __extend__(AbstractVirtualStructSpecNode):
-    def setup_virtual_node(self, optimizer, box, newinputargs):
-        vvalue = self._setup_virtual_node_1(optimizer, box)
-        for ofs, subspecnode in self.fields:
-            subbox = optimizer.new_box(ofs)
-            subspecnode.setup_virtual_node(optimizer, subbox, newinputargs)
-            vvaluefield = optimizer.getvalue(subbox)
-            vvalue.setfield(ofs, vvaluefield)
-    def _setup_virtual_node_1(self, optimizer, box):
-        raise NotImplementedError
-    def teardown_virtual_node(self, optimizer, value, newexitargs):
-        assert value.is_virtual()
-        for ofs, subspecnode in self.fields:
-            subvalue = value.getfield(ofs, optimizer.new_const(ofs))
-            subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
-
-class __extend__(VirtualInstanceSpecNode):
-    def _setup_virtual_node_1(self, optimizer, box):
-        return optimizer.make_virtual(self.known_class, box)
-
-class __extend__(VirtualStructSpecNode):
-    def _setup_virtual_node_1(self, optimizer, box):
-        return optimizer.make_vstruct(self.typedescr, box)
-
-class __extend__(VirtualArraySpecNode):
-    def setup_virtual_node(self, optimizer, box, newinputargs):
-        vvalue = optimizer.make_varray(self.arraydescr, len(self.items), box)
-        for index in range(len(self.items)):
-            subbox = optimizer.new_box_item(self.arraydescr)
-            subspecnode = self.items[index]
-            subspecnode.setup_virtual_node(optimizer, subbox, newinputargs)
-            vvalueitem = optimizer.getvalue(subbox)
-            vvalue.setitem(index, vvalueitem)
-    def teardown_virtual_node(self, optimizer, value, newexitargs):
-        assert value.is_virtual()
-        for index in range(len(self.items)):
-            subvalue = value.getitem(index)
-            subspecnode = self.items[index]
-            subspecnode.teardown_virtual_node(optimizer, subvalue, newexitargs)
-
-class OptVirtualize(Optimization):
+class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def setup(self, virtuals):
-        if not virtuals:
-            return
-
-        inputargs = self.optimizer.loop.inputargs
-        specnodes = self.optimizer.loop.token.specnodes
-        assert len(inputargs) == len(specnodes)
-        newinputargs = []
-        for i in range(len(inputargs)):
-            specnodes[i].setup_virtual_node(self, inputargs[i], newinputargs)
-        self.optimizer.loop.inputargs = newinputargs
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        return self
 
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer, known_class, box, source_op)
@@ -290,19 +269,6 @@ class OptVirtualize(Optimization):
         vvalue = VStructValue(self.optimizer, structdescr, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
-
-    def optimize_JUMP(self, op):
-        orgop = self.optimizer.loop.operations[-1]
-        exitargs = []
-        target_loop_token = orgop.getdescr()
-        assert isinstance(target_loop_token, LoopToken)
-        specnodes = target_loop_token.specnodes
-        assert op.numargs() == len(specnodes)
-        for i in range(len(specnodes)):
-            value = self.getvalue(op.getarg(i))
-            specnodes[i].teardown_virtual_node(self, value, exitargs)
-        op = op.copy_and_change(op.getopnum(), args=exitargs[:])
-        self.emit_operation(op)
 
     def optimize_VIRTUAL_REF(self, op):
         indexbox = op.getarg(1)
@@ -350,10 +316,10 @@ class OptVirtualize(Optimization):
     def optimize_GETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            # optimizefindnode should ensure that fieldvalue is found
             assert isinstance(value, AbstractVirtualValue)
             fieldvalue = value.getfield(op.getdescr(), None)
-            assert fieldvalue is not None
+            if fieldvalue is None:
+                fieldvalue = self.optimizer.new_const(op.getdescr())
             self.make_equal_to(op.result, fieldvalue)
         else:
             value.ensure_nonnull()

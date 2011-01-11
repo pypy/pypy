@@ -1,10 +1,12 @@
 import sys
+import weakref
 import os.path
 
 import py
 
 from pypy.conftest import gettestobjspace
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app
 from pypy.rpython.lltypesystem import rffi, lltype, ll2ctypes
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator import platform
@@ -33,7 +35,7 @@ class TestApi:
 
 class AppTestApi:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
         from pypy.rlib.libffi import get_libc_name
         cls.w_libc = cls.space.wrap(get_libc_name())
 
@@ -41,6 +43,17 @@ class AppTestApi:
         import cpyext
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
         raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
+
+    def test_dllhandle(self):
+        import sys
+        if sys.version_info < (2, 6):
+            skip("Python >= 2.6 only")
+        assert sys.dllhandle
+        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
+        import ctypes # slow
+        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
+        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
+        assert PyUnicode_GetDefaultEncoding() == 'ascii'
 
 def compile_module(space, modname, **kwds):
     """
@@ -79,6 +92,23 @@ def freeze_refcnts(self):
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
 class LeakCheckingTest(object):
+    @staticmethod
+    def cleanup_references(space):
+        state = space.fromcache(RefcountState)
+
+        import gc; gc.collect()
+        # Clear all lifelines, objects won't resurrect
+        for w_obj, obj in state.lifeline_dict._dict.items():
+            if w_obj not in state.py_objects_w2r:
+                state.lifeline_dict.set(w_obj, None)
+            del obj
+        import gc; gc.collect()
+
+        for w_obj in state.non_heaptypes_w:
+            Py_DecRef(space, w_obj)
+        state.non_heaptypes_w[:] = []
+        state.reset_borrowed_references()
+
     def check_and_print_leaks(self):
         # check for sane refcnts
         import gc
@@ -89,13 +119,6 @@ class LeakCheckingTest(object):
         lost_objects_w = identity_dict()
         lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
 
-        # Clear all lifelines, objects won't resurrect
-        for w_obj, obj in state.lifeline_dict._dict.items():
-            if w_obj not in state.py_objects_w2r:
-                state.lifeline_dict.set(w_obj, None)
-            del obj
-        gc.collect()
-
         for w_obj, obj in state.py_objects_w2r.iteritems():
             base_refcnt = self.frozen_refcounts.get(w_obj)
             delta = obj.c_ob_refcnt
@@ -105,7 +128,12 @@ class LeakCheckingTest(object):
             if delta != 0:
                 leaking = True
                 print >>sys.stderr, "Leaking %r: %i references" % (w_obj, delta)
-                lifeline = state.lifeline_dict.get(w_obj)
+                try:
+                    weakref.ref(w_obj)
+                except TypeError:
+                    lifeline = None
+                else:
+                    lifeline = state.lifeline_dict.get(w_obj)
                 if lifeline is not None:
                     refcnt = lifeline.pyo.c_ob_refcnt
                     if refcnt > 0:
@@ -130,12 +158,14 @@ class LeakCheckingTest(object):
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts
         state = cls.space.fromcache(RefcountState)
         state.non_heaptypes_w[:] = []
+
+        cls.w_cleanup_references = cls.space.wrap(interp2app(cls.cleanup_references))
 
     def compile_module(self, name, **kwds):
         """
@@ -192,6 +222,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         else:
             return os.path.dirname(mod)
 
+    def reimport_module(self, mod, name):
+        api.load_extension_module(self.space, mod, name)
+        return self.space.getitem(
+            self.space.sys.get('modules'),
+            self.space.wrap(name))
+
     def import_extension(self, modname, functions, prologue=""):
         methods_table = []
         codes = []
@@ -231,6 +267,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names = []
 
         self.w_import_module = self.space.wrap(self.import_module)
+        self.w_reimport_module = self.space.wrap(self.reimport_module)
         self.w_import_extension = self.space.wrap(self.import_extension)
         self.w_compile_module = self.space.wrap(self.compile_module)
         self.w_record_imported_module = self.space.wrap(
@@ -256,13 +293,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
     def teardown_method(self, func):
         for name in self.imported_module_names:
             self.unimport_module(name)
-        state = self.space.fromcache(RefcountState)
-        for w_obj in state.non_heaptypes_w:
-            Py_DecRef(self.space, w_obj)
-        state.non_heaptypes_w[:] = []
-        state.reset_borrowed_references()
-        from pypy.module.cpyext import cdatetime
-        cdatetime.datetimeAPI_dealloc(self.space)
+        self.cleanup_references(self.space)
         if self.check_and_print_leaks():
             assert False, "Test leaks or loses object(s)."
 
@@ -669,3 +700,59 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert mod.get_names() == ('cell', 'module', 'property',
                                    'staticmethod',
                                    'builtin_function_or_method')
+
+    def test_get_programname(self):
+        mod = self.import_extension('foo', [
+            ('get_programname', 'METH_NOARGS',
+             '''
+             char* name1 = Py_GetProgramName();
+             char* name2 = Py_GetProgramName();
+             if (name1 != name2)
+                 Py_RETURN_FALSE;
+             return PyString_FromString(name1);
+             '''
+             ),
+            ])
+        p = mod.get_programname()
+        print p
+        assert 'py' in p
+
+    def test_no_double_imports(self):
+        import sys, os
+        try:
+            init = """
+            static int _imported_already = 0;
+            FILE *f = fopen("_imported_already", "w");
+            fprintf(f, "imported_already: %d\\n", _imported_already);
+            fclose(f);
+            _imported_already = 1;
+            if (Py_IsInitialized()) {
+                Py_InitModule("foo", NULL);
+            }
+            """
+            self.import_module(name='foo', init=init)
+            assert 'foo' in sys.modules
+
+            f = open('_imported_already')
+            data = f.read()
+            f.close()
+            assert data == 'imported_already: 0\n'
+
+            f = open('_imported_already', 'w')
+            f.write('not again!\n')
+            f.close()
+            m1 = sys.modules['foo']
+            m2 = self.reimport_module(m1.__file__, name='foo')
+            assert m1 is m2
+            assert m1 is sys.modules['foo']
+
+            f = open('_imported_already')
+            data = f.read()
+            f.close()
+            assert data == 'not again!\n'
+
+        finally:
+            try:
+                os.unlink('_imported_already')
+            except OSError:
+                pass

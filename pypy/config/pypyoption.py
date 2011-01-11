@@ -31,7 +31,7 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect", "cppyy"]
+     "_bisect", "cppyy", "binascii"]
 ))
 
 translation_modules = default_modules.copy()
@@ -161,7 +161,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                suggests=[("objspace.allworkingmodules", False)]),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
-               cmdline=None,
                default=True),
 
     BoolOption("logbytecodes",
@@ -301,7 +300,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False),        
+                   default=False),
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
@@ -310,8 +309,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         ChoiceOption("multimethods", "the multimethod implementation to use",
                      ["doubledispatch", "mrd"],
                      default="mrd"),
-        BoolOption("immutable_builtintypes",
-                   "Forbid the changing of builtin types", default=True),
+        BoolOption("mutable_builtintypes",
+                   "Allow the changing of builtin types", default=False,
+                   requires=[("objspace.std.builtinshortcut", True)]),
      ]),
 ])
 

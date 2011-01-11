@@ -519,7 +519,7 @@ which simply iterates over all numbers from 0 to n - 1 is equivalent to the
 following in Python::
 
     l = range(n)
-    iterator = iter(n)
+    iterator = iter(l)
     try:
         while 1:
             i = iterator.next()

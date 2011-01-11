@@ -156,7 +156,7 @@ current_trace_length.oopspec = 'jit.current_trace_length()'
 
 def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
                       arg3=-sys.maxint-1, arg4=-sys.maxint-1):
-    """When JITted, cause an extra operation DEBUG_MERGE_POINT to appear in
+    """When JITted, cause an extra operation JIT_DEBUG to appear in
     the graphs.  Should not be left after debugging."""
     keepalive_until_here(string) # otherwise the whole function call is removed
 jit_debug.oopspec = 'jit.debug(string, arg1, arg2, arg3, arg4)'
@@ -257,20 +257,15 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 OPTIMIZER_SIMPLE = 0
-OPTIMIZER_NO_PERFECTSPEC = 1
+OPTIMIZER_NO_UNROLL = 1
 OPTIMIZER_FULL = 2
-
-DEBUG_OFF = 0
-DEBUG_PROFILE = 1
-DEBUG_STEPS = 2
-DEBUG_DETAILED = 3
 
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
               'trace_limit': 10000,
               'inlining': False,
               'optimizer': OPTIMIZER_FULL,
-              'debug' : DEBUG_STEPS,
+              'loop_longevity': 1000,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 
@@ -392,8 +387,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         from pypy.annotation import model as annmodel
 
         if self.instance.__name__ == 'jit_merge_point':
-            if not self.annotate_hooks(**kwds_s):
-                return None      # wrong order, try again later
+            self.annotate_hooks(**kwds_s)
 
         driver = self.instance.im_self
         keys = kwds_s.keys()
@@ -429,13 +423,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
         h = self.annotate_hook
-        return (h(driver.get_jitcell_at, driver.greens, **kwds_s)
-            and h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
-            and h(driver.get_printable_location, driver.greens, **kwds_s))
+        h(driver.get_jitcell_at, driver.greens, **kwds_s)
+        h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
+        h(driver.get_printable_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
-            return True
+            return
         bk = self.bookkeeper
         s_func = bk.immutablevalue(func)
         uniquekey = 'jitdriver.%s' % func.func_name
@@ -446,12 +440,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             else:
                 objname, fieldname = name.split('.')
                 s_instance = kwds_s['s_' + objname]
-                s_arg = s_instance.classdef.about_attribute(fieldname)
-                if s_arg is None:
-                    return False     # wrong order, try again later
+                attrdef = s_instance.classdef.find_attribute(fieldname)
+                position = self.bookkeeper.position_key
+                attrdef.read_locations[position] = True
+                s_arg = attrdef.getvalue()
+                assert s_arg is not None
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
-        return True
 
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype

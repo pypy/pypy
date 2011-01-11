@@ -24,6 +24,7 @@ def transform_graph(graph, cpu=None, callcontrol=None, portal_jd=None):
 
 
 class Transformer(object):
+    vable_array_vars = None
 
     def __init__(self, cpu=None, callcontrol=None, portal_jd=None):
         self.cpu = cpu
@@ -38,7 +39,6 @@ class Transformer(object):
     def optimize_block(self, block):
         if block.operations == ():
             return
-        self.immutable_arrays = {}
         self.vable_array_vars = {}
         self.vable_flags = {}
         renamings = {}
@@ -83,6 +83,7 @@ class Transformer(object):
         self.follow_constant_exit(block)
         self.optimize_goto_if_not(block)
         for link in block.exits:
+            self._check_no_vable_array(link.args)
             self._do_renaming_on_link(renamings, link)
 
     def _do_renaming(self, rename, op):
@@ -99,6 +100,28 @@ class Transformer(object):
                     newlst.append(x)
                 op.args[i] = ListOfKind(v.kind, newlst)
         return op
+
+    def _check_no_vable_array(self, list):
+        if not self.vable_array_vars:
+            return
+        for v in list:
+            if v in self.vable_array_vars:
+                raise AssertionError(
+                    "A virtualizable array is passed around; it should\n"
+                    "only be used immediately after being read.  Note\n"
+                    "that a possible cause is indexing with an index not\n"
+                    "known non-negative, or catching IndexError, or\n"
+                    "not inlining at all (for tests: use listops=True).\n"
+                    "Occurred in: %r" % self.graph)
+            # extra expanation: with the way things are organized in
+            # rpython/rlist.py, the ll_getitem becomes a function call
+            # that is typically meant to be inlined by the JIT, but
+            # this does not work with vable arrays because
+            # jtransform.py expects the getfield and the getarrayitem
+            # to be in the same basic block.  It works a bit as a hack
+            # for simple cases where we performed the backendopt
+            # inlining before (even with a very low threshold, because
+            # there is _always_inline_ on the relevant functions).
 
     def _do_renaming_on_link(self, rename, link):
         for i, v in enumerate(link.args):
@@ -170,9 +193,12 @@ class Transformer(object):
         else:
             return rewrite(self, op)
 
-    def rewrite_op_same_as(self, op): pass
-    def rewrite_op_cast_pointer(self, op): pass
-    def rewrite_op_cast_opaque_ptr(self, op): pass   # rlib.rerased
+    def rewrite_op_same_as(self, op):
+        if op.args[0] in self.vable_array_vars:
+            self.vable_array_vars[op.result]= self.vable_array_vars[op.args[0]]
+
+    rewrite_op_cast_pointer = rewrite_op_same_as
+    rewrite_op_cast_opaque_ptr = rewrite_op_same_as   # rlib.rerased
     def rewrite_op_cast_primitive(self, op): pass
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
@@ -257,6 +283,7 @@ class Transformer(object):
            The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
         if args is None:
             args = op.args[1:]
+        self._check_no_vable_array(args)
         lst_i, lst_r, lst_f = self.make_three_lists(args)
         reskind = getkind(op.result.concretetype)[0]
         if lst_f or reskind == 'f': kinds = 'irf'
@@ -398,6 +425,7 @@ class Transformer(object):
     rewrite_op_int_lshift_ovf  = _do_builtin_call
     rewrite_op_int_abs         = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
+    rewrite_op_gc_id           = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.
@@ -524,17 +552,14 @@ class Transformer(object):
                                                 arrayfielddescr,
                                                 arraydescr)
             return []
-        # check for deepfrozen structures that force constant-folding
-        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
-        if immut:
+        # check for _immutable_fields_ hints
+        if v_inst.concretetype.TO._immutable_field(c_fieldname.value):
             if (self.callcontrol is not None and
                 self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
                                                       c_fieldname.value)):
                 pure = '_greenfield'
             else:
                 pure = '_pure'
-            if immut == "[*]":
-                self.immutable_arrays[op.result] = True
         else:
             pure = ''
         argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
@@ -931,21 +956,19 @@ class Transformer(object):
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
         assert func.func_name.startswith('ll_')
+        # check that we have carefully placed the oopspec in
+        # pypy/rpython/rlist.py.  There should not be an oopspec on
+        # a ll_getitem or ll_setitem that expects a 'func' argument.
+        # The idea is that a ll_getitem/ll_setitem with dum_checkidx
+        # should get inlined by the JIT, so that we see the potential
+        # 'raise IndexError'.
+        assert 'func' not in func.func_code.co_varnames
         non_negative = '_nonneg' in func.func_name
         fast = '_fast' in func.func_name
-        if fast:
-            can_raise = False
-            non_negative = True
-        else:
-            tag = op.args[1].value
-            assert tag in (rlist.dum_nocheck, rlist.dum_checkidx)
-            can_raise = tag != rlist.dum_nocheck
-        return non_negative, can_raise
+        return non_negative or fast
 
     def _prepare_list_getset(self, op, descr, args, checkname):
-        non_negative, can_raise = self._get_list_nonneg_canraise_flags(op)
-        if can_raise:
-            raise NotSupported("list operation can raise")
+        non_negative = self._get_list_nonneg_canraise_flags(op)
         if non_negative:
             return args[1], []
         else:
@@ -957,9 +980,8 @@ class Transformer(object):
             return v_posindex, [op0, op1]
 
     def _prepare_void_list_getset(self, op):
-        non_negative, can_raise = self._get_list_nonneg_canraise_flags(op)
-        if can_raise:
-            raise NotSupported("list operation can raise")
+        # sanity check:
+        self._get_list_nonneg_canraise_flags(op)
 
     def _get_initial_newlist_length(self, op, args):
         # normalize number of arguments to the 'newlist' function
@@ -1004,7 +1026,7 @@ class Transformer(object):
         v_index, extraop = self._prepare_list_getset(op, arraydescr, args,
                                                      'check_neg_index')
         extra = getkind(op.result.concretetype)[0]
-        if pure or args[0] in self.immutable_arrays:
+        if pure:
             extra = 'pure_' + extra
         op = SpaceOperation('getarrayitem_gc_%s' % extra,
                             [args[0], arraydescr, v_index], op.result)

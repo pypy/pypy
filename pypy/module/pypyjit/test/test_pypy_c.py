@@ -82,6 +82,8 @@ class PyPyCJITTests(object):
     def run_source(self, source, expected_max_ops, *testcases, **kwds):
         assert isinstance(expected_max_ops, int)
         threshold = kwds.pop('threshold', 3)
+        self.count_debug_merge_point = \
+                                     kwds.pop('count_debug_merge_point', True)
         if kwds:
             raise TypeError, 'Unsupported keyword arguments: %s' % kwds.keys()
         source = py.code.Source(source)
@@ -134,27 +136,37 @@ class PyPyCJITTests(object):
         return result
 
     def parse_loops(self, opslogfile):
-        from pypy.jit.tool.oparser import parse
         from pypy.tool import logparser
         assert opslogfile.check()
         log = logparser.parse_log_file(str(opslogfile))
         parts = logparser.extract_category(log, 'jit-log-opt-')
         self.rawloops = [part for part in parts
                          if not from_entry_bridge(part, parts)]
-        # skip entry bridges, they can contain random things
-        self.loops = [parse(part, no_namespace=True) for part in self.rawloops]
-        self.sliced_loops = [] # contains all bytecodes of all loops
-        self.total_ops = 0
-        for loop in self.loops:
-            self.total_ops += len(loop.operations)
+        self.loops, self.sliced_loops, self.total_ops = \
+                                           self.parse_rawloops(self.rawloops)
+        self.check_0_op_bytecodes()
+        self.rawentrybridges = [part for part in parts
+                                if from_entry_bridge(part, parts)]
+        _, self.sliced_entrybridge, _ = \
+                                    self.parse_rawloops(self.rawentrybridges)
+
+    def parse_rawloops(self, rawloops):
+        from pypy.jit.tool.oparser import parse
+        loops = [parse(part, no_namespace=True) for part in rawloops]
+        sliced_loops = [] # contains all bytecodes of all loops
+        total_ops = 0
+        for loop in loops:
             for op in loop.operations:
                 if op.getopname() == "debug_merge_point":
                     sliced_loop = BytecodeTrace()
                     sliced_loop.bytecode = op.getarg(0)._get_str().rsplit(" ", 1)[1]
-                    self.sliced_loops.append(sliced_loop)
+                    sliced_loops.append(sliced_loop)
+                    if self.count_debug_merge_point:
+                        total_ops += 1
                 else:
                     sliced_loop.append(op)
-        self.check_0_op_bytecodes()
+                    total_ops += 1
+        return loops, sliced_loops, total_ops
 
     def check_0_op_bytecodes(self):
         for bytecodetrace in self.sliced_loops:
@@ -162,8 +174,12 @@ class PyPyCJITTests(object):
                 continue
             assert not bytecodetrace
 
-    def get_by_bytecode(self, name):
-        return [ops for ops in self.sliced_loops if ops.bytecode == name]
+    def get_by_bytecode(self, name, from_entry_bridge=False):
+        if from_entry_bridge:
+            sliced_loops = self.sliced_entrybridge
+        else:
+            sliced_loops = self.sliced_loops
+        return [ops for ops in sliced_loops if ops.bytecode == name]
 
     def print_loops(self):
         for rawloop in self.rawloops:
@@ -236,9 +252,10 @@ class PyPyCJITTests(object):
         ''', 98,
                    ([20], 20),
                     ([31], 32))
-        ops = self.get_by_bytecode("LOAD_GLOBAL")
+        ops = self.get_by_bytecode("LOAD_GLOBAL", True)
         assert len(ops) == 5
-        assert ops[0].get_opnames() == ["getfield_gc", "guard_value",
+        assert ops[0].get_opnames() == ["guard_value",
+                                        "getfield_gc", "guard_value",
                                         "getfield_gc", "guard_isnull",
                                         "getfield_gc", "guard_nonnull_class"]
         # the second getfield on the same globals is quicker
@@ -250,7 +267,7 @@ class PyPyCJITTests(object):
         assert ops[3].get_opnames() == ["guard_value",
                                         "getfield_gc", "guard_isnull"]
         assert not ops[4]
-        ops = self.get_by_bytecode("CALL_FUNCTION")
+        ops = self.get_by_bytecode("CALL_FUNCTION", True)
         assert len(ops) == 2
         for i, bytecode in enumerate(ops):
             if i == 0:
@@ -259,6 +276,17 @@ class PyPyCJITTests(object):
                 assert not bytecode.get_opnames("call")
             assert not bytecode.get_opnames("new")
             assert len(bytecode.get_opnames("guard")) <= 10
+
+        ops = self.get_by_bytecode("LOAD_GLOBAL")
+        assert len(ops) == 5
+        for bytecode in ops:
+            assert not bytecode
+
+        ops = self.get_by_bytecode("CALL_FUNCTION")
+        assert len(ops) == 2
+        for bytecode in ops:
+            assert len(bytecode) <= 1
+        
 
     def test_method_call(self):
         self.run_source('''
@@ -277,14 +305,18 @@ class PyPyCJITTests(object):
         ''', 93,
                    ([20], 20),
                     ([31], 32))
-        ops = self.get_by_bytecode("LOOKUP_METHOD")
+        ops = self.get_by_bytecode("LOOKUP_METHOD", True)
         assert len(ops) == 2
         assert not ops[0].get_opnames("call")
         assert not ops[0].get_opnames("new")
-        assert len(ops[0].get_opnames("guard")) <= 2
+        assert len(ops[0].get_opnames("guard")) <= 3
         assert not ops[1] # second LOOKUP_METHOD folded away
 
-        ops = self.get_by_bytecode("CALL_METHOD")
+        ops = self.get_by_bytecode("LOOKUP_METHOD")
+        assert not ops[0] # first LOOKUP_METHOD folded away
+        assert not ops[1] # second LOOKUP_METHOD folded away
+
+        ops = self.get_by_bytecode("CALL_METHOD", True)
         assert len(ops) == 2
         for i, bytecode in enumerate(ops):
             if i == 0:
@@ -295,7 +327,12 @@ class PyPyCJITTests(object):
             assert len(bytecode.get_opnames("guard")) <= 6
         assert len(ops[1]) < len(ops[0])
 
-        ops = self.get_by_bytecode("LOAD_ATTR")
+        ops = self.get_by_bytecode("CALL_METHOD")
+        assert len(ops) == 2
+        assert len(ops[0]) <= 1
+        assert len(ops[1]) <= 1
+        
+        ops = self.get_by_bytecode("LOAD_ATTR", True)
         assert len(ops) == 2
         # With mapdict, we get fast access to (so far) the 5 first
         # attributes, which means it is done with only the following
@@ -303,6 +340,10 @@ class PyPyCJITTests(object):
         # a getarrayitem_gc.)
         assert ops[0].get_opnames() == ["getfield_gc",
                                         "guard_nonnull_class"]
+        assert not ops[1] # second LOAD_ATTR folded away
+
+        ops = self.get_by_bytecode("LOAD_ATTR")
+        assert not ops[0] # first LOAD_ATTR folded away
         assert not ops[1] # second LOAD_ATTR folded away
 
     def test_static_classmethod_call(self):
@@ -349,6 +390,14 @@ class PyPyCJITTests(object):
         ops = self.get_by_bytecode("CALL_FUNCTION")
         assert len(ops) == 2
         for i, bytecode in enumerate(ops):
+            assert not bytecode.get_opnames("call")
+            assert not bytecode.get_opnames("new")
+        assert len(ops[0].get_opnames("guard")) <= 14
+        assert len(ops[1].get_opnames("guard")) <= 3
+
+        ops = self.get_by_bytecode("CALL_FUNCTION", True)
+        assert len(ops) == 2
+        for i, bytecode in enumerate(ops):
             if i == 0:
                 assert "call(getexecutioncontext)" in str(bytecode)
             else:
@@ -377,7 +426,7 @@ class PyPyCJITTests(object):
                     ([1000], 49500),
                     ([10000], 495000),
                     ([100000], 4950000))
-        assert len(self.loops) == 3
+        assert len(self.rawloops)  + len(self.rawentrybridges) == 4
         op, = self.get_by_bytecode("CALL_FUNCTION_KW")
         # XXX a bit too many guards, but better than before
         assert len(op.get_opnames("guard")) <= 12
@@ -539,6 +588,8 @@ class PyPyCJITTests(object):
         bytecode, = self.get_by_bytecode("CALL_METHOD")
         assert len(bytecode.get_opnames("new_with_vtable")) == 1 # the forcing of the int
         assert len(bytecode.get_opnames("call")) == 1 # the call to append
+        assert len(bytecode.get_opnames("guard")) == 1 # guard for guard_no_exception after the call
+        bytecode, = self.get_by_bytecode("CALL_METHOD", True)
         assert len(bytecode.get_opnames("guard")) == 2 # guard for profiling disabledness + guard_no_exception after the call
 
     def test_range_iter(self):
@@ -552,6 +603,20 @@ class PyPyCJITTests(object):
                     s += g(n)[i]
                 return s
         ''', 143, ([1000], 1000 * 999 / 2))
+        bytecode, = self.get_by_bytecode("BINARY_SUBSCR", True)
+        assert bytecode.get_opnames("guard") == [
+            "guard_false",   # check that the index is >= 0
+            "guard_false",   # check that the index is lower than the current length
+            ]
+        bytecode, _ = self.get_by_bytecode("FOR_ITER", True) # second bytecode is the end of the loop
+        assert bytecode.get_opnames("guard") == [
+            "guard_value",
+            "guard_class",   # check the class of the iterator
+            "guard_nonnull", # check that the iterator is not finished
+            "guard_isnull",  # check that the range list is not forced
+            "guard_false",   # check that the index is lower than the current length
+            ]
+
         bytecode, = self.get_by_bytecode("BINARY_SUBSCR")
         assert bytecode.get_opnames("guard") == [
             "guard_false",   # check that the index is >= 0
@@ -559,12 +624,9 @@ class PyPyCJITTests(object):
             ]
         bytecode, _ = self.get_by_bytecode("FOR_ITER") # second bytecode is the end of the loop
         assert bytecode.get_opnames("guard") == [
-            "guard_class",   # check the class of the iterator
-            "guard_nonnull", # check that the iterator is not finished
-            "guard_isnull",  # check that the range list is not forced
             "guard_false",   # check that the index is lower than the current length
             ]
- 
+
     def test_exception_inside_loop_1(self):
         py.test.skip("exceptions: in-progress")
         self.run_source('''
@@ -630,6 +692,32 @@ class PyPyCJITTests(object):
         ''', 3000, ([0], 2000*3))
         assert len(self.loops) == 1
 
+    def test_getattr_with_dynamic_attribute(self):
+        self.run_source('''
+        class A(object):
+            pass
+
+        l = ["x", "y"]
+
+        def main(arg):
+            sum = 0
+            a = A()
+            a.a1 = 0
+            a.a2 = 0
+            a.a3 = 0
+            a.a4 = 0
+            a.a5 = 0 # workaround, because the first five attributes need a promotion
+            a.x = 1
+            a.y = 2
+            i = 0
+            while i < 2000:
+                name = l[i % 2]
+                sum += getattr(a, name)
+                i += 1
+            return sum
+        ''', 3000, ([0], 3000))
+        assert len(self.loops) == 1
+
     def test_blockstack_virtualizable(self):
         self.run_source('''
         from pypyjit import residual_call
@@ -673,11 +761,9 @@ class PyPyCJITTests(object):
                 i = t2[3]
                 del t2
             return i
-        ''', 100, ([], 100))
+        ''', 40, ([], 100))
         bytecode, = self.get_by_bytecode('BINARY_SUBSCR')
-        assert len(bytecode.get_opnames('new_array')) == 1
-        # XXX I would like here to say that it's 0, but unfortunately
-        #     call that can raise is not exchanged into getarrayitem_gc
+        assert len(bytecode.get_opnames('new_array')) == 0
 
     def test_overflow_checking(self):
         startvalue = sys.maxint - 2147483647
@@ -772,7 +858,7 @@ class PyPyCJITTests(object):
                             else: sa += 20000
                             i += 0.25
                         return sa
-                    '''%(op1, float(a)/4.0, op2, float(b)/4.0), 109, ([], res))
+                    '''%(op1, float(a)/4.0, op2, float(b)/4.0), 156, ([], res))
                     
 
     def test_boolrewrite_correct_reflex(self):
@@ -814,7 +900,7 @@ class PyPyCJITTests(object):
                             else: sa += 20000
                             i += 0.25
                         return sa
-                    '''%(op1, float(a)/4.0, float(b)/4.0, op2), 109, ([], res))
+                    '''%(op1, float(a)/4.0, float(b)/4.0, op2), 156, ([], res))
 
     def test_boolrewrite_ptr(self):
         # XXX this test is way too imprecise in what it is actually testing
@@ -861,11 +947,14 @@ class PyPyCJITTests(object):
     def test_array_sum(self):
         for tc, maxops in zip('bhilBHILfd', (38,) * 6 + (40, 40, 41, 38)):
             res = 19352859
-            if tc in 'IL':
+            if tc == 'L':
                 res = long(res)
             elif tc in 'fd':
                 res = float(res)
-            
+            elif tc == 'I' and sys.maxint == 2147483647:
+                res = long(res)
+                # note: in CPython we always get longs here, even on 64-bits
+
             self.run_source('''
             from array import array
 
@@ -913,11 +1002,14 @@ class PyPyCJITTests(object):
             print '='*65
             print '='*20, 'running test for tc=%r' % (tc,), '='*20
             res = 73574560
-            if tc in 'IL':
+            if tc == 'L':
                 res = long(res)
             elif tc in 'fd':
                 res = float(res)
-            
+            elif tc == 'I' and sys.maxint == 2147483647:
+                res = long(res)
+                # note: in CPython we always get longs here, even on 64-bits
+
             self.run_source('''
             from array import array
 
@@ -1232,7 +1324,153 @@ class PyPyCJITTests(object):
         assert call.getarg(1).value == 2.0
         assert call.getarg(2).value == 3.0
 
-    # test_circular
+    def test_xor(self):
+        values = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
+        for a in values:
+            for b in values:
+                if a^b >= 0:
+                    r = 2000
+                else:
+                    r = 0
+                ops = 46
+                
+                self.run_source('''
+                def main(a, b):
+                    i = sa = 0
+                    while i < 2000:
+                        if a > 0: # Specialises the loop
+                            pass
+                        if b > 1:
+                            pass
+                        if a^b >= 0:
+                            sa += 1
+                        i += 1
+                    return sa
+                ''', ops, ([a, b], r))
+        
+    def test_shift(self):
+        from sys import maxint
+        maxvals = (-maxint-1, -maxint, maxint-1, maxint)
+        for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
+            for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
+                r = 0
+                if (a >> b) >= 0:
+                    r += 2000
+                if (a << b) > 2:
+                    r += 20000000
+                if abs(a) < 10 and b < 5:
+                    ops = 13
+                else:
+                    ops = 29
+
+                self.run_source('''
+                def main(a, b):
+                    i = sa = 0
+                    while i < 2000:
+                        if a > 0: # Specialises the loop
+                            pass
+                        if b < 2 and b > 0:
+                            pass
+                        if (a >> b) >= 0:
+                            sa += 1
+                        if (a << b) > 2:
+                            sa += 10000
+                        i += 1
+                    return sa
+                ''', ops, ([a, b], r), count_debug_merge_point=False)
+
+    def test_revert_shift(self):
+        from sys import maxint
+        tests = []
+        for a in (1, 4, 8, 100):
+            for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
+                for c in (-10, 10, -maxint/3, maxint/3):
+                    tests.append(([a, b, c], long(4000*(a+b+c))))
+        self.run_source('''
+        def main(a, b, c):
+            from sys import maxint
+            i = sa = 0
+            while i < 2000:
+                if 0 < a < 10: pass
+                if -100 < b < 100: pass
+                if -maxint/2 < c < maxint/2: pass
+                sa += (a<<a)>>a
+                sa += (b<<a)>>a
+                sa += (c<<a)>>a
+                sa += (a<<100)>>100
+                sa += (b<<100)>>100
+                sa += (c<<100)>>100
+                i += 1
+            return long(sa)
+        ''', 93, count_debug_merge_point=False, *tests)
+        
+    def test_division_to_rshift(self):
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        a1, b1, res1 = 10, 20, 0
+        a2, b2, res2 = 10, -20, 0
+        a3, b3, res3 = -10, -20, 0
+        def dd(a, b, aval, bval):
+            m = {'a': aval, 'b': bval}
+            if not isinstance(a, int):
+                a=m[a]
+            if not isinstance(b, int):
+                b=m[b]
+            return a/b
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s / %s\n' % (a, b)
+                res1 += dd(a, b, a1, b1)
+                res2 += dd(a, b, a2, b2)
+                res3 += dd(a, b, a3, b3)
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+%s                
+                i += 1
+            return sa
+        ''' % code, 179, ([a1, b1], 2000 * res1),
+                         ([a2, b2], 2000 * res2),
+                         ([a3, b3], 2000 * res3),
+                         count_debug_merge_point=False)
+        
+    def test_mod(self):
+        py.test.skip('Results are correct, but traces 1902 times (on trunk too).')
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        a1, b1, res1 = 10, 20, 0
+        a2, b2, res2 = 10, -20, 0
+        a3, b3, res3 = -10, -20, 0
+        def dd(a, b, aval, bval):
+            m = {'a': aval, 'b': bval}
+            if not isinstance(a, int):
+                a=m[a]
+            if not isinstance(b, int):
+                b=m[b]
+            return a % b
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s %% %s\n' % (a, b)
+                res1 += dd(a, b, a1, b1)
+                res2 += dd(a, b, a2, b2)
+                res3 += dd(a, b, a3, b3)
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+                if a > 0: pass
+                if 1 < b < 2: pass
+%s
+                i += 1
+            return sa
+        ''' % code, 0, ([a1, b1], 2000 * res1),
+                         ([a2, b2], 2000 * res2),
+                         ([a3, b3], 2000 * res3),
+                         count_debug_merge_point=False)
+        
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
