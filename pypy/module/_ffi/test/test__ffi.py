@@ -265,7 +265,7 @@ class AppTestFfi:
         p = POINT()
         p.x = 30
         p.y = 12
-        res = sum_point(p.buffer)
+        res = sum_point(p)
         assert res == 42
         p.free()
 
@@ -285,8 +285,7 @@ class AppTestFfi:
         libfoo = CDLL(self.libfoo_name)
         make_point = libfoo.getfunc('make_point', [types.slong, types.slong], ffi_point)
         #
-        adr = make_point(12, 34)
-        p = POINT.fromaddress(adr)
+        p = make_point(12, 34)
         assert p.x == 12
         assert p.y == 34
         p.free()

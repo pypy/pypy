@@ -5,6 +5,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 #
 from pypy.rpython.lltypesystem import lltype, rffi
 #
@@ -14,10 +15,13 @@ from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 class W_FFIType(Wrappable):
-    def __init__(self, name, shape, ffitype):
+    def __init__(self, name, shape, ffitype, w_datashape=None):
         self.name = name
         self.shape = shape
         self.ffitype = ffitype
+        self.w_datashape = w_datashape
+        if self.is_struct():
+            assert w_datashape is not None
 
     @unwrap_spec('self', ObjSpace)
     def str(self, space):
@@ -150,8 +154,8 @@ class W_FuncPtr(Wrappable):
                 argchain.arg_singlefloat(space.float_w(w_arg))
             elif w_argtype.is_struct():
                 # arg_raw directly takes value to put inside ll_args
-                uintval = space.uint_w(w_arg)
-                ptrval = rffi.cast(rffi.VOIDP, uintval)
+                w_arg = space.interp_w(W_StructureInstance, w_arg)                
+                ptrval = w_arg.ll_buffer
                 argchain.arg_raw(ptrval)
             else:
                 assert False, "Argument shape '%s' not supported" % w_argtype.shape
@@ -195,8 +199,10 @@ class W_FuncPtr(Wrappable):
             floatres = self.func.call(argchain, rffi.FLOAT)
             return space.wrap(floatres)
         elif w_restype.is_struct():
-            # we return the address of the buffer as an integer
-            return self._call_uint(space, argchain)
+            w_datashape = w_restype.w_datashape
+            assert isinstance(w_datashape, W_Structure)
+            ptrval = self.func.call(argchain, rffi.VOIDP, is_struct=True)
+            return w_datashape.fromaddress(space, ptrval)
         elif w_restype.is_void():
             voidres = self.func.call(argchain, lltype.Void)
             assert voidres is None
@@ -247,10 +253,6 @@ class W_FuncPtr(Wrappable):
             return space.wrap(uintres)
         elif restype is libffi.types.pointer:
             ptrres = call(argchain, rffi.VOIDP)
-            uintres = rffi.cast(rffi.ULONG, ptrres)
-            return space.wrap(uintres)
-        elif libffi.types.is_struct(restype):
-            ptrres = call(argchain, rffi.VOIDP, is_struct=True)
             uintres = rffi.cast(rffi.ULONG, ptrres)
             return space.wrap(uintres)
         elif restype is libffi.types.uint:
