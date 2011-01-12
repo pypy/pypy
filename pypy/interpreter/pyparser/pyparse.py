@@ -25,10 +25,11 @@ def _normalize_encoding(encoding):
         return None
     # lower() + '_' / '-' conversion
     encoding = encoding.replace('_', '-').lower()
-    if encoding.startswith('utf-8'):
+    if encoding == 'utf-8' or encoding.startswith('utf-8-'):
         return 'utf-8'
     for variant in ['latin-1', 'iso-latin-1', 'iso-8859-1']:
-        if encoding.startswith(variant):
+        if (encoding == variant or
+            encoding.startswith(variant + '-')):
             return 'iso-8859-1'
     return encoding
 
