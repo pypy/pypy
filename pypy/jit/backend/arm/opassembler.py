@@ -395,19 +395,21 @@ class ArrayOpAssember(object):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
 
         if scale.value > 0:
+            scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
-            self.mc.MOV_rr(r.ip.value, ofs_loc.value)
+            scale_loc = ofs_loc
 
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, r.ip.value, ofs.value)
+            self.mc.ADD_ri(r.ip.value, scale_loc.value, ofs.value)
+            scale_loc = r.ip
 
         if scale.value == 2:
-            self.mc.STR_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
+            self.mc.STR_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
-            self.mc.STRH_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
+            self.mc.STRH_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 0:
-            self.mc.STRB_rr(value_loc.value, base_loc.value, r.ip.value, cond=fcond)
+            self.mc.STRB_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
         else:
             assert 0
         return fcond
@@ -417,18 +419,20 @@ class ArrayOpAssember(object):
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs_loc, scale, ofs = arglocs
         if scale.value > 0:
+            scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
-            self.mc.MOV_rr(r.ip.value, ofs_loc.value)
+            scale_loc = ofs_loc
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, r.ip.value, imm=ofs.value)
+            self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
+            scale_loc = r.ip
 
         if scale.value == 2:
-            self.mc.LDR_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
+            self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
-            self.mc.LDRH_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
+            self.mc.LDRH_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 0:
-            self.mc.LDRB_rr(res.value, base_loc.value, r.ip.value, cond=fcond)
+            self.mc.LDRB_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
         else:
             assert 0
 
