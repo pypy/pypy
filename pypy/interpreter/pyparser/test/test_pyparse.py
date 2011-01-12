@@ -79,6 +79,7 @@ stuff = "nothing"
         assert exc.msg == "EOF while scanning triple-quoted string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
+        assert exc.lastlineno == 3
         for input in ("())", "(()", "((", "))"):
             py.test.raises(SyntaxError, parse, input)
         exc = py.test.raises(SyntaxError, parse, "x = (\n\n(),\n(),").value

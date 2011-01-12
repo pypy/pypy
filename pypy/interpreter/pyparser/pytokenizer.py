@@ -96,7 +96,7 @@ def generate_tokens(lines, flags):
                 raise TokenError(
                     "EOF while scanning triple-quoted string literal",
                     strstart[2], strstart[0], strstart[1]+1,
-                    token_list, lnum)
+                    token_list, lnum-1)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
