@@ -215,6 +215,19 @@ class AppTestFfi:
         assert sum_xy(10, 20) == 30
         assert sum_xy(100, 28) == -128
 
+    def test_char_args(self):
+        """
+            DLLEXPORT char my_toupper(char x)
+            {
+                return x - ('a'-'A');
+            }
+        """
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        my_toupper = libfoo.getfunc('my_toupper', [types.char],
+                                    types.char)
+        assert my_toupper('c') == 'C'
+
     def test_single_float_args(self):
         """
             DLLEXPORT float sum_xy_float(float x, float y)

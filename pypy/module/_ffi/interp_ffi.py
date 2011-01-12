@@ -43,6 +43,9 @@ class W_FFIType(Wrappable):
                 shape == 'B' or
                 shape == 'P' or
                 shape == 'Q')
+
+    def is_char(self):
+        return self.shape == 'c'
     
     def is_longlong(self):
         shape = self.shape
@@ -72,6 +75,10 @@ class W_types(Wrappable):
 def build_ffi_types():
     from pypy.rlib.clibffi import FFI_TYPE_P
     types = [
+        # note: most of the type name directly come from the C equivalent,
+        # with the exception of bytes: in C, ubyte and char are equivalent,
+        # but for _ffi the first expects a number while the second a 1-length
+        # string
         W_FFIType('slong',     'l', libffi.types.slong),
         W_FFIType('sint',      'i', libffi.types.sint),
         W_FFIType('sshort',    'h', libffi.types.sshort),
@@ -84,15 +91,15 @@ def build_ffi_types():
         W_FFIType('ubyte',     'B', libffi.types.uchar),
         W_FFIType('ulonglong', 'Q', libffi.types.ulonglong),
         #
+        W_FFIType('char',     'c', libffi.types.uchar),
+    
+       
         W_FFIType('double',    'd', libffi.types.double),
         W_FFIType('float',     'f', libffi.types.float),
         W_FFIType('void',      '0', libffi.types.void),
         W_FFIType('pointer',   'P', libffi.types.pointer),
         #
         # missing types:
-        ## 'c' : ffi_type_uchar,
-        ## 'b' : ffi_type_schar,
-        ## 'B' : ffi_type_uchar,
         ## 'u' : cast_type_to_ffitype(lltype.UniChar),
         ## 's' : ffi_type_pointer,
         ## 'z' : ffi_type_pointer,
@@ -152,6 +159,9 @@ class W_FuncPtr(Wrappable):
                 argchain.arg(space.int_w(w_arg))
             elif w_argtype.is_unsigned():
                 argchain.arg(intmask(space.uint_w(w_arg)))
+            elif w_argtype.is_char():
+                w_arg = space.ord(w_arg)
+                argchain.arg(space.int_w(w_arg))
             elif w_argtype.is_double():
                 argchain.arg(space.float_w(w_arg))
             elif w_argtype.is_singlefloat():
@@ -195,6 +205,9 @@ class W_FuncPtr(Wrappable):
             return self._call_int(space, argchain)
         elif w_restype.is_unsigned():
             return self._call_uint(space, argchain)
+        elif w_restype.is_char():
+            intres = self.func.call(argchain, rffi.UCHAR)
+            return space.wrap(chr(intres))
         elif w_restype.is_double():
             floatres = self.func.call(argchain, rffi.DOUBLE)
             return space.wrap(floatres)
