@@ -1,14 +1,12 @@
-# XXX ensure b value is as expected
-# XXX add not assertions for op1
 load_store = {
-    'STR_ri': {'A':0, 'op1': 0x0, 'B': 0, 'imm': True},
-    'STR_rr': {'A':1, 'op1': 0x0, 'B': 0, 'imm': False},
-    'LDR_ri': {'A':0, 'op1': 0x1, 'B': 0, 'imm': True},
-    'LDR_rr': {'A':1, 'op1': 0x1, 'B': 0, 'imm': False},
-    'STRB_ri': {'A':0, 'op1': 0x4, 'B': 0, 'imm': True},
-    'STRB_rr': {'A':1, 'op1': 0x4, 'B': 0, 'imm': False},
-    'LDRB_ri': {'A':0, 'op1': 0x5, 'B': 0, 'imm': True},
-    'LDRB_rr': {'A':1, 'op1': 0x5, 'B': 0, 'imm': False},
+    'STR_ri': {'A':0, 'op1': 0x0, 'op1not': 0x2, 'imm': True},
+    'STR_rr': {'A':1, 'op1': 0x0, 'op1not': 0x2, 'B': 0, 'imm': False},
+    'LDR_ri': {'A':0, 'op1': 0x1, 'op1not': 0x3, 'imm': True},
+    'LDR_rr': {'A':1, 'op1': 0x1, 'op1not': 0x3, 'B': 0, 'imm': False},
+    'STRB_ri': {'A':0, 'op1': 0x4, 'op1not': 0x6, 'rn':'!0xF', 'imm': True},
+    'STRB_rr': {'A':1, 'op1': 0x4, 'op1not': 0x6, 'B': 0, 'imm': False},
+    'LDRB_ri': {'A':0, 'op1': 0x5, 'op1not': 0x7, 'rn':'!0xF', 'imm': True},
+    'LDRB_rr': {'A':1, 'op1': 0x5, 'op1not': 0x7, 'B': 0, 'imm': False},
 }
 extra_load_store = { #Section 5.2.8
     'STRH_rr':  {'op2': 0x1, 'op1': 0x0},
@@ -74,23 +72,23 @@ data_proc_reg_shift_reg = {
 }
 
 data_proc_imm = {
-    'AND_ri': {'op': 0, 'rncond':'', 'result':True, 'base':True},
-    'EOR_ri': {'op': 0x2, 'rncond':'', 'result':True, 'base':True},
-    'SUB_ri': {'op': 0x4, 'rncond':'!0xF', 'result':True, 'base':True},
+    'AND_ri': {'op': 0, 'result':True, 'base':True},
+    'EOR_ri': {'op': 0x2, 'result':True, 'base':True},
+    'SUB_ri': {'op': 0x4, 'rn':'!0xF', 'result':True, 'base':True},
     #'ADR_ri': {'op': 0x4, 'rncond':'0xF', 'result':True, 'base':True},
-    'RSB_ri': {'op': 0x6, 'rncond':'', 'result':True, 'base':True},
-    'ADD_ri': {'op': 0x8, 'rncond':'!0xF', 'result':True, 'base':True},
-    'ADC_ri': {'op': 0xA, 'rncond':'', 'result':True, 'base':True},
-    'SBC_ri': {'op': 0xC, 'rncond':'', 'result':True, 'base':True},
-    'RSC_ri': {'op': 0xE, 'rncond':'', 'result':True, 'base':True},
-    'TST_ri': {'op': 0x11, 'rncond':'', 'result':False, 'base':True},
-    'TEQ_ri': {'op': 0x13, 'rncond':'', 'result':False, 'base':True},
-    'CMP_ri': {'op': 0x15, 'rncond':'', 'result':False, 'base':True},
-    'CMN_ri': {'op': 0x17, 'rncond':'', 'result':False, 'base':True},
-    'ORR_ri': {'op': 0x18, 'rncond':'', 'result':True, 'base':True},
-    'MOV_ri': {'op': 0x1A, 'rncond':'', 'result':True, 'base':False},
-    'BIC_ri': {'op': 0x1C, 'rncond':'', 'result':True, 'base':True},
-    'MVN_ri': {'op': 0x1E, 'rncond':'', 'result':True, 'base':False},
+    'RSB_ri': {'op': 0x6, 'result':True, 'base':True},
+    'ADD_ri': {'op': 0x8, 'rn':'!0xF', 'result':True, 'base':True},
+    'ADC_ri': {'op': 0xA, 'result':True, 'base':True},
+    'SBC_ri': {'op': 0xC, 'result':True, 'base':True},
+    'RSC_ri': {'op': 0xE, 'result':True, 'base':True},
+    'TST_ri': {'op': 0x11, 'result':False, 'base':True},
+    'TEQ_ri': {'op': 0x13, 'result':False, 'base':True},
+    'CMP_ri': {'op': 0x15, 'result':False, 'base':True},
+    'CMN_ri': {'op': 0x17, 'result':False, 'base':True},
+    'ORR_ri': {'op': 0x18, 'result':True, 'base':True},
+    'MOV_ri': {'op': 0x1A, 'result':True, 'base':False},
+    'BIC_ri': {'op': 0x1C, 'result':True, 'base':True},
+    'MVN_ri': {'op': 0x1E, 'result':True, 'base':False},
 }
 
 supervisor_and_coproc = {

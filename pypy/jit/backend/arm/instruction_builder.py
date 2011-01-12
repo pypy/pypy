@@ -5,30 +5,44 @@ def define_load_store_func(name, table):
     #  XXX W and P bits are not encoded yet
     n = (0x1 << 26
         | (table['A'] & 0x1) << 25
-        | (table['op1'] & 0x1F) << 20
-        | (table['B'] & 0x1) << 4)
+        | (table['op1'] & 0x1F) << 20)
+    if 'B' in table:
+        b_zero = True
+    else:
+        b_zero = False
+    op1cond = table['op1not']
+    rncond = ('rn' in table and table['rn'] == '!0xF')
     if table['imm']:
+        assert not b_zero
         def f(self, rt, rn, imm=0, cond=cond.AL):
+            assert not (rncond and rn == 0xF)
             p = 1
             w = 0
             u, imm = self._encode_imm(imm)
-            self.write32(n
+            instr = (n
                     | cond << 28
                     | (p & 0x1) <<  24
                     | (u & 0x1) << 23
                     | (w & 0x1) << 21
                     | imm_operation(rt, rn, imm))
+            assert instr & 0x1F00000 != op1cond
+            self.write32(instr)
     else:
         def f(self, rt, rn, rm, imm=0, cond=cond.AL, s=0, shifttype=0):
+            assert not (rncond and rn == 0xF)
             p = 1
             w = 0
             u, imm = self._encode_imm(imm)
-            self.write32(n
-                        | cond << 28
-                        | (p & 0x1) <<  24
-                        | (u & 0x1) << 23
-                        | (w & 0x1) << 21
-                        | reg_operation(rt, rn, rm, imm, s, shifttype))
+            instr = (n
+                    | cond << 28
+                    | (p & 0x1) <<  24
+                    | (u & 0x1) << 23
+                    | (w & 0x1) << 21
+                    | reg_operation(rt, rn, rm, imm, s, shifttype))
+            if b_zero:
+                assert instr & 0x10 == 0, 'bit 4 should be zero'
+            assert instr & 0x1F00000 != op1cond
+            self.write32(instr)
     return f
 
 def define_extra_load_store_func(name, table):
@@ -104,25 +118,26 @@ def define_extra_load_store_func(name, table):
 def define_data_proc_imm_func(name, table):
     n = (0x1 << 25
         | (table['op'] & 0x1F) << 20)
+    rncond = ('rn' in table and table['rn'] == '!0xF')
     if table['result'] and table['base']:
         def imm_func(self, rd, rn, imm=0, cond=cond.AL, s=0):
             if imm < 0:
                 raise ValueError
-            # XXX check condition on rn
+            assert not (rncond and rn == 0xF)
             self.write32(n
                 | cond << 28
                 | s << 20
                 | imm_operation(rd, rn, imm))
     elif not table['base']:
         def imm_func(self, rd, imm=0, cond=cond.AL, s=0):
-            # XXX check condition on rn
+            assert not (rncond and rn == 0xF)
             self.write32(n
                 | cond << 28
                 | s << 20
                 | imm_operation(rd, 0, imm))
     else:
         def imm_func(self, rn, imm=0, cond=cond.AL, s=0):
-            # XXX check condition on rn
+            assert not (rncond and rn == 0xF)
             self.write32(n
                 | cond << 28
                 | s << 20
