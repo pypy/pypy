@@ -1009,6 +1009,9 @@ class AppTestMutableBuiltintypes:
 
         assert C.__dict__['__dict__'].__doc__.startswith("dictionary for")
         assert C.__dict__['__weakref__'].__doc__.startswith("list of weak")
+        assert property.__doc__.startswith("property(fget=None,")
+        assert type.__doc__.startswith("type(object)")
+        assert "run-time error" in RuntimeError.__doc__
 
 class AppTestGetattributeShortcut:
 
