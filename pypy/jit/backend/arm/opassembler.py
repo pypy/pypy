@@ -120,12 +120,9 @@ class UnaryIntOpAssembler(object):
         self.mc.MVN_rr(res.value, reg.value)
         return fcond
 
-    #XXX check for a better way of doing this
     def emit_op_int_neg(self, op, arglocs, regalloc, fcond):
         l0, resloc = arglocs
-
-        self.mc.MVN_ri(r.ip.value, imm=~-1)
-        self.mc.MUL(resloc.value, l0.value, r.ip.value)
+        self.mc.RSB_ri(resloc.value, l0.value, imm=0)
         return fcond
 
 class GuardOpAssembler(object):
