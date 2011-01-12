@@ -2,7 +2,6 @@ from pypy.jit.backend.arm import conditions as cond
 from pypy.jit.backend.arm import instructions
 # move table lookup out of generated functions
 def define_load_store_func(name, table):
-    #  XXX W and P bits are not encoded yet
     n = (0x1 << 26
         | (table['A'] & 0x1) << 25
         | (table['op1'] & 0x1F) << 20)
@@ -118,26 +117,22 @@ def define_extra_load_store_func(name, table):
 def define_data_proc_imm_func(name, table):
     n = (0x1 << 25
         | (table['op'] & 0x1F) << 20)
-    rncond = ('rn' in table and table['rn'] == '!0xF')
     if table['result'] and table['base']:
         def imm_func(self, rd, rn, imm=0, cond=cond.AL, s=0):
             if imm < 0:
                 raise ValueError
-            assert not (rncond and rn == 0xF)
             self.write32(n
                 | cond << 28
                 | s << 20
                 | imm_operation(rd, rn, imm))
     elif not table['base']:
         def imm_func(self, rd, imm=0, cond=cond.AL, s=0):
-            assert not (rncond and rn == 0xF)
             self.write32(n
                 | cond << 28
                 | s << 20
                 | imm_operation(rd, 0, imm))
     else:
         def imm_func(self, rn, imm=0, cond=cond.AL, s=0):
-            assert not (rncond and rn == 0xF)
             self.write32(n
                 | cond << 28
                 | s << 20
@@ -290,7 +285,6 @@ def imm_operation(rt, rn, imm):
     | (imm & 0xFFF))
 
 def reg_operation(rt, rn, rm, imm, s, shifttype):
-    # XXX encode shiftype correctly
     return ((s & 0x1) << 20
             | (rn & 0xF) << 16
             | (rt & 0xF) << 12

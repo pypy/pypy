@@ -74,10 +74,9 @@ data_proc_reg_shift_reg = {
 data_proc_imm = {
     'AND_ri': {'op': 0, 'result':True, 'base':True},
     'EOR_ri': {'op': 0x2, 'result':True, 'base':True},
-    'SUB_ri': {'op': 0x4, 'rn':'!0xF', 'result':True, 'base':True},
-    #'ADR_ri': {'op': 0x4, 'rncond':'0xF', 'result':True, 'base':True},
+    'SUB_ri': {'op': 0x4, 'result':True, 'base':True},
     'RSB_ri': {'op': 0x6, 'result':True, 'base':True},
-    'ADD_ri': {'op': 0x8, 'rn':'!0xF', 'result':True, 'base':True},
+    'ADD_ri': {'op': 0x8, 'result':True, 'base':True},
     'ADC_ri': {'op': 0xA, 'result':True, 'base':True},
     'SBC_ri': {'op': 0xC, 'result':True, 'base':True},
     'RSC_ri': {'op': 0xE, 'result':True, 'base':True},
