@@ -64,3 +64,11 @@ Longer tasks
         def __cmp__(self, other):
             raise RuntimeError
     raises(RuntimeError, cmp, 0, badint(1))
+
+- Fix comparison of objects layout: if two classes have the same __slots__, it
+  should be possible to change the instances __class__::
+
+      class A(object): __slots__ = ('a', 'b')
+      class B(object): __slots__ = ('b', 'a')
+      a = A()
+      a.__class__ = B
