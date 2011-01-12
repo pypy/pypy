@@ -329,6 +329,8 @@ class W_TextIOWrapper(W_TextIOBase):
                 self.writenl = None
         elif _WINDOWS:
             self.writenl = u"\r\n"
+        else:
+            self.writenl = None
 
         # build the decoder object
         if space.is_true(space.call_method(w_buffer, "readable")):
