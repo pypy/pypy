@@ -8,30 +8,30 @@ http://buildbot.pypy.org/summary?branch=branch/fast-forward
 Probably easy tasks
 -------------------
 
-- New complex syntax::
+- New complex syntax (see test_complex.py)::
 
       assert complex("(1+2j)") == (1+2j)
       assert complex("(1-2j)") == (1-2j)
       assert complex("1e500") == complex(INF, 0.0)
 
-- Mark some tests as "implementation specific"::
-
-      @test_support.cpython_only
-
-- (unicode|bytearray).(index|find) should accept None as indices
+- (unicode|bytearray).(index|find) should accept None as indices (see
+  test_unicode.py)
 
 - Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
 
-- missing functions in itertools: combinations, product, compress...
-  compress, product DONE
+- missing functions in itertools: combinations, product...
 
 - in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
   proably requires to use the git_t typedef instead of rffi.INT.
 
-- missing posix.(confstr|pathconf|fpathconf)(_names)?
+- missing posix.(confstr|pathconf|fpathconf)(_names)? (see 
 
 - remove code duplication: bit_length() and _count_bits() in rlib/rbigint.py,
   objspace/std/longobject.py and objspace/std/longtype.py.
+
+- Add missing methods to bytearray (see test_bytes.py).  Also ideally refactor
+  stringobject.py and unicodeobject.py to allow more code reuse between these
+  (now) three types.
 
 
 Medium tasks
@@ -40,31 +40,22 @@ Medium tasks
 - Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
   test_pickle()
 
-- missing builtin: memoryview  DONE (but not very much tested)
-
-- Dictionary views: dict.viewkeys(), dict.viewvalues(), dict.viewitems()
-
 - add 'unicode' in ObjSpace.MethodTable + probably a default implementation that
-  falls back to space.str().
+  falls back to space.str(). (WHY?)
 
 - socket module has a couple of changes (including AF_TIPC packet range)
+
+- implement _io.open() (currently it delegates to _pyio.open)
+
 
 Longer tasks
 ------------
 
-- Missing builtin: bytearray (mutable resizable string).  Also ideally
-  refactor stringobject.py and unicodeobject.py to allow more code reuse
-  between these (now) three types.
-
-- Finish the _io module.
-
-- Finish _multiprocessing
-
 - many features are missing from the _ssl module
 
-- Enable -3 option to run test_py3kwarn.
+- Enable -3 option to run test_py3kwarn. (OR SKIP THIS FEATURE)
 
-- "Shorter float representation": copy dtoa.c from CPython and use it to
+- "Shorter float representation" (see pypy/translator/c/test/test_dtoa.py) to
   format/parse floats.  Enable this with a translation option.
 
 - Fix usage of __cmp__ in subclasses::
@@ -73,14 +64,3 @@ Longer tasks
         def __cmp__(self, other):
             raise RuntimeError
     raises(RuntimeError, cmp, 0, badint(1))
-
-More difficult issues
----------------------
-
-- In socket.py, """The implementation currently relies on reference counting to
-  close the underlying socket object."""
-
-- Implement an after-fork hook (See PyOS_AfterFork in CPython) to clear thread
-  state in a forked interpreter.
-  Then unskip test_3_join_in_forked_from_thread() in test_threading.py.
-
