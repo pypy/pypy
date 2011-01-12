@@ -187,6 +187,34 @@ class AppTestFfi:
         assert sum_xy(32000, 8000) == 40000
         assert sum_xy(60000, 30000) == 90000 % 65536
 
+    def test_unsigned_byte_args(self):
+        """
+            DLLEXPORT unsigned char sum_xy_ub(unsigned char x, unsigned char y)
+            {
+                return x+y;
+            }
+        """
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_us', [types.ubyte, types.ubyte],
+                                types.ubyte)
+        assert sum_xy(100, 40) == 140
+        assert sum_xy(200, 60) == 260 % 256
+
+    def test_signed_byte_args(self):
+        """
+            DLLEXPORT signed char sum_xy_sb(signed char x, signed char y)
+            {
+                return x+y;
+            }
+        """
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_sb', [types.sbyte, types.sbyte],
+                                types.sbyte)
+        assert sum_xy(10, 20) == 30
+        assert sum_xy(100, 28) == -128
+
     def test_single_float_args(self):
         """
             DLLEXPORT float sum_xy_float(float x, float y)

@@ -32,13 +32,15 @@ class W_FFIType(Wrappable):
         return (shape == 'i' or
                 shape == 'l' or
                 shape == 'h' or
+                shape == 'b' or
                 shape == 'q')
 
     def is_unsigned(self):
         shape = self.shape
-        return (shape == 'I' or
-                shape == 'L' or
+        return (shape == 'L' or
+                shape == 'I' or
                 shape == 'H' or
+                shape == 'B' or
                 shape == 'P' or
                 shape == 'Q')
     
@@ -70,21 +72,23 @@ class W_types(Wrappable):
 def build_ffi_types():
     from pypy.rlib.clibffi import FFI_TYPE_P
     types = [
-        W_FFIType('sint',      'i', libffi.types.sint),
         W_FFIType('slong',     'l', libffi.types.slong),
+        W_FFIType('sint',      'i', libffi.types.sint),
         W_FFIType('sshort',    'h', libffi.types.sshort),
+        W_FFIType('sbyte',     'b', libffi.types.schar),
         W_FFIType('slonglong', 'q', libffi.types.slonglong),
         #
-        W_FFIType('uint',      'I', libffi.types.uint),
         W_FFIType('ulong',     'L', libffi.types.ulong),
+        W_FFIType('uint',      'I', libffi.types.uint),
         W_FFIType('ushort',    'H', libffi.types.ushort),
+        W_FFIType('ubyte',     'B', libffi.types.uchar),
         W_FFIType('ulonglong', 'Q', libffi.types.ulonglong),
         #
         W_FFIType('double',    'd', libffi.types.double),
         W_FFIType('float',     'f', libffi.types.float),
         W_FFIType('void',      '0', libffi.types.void),
         W_FFIType('pointer',   'P', libffi.types.pointer),
-        
+        #
         # missing types:
         ## 'c' : ffi_type_uchar,
         ## 'b' : ffi_type_schar,
