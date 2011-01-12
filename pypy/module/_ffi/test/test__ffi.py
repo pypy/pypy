@@ -69,8 +69,8 @@ class AppTestFfi:
 
     def test_simple_types(self):
         from _ffi import types
-        assert str(types.sint) == '<ffi type sint>'
-        assert str(types.uint) == '<ffi type uint>'
+        assert str(types.sint) == "<ffi type sint (shape 'i')>"
+        assert str(types.uint) == "<ffi type uint (shape 'I')>"
         
     def test_callfunc(self):
         from _ffi import CDLL, types

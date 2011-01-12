@@ -14,14 +14,45 @@ from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 class W_FFIType(Wrappable):
-    def __init__(self, name, ffitype):
+    def __init__(self, name, shape, ffitype):
         self.name = name
+        self.shape = shape
         self.ffitype = ffitype
 
     @unwrap_spec('self', ObjSpace)
     def str(self, space):
-        return space.wrap('<ffi type %s>' % self.name)
+        return space.wrap("<ffi type %s (shape '%s')>" % (self.name, self.shape))
 
+    def is_signed(self):
+        shape = self.shape
+        return (shape == 'i' or
+                shape == 'l' or
+                shape == 'h' or
+                shape == 'q')
+
+    def is_unsigned(self):
+        shape = self.shape
+        return (shape == 'I' or
+                shape == 'L' or
+                shape == 'H' or
+                shape == 'P' or
+                shape == 'Q')
+    
+    def is_longlong(self):
+        shape = self.shape
+        return libffi.IS_32_BIT and (shape == 'q' or shape == 'Q')
+
+    def is_double(self):
+        return self.shape == 'd'
+
+    def is_singlefloat(self):
+        return self.shape == 'f'
+
+    def is_void(self):
+        return self.shape == '0'
+
+    def is_struct(self):
+        return self.shape == '1'
 
 W_FFIType.typedef = TypeDef(
     'FFIType',
@@ -34,13 +65,34 @@ class W_types(Wrappable):
 
 def build_ffi_types():
     from pypy.rlib.clibffi import FFI_TYPE_P
-    tdict = {}
-    for key, value in libffi.types.__dict__.iteritems():
-        if key == 'getkind' or key == 'is_struct' or key.startswith('__'):
-            continue
-        assert lltype.typeOf(value) == FFI_TYPE_P
-        tdict[key] = W_FFIType(key, value)
-    return tdict
+    types = [
+        W_FFIType('sint',      'i', libffi.types.sint),
+        W_FFIType('slong',     'l', libffi.types.slong),
+        W_FFIType('sshort',    'h', libffi.types.sshort),
+        W_FFIType('slonglong', 'q', libffi.types.slonglong),
+        #
+        W_FFIType('uint',      'I', libffi.types.uint),
+        W_FFIType('ulong',     'L', libffi.types.ulong),
+        W_FFIType('ushort',    'H', libffi.types.ushort),
+        W_FFIType('ulonglong', 'Q', libffi.types.ulonglong),
+        #
+        W_FFIType('double',    'd', libffi.types.double),
+        W_FFIType('float',     'f', libffi.types.float),
+        W_FFIType('void',      '0', libffi.types.void),
+        W_FFIType('pointer',   'P', libffi.types.pointer),
+        
+        # missing types:
+        ## 'c' : ffi_type_uchar,
+        ## 'b' : ffi_type_schar,
+        ## 'B' : ffi_type_uchar,
+        ## 'u' : cast_type_to_ffitype(lltype.UniChar),
+        ## 's' : ffi_type_pointer,
+        ## 'z' : ffi_type_pointer,
+        ## 'O' : ffi_type_pointer,
+        ## 'Z' : ffi_type_pointer,
+
+        ]
+    return dict([(t.name, t) for t in types])
     
 W_types.typedef = TypeDef(
     'types',
@@ -59,18 +111,20 @@ def unwrap_ffitype(space, w_argtype, allow_void=False):
 
 class W_FuncPtr(Wrappable):
 
-    _immutable_fields_ = ['func']
+    _immutable_fields_ = ['func', 'argtypes_w[*]', 'w_restype']
     
-    def __init__(self, func):
+    def __init__(self, func, argtypes_w, w_restype):
         self.func = func
+        self.argtypes_w = argtypes_w
+        self.w_restype = w_restype
 
     @jit.unroll_safe
-    def build_argchain(self, space, argtypes, args_w):
-        expected = len(argtypes)
+    def build_argchain(self, space, args_w):
+        expected = len(self.argtypes_w)
         given = len(args_w)
         if given != expected:
             arg = 'arguments'
-            if len(argtypes) == 1:
+            if len(self.argtypes_w) == 1:
                 arg = 'argument'
             raise operationerrfmt(space.w_TypeError,
                                   '%s() takes exactly %d %s (%d given)',
@@ -78,27 +132,29 @@ class W_FuncPtr(Wrappable):
         #
         argchain = libffi.ArgChain()
         for i in range(expected):
-            argtype = argtypes[i]
+            w_argtype = self.argtypes_w[i]
             w_arg = args_w[i]
-            kind = libffi.types.getkind(argtype)
-            if kind == 'i':
+            if w_argtype.is_longlong():
+                # note that we must check for longlong first, because either
+                # is_signed or is_unsigned returns true anyway
+                assert libffi.IS_32_BIT
+                kind = libffi.types.getkind(w_argtype.ffitype) # XXX: remove the kind
+                self.arg_longlong(space, argchain, kind, w_arg)
+            elif w_argtype.is_signed():
                 argchain.arg(space.int_w(w_arg))
-            elif kind == 'u':
+            elif w_argtype.is_unsigned():
                 argchain.arg(intmask(space.uint_w(w_arg)))
-            elif kind == 'f':
+            elif w_argtype.is_double():
                 argchain.arg(space.float_w(w_arg))
-            elif kind == 'S': # struct
+            elif w_argtype.is_singlefloat():
+                argchain.arg_singlefloat(space.float_w(w_arg))
+            elif w_argtype.is_struct():
                 # arg_raw directly takes value to put inside ll_args
                 uintval = space.uint_w(w_arg)
                 ptrval = rffi.cast(rffi.VOIDP, uintval)
                 argchain.arg_raw(ptrval)
-            elif kind == 's':
-                argchain.arg_singlefloat(space.float_w(w_arg))
-            elif kind == 'I' or kind == 'U':
-                assert libffi.IS_32_BIT
-                self.arg_longlong(space, argchain, kind, w_arg)
             else:
-                assert False, "Argument kind '%s' not supported" % kind
+                assert False, "Argument shape '%s' not supported" % w_argtype.shape
         return argchain
 
     @jit.dont_look_inside
@@ -119,30 +175,34 @@ class W_FuncPtr(Wrappable):
     @unwrap_spec('self', ObjSpace, 'args_w')
     def call(self, space, args_w):
         self = jit.hint(self, promote=True)
-        argchain = self.build_argchain(space, self.func.argtypes, args_w)
-        reskind = libffi.types.getkind(self.func.restype)
-        if reskind == 'i':
+        argchain = self.build_argchain(space, args_w)
+        w_restype = self.w_restype
+        if w_restype.is_longlong():
+            # note that we must check for longlong first, because either
+            # is_signed or is_unsigned returns true anyway
+            assert libffi.IS_32_BIT
+            reskind = libffi.types.getkind(self.func.restype) # XXX: remove the kind
+            return self._call_longlong(space, argchain, reskind)
+        elif w_restype.is_signed():
             return self._call_int(space, argchain)
-        elif reskind == 'u':
+        elif w_restype.is_unsigned():
             return self._call_uint(space, argchain)
-        elif reskind == 'f':
+        elif w_restype.is_double():
             floatres = self.func.call(argchain, rffi.DOUBLE)
             return space.wrap(floatres)
-        elif reskind == 's':
+        elif w_restype.is_singlefloat():
             # the result is a float, but widened to be inside a double
             floatres = self.func.call(argchain, rffi.FLOAT)
             return space.wrap(floatres)
-        elif reskind == 'I' or reskind == 'U':
-            assert libffi.IS_32_BIT
-            return self._call_longlong(space, argchain, reskind)
-        elif reskind == 'S':
+        elif w_restype.is_struct():
             # we return the address of the buffer as an integer
             return self._call_uint(space, argchain)
-        else:
-            assert reskind == 'v'
+        elif w_restype.is_void():
             voidres = self.func.call(argchain, lltype.Void)
             assert voidres is None
             return space.w_None
+        else:
+            assert False, "Return value shape '%s' not supported" % w_restype.shape
 
     def _call_int(self, space, argchain):
         # if the declared return type of the function is smaller than LONG,
@@ -227,13 +287,14 @@ class W_FuncPtr(Wrappable):
 
 @unwrap_spec(ObjSpace, W_Root, r_uint, str, W_Root, W_Root)
 def descr_fromaddr(space, w_cls, addr, name, w_argtypes, w_restype):
+    argtypes_w = space.listview(w_argtypes) # XXX: fix annotation
     argtypes = [unwrap_ffitype(space, w_argtype) for w_argtype in
-                space.listview(w_argtypes)]
+                argtypes_w]
     restype = unwrap_ffitype(space, w_restype, allow_void=True)
     addr = rffi.cast(rffi.VOIDP, addr)
     func = libffi.Func(name, argtypes, restype, addr)
-    return W_FuncPtr(func)
-    
+    return W_FuncPtr(func, argtypes_w, w_restype)
+
 
 W_FuncPtr.typedef = TypeDef(
     '_ffi.FuncPtr',
@@ -258,8 +319,9 @@ class W_CDLL(Wrappable):
 
     @unwrap_spec('self', ObjSpace, str, W_Root, W_Root)
     def getfunc(self, space, name, w_argtypes, w_restype):
+        argtypes_w = space.listview(w_argtypes) # XXX: fix annotation
         argtypes = [unwrap_ffitype(space, w_argtype) for w_argtype in
-                    space.listview(w_argtypes)]
+                    argtypes_w]
         restype = unwrap_ffitype(space, w_restype, allow_void=True)
         try:
             func = self.cdll.getpointer(name, argtypes, restype)
@@ -267,7 +329,7 @@ class W_CDLL(Wrappable):
             raise operationerrfmt(space.w_AttributeError,
                                   "No symbol %s found in library %s", name, self.name)
             
-        return W_FuncPtr(func)
+        return W_FuncPtr(func, argtypes_w, w_restype)
 
     @unwrap_spec('self', ObjSpace, str)
     def getaddressindll(self, space, name):
