@@ -218,8 +218,15 @@ class AssemblerARM(ResOpAssembler):
             assert isinstance(descr, AbstractFailDescr)
             descr._arm_frame_depth = arglocs[0].getint()
         reg = r.lr
+        # The size of the allocated memory is based on the following sizes
+        # first argloc is the frame depth and not considered for the memory
+        # allocation
+        # 4 bytes for the value
+        # 1 byte for the type
+        # 1 byte for the location
+        # 1 separator byte
+        # 4 bytes for the faildescr
         # XXX free this memory
-        # XXX allocate correct amount of memory
         mem = lltype.malloc(rffi.CArray(lltype.Char), (len(arglocs)-1)*6+5,
                                     flavor='raw', track_allocation=False)
         i = 0
