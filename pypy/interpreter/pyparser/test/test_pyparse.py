@@ -42,6 +42,9 @@ stuff = "nothing"
         input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
         tree = self.parse(input, info=info)
         assert info.encoding == "utf-7"
+        input = "# coding: iso-8859-15\nx"
+        self.parse(input, info=info)
+        assert info.encoding == "iso-8859-15"
         input = "\xEF\xBB\xBF# coding: utf-8\nx"
         self.parse(input, info=info)
         assert info.encoding == "utf-8"

@@ -566,8 +566,8 @@ class GeneralModuleTests(unittest.TestCase):
         neg_port = port - 65536
         sock = socket.socket()
         try:
-            self.assertRaises(OverflowError, sock.bind, (host, big_port))
-            self.assertRaises(OverflowError, sock.bind, (host, neg_port))
+            self.assertRaises((OverflowError, ValueError), sock.bind, (host, big_port))
+            self.assertRaises((OverflowError, ValueError), sock.bind, (host, neg_port))
             sock.bind((host, port))
         finally:
             sock.close()

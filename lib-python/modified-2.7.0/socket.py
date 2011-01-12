@@ -301,7 +301,8 @@ class _fileobject(object):
             if self._sock:
                 if self._close:
                     self._sock.close()
-                self._sock._decref_socketios()
+                else:
+                    self._sock._decref_socketios()
             self._sock = None
 
     def __del__(self):

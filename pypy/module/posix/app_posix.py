@@ -113,8 +113,9 @@ if osname == 'posix':
             pid = self._childpid
             if pid is not None:
                 self._childpid = None
-                return os.waitpid(pid, 0)[1]
-            return 0
+                sts = os.waitpid(pid, 0)[1]
+                if sts != 0:
+                    return sts
         __del__ = close     # as in CPython, __del__ may call os.waitpid()
 
     def popen(command, mode='r', bufsize=-1):

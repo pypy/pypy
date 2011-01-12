@@ -10,6 +10,13 @@ from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 
+class SignalChecker:
+    def __init__(self, space):
+        self.space = space
+
+    def check(self):
+        self.space.getexecutioncontext().checksignals()
+
 class W_RSocket(Wrappable, RSocket):
     def __del__(self):
         self.clear_all_weakrefs()
@@ -234,7 +241,7 @@ class W_RSocket(Wrappable, RSocket):
         to tell how much data has been sent.
         """
         try:
-            count = self.sendall(data, flags)
+            count = self.sendall(data, flags, SignalChecker(space))
         except SocketError, e:
             raise converted_error(space, e)
     sendall_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', int]

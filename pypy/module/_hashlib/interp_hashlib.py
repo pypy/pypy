@@ -5,6 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import ropenssl
 from pypy.rlib.rstring import StringBuilder
 
@@ -66,7 +67,8 @@ class W_Hash(Wrappable):
         return space.wrap(self._block_size())
 
     def _digest(self, space):
-        ctx = self.copy(space).ctx
+        copy = self.copy(space)
+        ctx = copy.ctx
         digest_size = self._digest_size()
         digest = lltype.malloc(rffi.CCHARP.TO, digest_size, flavor='raw')
 
@@ -74,6 +76,7 @@ class W_Hash(Wrappable):
             ropenssl.EVP_DigestFinal(ctx, digest, None)
             return rffi.charpsize2str(digest, digest_size)
         finally:
+            keepalive_until_here(copy)
             lltype.free(digest, flavor='raw')
 
 
