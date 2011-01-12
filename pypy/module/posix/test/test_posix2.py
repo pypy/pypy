@@ -413,7 +413,7 @@ class AppTestPosix:
             stream = os.popen('echo 1')
             res = stream.read()
             assert res == '1\n'
-            stream.close()
+            assert stream.close() is None
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
