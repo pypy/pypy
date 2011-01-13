@@ -75,3 +75,12 @@ class AppTestPyexpat:
             assert text == u"caf\xe9"
         p.CharacterDataHandler = gotText
         p.Parse(xml)
+
+    def test_decode_error(self):
+        xml = '<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>'
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        def f(*args): pass
+        p.StartElementHandler = f
+        exc = raises(UnicodeDecodeError, p.Parse, xml)
+        assert exc.value.start == 4

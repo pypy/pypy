@@ -361,9 +361,8 @@ getting the advantage of providing document type information to the parser.
 
     def w_convert(self, space, s):
         if self.returns_unicode:
-            from pypy.rlib.runicode import str_decode_utf_8
-            return space.wrap(str_decode_utf_8(
-                s, len(s), "strict")[0])
+            from pypy.interpreter.unicodehelper import PyUnicode_DecodeUTF8
+            return space.wrap(PyUnicode_DecodeUTF8(space, s))
         else:
             return space.wrap(s)
 
