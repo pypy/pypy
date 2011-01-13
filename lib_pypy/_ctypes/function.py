@@ -1,6 +1,7 @@
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.basics import ArgumentError, keepalive_key
+from _ctypes.basics import shape_to_ffi_type, is_struct_shape
 import _rawffi
 import _ffi
 import sys
@@ -221,46 +222,10 @@ class CFuncPtr(_CData):
 
         return result
 
-    # XXX: maybe move this to _ffi
-    from _ffi import types
-    _typemap =  {
-        'c' : types.char,
-        'b' : types.sbyte,
-        'B' : types.ubyte,
-        'h' : types.sshort,
-        'u' : types.unichar,
-        'H' : types.ushort,
-        'i' : types.sint,
-        'I' : types.uint,
-        'l' : types.slong,
-        'L' : types.ulong,
-        'q' : types.slonglong,
-        'Q' : types.ulonglong,
-        'f' : types.float,
-        'd' : types.double,
-        's' : types.pointer,
-        'P' : types.pointer,
-        'z' : types.pointer,
-        'O' : types.pointer,
-        'Z' : types.pointer,
-        }
-    del types
-    
-    def _shape_to_ffi_type(self, shape):
-        try:
-            return self._typemap[shape]
-        except KeyError:
-            pass
-        if self._is_struct_shape(shape):
-            return shape[0].get_ffi_type()
-        #
-        print 'unknown shape %s' % (shape,)
-        assert False, 'TODO5'
-
     def _getfuncptr_fromaddress(self, argshapes, resshape):
         address = self._get_address()
-        ffiargs = [self._shape_to_ffi_type(shape) for shape in argshapes]
-        ffires = self._shape_to_ffi_type(resshape)
+        ffiargs = [shape_to_ffi_type(shape) for shape in argshapes]
+        ffires = shape_to_ffi_type(resshape)
         return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
@@ -287,8 +252,8 @@ class CFuncPtr(_CData):
         cdll = self.dll._handle
         try:
             #return cdll.ptr(self.name, argshapes, resshape, self._flags_)
-            ffi_argtypes = [self._shape_to_ffi_type(shape) for shape in argshapes]
-            ffi_restype = self._shape_to_ffi_type(resshape)
+            ffi_argtypes = [shape_to_ffi_type(shape) for shape in argshapes]
+            ffi_restype = shape_to_ffi_type(resshape)
             self._ptr = cdll.getfunc(self.name, ffi_argtypes, ffi_restype)
             return self._ptr
         except AttributeError:
@@ -410,19 +375,12 @@ class CFuncPtr(_CData):
                 value = arg._get_buffer_value()
             elif shape == 'z' or shape == 'Z':
                 value = arg._get_buffer_value()
-            elif self._is_struct_shape(shape):
+            elif is_struct_shape(shape):
                 value = arg._buffer
             else:
                 value = arg.value
             newargs.append(value)
         return newargs
-
-    def _is_struct_shape(self, shape):
-        # see the corresponding code to set the shape in _ctypes.structure._set_shape
-        return (isinstance(shape, tuple) and
-                len(shape) == 2 and
-                isinstance(shape[0], _rawffi.Structure) and
-                shape[1] == 1)
     
     def _wrap_result(self, restype, result):
         """
@@ -431,7 +389,7 @@ class CFuncPtr(_CData):
         for chars we convert the int value with chr, etc.
         """
         shape = restype._ffishape
-        if self._is_struct_shape(shape):
+        if is_struct_shape(shape):
             buf = result
         else:
             buf = _rawffi.Array(shape)(1, autofree=True)

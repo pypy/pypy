@@ -1,5 +1,6 @@
 
 import _rawffi
+import _ffi
 import sys
 
 keepalive_key = str # XXX fix this when provided with test
@@ -159,3 +160,48 @@ def cdata_from_address(self, address):
 
 def addressof(tp):
     return tp._buffer.buffer
+
+
+# ----------------------------------------------------------------------
+
+def is_struct_shape(shape):
+    # see the corresponding code to set the shape in
+    # _ctypes.structure._set_shape
+    return (isinstance(shape, tuple) and
+            len(shape) == 2 and
+            isinstance(shape[0], _rawffi.Structure) and
+            shape[1] == 1)
+
+def shape_to_ffi_type(shape):
+    try:
+        return shape_to_ffi_type.typemap[shape]
+    except KeyError:
+        pass
+    if is_struct_shape(shape):
+        return shape[0].get_ffi_type()
+    #
+    assert False, 'unknown shape %s' % (shape,)
+
+
+shape_to_ffi_type.typemap =  {
+    'c' : _ffi.types.char,
+    'b' : _ffi.types.sbyte,
+    'B' : _ffi.types.ubyte,
+    'h' : _ffi.types.sshort,
+    'u' : _ffi.types.unichar,
+    'H' : _ffi.types.ushort,
+    'i' : _ffi.types.sint,
+    'I' : _ffi.types.uint,
+    'l' : _ffi.types.slong,
+    'L' : _ffi.types.ulong,
+    'q' : _ffi.types.slonglong,
+    'Q' : _ffi.types.ulonglong,
+    'f' : _ffi.types.float,
+    'd' : _ffi.types.double,
+    's' : _ffi.types.pointer,
+    'P' : _ffi.types.pointer,
+    'z' : _ffi.types.pointer,
+    'O' : _ffi.types.pointer,
+    'Z' : _ffi.types.pointer,
+    }
+
