@@ -89,7 +89,7 @@ class TypeCache(SpaceCache):
             overridetypedef = typedef
         w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
                               overridetypedef=overridetypedef)
-        if isinstance(typedef.doc, str):
+        if typedef is not overridetypedef:
             w_type.w_doc = space.wrap(typedef.doc)
         w_type.lazyloaders = lazyloaders
         return w_type
