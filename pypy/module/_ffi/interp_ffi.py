@@ -15,9 +15,8 @@ from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 class W_FFIType(Wrappable):
-    def __init__(self, name, shape, ffitype, w_datashape=None):
+    def __init__(self, name, ffitype, w_datashape=None):
         self.name = name
-        self.shape = shape
         self.ffitype = ffitype
         self.w_datashape = w_datashape
         if self.is_struct():
@@ -25,55 +24,53 @@ class W_FFIType(Wrappable):
 
     @unwrap_spec('self', ObjSpace)
     def str(self, space):
-        return space.wrap("<ffi type %s (shape '%s')>" % (self.name, self.shape))
+        return space.wrap(self.__str__())
+
+    def __str__(self):
+        return "<ffi type %s>" % self.name
 
     def is_signed(self):
-        shape = self.shape
-        return (shape == 'i' or
-                shape == 'l' or
-                shape == 'h' or
-                shape == 'b' or
-                shape == 'q')
+        return (self is app_types.slong or
+                self is app_types.sint or
+                self is app_types.sshort or
+                self is app_types.sbyte or
+                self is app_types.slonglong)
 
     def is_unsigned(self):
-        shape = self.shape
-        return (shape == 'L' or
-                shape == 'I' or
-                shape == 'H' or
-                shape == 'B' or
-                shape == 'P' or
-                shape == 'Q')
+        return (self is app_types.ulong or
+                self is app_types.uint or
+                self is app_types.ushort or
+                self is app_types.ubyte or
+                self is app_types.ulonglong or
+                self is app_types.pointer)
 
     def is_char(self):
-        return self.shape == 'c'
+        return self is app_types.char
 
     def is_unichar(self):
-        return self.shape == 'u'
+        return self is app_types.unichar
 
     def is_longlong(self):
-        shape = self.shape
-        return libffi.IS_32_BIT and (shape == 'q' or shape == 'Q')
+        return libffi.IS_32_BIT and (self is app_types.slonglong or
+                                     self is app_types.ulonglong)
 
     def is_double(self):
-        return self.shape == 'd'
+        return self is app_types.double
 
     def is_singlefloat(self):
-        return self.shape == 'f'
+        return self is app_types.float
 
     def is_void(self):
-        return self.shape == '0'
+        return self is app_types.void
 
     def is_struct(self):
-        return self.shape == '1'
+        return libffi.types.is_struct(self.ffitype)
 
 W_FFIType.typedef = TypeDef(
     'FFIType',
     __str__ = interp2app(W_FFIType.str),
     )
 
-
-class W_types(Wrappable):
-    pass
 
 def build_ffi_types():
     from pypy.rlib.clibffi import FFI_TYPE_P
@@ -82,25 +79,25 @@ def build_ffi_types():
         # with the exception of bytes: in C, ubyte and char are equivalent,
         # but for _ffi the first expects a number while the second a 1-length
         # string
-        W_FFIType('slong',     'l', libffi.types.slong),
-        W_FFIType('sint',      'i', libffi.types.sint),
-        W_FFIType('sshort',    'h', libffi.types.sshort),
-        W_FFIType('sbyte',     'b', libffi.types.schar),
-        W_FFIType('slonglong', 'q', libffi.types.slonglong),
+        W_FFIType('slong',     libffi.types.slong),
+        W_FFIType('sint',      libffi.types.sint),
+        W_FFIType('sshort',    libffi.types.sshort),
+        W_FFIType('sbyte',     libffi.types.schar),
+        W_FFIType('slonglong', libffi.types.slonglong),
         #
-        W_FFIType('ulong',     'L', libffi.types.ulong),
-        W_FFIType('uint',      'I', libffi.types.uint),
-        W_FFIType('ushort',    'H', libffi.types.ushort),
-        W_FFIType('ubyte',     'B', libffi.types.uchar),
-        W_FFIType('ulonglong', 'Q', libffi.types.ulonglong),
+        W_FFIType('ulong',     libffi.types.ulong),
+        W_FFIType('uint',      libffi.types.uint),
+        W_FFIType('ushort',    libffi.types.ushort),
+        W_FFIType('ubyte',     libffi.types.uchar),
+        W_FFIType('ulonglong', libffi.types.ulonglong),
         #
-        W_FFIType('char',      'c', libffi.types.uchar),
-        W_FFIType('unichar',   'u', libffi.types.wchar_t),
+        W_FFIType('char',      libffi.types.uchar),
+        W_FFIType('unichar',   libffi.types.wchar_t),
         #
-        W_FFIType('double',    'd', libffi.types.double),
-        W_FFIType('float',     'f', libffi.types.float),
-        W_FFIType('void',      '0', libffi.types.void),
-        W_FFIType('pointer',   'P', libffi.types.pointer),
+        W_FFIType('double',    libffi.types.double),
+        W_FFIType('float',     libffi.types.float),
+        W_FFIType('void',      libffi.types.void),
+        W_FFIType('pointer',   libffi.types.pointer),
         #
         # missing types:
 
@@ -111,10 +108,16 @@ def build_ffi_types():
 
         ]
     return dict([(t.name, t) for t in types])
-    
+
+class app_types:
+    pass
+app_types.__dict__ = build_ffi_types()
+
+class W_types(Wrappable):
+    pass
 W_types.typedef = TypeDef(
     'types',
-    **build_ffi_types())
+    **app_types.__dict__)
 
 
 def unwrap_ffitype(space, w_argtype, allow_void=False):
@@ -178,7 +181,7 @@ class W_FuncPtr(Wrappable):
                 ptrval = w_arg.ll_buffer
                 argchain.arg_raw(ptrval)
             else:
-                assert False, "Argument shape '%s' not supported" % w_argtype.shape
+                assert False, "Argument shape '%s' not supported" % w_argtype
         return argchain
 
     @jit.dont_look_inside
@@ -234,7 +237,7 @@ class W_FuncPtr(Wrappable):
             assert voidres is None
             return space.w_None
         else:
-            assert False, "Return value shape '%s' not supported" % w_restype.shape
+            assert False, "Return value shape '%s' not supported" % w_restype
 
     def _call_int(self, space, argchain):
         # if the declared return type of the function is smaller than LONG,

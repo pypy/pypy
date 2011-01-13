@@ -252,7 +252,7 @@ class W_DataShape(Wrappable):
         # term, probably we will move the code for build structures and arrays
         # from _rawffi to _ffi
         from pypy.module._ffi.interp_ffi import W_FFIType
-        return W_FFIType('<name>', '1', self.get_basic_ffi_type(), self)
+        return W_FFIType('<unknown>', self.get_basic_ffi_type(), self)
 
     def descr_size_alignment(self, space, n=1):
         return space.newtuple([space.wrap(self.size * n),
