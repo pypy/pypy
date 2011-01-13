@@ -230,7 +230,7 @@ class W_FuncPtr(Wrappable):
         elif w_restype.is_struct():
             w_datashape = w_restype.w_datashape
             assert isinstance(w_datashape, W_Structure)
-            ptrval = self.func.call(argchain, rffi.VOIDP, is_struct=True)
+            ptrval = self.func.call(argchain, rffi.ULONG, is_struct=True)
             return w_datashape.fromaddress(space, ptrval)
         elif w_restype.is_void():
             voidres = self.func.call(argchain, lltype.Void)
