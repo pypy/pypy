@@ -1185,6 +1185,7 @@ True
 >>> o is o2
 True
 >>> del o, o2
+>>> gc_collect()
 >>> print r()
 None
 
@@ -1237,6 +1238,7 @@ True
 >>> id2obj(a_id) is a
 True
 >>> del a
+>>> gc_collect()
 >>> try:
 ...     id2obj(a_id)
 ... except KeyError:
