@@ -121,7 +121,7 @@ W_types.typedef = TypeDef(
 
 
 def unwrap_ffitype(space, w_argtype, allow_void=False):
-    res = space.interp_w(W_FFIType, w_argtype).ffitype
+    res = w_argtype.ffitype
     if res is libffi.types.void and not allow_void:
         msg = 'void is not a valid argument type'
         raise OperationError(space.w_TypeError, space.wrap(msg))
@@ -316,12 +316,22 @@ class W_FuncPtr(Wrappable):
         """
         return space.wrap(rffi.cast(rffi.LONG, self.func.funcsym))
 
-@unwrap_spec(ObjSpace, W_Root, r_uint, str, W_Root, W_Root)
-def descr_fromaddr(space, w_cls, addr, name, w_argtypes, w_restype):
-    argtypes_w = space.listview(w_argtypes) # XXX: fix annotation
+
+
+def unpack_argtypes(space, w_argtypes, w_restype):
+    argtypes_w = [space.interp_w(W_FFIType, w_argtype)
+                  for w_argtype in space.listview(w_argtypes)]
     argtypes = [unwrap_ffitype(space, w_argtype) for w_argtype in
                 argtypes_w]
+    w_restype = space.interp_w(W_FFIType, w_restype)
     restype = unwrap_ffitype(space, w_restype, allow_void=True)
+    return argtypes_w, argtypes, w_restype, restype
+
+@unwrap_spec(ObjSpace, W_Root, r_uint, str, W_Root, W_Root)
+def descr_fromaddr(space, w_cls, addr, name, w_argtypes, w_restype):
+    argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
+                                                               w_argtypes,
+                                                               w_restype)
     addr = rffi.cast(rffi.VOIDP, addr)
     func = libffi.Func(name, argtypes, restype, addr)
     return W_FuncPtr(func, argtypes_w, w_restype)
@@ -350,10 +360,9 @@ class W_CDLL(Wrappable):
 
     @unwrap_spec('self', ObjSpace, str, W_Root, W_Root)
     def getfunc(self, space, name, w_argtypes, w_restype):
-        argtypes_w = space.listview(w_argtypes) # XXX: fix annotation
-        argtypes = [unwrap_ffitype(space, w_argtype) for w_argtype in
-                    argtypes_w]
-        restype = unwrap_ffitype(space, w_restype, allow_void=True)
+        argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
+                                                                   w_argtypes,
+                                                                   w_restype)
         try:
             func = self.cdll.getpointer(name, argtypes, restype)
         except KeyError:
