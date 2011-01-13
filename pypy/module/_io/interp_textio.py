@@ -296,6 +296,9 @@ class W_TextIOWrapper(W_TextIOBase):
                 if not e.match(space, space.w_ImportError):
                     raise
                 self.w_encoding = space.wrap("ascii")
+            else:
+                if not space.isinstance_w(self.w_encoding, space.w_str):
+                    self.w_encoding = None
         if self.w_encoding:
             pass
         elif not space.is_w(w_encoding, space.w_None):
