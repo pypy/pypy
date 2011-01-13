@@ -361,7 +361,6 @@ class CFuncPtr(_CData):
         return wrapped_args
 
 
-    # XXX: maybe the following two methods should be done inside _ffi?
     def _unwrap_args(self, argtypes, args):
         """
         Convert from ctypes high-level values to low-level values suitables to
@@ -371,9 +370,7 @@ class CFuncPtr(_CData):
         newargs = []
         for argtype, arg in zip(argtypes, args):
             shape = argtype._ffiargshape
-            if shape == 'P' or shape == 'O':
-                value = arg._get_buffer_value()
-            elif shape == 'z' or shape == 'Z':
+            if isinstance(shape, str) and shape in "POszZ": # pointer types
                 value = arg._get_buffer_value()
             elif is_struct_shape(shape):
                 value = arg._buffer
