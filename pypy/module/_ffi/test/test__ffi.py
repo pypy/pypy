@@ -228,6 +228,22 @@ class AppTestFfi:
                                     types.char)
         assert my_toupper('c') == 'C'
 
+    def test_unichar_args(self):
+        """
+            #include <stddef.h>
+            DLLEXPORT wchar_t sum_xy_wc(wchar_t x, wchar_t y)
+            {
+                return x + y;
+            }
+        """
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_wc', [types.unichar, types.unichar],
+                                types.unichar)
+        res = sum_xy(unichr(1000), unichr(2000))
+        assert type(res) is unicode
+        assert ord(res) == 3000
+
     def test_single_float_args(self):
         """
             DLLEXPORT float sum_xy_float(float x, float y)

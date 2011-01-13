@@ -32,6 +32,7 @@ class types(object):
         cls.ulong = clibffi.cast_type_to_ffitype(rffi.ULONG)
         cls.slonglong = clibffi.cast_type_to_ffitype(rffi.LONGLONG)
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
+        cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
         del cls._import
 
     @staticmethod

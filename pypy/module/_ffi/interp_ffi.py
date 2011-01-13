@@ -46,7 +46,10 @@ class W_FFIType(Wrappable):
 
     def is_char(self):
         return self.shape == 'c'
-    
+
+    def is_unichar(self):
+        return self.shape == 'u'
+
     def is_longlong(self):
         shape = self.shape
         return libffi.IS_32_BIT and (shape == 'q' or shape == 'Q')
@@ -91,16 +94,16 @@ def build_ffi_types():
         W_FFIType('ubyte',     'B', libffi.types.uchar),
         W_FFIType('ulonglong', 'Q', libffi.types.ulonglong),
         #
-        W_FFIType('char',     'c', libffi.types.uchar),
-    
-       
+        W_FFIType('char',      'c', libffi.types.uchar),
+        W_FFIType('unichar',   'u', libffi.types.wchar_t),
+        #
         W_FFIType('double',    'd', libffi.types.double),
         W_FFIType('float',     'f', libffi.types.float),
         W_FFIType('void',      '0', libffi.types.void),
         W_FFIType('pointer',   'P', libffi.types.pointer),
         #
         # missing types:
-        ## 'u' : cast_type_to_ffitype(lltype.UniChar),
+
         ## 's' : ffi_type_pointer,
         ## 'z' : ffi_type_pointer,
         ## 'O' : ffi_type_pointer,
@@ -162,6 +165,9 @@ class W_FuncPtr(Wrappable):
             elif w_argtype.is_char():
                 w_arg = space.ord(w_arg)
                 argchain.arg(space.int_w(w_arg))
+            elif w_argtype.is_unichar():
+                w_arg = space.ord(w_arg)
+                argchain.arg(space.int_w(w_arg))
             elif w_argtype.is_double():
                 argchain.arg(space.float_w(w_arg))
             elif w_argtype.is_singlefloat():
@@ -208,6 +214,9 @@ class W_FuncPtr(Wrappable):
         elif w_restype.is_char():
             intres = self.func.call(argchain, rffi.UCHAR)
             return space.wrap(chr(intres))
+        elif w_restype.is_unichar():
+            intres = self.func.call(argchain, rffi.WCHAR_T)
+            return space.wrap(unichr(intres))
         elif w_restype.is_double():
             floatres = self.func.call(argchain, rffi.DOUBLE)
             return space.wrap(floatres)
