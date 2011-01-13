@@ -73,6 +73,10 @@ Longer tasks
       a = A()
       a.__class__ = B
 
+- Remove "unbound builtin methods": some code in pprint.py, _threading_local.py
+  relies on comparisons like "str.__init__ is object.__init__", or
+  "type(x).__repr__ is dict.__repr__"
+
 - Show a ResourceWarning when a file/socket is not explicitely closed, like
   CPython did for 3.2: http://svn.python.org/view?view=rev&revision=85920
   in PyPy this should be enabled by default
