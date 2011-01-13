@@ -72,3 +72,7 @@ Longer tasks
       class B(object): __slots__ = ('b', 'a')
       a = A()
       a.__class__ = B
+
+- Show a ResourceWarning when a file/socket is not explicitely closed, like
+  CPython did for 3.2: http://svn.python.org/view?view=rev&revision=85920
+  in PyPy this should be enabled by default
