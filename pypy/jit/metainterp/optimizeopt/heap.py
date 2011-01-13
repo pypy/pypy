@@ -280,10 +280,12 @@ class OptHeap(Optimization):
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
         fieldvalue = self.getvalue(op.getarg(1))
-        self.force_lazy_setfield_if_necessary(op, value, write=True)
-        self.lazy_setfields[op.getdescr()] = op
-        # remember the result of future reads of the field
-        self.cache_field_value(op.getdescr(), value, fieldvalue, write=True)
+        cached_fieldvalue = self.read_cached_field(op.getdescr(), value)
+        if fieldvalue is not cached_fieldvalue:
+            self.force_lazy_setfield_if_necessary(op, value, write=True)
+            self.lazy_setfields[op.getdescr()] = op
+            # remember the result of future reads of the field
+            self.cache_field_value(op.getdescr(), value, fieldvalue, write=True)
 
     def optimize_GETARRAYITEM_GC(self, op):
         value = self.getvalue(op.getarg(0))
