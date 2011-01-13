@@ -224,11 +224,11 @@ class CFuncPtr(_CData):
     # XXX: maybe move this to _ffi
     from _ffi import types
     _typemap =  {
-        'c' : types.uchar,
-        'b' : types.schar,
-        'B' : types.uchar,
+        'c' : types.char,
+        'b' : types.sbyte,
+        'B' : types.ubyte,
         'h' : types.sshort,
-        'u' : types.ushort,  # XXXXXXXX, use cast_type_to_ffitype(lltype.UniChar)
+        'u' : types.unichar,
         'H' : types.ushort,
         'i' : types.sint,
         'I' : types.uint,
@@ -406,17 +406,12 @@ class CFuncPtr(_CData):
         newargs = []
         for argtype, arg in zip(argtypes, args):
             shape = argtype._ffiargshape
-            if shape == 'u' or shape == 'c':
-                # XXX: who should do this conversion? Maybe _ffi?
-                value = arg.value
-                assert isinstance(value, basestring) and len(value) == 1
-                value = ord(value)
-            elif shape == 'P' or shape == 'O':
+            if shape == 'P' or shape == 'O':
                 value = arg._get_buffer_value()
             elif shape == 'z' or shape == 'Z':
                 value = arg._get_buffer_value()
             elif self._is_struct_shape(shape):
-                value = arg._get_buffer_value()
+                value = arg._buffer
             else:
                 value = arg.value
             newargs.append(value)
@@ -436,13 +431,8 @@ class CFuncPtr(_CData):
         for chars we convert the int value with chr, etc.
         """
         shape = restype._ffishape
-        if shape == 'u': # XXX: who should be responsible of this conversion?
-            result = unichr(result)
-        elif shape == 'c':
-            result = chr(result)
-        #
         if self._is_struct_shape(shape):
-            buf = shape[0].fromaddress(result)
+            buf = result
         else:
             buf = _rawffi.Array(shape)(1, autofree=True)
             buf[0] = result
