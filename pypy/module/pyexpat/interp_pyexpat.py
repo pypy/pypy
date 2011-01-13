@@ -194,13 +194,19 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         pre_code = 'parser.flush_character_buffer(space)'
 
     if name == 'ExternalEntityRefHandler':
+        first_arg = 'll_parser'
+        first_lltype = XML_Parser
+        ll_id = 'XML_GetUserData(ll_parser)'
         post_code = 'if space.is_w(w_result, space.w_None): return 0'
     else:
+        first_arg = 'll_userdata'
+        first_lltype = rffi.VOIDP
+        ll_id = 'll_userdata'
         post_code = ''
 
     src = py.code.Source("""
-    def %(name)s_callback(ll_userdata, %(args)s):
-        id = rffi.cast(lltype.Signed, ll_userdata)
+    def %(name)s_callback(%(first_arg)s, %(args)s):
+        id = rffi.cast(lltype.Signed, %(ll_id)s)
         userdata = global_storage.get_object(id)
         space = userdata.space
         parser = userdata.parser
@@ -226,7 +232,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
 
     c_name = 'XML_Set' + name
     callback_type = lltype.Ptr(lltype.FuncType(
-        [rffi.VOIDP] + real_params, result_type))
+        [first_lltype] + real_params, result_type))
     func = expat_external(c_name,
                           [XML_Parser, callback_type], lltype.Void)
     SETTERS[name] = (index, func, callback)
@@ -267,6 +273,9 @@ XML_ParserFree = expat_external(
     'XML_ParserFree', [XML_Parser], lltype.Void)
 XML_SetUserData = expat_external(
     'XML_SetUserData', [XML_Parser, rffi.VOIDP], lltype.Void)
+def XML_GetUserData(parser):
+    # XXX is this always true?
+    return rffi.cast(rffi.VOIDPP, parser)[0]
 XML_Parse = expat_external(
     'XML_Parse', [XML_Parser, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
 XML_StopParser = expat_external(

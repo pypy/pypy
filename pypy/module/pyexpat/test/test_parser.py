@@ -84,3 +84,17 @@ class AppTestPyexpat:
         p.StartElementHandler = f
         exc = raises(UnicodeDecodeError, p.Parse, xml)
         assert exc.value.start == 4
+
+    def test_external_entity(self):
+        xml = ('<!DOCTYPE doc [\n'
+               '  <!ENTITY test SYSTEM "whatever">\n'
+               ']>\n'
+               '<doc>&test;</doc>')
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        def handler(*args):
+            # context, base, systemId, publicId
+            assert args == ('test', None, 'whatever', None)
+            return True
+        p.ExternalEntityRefHandler = handler
+        p.Parse(xml)
