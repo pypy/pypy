@@ -401,6 +401,10 @@ def parse_command_line(argv):
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = sys.flags.py3k_warning
 
+        if sys.py3kwarning:
+            print >> sys.stderr, (
+                "Warning: pypy does not implement py3k warnings")
+
 ##    if not we_are_translated():
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])

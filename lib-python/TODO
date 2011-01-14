@@ -53,8 +53,6 @@ Longer tasks
 
 - many features are missing from the _ssl module
 
-- Enable -3 option to run test_py3kwarn. (OR SKIP THIS FEATURE)
-
 - "Shorter float representation" (see pypy/translator/c/test/test_dtoa.py) to
   format/parse floats.  Enable this with a translation option.
 
@@ -80,3 +78,23 @@ Longer tasks
 - Show a ResourceWarning when a file/socket is not explicitely closed, like
   CPython did for 3.2: http://svn.python.org/view?view=rev&revision=85920
   in PyPy this should be enabled by default
+
+Won't do for this release
+-------------------------
+
+Note: when you give up with a missing feature, please mention it here, as well
+as the various skips added to the test suite.
+
+- py3k warnings
+
+  * the -3 flag is accepted on the command line, but displays a warning (see
+    `translator/goal/app_main.py`)
+
+- CJK codecs.
+
+  * In `./conftest.py`, skipped all `test_codecencodings_*.py` and
+    `test_codecmaps_*.py`.
+
+  * In test_codecs, commented out various items in `all_unicode_encodings`.
+
+
