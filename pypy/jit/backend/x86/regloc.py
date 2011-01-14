@@ -203,38 +203,45 @@ class ConstFloatLoc(AssemblerLocation):
     def location_code(self):
         return 'j'
 
-class FloatImmedLoc(AssemblerLocation):
-    # This stands for an immediate float.  It cannot be directly used in
-    # any assembler instruction.  Instead, it is meant to be decomposed
-    # in two 32-bit halves.  On 64-bit, only use low_part(), which is
-    # actually everything.
-    _immutable_ = True
-    width = 8
+if IS_X86_32:
+    class FloatImmedLoc(AssemblerLocation):
+        # This stands for an immediate float.  It cannot be directly used in
+        # any assembler instruction.  Instead, it is meant to be decomposed
+        # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
+        # instead; see below.
+        _immutable_ = True
+        width = 8
 
-    def __init__(self, floatvalue):
+        def __init__(self, floatvalue):
+            from pypy.rlib.longlong2float import float2longlong
+            self.aslonglong = float2longlong(floatvalue)
+
+        def low_part(self):
+            return intmask(self.aslonglong)
+
+        def high_part(self):
+            assert IS_X86_32
+            return intmask(self.aslonglong >> 32)
+
+        def low_part_loc(self):
+            return ImmedLoc(self.low_part())
+
+        def high_part_loc(self):
+            return ImmedLoc(self.high_part())
+
+        def __repr__(self):
+            from pypy.rlib.longlong2float import longlong2float
+            floatvalue = longlong2float(self.aslonglong)
+            return '<FloatImmedLoc(%s)>' % (floatvalue,)
+
+        def location_code(self):
+            raise NotImplementedError
+
+if IS_X86_64:
+    def FloatImmedLoc(floatvalue):
         from pypy.rlib.longlong2float import float2longlong
-        self.aslonglong = float2longlong(floatvalue)
-
-    def low_part(self):
-        return intmask(self.aslonglong)
-
-    def high_part(self):
-        assert IS_X86_32
-        return intmask(self.aslonglong >> 32)
-
-    def low_part_loc(self):
-        return ImmedLoc(self.low_part())
-
-    def high_part_loc(self):
-        return ImmedLoc(self.high_part())
-
-    def __repr__(self):
-        from pypy.rlib.longlong2float import longlong2float
-        floatvalue = longlong2float(self.aslonglong)
-        return '<FloatImmedLoc(%s)>' % (floatvalue,)
-
-    def location_code(self):
-        raise NotImplementedError
+        value = intmask(float2longlong(floatvalue))
+        return ImmedLoc(value)
 
 
 REGLOCS = [RegLoc(i, is_xmm=False) for i in range(16)]
