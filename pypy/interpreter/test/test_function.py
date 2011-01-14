@@ -36,6 +36,12 @@ class AppTestFunctionIntrospection:
         assert f.__defaults__ is f.func_defaults
         assert hasattr(f, '__class__')
 
+    def test_classmethod(self):
+        def f():
+            pass
+        assert classmethod(f).__func__ is f
+        assert staticmethod(f).__func__ is f
+
     def test_write_doc(self):
         def f(): "hello"
         assert f.__doc__ == 'hello'
