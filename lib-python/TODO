@@ -47,6 +47,9 @@ Medium tasks
 
 - implement _io.open() (currently it delegates to _pyio.open)
 
+- module/unicodedata/generate_unicodedb.py should parse LineBreaks.txt
+  see http://svn.python.org/view?view=rev&revision=79494
+
 
 Longer tasks
 ------------
