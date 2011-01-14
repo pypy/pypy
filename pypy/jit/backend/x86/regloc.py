@@ -220,7 +220,6 @@ if IS_X86_32:
             return intmask(self.aslonglong)
 
         def high_part(self):
-            assert IS_X86_32
             return intmask(self.aslonglong >> 32)
 
         def low_part_loc(self):
