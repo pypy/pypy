@@ -234,21 +234,17 @@ class TestRegalloc(object):
         rm = RegisterManager(longevity, assembler=asm,
                              frame_manager=fm)
         rm.next_instruction()
-        loc = rm.return_constant(ConstInt(0), imm_fine=False)
-        assert isinstance(loc, FakeReg)
         loc = rm.return_constant(ConstInt(1), selected_reg=r1)
         assert loc is r1
         loc = rm.return_constant(ConstInt(1), selected_reg=r1)
         assert loc is r1
-        loc = rm.return_constant(ConstInt(1), imm_fine=True)
+        loc = rm.return_constant(ConstInt(1))
         assert isinstance(loc, ConstInt)
         for box in boxes[:-1]:
             rm.force_allocate_reg(box)
-        assert len(asm.moves) == 3
-        loc = rm.return_constant(ConstInt(1), imm_fine=False)
-        assert isinstance(loc, FakeReg)
-        assert len(asm.moves) == 5
-        assert len(rm.reg_bindings) == 3
+        assert len(asm.moves) == 2       # Const(1) -> r1, twice
+        assert len(rm.reg_bindings) == 4
+        rm._check_invariants()
 
     def test_force_result_in_reg_const(self):
         boxes, longevity = boxes_and_longevity(2)

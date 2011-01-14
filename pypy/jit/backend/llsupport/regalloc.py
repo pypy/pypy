@@ -210,12 +210,22 @@ class RegisterManager(object):
         except KeyError:
             return self.frame_manager.loc(box)
 
-    def return_constant(self, v):
-        """ Return the location of the constant v.
+    def return_constant(self, v, selected_reg=None):
+        """ Return the location of the constant v.  If 'selected_reg' is
+        not None, it will first load its value into this register.
         """
         self._check_type(v)
         assert isinstance(v, Const)
-        return self.convert_to_imm(v)
+        immloc = self.convert_to_imm(v)
+        if selected_reg:
+            if selected_reg in self.free_regs:
+                self.assembler.regalloc_mov(immloc, selected_reg)
+                return selected_reg
+            loc = self._spill_var(v, forbidden_vars, selected_reg)
+            self.free_regs.append(loc)
+            self.assembler.regalloc_mov(immloc, loc)
+            return loc
+        return immloc
 
     def make_sure_var_in_reg(self, v, forbidden_vars=[], selected_reg=None,
                              need_lower_byte=False):
@@ -225,10 +235,7 @@ class RegisterManager(object):
         """
         self._check_type(v)
         if isinstance(v, Const):
-            assert selected_reg is None, (
-                "make_sure_var_in_reg(): selected_reg can only be "
-                "specified for Boxes, not Consts")
-            return self.return_constant(v)
+            return self.return_constant(v, selected_reg)
         
         prev_loc = self.loc(v)
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
@@ -259,7 +266,14 @@ class RegisterManager(object):
         """
         self._check_type(result_v)
         self._check_type(v)
-        assert isinstance(v, Box), "force_result_in_reg(): got a Const"
+        if isinstance(v, Const):
+            if self.free_regs:
+                loc = self.free_regs.pop()
+            else:
+                loc = self._spill_var(v, forbidden_vars)
+            self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
+            self.reg_bindings[result_v] = loc
+            return loc
         if v not in self.reg_bindings:
             prev_loc = self.frame_manager.loc(v)
             loc = self.force_allocate_reg(v, forbidden_vars)
