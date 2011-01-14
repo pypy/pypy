@@ -1,5 +1,6 @@
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.primitive import SimpleType
 from _ctypes.basics import ArgumentError, keepalive_key
 from _ctypes.builtin import set_errno, set_last_error
 import _rawffi
@@ -98,7 +99,7 @@ class CFuncPtr(_CData):
     def _ffishapes(self, args, restype):
         argtypes = [arg._ffiargshape for arg in args]
         if restype is not None:
-            if not isinstance(restype, _CDataMeta):
+            if not isinstance(restype, SimpleType):
                 raise TypeError("invalid result type for callback function")
             restype = restype._ffiargshape
         else:
