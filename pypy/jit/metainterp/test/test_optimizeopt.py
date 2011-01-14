@@ -4035,8 +4035,110 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_division_to_rshift(self):
+        ops = """
+        [i1, i2]
+        it = int_gt(i1, 0) 
+        guard_true(it)[]
+        i3 = int_floordiv(i1, i2)
+        i4 = int_floordiv(2, i2)
+        i5 = int_floordiv(i1, 2)
+        i6 = int_floordiv(3, i2)
+        i7 = int_floordiv(i1, 3)
+        i8 = int_floordiv(4, i2)
+        i9 = int_floordiv(i1, 4)
+        i10 = int_floordiv(i1, 0)
+        i11 = int_floordiv(i1, 1)
+        i12 = int_floordiv(i2, 2)
+        i13 = int_floordiv(i2, 3)
+        i14 = int_floordiv(i2, 4)
+        jump(i5, i14)
+        """
+        expected = """
+        [i1, i2]
+        it = int_gt(i1, 0) 
+        guard_true(it)[]        
+        i3 = int_floordiv(i1, i2)
+        i4 = int_floordiv(2, i2)
+        i5 = int_rshift(i1, 1)
+        i6 = int_floordiv(3, i2)
+        i7 = int_floordiv(i1, 3)
+        i8 = int_floordiv(4, i2)
+        i9 = int_rshift(i1, 2)        
+        i10 = int_floordiv(i1, 0)
+        i11 = int_rshift(i1, 0)
+        i12 = int_floordiv(i2, 2)
+        i13 = int_floordiv(i2, 3)
+        i14 = int_floordiv(i2, 4)
+        jump(i5, i14)
+        """
+        self.optimize_loop(ops, expected)
 
+    def test_mul_to_lshift(self):
+        ops = """
+        [i1, i2]
+        i3 = int_mul(i1, 2)
+        i4 = int_mul(2, i2)
+        i5 = int_mul(i1, 32)
+        i6 = int_mul(i1, i2)
+        jump(i5, i6)
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_lshift(i1, 1)
+        i4 = int_lshift(i2, 1)
+        i5 = int_lshift(i1, 5)
+        i6 = int_mul(i1, i2)
+        jump(i5, i6)
+        """
+        self.optimize_loop(ops, expected)
 
+    def test_lshift_rshift(self):
+        ops = """
+        [i1, i2, i2b, i1b]
+        i3 = int_lshift(i1, i2)
+        i4 = int_rshift(i3, i2)
+        i5 = int_lshift(i1, 2)
+        i6 = int_rshift(i5, 2)
+        i7 = int_lshift(i1, 100)
+        i8 = int_rshift(i7, 100)
+        i9 = int_lt(i1b, 100)
+        guard_true(i9) []
+        i10 = int_gt(i1b, -100)
+        guard_true(i10) []        
+        i13 = int_lshift(i1b, i2)
+        i14 = int_rshift(i13, i2)
+        i15 = int_lshift(i1b, 2)
+        i16 = int_rshift(i15, 2)
+        i17 = int_lshift(i1b, 100)
+        i18 = int_rshift(i17, 100)
+        i19 = int_eq(i1b, i16)
+        guard_true(i19) []
+        i20 = int_ne(i1b, i16)
+        guard_false(i20) []
+        jump(i2, i3, i1b, i2b)
+        """
+        expected = """
+        [i1, i2, i2b, i1b]
+        i3 = int_lshift(i1, i2)
+        i4 = int_rshift(i3, i2)
+        i5 = int_lshift(i1, 2)
+        i6 = int_rshift(i5, 2)
+        i7 = int_lshift(i1, 100)
+        i8 = int_rshift(i7, 100)
+        i9 = int_lt(i1b, 100)
+        guard_true(i9) []
+        i10 = int_gt(i1b, -100)
+        guard_true(i10) []        
+        i13 = int_lshift(i1b, i2)
+        i14 = int_rshift(i13, i2)
+        i15 = int_lshift(i1b, 2)
+        i17 = int_lshift(i1b, 100)
+        i18 = int_rshift(i17, 100)
+        jump(i2, i3, i1b, i2b)
+        """
+        self.optimize_loop(ops, expected)
+        
     def test_subsub_ovf(self):
         ops = """
         [i0]

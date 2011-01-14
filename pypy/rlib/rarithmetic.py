@@ -196,6 +196,18 @@ def most_neg_value_of(tp):
         return r_class(0)
 most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
+def highest_bit(n):
+    """
+    Calculates the highest set bit in n.  This function assumes that n is a
+    power of 2 (and thus only has a single set bit).
+    """
+    assert n and (n & (n - 1)) == 0
+    i = -1
+    while n:
+        i += 1
+        n >>= 1
+    return i
+
 
 class base_int(long):
     """ fake unsigned integer implementation """

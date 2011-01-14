@@ -364,8 +364,6 @@ class ObjSpace(object):
 
     def setbuiltinmodule(self, importname):
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
-        import sys
-
         fullname = "pypy.module.%s" % importname
 
         Module = __import__(fullname,

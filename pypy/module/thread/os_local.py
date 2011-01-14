@@ -23,7 +23,7 @@ class Local(Wrappable):
         except KeyError:
             # create a new dict for this thread
             space = self.space
-            w_dict = self.dicts[ident] = space.newdict()
+            w_dict = self.dicts[ident] = space.newdict(instance=True)
             # call __init__
             try:
                 w_self = space.wrap(self)
