@@ -124,6 +124,11 @@ class AppTestFfi:
             return s.x + s.y;
         }
 
+        long op_x_y(struct x_y s, long(*callback)(struct x_y))
+        {
+            return callback(s);
+        }
+
         struct s2h {
             short x;
             short y;
@@ -183,7 +188,7 @@ class AppTestFfi:
                      runcallback
                      allocate_array
                      static_int static_double static_longdouble
-                     sum_x_y
+                     sum_x_y op_x_y
                      give perturb get_s2a check_s2a
                      AAA_first_ordinal_function
                      ret_un_func
@@ -208,6 +213,10 @@ class AppTestFfi:
                 cls.w_libm_name = space.wrap('libm.dylib')
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
+
+    def teardown_method(self, func):
+        from pypy.module._rawffi.callback import global_counter
+        global_counter.CallbackPtr_by_number.clear()
 
     def test_libload(self):
         import _rawffi
@@ -941,6 +950,27 @@ class AppTestFfi:
         print >> sys.stderr, "done"
         assert res[0] == 420
         x_y.free()
+
+    def test_callback_struct_byvalue(self):
+        import _rawffi, sys
+        X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
+        lib = _rawffi.CDLL(self.lib_name)
+        op_x_y = lib.ptr('op_x_y', [(X_Y, 1), 'P'], 'l')
+
+        def callback(x_y):
+            return x_y.x + x_y.y
+        cb = _rawffi.CallbackPtr(callback, [(X_Y, 1)], 'l')
+
+        x_y = X_Y()
+        x_y.x = 200
+        x_y.y = 220
+
+        a1 = cb.byptr()
+        res = op_x_y(x_y, a1)
+        a1.free()
+        x_y.free()
+
+        assert res[0] == 420
 
     def test_ret_struct(self):
         import _rawffi
