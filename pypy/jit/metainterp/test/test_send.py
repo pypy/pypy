@@ -292,7 +292,7 @@ class SendTests:
         # However, this doesn't match the initial value of 'w'.
         # XXX This not completely easy to check...
         self.check_loop_count(1)
-        self.check_loops(int_add=0, int_mul=1, guard_class=0,
+        self.check_loops(int_add=0, int_lshift=1, guard_class=0,
                          new_with_vtable=0, new=0)
 
     def test_indirect_call_unknown_object_1(self):

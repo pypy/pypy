@@ -353,37 +353,44 @@ class RegisterManager(object):
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in
     # operations that is a "last-time-seen"
-    longevity = {}
-    start_live = {}
-    for inputarg in inputargs:
-        start_live[inputarg] = 0
-    for i in range(len(operations)):
+    produced = {}
+    last_used = {}
+    for i in range(len(operations)-1, -1, -1):
         op = operations[i]
-        if op.result is not None:
-            start_live[op.result] = i
+        if op.result:
+            if op.result not in last_used and op.has_no_side_effect():
+                continue
+            assert op.result not in produced
+            produced[op.result] = i
         for j in range(op.numargs()):
             arg = op.getarg(j)
-            if isinstance(arg, Box):
-                if arg not in start_live:
-                    not_implemented("Bogus arg in operation %d at %d" %
-                                    (op.getopnum(), i))
-
-                longevity[arg] = (start_live[arg], i)
+            if isinstance(arg, Box) and arg not in last_used:
+                last_used[arg] = i
         if op.is_guard():
             for arg in op.getfailargs():
                 if arg is None: # hole
                     continue
                 assert isinstance(arg, Box)
-                if arg not in start_live:
-                    not_implemented("Bogus arg in guard %d at %d" %
-                                    (op.getopnum(), i))
-                longevity[arg] = (start_live[arg], i)
+                if arg not in last_used:
+                    last_used[arg] = i
+
+    longevity = {}
+    for arg in produced:
+        if arg in last_used:
+            assert isinstance(arg, Box)
+            assert produced[arg] < last_used[arg]
+            longevity[arg] = (produced[arg], last_used[arg])
+            del last_used[arg]
     for arg in inputargs:
-        if arg not in longevity:
-            longevity[arg] = (-1, -1)
-    for arg in longevity:
         assert isinstance(arg, Box)
+        if arg not in last_used:
+            longevity[arg] = (-1, -1)
+        else:
+            longevity[arg] = (0, last_used[arg])
+            del last_used[arg]
+    assert len(last_used) == 0
     return longevity
+
 
 def compute_loop_consts(inputargs, jump, looptoken):
     if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
@@ -394,6 +401,7 @@ def compute_loop_consts(inputargs, jump, looptoken):
             if inputargs[i] is jump.getarg(i):
                 loop_consts[inputargs[i]] = i
     return loop_consts
+
 
 def not_implemented(msg):
     os.write(2, '[llsupport/regalloc] %s\n' % msg)

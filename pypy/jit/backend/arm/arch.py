@@ -8,6 +8,7 @@ PC_OFFSET = 8
 
 arm_int_div_sign = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
 def arm_int_div(a, b):
+    print 'DIV'
     return int(a/float(b))
 
 arm_uint_div_sign = lltype.Ptr(lltype.FuncType([lltype.Unsigned, lltype.Unsigned], lltype.Unsigned))

@@ -1378,6 +1378,98 @@ class PyPyCJITTests(object):
                         i += 1
                     return sa
                 ''', ops, ([a, b], r), count_debug_merge_point=False)
+
+    def test_revert_shift(self):
+        from sys import maxint
+        tests = []
+        for a in (1, 4, 8, 100):
+            for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
+                for c in (-10, 10, -maxint/3, maxint/3):
+                    tests.append(([a, b, c], long(4000*(a+b+c))))
+        self.run_source('''
+        def main(a, b, c):
+            from sys import maxint
+            i = sa = 0
+            while i < 2000:
+                if 0 < a < 10: pass
+                if -100 < b < 100: pass
+                if -maxint/2 < c < maxint/2: pass
+                sa += (a<<a)>>a
+                sa += (b<<a)>>a
+                sa += (c<<a)>>a
+                sa += (a<<100)>>100
+                sa += (b<<100)>>100
+                sa += (c<<100)>>100
+                i += 1
+            return long(sa)
+        ''', 93, count_debug_merge_point=False, *tests)
+        
+    def test_division_to_rshift(self):
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        a1, b1, res1 = 10, 20, 0
+        a2, b2, res2 = 10, -20, 0
+        a3, b3, res3 = -10, -20, 0
+        def dd(a, b, aval, bval):
+            m = {'a': aval, 'b': bval}
+            if not isinstance(a, int):
+                a=m[a]
+            if not isinstance(b, int):
+                b=m[b]
+            return a/b
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s / %s\n' % (a, b)
+                res1 += dd(a, b, a1, b1)
+                res2 += dd(a, b, a2, b2)
+                res3 += dd(a, b, a3, b3)
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+%s                
+                i += 1
+            return sa
+        ''' % code, 179, ([a1, b1], 2000 * res1),
+                         ([a2, b2], 2000 * res2),
+                         ([a3, b3], 2000 * res3),
+                         count_debug_merge_point=False)
+        
+    def test_mod(self):
+        py.test.skip('Results are correct, but traces 1902 times (on trunk too).')
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        a1, b1, res1 = 10, 20, 0
+        a2, b2, res2 = 10, -20, 0
+        a3, b3, res3 = -10, -20, 0
+        def dd(a, b, aval, bval):
+            m = {'a': aval, 'b': bval}
+            if not isinstance(a, int):
+                a=m[a]
+            if not isinstance(b, int):
+                b=m[b]
+            return a % b
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s %% %s\n' % (a, b)
+                res1 += dd(a, b, a1, b1)
+                res2 += dd(a, b, a2, b2)
+                res3 += dd(a, b, a3, b3)
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+                if a > 0: pass
+                if 1 < b < 2: pass
+%s
+                i += 1
+            return sa
+        ''' % code, 0, ([a1, b1], 2000 * res1),
+                         ([a2, b2], 2000 * res2),
+                         ([a3, b3], 2000 * res3),
+                         count_debug_merge_point=False)
         
 
 class AppTestJIT(PyPyCJITTests):
