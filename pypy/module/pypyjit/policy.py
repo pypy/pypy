@@ -7,7 +7,8 @@ class PyPyJitPolicy(JitPolicy):
                 modname == '__builtin__.abstractinst' or
                 modname == '__builtin__.interp_classobj' or
                 modname == '__builtin__.functional' or
-                modname == '__builtin__.descriptor'):
+                modname == '__builtin__.descriptor' or
+                modname == 'thread.os_local'):
             return True
         if '.' in modname:
             modname, _ = modname.split('.', 1)
