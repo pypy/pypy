@@ -483,6 +483,12 @@ class AppTestFfi:
         assert (y.a, y.b, y.c) == (-1, -7, 0)
         y.free()
 
+    def test_invalid_bitfields(self):
+        import _rawffi
+        raises(ValueError, _rawffi.Structure, [('A', 'c', 1)])
+        raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
+        raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
+
     def test_array(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)

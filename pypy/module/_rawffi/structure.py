@@ -26,15 +26,28 @@ def unpack_fields(space, w_fields):
         l_w = space.unpackiterable(w_tup)
         len_l = len(l_w)
 
+        if len_l < 2 or len_l > 3:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "Expected list of 2- or 3-size tuples"))
+
+        name = space.str_w(l_w[0])
+        tp = unpack_shape_with_length(space, l_w[1])
+
         if len_l == 2:
             bitsize = 0
         elif len_l == 3:
             bitsize = space.int_w(l_w[2])
-        else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Expected list of 2- or 3-size tuples"))
-        name = space.str_w(l_w[0])
-        tp = unpack_shape_with_length(space, l_w[1])
+
+            if bitsize < 0 or bitsize > tp.size * 8:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "number of bits invalid for bit field"))
+            for c in unroll_letters_for_numbers:
+                if c == tp.itemcode:
+                    break
+            else:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "bit fields not allowed for type"))
+
         fields.append((name, tp, bitsize))
     return fields
 
