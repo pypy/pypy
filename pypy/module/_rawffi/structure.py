@@ -33,9 +33,7 @@ def unpack_fields(space, w_fields):
         name = space.str_w(l_w[0])
         tp = unpack_shape_with_length(space, l_w[1])
 
-        if len_l == 2:
-            bitsize = 0
-        elif len_l == 3:
+        if len_l == 3:
             bitsize = space.int_w(l_w[2])
 
             if bitsize < 0 or bitsize > tp.size * 8:
@@ -47,6 +45,8 @@ def unpack_fields(space, w_fields):
             else:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "bit fields not allowed for type"))
+        else:
+            bitsize = 0
 
         fields.append((name, tp, bitsize))
     return fields
