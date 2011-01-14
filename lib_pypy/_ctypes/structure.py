@@ -21,9 +21,12 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         all_fields.extend(getattr(cls, '_fields_', []))
     all_fields.extend(_fields_)
     names = [f[0] for f in all_fields]
-    rawfields = [(f[0], f[1]._ffishape,
-                  f[2] if len(f) > 2 else 0)
-                 for f in all_fields]
+    rawfields = []
+    for f in all_fields:
+        if len(f) > 2:
+            rawfields.append((f[0], f[1]._ffishape, f[2]))
+        else:
+            rawfields.append((f[0], f[1]._ffishape))
 
     _set_shape(self, rawfields, self._is_union)
 
