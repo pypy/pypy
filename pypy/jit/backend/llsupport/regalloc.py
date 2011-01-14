@@ -210,40 +210,25 @@ class RegisterManager(object):
         except KeyError:
             return self.frame_manager.loc(box)
 
-    def return_constant(self, v, forbidden_vars=[], selected_reg=None,
-                        imm_fine=True):
-        """ Return the location of the constant v.  If 'imm_fine' is False,
-        or if 'selected_reg' is not None, it will first load its value into
-        a register.  See 'force_allocate_reg' for the meaning of 'selected_reg'
-        and 'forbidden_vars'.
+    def return_constant(self, v):
+        """ Return the location of the constant v.
         """
         self._check_type(v)
         assert isinstance(v, Const)
-        if selected_reg or not imm_fine:
-            # this means we cannot have it in IMM, eh
-            if selected_reg in self.free_regs:
-                self.assembler.regalloc_mov(self.convert_to_imm(v), selected_reg)
-                return selected_reg
-            if selected_reg is None and self.free_regs:
-                loc = self.free_regs[-1]
-                self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
-                return loc
-            loc = self._spill_var(v, forbidden_vars, selected_reg)
-            self.free_regs.append(loc)
-            self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
-            return loc
         return self.convert_to_imm(v)
 
     def make_sure_var_in_reg(self, v, forbidden_vars=[], selected_reg=None,
-                             imm_fine=True, need_lower_byte=False):
+                             need_lower_byte=False):
         """ Make sure that an already-allocated variable v is in some
-        register.  Return the register.  See 'return_constant' and
-        'force_allocate_reg' for the meaning of the optional arguments.
+        register.  Return the register.  See 'force_allocate_reg' for
+        the meaning of the optional arguments.
         """
         self._check_type(v)
         if isinstance(v, Const):
-            return self.return_constant(v, forbidden_vars, selected_reg,
-                                        imm_fine)
+            assert selected_reg is None, (
+                "make_sure_var_in_reg(): selected_reg can only be "
+                "specified for Boxes, not Consts")
+            return self.return_constant(v)
         
         prev_loc = self.loc(v)
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
@@ -274,15 +259,7 @@ class RegisterManager(object):
         """
         self._check_type(result_v)
         self._check_type(v)
-        if isinstance(v, Const):
-            loc = self.make_sure_var_in_reg(v, forbidden_vars,
-                                            imm_fine=False)
-            # note that calling make_sure_var_in_reg with imm_fine=False
-            # will not allocate place in reg_bindings, we need to do it
-            # on our own
-            self.reg_bindings[result_v] = loc
-            self.free_regs = [reg for reg in self.free_regs if reg is not loc]
-            return loc
+        assert isinstance(v, Box), "force_result_in_reg(): got a Const"
         if v not in self.reg_bindings:
             prev_loc = self.frame_manager.loc(v)
             loc = self.force_allocate_reg(v, forbidden_vars)
