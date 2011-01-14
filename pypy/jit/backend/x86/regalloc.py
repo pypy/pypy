@@ -5,7 +5,7 @@
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr, ConstFloat,
-                                         LoopToken, INT, REF, FLOAT)
+                                         BoxFloat, LoopToken, INT, REF, FLOAT)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
@@ -72,6 +72,12 @@ class X86XMMRegisterManager(RegisterManager):
     def convert_to_imm(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
         rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        return ConstFloatLoc(adr)
+
+    def convert_to_imm_16bytes_align(self, c):
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[1] = 0.0
         return ConstFloatLoc(adr)
 
     def after_call(self, v):
@@ -230,6 +236,14 @@ class RegAlloc(object):
         else:
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
+
+    def load_xmm_aligned_16_bytes(self, var):
+        # Load 'var' in a register; but if it is a constant, we can return
+        # a 16-bytes-aligned ConstFloatLoc.
+        if isinstance(var, Const):
+            return self.xrm.convert_to_imm_16bytes_align(var)
+        else:
+            return self.xrm.make_sure_var_in_reg(var)
 
     def _compute_loop_consts(self, inputargs, jump, looptoken):
         if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
@@ -642,14 +656,16 @@ class RegAlloc(object):
 
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
-        # know if they will be suitably aligned
+        # know if they will be suitably aligned.  Exception: if the second
+        # argument is a constant, we can ask it to be aligned to 16 bytes.
         args = [op.getarg(1), op.getarg(2)]
-        loc1 = self.xrm.make_sure_var_in_reg(args[1], imm_fine=False)
+        loc1 = self.load_xmm_aligned_16_bytes(args[1])
         loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)
         self.PerformLLong(op, [loc0, loc1], loc0)
         self.xrm.possibly_free_vars(args)
 
-    def _consider_llong_cmp_xx(self, op):
+    def _consider_llong_eq_xx(self, op):
+        # (also handles llong_ne.)
         # must force both arguments into xmm registers, because we don't
         # know if they will be suitably aligned
         args = [op.getarg(1), op.getarg(2)]
@@ -672,7 +688,8 @@ class RegAlloc(object):
             return False
         # "x < 0"
         box = op.getarg(1)
-        loc1 = self.xrm.make_sure_var_in_reg(box, imm_fine=False)
+        assert isinstance(box, BoxFloat)
+        loc1 = self.xrm.make_sure_var_in_reg(box)
         loc0 = self.rm.force_allocate_reg(op.result)
         self.PerformLLong(op, [loc1], loc0)
         self.xrm.possibly_free_var(box)
@@ -791,9 +808,9 @@ class RegAlloc(object):
                     return self._consider_llong_from_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_TWO_INTS:
                     return self._consider_llong_from_two_ints(op)
-                if (oopspecindex == EffectInfo.OS_LLONG_EQ or
-                    oopspecindex == EffectInfo.OS_LLONG_NE):
-                    return self._consider_llong_cmp_xx(op)
+                #if (oopspecindex == EffectInfo.OS_LLONG_EQ or
+                #    oopspecindex == EffectInfo.OS_LLONG_NE):
+                #    return self._consider_llong_eq_xx(op)
                 if oopspecindex == EffectInfo.OS_LLONG_LT:
                     if self._maybe_consider_llong_lt(op):
                         return

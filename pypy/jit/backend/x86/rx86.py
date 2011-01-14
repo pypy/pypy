@@ -551,14 +551,7 @@ class AbstractX86CodeBuilder(object):
 
     MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
-    PADDQ_xx = xmminsn('\x66', rex_nw, '\x0F\xD4', register(1, 8), register(2), '\xC0')
-    PSUBQ_xx = xmminsn('\x66', rex_nw, '\x0F\xFB', register(1, 8), register(2), '\xC0')
-    PAND_xx = xmminsn('\x66', rex_nw, '\x0F\xDB', register(1, 8), register(2), '\xC0')
-    POR_xx  = xmminsn('\x66', rex_nw, '\x0F\xEB', register(1, 8), register(2), '\xC0')
-    PXOR_xx = xmminsn('\x66', rex_nw, '\x0F\xEF', register(1, 8), register(2), '\xC0')
-    PUNPCKLDQ_xx = xmminsn('\x66', rex_nw, '\x0F\x62', register(1, 8), register(2), '\xC0')
     PMOVMSKB_rx = xmminsn('\x66', rex_w, '\x0F\xD7', register(1, 8), register(2), '\xC0')
-    PCMPEQD_xx = xmminsn('\x66', rex_nw, '\x0F\x76', register(1, 8), register(2), '\xC0')
 
     # ------------------------------------------------------------
 
@@ -673,6 +666,26 @@ define_modrm_modes('DIVSD_x*', ['\xF2', rex_nw, '\x0F\x5E', register(1, 8)], reg
 define_modrm_modes('UCOMISD_x*', ['\x66', rex_nw, '\x0F\x2E', register(1, 8)], regtype='XMM')
 define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
+
+def define_pxmm_insn(insnname_template, insn_char):
+    def add_insn(char, *post):
+        methname = insnname_template.replace('*', char)
+        insn_func = xmminsn('\x66', rex_nw, '\x0F' + insn_char,
+                            register(1, 8), *post)
+        assert not hasattr(AbstractX86CodeBuilder, methname)
+        setattr(AbstractX86CodeBuilder, methname, insn_func)
+    #
+    assert insnname_template.count('*') == 1
+    add_insn('x', register(2), '\xC0')
+    add_insn('j', '\x05', immediate(2))
+
+define_pxmm_insn('PADDQ_x*',     '\xD4')
+define_pxmm_insn('PSUBQ_x*',     '\xFB')
+define_pxmm_insn('PAND_x*',      '\xDB')
+define_pxmm_insn('POR_x*',       '\xEB')
+define_pxmm_insn('PXOR_x*',      '\xEF')
+define_pxmm_insn('PUNPCKLDQ_x*', '\x62')
+define_pxmm_insn('PCMPEQD_x*',   '\x76')
 
 # ____________________________________________________________
 
