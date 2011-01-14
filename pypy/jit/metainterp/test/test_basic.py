@@ -2015,6 +2015,25 @@ class BasicTests:
         self.check_loops(guard_true=4, guard_class=0, int_add=2, int_mul=2,
                          guard_false=2)
 
+    def test_dont_trace_every_iteration(self):
+        myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'i', 'sa'])
+        
+        def main(a, b):
+            i = sa = 0
+            while i < 200:
+                myjitdriver.can_enter_jit(a=a, b=b, i=i, sa=sa)
+                myjitdriver.jit_merge_point(a=a, b=b, i=i, sa=sa)
+                if a > 0: pass
+                if 1 < b < 2: pass
+                sa += a % b
+                i += 1
+            return sa
+        def g():
+            return main(10, 20) + main(-10, -20)
+        res = self.meta_interp(g, [])
+        assert res == g()
+        self.check_enter_count(2)
+
     def test_current_trace_length(self):
         myjitdriver = JitDriver(greens = ['g'], reds = ['x'])
         @dont_look_inside
