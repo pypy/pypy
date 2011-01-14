@@ -30,17 +30,16 @@ def callback(ll_args, ll_res, ll_userdata):
     argtypes = callback_ptr.argtypes
     space = callback_ptr.space
     try:
-        # XXX The app-level callback gets the arguments as a list of integers.
-        #     Irregular interface here.  Shows something, I say.
         args_w = [None] * len(argtypes)
         for i in range(len(argtypes)):
             argtype = argtypes[i]
             if isinstance(argtype, W_Structure):
-                args_w[i] = space.wrap(argtype.fromaddress(
-                    space, rffi.cast(rffi.SIZE_T, ll_args[i])))
+                args_w[i] = argtype.fromaddress(
+                    space, rffi.cast(rffi.SIZE_T, ll_args[i]))
             else:
+                # XXX other types?
                 args_w[i] = space.wrap(rffi.cast(rffi.ULONG, ll_args[i]))
-        w_res = space.call_function(w_callable, *args_w)
+        w_res = space.call(w_callable, space.newtuple(args_w))
         if callback_ptr.result is not None: # don't return void
             unwrap_value(space, push_elem, ll_res, 0,
                          callback_ptr.result, w_res)
