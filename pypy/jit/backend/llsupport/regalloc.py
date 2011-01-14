@@ -210,7 +210,7 @@ class RegisterManager(object):
         except KeyError:
             return self.frame_manager.loc(box)
 
-    def return_constant(self, v, selected_reg=None):
+    def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         """ Return the location of the constant v.  If 'selected_reg' is
         not None, it will first load its value into this register.
         """
@@ -235,7 +235,7 @@ class RegisterManager(object):
         """
         self._check_type(v)
         if isinstance(v, Const):
-            return self.return_constant(v, selected_reg)
+            return self.return_constant(v, forbidden_vars, selected_reg)
         
         prev_loc = self.loc(v)
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
@@ -270,7 +270,7 @@ class RegisterManager(object):
             if self.free_regs:
                 loc = self.free_regs.pop()
             else:
-                loc = self._spill_var(v, forbidden_vars)
+                loc = self._spill_var(v, forbidden_vars, None)
             self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
             self.reg_bindings[result_v] = loc
             return loc

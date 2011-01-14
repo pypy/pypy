@@ -531,6 +531,7 @@ class AbstractX86CodeBuilder(object):
     CDQ = insn(rex_nw, '\x99')
 
     TEST8_mi = insn(rex_w, '\xF6', orbyte(0<<3), mem_reg_plus_const(1), immediate(2, 'b'))
+    TEST8_ji = insn(rex_w, '\xF6', orbyte(0<<3), '\x05', immediate(1), immediate(2, 'b'))
     TEST_rr = insn(rex_w, '\x85', register(2,8), register(1), '\xC0')
 
     # x87 instructions

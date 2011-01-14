@@ -817,16 +817,22 @@ class Assembler386(object):
             self.mc.MOVZX8_rr(result_loc.value, rl.value)
         return genop_cmp
 
-    def _cmpop_float(cond, is_ne=False):
+    def _cmpop_float(cond, rev_cond, is_ne=False):
         def genop_cmp(self, op, arglocs, result_loc):
-            self.mc.UCOMISD(arglocs[0], arglocs[1])
+            if isinstance(arglocs[0], RegLoc):
+                self.mc.UCOMISD(arglocs[0], arglocs[1])
+                checkcond = cond
+            else:
+                self.mc.UCOMISD(arglocs[1], arglocs[0])
+                checkcond = rev_cond
+
             tmp1 = result_loc.lowest8bits()
             if IS_X86_32:
                 tmp2 = result_loc.higher8bits()
             elif IS_X86_64:
                 tmp2 = X86_64_SCRATCH_REG.lowest8bits()
 
-            self.mc.SET_ir(rx86.Conditions[cond], tmp1.value)
+            self.mc.SET_ir(rx86.Conditions[checkcond], tmp1.value)
             if is_ne:
                 self.mc.SET_ir(rx86.Conditions['P'], tmp2.value)
                 self.mc.OR8_rr(tmp1.value, tmp2.value)
@@ -990,12 +996,12 @@ class Assembler386(object):
     genop_ptr_eq = genop_int_eq
     genop_ptr_ne = genop_int_ne
 
-    genop_float_lt = _cmpop_float('B')
-    genop_float_le = _cmpop_float('BE')
-    genop_float_ne = _cmpop_float('NE', is_ne=True)
-    genop_float_eq = _cmpop_float('E')
-    genop_float_gt = _cmpop_float('A')
-    genop_float_ge = _cmpop_float('AE')
+    genop_float_lt = _cmpop_float('B', 'A')
+    genop_float_le = _cmpop_float('BE', 'AE')
+    genop_float_ne = _cmpop_float('NE', 'NE', is_ne=True)
+    genop_float_eq = _cmpop_float('E', 'E')
+    genop_float_gt = _cmpop_float('A', 'B')
+    genop_float_ge = _cmpop_float('AE', 'BE')
 
     genop_uint_gt = _cmpop("A", "B")
     genop_uint_lt = _cmpop("B", "A")
@@ -1818,8 +1824,13 @@ class Assembler386(object):
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         loc_base = arglocs[0]
-        self.mc.TEST8_mi((loc_base.value, descr.jit_wb_if_flag_byteofs),
-                descr.jit_wb_if_flag_singlebyte)
+        if isinstance(loc_base, RegLoc):
+            self.mc.TEST8_mi((loc_base.value, descr.jit_wb_if_flag_byteofs),
+                             descr.jit_wb_if_flag_singlebyte)
+        else:
+            assert isinstance(loc_base, ImmedLoc)
+            self.mc.TEST8_ji(loc_base.value + descr.jit_wb_if_flag_byteofs,
+                             descr.jit_wb_if_flag_singlebyte)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = self.mc.get_relative_pos()
         # the following is supposed to be the slow path, so whenever possible
