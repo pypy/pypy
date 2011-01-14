@@ -665,12 +665,16 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_nonnull(p0) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         setfield_gc(p0, 5, descr=valuedescr)
         jump(p0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_const_guard_value(self):
         ops = """
@@ -2812,31 +2816,59 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
 
     def test_call_assembler_invalidates_caches(self):
         ops = '''
-        [p1, i1]
+        [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_assembler(i1, descr=asmdescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i3)
+        jump(p1, i4, i3)
         '''
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, ops, ops)
+
+    def test_call_assembler_invalidates_heap_knowledge(self):
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_assembler(i1, descr=asmdescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        self.optimize_loop(ops, ops, ops)
 
     def test_call_pure_invalidates_caches(self):
         # CALL_PURE should still force the setfield_gc() to occur before it
         ops = '''
-        [p1, i1]
+        [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_pure(42, p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i3)
+        jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i1]
+        [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i3)
+        jump(p1, i4, i3)
         '''
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, expected)
+
+    def test_call_pure_invalidates_heap_knowledge(self):
+        # CALL_PURE should still force the setfield_gc() to occur before it
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_pure(42, p1, descr=plaincalldescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        expected = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=plaincalldescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        self.optimize_loop(ops, expected, expected)
 
     def test_call_pure_constant_folding(self):
         # CALL_PURE is not marked as is_always_pure(), because it is wrong
@@ -3649,10 +3681,9 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p0, i22)
         """
         expected = """
-        [p0, i22, i1]
+        [p0, i22]
         i331 = force_token()
-        setfield_gc(p0, i1, descr=valuedescr)
-        jump(p0, i22, i1)
+        jump(p0, i22)
         """
         self.optimize_loop(ops, expected)
 

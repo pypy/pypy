@@ -3604,7 +3604,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_false(i2) []
         i3 = int_add(i1, 1)
         i331 = force_token()
-        setfield_gc(p0, i1, descr=valuedescr)
         jump(p0, i22)
         """
         self.optimize_loop(ops, expected)
