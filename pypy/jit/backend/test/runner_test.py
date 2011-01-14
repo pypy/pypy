@@ -1067,6 +1067,61 @@ class BaseBackendTest(Runner):
         for i in range(1, len(fboxes)):
             assert self.cpu.get_latest_value_float(i) == 13.5 + 6.73 * i
 
+    def test_integers_and_guards(self):
+        for opname, compare in [
+            (rop.INT_LT, lambda x, y: x < y),
+            (rop.INT_LE, lambda x, y: x <= y),
+            (rop.INT_EQ, lambda x, y: x == y),
+            (rop.INT_NE, lambda x, y: x != y),
+            (rop.INT_GT, lambda x, y: x > y),
+            (rop.INT_GE, lambda x, y: x >= y),
+            ]:
+            for opguard, guard_case in [
+                (rop.GUARD_FALSE, False),
+                (rop.GUARD_TRUE,  True),
+                ]:
+                for combinaison in ["bb", "bc", "cb"]:
+                    #
+                    if combinaison[0] == 'b':
+                        ibox1 = BoxInt()
+                    else:
+                        ibox1 = ConstInt(-42)
+                    if combinaison[1] == 'b':
+                        ibox2 = BoxInt()
+                    else:
+                        ibox2 = ConstInt(-42)
+                    b1 = BoxInt()
+                    faildescr1 = BasicFailDescr(1)
+                    faildescr2 = BasicFailDescr(2)
+                    inputargs = [ib for ib in [ibox1, ibox2]
+                                    if isinstance(ib, BoxInt)]
+                    operations = [
+                        ResOperation(opname, [ibox1, ibox2], b1),
+                        ResOperation(opguard, [b1], None, descr=faildescr1),
+                        ResOperation(rop.FINISH, [], None, descr=faildescr2),
+                        ]
+                    operations[-2].setfailargs([])
+                    looptoken = LoopToken()
+                    self.cpu.compile_loop(inputargs, operations, looptoken)
+                    #
+                    cpu = self.cpu
+                    for test1 in [-65, -42, -11]:
+                        if test1 == -42 or combinaison[0] == 'b':
+                            for test2 in [-65, -42, -11]:
+                                if test2 == -42 or combinaison[1] == 'b':
+                                    n = 0
+                                    if combinaison[0] == 'b':
+                                        cpu.set_future_value_int(n, test1)
+                                        n += 1
+                                    if combinaison[1] == 'b':
+                                        cpu.set_future_value_int(n, test2)
+                                        n += 1
+                                    fail = cpu.execute_token(looptoken)
+                                    #
+                                    expected = compare(test1, test2)
+                                    expected ^= guard_case
+                                    assert fail.identifier == 2 - expected
+
     def test_floats_and_guards(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
@@ -1120,7 +1175,6 @@ class BaseBackendTest(Runner):
                                     if combinaison[1] == 'b':
                                         cpu.set_future_value_float(n, test2)
                                         n += 1
-                                    cpu.set_future_value_float(1, test2)
                                     fail = cpu.execute_token(looptoken)
                                     #
                                     expected = compare(test1, test2)
