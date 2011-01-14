@@ -237,13 +237,13 @@ class RegAlloc(object):
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
 
-    def load_xmm_aligned_16_bytes(self, var):
+    def load_xmm_aligned_16_bytes(self, var, forbidden_vars=[]):
         # Load 'var' in a register; but if it is a constant, we can return
         # a 16-bytes-aligned ConstFloatLoc.
         if isinstance(var, Const):
             return self.xrm.convert_to_imm_16bytes_align(var)
         else:
-            return self.xrm.make_sure_var_in_reg(var)
+            return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
 
     def _compute_loop_consts(self, inputargs, jump, looptoken):
         if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
@@ -664,14 +664,13 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc0, loc1], loc0)
         self.xrm.possibly_free_vars(args)
 
-    def _consider_llong_eq_xx(self, op):
-        # (also handles llong_ne.)
+    def _consider_llong_eq_ne_xx(self, op):
         # must force both arguments into xmm registers, because we don't
-        # know if they will be suitably aligned
+        # know if they will be suitably aligned.  Exception: if they are
+        # constants, we can ask them to be aligned to 16 bytes.
         args = [op.getarg(1), op.getarg(2)]
-        XXXXX
-        loc1 = self.xrm.make_sure_var_in_reg(args[0], imm_fine=False)
-        loc2 = self.xrm.make_sure_var_in_reg(args[1], args, imm_fine=False)
+        loc1 = self.load_xmm_aligned_16_bytes(args[0])
+        loc2 = self.load_xmm_aligned_16_bytes(args[1], args)
         tmpxvar = TempBox()
         loc3 = self.xrm.force_allocate_reg(tmpxvar, args)
         self.xrm.possibly_free_var(tmpxvar)
@@ -808,9 +807,9 @@ class RegAlloc(object):
                     return self._consider_llong_from_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_TWO_INTS:
                     return self._consider_llong_from_two_ints(op)
-                #if (oopspecindex == EffectInfo.OS_LLONG_EQ or
-                #    oopspecindex == EffectInfo.OS_LLONG_NE):
-                #    return self._consider_llong_eq_xx(op)
+                if (oopspecindex == EffectInfo.OS_LLONG_EQ or
+                    oopspecindex == EffectInfo.OS_LLONG_NE):
+                    return self._consider_llong_eq_ne_xx(op)
                 if oopspecindex == EffectInfo.OS_LLONG_LT:
                     if self._maybe_consider_llong_lt(op):
                         return

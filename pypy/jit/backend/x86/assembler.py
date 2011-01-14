@@ -1156,8 +1156,8 @@ class Assembler386(object):
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
-        self.mc.MOVSD_xx(locxtmp.value, loc1.value)
-        self.mc.PCMPEQD_xx(locxtmp.value, loc2.value)
+        self.mc.MOVSD(locxtmp, loc1)
+        self.mc.PCMPEQD(locxtmp, loc2)
         self.mc.PMOVMSKB_rx(resloc.value, locxtmp.value)
         # Now the lower 8 bits of resloc contain 0x00, 0x0F, 0xF0 or 0xFF
         # depending on the result of the comparison of each of the two
@@ -1169,8 +1169,8 @@ class Assembler386(object):
 
     def genop_llong_ne(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
-        self.mc.MOVSD_xx(locxtmp.value, loc1.value)
-        self.mc.PCMPEQD_xx(locxtmp.value, loc2.value)
+        self.mc.MOVSD(locxtmp, loc1)
+        self.mc.PCMPEQD(locxtmp, loc2)
         self.mc.PMOVMSKB_rx(resloc.value, locxtmp.value)
         # Now the lower 8 bits of resloc contain 0x00, 0x0F, 0xF0 or 0xFF
         # depending on the result of the comparison of each of the two
