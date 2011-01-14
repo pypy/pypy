@@ -408,8 +408,10 @@ class Assembler386(object):
             tok.faildescr._x86_adr_jump_offset = addr
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)
-            p = rffi.cast(rffi.INTP, addr)
-            p[0] = rffi.cast(rffi.INT, relative_target)
+            #
+            mc = codebuf.MachineCodeBlockWrapper()
+            mc.writeimm32(relative_target)
+            mc.copy_to_raw_memory(addr)
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -859,22 +861,33 @@ class Assembler386(object):
                     self.implement_guard(guard_token, false_cond)
         return genop_cmp_guard
 
-    def _cmpop_guard_float(cond, false_cond, need_jp):
+    def _cmpop_guard_float(cond, rev_cond, false_cond, false_rev_cond):
+        need_direct_jp = 'A' not in cond
+        need_rev_jp = 'A' not in rev_cond
         def genop_cmp_guard_float(self, op, guard_op, guard_token, arglocs,
                                   result_loc):
             guard_opnum = guard_op.getopnum()
-            self.mc.UCOMISD(arglocs[0], arglocs[1])
+            if isinstance(arglocs[0], RegLoc):
+                self.mc.UCOMISD(arglocs[0], arglocs[1])
+                checkcond = cond
+                checkfalsecond = false_cond
+                need_jp = need_direct_jp
+            else:
+                self.mc.UCOMISD(arglocs[1], arglocs[0])
+                checkcond = rev_cond
+                checkfalsecond = false_rev_cond
+                need_jp = need_rev_jp
             if guard_opnum == rop.GUARD_FALSE:
                 if need_jp:
                     self.mc.J_il8(rx86.Conditions['P'], 6)
-                self.implement_guard(guard_token, cond)
+                self.implement_guard(guard_token, checkcond)
             else:
                 if need_jp:
                     self.mc.J_il8(rx86.Conditions['P'], 2)
-                    self.mc.J_il8(rx86.Conditions[cond], 5)
+                    self.mc.J_il8(rx86.Conditions[checkcond], 5)
                     self.implement_guard(guard_token)
                 else:
-                    self.implement_guard(guard_token, false_cond)
+                    self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
     def _emit_call(self, x, arglocs, start=0, tmp=eax):
@@ -1022,15 +1035,18 @@ class Assembler386(object):
     genop_guard_uint_le = _cmpop_guard("BE", "AE", "A", "B")
     genop_guard_uint_ge = _cmpop_guard("AE", "BE", "B", "A")
 
-    genop_guard_float_lt = _cmpop_guard_float("B", "AE", True)
-    genop_guard_float_le = _cmpop_guard_float("BE", "A", True)
-    genop_guard_float_eq = _cmpop_guard_float("E", "NE", True)
-    genop_guard_float_gt = _cmpop_guard_float("A", "BE", False)
-    genop_guard_float_ge = _cmpop_guard_float("AE", "B", False)
+    genop_guard_float_lt = _cmpop_guard_float("B", "A", "AE","BE")
+    genop_guard_float_le = _cmpop_guard_float("BE","AE", "A", "B")
+    genop_guard_float_eq = _cmpop_guard_float("E", "E", "NE","NE")
+    genop_guard_float_gt = _cmpop_guard_float("A", "B", "BE","AE")
+    genop_guard_float_ge = _cmpop_guard_float("AE","BE", "B", "A")
 
     def genop_guard_float_ne(self, op, guard_op, guard_token, arglocs, result_loc):
         guard_opnum = guard_op.getopnum()
-        self.mc.UCOMISD(arglocs[0], arglocs[1])
+        if isinstance(arglocs[0], RegLoc):
+            self.mc.UCOMISD(arglocs[0], arglocs[1])
+        else:
+            self.mc.UCOMISD(arglocs[1], arglocs[0])
         if guard_opnum == rop.GUARD_TRUE:
             self.mc.J_il8(rx86.Conditions['P'], 6)
             self.implement_guard(guard_token, 'E')
