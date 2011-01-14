@@ -226,11 +226,6 @@ class BaseTestRint(BaseRtypingTest):
             res = self.interpret(f, [int(-1<<(r_int.BITS-1))])
             assert res == 0
 
-            res = self.interpret(f, [r_int64(-1)])
-            assert res == 1
-            res = self.interpret(f, [r_int64(-1)<<(r_longlong.BITS-1)])
-            assert res == 0
-
     def test_lshift_rshift(self):
         for name, f in [('_lshift', lambda x, y: x << y),
                         ('_rshift', lambda x, y: x >> y)]:
@@ -250,6 +245,8 @@ class BaseTestRint(BaseRtypingTest):
                 assert block.operations[0].opname.endswith(name)
 
     def test_cast_uint_to_longlong(self):
+        if r_uint.BITS == r_longlong.BITS:
+            py.test.skip("only on 32-bits")
         def f(x):
             return r_longlong(r_uint(x))
         res = self.interpret(f, [-42])
@@ -338,7 +335,9 @@ class BaseTestRint(BaseRtypingTest):
                 for x, y in args:
                     x, y = inttype(x), inttype(y)
                     try:
-                        res1 = ovfcheck(func(x, y))
+                        res1 = func(x, y)
+                        if isinstance(res1, int):
+                            res1 = ovfcheck(res1)
                     except (OverflowError, ZeroDivisionError):
                         continue
                     res2 = self.interpret(func, [x, y])
