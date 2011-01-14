@@ -134,7 +134,7 @@ def size_alignment_pos(fields, is_union=False, pack=0):
 
 
 class W_Structure(W_DataShape):
-    def __init__(self, space, fields, size, alignment, is_union=False):
+    def __init__(self, space, fields, size, alignment, is_union=False, pack=0):
         name_to_index = {}
         if fields is not None:
             for i in range(len(fields)):
@@ -144,7 +144,7 @@ class W_Structure(W_DataShape):
                         "duplicate field name %s", name)
                 name_to_index[name] = i
             size, alignment, pos, bitsizes = size_alignment_pos(
-                fields, is_union)
+                fields, is_union, pack)
         else: # opaque case
             fields = []
             pos = []
@@ -227,7 +227,11 @@ class W_Structure(W_DataShape):
     
 
 
-def descr_new_structure(space, w_type, w_shapeinfo, union=0):
+def descr_new_structure(space, w_type, w_shapeinfo, union=0, pack=0):
+    if pack < 0:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "_pack_ must be a non-negative integer"))
+
     is_union = bool(union)
     if space.is_true(space.isinstance(w_shapeinfo, space.w_tuple)):
         w_size, w_alignment = space.fixedview(w_shapeinfo, expected_length=2)
@@ -235,9 +239,9 @@ def descr_new_structure(space, w_type, w_shapeinfo, union=0):
                                      space.int_w(w_alignment), is_union)
     else:
         fields = unpack_fields(space, w_shapeinfo)
-        S = W_Structure(space, fields, 0, 0, is_union)
+        S = W_Structure(space, fields, 0, 0, is_union, pack)
     return space.wrap(S)
-descr_new_structure.unwrap_spec = [ObjSpace, W_Root, W_Root, int]
+descr_new_structure.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int]
 
 W_Structure.typedef = TypeDef(
     'Structure',

@@ -71,7 +71,8 @@ class Field(object):
 # ________________________________________________________________
 
 def _set_shape(tp, rawfields, is_union=False):
-    tp._ffistruct = _rawffi.Structure(rawfields, is_union)
+    tp._ffistruct = _rawffi.Structure(rawfields, is_union,
+                                      getattr(self, '_pack_', 0))
     tp._ffiargshape = tp._ffishape = (tp._ffistruct, 1)
     tp._fficompositesize = tp._ffistruct.size
 

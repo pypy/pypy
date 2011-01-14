@@ -489,6 +489,12 @@ class AppTestFfi:
         raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
 
+    def test_packed_structure(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'c'),
+                               ('b', 'i')], pack=1)
+        assert Y.size == 5
+
     def test_array(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
