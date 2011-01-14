@@ -25,7 +25,7 @@ from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
                                          X86_64_XMM_SCRATCH_REG,
                                          RegLoc, StackLoc, ConstFloatLoc,
                                          ImmedLoc, AddressLoc, imm,
-                                         imm0, imm1)
+                                         imm0, imm1, FloatImmedLoc)
 
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
@@ -1170,8 +1170,13 @@ class Assembler386(object):
             self.mc.MOV16(dest_addr, value_loc)
         elif size == 4:
             self.mc.MOV32(dest_addr, value_loc)
-        elif IS_X86_64 and size == 8:
-            self.mc.MOV(dest_addr, value_loc)
+        elif size == 8:
+            if IS_X86_64:
+                self.mc.MOV(dest_addr, value_loc)
+            else:
+                assert isinstance(value_loc, FloatImmedLoc)
+                self.mc.MOV(dest_addr, value_loc.low_part_loc())
+                self.mc.MOV(dest_addr.add_offset(4), value_loc.high_part_loc())
         else:
             not_implemented("save_into_mem size = %d" % size)
 

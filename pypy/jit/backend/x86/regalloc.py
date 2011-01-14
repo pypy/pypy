@@ -4,7 +4,7 @@
 
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                         ResOperation, BoxPtr, BoxFloat,
+                                         ResOperation, BoxPtr, ConstFloat,
                                          LoopToken, INT, REF, FLOAT)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
@@ -212,8 +212,8 @@ class RegAlloc(object):
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
         if var.type == FLOAT:
-            assert isinstance(var, BoxFloat), (
-                "ConstFloats must be handled differently")
+            if isinstance(var, ConstFloat):
+                return FloatImmedLoc(var.getfloat())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
                                                  selected_reg, need_lower_byte)
         else:
