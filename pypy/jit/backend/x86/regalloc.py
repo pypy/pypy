@@ -669,6 +669,7 @@ class RegAlloc(object):
         # must force both arguments into xmm registers, because we don't
         # know if they will be suitably aligned
         args = [op.getarg(1), op.getarg(2)]
+        XXXXX
         loc1 = self.xrm.make_sure_var_in_reg(args[0], imm_fine=False)
         loc2 = self.xrm.make_sure_var_in_reg(args[1], args, imm_fine=False)
         tmpxvar = TempBox()
@@ -748,13 +749,12 @@ class RegAlloc(object):
             if isinstance(box1, ConstInt):
                 loc1 = self._loc_of_const_longlong(r_longlong(box1.value))
             else:
-                loc1 = self.rm.make_sure_var_in_reg(box1, imm_fine=False)
+                loc1 = self.rm.make_sure_var_in_reg(box1)
             #
             if isinstance(box2, ConstInt):
                 loc2 = self._loc_of_const_longlong(r_longlong(box2.value))
             else:
-                loc2 = self.rm.make_sure_var_in_reg(box2, [box1],
-                                                    imm_fine=False)
+                loc2 = self.rm.make_sure_var_in_reg(box2, [box1])
         #
         self.PerformLLong(op, [loc1, loc2, loc3], loc0)
         self.rm.possibly_free_vars_for_op(op)
