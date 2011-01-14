@@ -4609,6 +4609,26 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_let_getfield_kill_chained_setfields(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        setfield_gc(p0, p0, descr=valuedescr)        
+        setfield_gc(p0, p1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=valuedescr)
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_inputargs_added_by_forcing_jumpargs(self):
         # FXIME: Can this occur?
         ops = """

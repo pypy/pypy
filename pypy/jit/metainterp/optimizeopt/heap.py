@@ -17,6 +17,7 @@ class OptHeap(Optimization):
     def __init__(self):
         # cached fields:  {descr: {OptValue_instance: OptValue_fieldvalue}}
         self.cached_fields = {}
+        self.known_heap_fields = {}
         # cached array items:  {descr: CachedArrayItems}
         self.cached_arrayitems = {}
         # lazily written setfields (at most one per descr):  {descr: op}
@@ -37,6 +38,13 @@ class OptHeap(Optimization):
         for descr, d in self.cached_fields.items():
             newd = {}
             new.cached_fields[descr] = newd
+            for value, fieldvalue in d.items():
+                newd[value.get_reconstructed(optimizer, valuemap)] = \
+                                       fieldvalue.get_reconstructed(optimizer, valuemap)
+            
+        for descr, d in self.known_heap_fields.items():
+            newd = {}
+            new.known_heap_fields[descr] = newd
             for value, fieldvalue in d.items():
                 newd[value.get_reconstructed(optimizer, valuemap)] = \
                                        fieldvalue.get_reconstructed(optimizer, valuemap)
@@ -62,6 +70,7 @@ class OptHeap(Optimization):
 
     def clean_caches(self):
         self.cached_fields.clear()
+        self.known_heap_fields.clear()
         self.cached_arrayitems.clear()
 
     def cache_field_value(self, descr, value, fieldvalue, write=False):
@@ -166,6 +175,7 @@ class OptHeap(Optimization):
                     self.force_lazy_setfield(fielddescr)
                     try:
                         del self.cached_fields[fielddescr]
+                        del self.known_heap_fields[fielddescr]
                     except KeyError:
                         pass
                 for arraydescr in effectinfo.write_descrs_arrays:
@@ -202,9 +212,16 @@ class OptHeap(Optimization):
         except KeyError:
             return
         del self.lazy_setfields[descr]
-        ###self.optimizer._emit_operation(op)
+        value = self.getvalue(op.getarg(0))
+        fieldvalue = self.getvalue(op.getarg(1))
+        try:
+            heapvalue = self.known_heap_fields[op.getdescr()][value]
+            if fieldvalue is heapvalue:
+                return
+        except KeyError:
+            pass
         self.next_optimization.propagate_forward(op)
-        #
+
         # hackish: reverse the order of the last two operations if it makes
         # sense to avoid a situation like "int_eq/setfield_gc/guard_true",
         # which the backend (at least the x86 backend) does not handle well.
@@ -272,10 +289,13 @@ class OptHeap(Optimization):
         # default case: produce the operation
         value.ensure_nonnull()
         ###self.optimizer.optimize_default(op)
-        self.emit_operation(op) # FIXME: These might need constant propagation?
+        self.emit_operation(op)
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
         self.cache_field_value(op.getdescr(), value, fieldvalue)
+        # keep track of what's on the heap
+        d = self.known_heap_fields.setdefault(op.getdescr(), {})
+        d[value] = fieldvalue
 
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
@@ -295,7 +315,7 @@ class OptHeap(Optimization):
             self.make_equal_to(op.result, fieldvalue)
             return
         ###self.optimizer.optimize_default(op)
-        self.emit_operation(op) # FIXME: These might need constant propagation?
+        self.emit_operation(op)
         fieldvalue = self.getvalue(op.result)
         self.cache_arrayitem_value(op.getdescr(), value, indexvalue, fieldvalue)
 
