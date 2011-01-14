@@ -1068,6 +1068,8 @@ class BaseBackendTest(Runner):
             assert self.cpu.get_latest_value_float(i) == 13.5 + 6.73 * i
 
     def test_floats_and_guards(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         for opname, compare in [
             (rop.FLOAT_LT, lambda x, y: x < y),
             (rop.FLOAT_LE, lambda x, y: x <= y),
