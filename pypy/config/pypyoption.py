@@ -4,6 +4,7 @@ import sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 from pypy.config.config import ConflictConfigError
+from pypy.config.translationoption import IS_64_BITS
 
 modulepath = py.path.local(__file__).dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
@@ -199,7 +200,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withsmallint", "use tagged integers",
                    default=False,
                    requires=[("objspace.std.withprebuiltint", False),
-                             ("translation.taggedpointers", True)]),
+                             ("translation.taggedpointers", True),
+                             ("objspace.std.withsmalllong", False)]),
+                             #  ^^^ because of missing delegate_xx2yy
 
         BoolOption("withprebuiltint", "prebuild commonly used int objects",
                    default=False),
@@ -211,9 +214,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                   default=100, cmdline="--prebuiltintto"),
 
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
-                   default=False,
-                   requires=[("objspace.std.withsmallint", False),]),
-                             # because of missing delegate_xx2yy
+                   default=not IS_64_BITS),
 
         BoolOption("withstrjoin", "use strings optimized for addition",
                    default=False),
