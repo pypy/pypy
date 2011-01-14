@@ -164,7 +164,24 @@ class CFuncPtr(_CData):
     
     def __call__(self, *args):
         if self.callable is not None:
-            args = args[:len(self._argtypes_)]
+            if len(args) == len(self._argtypes_):
+                pass
+            elif self._flags_ & _rawffi.FUNCFLAG_CDECL:
+                if len(args) < len(self._argtypes_):
+                    plural = len(self._argtypes_) > 1 and "s" or ""
+                    raise TypeError(
+                        "This function takes at least %d argument%s (%s given)"
+                        % (len(self._argtypes_), plural, len(args)))
+                else:
+                    # For cdecl functions, we allow more actual arguments
+                    # than the length of the argtypes tuple.
+                    args = args[:len(self._argtypes_)]
+            else:
+                plural = len(self._argtypes_) > 1 and "s" or ""
+                raise TypeError(
+                    "This function takes %d argument%s (%s given)"
+                    % (len(self._argtypes_), plural, len(args)))
+
             try:
                 res = self.callable(*args)
             except:
