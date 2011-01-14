@@ -1,6 +1,7 @@
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.basics import ArgumentError, keepalive_key
+from _ctypes.builtin import set_errno, set_last_error
 import _rawffi
 import sys
 import traceback
@@ -210,8 +211,18 @@ class CFuncPtr(_CData):
         
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
-        resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
-                              for arg in args])
+        if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+            set_errno(_rawffi.get_errno())
+        if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+            set_last_error(_rawffi.get_last_error())
+        try:
+            resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
+                                  for arg in args])
+        finally:
+            if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+                set_errno(_rawffi.get_errno())
+            if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+                set_last_error(_rawffi.get_last_error())
         result = self._build_result(restype, resbuffer, argtypes, args)
 
         # The 'errcheck' protocol
