@@ -150,6 +150,11 @@ class PyPyCJITTests(object):
         _, self.sliced_entrybridge, _ = \
                                     self.parse_rawloops(self.rawentrybridges)
 
+        from pypy.jit.tool.jitoutput import parse_prof
+        summaries  = logparser.extract_category(log, 'jit-summary')
+        self.jit_summary = parse_prof(summaries[-1])
+        
+
     def parse_rawloops(self, rawloops):
         from pypy.jit.tool.oparser import parse
         loops = [parse(part, no_namespace=True) for part in rawloops]
@@ -1437,7 +1442,7 @@ class PyPyCJITTests(object):
                          count_debug_merge_point=False)
         
     def test_mod(self):
-        py.test.skip('Results are correct, but traces 1902 times (on trunk too).')
+        #py.test.skip('Results are correct, but traces 1902 times (on trunk too).')
         avalues = ('a', 'b', 7, -42, 8)
         bvalues = ['b'] + range(-10, 0) + range(1,10)
         code = ''
@@ -1471,6 +1476,20 @@ class PyPyCJITTests(object):
                          ([a3, b3], 2000 * res3),
                          count_debug_merge_point=False)
         
+    def test_dont_trace_every_iteration(self):
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 200:
+                if a > 0: pass
+                if 1 < b < 2: pass
+                sa += a % b
+                i += 1
+            return sa
+        ''', 11,  ([10, 20], 200 * (10 % 20)),
+                 ([-10, -20], 200 * (-10 % -20)),
+                        count_debug_merge_point=False)
+        assert self.jit_summary.tracing_no == 2
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
