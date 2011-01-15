@@ -557,7 +557,7 @@ class OptInlineShortPreamble(Optimization):
                         except InvalidLoop:
                             debug_print("Inlining failed unexpectedly",
                                         "jumping to preamble instead")
-                        self.emit_operation(op)
+                            self.emit_operation(op)
                         return
                     
                 raise RetraceLoop
