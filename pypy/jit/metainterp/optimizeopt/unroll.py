@@ -447,15 +447,9 @@ class ExeState(object):
         elif opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
             if effectinfo is not None:
-                if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT:
+                if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
+                   effectinfo.extraeffect == EffectInfo.EF_PURE:
                     return True
-            #arg = op.getarg(0)
-            #if isinstance(arg, Const):
-            #    key = make_hashable_int(arg.getint())
-            #    resvalue = self.optimizer.loop_invariant_results.get(key,None)
-            #    if resvalue:
-            #        return True # This once was CALL_LOOPINVARIANT
-            #                    # FIXME: Can we realy be sure of that?
         elif opnum == rop.GUARD_NO_EXCEPTION:
             return True # FIXME: Is this safe?
         return False
