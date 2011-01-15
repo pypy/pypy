@@ -543,14 +543,21 @@ class OptInlineShortPreamble(Optimization):
             assert isinstance(descr, LoopToken)
             # FIXME: Use a tree, similar to the tree formed by the full
             # preamble and it's bridges, instead of a list to save time and
-            # memory  
+            # memory. This should also allow better behaviour in
+            # situations that the is_emittable() chain currently cant
+            # handle and the inlining fails unexpectedly belwo.
             short = descr.short_preamble
             if short:
-                for sh in short:                    
+                for sh in short:
                     if self.inline(sh.operations, sh.inputargs,
                                    op.getarglist(), dryrun=True):
-                        self.inline(sh.operations, sh.inputargs,
-                                   op.getarglist())
+                        try:
+                            self.inline(sh.operations, sh.inputargs,
+                                        op.getarglist())
+                        except InvalidLoop:
+                            debug_print("Inlining failed unexpectedly",
+                                        "jumping to preamble instead")
+                        self.emit_operation(op)
                         return
                     
                 raise RetraceLoop

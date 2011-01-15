@@ -1442,7 +1442,6 @@ class PyPyCJITTests(object):
                          count_debug_merge_point=False)
         
     def test_mod(self):
-        #py.test.skip('Results are correct, but traces 1902 times (on trunk too).')
         avalues = ('a', 'b', 7, -42, 8)
         bvalues = ['b'] + range(-10, 0) + range(1,10)
         code = ''

@@ -2024,7 +2024,7 @@ class BasicTests:
                 myjitdriver.can_enter_jit(a=a, b=b, i=i, sa=sa)
                 myjitdriver.jit_merge_point(a=a, b=b, i=i, sa=sa)
                 if a > 0: pass
-                if 1 < b < 2: pass
+                if b < 2: pass
                 sa += a % b
                 i += 1
             return sa
