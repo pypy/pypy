@@ -248,7 +248,6 @@ class IntTestCases(unittest.TestCase):
         self.assertEqual(int('1z141z5', 36), 4294967297L)
 
     def test_bit_length(self):
-        return
         tiny = 1e-10
         for x in xrange(-65000, 65000):
             k = x.bit_length()
