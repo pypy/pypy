@@ -12,7 +12,7 @@ def get_call_descr_dynamic(ffi_args, ffi_result, extrainfo=None):
     try:
         reskind = get_ffi_type_kind(ffi_result)
         argkinds = [get_ffi_type_kind(arg) for arg in ffi_args]
-    except KeyError:
+    except UnsupportedKind:
         return None # ??
     arg_classes = ''.join(argkinds)
     if reskind == history.INT:
