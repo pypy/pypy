@@ -392,6 +392,30 @@ class AppTestInt:
         assert (5 << j(100),  type(5 << j(100))) == (5 << 100, long)
         assert (j(100) >> 2,  type(j(100) >> 2)) == (      25, int)
 
+    def test_int_subclass_int(self):
+        class j(int):
+            def __int__(self):
+                return value
+            def __repr__(self):
+                return '<instance of j>'
+        class subint(int):
+            pass
+        class sublong(long):
+            pass
+        value = 42L
+        assert int(j()) == 42
+        value = 4200000000000000000000000000000000L
+        assert int(j()) == 4200000000000000000000000000000000L
+        value = subint(42)
+        assert int(j()) == 42 and type(int(j())) is subint
+        value = sublong(4200000000000000000000000000000000L)
+        assert (int(j()) == 4200000000000000000000000000000000L
+                and type(int(j())) is sublong)
+        value = 42.0
+        raises(TypeError, int, j())
+        value = "foo"
+        raises(TypeError, int, j())
+
     def test_special_int(self):
         class a(object):
             def __int__(self): 

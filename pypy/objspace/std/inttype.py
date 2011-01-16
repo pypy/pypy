@@ -1,5 +1,5 @@
 from pypy.interpreter import gateway, typedef
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
@@ -120,14 +120,13 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
                 ok = True
 
         if not ok:
-            # otherwise, use the __int__() then __trunc__() methods
-            try:
-                w_obj = space.int(w_value)
-            except OperationError, e:
-                if not e.match(space,space.w_TypeError):
-                    raise
-                w_obj = space.trunc(w_value)
-            # 'int(x)' should return whatever x.__int__() returned
+            # otherwise, use the __int__() or the __trunc__() methods
+            w_obj = w_value
+            if space.lookup(w_obj, '__int__') is None:
+                w_obj = space.trunc(w_obj)
+            w_obj = space.int(w_obj)
+            # 'int(x)' should return what x.__int__() returned, which should
+            # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):
                 return w_obj
             # int_w is effectively what we want in this case,

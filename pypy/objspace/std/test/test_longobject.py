@@ -273,6 +273,24 @@ class AppTestLong:
             pass
         assert long(myotherlong(21)) == 21L
 
+    def test___long__(self):
+        class A(object):
+            def __long__(self):
+                return 42
+        assert long(A()) == 42L
+        class B(object):
+            def __int__(self):
+                return 42
+        raises(TypeError, long, B())
+        # but!: (blame CPython 2.7)
+        class Integral(object):
+            def __int__(self):
+                return 42
+        class TruncReturnsNonLong(object):
+            def __trunc__(self):
+                return Integral()
+        assert long(TruncReturnsNonLong()) == 42
+
     def test_conjugate(self):
         assert (7L).conjugate() == 7L
         assert (-7L).conjugate() == -7L

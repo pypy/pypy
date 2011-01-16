@@ -14,7 +14,7 @@ from pypy.objspace.std.stringtype import (
     str_expandtabs, str_lstrip, str_rstrip, str_strip,
     str_ljust, str_rjust, str_center, str_zfill,
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
-    str_splitlines)
+    str_splitlines, str_translate)
 from pypy.objspace.std.listtype import (
     list_append, list_extend)
 

@@ -63,13 +63,15 @@ try:
     from math import isinf, isnan, copysign, acosh, asinh, atanh, log1p
 except ImportError:
     def isinf(x):
+        "NOT_RPYTHON"
         return x == INFINITY or x == -INFINITY
 
     def isnan(v):
+        "NOT_RPYTHON"
         return v != v
 
     def copysign(x, y):
-        """Return x with the sign of y"""
+        """NOT_RPYTHON. Return x with the sign of y"""
         if y > 0. or (y == 0. and math.atan2(y, -1.) > 0.):
             return math.fabs(x)
         else:
@@ -80,6 +82,7 @@ except ImportError:
     _ln2 = 6.93147180559945286227E-01
 
     def acosh(x):
+        "NOT_RPYTHON"
         if isnan(x):
             return NAN
         if x < 1.:
@@ -98,6 +101,7 @@ except ImportError:
         return log1p(t + math.sqrt(2. * t + t * t))
 
     def asinh(x):
+        "NOT_RPYTHON"
         absx = abs(x)
         if isnan(x) or isinf(x):
             return x
@@ -113,6 +117,7 @@ except ImportError:
         return copysign(w, x)
 
     def atanh(x):
+        "NOT_RPYTHON"
         if isnan(x):
             return x
         absx = abs(x)
@@ -128,6 +133,7 @@ except ImportError:
         return copysign(t, x)
 
     def log1p(x):
+        "NOT_RPYTHON"
         from pypy.rlib import rfloat
         if abs(x) < rfloat.DBL_EPSILON // 2.:
             return x
@@ -141,6 +147,7 @@ try:
     from math import expm1 # Added in Python 2.7.
 except ImportError:
     def expm1(x):
+        "NOT_RPYTHON"
         if abs(x) < .7:
             u = math.exp(x)
             if u == 1.:
@@ -149,6 +156,7 @@ except ImportError:
         return math.exp(x) - 1.
 
 def round_away(x):
+    "NOT_RPYTHON"
     # round() from libm
     absx = abs(x)
     if absx - math.floor(absx) >= .5:

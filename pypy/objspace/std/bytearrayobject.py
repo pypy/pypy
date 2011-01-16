@@ -23,9 +23,6 @@ class W_BytearrayObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
-    def unwrap(w_bytearray, space):
-        return bytearray(w_self.data)
-
 registerimplementation(W_BytearrayObject)
 
 
@@ -69,6 +66,11 @@ def contains__Bytearray_Int(space, w_bytearray, w_char):
         if ord(c) == char:
             return space.w_True
     return space.w_False
+
+def contains__Bytearray_String(space, w_bytearray, w_str):
+    # XXX slow - copies, needs rewriting
+    w_str2 = delegate_Bytearray2String(space, w_bytearray)
+    return space.call_method(w_str2, "__contains__", w_str)
 
 def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
@@ -155,6 +157,12 @@ def gt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
             return space.newbool(data1[p] > data2[p])
     # No more items to compare -- compare sizes
     return space.newbool(len(data1) > len(data2))
+
+def str_translate__Bytearray_Bytearray_String(space, w_bytearray1, w_bytearray2, w_str):
+    # XXX slow, copies *twice* needs proper implementation
+    w_str_copy = delegate_Bytearray2String(space, w_bytearray1)
+    w_res = space.call_method(w_str_copy, 'translate', w_bytearray2, w_str)
+    return String2Bytearray(space, w_res)
 
 # Mostly copied from repr__String, but without the "smart quote"
 # functionality.
