@@ -278,6 +278,22 @@ def define_block_data_func(name, table):
         self.write32(instr)
 
     return f
+def define_float_load_store_func(name, table):
+    n = (0x3 << 26
+        | (table['opcode'] & 0x1F) << 20
+        | 0x5 << 0x9
+        | 0x1 << 0x8)
+
+    def f(self, dd, rn, imm=0, cond=cond.AL):
+        u, imm = self._encode_imm(imm)
+        instr = ( n
+                | (cond & 0xF) << 28
+                | (u & 0x1) << 23
+                | (rn & 0xF) << 16
+                | (dd & 0xF) << 12
+                | (imm & 0xFF))
+        self.write32(instr)
+    return f
 
 def define_float64_data_proc_instructions_func(name, table):
     n = (0xE << 24

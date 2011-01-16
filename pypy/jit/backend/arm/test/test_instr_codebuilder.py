@@ -145,6 +145,21 @@ class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
         self.cb = CodeBuilder()
 
+def gen_test_float_load_store_func(name, table):
+    tests = []
+    for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:
+        for reg in range(16):
+            if reg == 14:
+                tests.append(lambda self: py.test.skip('r14(lr) gives strange results'))
+                continue
+
+            for creg in range(16):
+                asm = 'd%d, [r%d]' % (creg, reg)
+                tests.append((asm, (creg, reg)))
+                #asm = 'd%d, [r%d, #4]' % (creg, reg)
+                #tests.append((asm, (creg, reg, 4)))
+    return tests
+
 def gen_test_float64_data_proc_instructions_func(name, table):
     tests = []
     for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:

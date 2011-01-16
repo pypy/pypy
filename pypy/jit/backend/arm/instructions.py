@@ -120,6 +120,12 @@ multiply = {
     'SMLAL': {'op':0xE, 'long': True},
 }
 
+float_load_store = {
+    'VSTR':    {'opcode': 0x10},
+    'VLDR':    {'opcode': 0x11},
+}
+
+
 # based on encoding from A7.5	VFP data-processing instructions
 # opc2 is one of the parameters and therefore ignored here
 float64_data_proc_instructions = {
