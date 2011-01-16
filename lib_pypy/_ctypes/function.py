@@ -384,6 +384,12 @@ class CFuncPtr(_CData):
         Convert from low-level repr of the result to the high-level python
         one.
         """
+        # hack for performance: if restype is a "simple" primitive type, don't
+        # allocate the buffer because it's going to be thrown away immediately
+        from _ctypes.primitive import _SimpleCData
+        if restype.__bases__[0] is _SimpleCData and not restype._is_pointer_like():
+            return result
+        #
         shape = restype._ffishape
         if is_struct_shape(shape):
             buf = result
