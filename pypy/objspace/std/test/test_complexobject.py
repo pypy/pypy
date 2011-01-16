@@ -213,10 +213,23 @@ class AppTestAppComplexTest:
             def __complex__(self): return self.value
         h.assertEqual(complex(OS(1+10j)), 1+10j)
         h.assertEqual(complex(NS(1+10j)), 1+10j)
+        h.assertEqual(complex(OS(1+10j), 5), 1+15j)
+        h.assertEqual(complex(NS(1+10j), 5), 1+15j)
+        h.assertEqual(complex(OS(1+10j), 5j), -4+10j)
+        h.assertEqual(complex(NS(1+10j), 5j), -4+10j)
         h.raises(TypeError, complex, OS(None))
         h.raises(TypeError, complex, NS(None))
         h.raises(TypeError, complex, OS(2.0))   # __complex__ must really
         h.raises(TypeError, complex, NS(2.0))   # return a complex, not a float
+        h.raises((TypeError, AttributeError), complex, OS(1+10j), OS(1+10j))
+        h.raises((TypeError, AttributeError), complex, NS(1+10j), OS(1+10j))
+        h.raises((TypeError, AttributeError), complex, OS(1+10j), NS(1+10j))
+        h.raises((TypeError, AttributeError), complex, NS(1+10j), NS(1+10j))
+        class F(object):
+            def __float__(self):
+                return 2.0
+        h.assertEqual(complex(OS(1+10j), F()), 1+12j)
+        h.assertEqual(complex(NS(1+10j), F()), 1+12j)
 
         h.assertAlmostEqual(complex("1+10j"), 1+10j)
         h.assertAlmostEqual(complex(10), 10+0j)
