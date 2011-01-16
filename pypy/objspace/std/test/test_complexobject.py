@@ -215,6 +215,8 @@ class AppTestAppComplexTest:
         h.assertEqual(complex(NS(1+10j)), 1+10j)
         h.raises(TypeError, complex, OS(None))
         h.raises(TypeError, complex, NS(None))
+        h.raises(TypeError, complex, OS(2.0))   # __complex__ must really
+        h.raises(TypeError, complex, NS(2.0))   # return a complex, not a float
 
         h.assertAlmostEqual(complex("1+10j"), 1+10j)
         h.assertAlmostEqual(complex(10), 10+0j)
