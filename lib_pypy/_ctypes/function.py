@@ -2,6 +2,7 @@
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.basics import ArgumentError, keepalive_key
 from _ctypes.basics import shape_to_ffi_type, is_struct_shape
+from _ctypes.primitive import _SimpleCData
 import _rawffi
 import _ffi
 import sys
@@ -386,7 +387,6 @@ class CFuncPtr(_CData):
         """
         # hack for performance: if restype is a "simple" primitive type, don't
         # allocate the buffer because it's going to be thrown away immediately
-        from _ctypes.primitive import _SimpleCData
         if restype.__bases__[0] is _SimpleCData and not restype._is_pointer_like():
             return result
         #
