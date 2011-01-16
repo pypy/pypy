@@ -36,13 +36,18 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
         else:
-            # otherwise, use the __long__(), then the __trunc__ methods
-            try:
-                w_obj = space.long(w_value)
-            except OperationError, e:
-                if not e.match(space,space.w_TypeError):
-                    raise
-                w_obj = space.trunc(w_value)
+            # otherwise, use the __long__() or the __trunc__ methods
+            w_obj = w_value
+            if (space.lookup(w_obj, '__long__') is not None or
+                space.lookup(w_obj, '__int__') is not None):
+                w_obj = space.long(w_obj)
+            else:
+                w_obj = space.trunc(w_obj)
+                # :-(  blame CPython 2.7
+                if space.lookup(w_obj, '__long__') is not None:
+                    w_obj = space.long(w_obj)
+                else:
+                    w_obj = space.int(w_obj)
             # 'long(x)' should return whatever x.__long__() returned
             if space.is_w(w_longtype, space.w_long):
                 return w_obj

@@ -150,13 +150,11 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
                 raise
         else:
             w_real = space.call_function(w_method)
-            # __complex__() could return a string, which space.float()
-            # could accept below...  Let's catch this case.
-            if (space.is_true(space.isinstance(w_imag, space.w_str)) or
-                space.is_true(space.isinstance(w_imag, space.w_unicode))):
+            # __complex__() must return a complex object
+            if not space.is_true(space.isinstance(w_real, space.w_complex)):
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("__complex__() cannot return"
-                                                " a string"))
+                                     space.wrap("__complex__() must return"
+                                                " a complex number"))
 
         # at this point w_real can be an instance of 'complex',
         # either because it is the result of __complex__() or because
