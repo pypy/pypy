@@ -156,8 +156,7 @@ except ImportError:
         return math.exp(x) - 1.
 
 def round_away(x):
-    "NOT_RPYTHON"
-    # round() from libm
+    # round() from libm, which is not available on all platforms!
     absx = abs(x)
     if absx - math.floor(absx) >= .5:
         r = math.ceil(absx)
