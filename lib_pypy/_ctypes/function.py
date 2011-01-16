@@ -382,8 +382,7 @@ class CFuncPtr(_CData):
     def _wrap_result(self, restype, result):
         """
         Convert from low-level repr of the result to the high-level python
-        one: e.g., if the restype is a pointer 0 is converted to None, and
-        for chars we convert the int value with chr, etc.
+        one.
         """
         shape = restype._ffishape
         if is_struct_shape(shape):
