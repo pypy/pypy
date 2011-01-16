@@ -279,6 +279,21 @@ def define_block_data_func(name, table):
 
     return f
 
+def define_float64_data_proc_instructions_func(name, table):
+    n = (0xE << 24
+        | 0x5 << 9
+        | 0x1 << 8 # 64 bit flag
+        | (table['opc1'] & 0xF) << 20
+        | (table['opc3'] & 0x3) << 6)
+    def f(self, dd, dn, dm, cond=cond.AL):
+        instr = (n
+                | (cond & 0xF) << 28
+                | (dn & 0xF) << 16
+                | (dd & 0xF) << 12
+                | (dm & 0xF))
+        self.write32(instr)
+    return f
+
 def imm_operation(rt, rn, imm):
     return ((rn & 0xFF) << 16
     | (rt & 0xFF) << 12
@@ -293,8 +308,8 @@ def reg_operation(rt, rn, rm, imm, s, shifttype):
             | (rm & 0xF))
 
 def define_instruction(builder, key, val, target):
-        f = builder(key, val)
-        setattr(target, key, f)
+    f = builder(key, val)
+    setattr(target, key, f)
 
 def define_instructions(target):
     inss = [k for k in instructions.__dict__.keys() if not k.startswith('__')]

@@ -3,7 +3,7 @@ import tempfile
 from pypy.jit.backend.arm.test.support import AS
 class ASMInstruction(object):
 
-    asm_opts = '-mcpu=cortex-a8 -march=armv7'
+    asm_opts = '-mfpu=neon -mcpu=cortex-a8 -march=armv7-a'
     body = """.section .text
 .arm
 _start: .global _start

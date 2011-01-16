@@ -129,6 +129,14 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.POP([reg.value for reg in r.caller_resp], cond=conditions.AL)
         self.assert_equal('LDM SP!, {r0, r1, r2, r3}')
 
+    def test_double_add(self):
+        self.cb.VADD(r.d1.value, r.d2.value, r.d3.value, conditions.LE)
+        self.assert_equal("VADDLE.F64 D1, D2, D3")
+
+    def test_double_sub(self):
+        self.cb.VSUB(r.d1.value, r.d2.value, r.d3.value, conditions.GT)
+        self.assert_equal("VSUBGT.F64 D1, D2, D3")
+
     def test_pop_raises_on_lr(self):
         assert py.test.raises(AssertionError, 'self.cb.POP([r.lr.value])')
 
@@ -137,6 +145,13 @@ class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
         self.cb = CodeBuilder()
 
+def gen_test_float64_data_proc_instructions_func(name, table):
+    tests = []
+    for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:
+        for reg in range(16):
+            asm = 'd%d, d1, d2' % reg
+            tests.append((asm, (reg, r.d1.value, r.d2.value), {}, '.F64'))
+    return tests
 
 def gen_test_data_proc_imm_func(name, table):
     if table['result'] and table['base']:
@@ -225,6 +240,7 @@ def gen_test_block_data_func(name, table):
             asm = 'r3, {%s}' % ','.join(['r%d' % i for i in range(regs+1)])
             tests.append((asm, (r.r3.value, range(regs+1))))
     return tests
+
 def build_tests():
     cls = TestInstrCodeBuilderForGeneratedInstr
     test_name = 'test_generated_%s'

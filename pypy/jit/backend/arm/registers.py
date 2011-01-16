@@ -3,6 +3,9 @@ from pypy.jit.backend.arm.locations import RegisterLocation
 registers = [RegisterLocation(i) for i in range(16)]
 r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15 = registers
 
+#vfp registers interpreted as 64-bit registers
+d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15 = registers
+
 # aliases for registers
 fp = r11
 ip = r12
