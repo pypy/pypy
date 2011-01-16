@@ -160,8 +160,8 @@ def gt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
 
 def str_translate__Bytearray_Bytearray_String(space, w_bytearray1, w_bytearray2, w_str):
     # XXX slow, copies *twice* needs proper implementation
-    w_str = delegate_Bytearray2String(space, w_bytearray1)
-    w_res = space.call_method(w_str, 'translate', w_bytearray2)
+    w_str_copy = delegate_Bytearray2String(space, w_bytearray1)
+    w_res = space.call_method(w_str_copy, 'translate', w_bytearray2, w_str)
     return String2Bytearray(space, w_res)
 
 # Mostly copied from repr__String, but without the "smart quote"

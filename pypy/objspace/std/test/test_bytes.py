@@ -63,7 +63,7 @@ class AppTestBytesArray:
             
             c = ba.translate(rosetta, 'l')
             assert c == bytearray('hee')
-            assert typeof(c) is bytearray
+            assert isinstance(c, bytearray)
         
     def test_iter(self):
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
