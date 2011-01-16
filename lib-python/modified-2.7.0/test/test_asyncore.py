@@ -130,7 +130,7 @@ class HelperFunctionTests(unittest.TestCase):
             (select.POLLERR, 'closed'),
             (select.POLLHUP, 'closed'),
             (select.POLLNVAL, 'closed'),
-            )
+        )
 
         class testobj:
             def __init__(self):
@@ -398,7 +398,10 @@ class DispatcherWithSendTests_UsePoll(DispatcherWithSendTests):
 class FileWrapperTest(unittest.TestCase):
     def setUp(self):
         self.d = "It's not dead, it's sleeping!"
-        file(TESTFN, 'w').write(self.d)
+        # Modified from CPython. Fixed in CPython 
+        # release27-maint, revision 88046. (2.7.2)
+        with file(TESTFN, 'w') as f:
+            f.write(self.d)
 
     def tearDown(self):
         unlink(TESTFN)
@@ -698,7 +701,7 @@ class BaseTestAPI(unittest.TestCase):
             s.create_socket(socket.AF_INET, socket.SOCK_STREAM)
             s.set_reuse_addr()
             self.assertTrue(s.socket.getsockopt(socket.SOL_SOCKET,
-                                                 socket.SO_REUSEADDR))
+                                                socket.SO_REUSEADDR))
         finally:
             sock.close()
 
