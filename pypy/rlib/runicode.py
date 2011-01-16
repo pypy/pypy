@@ -733,7 +733,7 @@ def str_decode_utf_7(s, size, errors, final=False,
             result.append(unichr(oc))
             pos += 1
 
-    if inShift:
+    if inShift and final:
         endinpos = size
         msg = "unterminated shift sequence"
         res, pos = errorhandler(errors, 'utf-7', msg, s, startinpos, pos)

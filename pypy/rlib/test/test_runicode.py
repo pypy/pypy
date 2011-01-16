@@ -174,6 +174,16 @@ class TestDecoding(UnicodeTests):
         py.test.raises(UnicodeDecodeError, runicode.str_decode_utf_16_le,
                        s, len(s), True)
 
+    def test_utf7_partial(self):
+        s = u"a+-b".encode('utf-7')
+        assert s == "a+--b"
+        decode = self.getdecoder('utf-7')
+        assert decode(s, 1, None)[0] == u'a'
+        assert decode(s, 2, None)[0] == u'a'
+        assert decode(s, 3, None)[0] == u'a+'
+        assert decode(s, 4, None)[0] == u'a+-'
+        assert decode(s, 5, None)[0] == u'a+-b'
+
 
 class TestEncoding(UnicodeTests):
     def test_all_ascii(self):
