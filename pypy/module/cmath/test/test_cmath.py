@@ -20,6 +20,7 @@ class AppTestCMath:
         cls.space = gettestobjspace(usemodules=['cmath'])
 
     def test_sign(self):
+        import math
         z = eval("-0j")
         assert z == -0j
         assert math.copysign(1., z.real) == 1.
@@ -38,6 +39,11 @@ class AppTestCMath:
         z = cmath.sqrt(1e200*1e200 - 10j)
         assert math.isinf(z.real) and z.real > 0.0
         assert z.imag == 0.0 and math.copysign(1., z.imag) == -1.
+
+    def test_log(self):
+        import cmath, math
+        z = cmath.log(100j, 10j)
+        assert abs(z - (1.6824165174565446-0.46553647994440367j)) < 1e-10
 
 
 def parse_testfile(fname):

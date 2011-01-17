@@ -1,7 +1,7 @@
 import math
 from math import fabs
 from pypy.rlib.rarithmetic import copysign, asinh, log1p
-from pypy.interpreter.gateway import ObjSpace, W_Root
+from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.module.cmath.constant import CM_LARGE_DOUBLE, M_LN2, DBL_MANT_DIG
@@ -266,3 +266,14 @@ def c_log(x, y):
             real = math.log(h)
     imag = math.atan2(y, x)
     return (real, imag)
+
+
+_inner_wrapped_log = wrapped_log
+
+def wrapped_log(space, w_z, w_base=NoneNotWrapped):
+    w_logz = _inner_wrapped_log(space, w_z)
+    if w_base is not None:
+        w_logbase = _inner_wrapped_log(space, w_base)
+        return space.truediv(w_logz, w_logbase)
+    else:
+        return w_logz
