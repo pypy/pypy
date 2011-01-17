@@ -431,3 +431,21 @@ def c_tanh(x, y):
         real = tx * (1. + ty*ty) / denom
         imag = ((ty / denom) * cx) * cx
     return real, imag
+
+
+@unaryfn
+def c_cos(x, y):
+    # cos(z) = cosh(iz)
+    return c_cosh(-y, x)
+
+@unaryfn
+def c_sin(x, y):
+    # sin(z) = -i sinh(iz)
+    sx, sy = c_sinh(-y, x)
+    return sy, -sx
+
+@unaryfn
+def c_tan(x, y):
+    # tan(z) = -i tanh(iz)
+    sx, sy = c_tanh(-y, x)
+    return sy, -sx

@@ -18,6 +18,9 @@ names_and_docstrings = {
     'cosh': "Return the hyperbolic cosine of x.",
     'sinh': "Return the hyperbolic sine of x.",
     'tanh': "Return the hyperbolic tangent of x.",
+    'cos': "Return the cosine of x.",
+    'sin': "Return the sine of x.",
+    'tan': "Return the tangent of x.",
     }
 
 
