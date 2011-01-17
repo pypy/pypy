@@ -1,6 +1,6 @@
 import math
 from math import fabs
-from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf
+from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf, isnan
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
@@ -16,6 +16,7 @@ from pypy.module.cmath.special_value import asinh_special_values
 from pypy.module.cmath.special_value import atanh_special_values
 from pypy.module.cmath.special_value import log_special_values
 from pypy.module.cmath.special_value import exp_special_values
+from pypy.module.cmath.special_value import cosh_special_values
 
 
 def unaryfn(c_func):
@@ -317,4 +318,36 @@ def c_exp(x, y):
         imag = l * math.sin(y)
     if isinf(real) or isinf(imag):
         raise OverflowError("math range error")
+    return real, imag
+
+
+@unaryfn
+def c_cosh(x, y):
+    if not isfinite(x) or not isfinite(y):
+        if isinf(x) and isfinite(y) and y != 0.:
+            if x > 0:
+                real = copysign(INF, math.cos(y))
+                imag = copysign(INF, math.sin(y))
+            else:
+                real = copysign(INF, math.cos(y))
+                imag = -copysign(INF, math.sin(y))
+            r = (real, imag)
+        else:
+            r = cosh_special_values[special_type(x)][special_type(y)]
+
+        # need to raise ValueError if y is +/- infinity and x is not
+        # a NaN
+        if isinf(y) and not isnan(x):
+            raise ValueError("math domain error")
+        return r
+
+    if fabs(x) > CM_LOG_LARGE_DOUBLE:
+        # deal correctly with cases where cosh(x) overflows but
+        # cosh(z) does not.
+        x_minus_one = x - copysign(1., x)
+        real = math.cos(y) * math.cosh(x_minus_one) * math.e
+        imag = math.sin(y) * math.sinh(x_minus_one) * math.e
+    else:
+        real = math.cos(y) * math.cosh(x)
+        imag = math.sin(y) * math.sinh(x)
     return real, imag

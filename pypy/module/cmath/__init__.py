@@ -15,6 +15,7 @@ names_and_docstrings = {
             "(base e) of x."),
     'log10': "Return the base-10 logarithm of x.",
     'exp': "Return the exponential value e**x.",
+    'cosh': "Return the hyperbolic cosine of x.",
     }
 
 
