@@ -13,6 +13,7 @@ names_and_docstrings = {
     'log': ("log(x[, base]) -> the logarithm of x to the given base.\n"
             "If the base not specified, returns the natural logarithm "
             "(base e) of x."),
+    'log10': "Return the base-10 logarithm of x.",
     }
 
 

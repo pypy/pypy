@@ -4,7 +4,8 @@ from pypy.rlib.rarithmetic import copysign, asinh, log1p
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
-from pypy.module.cmath.constant import CM_LARGE_DOUBLE, M_LN2, DBL_MANT_DIG
+from pypy.module.cmath.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
+from pypy.module.cmath.constant import M_LN2, M_LN10
 from pypy.module.cmath.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
 from pypy.module.cmath.special_value import isfinite, special_type
 from pypy.module.cmath.special_value import sqrt_special_values
@@ -277,3 +278,9 @@ def wrapped_log(space, w_z, w_base=NoneNotWrapped):
         return space.truediv(w_logz, w_logbase)
     else:
         return w_logz
+
+
+@unaryfn
+def c_log10(x, y):
+    rx, ry = c_log(x, y)
+    return (rx / M_LN10, ry / M_LN10)
