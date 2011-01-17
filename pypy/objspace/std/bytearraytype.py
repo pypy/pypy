@@ -42,8 +42,19 @@ def new_bytearray(space, w_bytearraytype, data):
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root, W_Root)
 def descr__new__(space, w_bytearraytype,
                  w_source='', w_encoding=None, w_errors=None):
-
     data = []
+    # Unicode argument
+    if not space.is_w(w_encoding, space.w_None):
+        from pypy.objspace.std.unicodetype import (
+            _get_encoding_and_errors, encode_object
+        )
+        encoding, errors = _get_encoding_and_errors(space, w_encoding, space.w_None)
+
+        # if w_source is an integer this correctly raises a TypeError
+        # the CPython error message is: "encoding or errors without a string argument"
+        # ours is: "expected unicode, got int object"
+        w_source = encode_object(space, w_source, encoding, errors)
+
     # String-like argument
     try:
         string = space.str_w(w_source)
