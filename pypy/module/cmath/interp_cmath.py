@@ -2,12 +2,13 @@ import math
 from math import fabs
 from pypy.rlib.rarithmetic import copysign, asinh
 from pypy.interpreter.gateway import ObjSpace, W_Root
-from pypy.module.cmath import Module
+from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.module.cmath.constant import CM_LARGE_DOUBLE, M_LN2
 from pypy.module.cmath.special_value import isfinite, special_type
 from pypy.module.cmath.special_value import sqrt_special_values
 from pypy.module.cmath.special_value import acos_special_values
+from pypy.module.cmath.special_value import acosh_special_values
 
 
 def unaryfn(c_func):
@@ -20,6 +21,7 @@ def unaryfn(c_func):
     name = c_func.func_name
     assert name.startswith('c_')
     wrapper.unwrap_spec = [ObjSpace, W_Root]
+    wrapper.func_doc = names_and_docstrings[name[2:]]
     globals()['wrapped_' + name[2:]] = wrapper
     return c_func
 
@@ -98,4 +100,23 @@ def c_acos(x, y):
         s2x, s2y = c_sqrt(1.+x, y)
         real = 2.*math.atan2(s1x, s2x)
         imag = asinh(s2x*s1y - s2y*s1x)
+    return (real, imag)
+
+
+@unaryfn
+def c_acosh(x, y):
+    # XXX the following two lines seem unnecessary at least on Linux;
+    # the tests pass fine without them
+    if not isfinite(x) or not isfinite(y):
+        return acosh_special_values[special_type(x)][special_type(y)]
+
+    if fabs(x) > CM_LARGE_DOUBLE or fabs(y) > CM_LARGE_DOUBLE:
+        # avoid unnecessary overflow for large arguments
+        real = math.log(math.hypot(x/2., y/2.)) + M_LN2*2.
+        imag = math.atan2(y, x)
+    else:
+        s1x, s1y = c_sqrt(x - 1., y)
+        s2x, s2y = c_sqrt(x + 1., y)
+        real = asinh(s1x*s2x + s1y*s2y)
+        imag = 2.*math.atan2(s1y, s2x)
     return (real, imag)
