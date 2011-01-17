@@ -3,6 +3,7 @@ from math import fabs
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf, isnan
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
@@ -28,7 +29,7 @@ e  = math.e
 
 
 @specialize.arg(0)
-def call_c_func(c_func, x, y):
+def call_c_func(c_func, space, x, y):
     try:
         result = c_func(x, y)
     except ValueError:
@@ -43,7 +44,7 @@ def call_c_func(c_func, x, y):
 def unaryfn(c_func):
     def wrapper(space, w_z):
         x, y = space.unpackcomplex(w_z)
-        resx, resy = call_c_func(c_func, x, y)
+        resx, resy = call_c_func(c_func, space, x, y)
         return space.newcomplex(resx, resy)
     #
     name = c_func.func_name
@@ -495,7 +496,7 @@ def c_rect(r, phi):
 def wrapped_rect(space, w_x, w_y):
     x = space.float_w(w_x)
     y = space.float_w(w_y)
-    resx, resy = call_c_func(c_rect, x, y)
+    resx, resy = call_c_func(c_rect, space, x, y)
     return space.newcomplex(resx, resy)
 wrapped_rect.unwrap_spec = [ObjSpace, W_Root, W_Root]
 wrapped_rect.func_doc = names_and_docstrings['rect']
@@ -527,7 +528,7 @@ def c_phase(x, y):
 
 def wrapped_phase(space, w_z):
     x, y = space.unpackcomplex(w_z)
-    result = call_c_func(c_phase, x, y)
+    result = call_c_func(c_phase, space, x, y)
     return space.newfloat(result)
 wrapped_phase.unwrap_spec = [ObjSpace, W_Root]
 wrapped_phase.func_doc = names_and_docstrings['phase']
@@ -559,7 +560,7 @@ def c_polar(x, y):
 
 def wrapped_polar(space, w_z):
     x, y = space.unpackcomplex(w_z)
-    resx, resy = call_c_func(c_polar, x, y)
+    resx, resy = call_c_func(c_polar, space, x, y)
     return space.newtuple([space.newfloat(resx), space.newfloat(resy)])
 wrapped_polar.unwrap_spec = [ObjSpace, W_Root]
 wrapped_polar.func_doc = names_and_docstrings['polar']
