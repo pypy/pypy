@@ -382,7 +382,7 @@ class W_CDLL(Wrappable):
         return space.wrap(address_as_uint)
 
 
-@unwrap_spec(ObjSpace, W_Root, str)
+@unwrap_spec(ObjSpace, W_Root, 'str_or_None')
 def descr_new_cdll(space, w_type, name):
     return space.wrap(W_CDLL(space, name))
 

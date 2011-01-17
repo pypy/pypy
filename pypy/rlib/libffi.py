@@ -459,11 +459,8 @@ class CDLL(object):
     def __init__(self, libname):
         """Load the library, or raises DLOpenError."""
         self.lib = lltype.nullptr(rffi.CCHARP.TO)
-        ll_libname = rffi.str2charp(libname)
-        try:
+        with rffi.scoped_str2charp(libname) as ll_libname:
             self.lib = dlopen(ll_libname)
-        finally:
-            lltype.free(ll_libname, flavor='raw')
 
     def __del__(self):
         if self.lib:

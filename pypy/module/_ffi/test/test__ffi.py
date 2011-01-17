@@ -43,6 +43,7 @@ class AppTestFfi:
         from pypy.rlib.test.test_libffi import get_libm_name
         space = gettestobjspace(usemodules=('_ffi', '_rawffi'))
         cls.space = space
+        cls.w_iswin32 = space.wrap(sys.platform == 'win32')
         cls.w_libfoo_name = space.wrap(cls.prepare_c_example())
         cls.w_libc_name = space.wrap(get_libc_name())
         libm_name = get_libm_name(sys.platform)
@@ -66,6 +67,16 @@ class AppTestFfi:
     def test_libload_fail(self):
         import _ffi
         raises(OSError, _ffi.CDLL, "xxxxx_this_name_does_not_exist_xxxxx")
+
+    def test_libload_None(self):
+        if self.iswin32:
+            skip("unix specific")
+        from _ffi import CDLL, types
+        # this should return *all* loaded libs, dlopen(NULL)
+        dll = CDLL(None)
+        # Assume CPython, or PyPy compiled with cpyext
+        res = dll.getfunc('Py_IsInitialized', [], types.slong)()
+        assert res == 1
 
     def test_simple_types(self):
         from _ffi import types
