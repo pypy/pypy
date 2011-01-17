@@ -8,6 +8,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib.clibffi import *
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
+import pypy.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
 
@@ -34,14 +35,16 @@ TYPEMAP = {
     'Q' : cast_type_to_ffitype(rffi.ULONGLONG),
     'f' : ffi_type_float,
     'd' : ffi_type_double,
+    'g' : ffi_type_longdouble,
     's' : ffi_type_pointer,
     'P' : ffi_type_pointer,
     'z' : ffi_type_pointer,
     'O' : ffi_type_pointer,
     'Z' : ffi_type_pointer,
+    '?' : cast_type_to_ffitype(lltype.Bool),
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
-TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ"
+TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ?"
 
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
@@ -67,11 +70,13 @@ LL_TYPEMAP = {
     'Q' : rffi.ULONGLONG,
     'f' : rffi.FLOAT,
     'd' : rffi.DOUBLE,
+    'g' : rffi.LONGDOUBLE,
     's' : rffi.CCHARP,
     'z' : rffi.CCHARP,
     'Z' : rffi.CArrayPtr(lltype.UniChar),
     'O' : rffi.VOIDP,
     'P' : rffi.VOIDP,
+    '?' : lltype.Bool,
 }
 
 if _MS_WINDOWS:
@@ -131,12 +136,8 @@ def unpack_argshapes(space, w_argtypes):
             for w_arg in space.unpackiterable(w_argtypes)]
 
 class W_CDLL(Wrappable):
-    def __init__(self, space, name):
-        try:
-            self.cdll = CDLL(name)
-        except DLOpenError, e:
-            raise operationerrfmt(space.w_OSError, '%s: %s', name,
-                                  e.msg or 'unspecified error')
+    def __init__(self, space, name, cdll):
+        self.cdll = cdll
         self.name = name
         self.w_cache = space.newdict()
         self.space = space
@@ -206,10 +207,14 @@ class W_CDLL(Wrappable):
 
 def descr_new_cdll(space, w_type, name):
     try:
-        return space.wrap(W_CDLL(space, name))
+        cdll = CDLL(name)
+    except DLOpenError, e:
+        raise operationerrfmt(space.w_OSError, '%s: %s', name,
+                              e.msg or 'unspecified error')
     except OSError, e:
         raise wrap_oserror(space, e)
-descr_new_cdll.unwrap_spec = [ObjSpace, W_Root, str]
+    return space.wrap(W_CDLL(space, name, cdll))
+descr_new_cdll.unwrap_spec = [ObjSpace, W_Root, 'str_or_None']
 
 W_CDLL.typedef = TypeDef(
     'CDLL',
@@ -238,7 +243,7 @@ class W_DataShape(Wrappable):
     _array_shapes = None
     size = 0
     alignment = 0
-    itemcode = '?'
+    itemcode = '\0'
 
     def allocate(self, space, length, autofree=False):
         raise NotImplementedError
@@ -316,6 +321,9 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     elif letter == "f":
         push_func(add_arg, argdesc, rffi.cast(rffi.FLOAT,
                                               space.float_w(w_arg)))
+    elif letter == "g":
+        push_func(add_arg, argdesc, rffi.cast(rffi.LONGDOUBLE,
+                                              space.float_w(w_arg)))
     elif letter == "c":
         s = space.str_w(w_arg)
         if len(s) != 1:
@@ -352,7 +360,7 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
             elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
                 return space.wrap(func(add_arg, argdesc, ll_type))
-            elif c == 'f' or c == 'd':
+            elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             else:
                 return space.wrap(intmask(func(add_arg, argdesc, ll_type)))
@@ -482,12 +490,26 @@ def charp2string(space, address, maxlength=sys.maxint):
     return space.wrap(s)
 charp2string.unwrap_spec = [ObjSpace, r_uint, int]
 
+def wcharp2unicode(space, address, maxlength=sys.maxint):
+    if address == 0:
+        return space.w_None
+    s = rffi.wcharp2unicoden(rffi.cast(rffi.CWCHARP, address), maxlength)
+    return space.wrap(s)
+wcharp2unicode.unwrap_spec = [ObjSpace, r_uint, int]
+
 def charp2rawstring(space, address, maxlength=-1):
     if maxlength == -1:
         return charp2string(space, address)
     s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, address), maxlength)
     return space.wrap(s)
 charp2rawstring.unwrap_spec = [ObjSpace, r_uint, int]
+
+def wcharp2rawunicode(space, address, maxlength=-1):
+    if maxlength == -1:
+        return wcharp2unicode(space, address)
+    s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
+    return space.wrap(s)
+wcharp2rawunicode.unwrap_spec = [ObjSpace, r_uint, int]
 
 if _MS_WINDOWS:
     def FormatError(space, code):
@@ -501,7 +523,23 @@ if _MS_WINDOWS:
     check_HRESULT.unwrap_spec = [ObjSpace, int]
 
 def get_libc(space):
+    name = get_libc_name()
     try:
-        return space.wrap(W_CDLL(space, get_libc_name()))
+        cdll = CDLL(name)
     except OSError, e:
         raise wrap_oserror(space, e)
+    return space.wrap(W_CDLL(space, name, cdll))
+
+def get_errno(space):
+    return space.wrap(rposix.get_errno())
+
+def set_errno(space, w_errno):
+    rposix.set_errno(space.int_w(w_errno))
+
+def get_last_error(space):
+    from pypy.rlib.rwin32 import GetLastError
+    return space.wrap(GetLastError())
+
+def set_last_error(space, w_error):
+    from pypy.rlib.rwin32 import SetLastError
+    SetLastError(space.uint_w(w_error))

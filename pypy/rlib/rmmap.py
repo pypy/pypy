@@ -122,6 +122,7 @@ if _POSIX:
 
     # this one is always safe
     _, _get_page_size = external('getpagesize', [], rffi.INT)
+    _get_allocation_granularity = _get_page_size
 
     def _get_error_no():
         return rposix.get_errno()
@@ -206,7 +207,7 @@ elif _MS_WINDOWS:
     VirtualFree = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
-    
+
     def _get_page_size():
         try:
             si = rffi.make(SYSTEM_INFO)
@@ -214,7 +215,15 @@ elif _MS_WINDOWS:
             return int(si.c_dwPageSize)
         finally:
             lltype.free(si, flavor="raw")
-    
+
+    def _get_allocation_granularity():
+        try:
+            si = rffi.make(SYSTEM_INFO)
+            GetSystemInfo(si)
+            return int(si.c_dwAllocationGranularity)
+        finally:
+            lltype.free(si, flavor="raw")
+
     def _get_file_size(handle):
         # XXX use native Windows types like WORD
         high_ref = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
@@ -243,6 +252,7 @@ elif _MS_WINDOWS:
     INVALID_HANDLE = INVALID_HANDLE_VALUE
 
 PAGESIZE = _get_page_size()
+ALLOCATIONGRANULARITY = _get_allocation_granularity()
 NULL = lltype.nullptr(PTR.TO)
 NODATA = lltype.nullptr(PTR.TO)
 
@@ -432,8 +442,11 @@ class MMap(object):
         
         if len(byte) != 1:
             raise RTypeError("write_byte() argument must be char")
-        
+
         self.check_writeable()
+        if self.pos >= self.size:
+            raise RValueError("write byte out of range")
+
         self.data[self.pos] = byte[0]
         self.pos += 1
 
@@ -601,6 +614,9 @@ if _POSIX:
             pass
         else:
             raise RValueError("mmap invalid access parameter.")
+
+        if prot == PROT_READ:
+            access = ACCESS_READ
 
         # check file size
         try:

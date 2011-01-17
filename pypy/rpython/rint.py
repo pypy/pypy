@@ -291,6 +291,9 @@ class __extend__(IntegerRepr):
         return None 
 
     def get_ll_hash_function(self):
+        if (sys.maxint == 2147483647 and
+            self.lowleveltype in (SignedLongLong, UnsignedLongLong)):
+            return ll_hash_long_long
         return ll_hash_int
 
     get_ll_fasthash_function = get_ll_hash_function
@@ -410,6 +413,9 @@ class __extend__(IntegerRepr):
 
 def ll_hash_int(n):
     return intmask(n)
+
+def ll_hash_long_long(n):
+    return intmask(intmask(n) + 9 * intmask(n >> 32))
 
 def ll_check_chr(n):
     if 0 <= n <= 255:

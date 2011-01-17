@@ -13,7 +13,7 @@ from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
-from pypy.annotation.model import SomeSingleFloat
+from pypy.annotation.model import SomeSingleFloat, SomeLongFloat
 from pypy.annotation.model import unionof, UnionError, missing_operation
 from pypy.annotation.model import isdegenerated, TLS
 from pypy.annotation.model import read_can_only_throw
@@ -488,6 +488,12 @@ class __extend__(pairtype(SomeSingleFloat, SomeSingleFloat)):
     
     def union((flt1, flt2)):
         return SomeSingleFloat()
+
+
+class __extend__(pairtype(SomeLongFloat, SomeLongFloat)):
+    
+    def union((flt1, flt2)):
+        return SomeLongFloat()
 
 
 class __extend__(pairtype(SomeList, SomeList)):

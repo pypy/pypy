@@ -15,6 +15,10 @@ class AppTestAST:
         return mod
     return get_ast""")
 
+    def test_module(self):
+        ast = self.ast
+        assert isinstance(ast.__version__, str)
+
     def test_build_ast(self):
         ast = self.ast
         mod = self.get_ast("x = 4")
@@ -39,7 +43,7 @@ class AppTestAST:
         for op in mod.body.ops:
             assert isinstance(op, ast.Lt)
         mod.body.ops[0] = ast.Gt()
-        co = compile(mod, "<string>", "exec")
+        co = compile(mod, "<string>", "eval")
         assert not eval(co)
 
     def test_string(self):
@@ -164,9 +168,22 @@ class AppTestAST:
     def test_future(self):
         mod = self.get_ast("from __future__ import with_statement")
         compile(mod, "<test>", "exec")
-        mod = self.get_ast(""""I'm a docstring."\n
+        mod = self.get_ast(""""I am a docstring."\n
 from __future__ import generators""")
         compile(mod, "<test>", "exec")
         mod = self.get_ast("from __future__ import with_statement; import y; " \
                                "from __future__ import nested_scopes")
         raises(SyntaxError, compile, mod, "<test>", "exec")
+
+    def test_pickle(self):
+        skip("XXX implement me")
+        import pickle
+        mod = self.get_ast("if y: x = 4")
+        co = compile(mod, "<example>", "exec")
+
+        s = pickle.dumps(mod)
+        mod2 = pickle.loads(s)
+        ns = {"y" : 1}
+        co2 = compile(mod2, "<example>", "exec")
+        exec co2 in ns
+        assert ns["x"] == 4

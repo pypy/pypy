@@ -13,7 +13,7 @@ import signal
 
 def setup_module(mod):
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix'])
+        mod.space = gettestobjspace(usemodules=['posix', 'fcntl'])
     else:
         # On windows, os.popen uses the subprocess module
         mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread'])
@@ -65,6 +65,7 @@ class AppTestPosix:
             cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
+        cls.w_python = space.wrap(sys.executable)
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -246,11 +247,18 @@ class AppTestPosix:
         ex(self.posix.dup, UNUSEDFD)
 
     def test_fdopen(self):
+        import errno
         path = self.path
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY, 0777)
         f = posix.fdopen(fd, "r")
         f.close()
+
+        # Ensure that fcntl is not faked
+        import fcntl
+        assert fcntl.__file__.endswith('pypy/module/fcntl')
+        exc = raises(OSError, posix.fdopen, fd)
+        assert exc.value.errno == errno.EBADF
 
     def test_fdopen_hackedbuiltins(self):
         "Same test, with __builtins__.file removed"
@@ -364,17 +372,19 @@ class AppTestPosix:
             os = self.posix
             raises(OSError, 'os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])')
 
+        def test_execv_no_args(self):
+            os = self.posix
+            raises(ValueError, os.execv, "notepad", [])
+
         def test_execv_raising2(self):
             os = self.posix
-            def t(n):
+            for n in 3, [3, "a"]:
                 try:
                     os.execv("xxx", n)
                 except TypeError,t:
-                    assert t.args[0] == "execv() arg 2 must be an iterable of strings"
+                    assert str(t) == "execv() arg 2 must be an iterable of strings"
                 else:
                     py.test.fail("didn't raise")
-            t(3)
-            t([3, "a"])
 
         def test_execve(self):
             os = self.posix
@@ -388,13 +398,22 @@ class AppTestPosix:
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 
+    if hasattr(__import__(os.name), "spawnv"):
+        def test_spawnv(self):
+            os = self.posix
+            import sys
+            print self.python
+            ret = os.spawnv(os.P_WAIT, self.python,
+                            ['python', '-c', 'raise(SystemExit(42))'])
+            assert ret == 42
+
     def test_popen(self):
         os = self.posix
         for i in range(5):
             stream = os.popen('echo 1')
             res = stream.read()
             assert res == '1\n'
-            stream.close()
+            assert stream.close() is None
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):

@@ -271,7 +271,7 @@ default_options = dict.fromkeys(
     "unbuffered"), 0)
 
 
-PYTHON26 = False
+PYTHON26 = True
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -400,6 +400,10 @@ def parse_command_line(argv):
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = sys.flags.py3k_warning
+
+        if sys.py3kwarning:
+            print >> sys.stderr, (
+                "Warning: pypy does not implement py3k warnings")
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):

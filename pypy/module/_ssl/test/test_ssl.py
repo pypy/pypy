@@ -12,7 +12,7 @@ class AppTestSSL:
     
     def test_sslerror(self):
         import _ssl
-        assert issubclass(_ssl.sslerror, Exception)
+        assert issubclass(_ssl.SSLError, Exception)
 
     def test_constants(self):
         import _ssl
@@ -26,6 +26,12 @@ class AppTestSSL:
         assert isinstance(_ssl.SSL_ERROR_WANT_CONNECT, int)
         assert isinstance(_ssl.SSL_ERROR_EOF, int)
         assert isinstance(_ssl.SSL_ERROR_INVALID_ERROR_CODE, int)
+
+        assert isinstance(_ssl.OPENSSL_VERSION_NUMBER, int)
+        assert isinstance(_ssl.OPENSSL_VERSION_INFO, tuple)
+        assert len(_ssl.OPENSSL_VERSION_INFO) == 5
+        assert isinstance(_ssl.OPENSSL_VERSION, str)
+        assert 'openssl' in _ssl.OPENSSL_VERSION.lower()
     
     def test_RAND_add(self):
         import _ssl

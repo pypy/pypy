@@ -90,7 +90,7 @@ class dbm(object):
             raise error("cannot add item to database")
         return default
 
-    def has_key(self, key):
+    def __contains__(self, key):
         if not self._aobj:
             raise error('DBM object has already been closed')
         dat = datum(key)
@@ -98,6 +98,7 @@ class dbm(object):
         if k.dptr:
             return True
         return False
+    has_key = __contains__
 
     def __delitem__(self, key):
         if not self._aobj:

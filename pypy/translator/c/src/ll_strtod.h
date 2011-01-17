@@ -13,7 +13,7 @@
 
 double LL_strtod_parts_to_float(char *sign, char *beforept,
 				char *afterpt, char *exponent);
-char *LL_strtod_formatd(char *fmt, double x);
+char *LL_strtod_formatd(double x, char code, int precision);
 
 
 /* implementations */
@@ -86,9 +86,17 @@ int buflen = 120;
 #define snprintf _snprintf
 #endif
 
-char* LL_strtod_formatd(char *fmt, double x) {
+char* LL_strtod_formatd(double x, char code, int precision) {
 	int res;
-	res = snprintf(buffer, buflen, fmt, x);
+	const char* fmt;
+        if (code == 'e') fmt = "%.*e";
+        else if (code == 'f') fmt = "%.*f";
+        else if (code == 'g') fmt = "%.*g";
+        else {
+            strcpy(buffer, "??.?"); /* should not occur */
+            return buffer;
+        }
+	res = snprintf(buffer, buflen, fmt, precision, x);
 	if (res <= 0 || res >= buflen) {
 		strcpy(buffer, "??.?"); /* should not occur */
 	} else {

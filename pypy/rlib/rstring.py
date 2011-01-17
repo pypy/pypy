@@ -54,28 +54,29 @@ class AbstractStringBuilder(object):
         self.l = []
 
     def append(self, s):
-        assert isinstance(s, self._type)
+        assert isinstance(s, self.tp)
         self.l.append(s)
 
     def append_slice(self, s, start, end):
+        assert isinstance(s, self.tp)
         assert 0 <= start <= end <= len(s)
         self.l.append(s[start:end])
 
     def append_multiple_char(self, c, times):
+        assert isinstance(c, self.tp)
         self.l.append(c * times)
+
+    def build(self):
+        return self.tp("").join(self.l)
 
     def getlength(self):
         return len(self.build())
 
 class StringBuilder(AbstractStringBuilder):
-    _type = str
-    def build(self):
-        return "".join(self.l)
+    tp = str
 
 class UnicodeBuilder(AbstractStringBuilder):
-    _type = unicode
-    def build(self):
-        return u''.join(self.l)
+    tp = unicode
 
 
 # XXX: This does log(mul) mallocs, the GCs probably make that efficient, but
@@ -117,14 +118,11 @@ class SomeStringBuilder(SomeObject):
         assert isinstance(s_str, SomeString)
         assert isinstance(s_start, SomeInteger)
         assert isinstance(s_end, SomeInteger)
-        assert s_start.nonneg
-        assert s_end.nonneg
         return s_None
 
     def method_append_multiple_char(self, s_char, s_times):
         assert isinstance(s_char, SomeChar)
         assert isinstance(s_times, SomeInteger)
-        assert s_times.nonneg
         return s_None
 
     def method_getlength(self):
@@ -145,14 +143,11 @@ class SomeUnicodeBuilder(SomeObject):
         assert isinstance(s_str, SomeUnicodeString)
         assert isinstance(s_start, SomeInteger)
         assert isinstance(s_end, SomeInteger)
-        assert s_start.nonneg
-        assert s_end.nonneg
         return s_None
 
     def method_append_multiple_char(self, s_char, s_times):
         assert isinstance(s_char, SomeUnicodeCodePoint)
         assert isinstance(s_times, SomeInteger)
-        assert s_times.nonneg
         return s_None
 
     def method_getlength(self):

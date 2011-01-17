@@ -125,3 +125,9 @@ class AppTestImpModule:
         mod2 = self.imp.load_module('test_imp_extra_AUTO6', f, fn, descr)
         f.close()
         assert mod2 is mod
+
+    def test_nullimporter(self):
+        import os
+        importer = self.imp.NullImporter("path")
+        assert importer.find_module(1, 2, 3, 4) is None
+        raises(ImportError, self.imp.NullImporter, os.getcwd())

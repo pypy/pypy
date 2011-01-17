@@ -907,10 +907,6 @@ class ObjSpace(object):
                 return self.w_True
         return self.w_False
 
-    def isinstance(self, w_obj, w_type):
-        w_objtype = self.type(w_obj)
-        return self.issubtype(w_objtype, w_type)
-
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
 
@@ -941,7 +937,7 @@ class ObjSpace(object):
     # it with exception_
 
     def exception_is_valid_obj_as_class_w(self, w_obj):
-        if not self.is_true(self.isinstance(w_obj, self.w_type)):
+        if not self.isinstance_w(w_obj, self.w_type):
             return False
         if not self.full_exceptions:
             return True
@@ -1015,20 +1011,9 @@ class ObjSpace(object):
                 (start, stop, step)
         """
         if self.is_true(self.isinstance(w_index_or_slice, self.w_slice)):
-            w_indices = self.call_method(w_index_or_slice, "indices",
-                                         self.wrap(seqlength))
-            w_start, w_stop, w_step = self.fixedview(w_indices, 3)
-            start = self.int_w(w_start)
-            stop  = self.int_w(w_stop)
-            step  = self.int_w(w_step)
-            if step == 0:
-                raise OperationError(self.w_ValueError,
-                                     self.wrap("slice step cannot be zero"))
-            if start < 0:
-                start = 0
-            if stop < start:
-                stop = start
-            assert stop <= seqlength
+            from pypy.objspace.std.sliceobject import W_SliceObject
+            assert isinstance(w_index_or_slice, W_SliceObject)
+            start, stop, step = w_index_or_slice.indices3(self, seqlength)
         else:
             start = self.int_w(w_index_or_slice)
             if start < 0:
@@ -1036,9 +1021,31 @@ class ObjSpace(object):
             if not (0 <= start < seqlength):
                 raise OperationError(self.w_IndexError,
                                      self.wrap("index out of range"))
-            stop  = 0
-            step  = 0
+            stop = 0
+            step = 0
         return start, stop, step
+
+    def decode_index4(self, w_index_or_slice, seqlength):
+        """Helper for custom sequence implementations
+             -> (index, 0, 0, 1) or
+                (start, stop, step, slice_length)
+        """
+        if self.is_true(self.isinstance(w_index_or_slice, self.w_slice)):
+            from pypy.objspace.std.sliceobject import W_SliceObject
+            assert isinstance(w_index_or_slice, W_SliceObject)
+            start, stop, step, length = w_index_or_slice.indices4(self,
+                                                                  seqlength)
+        else:
+            start = self.int_w(w_index_or_slice)
+            if start < 0:
+                start += seqlength
+            if not (0 <= start < seqlength):
+                raise OperationError(self.w_IndexError,
+                                     self.wrap("index out of range"))
+            stop = 0
+            step = 0
+            length = 1
+        return start, stop, step, length
 
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         """Return w_obj.__index__() as an RPython int.
@@ -1256,9 +1263,11 @@ ObjSpace.MethodTable = [
     ('is_',             'is',        2, []),
     ('id',              'id',        1, []),
     ('type',            'type',      1, []),
-    ('issubtype',       'issubtype', 2, []),  # not for old-style classes
+    ('isinstance',      'isinstance', 2, ['__instancecheck__']),
+    ('issubtype',       'issubtype', 2, ['__subclasscheck__']),  # not for old-style classes
     ('repr',            'repr',      1, ['__repr__']),
     ('str',             'str',       1, ['__str__']),
+    ('format',          'format',    2, ['__format__']),
     ('len',             'len',       1, ['__len__']),
     ('hash',            'hash',      1, ['__hash__']),
     ('getattr',         'getattr',   2, ['__getattribute__']),
@@ -1270,6 +1279,7 @@ ObjSpace.MethodTable = [
     ('getslice',        'getslice',  3, ['__getslice__']),
     ('setslice',        'setslice',  4, ['__setslice__']),
     ('delslice',        'delslice',  3, ['__delslice__']),
+    ('trunc',           'trunc',     1, ['__trunc__']),
     ('pos',             'pos',       1, ['__pos__']),
     ('neg',             'neg',       1, ['__neg__']),
     ('nonzero',         'truth',     1, ['__nonzero__']),

@@ -31,6 +31,8 @@ class W_File(W_AbstractStream):
     encoding = None  # This is not used internally by file objects
     fd       = -1
 
+    newlines = 0     # Updated when the stream is closed
+
     def __init__(self, space):
         self.space = space
 
@@ -113,6 +115,7 @@ class W_File(W_AbstractStream):
         space = self.space
         stream = self.stream
         if stream is not None:
+            self.newlines = self.stream.getnewlines()
             self.stream = None
             self.fd = -1
             openstreams = getopenstreams(self.space)
@@ -441,7 +444,10 @@ def descr_file_closed(space, file):
     return space.wrap(file.stream is None)
 
 def descr_file_newlines(space, file):
-    newlines = file.getstream().getnewlines()
+    if file.stream:
+        newlines = file.stream.getnewlines()
+    else:
+        newlines = file.newlines
     if newlines == 0:
         return space.w_None
     elif newlines == 1:

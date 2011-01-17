@@ -501,7 +501,6 @@ class AppTest_DictObject:
         iterable = {}
         raises(TypeError, len, iter(iterable))
 
-
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
@@ -521,6 +520,148 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         assert key == s
         assert type(key) is str
         assert getattr(a, s) == 42
+
+class AppTestDictViews:
+    def test_dictview(self):
+        d = {1: 2, 3: 4}
+        assert len(d.viewkeys()) == 2
+        assert len(d.viewitems()) == 2
+        assert len(d.viewvalues()) == 2
+
+    def test_constructors_not_callable(self):
+        kt = type({}.viewkeys())
+        raises(TypeError, kt, {})
+        raises(TypeError, kt)
+        it = type({}.viewitems())
+        raises(TypeError, it, {})
+        raises(TypeError, it)
+        vt = type({}.viewvalues())
+        raises(TypeError, vt, {})
+        raises(TypeError, vt)
+
+    def test_dict_keys(self):
+        d = {1: 10, "a": "ABC"}
+        keys = d.viewkeys()
+        assert len(keys) == 2
+        assert set(keys) == set([1, "a"])
+        assert keys == set([1, "a"])
+        assert keys != set([1, "a", "b"])
+        assert keys != set([1, "b"])
+        assert keys != set([1])
+        assert keys != 42
+        assert 1 in keys
+        assert "a" in keys
+        assert 10 not in keys
+        assert "Z" not in keys
+        assert d.viewkeys() == d.viewkeys()
+        e = {1: 11, "a": "def"}
+        assert d.viewkeys() == e.viewkeys()
+        del e["a"]
+        assert d.viewkeys() != e.viewkeys()
+
+    def test_dict_items(self):
+        d = {1: 10, "a": "ABC"}
+        items = d.viewitems()
+        assert len(items) == 2
+        assert set(items) == set([(1, 10), ("a", "ABC")])
+        assert items == set([(1, 10), ("a", "ABC")])
+        assert items != set([(1, 10), ("a", "ABC"), "junk"])
+        assert items != set([(1, 10), ("a", "def")])
+        assert items != set([(1, 10)])
+        assert items != 42
+        assert (1, 10) in items
+        assert ("a", "ABC") in items
+        assert (1, 11) not in items
+        assert 1 not in items
+        assert () not in items
+        assert (1,) not in items
+        assert (1, 2, 3) not in items
+        assert d.viewitems() == d.viewitems()
+        e = d.copy()
+        assert d.viewitems() == e.viewitems()
+        e["a"] = "def"
+        assert d.viewitems() != e.viewitems()
+
+    def test_dict_mixed_keys_items(self):
+        d = {(1, 1): 11, (2, 2): 22}
+        e = {1: 1, 2: 2}
+        assert d.viewkeys() == e.viewitems()
+        assert d.viewitems() != e.viewkeys()
+
+    def test_dict_values(self):
+        d = {1: 10, "a": "ABC"}
+        values = d.viewvalues()
+        assert set(values) == set([10, "ABC"])
+        assert len(values) == 2
+
+    def test_dict_repr(self):
+        d = {1: 10, "a": "ABC"}
+        assert isinstance(repr(d), str)
+        r = repr(d.viewitems())
+        assert isinstance(r, str)
+        assert (r == "dict_items([('a', 'ABC'), (1, 10)])" or
+                r == "dict_items([(1, 10), ('a', 'ABC')])")
+        r = repr(d.viewkeys())
+        assert isinstance(r, str)
+        assert (r == "dict_keys(['a', 1])" or
+                r == "dict_keys([1, 'a'])")
+        r = repr(d.viewvalues())
+        assert isinstance(r, str)
+        assert (r == "dict_values(['ABC', 10])" or
+                r == "dict_values([10, 'ABC'])")
+
+    def test_keys_set_operations(self):
+        d1 = {'a': 1, 'b': 2}
+        d2 = {'b': 3, 'c': 2}
+        d3 = {'d': 4, 'e': 5}
+        assert d1.viewkeys() & d1.viewkeys() == set('ab')
+        assert d1.viewkeys() & d2.viewkeys() == set('b')
+        assert d1.viewkeys() & d3.viewkeys() == set()
+        assert d1.viewkeys() & set(d1.viewkeys()) == set('ab')
+        assert d1.viewkeys() & set(d2.viewkeys()) == set('b')
+        assert d1.viewkeys() & set(d3.viewkeys()) == set()
+
+        assert d1.viewkeys() | d1.viewkeys() == set('ab')
+        assert d1.viewkeys() | d2.viewkeys() == set('abc')
+        assert d1.viewkeys() | d3.viewkeys() == set('abde')
+        assert d1.viewkeys() | set(d1.viewkeys()) == set('ab')
+        assert d1.viewkeys() | set(d2.viewkeys()) == set('abc')
+        assert d1.viewkeys() | set(d3.viewkeys()) == set('abde')
+
+        assert d1.viewkeys() ^ d1.viewkeys() == set()
+        assert d1.viewkeys() ^ d2.viewkeys() == set('ac')
+        assert d1.viewkeys() ^ d3.viewkeys() == set('abde')
+        assert d1.viewkeys() ^ set(d1.viewkeys()) == set()
+        assert d1.viewkeys() ^ set(d2.viewkeys()) == set('ac')
+        assert d1.viewkeys() ^ set(d3.viewkeys()) == set('abde')
+
+    def test_items_set_operations(self):
+        d1 = {'a': 1, 'b': 2}
+        d2 = {'a': 2, 'b': 2}
+        d3 = {'d': 4, 'e': 5}
+        assert d1.viewitems() & d1.viewitems() == set([('a', 1), ('b', 2)])
+        assert d1.viewitems() & d2.viewitems() == set([('b', 2)])
+        assert d1.viewitems() & d3.viewitems() == set()
+        assert d1.viewitems() & set(d1.viewitems()) == set([('a', 1), ('b', 2)])
+        assert d1.viewitems() & set(d2.viewitems()) == set([('b', 2)])
+        assert d1.viewitems() & set(d3.viewitems()) == set()
+
+        assert d1.viewitems() | d1.viewitems() == set([('a', 1), ('b', 2)])
+        assert (d1.viewitems() | d2.viewitems() ==
+                set([('a', 1), ('a', 2), ('b', 2)]))
+        assert (d1.viewitems() | d3.viewitems() ==
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
+        assert (d1.viewitems() | set(d1.viewitems()) ==
+                set([('a', 1), ('b', 2)]))
+        assert (d1.viewitems() | set(d2.viewitems()) ==
+                set([('a', 1), ('a', 2), ('b', 2)]))
+        assert (d1.viewitems() | set(d3.viewitems()) ==
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
+
+        assert d1.viewitems() ^ d1.viewitems() == set()
+        assert d1.viewitems() ^ d2.viewitems() == set([('a', 1), ('a', 2)])
+        assert (d1.viewitems() ^ d3.viewitems() ==
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
 
 class AppTestModuleDict(object):

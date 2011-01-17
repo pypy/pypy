@@ -405,6 +405,13 @@ class AbstractTestRstr(BaseRtypingTest):
                 res = self.interpret(fn, [i,j])
                 assert self.ll_to_string(res) == fn(i, j)
 
+        def fn(i):
+            c = ["a", "b", "c"]
+            assert i >= 0
+            return const('').join(c[i:])
+        res = self.interpret(fn, [0])
+        assert self.ll_to_string(res) == const("abc")
+
     def test_str_slice(self):
         const = self.const
         def fn(n):

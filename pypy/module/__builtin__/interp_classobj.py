@@ -2,7 +2,7 @@ import new
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
@@ -245,6 +245,7 @@ W_ClassObject.typedef = TypeDef("classobj",
                              unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
     __delattr__ = interp2app(W_ClassObject.descr_delattr,
                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __weakref__ = make_weakref_descr(W_ClassObject),
 )
 W_ClassObject.typedef.acceptable_as_base_class = False
 
@@ -601,6 +602,27 @@ class W_InstanceObject(Wrappable):
                 space.wrap("__hash__ must return int or long"))
         return w_ret
 
+    def descr_int(self, space):
+        w_func = self.getattr(space, '__int__', False)
+        if w_func is not None:
+            return space.call_function(w_func)
+
+        w_truncated = space.trunc(self)
+        # int() needs to return an int
+        try:
+            return space.int(w_truncated)
+        except OperationError:
+            # Raise a different error
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("__trunc__ returned non-Integral"))
+
+    def descr_long(self, space):
+        w_func = self.getattr(space, '__long__', False)
+        if w_func is not None:
+            return space.call_function(w_func)
+        return self.descr_int(space)
+
     def descr_index(self, space):
         w_func = self.getattr(space, '__index__', False)
         if w_func is not None:
@@ -682,10 +704,15 @@ class W_InstanceObject(Wrappable):
         if w_func is not None:
             space.call_function(w_func)
 
+    def descr_exit(self, space, w_type, w_value, w_tb):
+        w_func = self.getattr(space, '__exit__', False)
+        if w_func is not None:
+            return space.call_function(w_func, w_type, w_value, w_tb)
+
 rawdict = {}
 
 # unary operations
-for op in "neg pos abs invert int long float oct hex".split():
+for op in "neg pos abs invert trunc float oct hex enter reversed".split():
     specialname = "__%s__" % (op, )
     # fool the gateway logic by giving it a real unbound method
     meth = new.instancemethod(
@@ -770,6 +797,10 @@ W_InstanceObject.typedef = TypeDef("instance",
                          unwrap_spec=['self', ObjSpace, W_Root]),
     __hash__ = interp2app(W_InstanceObject.descr_hash,
                           unwrap_spec=['self', ObjSpace]),
+    __int__ = interp2app(W_InstanceObject.descr_int,
+                           unwrap_spec=['self', ObjSpace]),
+    __long__ = interp2app(W_InstanceObject.descr_long,
+                           unwrap_spec=['self', ObjSpace]),
     __index__ = interp2app(W_InstanceObject.descr_index,
                            unwrap_spec=['self', ObjSpace]),
     __contains__ = interp2app(W_InstanceObject.descr_contains,
@@ -782,6 +813,8 @@ W_InstanceObject.typedef = TypeDef("instance",
                       unwrap_spec=['self', ObjSpace]),
     __del__ = interp2app(W_InstanceObject.descr_del,
                          unwrap_spec=['self', ObjSpace]),
+    __exit__ = interp2app(W_InstanceObject.descr_exit,
+                          unwrap_spec=['self', ObjSpace, W_Root, W_Root, W_Root]),
     __dict__ = dict_descr,
     **rawdict
 )

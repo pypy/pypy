@@ -29,8 +29,8 @@ def unpack_str_tuple(space,w_str_tuple):
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
-default_magic = (62141+2) | 0x0a0d0000                  # this PyPy's magic
-                                                        # (62131=CPython 2.5.1)
+default_magic = (168686339+2) | 0x0a0d0000              # this PyPy's magic
+                                                        # (from CPython 2.7.0)
 
 # cpython_code_signature helper
 def cpython_code_signature(code):

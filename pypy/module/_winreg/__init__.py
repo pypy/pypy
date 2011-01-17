@@ -49,6 +49,7 @@ to see what constants are used, and where."""
         'QueryValue'     : 'interp_winreg.QueryValue',
         'QueryValueEx'   : 'interp_winreg.QueryValueEx',
         'CreateKey'      : 'interp_winreg.CreateKey',
+        'CreateKeyEx'    : 'interp_winreg.CreateKeyEx',
         'DeleteKey'      : 'interp_winreg.DeleteKey',
         'DeleteValue'    : 'interp_winreg.DeleteValue',
         'OpenKey'        : 'interp_winreg.OpenKey',
@@ -61,6 +62,13 @@ to see what constants are used, and where."""
         'LoadKey'        : 'interp_winreg.LoadKey',
         'SaveKey'        : 'interp_winreg.SaveKey',
         'ConnectRegistry': 'interp_winreg.ConnectRegistry',
+
+        'ExpandEnvironmentStrings': 'interp_winreg.ExpandEnvironmentStrings',
+
+        'DisableReflectionKey': 'interp_winreg.DisableReflectionKey',
+        'EnableReflectionKey': 'interp_winreg.EnableReflectionKey',
+        'QueryReflectionKey': 'interp_winreg.QueryReflectionKey',
+        'DeleteKeyEx': 'interp_winreg.DeleteKeyEx',
     }
 
     for name, value in constants.iteritems():

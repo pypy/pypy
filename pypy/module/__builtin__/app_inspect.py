@@ -64,7 +64,7 @@ def dir(*args):
 
     if isinstance(obj, types.ModuleType):
         try:
-            result = list(obj.__dict__.keys())
+            result = list(obj.__dict__)
             result.sort()
             return result
         except AttributeError:

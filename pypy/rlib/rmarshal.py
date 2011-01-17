@@ -195,7 +195,7 @@ add_loader(annotation(r_longlong), load_longlong)
 
 def dump_float(buf, x):
     buf.append(TYPE_FLOAT)
-    s = formatd("%.17g", x)
+    s = formatd(x, 'g', 17)
     buf.append(chr(len(s)))
     buf += s
 add_dumper(annmodel.SomeFloat(), dump_float)

@@ -37,6 +37,9 @@ class TestW_ComplexObject:
         test_cparse('3L+3j', '3L', '3')
         test_cparse('3j', '0.0', '3')
         test_cparse('.e+5', '.e+5', '0.0')
+        test_cparse('(1+2j)', '1', '2')
+        test_cparse('(1-6j)', '1', '-6')
+        
 
     def test_pow(self):
         def _pow((r1, i1), (r2, i2)):
@@ -210,8 +213,23 @@ class AppTestAppComplexTest:
             def __complex__(self): return self.value
         h.assertEqual(complex(OS(1+10j)), 1+10j)
         h.assertEqual(complex(NS(1+10j)), 1+10j)
+        h.assertEqual(complex(OS(1+10j), 5), 1+15j)
+        h.assertEqual(complex(NS(1+10j), 5), 1+15j)
+        h.assertEqual(complex(OS(1+10j), 5j), -4+10j)
+        h.assertEqual(complex(NS(1+10j), 5j), -4+10j)
         h.raises(TypeError, complex, OS(None))
         h.raises(TypeError, complex, NS(None))
+        h.raises(TypeError, complex, OS(2.0))   # __complex__ must really
+        h.raises(TypeError, complex, NS(2.0))   # return a complex, not a float
+        h.raises((TypeError, AttributeError), complex, OS(1+10j), OS(1+10j))
+        h.raises((TypeError, AttributeError), complex, NS(1+10j), OS(1+10j))
+        h.raises((TypeError, AttributeError), complex, OS(1+10j), NS(1+10j))
+        h.raises((TypeError, AttributeError), complex, NS(1+10j), NS(1+10j))
+        class F(object):
+            def __float__(self):
+                return 2.0
+        h.assertEqual(complex(OS(1+10j), F()), 1+12j)
+        h.assertEqual(complex(NS(1+10j), F()), 1+12j)
 
         h.assertAlmostEqual(complex("1+10j"), 1+10j)
         h.assertAlmostEqual(complex(10), 10+0j)
@@ -327,17 +345,22 @@ class AppTestAppComplexTest:
         assert x.foo == 42
         assert type(complex(x)) == complex
     
-    def test_overflow(self):
-        h = self.helper
-        raises(ValueError, complex, unicode("1"*500))
+    def test_infinity(self):
+        inf = 1e200*1e200
+        assert complex("1"*500) == complex(inf)
+        assert complex("-inf") == complex(-inf)
         
     def test_repr(self):
-        h = self.helper
-        h.assertEqual(repr(1+6j), '(1+6j)')
-        h.assertEqual(repr(1-6j), '(1-6j)')
+        assert repr(1+6j) == '(1+6j)'
+        assert repr(1-6j) == '(1-6j)'
 
-        h.assertNotEqual(repr(-(1+0j)), '(-1+-0j)')
+        assert repr(-(1+0j)) == '(-1-0j)'
+        assert repr(complex( 0.0,  0.0)) == '0j'
+        assert repr(complex( 0.0, -0.0)) == '-0j'
+        assert repr(complex(-0.0,  0.0)) == '(-0+0j)'
+        assert repr(complex(-0.0, -0.0)) == '(-0-0j)'
         assert repr(complex(1e45)) == "(" + repr(1e45) + "+0j)"
+        assert repr(complex(1e200*1e200)) == '(inf+0j)'
 
     def test_neg(self):
         h = self.helper
@@ -369,3 +392,24 @@ class AppTestAppComplexTest:
     def test_convert(self):
         raises(TypeError, int, 1+1j)
         raises(TypeError, float, 1+1j)
+
+        class complex0(complex):
+            """Test usage of __complex__() when inheriting from 'complex'"""
+            def __complex__(self):
+                return 42j
+        assert complex(complex0(1j)) ==  42j
+
+        class complex1(complex):
+            """Test usage of __complex__() with a __new__() method"""
+            def __new__(self, value=0j):
+                return complex.__new__(self, 2*value)
+            def __complex__(self):
+                return self
+        assert complex(complex1(1j)) == 2j
+
+        class complex2(complex):
+            """Make sure that __complex__() calls fail if anything other than a
+            complex is returned"""
+            def __complex__(self):
+                return None
+        raises(TypeError, complex, complex2(1j))
