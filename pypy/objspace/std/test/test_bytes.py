@@ -197,6 +197,10 @@ class AppTestBytesArray:
         b.extend([ord(c) for c in 'hello'])
         assert b == bytearray('worldhello')
 
+        b = bytearray('world')
+        b.extend(list('hello'))
+        assert b == bytearray('worldhello')
+
         raises(ValueError, b.extend, [256])
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")

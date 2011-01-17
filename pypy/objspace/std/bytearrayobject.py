@@ -386,14 +386,19 @@ def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
     else:
         l = list()
         for w_item in space.unpackiterable(w_other):
-            i = space.int_w(w_item)
-            try:
-                res = chr(i)
-            except ValueError:
-                raise OperationError(
-                    space.w_ValueError,
-                    space.wrap("byte must be in range(0, 256)")
-                )
+            if space.isinstance_w(w_item, space.w_str):
+                res = space.str_w(w_item)
+            else:
+                i = space.int_w(w_item)
+                try:
+                    res = chr(i)
+                except ValueError:
+                    raise OperationError(
+                        space.w_ValueError,
+                        space.wrap("byte must be in range(0, 256)")
+                    )
+
+
             l.append(res)
         w_bytearray.data += l
 
