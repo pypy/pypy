@@ -43,6 +43,7 @@ P34 = 0.75 * math.pi
 INF = 1e200 * 1e200
 N   = INF / INF
 U   = -9.5426319407711027e33   # unlikely value, used as placeholder
+NAN = N
 
 def build_table(lst):
     table = []

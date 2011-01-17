@@ -22,6 +22,10 @@ names_and_docstrings = {
     'sin': "Return the sine of x.",
     'tan': "Return the tangent of x.",
     'rect': "Convert from polar coordinates to rectangular coordinates.",
+    'polar': ("polar(z) -> r: float, phi: float\n"
+              "Convert a complex from rectangular coordinates "
+              "to polar coordinates. r is\n"
+              "the distance from 0 and phi the phase angle.")
     }
 
 

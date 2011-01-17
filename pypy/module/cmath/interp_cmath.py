@@ -8,7 +8,7 @@ from pypy.module.cmath.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
 from pypy.module.cmath.constant import M_LN2, M_LN10
 from pypy.module.cmath.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
 from pypy.module.cmath.constant import CM_LOG_LARGE_DOUBLE
-from pypy.module.cmath.special_value import isfinite, special_type, INF
+from pypy.module.cmath.special_value import isfinite, special_type, INF, NAN
 from pypy.module.cmath.special_value import sqrt_special_values
 from pypy.module.cmath.special_value import acos_special_values
 from pypy.module.cmath.special_value import acosh_special_values
@@ -478,3 +478,35 @@ def c_rect(r, phi):
     real = r * math.cos(phi)
     imag = r * math.sin(phi)
     return real, imag
+
+
+def c_atan2(x, y):
+    # Windows screws up atan2 for inf and nan, and alpha Tru64 5.1 doesn't
+    # follow C99 for atan2(0., 0.).
+    if isnan(x) or isnan(y):
+        return NAN
+    if isinf(y):
+        if isinf(x):
+            if copysign(1., x) == 1.:
+                # atan2(+-inf, +inf) == +-pi/4
+                return copysign(0.25 * math.pi, y)
+            else:
+                # atan2(+-inf, -inf) == +-pi*3/4
+                return copysign(0.75 * math.pi, y)
+        # atan2(+-inf, x) == +-pi/2 for finite x
+        return copysign(0.5 * math.pi, y)
+    if isinf(x) or y == 0.:
+        if copysign(1., x) == 1.:
+            # atan2(+-y, +inf) = atan2(+-0, +x) = +-0.
+            return copysign(0., y)
+        else:
+            # atan2(+-y, -inf) = atan2(+-0., -x) = +-pi.
+            return copysign(math.pi, y)
+    return math.atan2(y, x)
+
+
+@unaryfn
+def c_polar(x, y):
+    phi = c_atan2(x, y)
+    r = math.hypot(x, y)
+    return r, phi

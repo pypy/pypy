@@ -123,19 +123,11 @@ def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
 
-    def polar_complex(z):
-        """Wrapped version of polar that returns a complex number instead of
-        two floats."""
-        xxx
-        return complex(*polar(z))
-
     for id, fn, ar, ai, er, ei, flags in parse_testfile('cmath_testcases.txt'):
         arg = (ar, ai)
         expected = (er, ei)
-        if fn == 'polar':
-            function = polar_complex
-        else:
-            function = getattr(interp_cmath, 'c_' + fn)
+        function = getattr(interp_cmath, 'c_' + fn)
+        #
         if 'divide-by-zero' in flags or 'invalid' in flags:
             try:
                 actual = function(*arg)
