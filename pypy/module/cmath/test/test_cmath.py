@@ -7,9 +7,18 @@ class AppTestCMath:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['cmath'])
 
+    def test_sign(self):
+        z = eval("-0j")
+        assert z == -0j
+        assert math.copysign(1., z.real) == 1.
+        assert math.copysign(1., z.imag) == -1.
+
     def test_sqrt(self):
-        import cmath
+        import cmath, math
         assert cmath.sqrt(3+4j) == 2+1j
+        z = cmath.sqrt(-0j)
+        assert math.copysign(1., z.real) == 1.
+        assert math.copysign(1., z.imag) == -1.
 
     def test_acos(self):
         import cmath
