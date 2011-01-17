@@ -39,7 +39,16 @@ class TestW_ComplexObject:
         test_cparse('.e+5', '.e+5', '0.0')
         test_cparse('(1+2j)', '1', '2')
         test_cparse('(1-6j)', '1', '-6')
-        
+
+    def test_unpackcomplex(self):
+        space = self.space
+        w_z = W_ComplexObject(2.0, 3.5)
+        assert space.unpackcomplex(w_z) == (2.0, 3.5)
+        space.raises_w(space.w_TypeError, space.unpackcomplex, space.w_None)
+        w_f = space.newfloat(42.5)
+        assert space.unpackcomplex(w_f) == (42.5, 0.0)
+        w_l = space.wrap(-42L)
+        assert space.unpackcomplex(w_l) == (-42.0, 0.0)
 
     def test_pow(self):
         def _pow((r1, i1), (r2, i2)):
