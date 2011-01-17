@@ -14,6 +14,7 @@ names_and_docstrings = {
             "If the base not specified, returns the natural logarithm "
             "(base e) of x."),
     'log10': "Return the base-10 logarithm of x.",
+    'exp': "Return the exponential value e**x.",
     }
 
 

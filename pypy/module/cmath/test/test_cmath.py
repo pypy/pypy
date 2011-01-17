@@ -153,16 +153,15 @@ def test_specific_values():
                 raise AssertionError('ValueError not raised in test '
                                      '%s: %s(complex(%r, %r))' % (id, fn,
                                                                   ar, ai))
-
         if 'overflow' in flags:
             try:
-                actual = function(arg)
+                actual = function(*arg)
             except OverflowError:
                 continue
             else:
-                self.fail('OverflowError not raised in test '
-                      '{}: {}(complex({!r}, {!r}))'.format(id, fn, ar, ai))
-
+                raise AssertionError('OverflowError not raised in test '
+                                     '%s: %s(complex(%r, %r))' % (id, fn,
+                                                                  ar, ai))
         actual = function(*arg)
 
         if 'ignore-real-sign' in flags:

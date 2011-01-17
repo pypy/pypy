@@ -1,19 +1,21 @@
 import math
 from math import fabs
-from pypy.rlib.rarithmetic import copysign, asinh, log1p
+from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.module.cmath.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
 from pypy.module.cmath.constant import M_LN2, M_LN10
 from pypy.module.cmath.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
-from pypy.module.cmath.special_value import isfinite, special_type
+from pypy.module.cmath.constant import CM_LOG_LARGE_DOUBLE
+from pypy.module.cmath.special_value import isfinite, special_type, INF
 from pypy.module.cmath.special_value import sqrt_special_values
 from pypy.module.cmath.special_value import acos_special_values
 from pypy.module.cmath.special_value import acosh_special_values
 from pypy.module.cmath.special_value import asinh_special_values
 from pypy.module.cmath.special_value import atanh_special_values
 from pypy.module.cmath.special_value import log_special_values
+from pypy.module.cmath.special_value import exp_special_values
 
 
 def unaryfn(c_func):
@@ -284,3 +286,36 @@ def wrapped_log(space, w_z, w_base=NoneNotWrapped):
 def c_log10(x, y):
     rx, ry = c_log(x, y)
     return (rx / M_LN10, ry / M_LN10)
+
+
+@unaryfn
+def c_exp(x, y):
+    if not isfinite(x) or not isfinite(y):
+        if isinf(x) and isfinite(y) and y != 0.:
+            if x > 0:
+                real = copysign(INF, math.cos(y))
+                imag = copysign(INF, math.sin(y))
+            else:
+                real = copysign(0., math.cos(y))
+                imag = copysign(0., math.sin(y))
+            r = (real, imag)
+        else:
+            r = exp_special_values[special_type(x)][special_type(y)]
+
+        # need to raise ValueError if y is +/- infinity and x is not
+        # a NaN and not -infinity
+        if isinf(y) and (isfinite(x) or (isinf(x) and x > 0)):
+            raise ValueError("math domain error")
+        return r
+
+    if x > CM_LOG_LARGE_DOUBLE:
+        l = math.exp(x-1.)
+        real = l * math.cos(y) * math.e
+        imag = l * math.sin(y) * math.e
+    else:
+        l = math.exp(x)
+        real = l * math.cos(y)
+        imag = l * math.sin(y)
+    if isinf(real) or isinf(imag):
+        raise OverflowError("math range error")
+    return real, imag
