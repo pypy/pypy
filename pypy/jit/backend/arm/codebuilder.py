@@ -43,6 +43,21 @@ class AbstractARMv7Builder(object):
         instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
         self.write32(instr)
 
+    def VPUSH(self, regs, cond=cond.AL):
+        nregs = len(regs) 
+        assert nregs > 0 and nregs <= 16
+        freg = regs[0]
+        D = (freg & 0x10) >> 4
+        Dd = (freg & 0xF)
+        nregs *= 2 
+        instr = (cond << 28 
+                | 0xD2D << 16 
+                | D << 22 
+                | Dd << 12
+                | 0xB << 8
+                | nregs)
+        self.write32(instr)
+
     def POP(self, regs, cond=cond.AL):
         assert reg.lr.value not in regs
         instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)

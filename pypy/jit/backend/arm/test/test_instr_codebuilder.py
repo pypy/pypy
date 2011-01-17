@@ -91,6 +91,18 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.PUSH([reg.value for reg in [r.fp, r.ip, r.lr, r.pc]])
         self.assert_equal('PUSH {fp, ip, lr, pc}')
 
+    def test_vpush_one_reg(self):
+        self.cb.VPUSH([r.d3.value])
+        self.assert_equal('VPUSH {d3}')
+
+    def test_vpush_one_reg2(self):
+        self.cb.VPUSH([r.d12.value])
+        self.assert_equal('VPUSH {d12}')
+
+    def test_vpush_multiple(self):
+        self.cb.VPUSH([reg.value for reg in [r.d11, r.d12, r.d13, r.d14, r.d15]])
+        self.assert_equal('VPUSH {D11, D12, D13, D14, D15}')
+
     def test_sub_ri(self):
         self.cb.SUB_ri(r.r2.value, r.r4.value, 123)
         self.assert_equal('SUB r2, r4, #123')
