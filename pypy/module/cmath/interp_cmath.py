@@ -217,10 +217,10 @@ def c_atanh(x, y):
             #imag = y
         else:
             real = -math.log(math.sqrt(ay)/math.sqrt(math.hypot(ay, 2.)))
-            imag = copysign(math.atan2(2., -ay)/2, y)
+            imag = copysign(math.atan2(2., -ay) / 2, y)
     else:
         real = log1p(4.*x/((1-x)*(1-x) + ay*ay))/4.
-        imag = -math.atan2(-2.*y, (1-x)*(1+x) - ay*ay)/2.
+        imag = -math.atan2(-2.*y, (1-x)*(1+x) - ay*ay) / 2.
     return (real, imag)
 
 
@@ -531,9 +531,28 @@ wrapped_phase.unwrap_spec = [ObjSpace, W_Root]
 wrapped_phase.func_doc = names_and_docstrings['phase']
 
 
+def c_abs(x, y):
+    if not isfinite(x) or not isfinite(y):
+        # C99 rules: if either the real or the imaginary part is an
+        # infinity, return infinity, even if the other part is a NaN.
+        if isinf(x):
+            return INF
+        if isinf(y):
+            return INF
+
+        # either the real or imaginary part is a NaN,
+        # and neither is infinite. Result should be NaN.
+        return NAN
+
+    result = math.hypot(x, y)
+    if not isfinite(result):
+        raise OverflowError("math range error")
+    return result
+
+
 def c_polar(x, y):
     phi = c_phase(x, y)
-    r = math.hypot(x, y)
+    r = c_abs(x, y)
     return r, phi
 
 def wrapped_polar(space, w_z):

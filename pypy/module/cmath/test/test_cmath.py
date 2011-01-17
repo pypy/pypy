@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.conftest import gettestobjspace
 from pypy.rlib.rarithmetic import copysign, isnan, isinf
 from pypy.module.cmath import interp_cmath
-import os, math
+import os, sys, math
 
 
 def test_special_values():
@@ -119,7 +119,8 @@ def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     # and b to have opposite signs; in practice these hardly ever
     # occur).
     if not a and not b:
-        if copysign(1., a) != copysign(1., b):
+        # only check it if we are running on top of CPython >= 2.6
+        if sys.version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
             raise AssertionError(msg + 'zero has wrong sign: expected %r, '
                                        'got %r' % (a, b))
 
