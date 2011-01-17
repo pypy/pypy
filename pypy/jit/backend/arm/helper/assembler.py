@@ -49,3 +49,10 @@ def gen_emit_cmp_op(condition):
         self.mc.MOV_ri(res.value, 0, cond=inv)
         return fcond
     return f
+
+def gen_emit_float_op(opname):
+    op_rr = getattr(AbstractARMv7Builder, opname)
+    def f(self, op, arglocs, regalloc, fcon):
+        arg1, arg2, result = arglocs
+        op_rr(self.mc, result.value, arg1.value, arg2.value)
+    return f

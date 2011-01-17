@@ -8,7 +8,9 @@ from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
 
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
-                                                    gen_emit_op_ri, gen_emit_cmp_op)
+                                                    gen_emit_op_ri,
+                                                    gen_emit_cmp_op,
+                                                    gen_emit_float_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import Regalloc
@@ -772,13 +774,9 @@ class AllocOpAssembler(object):
 class FloatOpAssemlber(object):
     _mixin_ = True
 
-    def emit_op_float_add(self, op, arglocs, regalloc, fcon):
-        arg1, arg2, result = arglocs
-        self.mc.VADD(result.value, arg1.value, arg2.value)
-
-    def emit_op_float_sub(self, op, arglocs, regalloc, fcon):
-        arg1, arg2, result = arglocs
-        self.mc.VSUB(result.value, arg1.value, arg2.value)
+    emit_op_float_add = gen_emit_float_op('VADD')
+    emit_op_float_sub = gen_emit_float_op('VSUB')
+    emit_op_float_mul = gen_emit_float_op('VMUL')
 
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,

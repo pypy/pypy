@@ -784,6 +784,7 @@ class Regalloc(object):
 
     prepare_op_float_add = prepare_float_op()
     prepare_op_float_sub = prepare_float_op()
+    prepare_op_float_mul = prepare_float_op()
 
 def make_operation_list():
     def notimplemented(self, op, fcond):
