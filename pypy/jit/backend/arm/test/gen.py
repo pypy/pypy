@@ -1,4 +1,5 @@
 import os
+from pypy.tool.udir import udir
 import tempfile
 from pypy.jit.backend.arm.test.support import AS
 class ASMInstruction(object):
@@ -16,17 +17,20 @@ main:
 """
     begin_tag = 'START'
     end_tag = 'END'
+    base_name = 'test_%d.asm' 
+    index = 0
 
     def __init__(self, instr):
         self.instr = instr
-        self.file = tempfile.NamedTemporaryFile(mode='w')
-        self.name = self.file.name
-        self.tmpdir = os.path.dirname(self.name)
+        self.file = udir.join(self.base_name % self.index)
+        while self.file.check():
+            self.index += 1
+            self.file = udir.join(self.base_name % self.index)
 
     def encode(self):
-        f = open("%s/a.out" % (self.tmpdir),'rb')
+        f = open("%s/a.out" % (udir),'rb')
         data = f.read()
-        f.close()
+        #f.close()
         i = data.find(self.begin_tag)
         assert i>=0
         j = data.find(self.end_tag, i)
@@ -39,11 +43,10 @@ main:
     def assemble(self, *args):
         res = self.body % (self.instr)
         self.file.write(res)
-        self.file.flush()
-        os.system("%s --fatal-warnings %s %s -o %s/a.out" % (AS, self.asm_opts, self.name, self.tmpdir))
+        os.system("%s --fatal-warnings %s %s -o %s/a.out" % (AS, self.asm_opts, self.file, udir))
 
-    def __del__(self):
-        self.file.close()
+    #def __del__(self):
+    #    self.file.close()
 
 def assemble(instr):
     a = ASMInstruction(instr)
