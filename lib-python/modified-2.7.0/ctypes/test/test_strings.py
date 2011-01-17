@@ -1,6 +1,7 @@
 import unittest
 from ctypes import *
 from test import test_support
+from ctypes.test import xfail
 
 class StringArrayTestCase(unittest.TestCase):
     def test(self):
@@ -25,6 +26,7 @@ class StringArrayTestCase(unittest.TestCase):
         self.assertRaises(ValueError, setattr, buf, "value", "aaaaaaaa")
         self.assertRaises(TypeError, setattr, buf, "value", 42)
 
+    @xfail
     def test_c_buffer_value(self, memoryview=memoryview):
         buf = c_buffer(32)
 
@@ -35,6 +37,7 @@ class StringArrayTestCase(unittest.TestCase):
         self.assertRaises(TypeError, setattr, buf, "value", memoryview("abc"))
         self.assertRaises(ValueError, setattr, buf, "raw", memoryview("x" * 100))
 
+    @xfail
     def test_c_buffer_raw(self, memoryview=memoryview):
         buf = c_buffer(32)
 
@@ -43,6 +46,7 @@ class StringArrayTestCase(unittest.TestCase):
         self.assertRaises(TypeError, setattr, buf, "value", memoryview("abc"))
         self.assertRaises(ValueError, setattr, buf, "raw", memoryview("x" * 100))
 
+    @xfail
     def test_c_buffer_deprecated(self):
         # Compatibility with 2.x
         with test_support.check_py3k_warnings():
