@@ -6,12 +6,17 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.listobject import _delitem_slice_helper
+from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.buffer import RWBuffer
+
+from pypy.tool.sourcetools import func_with_new_name
+
 
 class W_BytearrayObject(W_Object):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
@@ -410,6 +415,24 @@ def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
                              space.wrap("fixme: only step=1 for the moment"))
     _setitem_helper(w_bytearray, start, stop, slicelength,
                     space.str_w(w_other))
+
+def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
+    idx = get_list_index(space, w_idx)
+    try:
+        del w_bytearray.data[idx]
+    except IndexError:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("bytearray deletion index out of range"))
+    return space.w_None
+
+def delitem__Bytearray_Slice(space, w_bytearray, w_slice):
+    start, stop, step, slicelength = w_slice.indices4(space,
+                                                      len(w_bytearray.data))
+    delitem_slice_helper(space, w_bytearray.data, start, step, slicelength)
+
+# create new helper function with different list type specialisation
+delitem_slice_helper = func_with_new_name(_delitem_slice_helper,
+                                          'delitem_slice_helper')
 
 def _setitem_helper(w_bytearray, start, stop, slicelength, data):
     assert start >= 0
