@@ -7,6 +7,7 @@ from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.module.cmath.constant import CM_LARGE_DOUBLE, M_LN2
 from pypy.module.cmath.special_value import isfinite, special_type
 from pypy.module.cmath.special_value import sqrt_special_values
+from pypy.module.cmath.special_value import acos_special_values
 
 
 def unaryfn(c_func):
@@ -78,6 +79,9 @@ def c_sqrt(x, y):
 
 @unaryfn
 def c_acos(x, y):
+    if not isfinite(x) or not isfinite(y):
+        return acos_special_values[special_type(x)][special_type(y)]
+
     if fabs(x) > CM_LARGE_DOUBLE or fabs(y) > CM_LARGE_DOUBLE:
         # avoid unnecessary overflow for large arguments
         real = math.atan2(fabs(y), x)

@@ -56,15 +56,15 @@ def build_table(lst):
         table.append(row)
     return table
 
-##acos_special_values = build_table([
-## C(P34,INF),C(P,INF), C(P,INF), C(P,-INF), C(P,-INF), C(P34,-INF),C(N,INF),
-## C(P12,INF),C(U,U),   C(U,U),   C(U,U),    C(U,U),    C(P12,-INF),C(N,N),
-## C(P12,INF),C(U,U),   C(P12,0.),C(P12,-0.),C(U,U),    C(P12,-INF),C(P12,N),
-## C(P12,INF),C(U,U),   C(P12,0.),C(P12,-0.),C(U,U),    C(P12,-INF),C(P12,N),
-## C(P12,INF),C(U,U),   C(U,U),   C(U,U),    C(U,U),    C(P12,-INF),C(N,N),
-## C(P14,INF),C(0.,INF),C(0.,INF),C(0.,-INF),C(0.,-INF),C(P14,-INF),C(N,INF),
-## C(N,INF),  C(N,N),   C(N,N),   C(N,N),    C(N,N),    C(N,-INF),  C(N,N) 
-## ])
+acos_special_values = build_table([
+    (P34,INF), (P,INF),  (P,INF),  (P,-INF),  (P,-INF),  (P34,-INF), (N,INF),
+    (P12,INF), (U,U),    (U,U),    (U,U),     (U,U),     (P12,-INF), (N,N),
+    (P12,INF), (U,U),    (P12,0.), (P12,-0.), (U,U),     (P12,-INF), (P12,N),
+    (P12,INF), (U,U),    (P12,0.), (P12,-0.), (U,U),     (P12,-INF), (P12,N),
+    (P12,INF), (U,U),    (U,U),    (U,U),     (U,U),     (P12,-INF), (N,N),
+    (P14,INF), (0.,INF), (0.,INF), (0.,-INF), (0.,-INF), (P14,-INF), (N,INF),
+    (N,INF),   (N,N),    (N,N),    (N,N),     (N,N),     (N,-INF),   (N,N),
+    ])
 
 sqrt_special_values = build_table([
     (INF,-INF), (0.,-INF), (0.,-INF), (0.,INF), (0.,INF), (INF,INF), (N,INF),
