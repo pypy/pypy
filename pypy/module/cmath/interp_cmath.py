@@ -2,6 +2,7 @@ import math
 from math import fabs
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf, isnan
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
@@ -49,7 +50,8 @@ def unaryfn(c_func):
     assert name.startswith('c_')
     wrapper.unwrap_spec = [ObjSpace, W_Root]
     wrapper.func_doc = names_and_docstrings[name[2:]]
-    globals()['wrapped_' + name[2:]] = wrapper
+    fnname = 'wrapped_' + name[2:]
+    globals()[fnname] = func_with_new_name(wrapper, fnname)
     return c_func
 
 
