@@ -137,6 +137,9 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.VSUB(r.d1.value, r.d2.value, r.d3.value, conditions.GT)
         self.assert_equal("VSUBGT.F64 D1, D2, D3")
 
+    def test_vstr_offset(self):
+        assert py.test.raises(AssertionError, 'self.cb.VSTR(r.d1, r.r4, 3)')
+
     def test_pop_raises_on_lr(self):
         assert py.test.raises(AssertionError, 'self.cb.POP([r.lr.value])')
 
@@ -149,15 +152,11 @@ def gen_test_float_load_store_func(name, table):
     tests = []
     for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:
         for reg in range(16):
-            if reg == 14:
-                tests.append(lambda self: py.test.skip('r14(lr) gives strange results'))
-                continue
-
-            for creg in range(16):
+            for creg in range(2):
                 asm = 'd%d, [r%d]' % (creg, reg)
                 tests.append((asm, (creg, reg)))
-                #asm = 'd%d, [r%d, #4]' % (creg, reg)
-                #tests.append((asm, (creg, reg, 4)))
+                asm = 'd%d, [r%d, #16]' % (creg, reg)
+                tests.append((asm, (creg, reg, 16)))
     return tests
 
 def gen_test_float64_data_proc_instructions_func(name, table):

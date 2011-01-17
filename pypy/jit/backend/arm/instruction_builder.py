@@ -284,7 +284,11 @@ def define_float_load_store_func(name, table):
         | 0x5 << 0x9
         | 0x1 << 0x8)
 
+    # The imm value for thins function has to be a multiple of 4,
+    # the value actually encoded is imm / 4
     def f(self, dd, rn, imm=0, cond=cond.AL):
+        assert imm % 4 == 0
+        imm = imm/4
         u, imm = self._encode_imm(imm)
         instr = ( n
                 | (cond & 0xF) << 28
