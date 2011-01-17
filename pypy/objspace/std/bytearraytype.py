@@ -47,7 +47,7 @@ def descr__new__(space, w_bytearraytype,
         from pypy.objspace.std.unicodetype import (
             _get_encoding_and_errors, encode_object
         )
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, space.w_None)
+        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
 
         # if w_source is an integer this correctly raises a TypeError
         # the CPython error message is: "encoding or errors without a string argument"
