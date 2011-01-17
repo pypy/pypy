@@ -1,3 +1,5 @@
+from __future__ import with_statement
+
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.objectmodel import specialize, enforceargs, we_are_translated
 from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat
