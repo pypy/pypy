@@ -29,14 +29,14 @@ e  = math.e
 @specialize.arg(0)
 def call_c_func(c_func, x, y):
     try:
-        resx, resy = c_func(x, y)
+        result = c_func(x, y)
     except ValueError:
         raise OperationError(space.w_ValueError,
                              space.wrap("math domain error"))
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("math range error"))
-    return resx, resy
+    return result
 
 
 def unaryfn(c_func):
@@ -499,7 +499,7 @@ wrapped_rect.unwrap_spec = [ObjSpace, W_Root, W_Root]
 wrapped_rect.func_doc = names_and_docstrings['rect']
 
 
-def c_atan2(x, y):
+def c_phase(x, y):
     # Windows screws up atan2 for inf and nan, and alpha Tru64 5.1 doesn't
     # follow C99 for atan2(0., 0.).
     if isnan(x) or isnan(y):
@@ -523,9 +523,16 @@ def c_atan2(x, y):
             return copysign(math.pi, y)
     return math.atan2(y, x)
 
+def wrapped_phase(space, w_z):
+    x, y = space.unpackcomplex(w_z)
+    result = call_c_func(c_phase, x, y)
+    return space.newfloat(result)
+wrapped_phase.unwrap_spec = [ObjSpace, W_Root]
+wrapped_phase.func_doc = names_and_docstrings['phase']
+
 
 def c_polar(x, y):
-    phi = c_atan2(x, y)
+    phi = c_phase(x, y)
     r = math.hypot(x, y)
     return r, phi
 

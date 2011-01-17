@@ -61,6 +61,11 @@ class AppTestCMath:
         assert r == 2
         assert abs(phi - cmath.pi/2) < 1e-10
 
+    def test_phase(self):
+        import cmath
+        phi = cmath.phase(2j)
+        assert abs(phi - cmath.pi/2) < 1e-10
+
 
 def parse_testfile(fname):
     """Parse a file with test values

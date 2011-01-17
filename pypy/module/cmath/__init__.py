@@ -25,7 +25,8 @@ names_and_docstrings = {
     'polar': ("polar(z) -> r: float, phi: float\n"
               "Convert a complex from rectangular coordinates "
               "to polar coordinates. r is\n"
-              "the distance from 0 and phi the phase angle.")
+              "the distance from 0 and phi the phase angle."),
+    'phase': "Return argument, also known as the phase angle, of a complex.",
     }
 
 
