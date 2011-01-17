@@ -17,15 +17,19 @@ class TestMath(BaseRtypingTest, LLRtypeMixin):
         except AttributeError:
             fn = getattr(rarithmetic, name)
             assert_exact = False
+        if name == 'acosh':
+            value = 1.3     # acosh(x) is only defined for x >= 1.0
+        else:
+            value = 0.3
         #
         def next_test(self):
             def f(x):
                 return fn(x)
-            res = self.interpret(f, [0.3])
+            res = self.interpret(f, [value])
             if assert_exact:
-                assert res == f(0.3)
+                assert res == f(value)
             else:
-                assert abs(res - f(0.3)) < 1e-10
+                assert abs(res - f(value)) < 1e-10
         return next_test
 
     def new_binary_test(name):
