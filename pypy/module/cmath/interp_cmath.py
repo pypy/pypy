@@ -20,8 +20,7 @@ from pypy.module.cmath.special_value import exp_special_values
 
 def unaryfn(c_func):
     def wrapper(space, w_z):
-        x = space.float_w(space.getattr(w_z, space.wrap('real')))
-        y = space.float_w(space.getattr(w_z, space.wrap('imag')))
+        x, y = space.unpackcomplex(w_z)
         try:
             resx, resy = c_func(x, y)
         except ValueError:
