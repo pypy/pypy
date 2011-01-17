@@ -116,7 +116,9 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):
         interpleveldefs['sysconf'] = 'interp_posix.sysconf'
+        interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
         interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
+        interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
