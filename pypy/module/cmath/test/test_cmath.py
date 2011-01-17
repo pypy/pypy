@@ -159,8 +159,8 @@ def test_specific_values():
         actual = function(*arg)
 
         if 'ignore-real-sign' in flags:
-            actual = complex(abs(actual.real), actual.imag)
-            expected = complex(abs(expected.real), expected.imag)
+            actual = (abs(actual[0]), actual[1])
+            expected = (abs(expected[0]), expected[1])
         if 'ignore-imag-sign' in flags:
             actual = (actual[0], abs(actual[1]))
             expected = (expected[0], abs(expected[1]))

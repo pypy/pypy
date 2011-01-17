@@ -76,6 +76,16 @@ acosh_special_values = build_table([
     (INF,N),    (N,N),     (N,N),     (N,N),    (N,N),    (INF,N),   (N,N),
     ])
 
+asinh_special_values = build_table([
+    (-INF,-P14),(-INF,-0.),(-INF,-0.),(-INF,0.),(-INF,0.),(-INF,P14),(-INF,N),
+    (-INF,-P12),(U,U),     (U,U),     (U,U),    (U,U),    (-INF,P12),(N,N),
+    (-INF,-P12),(U,U),     (-0.,-0.), (-0.,0.), (U,U),    (-INF,P12),(N,N),
+    (INF,-P12), (U,U),     (0.,-0.),  (0.,0.),  (U,U),    (INF,P12), (N,N),
+    (INF,-P12), (U,U),     (U,U),     (U,U),    (U,U),    (INF,P12), (N,N),
+    (INF,-P14), (INF,-0.), (INF,-0.), (INF,0.), (INF,0.), (INF,P14), (INF,N),
+    (INF,N),    (N,N),     (N,-0.),   (N,0.),   (N,N),    (INF,N),   (N,N),
+    ])
+
 sqrt_special_values = build_table([
     (INF,-INF), (0.,-INF), (0.,-INF), (0.,INF), (0.,INF), (INF,INF), (N,INF),
     (INF,-INF), (U,U),     (U,U),     (U,U),    (U,U),    (INF,INF), (N,N),
