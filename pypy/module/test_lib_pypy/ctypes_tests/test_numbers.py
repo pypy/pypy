@@ -112,6 +112,9 @@ class TestNumber(BaseCTypesTestChecker):
 
     def test_sizes(self):
         for t in signed_types + unsigned_types + float_types:
+            if t._type_ == 'g':
+                # typecode not supported by "struct"
+                continue 
             size = struct.calcsize(t._type_)
             # sizeof of the type...
             assert sizeof(t) == size
@@ -121,6 +124,9 @@ class TestNumber(BaseCTypesTestChecker):
     def test_alignments(self):
         for t in signed_types + unsigned_types + float_types:
             code = t._type_ # the typecode
+            if code == 'g':
+                # typecode not supported by "struct"
+                continue
             align = struct.calcsize("c%c" % code) - struct.calcsize(code)
 
             # alignment of the type...
@@ -150,15 +156,17 @@ class TestNumber(BaseCTypesTestChecker):
 
 
     def test_float_from_address(self):
-        from array import array
+        from _rawffi import Array
         for t in float_types:
-            a = array(t._type_, [3.14])
-            v = t.from_address(a.buffer_info()[0])
+            a = Array(t._type_)(1)
+            a[0] = 3.14
+            v = t.from_address(a.buffer)
             assert v.value == a[0]
             assert type(v) is t
             a[0] = 2.3456e17
             assert v.value == a[0]
             assert type(v) is t
+            a.free()
 
     def test_char_from_address(self):
         from ctypes import c_char
