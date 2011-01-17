@@ -473,7 +473,7 @@ def _conditional_neg(space, w_obj, flag):
     else:
         return w_obj
 
-def _cmp(space, w_obj1, w_obj2):
+def _cmp(space, w_obj1, w_obj2, symbol):
     w_typ1 = space.type(w_obj1)
     w_typ2 = space.type(w_obj2)
     w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__cmp__')
@@ -504,9 +504,7 @@ def _cmp(space, w_obj1, w_obj2):
         return space.wrap(1)
     if space.is_w(w_typ1, w_typ2):
         #print "WARNING, comparison by address!"
-        w_id1 = space.id(w_obj1)
-        w_id2 = space.id(w_obj2)
-        lt = space.is_true(space.lt(w_id1, w_id2))
+        lt = _id_cmpr(space, w_obj1, w_obj2, symbol)
     else:
         #print "WARNING, comparison by type name!"
 
@@ -523,13 +521,21 @@ def _cmp(space, w_obj1, w_obj2):
             if name1 != name2:
                 lt = name1 < name2
             else:
-                w_id1 = space.id(w_typ1)
-                w_id2 = space.id(w_typ2)
-                lt = space.is_true(space.lt(w_id1, w_id2))
+                lt = _id_cmpr(space, w_typ1, w_typ2, symbol)
     if lt:
         return space.wrap(-1)
     else:
         return space.wrap(1)
+
+def _id_cmpr(space, w_obj1, w_obj2, symbol):
+    if symbol == "==":
+        return not space.is_w(w_obj1, w_obj2)
+    elif symbol == "!=":
+        return space.is_w(w_obj1, w_obj2)
+    w_id1 = space.id(w_obj1)
+    w_id2 = space.id(w_obj2)
+    return space.is_true(space.lt(w_id1, w_id2))
+
 
 def number_check(space, w_obj):
     # avoid this as much as possible.  It checks if w_obj "looks like"
@@ -640,7 +646,6 @@ def _make_binop_impl(symbol, specialnames):
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
-    
     def comparison_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -664,7 +669,7 @@ def _make_comparison_impl(symbol, specialnames):
         if w_res is not None:
             return w_res
         # fallback: lt(a, b) <= lt(cmp(a, b), 0) ...
-        w_res = _cmp(space, w_first, w_second)
+        w_res = _cmp(space, w_first, w_second, symbol)
         res = space.int_w(w_res)
         return space.wrap(op(res, 0))
 
@@ -790,4 +795,3 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name
-            

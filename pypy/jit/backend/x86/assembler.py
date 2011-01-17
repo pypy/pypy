@@ -1845,13 +1845,8 @@ class Assembler386(object):
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         loc_base = arglocs[0]
-        if isinstance(loc_base, RegLoc):
-            self.mc.TEST8_mi((loc_base.value, descr.jit_wb_if_flag_byteofs),
-                             descr.jit_wb_if_flag_singlebyte)
-        else:
-            assert isinstance(loc_base, ImmedLoc)
-            self.mc.TEST8_ji(loc_base.value + descr.jit_wb_if_flag_byteofs,
-                             descr.jit_wb_if_flag_singlebyte)
+        self.mc.TEST8(addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs),
+                      imm(descr.jit_wb_if_flag_singlebyte))
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = self.mc.get_relative_pos()
         # the following is supposed to be the slow path, so whenever possible

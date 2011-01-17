@@ -1489,6 +1489,21 @@ class PyPyCJITTests(object):
                  ([-10, -20], 200 * (-10 % -20)),
                         count_debug_merge_point=False)
         assert self.jit_summary.tracing_no == 2
+    def test_id_compare_optimization(self):
+        # XXX: lower the instruction count, 35 is the old value.
+        self.run_source("""
+        class A(object):
+            pass
+        def main():
+            i = 0
+            a = A()
+            while i < 5:
+                if A() != a:
+                    pass
+                i += 1
+        """, 35, ([], None))
+        _, compare = self.get_by_bytecode("COMPARE_OP")
+        assert "call" not in compare.get_opnames()
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
