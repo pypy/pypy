@@ -193,6 +193,12 @@ class AppTestBytesArray:
         b.extend(buffer('jkl'))
         assert b == 'abcdefghijkl'
 
+        b = bytearray('world')
+        b.extend([ord(c) for c in 'hello'])
+        assert b == bytearray('worldhello')
+
+        raises(ValueError, b.extend, [256])
+        raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")
 
     def test_delslice(self):
