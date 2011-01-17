@@ -1,7 +1,8 @@
 from __future__ import with_statement
 from pypy.conftest import gettestobjspace
-from pypy.rlib.rarithmetic import copysign
-import os
+from pypy.rlib.rarithmetic import copysign, isnan, isinf
+from pypy.module.cmath import interp_cmath
+import os, math
 
 
 def test_special_values():
@@ -38,10 +39,6 @@ class AppTestCMath:
         assert math.isinf(z.real) and z.real > 0.0
         assert z.imag == 0.0 and math.copysign(1., z.imag) == -1.
 
-    def test_acos(self):
-        import cmath
-        assert cmath.acos(0.5+0j) == 1.0471975511965979+0j
-
 
 def parse_testfile(fname):
     """Parse a file with test values
@@ -68,30 +65,79 @@ def parse_testfile(fname):
                    flags
                   )
 
+def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
+    """Fail if the two floating-point numbers are not almost equal.
 
-def test_specific_values(space):
+    Determine whether floating-point values a and b are equal to within
+    a (small) rounding error.  The default values for rel_err and
+    abs_err are chosen to be suitable for platforms where a float is
+    represented by an IEEE 754 double.  They allow an error of between
+    9 and 19 ulps.
+    """
+
+    # special values testing
+    if isnan(a):
+        if isnan(b):
+            return
+        raise AssertionError(msg + '%r should be nan' % (b,))
+
+    if isinf(a):
+        if a == b:
+            return
+        raise AssertionError(msg + 'finite result where infinity expected: '
+                                   'expected %r, got %r' % (a, b))
+
+    # if both a and b are zero, check whether they have the same sign
+    # (in theory there are examples where it would be legitimate for a
+    # and b to have opposite signs; in practice these hardly ever
+    # occur).
+    if not a and not b:
+        if copysign(1., a) != copysign(1., b):
+            raise AssertionError(msg + 'zero has wrong sign: expected %r, '
+                                       'got %r' % (a, b))
+
+    # if a-b overflows, or b is infinite, return False.  Again, in
+    # theory there are examples where a is within a few ulps of the
+    # max representable float, and then b could legitimately be
+    # infinite.  In practice these examples are rare.
+    try:
+        absolute_error = abs(b-a)
+    except OverflowError:
+        pass
+    else:
+        # test passes if either the absolute error or the relative
+        # error is sufficiently small.  The defaults amount to an
+        # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
+        # machine.
+        if absolute_error <= max(abs_err, rel_err * abs(a)):
+            return
+    raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
+
+def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
 
     def rect_complex(z):
         """Wrapped version of rect that accepts a complex number instead of
         two float arguments."""
+        xxx
         return cmath.rect(z.real, z.imag)
 
     def polar_complex(z):
         """Wrapped version of polar that returns a complex number instead of
         two floats."""
+        xxx
         return complex(*polar(z))
 
-    for id, fn, ar, ai, er, ei, flags in parse_testfile(test_file):
-        w_arg = space.newcomplex(ar, ai)
-        w_expected = space.newcomplex(er, ei)
+    for id, fn, ar, ai, er, ei, flags in parse_testfile('cmath_testcases.txt'):
+        arg = (ar, ai)
+        expected = (er, ei)
         if fn == 'rect':
             function = rect_complex
         elif fn == 'polar':
             function = polar_complex
         else:
-            function = getattr(cmath, fn)
+            function = getattr(interp_cmath, 'c_' + fn)
         if 'divide-by-zero' in flags or 'invalid' in flags:
             try:
                 actual = function(arg)
@@ -110,7 +156,7 @@ def test_specific_values(space):
                 self.fail('OverflowError not raised in test '
                       '{}: {}(complex({!r}, {!r}))'.format(id, fn, ar, ai))
 
-        actual = function(arg)
+        actual = function(*arg)
 
         if 'ignore-real-sign' in flags:
             actual = complex(abs(actual.real), actual.imag)
@@ -127,15 +173,15 @@ def test_specific_values(space):
             real_abs_err = 5e-323
 
         error_message = (
-            '{}: {}(complex({!r}, {!r}))\n'
-            'Expected: complex({!r}, {!r})\n'
-            'Received: complex({!r}, {!r})\n'
-            'Received value insufficiently close to expected value.'
-            ).format(id, fn, ar, ai,
-                 expected.real, expected.imag,
-                 actual.real, actual.imag)
-        self.rAssertAlmostEqual(expected.real, actual.real,
-                                    abs_err=real_abs_err,
-                                    msg=error_message)
-        self.rAssertAlmostEqual(expected.imag, actual.imag,
-                                    msg=error_message)
+            '%s: %s(complex(%r, %r))\n'
+            'Expected: complex(%r, %r)\n'
+            'Received: complex(%r, %r)\n'
+            ) % (id, fn, ar, ai,
+                 expected[0], expected[1],
+                 actual[0], actual[1])
+
+        rAssertAlmostEqual(expected[0], actual[0],
+                           abs_err=real_abs_err,
+                           msg=error_message)
+        rAssertAlmostEqual(expected[1], actual[1],
+                           msg=error_message)

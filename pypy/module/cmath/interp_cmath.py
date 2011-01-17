@@ -1,26 +1,29 @@
 import math
-from pypy.rlib.rarithmetic import copysign
+from math import fabs
+from pypy.rlib.rarithmetic import copysign, asinh
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.module.cmath import Module
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
+from pypy.module.cmath.constant import CM_LARGE_DOUBLE, M_LN2
 from pypy.module.cmath.special_value import isfinite, special_type
 from pypy.module.cmath.special_value import sqrt_special_values
 
 
-def unaryfn(name):
-    def decorator(c_func):
-        def wrapper(space, w_z):
-            x = space.float_w(space.getattr(w_z, space.wrap('real')))
-            y = space.float_w(space.getattr(w_z, space.wrap('imag')))
-            resx, resy = c_func(x, y)
-            return space.newcomplex(resx, resy)
-        wrapper.unwrap_spec = [ObjSpace, W_Root]
-        globals()['wrapped_' + name] = wrapper
-        return c_func
-    return decorator
+def unaryfn(c_func):
+    def wrapper(space, w_z):
+        x = space.float_w(space.getattr(w_z, space.wrap('real')))
+        y = space.float_w(space.getattr(w_z, space.wrap('imag')))
+        resx, resy = c_func(x, y)
+        return space.newcomplex(resx, resy)
+    #
+    name = c_func.func_name
+    assert name.startswith('c_')
+    wrapper.unwrap_spec = [ObjSpace, W_Root]
+    globals()['wrapped_' + name[2:]] = wrapper
+    return c_func
 
 
-@unaryfn('sqrt')
+@unaryfn
 def c_sqrt(x, y):
     # Method: use symmetries to reduce to the case when x = z.real and y
     # = z.imag are nonnegative.  Then the real part of the result is
@@ -52,8 +55,8 @@ def c_sqrt(x, y):
     if x == 0. and y == 0.:
         return (0., y)
 
-    ax = math.fabs(x)
-    ay = math.fabs(y)
+    ax = fabs(x)
+    ay = fabs(y)
 
     if ax < DBL_MIN and ay < DBL_MIN and (ax > 0. or ay > 0.):
         # here we catch cases where hypot(ax, ay) is subnormal
@@ -73,9 +76,22 @@ def c_sqrt(x, y):
         return (d, copysign(s, y))
 
 
-##@unaryfn
-##def c_acos(x, y):
-##    s1x, s1y = c_sqrt(1.-x, -y)
-##    s2x, s2y = c_sqrt(1.+x, y)
-##        r.real = 2.*atan2(s1.real, s2.real);
-##        r.imag = m_asinh(s2.real*s1.imag - s2.imag*s1.real);
+@unaryfn
+def c_acos(x, y):
+    if fabs(x) > CM_LARGE_DOUBLE or fabs(y) > CM_LARGE_DOUBLE:
+        # avoid unnecessary overflow for large arguments
+        real = math.atan2(fabs(y), x)
+        # split into cases to make sure that the branch cut has the
+        # correct continuity on systems with unsigned zeros
+        if x < 0.:
+            imag = -copysign(math.log(math.hypot(x/2., y/2.)) +
+                             M_LN2*2., y)
+        else:
+            imag = copysign(math.log(math.hypot(x/2., y/2.)) +
+                            M_LN2*2., -y)
+    else:
+        s1x, s1y = c_sqrt(1.-x, -y)
+        s2x, s2y = c_sqrt(1.+x, y)
+        real = 2.*math.atan2(s1x, s2x)
+        imag = asinh(s2x*s1y - s2y*s1x)
+    return (real, imag)
