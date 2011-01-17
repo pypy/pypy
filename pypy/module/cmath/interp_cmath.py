@@ -2,6 +2,8 @@ import math
 from pypy.rlib.rarithmetic import copysign
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.module.cmath import Module
+from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
+
 
 def unaryfn(name):
     def decorator(c_func):
@@ -50,15 +52,15 @@ def c_sqrt(x, y):
     ax = math.fabs(x)
     ay = math.fabs(y)
 
-##    if (ax < DBL_MIN && ay < DBL_MIN && (ax > 0. || ay > 0.)) {
-##        /* here we catch cases where hypot(ax, ay) is subnormal */
-##        ax = ldexp(ax, CM_SCALE_UP);
-##        s = ldexp(sqrt(ax + hypot(ax, ldexp(ay, CM_SCALE_UP))),
-##                  CM_SCALE_DOWN);
-##    } else {
-    ax /= 8.
-    s = 2.*math.sqrt(ax + math.hypot(ax, ay/8.))
-##    }
+    if ax < DBL_MIN and ay < DBL_MIN and (ax > 0. or ay > 0.):
+        # here we catch cases where hypot(ax, ay) is subnormal
+        ax = math.ldexp(ax, CM_SCALE_UP)
+        ay1= math.ldexp(ay, CM_SCALE_UP)
+        s = math.ldexp(math.sqrt(ax + math.hypot(ax, ay1)),
+                       CM_SCALE_DOWN)
+    else:
+        ax /= 8.
+        s = 2.*math.sqrt(ax + math.hypot(ax, ay/8.))
 
     d = ay/(2.*s)
 

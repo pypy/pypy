@@ -19,6 +19,10 @@ class AppTestCMath:
         z = cmath.sqrt(-0j)
         assert math.copysign(1., z.real) == 1.
         assert math.copysign(1., z.imag) == -1.
+        dbl_min = 2.2250738585072014e-308
+        z = cmath.sqrt((dbl_min * 0.00000000000001) + 0j)
+        assert abs(z.real - 1.49107189843e-161) < 1e-170
+        assert z.imag == 0.0
 
     def test_acos(self):
         import cmath
