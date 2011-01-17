@@ -14,7 +14,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.buffer import RWBuffer
-
+from pypy.objspace.std.bytearraytype import makebytearraydata_w
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -381,35 +381,7 @@ def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
     if space.isinstance_w(w_other, space.w_unicode):
         raise OperationError(space.w_TypeError, space.wrap(
             "bytes string or buffer expected"))
-    try:
-        other = space.bufferstr_w(w_other)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        # We now try treating w_other as an iterable
-        l = []
-        for w_item in space.unpackiterable(w_other):
-            if space.isinstance_w(w_item, space.w_str):
-                res = space.str_w(w_item)
-                if len(res) != 1:
-                    raise OperationError(
-                        space.w_ValueError,
-                        space.wrap("string must be of size 1")
-                    )
-            else:
-                i = space.int_w(w_item)
-                try:
-                    res = chr(i)
-                except ValueError:
-                    raise OperationError(
-                        space.w_ValueError,
-                        space.wrap("byte must be in range(0, 256)")
-                    )
-
-            l.append(res)
-        w_bytearray.data += l
-    else:
-        w_bytearray.data += [c for c in other]
+    w_bytearray.data += makebytearraydata_w(space, w_other)
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)

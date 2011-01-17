@@ -42,28 +42,17 @@ def new_bytearray(space, w_bytearraytype, data):
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root, W_Root)
 def descr__new__(space, w_bytearraytype,
                  w_source='', w_encoding=None, w_errors=None):
-    data = []
     # Unicode argument
     if not space.is_w(w_encoding, space.w_None):
         from pypy.objspace.std.unicodetype import (
             _get_encoding_and_errors, encode_object
         )
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, space.w_None)
+        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
 
         # if w_source is an integer this correctly raises a TypeError
         # the CPython error message is: "encoding or errors without a string argument"
         # ours is: "expected unicode, got int object"
         w_source = encode_object(space, w_source, encoding, errors)
-
-    # String-like argument
-    try:
-        string = space.str_w(w_source)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-    else:
-        data = [c for c in string]
-        return new_bytearray(space, w_bytearraytype, data)
 
     # Is it an int?
     try:
@@ -75,7 +64,21 @@ def descr__new__(space, w_bytearraytype,
         data = ['\0'] * count
         return new_bytearray(space, w_bytearraytype, data)
 
+    data = makebytearraydata_w(space, w_source)
+    return new_bytearray(space, w_bytearraytype, data)
+
+def makebytearraydata_w(space, w_source):
+    # String-like argument
+    try:
+        string = space.str_w(w_source)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        return [c for c in string]
+
     # sequence of bytes
+    data = []
     w_iter = space.iter(w_source)
     while True:
         try:
@@ -86,8 +89,7 @@ def descr__new__(space, w_bytearraytype,
             break
         value = getbytevalue(space, w_item)
         data.append(value)
-
-    return new_bytearray(space, w_bytearraytype, data)
+    return data
 
 @gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root)
 def descr_bytearray__reduce__(space, w_self):

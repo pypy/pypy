@@ -22,6 +22,11 @@ class AppTestBytesArray:
             assert b == data.encode(encoding)
         raises(TypeError, bytearray, 9, 'utf8')
 
+    def test_encoding_with_ignore_errors(self):
+        data = u"H\u1234"
+        b = bytearray(data, "latin1", errors="ignore")
+        assert b == "H"
+
     def test_len(self):
         b = bytearray('test')
         assert len(b) == 4
