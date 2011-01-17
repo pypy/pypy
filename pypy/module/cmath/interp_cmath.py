@@ -17,6 +17,7 @@ from pypy.module.cmath.special_value import atanh_special_values
 from pypy.module.cmath.special_value import log_special_values
 from pypy.module.cmath.special_value import exp_special_values
 from pypy.module.cmath.special_value import cosh_special_values
+from pypy.module.cmath.special_value import sinh_special_values
 
 
 def unaryfn(c_func):
@@ -350,4 +351,39 @@ def c_cosh(x, y):
     else:
         real = math.cos(y) * math.cosh(x)
         imag = math.sin(y) * math.sinh(x)
+    if isinf(real) or isinf(imag):
+        raise OverflowError("math range error")
+    return real, imag
+
+
+@unaryfn
+def c_sinh(x, y):
+    # special treatment for sinh(+/-inf + iy) if y is finite and nonzero
+    if not isfinite(x) or not isfinite(y):
+        if isinf(x) and isfinite(y) and y != 0.:
+            if x > 0:
+                real = copysign(INF, math.cos(y))
+                imag = copysign(INF, math.sin(y))
+            else:
+                real = -copysign(INF, math.cos(y))
+                imag = copysign(INF, math.sin(y))
+            r = (real, imag)
+        else:
+            r = sinh_special_values[special_type(x)][special_type(y)]
+
+        # need to raise ValueError if y is +/- infinity and x is not
+        # a NaN
+        if isinf(y) and not isnan(x):
+            raise ValueError("math domain error")
+        return r
+
+    if fabs(x) > CM_LOG_LARGE_DOUBLE:
+        x_minus_one = x - copysign(1., x)
+        real = math.cos(y) * math.sinh(x_minus_one) * math.e
+        imag = math.sin(y) * math.cosh(x_minus_one) * math.e
+    else:
+        real = math.cos(y) * math.sinh(x)
+        imag = math.sin(y) * math.cosh(x)
+    if isinf(real) or isinf(imag):
+        raise OverflowError("math range error")
     return real, imag

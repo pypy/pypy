@@ -135,3 +135,13 @@ cosh_special_values = build_table([
     (INF,N), (U,U), (INF,-0.), (INF,0.),  (U,U), (INF,N), (INF,N),
     (N,N),   (N,N), (N,0.),    (N,0.),    (N,N), (N,N),   (N,N),
     ])
+
+sinh_special_values = build_table([
+    (INF,N), (U,U), (-INF,-0.), (-INF,0.), (U,U), (INF,N), (INF,N),
+    (N,N),   (U,U), (U,U),      (U,U),     (U,U), (N,N),   (N,N),
+    (0.,N),  (U,U), (-0.,-0.),  (-0.,0.),  (U,U), (0.,N),  (0.,N),
+    (0.,N),  (U,U), (0.,-0.),   (0.,0.),   (U,U), (0.,N),  (0.,N),
+    (N,N),   (U,U), (U,U),      (U,U),     (U,U), (N,N),   (N,N),
+    (INF,N), (U,U), (INF,-0.),  (INF,0.),  (U,U), (INF,N), (INF,N),
+    (N,N),   (N,N), (N,-0.),    (N,0.),    (N,N), (N,N),   (N,N),
+    ])
