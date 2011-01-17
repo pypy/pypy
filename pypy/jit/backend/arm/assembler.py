@@ -3,8 +3,9 @@ from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
-from pypy.jit.backend.arm.regalloc import (ARMRegisterManager, ARMFrameManager,
+from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                                                     _check_imm_arg, TempInt, TempPtr)
+from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
@@ -12,7 +13,9 @@ from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
                                         INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
+from pypy.rlib.longlong2float import float2longlong, longlong2float
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rarithmetic import r_uint, r_longlong
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.backend.arm.opassembler import ResOpAssembler
@@ -38,8 +41,9 @@ class AssemblerARM(ResOpAssembler):
 
     \xFF = END_OF_LOCS
     """
-    REF_TYPE = '\xEE'
-    INT_TYPE = '\xEF'
+    FLOAT_TYPE = '\xED'
+    REF_TYPE   = '\xEE'
+    INT_TYPE   = '\xEF'
 
     STACK_LOC = '\xFC'
     IMM_LOC = '\xFD'
@@ -52,6 +56,7 @@ class AssemblerARM(ResOpAssembler):
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.setup_failure_recovery()
         self.mc = None
@@ -62,11 +67,16 @@ class AssemblerARM(ResOpAssembler):
         self.memcpy_addr = 0
         self.teardown()
         self._exit_code_addr = 0
+        self.datablockwrapper = None
 
-    def setup(self):
+    def setup(self, looptoken):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.mc = ARMv7Builder()
         self.guard_descrs = []
+        if self.datablockwrapper is None:
+            allblocks = self.get_asmmemmgr_blocks(looptoken)
+            self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                            allblocks)
 
     def setup_once(self):
         # Addresses of functions called by new_xxx operations
@@ -110,9 +120,10 @@ class AssemblerARM(ResOpAssembler):
         Values for spilled vars and registers are stored on stack at frame_loc
         """
         enc = rffi.cast(rffi.CCHARP, mem_loc)
-        frame_depth = frame_loc - (regs_loc + len(r.all_regs)*WORD)
+        frame_depth = frame_loc - (regs_loc + len(r.all_regs)*WORD + len(r.all_vfp_regs)*2*WORD)
         stack = rffi.cast(rffi.CCHARP, frame_loc - frame_depth)
-        regs = rffi.cast(rffi.CCHARP, regs_loc)
+        vfp_regs = rffi.cast(rffi.CCHARP, regs_loc)
+        regs = rffi.cast(rffi.CCHARP, regs_loc + len(r.all_vfp_regs)*2*WORD)
         i = -1
         fail_index = -1
         while(True):
@@ -138,12 +149,18 @@ class AssemblerARM(ResOpAssembler):
                 i += 4
             else: # REG_LOC
                 reg = ord(enc[i])
-                value = self.decode32(regs, reg*WORD)
+                if group == self.FLOAT_TYPE:
+                    t = self.decode64(vfp_regs, reg*2*WORD)
+                    value = longlong2float(t)
+                else:
+                    value = self.decode32(regs, reg*WORD)
 
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
             elif group == self.REF_TYPE:
                 self.fail_boxes_ptr.setitem(fail_index, rffi.cast(llmemory.GCREF, value))
+            elif group == self.FLOAT_TYPE:
+                self.fail_boxes_float.setitem(fail_index, rffi.cast(lltype.Float, value))
             else:
                 assert 0, 'unknown type'
 
@@ -189,6 +206,12 @@ class AssemblerARM(ResOpAssembler):
                 | ord(mem[index+2]) << 16
                 | highval << 24)
 
+    def decode64(self, mem, index):
+        low = self.decode32(mem, index)
+        index += 4
+        high = self.decode32(mem, index)
+        return r_longlong(r_uint(low) | (r_longlong(high << 32)))
+
     def encode32(self, mem, i, n):
         mem[i] = chr(n & 0xFF)
         mem[i+1] = chr((n >> 8) & 0xFF)
@@ -199,10 +222,11 @@ class AssemblerARM(ResOpAssembler):
         mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
 
-        mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
-        mc.MOV_rr(r.r0.value, r.lr.value) # move mem block address, to r0 to pass as
-        mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
-        mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
+        mc.PUSH([reg.value for reg in r.all_regs])      # registers r0 .. r10
+        mc.VPUSH([reg.value for reg in r.all_vfp_regs]) # registers d0 .. d15
+        mc.MOV_rr(r.r0.value, r.lr.value)               # move mem block address, to r0
+        mc.MOV_rr(r.r1.value, r.fp.value)               # pass the current frame pointer as second param
+        mc.MOV_rr(r.r2.value, r.sp.value)               # pass the current stack pointer as third param
 
         mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
         mc.MOV_rr(r.ip.value, r.r0.value)
@@ -237,12 +261,13 @@ class AssemblerARM(ResOpAssembler):
                 loc = arglocs[i+1]
                 if arg.type == INT:
                     mem[j] = self.INT_TYPE
-                    j += 1
                 elif arg.type == REF:
                     mem[j] = self.REF_TYPE
-                    j += 1
+                elif arg.type == FLOAT:
+                    mem[j] = self.FLOAT_TYPE
                 else:
                     assert 0, 'unknown type'
+                j += 1
 
                 if loc.is_reg():
                     mem[j] = chr(loc.value)
@@ -296,10 +321,15 @@ class AssemblerARM(ResOpAssembler):
                 addr = self.fail_boxes_ptr.get_addr_for_num(i)
             elif loc.type == INT:
                 addr = self.fail_boxes_int.get_addr_for_num(i)
+            elif loc.type == FLOAT:
+                addr = self.fail_boxes_float.get_addr_for_num(i)
             else:
                 raise ValueError
-            self.mc.gen_load_int(reg.value, addr)
-            self.mc.LDR_ri(reg.value, reg.value)
+            self.mc.gen_load_int(r.ip.value, addr)
+            if not loc.type == FLOAT:
+                self.mc.LDR_ri(reg.value, r.ip.value)
+            else:
+                self.mc.VLDR(reg.value, r.ip.value)
             regalloc.possibly_free_var(loc)
         arglocs = [regalloc.loc(arg) for arg in inputargs]
         looptoken._arm_arglocs = arglocs
@@ -334,12 +364,13 @@ class AssemblerARM(ResOpAssembler):
 
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken, log):
-        self.setup()
-        longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
-
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
+
+        self.setup(looptoken)
+        longevity = compute_vars_longevity(inputargs, operations)
+        regalloc = Regalloc(longevity, assembler=self, frame_manager=ARMFrameManager())
+
 
         self.align()
         self.gen_func_prolog()
@@ -372,12 +403,12 @@ class AssemblerARM(ResOpAssembler):
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
-        self.setup()
+        self.setup(original_loop_token)
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
         enc = rffi.cast(rffi.CCHARP, code)
         longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self,
+        regalloc = Regalloc(longevity, assembler=self,
                                             frame_manager=ARMFrameManager())
 
         frame_depth = faildescr._arm_frame_depth
@@ -400,6 +431,8 @@ class AssemblerARM(ResOpAssembler):
         self.teardown()
 
     def materialize_loop(self, looptoken):
+        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
+        self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
@@ -523,8 +556,11 @@ class AssemblerARM(ResOpAssembler):
     # regalloc support
     def load(self, loc, value):
         assert loc.is_reg()
-        assert value.is_imm()
-        self.mc.gen_load_int(loc.value, value.getint())
+        if value.is_imm():
+            self.mc.gen_load_int(loc.value, value.getint())
+        elif value.is_imm_float():
+            self.mc.gen_load_int(r.ip.value, value.getint())
+            self.mc.VLDR(loc.value, r.ip.value) 
 
     def regalloc_mov(self, prev_loc, loc):
         if prev_loc.is_imm():

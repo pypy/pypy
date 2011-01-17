@@ -11,7 +11,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_ri, gen_emit_cmp_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
-from pypy.jit.backend.arm.regalloc import ARMRegisterManager
+from pypy.jit.backend.arm.regalloc import Regalloc
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
@@ -769,10 +769,18 @@ class AllocOpAssembler(object):
     emit_op_newstr = emit_op_new_array
     emit_op_newunicode = emit_op_new_array
 
+class FloatOpAssemlber(object):
+    _mixin_ = True
+
+    def emit_op_float_add(self, op, arglocs, regalloc, fcon):
+        arg1, arg2, result = arglocs
+        self.mc.VADD(result.value, arg1.value, arg2.value)
+
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,
                     FieldOpAssembler, ArrayOpAssember,
                     StrOpAssembler, UnicodeOpAssembler,
-                    ForceOpAssembler, AllocOpAssembler):
+                    ForceOpAssembler, AllocOpAssembler,
+                    FloatOpAssemlber):
     pass
 

@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 class ArmCPU(AbstractLLCPU):
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
-    supports_floats = False
+    supports_floats = True
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -39,11 +39,17 @@ class ArmCPU(AbstractLLCPU):
         self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
+    def set_future_value_float(self, index, intvalue):
+        self.assembler.fail_boxes_float.setitem(index, intvalue)
+
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)
 
     def set_future_value_ref(self, index, ptrvalue):
         self.assembler.fail_boxes_ptr.setitem(index, ptrvalue)
+
+    def get_latest_value_float(self, index):
+        return self.assembler.fail_boxes_float.getitem(index)
 
     def get_latest_value_int(self, index):
         return self.assembler.fail_boxes_int.getitem(index)

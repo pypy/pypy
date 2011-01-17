@@ -12,6 +12,9 @@ class AssemblerLocation(object):
     def is_reg(self):
         return False
 
+    def is_imm_float(self):
+        return False
+
     def as_key(self):
         raise NotImplementedError
 
@@ -47,6 +50,24 @@ class ImmLocation(AssemblerLocation):
 
     def as_key(self):
         return self.value + 20
+
+class ConstFloatLoc(AssemblerLocation):
+    _immutable_ = True
+
+    def __init__(self, value):
+        self.value = value
+
+    def getint(self):
+        return self.value
+
+    def __repr__(self):
+        return "imm_float(%d)" % (self.value)
+
+    def is_imm_float(self):
+        return True
+
+    def as_key(self):
+        return -1 * self.value
 
 class StackLocation(AssemblerLocation):
     _immutable_ = True

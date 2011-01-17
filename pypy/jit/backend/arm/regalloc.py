@@ -8,8 +8,8 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_op_ri,
                                                     prepare_cmp_op,
                                                     _check_imm_arg)
-from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr, Box,
-                                        BoxInt, BoxPtr, AbstractFailDescr,
+from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr, 
+                                        Box, BoxInt, BoxPtr, AbstractFailDescr,
                                         INT, REF, FLOAT, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
@@ -23,10 +23,18 @@ class TempInt(TempBox):
 
     def __repr__(self):
         return "<TempInt at %s>" % (id(self),)
+
 class TempPtr(TempBox):
     type = REF
+
     def __repr__(self):
         return "<TempPtr at %s>" % (id(self),)
+
+class TempFloat(TempBox):
+    type = FLOAT
+
+    def __repr__(self):
+        return "<TempFloat at %s>" % (id(self),)
 
 class ARMFrameManager(FrameManager):
     def __init__(self):
@@ -41,47 +49,30 @@ class ARMFrameManager(FrameManager):
 def void(self, op, fcond):
     return []
 
-class ARMRegisterManager(RegisterManager):
+class VFPRegisterManager(RegisterManager):
+    all_regs = r.all_vfp_regs
+    box_types = [FLOAT]
+    save_around_call_regs = all_regs
+
+    def convert_to_imm(self, c):
+        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        return locations.ConstFloatLoc(adr)
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        RegisterManager.__init__(self, longevity, frame_manager, assembler)
+
+class ARMv7RegisterMananger(RegisterManager):
     all_regs              = r.all_regs
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
     save_around_call_regs = r.caller_resp
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
-        self.cpu = assembler.cpu
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
-
-    def convert_to_imm(self, c):
-        if isinstance(c, ConstInt):
-            return locations.ImmLocation(c.value)
-        else:
-            assert isinstance(c, ConstPtr)
-            return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
 
     def call_result_location(self, v):
         return r.r0
-
-    def update_bindings(self, locs, frame_depth, inputargs):
-        used = {}
-        i = 0
-        self.frame_manager.frame_depth = frame_depth
-        for loc in locs:
-            arg = inputargs[i]
-            i += 1
-            if loc.is_reg():
-                self.reg_bindings[arg] = loc
-            else:
-                self.frame_manager.frame_bindings[arg] = loc
-            used[loc] = None
-
-        # XXX combine with x86 code and move to llsupport
-        self.free_regs = []
-        for reg in self.all_regs:
-            if reg not in used:
-                self.free_regs.append(reg)
-        # note: we need to make a copy of inputargs because possibly_free_vars
-        # is also used on op args, which is a non-resizable list
-        self.possibly_free_vars(list(inputargs))
 
     def before_call(self, force_store=[], save_all_regs=False):
         for v, reg in self.reg_bindings.items():
@@ -97,6 +88,88 @@ class ARMRegisterManager(RegisterManager):
             self._sync_var(v)
             del self.reg_bindings[v]
             self.free_regs.append(reg)
+
+    def convert_to_imm(self, c):
+        if isinstance(c, ConstInt):
+            return locations.ImmLocation(c.value)
+        else:
+            assert isinstance(c, ConstPtr)
+            return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
+    
+class Regalloc(object):
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        self.cpu = assembler.cpu
+        self.longevity = longevity
+        self.frame_manager = frame_manager
+        self.assembler = assembler
+        self.vfprm = VFPRegisterManager(longevity, frame_manager, assembler)
+        self.rm = ARMv7RegisterMananger(longevity, frame_manager, assembler)
+
+    def loc(self, var):
+        if var.type == FLOAT:
+            return self.vfprm.loc(var)
+        else:
+            return self.rm.loc(var)
+
+    def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None,
+                           need_lower_byte=False):
+        if var.type == FLOAT:
+            return self.vfprm.force_allocate_reg(var, forbidden_vars,
+                                               selected_reg, need_lower_byte)
+        else:
+            return self.rm.force_allocate_reg(var, forbidden_vars,
+                                              selected_reg, need_lower_byte)
+    def possibly_free_var(self, var):
+        if var.type == FLOAT:
+            self.vfprm.possibly_free_var(var)
+        else:
+            self.rm.possibly_free_var(var)
+
+    def possibly_free_vars_for_op(self, op):
+        for i in range(op.numargs()):
+            var = op.getarg(i)
+            if var is not None: # xxx kludgy
+                self.possibly_free_var(var)
+
+    def possibly_free_vars(self, vars):
+        for var in vars:
+            if var is not None: # xxx kludgy
+                self.possibly_free_var(var)
+
+    def make_sure_var_in_reg(self, var, forbidden_vars=[],
+                         selected_reg=None, need_lower_byte=False):
+        if var.type == FLOAT:
+            return self.vfprm.make_sure_var_in_reg(var, forbidden_vars,
+                                         selected_reg, need_lower_byte)
+        else:
+            return self.rm.make_sure_var_in_reg(var, forbidden_vars,
+                                        selected_reg, need_lower_byte)
+
+
+    def update_bindings(self, locs, frame_depth, inputargs):
+        used = {}
+        i = 0
+        self.frame_manager.frame_depth = frame_depth
+        for loc in locs:
+            arg = inputargs[i]
+            i += 1
+            if loc.is_reg():
+                self.reg_bindings[arg] = loc
+            #XXX add float
+            else:
+                self.frame_manager.frame_bindings[arg] = loc
+            used[loc] = None
+
+        # XXX combine with x86 code and move to llsupport
+        self.free_regs = []
+        for reg in self.all_regs:
+            if reg not in used:
+                self.free_regs.append(reg)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
+
 
     def force_spill_var(self, var):
         self._sync_var(var)
@@ -119,11 +192,16 @@ class ARMRegisterManager(RegisterManager):
                 box = TempInt()
             elif isinstance(thing, ConstPtr):
                 box = TempPtr()
+            elif isinstance(thing, ConstFloat):
+                box = TempFloat()
             else:
                 box = TempBox()
             loc = self.force_allocate_reg(box,
                             forbidden_vars=forbidden_vars)
-            imm = self.convert_to_imm(thing)
+            if isinstance(thing, ConstFloat):
+               imm = self.vfprm.convert_to_imm(thing) 
+            else:
+                imm = self.rm.convert_to_imm(thing)
             self.assembler.load(loc, imm)
         else:
             loc = self.make_sure_var_in_reg(thing,
@@ -703,6 +781,14 @@ class ARMRegisterManager(RegisterManager):
         return size, scale, ofs, ofs_length, ptr
 
 
+    def prepare_op_float_add(self, op, fcond):
+        loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
+        loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
+        self.vfprm.possibly_free_var(box1)
+        self.vfprm.possibly_free_var(box2)
+        res  = self.vfprm.force_allocate_reg(op.result)
+        self.vfprm.possibly_free_var(op.result)
+        return [loc1, loc2, res]
 
 def make_operation_list():
     def notimplemented(self, op, fcond):
@@ -714,8 +800,8 @@ def make_operation_list():
         if key.startswith('_'):
             continue
         methname = 'prepare_op_%s' % key
-        if hasattr(ARMRegisterManager, methname):
-            func = getattr(ARMRegisterManager, methname).im_func
+        if hasattr(Regalloc, methname):
+            func = getattr(Regalloc, methname).im_func
         else:
             func = notimplemented
         operations[value] = func
@@ -730,10 +816,10 @@ def make_guard_operation_list():
         if key.startswith('_'):
             continue
         methname = 'prepare_guard_%s' % key
-        if hasattr(ARMRegisterManager, methname):
-            func = getattr(ARMRegisterManager, methname).im_func
+        if hasattr(Regalloc, methname):
+            func = getattr(Regalloc, methname).im_func
             guard_operations[value] = func
     return guard_operations
 
-ARMRegisterManager.operations = make_operation_list()
-ARMRegisterManager.operations_with_guard = make_guard_operation_list()
+Regalloc.operations = make_operation_list()
+Regalloc.operations_with_guard = make_guard_operation_list()
