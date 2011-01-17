@@ -1,6 +1,17 @@
 from __future__ import with_statement
 from pypy.conftest import gettestobjspace
+from pypy.rlib.rarithmetic import copysign
 import os
+
+
+def test_special_values():
+    from pypy.module.cmath.special_value import sqrt_special_values
+    assert len(sqrt_special_values) == 7
+    assert len(sqrt_special_values[4]) == 7
+    assert isinstance(sqrt_special_values[5][1], tuple)
+    assert sqrt_special_values[5][1][0] == 1e200 * 1e200
+    assert sqrt_special_values[5][1][1] == -0.
+    assert copysign(1., sqrt_special_values[5][1][1]) == -1.
 
 
 class AppTestCMath:
@@ -23,6 +34,9 @@ class AppTestCMath:
         z = cmath.sqrt((dbl_min * 0.00000000000001) + 0j)
         assert abs(z.real - 1.49107189843e-161) < 1e-170
         assert z.imag == 0.0
+        z = cmath.sqrt(1e200*1e200 - 10j)
+        assert math.isinf(z.real) and z.real > 0.0
+        assert z.imag == 0.0 and math.copysign(1., z.imag) == -1.
 
     def test_acos(self):
         import cmath

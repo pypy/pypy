@@ -3,6 +3,8 @@ from pypy.rlib.rarithmetic import copysign
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.module.cmath import Module
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
+from pypy.module.cmath.special_value import isfinite, special_type
+from pypy.module.cmath.special_value import sqrt_special_values
 
 
 def unaryfn(name):
@@ -44,7 +46,8 @@ def c_sqrt(x, y):
     # x and y by a sufficiently large power of 2 to ensure that x and y
     # are normal.
 
-    #XXX SPECIAL_VALUE
+    if not isfinite(x) or not isfinite(y):
+        return sqrt_special_values[special_type(x)][special_type(y)]
 
     if x == 0. and y == 0.:
         return (0., y)
