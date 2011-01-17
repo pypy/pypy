@@ -140,12 +140,13 @@ def test_specific_values():
             function = getattr(interp_cmath, 'c_' + fn)
         if 'divide-by-zero' in flags or 'invalid' in flags:
             try:
-                actual = function(arg)
+                actual = function(*arg)
             except ValueError:
                 continue
             else:
-                self.fail('ValueError not raised in test '
-                      '{}: {}(complex({!r}, {!r}))'.format(id, fn, ar, ai))
+                raise AssertionError('ValueError not raised in test '
+                                     '%s: %s(complex(%r, %r))' % (id, fn,
+                                                                  ar, ai))
 
         if 'overflow' in flags:
             try:

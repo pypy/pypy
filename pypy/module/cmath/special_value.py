@@ -86,6 +86,16 @@ asinh_special_values = build_table([
     (INF,N),    (N,N),     (N,-0.),   (N,0.),   (N,N),    (INF,N),   (N,N),
     ])
 
+atanh_special_values = build_table([
+    (-0.,-P12),(-0.,-P12),(-0.,-P12),(-0.,P12),(-0.,P12),(-0.,P12),(-0.,N),
+    (-0.,-P12),(U,U),     (U,U),     (U,U),    (U,U),    (-0.,P12),(N,N),
+    (-0.,-P12),(U,U),     (-0.,-0.), (-0.,0.), (U,U),    (-0.,P12),(-0.,N),
+    (0.,-P12), (U,U),     (0.,-0.),  (0.,0.),  (U,U),    (0.,P12), (0.,N),
+    (0.,-P12), (U,U),     (U,U),     (U,U),    (U,U),    (0.,P12), (N,N),
+    (0.,-P12), (0.,-P12), (0.,-P12), (0.,P12), (0.,P12), (0.,P12), (0.,N),
+    (0.,-P12), (N,N),     (N,N),     (N,N),    (N,N),    (0.,P12), (N,N),
+    ])
+
 sqrt_special_values = build_table([
     (INF,-INF), (0.,-INF), (0.,-INF), (0.,INF), (0.,INF), (INF,INF), (N,INF),
     (INF,-INF), (U,U),     (U,U),     (U,U),    (U,U),    (INF,INF), (N,N),

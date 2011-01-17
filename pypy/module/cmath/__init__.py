@@ -8,6 +8,8 @@ names_and_docstrings = {
     'acosh': "Return the hyperbolic arc cosine of x.",
     'asin': "Return the arc sine of x.",
     'asinh': "Return the hyperbolic arc sine of x.",
+    'atan': "Return the arc tangent of x.",
+    'atanh': "Return the hyperbolic arc tangent of x.",
     }
 
 
