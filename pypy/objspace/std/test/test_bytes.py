@@ -15,6 +15,13 @@ class AppTestBytesArray:
         raises(ValueError, bytearray, [65, -3])
         raises(TypeError, bytearray, [65.0])
 
+    def test_encoding(self):
+        data = u"Hello world\n\u1234\u5678\u9abc\def0\def0"
+        for encoding in 'utf8', 'utf16':
+            b = bytearray(data, encoding)
+            assert b == data.encode(encoding)
+        raises(TypeError, bytearray, 9, 'utf8')
+
     def test_len(self):
         b = bytearray('test')
         assert len(b) == 4
@@ -49,22 +56,22 @@ class AppTestBytesArray:
     def test_contains(self):
         assert ord('l') in bytearray('hello')
         assert 'l' in bytearray('hello')
-        
+
     def test_translate(self):
         b = 'hello'
         ba = bytearray(b)
         rosetta = bytearray(range(0, 256))
         rosetta[ord('o')] = ord('e')
-        
+
         for table in rosetta, str(rosetta):
             c = ba.translate(table)
             assert ba == bytearray('hello')
             assert c == bytearray('helle')
-            
+
             c = ba.translate(rosetta, 'l')
             assert c == bytearray('hee')
             assert isinstance(c, bytearray)
-        
+
     def test_iter(self):
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
 
@@ -152,7 +159,7 @@ class AppTestBytesArray:
 
         check(b.partition(eval("b'ss'")), eval("(b'mi', b'ss', b'issippi')"))
         check(b.rpartition(eval("b'ss'")), eval("(b'missi', b'ss', b'ippi')"))
-        
+
     def test_append(self):
         b = bytearray('abc')
         b.append('d')
