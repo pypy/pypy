@@ -96,6 +96,16 @@ atanh_special_values = build_table([
     (0.,-P12), (N,N),     (N,N),     (N,N),    (N,N),    (0.,P12), (N,N),
     ])
 
+log_special_values = build_table([
+    (INF,-P34), (INF,-P),  (INF,-P),   (INF,P),   (INF,P),  (INF,P34), (INF,N),
+    (INF,-P12), (U,U),     (U,U),      (U,U),     (U,U),    (INF,P12), (N,N),
+    (INF,-P12), (U,U),     (-INF,-P),  (-INF,P),  (U,U),    (INF,P12), (N,N),
+    (INF,-P12), (U,U),     (-INF,-0.), (-INF,0.), (U,U),    (INF,P12), (N,N),
+    (INF,-P12), (U,U),     (U,U),      (U,U),     (U,U),    (INF,P12), (N,N),
+    (INF,-P14), (INF,-0.), (INF,-0.),  (INF,0.),  (INF,0.), (INF,P14), (INF,N),
+    (INF,N),    (N,N),     (N,N),      (N,N),     (N,N),    (INF,N),   (N,N),
+    ])
+
 sqrt_special_values = build_table([
     (INF,-INF), (0.,-INF), (0.,-INF), (0.,INF), (0.,INF), (INF,INF), (N,INF),
     (INF,-INF), (U,U),     (U,U),     (U,U),    (U,U),    (INF,INF), (N,N),

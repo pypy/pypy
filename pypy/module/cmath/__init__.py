@@ -10,6 +10,9 @@ names_and_docstrings = {
     'asinh': "Return the hyperbolic arc sine of x.",
     'atan': "Return the arc tangent of x.",
     'atanh': "Return the hyperbolic arc tangent of x.",
+    'log': ("log(x[, base]) -> the logarithm of x to the given base.\n"
+            "If the base not specified, returns the natural logarithm "
+            "(base e) of x."),
     }
 
 

@@ -4,14 +4,15 @@ from pypy.rlib.rarithmetic import copysign, asinh, log1p
 from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
-from pypy.module.cmath.constant import CM_LARGE_DOUBLE, M_LN2
+from pypy.module.cmath.constant import CM_LARGE_DOUBLE, M_LN2, DBL_MANT_DIG
 from pypy.module.cmath.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
-from pypy.module.cmath.special_value import isfinite, special_type, INF
+from pypy.module.cmath.special_value import isfinite, special_type
 from pypy.module.cmath.special_value import sqrt_special_values
 from pypy.module.cmath.special_value import acos_special_values
 from pypy.module.cmath.special_value import acosh_special_values
 from pypy.module.cmath.special_value import asinh_special_values
 from pypy.module.cmath.special_value import atanh_special_values
+from pypy.module.cmath.special_value import log_special_values
 
 
 def unaryfn(c_func):
@@ -195,13 +196,73 @@ def c_atanh(x, y):
     elif x == 1. and ay < CM_SQRT_DBL_MIN:
         # C99 standard says:  atanh(1+/-0.) should be inf +/- 0i
         if ay == 0.:
-            real = INF
-            imag = y
-            raise ValueError("result is infinite")
+            raise ValueError("math domain error")
+            #real = INF
+            #imag = y
         else:
             real = -math.log(math.sqrt(ay)/math.sqrt(math.hypot(ay, 2.)))
             imag = copysign(math.atan2(2., -ay)/2, y)
     else:
         real = log1p(4.*x/((1-x)*(1-x) + ay*ay))/4.
         imag = -math.atan2(-2.*y, (1-x)*(1+x) - ay*ay)/2.
+    return (real, imag)
+
+
+@unaryfn
+def c_log(x, y):
+    # The usual formula for the real part is log(hypot(z.real, z.imag)).
+    # There are four situations where this formula is potentially
+    # problematic:
+    #
+    # (1) the absolute value of z is subnormal.  Then hypot is subnormal,
+    # so has fewer than the usual number of bits of accuracy, hence may
+    # have large relative error.  This then gives a large absolute error
+    # in the log.  This can be solved by rescaling z by a suitable power
+    # of 2.
+    #
+    # (2) the absolute value of z is greater than DBL_MAX (e.g. when both
+    # z.real and z.imag are within a factor of 1/sqrt(2) of DBL_MAX)
+    # Again, rescaling solves this.
+    #
+    # (3) the absolute value of z is close to 1.  In this case it's
+    # difficult to achieve good accuracy, at least in part because a
+    # change of 1ulp in the real or imaginary part of z can result in a
+    # change of billions of ulps in the correctly rounded answer.
+    #
+    # (4) z = 0.  The simplest thing to do here is to call the
+    # floating-point log with an argument of 0, and let its behaviour
+    # (returning -infinity, signaling a floating-point exception, setting
+    # errno, or whatever) determine that of c_log.  So the usual formula
+    # is fine here.
+
+    # XXX the following two lines seem unnecessary at least on Linux;
+    # the tests pass fine without them
+    if not isfinite(x) or not isfinite(y):
+        return log_special_values[special_type(x)][special_type(y)]
+
+    ax = fabs(x)
+    ay = fabs(y)
+
+    if ax > CM_LARGE_DOUBLE or ay > CM_LARGE_DOUBLE:
+        real = math.log(math.hypot(ax/2., ay/2.)) + M_LN2
+    elif ax < DBL_MIN and ay < DBL_MIN:
+        if ax > 0. or ay > 0.:
+            # catch cases where hypot(ax, ay) is subnormal
+            real = math.log(math.hypot(math.ldexp(ax, DBL_MANT_DIG),
+                                       math.ldexp(ay, DBL_MANT_DIG)))
+            real -= DBL_MANT_DIG*M_LN2
+        else:
+            # log(+/-0. +/- 0i)
+            raise ValueError("math domain error")
+            #real = -INF
+            #imag = atan2(y, x)
+    else:
+        h = math.hypot(ax, ay)
+        if 0.71 <= h and h <= 1.73:
+            am = max(ax, ay)
+            an = min(ax, ay)
+            real = log1p((am-1)*(am+1) + an*an) / 2.
+        else:
+            real = math.log(h)
+    imag = math.atan2(y, x)
     return (real, imag)
