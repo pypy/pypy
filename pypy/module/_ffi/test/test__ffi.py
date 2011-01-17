@@ -378,3 +378,5 @@ class AppTestFfi:
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         raises(AttributeError, "libfoo.getfunc('I_do_not_exist', [], types.void)")
+        libnone = CDLL(None)
+        raises(AttributeError, "libnone.getfunc('I_do_not_exist', [], types.void)")

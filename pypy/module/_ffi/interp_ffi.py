@@ -350,13 +350,16 @@ W_FuncPtr.typedef = TypeDef(
 
 class W_CDLL(Wrappable):
     def __init__(self, space, name):
+        self.space = space
+        if name is None:
+            self.name = "<None>"
+        else:
+            self.name = name
         try:
             self.cdll = libffi.CDLL(name)
         except DLOpenError, e:
-            raise operationerrfmt(space.w_OSError, '%s: %s', name,
+            raise operationerrfmt(space.w_OSError, '%s: %s', self.name,
                                   e.msg or 'unspecified error')
-        self.name = name
-        self.space = space
 
     @unwrap_spec('self', ObjSpace, str, W_Root, W_Root)
     def getfunc(self, space, name, w_argtypes, w_restype):
