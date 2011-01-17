@@ -162,8 +162,8 @@ def test_specific_values():
             actual = complex(abs(actual.real), actual.imag)
             expected = complex(abs(expected.real), expected.imag)
         if 'ignore-imag-sign' in flags:
-            actual = complex(actual.real, abs(actual.imag))
-            expected = complex(expected.real, abs(expected.imag))
+            actual = (actual[0], abs(actual[1]))
+            expected = (expected[0], abs(expected[1]))
 
         # for the real part of the log function, we allow an
         # absolute error of up to 2e-15.
