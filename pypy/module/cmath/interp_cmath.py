@@ -18,6 +18,7 @@ from pypy.module.cmath.special_value import log_special_values
 from pypy.module.cmath.special_value import exp_special_values
 from pypy.module.cmath.special_value import cosh_special_values
 from pypy.module.cmath.special_value import sinh_special_values
+from pypy.module.cmath.special_value import tanh_special_values
 
 
 def unaryfn(c_func):
@@ -386,4 +387,47 @@ def c_sinh(x, y):
         imag = math.sin(y) * math.cosh(x)
     if isinf(real) or isinf(imag):
         raise OverflowError("math range error")
+    return real, imag
+
+
+@unaryfn
+def c_tanh(x, y):
+    # Formula:
+    #
+    #   tanh(x+iy) = (tanh(x)(1+tan(y)^2) + i tan(y)(1-tanh(x))^2) /
+    #   (1+tan(y)^2 tanh(x)^2)
+    #
+    #   To avoid excessive roundoff error, 1-tanh(x)^2 is better computed
+    #   as 1/cosh(x)^2.  When abs(x) is large, we approximate 1-tanh(x)^2
+    #   by 4 exp(-2*x) instead, to avoid possible overflow in the
+    #   computation of cosh(x).
+
+    if not isfinite(x) or not isfinite(y):
+        if isinf(x) and isfinite(y) and y != 0.:
+            if x > 0:
+                real = 1.0        # vv XXX why is the 2. there?
+                imag = copysign(0., 2. * math.sin(y) * math.cos(y))
+            else:
+                real = -1.0
+                imag = copysign(0., 2. * math.sin(y) * math.cos(y))
+            r = (real, imag)
+        else:
+            r = tanh_special_values[special_type(x)][special_type(y)]
+
+        # need to raise ValueError if y is +/-infinity and x is finite
+        if isinf(y) and isfinite(x):
+            raise ValueError("math domain error")
+        return r
+
+    if fabs(x) > CM_LOG_LARGE_DOUBLE:
+        real = copysign(1., x)
+        imag = 4. * math.sin(y) * math.cos(y) * math.exp(-2.*fabs(x))
+    else:
+        tx = math.tanh(x)
+        ty = math.tan(y)
+        cx = 1. / math.cosh(x)
+        txty = tx * ty
+        denom = 1. + txty * txty
+        real = tx * (1. + ty*ty) / denom
+        imag = ((ty / denom) * cx) * cx
     return real, imag

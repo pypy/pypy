@@ -17,6 +17,7 @@ names_and_docstrings = {
     'exp': "Return the exponential value e**x.",
     'cosh': "Return the hyperbolic cosine of x.",
     'sinh': "Return the hyperbolic sine of x.",
+    'tanh': "Return the hyperbolic tangent of x.",
     }
 
 
