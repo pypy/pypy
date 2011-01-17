@@ -777,6 +777,7 @@ class FloatOpAssemlber(object):
     emit_op_float_add = gen_emit_float_op('VADD')
     emit_op_float_sub = gen_emit_float_op('VSUB')
     emit_op_float_mul = gen_emit_float_op('VMUL')
+    emit_op_float_truediv = gen_emit_float_op('VDIV')
 
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,

@@ -132,4 +132,5 @@ float64_data_proc_instructions = {
     'VADD' : {'opc1':0x3, 'opc3':0},
     'VSUB' : {'opc1':0x3, 'opc3':1},
     'VMUL' : {'opc1':0x2, 'opc3':0},
+    'VDIV' : {'opc1':0x8, 'opc3':0},
 }
