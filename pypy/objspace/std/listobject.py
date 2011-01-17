@@ -261,7 +261,7 @@ def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
     _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable)
 
-def _setitem_slice_helper(space, items, start, step, slicelength, w_iterable):
+def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
     sequence2 = space.listview(w_iterable)
     assert slicelength >= 0
     items = w_list.wrappeditems
