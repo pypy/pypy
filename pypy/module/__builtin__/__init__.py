@@ -6,9 +6,9 @@ import pypy.module.imp.importing
 # put builtins here that should be optimized somehow
 
 OPTIMIZED_BUILTINS = ["len", "range", "xrange", "min", "max", "enumerate",
-        "isinstance", "type", "zip", "file", "open", "abs", "chr", "unichr",
-        "ord", "pow", "repr", "hash", "oct", "hex", "round", "cmp", "getattr",
-        "setattr", "delattr", "callable", "int", "str", "float"]
+        "isinstance", "type", "zip", "file", "format", "open", "abs", "chr",
+        "unichr", "ord", "pow", "repr", "hash", "oct", "hex", "round", "cmp",
+        "getattr", "setattr", "delattr", "callable", "int", "str", "float"]
 
 assert len(OPTIMIZED_BUILTINS) <= 256
 
@@ -27,6 +27,7 @@ class Module(MixedModule):
         'execfile'      : 'app_io.execfile',
         'raw_input'     : 'app_io.raw_input',
         'input'         : 'app_io.input',
+        'print'         : 'app_io.print_',
 
         'apply'         : 'app_functional.apply',
         #'range'         : 'app_functional.range',
@@ -35,6 +36,8 @@ class Module(MixedModule):
         'sorted'        : 'app_functional.sorted',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
+
+        'bin'           : 'app_operation.bin',
 
         '__filestub'    : 'app_file_stub.file',
     }
@@ -47,8 +50,10 @@ class Module(MixedModule):
         '__debug__'     : '(space.w_True)',      # XXX
         'type'          : '(space.w_type)',
         'object'        : '(space.w_object)',
+        'bytes'         : '(space.w_str)',
         'unicode'       : '(space.w_unicode)',
-        'buffer'        : 'operation.Buffer',
+        'buffer'        : 'interp_memoryview.W_Buffer',
+        'memoryview'    : 'interp_memoryview.W_MemoryView',
 
         'file'          : 'state.get(space).w_file',
         'open'          : 'state.get(space).w_file',
@@ -71,6 +76,7 @@ class Module(MixedModule):
         'cmp'           : 'operation.cmp',
         'coerce'        : 'operation.coerce',
         'divmod'        : 'operation.divmod',
+        'format'        : 'operation.format',
         '_issubtype'    : 'operation._issubtype',
         'issubclass'    : 'abstractinst.app_issubclass',
         'isinstance'    : 'abstractinst.app_isinstance',
@@ -79,6 +85,7 @@ class Module(MixedModule):
         'delattr'       : 'operation.delattr',
         'hasattr'       : 'operation.hasattr',
         'iter'          : 'operation.iter',
+        'next'          : 'operation.next',
         'id'            : 'operation.id',
         'intern'        : 'operation.intern',
         'callable'      : 'operation.callable',

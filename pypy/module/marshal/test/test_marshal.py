@@ -2,7 +2,6 @@ from pypy.tool.udir import udir
 
 def make_check(space):
     return space.appexec([], """():
-        import sys
         import marshal, StringIO
         def marshal_check(case):
             s = marshal.dumps(case)
@@ -170,6 +169,14 @@ class AppTestMarshal:
         self.marshal_check(u'\uFFFF')
 
         self.marshal_check(unichr(sys.maxunicode))
+
+    def test_reject_subtypes(self):
+        import marshal
+        types = (float, complex, int, long, tuple, list, dict, set, frozenset)
+        for cls in types:
+            class subtype(cls):
+                pass
+            raises(ValueError, marshal.dumps, subtype)
 
 
 class AppTestRope(AppTestMarshal):

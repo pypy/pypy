@@ -5,10 +5,12 @@ from pypy.rlib import rarithmetic
 
 class BaseTestStrtod(BaseRtypingTest):    
     def test_formatd(self):
-        def f(y):
-            return rarithmetic.formatd("%.2f", y)
+        for flags in [0,
+                      rarithmetic.DTSF_ADD_DOT_0]:
+            def f(y):
+                return rarithmetic.formatd(y, 'g', 2, flags)
 
-        assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
+            assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
 
     def test_parts_to_float(self):
         from pypy.rpython.annlowlevel import hlstr

@@ -1,7 +1,16 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter import gateway
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter import gateway, typedef
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
+
+long_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any long.")
+
+def long_conjugate__ANY(space, w_int):
+    return space.pos(w_int)
+
+register_all(vars(), globals())
+
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject
@@ -27,8 +36,18 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
         else:
-            # otherwise, use the __long__() method
-            w_obj = space.long(w_value)
+            # otherwise, use the __long__() or the __trunc__ methods
+            w_obj = w_value
+            if (space.lookup(w_obj, '__long__') is not None or
+                space.lookup(w_obj, '__int__') is not None):
+                w_obj = space.long(w_obj)
+            else:
+                w_obj = space.trunc(w_obj)
+                # :-(  blame CPython 2.7
+                if space.lookup(w_obj, '__long__') is not None:
+                    w_obj = space.long(w_obj)
+                else:
+                    w_obj = space.int(w_obj)
             # 'long(x)' should return whatever x.__long__() returned
             if space.is_w(w_longtype, space.w_long):
                 return w_obj
@@ -66,6 +85,26 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     W_LongObject.__init__(w_obj, bigint)
     return w_obj
 
+def descr_get_numerator(space, w_obj):
+    return space.long(w_obj)
+
+def descr_get_denominator(space, w_obj):
+    return space.newlong(1)
+
+def descr_get_real(space, w_obj):
+    return w_obj
+
+def descr_get_imag(space, w_obj):
+    return space.newlong(0)
+
+def bit_length(space, w_obj):
+    bigint = space.bigint_w(w_obj)
+    try:
+        return space.wrap(bigint.bit_length())
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("too many digits in integer"))
+
 # ____________________________________________________________
 
 long_typedef = StdTypeDef("long",
@@ -77,4 +116,10 @@ string representation of a floating point number!)  When converting a
 string, use the optional base.  It is an error to supply a base when
 converting a non-string.''',
     __new__ = gateway.interp2app(descr__new__),
-    )
+    numerator = typedef.GetSetProperty(descr_get_numerator),
+    denominator = typedef.GetSetProperty(descr_get_denominator),
+    real = typedef.GetSetProperty(descr_get_real),
+    imag = typedef.GetSetProperty(descr_get_imag),
+    bit_length = gateway.interp2app(bit_length),
+)
+long_typedef.registermethods(globals())

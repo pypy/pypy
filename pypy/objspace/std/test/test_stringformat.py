@@ -253,10 +253,15 @@ class AppTestWidthPrec:
     def test_subnormal(self):
         inf = 1e300 * 1e300
         assert "%f" % (inf,) == 'inf'
+        assert "%E" % (inf,) == 'INF'
         assert "%f" % (-inf,) == '-inf'
+        assert "%F" % (-inf,) == '-INF'
         nan = inf / inf
         assert "%f" % (nan,) == 'nan'
         assert "%f" % (-nan,) == 'nan'
+        assert "%E" % (nan,) == 'NAN'
+        assert "%F" % (nan,) == 'NAN'
+        assert "%G" % (nan,) == 'NAN'
 
 class AppTestUnicodeObject:
     def test_unicode_convert(self):

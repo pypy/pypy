@@ -75,7 +75,7 @@ def is_digit(code):
 
 def is_uni_digit(code):
     assert unicodedb is not None
-    return unicodedb.isdigit(code)
+    return unicodedb.isdecimal(code)
 
 def is_space(code):
     return code == 32 or (code <= 13 and code >= 9)

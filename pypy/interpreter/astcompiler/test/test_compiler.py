@@ -27,8 +27,8 @@ class TestCompiler:
         space = self.space
         code = compile_with_astcompiler(source, 'exec', space)
         # 2.7 bytecode is too different, the standard `dis` module crashes
-        # when trying to display pypy (2.5-like) bytecode.
-        if sys.version_info < (2, 7):
+        # on older cpython versions
+        if sys.version_info >= (2, 7):
             print
             code.dump()
         w_dict = space.newdict()
@@ -129,6 +129,9 @@ class TestCompiler:
             yield self.simple_test, "x = 17 %s 5" % operator, "x", expected
             expected = eval("0 %s 11" % operator)
             yield self.simple_test, "x = 0 %s 11" % operator, "x", expected
+
+    def test_compare(self):
+        yield self.st, "x = 2; y = 5; y; h = 1 < x >= 3 < x", "h", False
 
     def test_augmented_assignment(self):
         for operator in ['+', '-', '*', '**', '/', '&', '|', '^', '//',
@@ -699,6 +702,10 @@ class TestCompiler:
 
     def test_assignment_to_call_func(self):
         source = "call(a, b, c) = 3"
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
+    def test_augassig_to_sequence(self):
+        source = "a, b += 3"
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
     def test_broken_setups(self):

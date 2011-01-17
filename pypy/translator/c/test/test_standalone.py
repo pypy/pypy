@@ -239,7 +239,7 @@ class TestStandalone(StandaloneTests):
         fname2 = dirname.join("test_genc.c")
         fname2.write("""
         void f() {
-            LL_strtod_formatd("%5f", 12.3);
+            LL_strtod_formatd(12.3, 'f', 5);
         }""")
 
         files = [fname, fname2]

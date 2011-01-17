@@ -80,6 +80,11 @@ def test_getservbyport():
                          "(_socket, port): return _socket.getservbyport(port)")
     assert space.unwrap(name) == "smtp"
 
+    from pypy.interpreter.error import OperationError
+    exc = raises(OperationError, space.appexec,
+           [w_socket], "(_socket): return _socket.getservbyport(-1)")
+    assert exc.value.match(space, space.w_ValueError)
+
 def test_getprotobyname():
     name = "tcp"
     w_n = space.appexec([w_socket, space.wrap(name)],
@@ -348,17 +353,13 @@ class AppTestSocket:
         assert isinstance(s.fileno(), int)
 
     def test_socket_close(self):
-        import _socket, errno
+        import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         fileno = s.fileno()
+        assert s.fileno() >= 0
         s.close()
+        assert s.fileno() < 0
         s.close()
-        try:
-            s.fileno()
-        except _socket.error, ex:
-            assert ex.args[0], errno.EBADF
-        else:
-            assert 0
 
     def test_socket_close_error(self):
         import _socket, os
@@ -401,6 +402,12 @@ class AppTestSocket:
         for args in tests:
             raises((TypeError, ValueError), s.connect, args)
         s.close()
+
+    def test_bigport(self):
+        import _socket
+        s = _socket.socket()
+        raises(ValueError, s.connect, ("localhost", 1000000))
+        raises(ValueError, s.connect, ("localhost", -1))
 
     def test_NtoH(self):
         import sys
@@ -471,6 +478,19 @@ class AppTestSocket:
                                 intsize)
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
+
+    def test_socket_ioctl(self):
+        import _socket, sys
+        if sys.platform != 'win32':
+            skip("win32 only")
+        assert hasattr(_socket.socket, 'ioctl')
+        assert hasattr(_socket, 'SIO_RCVALL')
+        assert hasattr(_socket, 'RCVALL_ON')
+        assert hasattr(_socket, 'RCVALL_OFF')
+        assert hasattr(_socket, 'SIO_KEEPALIVE_VALS')
+        s = _socket.socket()
+        raises(ValueError, s.ioctl, -1, None)
+        s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
 
     def test_dup(self):
         import _socket as socket
@@ -642,14 +662,10 @@ class AppTestErrno:
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error
         import errno
-        try:
-            s = socket(AF_INET, SOCK_STREAM)
-            import __pypy__
-            print __pypy__.internal_repr(s)
-            s.accept()
-        except Exception, e:
-            assert len(e.args) == 2
-            # error is EINVAL, or WSAEINVAL on Windows
-            assert errno.errorcode[e.args[0]].endswith("EINVAL")
-            assert isinstance(e.args[1], str)
-
+        s = socket(AF_INET, SOCK_STREAM)
+        exc = raises(error, s.accept)
+        assert isinstance(exc.value, error)
+        assert isinstance(exc.value, IOError)
+        # error is EINVAL, or WSAEINVAL on Windows
+        assert exc.value.errno == getattr(errno, 'WSAEINVAL', errno.EINVAL)
+        assert isinstance(exc.value.message, str)

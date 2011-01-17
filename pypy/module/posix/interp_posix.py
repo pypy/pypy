@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.rlib import rposix
+from pypy.rlib import rposix, objectmodel
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
@@ -148,6 +148,14 @@ def ftruncate(space, fd, length):
     """Truncate a file to a specified length."""
     try:
         os.ftruncate(fd, length)
+    except IOError, e:
+        if not objectmodel.we_are_translated():
+            # Python 2.6 raises an IOError here. Let's not repeat that mistake.
+            w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
+                                          space.wrap(e.strerror),
+                                          space.wrap(e.filename))
+            raise OperationError(space.w_OSError, w_error)
+        raise AssertionError
     except OSError, e: 
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
@@ -482,7 +490,7 @@ class State:
         return True
 
 def get(space): 
-    return space.fromcache(State) 
+    return space.fromcache(State)
 
 def _convertenviron(space, w_env):
     space.call_method(w_env, 'clear')
@@ -638,11 +646,48 @@ def readlink(space, path):
     return space.wrap(result)
 readlink.unwrap_spec = [ObjSpace, str]
 
+before_fork_hooks = []
+after_fork_child_hooks = []
+after_fork_parent_hooks = []
+
+@specialize.memo()
+def get_fork_hooks(where):
+    if where == 'before':
+        return before_fork_hooks
+    elif where == 'child':
+        return after_fork_child_hooks
+    elif where == 'parent':
+        return after_fork_parent_hooks
+    else:
+        assert False, "Unknown fork hook"
+
+def add_fork_hook(where, hook):
+    "NOT_RPYTHON"
+    get_fork_hooks(where).append(hook)
+
+@specialize.arg(0)
+def run_fork_hooks(where, space):
+    for hook in get_fork_hooks(where):
+        hook(space)
+
 def fork(space):
+    run_fork_hooks('before', space)
+
     try:
         pid = os.fork()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        try:
+            run_fork_hooks('parent', space)
+        except:
+            # Don't clobber the OSError if the fork failed
+            pass
+        raise wrap_oserror(space, e)
+
+    if pid == 0:
+        run_fork_hooks('child', space)
+    else:
+        run_fork_hooks('parent', space)
+
     return space.wrap(pid)
 
 def openpty(space):
@@ -686,14 +731,20 @@ Execute an executable path with arguments, replacing current process.
         args: iterable of strings
     """
     try:
-        os.execv(command, [space.str_w(i) for i in space.unpackiterable(w_args)])
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            w_msg = space.wrap("execv() must have at least one argument")
+            raise OperationError(space.w_ValueError, w_msg)
+        args = [space.str_w(w_arg) for w_arg in args_w]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         msg = "execv() arg 2 must be an iterable of strings"
         raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    try:
+        os.execv(command, args)
     except OSError, e:
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror(space, e)
 execv.unwrap_spec = [ObjSpace, str, W_Root]
 
 def execve(space, command, w_args, w_env):
@@ -716,6 +767,15 @@ Execute a path with arguments and environment, replacing current process.
     except OSError, e:
         raise wrap_oserror(space, e)
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
+
+def spawnv(space, mode, path, w_args):
+    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    try:
+        ret = os.spawnv(mode, path, args)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(ret)
+spawnv.unwrap_spec = [ObjSpace, int, str, W_Root]
 
 def utime(space, w_path, w_tuple):
     """ utime(path, (atime, mtime))

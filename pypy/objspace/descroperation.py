@@ -246,7 +246,12 @@ class DescrOperation(object):
                                       "'%s' object is not iterable",
                                       typename)
             return space.newseqiter(w_obj)
-        return space.get_and_call_function(w_descr, w_obj)
+        w_iter = space.get_and_call_function(w_descr, w_obj)
+        w_next = space.lookup(w_iter, 'next')
+        if w_next is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("iter() returned non-iterator"))
+        return w_iter
 
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, 'next')
@@ -307,6 +312,15 @@ class DescrOperation(object):
             return space.delitem(w_obj, w_slice)
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+
+    def format(space, w_obj, w_format_spec):
+        w_descr = space.lookup(w_obj, '__format__')
+        if w_descr is None:
+            typename = space.type(w_obj).getname(space, '?')
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' object does not define __format__",
+                                  typename)
+        return space.get_and_call_function(w_descr, w_obj, w_format_spec)
 
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
@@ -374,8 +388,10 @@ class DescrOperation(object):
             # default __hash__.  This path should only be taken under very
             # obscure circumstances.
             return default_identity_hash(space, w_obj)
-        # XXX CPython has a special case for types with "__hash__ = None"
-        # to produce a nicer error message, namely "unhashable type: 'X'".
+        if space.is_w(w_hash, space.w_None):
+            typename = space.type(w_obj).getname(space, '?')
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' objects are unhashable", typename)
         w_result = space.get_and_call_function(w_hash, w_obj)
         w_resulttype = space.type(w_result)
         if space.is_w(w_resulttype, space.w_int):
@@ -446,10 +462,22 @@ class DescrOperation(object):
             raise OperationError(space.w_TypeError,
                                  space.wrap("coercion should return None or 2-tuple"))
         return w_res
-    
 
+    def issubtype(space, w_sub, w_type, allow_override=False):
+        if allow_override:
+            w_check = space.lookup(w_type, "__subclasscheck__")
+            if w_check is None:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("issubclass not supported here"))
+            return space.get_and_call_function(w_check, w_type, w_sub)
+        return space._type_issubtype(w_sub, w_type)
 
-    # xxx ord
+    def isinstance(space, w_inst, w_type, allow_override=False):
+        if allow_override:
+            w_check = space.lookup(w_type, "__instancecheck__")
+            if w_check is not None:
+                return space.get_and_call_function(w_check, w_type, w_inst)
+        return space.issubtype(space.type(w_inst), w_type, allow_override)
 
 
 
@@ -473,7 +501,7 @@ def _conditional_neg(space, w_obj, flag):
     else:
         return w_obj
 
-def _cmp(space, w_obj1, w_obj2):
+def _cmp(space, w_obj1, w_obj2, symbol):
     w_typ1 = space.type(w_obj1)
     w_typ2 = space.type(w_obj2)
     w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__cmp__')
@@ -504,9 +532,7 @@ def _cmp(space, w_obj1, w_obj2):
         return space.wrap(1)
     if space.is_w(w_typ1, w_typ2):
         #print "WARNING, comparison by address!"
-        w_id1 = space.id(w_obj1)
-        w_id2 = space.id(w_obj2)
-        lt = space.is_true(space.lt(w_id1, w_id2))
+        lt = _id_cmpr(space, w_obj1, w_obj2, symbol)
     else:
         #print "WARNING, comparison by type name!"
 
@@ -523,13 +549,21 @@ def _cmp(space, w_obj1, w_obj2):
             if name1 != name2:
                 lt = name1 < name2
             else:
-                w_id1 = space.id(w_typ1)
-                w_id2 = space.id(w_typ2)
-                lt = space.is_true(space.lt(w_id1, w_id2))
+                lt = _id_cmpr(space, w_typ1, w_typ2, symbol)
     if lt:
         return space.wrap(-1)
     else:
         return space.wrap(1)
+
+def _id_cmpr(space, w_obj1, w_obj2, symbol):
+    if symbol == "==":
+        return not space.is_w(w_obj1, w_obj2)
+    elif symbol == "!=":
+        return space.is_w(w_obj1, w_obj2)
+    w_id1 = space.id(w_obj1)
+    w_id2 = space.id(w_obj2)
+    return space.is_true(space.lt(w_id1, w_id2))
+
 
 def number_check(space, w_obj):
     # avoid this as much as possible.  It checks if w_obj "looks like"
@@ -640,7 +674,6 @@ def _make_binop_impl(symbol, specialnames):
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
-    
     def comparison_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -664,7 +697,7 @@ def _make_comparison_impl(symbol, specialnames):
         if w_res is not None:
             return w_res
         # fallback: lt(a, b) <= lt(cmp(a, b), 0) ...
-        w_res = _cmp(space, w_first, w_second)
+        w_res = _cmp(space, w_first, w_second, symbol)
         res = space.int_w(w_res)
         return space.wrap(op(res, 0))
 
@@ -790,4 +823,3 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name
-            

@@ -51,6 +51,9 @@ class AppTestLocal(GenericTestThread):
         tags = [1, 2, 3, 4, 5, 54321]
         seen = []
 
+        raises(TypeError, thread._local, a=1)
+        raises(TypeError, thread._local, 1)
+
         class X(thread._local):
             def __init__(self, n):
                 assert n == 42

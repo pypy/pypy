@@ -2,14 +2,17 @@
 Interp-level implementation of the basic space operations.
 """
 
-from pypy.interpreter import gateway, buffer
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.runicode import UNICHR
+from pypy.rlib.rarithmetic import isnan, isinf
+from pypy.rlib import rfloat
+import math
 import __builtin__
 NoneNotWrapped = gateway.NoneNotWrapped
-
-Buffer = buffer.Buffer
 
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
@@ -121,38 +124,65 @@ def _issubtype(space, w_cls1, w_cls2):
 
 # ____________________________________________________________
 
-from math import floor as _floor
-from math import ceil as _ceil
+# Here 0.30103 is an upper bound for log10(2)
+NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
+NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
-def round(space, number, ndigits=0):
+def round(space, number, w_ndigits=0):
     """round(number[, ndigits]) -> floating point number
 
 Round a number to a given precision in decimal digits (default 0 digits).
 This always returns a floating point number.  Precision may be negative."""
-    # Algortithm copied directly from CPython
-    f = 1.0
-    if ndigits < 0:
-        i = -ndigits
+    # Algorithm copied directly from CPython
+
+    # interpret 2nd argument as a Py_ssize_t; clip on overflow
+    ndigits = space.getindex_w(w_ndigits, None)
+
+    # nans, infinities and zeros round to themselves
+    if number == 0 or isinf(number) or isnan(number):
+        return space.wrap(number)
+
+    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
+    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
+    # rounds to +-0.0.
+    if ndigits > NDIGITS_MAX:
+        return space.wrap(number)
+    elif ndigits < NDIGITS_MIN:
+        # return 0.0, but with sign of x
+        return space.wrap(0.0 * number)
+
+    if ndigits >= 0:
+        if ndigits > 22:
+            # pow1 and pow2 are each safe from overflow, but
+            # pow1*pow2 ~= pow(10.0, ndigits) might overflow
+            pow1 = math.pow(10.0, ndigits - 22)
+            pow2 = 1e22
+        else:
+            pow1 = math.pow(10.0, ndigits)
+            pow2 = 1.0
+
+        y = (number * pow1) * pow2
+        # if y overflows, then rounded value is exactly x
+        if isinf(y):
+            return space.wrap(number)
+
     else:
-        i = ndigits
-    while i > 0:
-        f = f*10.0
-        i -= 1
-    if ndigits < 0:
-        number /= f
+        pow1 = math.pow(10.0, -ndigits);
+        pow2 = 1.0 # unused; for translation
+        y = number / pow1
+
+    if y >= 0.0:
+        z = math.floor(y + 0.5)
     else:
-        number *= f
-    if number >= 0.0:
-        number = _floor(number + 0.5)
+        z = math.ceil(y - 0.5)
+
+    if ndigits >= 0:
+        z = (z / pow2) / pow1
     else:
-        number = _ceil(number - 0.5)
-    if ndigits < 0:
-        number *= f
-    else:
-        number /= f
-    return space.wrap(number)
+        z *= pow1
+    return space.wrap(z)
 #
-round.unwrap_spec = [ObjSpace, float, int]
+round.unwrap_spec = [ObjSpace, float, W_Root]
 
 # ____________________________________________________________
 
@@ -184,6 +214,17 @@ iter(callable, sentinel) -> iterator calling callable() until it returns
         return space.iter(w_collection_or_callable) 
     else:
         return iter_sentinel(space, w_collection_or_callable, w_sentinel)
+
+def next(space, w_iterator, w_default=NoneNotWrapped):
+    """next(iterator[, default])
+Return the next item from the iterator. If default is given and the iterator
+is exhausted, it is returned instead of raising StopIteration."""
+    try:
+        return space.next(w_iterator)
+    except OperationError, e:
+        if w_default is not None and e.match(space, space.w_StopIteration):
+            return w_default
+        raise
 
 def ord(space, w_val):
     """Return the integer ordinal of a character."""
@@ -221,3 +262,8 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
+def format(space, w_obj, w_format_spec=NoneNotWrapped):
+    """Format a obj according to format_spec"""
+    if w_format_spec is None:
+        w_format_spec = space.wrap("")
+    return space.format(w_obj, w_format_spec)

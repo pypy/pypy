@@ -19,12 +19,39 @@ _i = complex(0., 1.)
 _halfi = complex(0., 0.5)
 
 
-# internal function not available from Python
+
+# internal functions not available from Python
+def _to_complex(x):
+    if isinstance(x, complex):
+        return x
+    if isinstance(x, (str, unicode)):
+        raise TypeError('float or complex required')
+    return complex(x)
+
 def _prodi(x):
-    x = complex(x, 0)
+    x = _to_complex(x)
     real = -x.imag
     imag = x.real
     return complex(real, imag)
+
+
+@builtinify
+def phase(x):
+    x = _to_complex(x)
+    return math.atan2(x.imag, x.real)
+
+
+@builtinify
+def polar(x):
+    x = _to_complex(x)
+    phi = math.atan2(x.imag, x.real)
+    r = abs(x)
+    return r, phi
+
+
+@builtinify
+def rect(r, phi):
+    return complex(r * math.cos(phi), r * math.sin(phi))
 
 
 @builtinify
@@ -32,7 +59,8 @@ def acos(x):
     """acos(x)
 
     Return the arc cosine of x."""
-    
+
+    x = _to_complex(x)
     return -(_prodi(log((x+(_i*sqrt((_one-(x*x))))))))
 
 
@@ -42,6 +70,7 @@ def acosh(x):
 
     Return the hyperbolic arccosine of x."""
 
+    x = _to_complex(x)
     z = log(_sqrt_half*(sqrt(x+_one)+sqrt(x-_one)))
     return z+z
 
@@ -51,7 +80,8 @@ def asin(x):
     """asin(x)
 
     Return the arc sine of x."""
-    
+
+    x = _to_complex(x)
     # -i * log[(sqrt(1-x**2) + i*x]
     squared = x*x
     sqrt_1_minus_x_sq = sqrt(_one-squared)
@@ -63,7 +93,8 @@ def asinh(x):
     """asinh(x)
 
     Return the hyperbolic arc sine of x."""
-    
+
+    x = _to_complex(x)
     z = log((_sqrt_half * (sqrt(x+_i)+sqrt((x-_i))) ))
     return z+z
 
@@ -73,7 +104,8 @@ def atan(x):
     """atan(x)
     
     Return the arc tangent of x."""
-    
+
+    x = _to_complex(x)
     return _halfi*log(((_i+x)/(_i-x)))
 
 
@@ -82,7 +114,8 @@ def atanh(x):
     """atanh(x)
 
     Return the hyperbolic arc tangent of x."""
-    
+
+    x = _to_complex(x)
     return _half*log((_one+x)/(_one-x))
 
 
@@ -92,7 +125,7 @@ def cos(x):
 
     Return the cosine of x."""
 
-    x = complex(x, 0)
+    x = _to_complex(x)
     real = math.cos(x.real) * math.cosh(x.imag)
     imag = -math.sin(x.real) * math.sinh(x.imag)
     return complex(real, imag)
@@ -104,7 +137,7 @@ def cosh(x):
     
     Return the hyperbolic cosine of x."""
 
-    x = complex(x, 0)
+    x = _to_complex(x)
     real = math.cos(x.imag) * math.cosh(x.real)
     imag = math.sin(x.imag) * math.sinh(x.real)
     return complex(real, imag)
@@ -116,7 +149,7 @@ def exp(x):
     
     Return the exponential value e**x."""
 
-    x = complex(x, 0)
+    x = _to_complex(x)
     l = math.exp(x.real)
     real = l * math.cos(x.imag)
     imag = l * math.sin(x.imag)
@@ -131,7 +164,7 @@ def log(x, base=None):
     
     if base is not None:
         return log(x) / log(base)
-    x = complex(x, 0)
+    x = _to_complex(x)
     l = math.hypot(x.real,x.imag)
     imag = math.atan2(x.imag, x.real)
     real = math.log(l)
@@ -144,7 +177,7 @@ def log10(x):
 
     Return the base-10 logarithm of x."""
     
-    x = complex(x, 0)
+    x = _to_complex(x)
     l = math.hypot(x.real, x.imag)
     imag = math.atan2(x.imag, x.real)/math.log(10.)
     real = math.log10(l)
@@ -157,7 +190,7 @@ def sin(x):
 
     Return the sine of x."""
     
-    x = complex(x, 0)
+    x = _to_complex(x)
     real = math.sin(x.real) * math.cosh(x.imag)
     imag = math.cos(x.real) * math.sinh(x.imag)
     return complex(real, imag)
@@ -169,7 +202,7 @@ def sinh(x):
 
     Return the hyperbolic sine of x."""
     
-    x = complex(x, 0)
+    x = _to_complex(x)
     real = math.cos(x.imag) * math.sinh(x.real)
     imag = math.sin(x.imag) * math.cosh(x.real)
     return complex(real, imag)
@@ -181,7 +214,7 @@ def sqrt(x):
 
     Return the square root of x."""
     
-    x = complex(x, 0)
+    x = _to_complex(x)
     if x.real == 0. and x.imag == 0.:
         real, imag = 0, 0
     else:
@@ -207,7 +240,7 @@ def tan(x):
 
     Return the tangent of x."""
 
-    x = complex(x, 0)
+    x = _to_complex(x)
     sr = math.sin(x.real)
     cr = math.cos(x.real)
     shi = math.sinh(x.imag)
@@ -228,7 +261,7 @@ def tanh(x):
 
     Return the hyperbolic tangent of x."""
     
-    x = complex(x, 0)
+    x = _to_complex(x)
     si = math.sin(x.imag)
     ci = math.cos(x.imag)
     shr = math.sinh(x.real)
@@ -241,3 +274,15 @@ def tanh(x):
     real = (rs*rc + is_*ic) / d
     imag = (is_*rc - rs*ic) / d
     return complex(real, imag)
+
+def isnan(x):
+    """isnan(z) -> bool
+    Checks if the real or imaginary part of z not a number (NaN)"""
+    x = _to_complex(x)
+    return math.isnan(x.real) or math.isnan(x.imag)
+
+def isinf(x):
+    """isnan(z) -> bool
+    Checks if the real or imaginary part of z is infinite"""
+    x = _to_complex(x)
+    return math.isinf(x.real) or math.isinf(x.imag)

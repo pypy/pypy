@@ -148,38 +148,34 @@ class W_MMap(Wrappable):
         start, stop, step = space.decode_index(w_index, self.mmap.size)
         if step == 0:  # index only
             return space.wrap(self.mmap.getitem(start))
-        elif step == 1:
-            res = "".join([self.mmap.getitem(i) for i in range(start, stop)])
-            return space.wrap(res)
         else:
-            raise OperationError(space.w_ValueError,
-                space.wrap("mmap object does not support slicing with a step"))
+            res = "".join([self.mmap.getitem(i)
+                           for i in range(start, stop, step)])
+            return space.wrap(res)
     descr_getitem.unwrap_spec = ['self', W_Root]
 
-    def descr_setitem(self, w_index, value):
+    def descr_setitem(self, w_index, w_value):
+        space = self.space
+        value = space.realstr_w(w_value)
         self.check_valid()
 
         self.check_writeable()
 
-        space = self.space
-        start, stop, step = space.decode_index(w_index, self.mmap.size)
+        start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
             if len(value) != 1:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("mmap assignment must be "
                                                 "single-character string"))
             self.mmap.setitem(start, value)
-        elif step == 1:
-            length = stop - start
+        else:
             if len(value) != length:
                 raise OperationError(space.w_ValueError,
                           space.wrap("mmap slice assignment is wrong size"))
             for i in range(length):
-                self.mmap.setitem(start + i, value[i])
-        else:
-            raise OperationError(space.w_ValueError,
-                space.wrap("mmap object does not support slicing with a step"))
-    descr_setitem.unwrap_spec = ['self', W_Root, 'bufferstr']
+                self.mmap.setitem(start, value[i])
+                start += step
+    descr_setitem.unwrap_spec = ['self', W_Root, W_Root]
 
     def descr_buffer(self):
         # XXX improve to work directly on the low-level address
@@ -188,7 +184,43 @@ class W_MMap(Wrappable):
         return space.wrap(StringLikeBuffer(space, space.wrap(self)))
     descr_buffer.unwrap_spec = ['self']
 
+if rmmap._POSIX:
+
+    def mmap(space, w_subtype, fileno, length, flags=rmmap.MAP_SHARED,
+             prot=rmmap.PROT_WRITE | rmmap.PROT_READ,
+             access=rmmap._ACCESS_DEFAULT):
+        self = space.allocate_instance(W_MMap, w_subtype)
+        try:
+            W_MMap.__init__(self, space,
+                            rmmap.mmap(fileno, length, flags, prot, access))
+        except OSError, e:
+            raise wrap_oserror(space, e, exception_name='w_EnvironmentError')
+        except RValueError, e:
+            raise OperationError(space.w_ValueError, space.wrap(e.message))
+        except RTypeError, e:
+            raise OperationError(space.w_TypeError, space.wrap(e.message))
+        return space.wrap(self)
+    mmap.unwrap_spec = [ObjSpace, W_Root, int, 'index', int, int, int]
+
+elif rmmap._MS_WINDOWS:
+
+    def mmap(space, w_subtype, fileno, length, tagname="",
+             access=rmmap._ACCESS_DEFAULT):
+        self = space.allocate_instance(W_MMap, w_subtype)
+        try:
+            W_MMap.__init__(self, space,
+                            rmmap.mmap(fileno, length, tagname, access))
+        except OSError, e:
+            raise wrap_oserror(space, e, exception_name='w_EnvironmentError')
+        except RValueError, e:
+            raise OperationError(space.w_ValueError, space.wrap(e.message))
+        except RTypeError, e:
+            raise OperationError(space.w_TypeError, space.wrap(e.message))
+        return space.wrap(self)
+    mmap.unwrap_spec = [ObjSpace, W_Root, int, 'index', str, int]
+
 W_MMap.typedef = TypeDef("mmap",
+    __new__ = interp2app(mmap),
     close = interp2app(W_MMap.close),
     read_byte = interp2app(W_MMap.read_byte),
     readline = interp2app(W_MMap.readline),
@@ -210,43 +242,6 @@ W_MMap.typedef = TypeDef("mmap",
     __buffer__ = interp2app(W_MMap.descr_buffer),
 )
 
-def _check_map_size(space, size):
-    if size < 0:
-        raise OperationError(space.w_TypeError,
-            space.wrap("memory mapped size must be positive"))
-    if rffi.cast(size_t, size) != size:
-        raise OperationError(space.w_OverflowError,
-            space.wrap("memory mapped size is too large (limited by C int)"))
-
-if rmmap._POSIX:
-    
-    def mmap(space, fileno, length, flags=rmmap.MAP_SHARED,
-        prot=rmmap.PROT_WRITE | rmmap.PROT_READ, access=rmmap._ACCESS_DEFAULT):
-
-        try:
-            return space.wrap(W_MMap(space, rmmap.mmap(fileno, length,
-                                                       flags, prot, access)))
-        except OSError, e:
-            raise wrap_oserror(space, e, exception_name='w_EnvironmentError')
-        except RValueError, e:
-            raise OperationError(space.w_ValueError, space.wrap(e.message))
-        except RTypeError, e:
-            raise OperationError(space.w_TypeError, space.wrap(e.message))
-    mmap.unwrap_spec = [ObjSpace, int, 'index', int, int, int]
-
-elif rmmap._MS_WINDOWS:
-
-    def mmap(space, fileno, length, tagname="", access=rmmap._ACCESS_DEFAULT):
-        try:
-            return space.wrap(W_MMap(space, rmmap.mmap(fileno, length,
-                                                       tagname, access)))
-        except OSError, e:
-            raise wrap_oserror(space, e, exception_name='w_EnvironmentError')
-        except RValueError, e:
-            raise OperationError(space.w_ValueError, space.wrap(e.message))
-        except RTypeError, e:
-            raise OperationError(space.w_TypeError, space.wrap(e.message))
-    mmap.unwrap_spec = [ObjSpace, int, 'index', str, int]
-
 constants = rmmap.constants
 PAGESIZE = rmmap.PAGESIZE
+ALLOCATIONGRANULARITY = rmmap.ALLOCATIONGRANULARITY

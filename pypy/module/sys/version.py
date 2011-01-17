@@ -2,13 +2,26 @@
 Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
-
+import re
+from pypy.translator.platform import platform
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (2, 5, 2, "beta", 42)   #XXX # sync patchlevel.h
+CPYTHON_VERSION            = (2, 7, 0, "final", 42)   #XXX # sync patchlevel.h
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
 PYPY_VERSION               = (1, 4, 1, "beta", 0)    #XXX # sync patchlevel.h
+
+if platform.name == 'msvc':
+    COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
+elif platform.cc == 'gcc':
+    out = platform.execute(platform.cc, '--version').out
+    match = re.search(' (\d+\.\d+(\.\d+)*)', out)
+    if match:
+        COMPILER_INFO = "GCC " + match.group(1)
+    else:
+        COMPILER_INFO = "GCC"
+else:
+    COMPILER_INFO = ""
 
 
 import pypy
@@ -31,7 +44,7 @@ def get_version_info(space):
     return space.wrap(CPYTHON_VERSION)
 
 def get_version(space):
-    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy %d.%d.%d]" % (
+    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy %d.%d.%d%s]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
@@ -40,7 +53,8 @@ def get_version(space):
         time,
         PYPY_VERSION[0],
         PYPY_VERSION[1],
-        PYPY_VERSION[2]))
+        PYPY_VERSION[2],
+        compiler_version()))
 
 def get_winver(space):
     return space.wrap("%d.%d" % (
@@ -91,3 +105,8 @@ def tuple2hex(ver):
             ver[2] << 8    |
             d[ver[3]] << 4 |
             subver)
+
+def compiler_version():
+    if not COMPILER_INFO:
+        return ""
+    return " with %s" % (COMPILER_INFO,)

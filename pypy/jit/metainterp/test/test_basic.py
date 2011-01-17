@@ -342,7 +342,7 @@ class BasicTests:
         self.check_loop_count(1)
         self.check_loops({'guard_true': 1,
                           'int_add': 2, 'int_sub': 1, 'int_gt': 1,
-                          'int_mul': 1,
+                          'int_lshift': 1,
                           'jump': 1})
 
     def test_loop_invariant_mul_bridge1(self):

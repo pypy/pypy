@@ -7,6 +7,68 @@ from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
 
+# Assumptions
+# ===========
+#
+# For this to work some assumptions had to be made about the
+# optimizations performed. At least for the optimizations that are
+# allowed to operate across the loop boundaries. To enforce this, the
+# optimizer chain is recreated at the end of the preamble and only the
+# state of the optimizations that fulfill those assumptions are kept.
+# Since part of this state is stored in virtuals all OptValue objects
+# are also recreated to allow virtuals not supported to be forced.
+#
+# First of all, the optimizations are not allowed to introduce new
+# boxes. It is the unoptimized version of the trace that is inlined to 
+# form the second iteration of the loop. Otherwise the
+# state of the virtuals would not be updated correctly. Whenever some
+# box from the first iteration is reused in the second iteration, it
+# is added to the input arguments of the loop as well as to the
+# arguments of the jump at the end of the preamble. This means that
+# inlining the jump from the unoptimized trace will not work since it
+# contains too few arguments.  Instead the jump at the end of the
+# preamble is inlined. If the arguments of that jump contains boxes
+# that were produced by one of the optimizations, and thus never seen
+# by the inliner, the inliner will not be able to inline them. There
+# is no way of known what these boxes are supposed to contain in the
+# third iteration.
+#
+# The second assumption is that the state of the optimizer should be the
+# same after the second iteration as after the first. This have forced
+# us to disable store sinking across loop boundaries. Consider the
+# following trace
+#
+#         [p1, p2]
+#         i1 = getfield_gc(p1, descr=nextdescr)
+#         i2 = int_sub(i1, 1)
+#         i2b = int_is_true(i2)
+#         guard_true(i2b) []
+#         setfield_gc(p2, i2, descr=nextdescr)
+#         p3 = new_with_vtable(ConstClass(node_vtable))
+#         jump(p2, p3)
+#
+# At the start of the preamble, p1 and p2 will be pointers. The
+# setfield_gc will be removed by the store sinking heap optimizer, and
+# p3 will become a virtual. Jumping to the loop will make p1 a pointer
+# and p2 a virtual at the start of the loop. The setfield_gc will now
+# be absorbed into the virtual p2 and never seen by the heap
+# optimizer. At the end of the loop both p2 and p3 are virtuals, but
+# the loop needs p2 to be a pointer to be able to call itself. So it
+# is forced producing the operations 
+#
+#         p2 = new_with_vtable(ConstClass(node_vtable))
+#         setfield_gc(p2, i2, descr=nextdescr)
+#
+# In this case the setfield_gc is not store sinked, which means we are
+# not in the same state at the end of the loop as at the end of the
+# preamble. When we now call the loop again, the first 4 operations of
+# the trace were optimized under the wrong assumption that the
+# setfield_gc was store sinked which could lead to errors. In this
+# case what would happen is that it would be inserted once more in
+# front of the guard. 
+
+
+
 # FIXME: Introduce some VirtualOptimizer super class instead
 
 def optimize_unroll(metainterp_sd, loop, optimizations):

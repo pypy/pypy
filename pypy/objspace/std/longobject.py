@@ -1,6 +1,6 @@
 import sys
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std import model
+from pypy.objspace.std import model, newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
@@ -64,6 +64,7 @@ def long__Long(space, w_long1):
         return w_long1
     l = w_long1.num
     return W_LongObject(l)
+trunc__Long = long__Long
 
 def long__Int(space, w_intobj):
     return W_LongObject.fromint(space, w_intobj.intval)
@@ -110,6 +111,10 @@ def repr__Long(space, w_long):
 
 def str__Long(space, w_long):
     return space.wrap(w_long.num.str())
+
+def format__Long_ANY(space, w_long, w_format_spec):
+    return newformat.run_formatter(space, w_format_spec, "format_int_or_long",
+                                   w_long, newformat.LONG_KIND)
 
 
 def lt__Long_Long(space, w_long1, w_long2):

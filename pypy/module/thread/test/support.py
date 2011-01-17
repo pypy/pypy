@@ -1,5 +1,5 @@
 import py
-import time, gc
+import time, gc, thread, os
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
 from pypy.module.thread import gil
@@ -21,6 +21,13 @@ def waitfor(space, w_condition, delay=1):
     print '*** timed out ***'
 waitfor.unwrap_spec = [ObjSpace, W_Root, float]
 
+def timeout_killer(pid, delay):
+    def kill():
+        time.sleep(delay)
+        os.kill(pid, 9)
+        print "process %s killed!" % (pid,)
+    thread.start_new_thread(kill, ())
+timeout_killer.unwrap_spec = [int, float]
 
 class GenericTestThread:
 
@@ -47,3 +54,4 @@ class GenericTestThread:
             import time
             return time.sleep
         """)
+        cls.w_timeout_killer = space.wrap(interp2app_temp(timeout_killer))

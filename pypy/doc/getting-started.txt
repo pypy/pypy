@@ -29,36 +29,45 @@ Just the facts
 .. _`latest stable version via subversion`:   
 .. _`get via Subversion`:
 
-Svn-check out
--------------
+Clone the repository
+--------------------
 
 Before you can play with PyPy, you will need to obtain a copy
 of the sources.  This can be done either by `downloading them
 from the download page`_ or by checking them out from the
-repository using subversion.  We suggest using subversion if one
+repository using mercurial.  We suggest using mercurial if one
 wants to access the current development.
 
 .. _`downloading them from the download page`: download.html
 
-If you choose to use subversion, you must issue the following command on your
+If you choose to use mercurial, you must issue the following command on your
 command line, DOS box, or terminal::
 
-    svn co http://codespeak.net/svn/pypy/trunk pypy-trunk
+    hg clone http://bitbucket.org/pypy/pypy pypy
 
-This will check out the subversion head and place it into a directory
-named ``pypy-trunk``, and will get you the PyPy source in
-``pypy-trunk/pypy`` and documentation files in ``pypy-trunk/pypy/doc``.
-We try to ensure that the head is always stable, but it might
+If you get an error like this::
+
+    abort: repository [svn]http://codespeak.net/svn/pypy/build/testrunner not found!
+
+it probably means that your mercurial version is too old. You need at least
+Mercurial 1.6 to clone the PyPy repository.
+
+This will clone the repository and place it into a directory
+named ``pypy``, and will get you the PyPy source in
+``pypy/pypy`` and documentation files in ``pypy/pypy/doc``.
+We try to ensure that the tip is always stable, but it might
 occasionally be broken.  You may want to check out `our nightly tests:`_
-find a revision (5-digit number) that passed at least the
-``{own}`` and ``{applevel}`` tests (corresponding to a ``+`` sign on the
-line ``success``) and then check out using::
+find a revision (12-chars alphanumeric string, e.g. "963e808156b3") 
+that passed at least the
+``{linux32}`` tests (corresponding to a ``+`` sign on the
+line ``success``) and then, in your cloned repository, switch to this revision
+using::
 
-    svn co -rXXXXX http://codespeak.net/svn/pypy/trunk pypy-trunk
+    hg up -r XXXXX
 
-where XXXXX is the revision number.
+where XXXXX is the revision id.
 
-.. _`our nightly tests:`: http://codespeak.net:8099/summary?branch=<trunk>
+.. _`our nightly tests:`: http://buildbot.pypy.org/summary?branch=<trunk>
 
 
 Where to go from here

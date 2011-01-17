@@ -30,6 +30,7 @@ class Lock(Wrappable):
     "A wrappable box around an interp-level lock object."
 
     def __init__(self, space):
+        self.space = space
         try:
             self.lock = thread.allocate_lock()
         except thread.error:
@@ -69,6 +70,13 @@ but it needn't be locked by the same thread that unlocks it."""
 
     def descr__exit__(self, space, __args__):
         self.descr_lock_release(space)
+
+    def __enter__(self):
+        self.descr_lock_acquire(self.space)
+        return self
+
+    def __exit__(self, *args):
+        self.descr_lock_release(self.space)
 
 descr_acquire = interp2app(Lock.descr_lock_acquire,
                            unwrap_spec=['self', ObjSpace, int])

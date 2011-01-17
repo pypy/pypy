@@ -22,7 +22,7 @@ except CompilationError:
 
 
 constantnames = '''
-    Z_OK  Z_STREAM_ERROR  Z_BUF_ERROR  Z_MEM_ERROR  Z_STREAM_END
+    Z_OK  Z_STREAM_ERROR  Z_BUF_ERROR  Z_MEM_ERROR  Z_STREAM_END Z_DATA_ERROR
     Z_DEFLATED  Z_DEFAULT_STRATEGY  Z_DEFAULT_COMPRESSION
     Z_NO_FLUSH  Z_FINISH  Z_SYNC_FLUSH  Z_FULL_FLUSH
     MAX_WBITS  MAX_MEM_LEVEL
@@ -200,10 +200,17 @@ class RZlibError(Exception):
         """
         if stream.c_msg:
             reason = rffi.charp2str(stream.c_msg)
+        elif err == Z_MEM_ERROR:
+            reason = "out of memory"
+        elif err == Z_BUF_ERROR:
+            reason = "incomplete or truncated stream"
+        elif err == Z_STREAM_ERROR:
+            reason = "inconsistent stream state"
+        elif err == Z_DATA_ERROR:
+            reason = "invalid input data"
         else:
             reason = ""
-        if not reason and err == Z_MEM_ERROR:
-            reason = "out of memory"
+
         if reason:
             delim = ": "
         else:
@@ -313,15 +320,17 @@ def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
         should_finish = True
     else:
         should_finish = False
-    result = _operate(stream, data, flush, max_length, _inflate,
-                      "while decompressing")
+    while_doing = "while decompressing data"
+    data, err, avail_in = _operate(stream, data, flush, max_length, _inflate,
+                                   while_doing)
     if should_finish:
-        # detect incomplete input in the Z_FINISHED case
-        finished = result[1]
-        if not finished:
-            raise RZlibError("the input compressed stream of data is "
-                             "incomplete")
-    return result
+        # detect incomplete input
+        rffi.setintfield(stream, 'c_avail_in', 0)
+        err = _inflate(stream, Z_FINISH)
+        if err < 0:
+            raise RZlibError.fromstream(stream, err, while_doing)
+    finished = (err == Z_STREAM_END)
+    return data, finished, avail_in
 
 
 def _operate(stream, data, flush, max_length, cfunc, while_doing):
@@ -393,5 +402,5 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     # then the zlib simply returns Z_OK and waits for more.  If it is
     # complete it returns Z_STREAM_END.
     return (''.join(result),
-            err == Z_STREAM_END,
+            err,
             rffi.cast(lltype.Signed, stream.c_avail_in))

@@ -52,8 +52,9 @@ class AppTestFfi:
         }
         
         const char *static_str = "xxxxxx";
-        const long static_int = 42;
-        const double static_double = 42.42;
+        long static_int = 42;
+        double static_double = 42.42;
+        long double static_longdouble = 42.42;
         
         unsigned short add_shorts(short one, short two)
         {
@@ -123,6 +124,11 @@ class AppTestFfi:
             return s.x + s.y;
         }
 
+        long op_x_y(struct x_y s, long(*callback)(struct x_y))
+        {
+            return callback(s);
+        }
+
         struct s2h {
             short x;
             short y;
@@ -181,8 +187,8 @@ class AppTestFfi:
                      some_huge_value some_huge_uvalue pass_ll
                      runcallback
                      allocate_array
-                     static_int static_double
-                     sum_x_y
+                     static_int static_double static_longdouble
+                     sum_x_y op_x_y
                      give perturb get_s2a check_s2a
                      AAA_first_ordinal_function
                      ret_un_func
@@ -208,6 +214,10 @@ class AppTestFfi:
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
 
+    def teardown_method(self, func):
+        from pypy.module._rawffi.callback import global_counter
+        global_counter.CallbackPtr_by_number.clear()
+
     def test_libload(self):
         import _rawffi
         _rawffi.CDLL(self.libc_name)
@@ -221,6 +231,16 @@ class AppTestFfi:
             assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
         else:
             raise AssertionError("did not fail??")
+
+    def test_libload_None(self):
+        if self.iswin32:
+            skip("unix specific")
+        import _rawffi
+        # this should return *all* loaded libs, dlopen(NULL)
+        dll = _rawffi.CDLL(None)
+        # Assume CPython, or PyPy compiled with cpyext
+        res = dll.ptr('Py_IsInitialized', [], 'l')()
+        assert res[0] == 1
 
     def test_libc_load(self):
         import _rawffi
@@ -296,6 +316,15 @@ class AppTestFfi:
         assert _rawffi.charp2string(res[0]) is None
         arg1.free()
         arg2.free()
+        a.free()
+
+    def test_returning_unicode(self):
+        import _rawffi
+        A = _rawffi.Array('u')
+        a = A(6, u'xx\x00\x00xx')
+        res = _rawffi.wcharp2unicode(a.buffer)
+        assert isinstance(res, unicode)
+        assert res == u'xx'
         a.free()
 
     def test_raw_callable(self):
@@ -440,6 +469,40 @@ class AppTestFfi:
         assert X.fromaddress(x.next).x2 == 3
         free_double_struct = lib.ptr("free_double_struct", ['P'], None)
         free_double_struct(res)
+
+    def test_structure_bitfields(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'I', 1),
+                               ('B', 'I', 2),
+                               ('C', 'i', 2)])
+        x = X()
+        x.A = 0xf
+        x.B = 0xf
+        x.C = 0xf
+        assert x.A == 1
+        assert x.B == 3
+        assert x.C == -1
+        x.free()
+
+        Y = _rawffi.Structure([('a', 'i', 1),
+                               ('b', 'i', 30),
+                               ('c', 'i', 1)])
+        y = Y()
+        y.a, y.b, y.c = -1, -7, 0
+        assert (y.a, y.b, y.c) == (-1, -7, 0)
+        y.free()
+
+    def test_invalid_bitfields(self):
+        import _rawffi
+        raises(ValueError, _rawffi.Structure, [('A', 'c', 1)])
+        raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
+        raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
+
+    def test_packed_structure(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'c'),
+                               ('b', 'i')], pack=1)
+        assert Y.size == 5
 
     def test_array(self):
         import _rawffi
@@ -711,7 +774,7 @@ class AppTestFfi:
         # fragile
         S = _rawffi.Structure([('x', 'c'), ('y', 'l')])
         assert (repr(_rawffi.Array((S, 2))) ==
-                "<_rawffi.Array '?' (%d, %d)>" % (4*lsize, lsize))
+                "<_rawffi.Array '\0' (%d, %d)>" % (4*lsize, lsize))
 
         assert (repr(_rawffi.Structure([('x', 'i'), ('yz', 'i')])) ==
                 "<_rawffi.Structure 'x' 'yz' (%d, %d)>" % (2*isize, isize))
@@ -817,8 +880,16 @@ class AppTestFfi:
             return _rawffi.Array(typecode).fromaddress(addr, 1)
         a = getprimitive("l", "static_int")
         assert a[0] == 42
+        a[0] = 43
+        assert a[0] == 43
         a = getprimitive("d", "static_double")
         assert a[0] == 42.42
+        a[0] = 43.43
+        assert a[0] == 43.43
+        a = getprimitive("g", "static_longdouble")
+        assert a[0] == 42.42
+        a[0] = 43.43
+        assert a[0] == 43.43
         raises(ValueError, getprimitive, 'z', 'ddddddd')
         raises(ValueError, getprimitive, 'zzz', 'static_int')
 
@@ -879,6 +950,27 @@ class AppTestFfi:
         print >> sys.stderr, "done"
         assert res[0] == 420
         x_y.free()
+
+    def test_callback_struct_byvalue(self):
+        import _rawffi, sys
+        X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
+        lib = _rawffi.CDLL(self.lib_name)
+        op_x_y = lib.ptr('op_x_y', [(X_Y, 1), 'P'], 'l')
+
+        def callback(x_y):
+            return x_y.x + x_y.y
+        cb = _rawffi.CallbackPtr(callback, [(X_Y, 1)], 'l')
+
+        x_y = X_Y()
+        x_y.x = 200
+        x_y.y = 220
+
+        a1 = cb.byptr()
+        res = op_x_y(x_y, a1)
+        a1.free()
+        x_y.free()
+
+        assert res[0] == 420
 
     def test_ret_struct(self):
         import _rawffi

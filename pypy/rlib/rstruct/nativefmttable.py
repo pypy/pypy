@@ -77,16 +77,23 @@ def setup():
                'P': 'char *',
                'f': 'float',
                'd': 'double',
+               '?': '_Bool',
                }
 
-    pre_include_bits = []
-    for fmtchar, ctype in INSPECT.items():
+    pre_include_bits = ["""
+        #ifdef _MSC_VER
+        #define _Bool char
+        #endif"""]
+    field_names = dict.fromkeys(INSPECT)
+    for fmtchar, ctype in INSPECT.iteritems():
+        field_name = ctype.replace(" ", "_").replace("*", "star")
+        field_names[fmtchar] = field_name
         pre_include_bits.append("""
             struct about_%s {
                 char pad;
                 %s field;
             };
-        """ % (fmtchar, ctype))
+        """ % (field_name, ctype))
 
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
@@ -94,14 +101,14 @@ def setup():
         )
 
     for fmtchar, ctype in INSPECT.items():
-        setattr(CConfig, fmtchar, rffi_platform.Struct(
-            "struct about_%s" % (fmtchar,),
+        setattr(CConfig, field_names[fmtchar], rffi_platform.Struct(
+            "struct about_%s" % (field_names[fmtchar],),
             [('field', lltype.FixedSizeArray(rffi.CHAR, 1))]))
 
     cConfig = rffi_platform.configure(CConfig)
 
     for fmtchar, ctype in INSPECT.items():
-        S = cConfig[fmtchar]
+        S = cConfig[field_names[fmtchar]]
         alignment = rffi.offsetof(S, 'c_field')
         size = rffi.sizeof(S.c_field)
         signed = 'a' <= fmtchar <= 'z'
@@ -112,9 +119,11 @@ def setup():
         elif fmtchar == 'd':
             pack = pack_double
             unpack = unpack_double
+        elif fmtchar == '?':
+            pack = std.pack_bool
+            unpack = std.unpack_bool
         else:
-            cpython_checks_range = fmtchar in 'bBhH'
-            pack = std.make_int_packer(size, signed, cpython_checks_range)
+            pack = std.make_int_packer(size, signed, True)
             unpack = std.make_int_unpacker(size, signed)
 
         native_fmttable[fmtchar] = {'size': size,

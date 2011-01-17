@@ -53,6 +53,24 @@ class TestParsetring:
         ret = space.unwrap(w_ret)
         assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'")
 
+    def test_unicode_literals(self):
+        space = self.space
+        w_ret = parsestring.parsestr(space, None, repr("hello"), True)
+        assert space.isinstance_w(w_ret, space.w_unicode)
+        w_ret = parsestring.parsestr(space, None, "b'hi'", True)
+        assert space.isinstance_w(w_ret, space.w_str)
+        w_ret = parsestring.parsestr(space, None, "r'hi'", True)
+        assert space.isinstance_w(w_ret, space.w_unicode)
+
+    def test_bytes(self):
+        space = self.space
+        b = "b'hello'"
+        w_ret = parsestring.parsestr(space, None, b)
+        assert space.unwrap(w_ret) == "hello"
+        b = "b'''hello'''"
+        w_ret = parsestring.parsestr(space, None, b)
+        assert space.unwrap(w_ret) == "hello"
+
     def test_simple_enc_roundtrip(self):
         space = self.space
         s = "'\x81'"

@@ -8,6 +8,7 @@ from pypy.tool import stdlib_opcode as ops
 
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import rarithmetic
 
 
 class Instruction(object):
@@ -209,7 +210,35 @@ class PythonCodeMaker(ast.ASTVisitor):
         # To avoid confusing equal but separate types, we hash store the type of
         # the constant in the dictionary.
         if w_key is None:
-            w_key = space.newtuple([obj, space.type(obj)])
+            # We have to keep the difference between -0.0 and 0.0 floats.
+            w_type = space.type(obj)
+            if space.is_w(w_type, space.w_float):
+                val = space.float_w(obj)
+                if val == 0.0 and rarithmetic.copysign(1., val) < 0:
+                    w_key = space.newtuple([obj, space.w_float, space.w_None])
+                else:
+                    w_key = space.newtuple([obj, space.w_float])
+            elif space.is_w(w_type, space.w_complex):
+                w_real = space.getattr(obj, space.wrap("real"))
+                w_imag = space.getattr(obj, space.wrap("imag"))
+                real = space.float_w(w_real)
+                imag = space.float_w(w_imag)
+                real_negzero = (real == 0.0 and
+                                rarithmetic.copysign(1., real) < 0)
+                imag_negzero = (imag == 0.0 and
+                                rarithmetic.copysign(1., imag) < 0)
+                if real_negzero and imag_negzero:
+                    tup = [obj, space.w_complex, space.w_None, space.w_None,
+                           space.w_None]
+                elif imag_negzero:
+                    tup = [obj, space.w_complex, space.w_None, space.w_None]
+                elif real_negzero:
+                    tup = [obj, space.w_complex, space.w_None]
+                else:
+                    tup = [obj, space.w_complex]
+                w_key = space.newtuple(tup)
+            else:
+                w_key = space.newtuple([obj, w_type])
         w_len = space.finditem(self.w_consts, w_key)
         if w_len is None:
             w_len = space.len(self.w_consts)
@@ -303,18 +332,30 @@ class PythonCodeMaker(ast.ASTVisitor):
             return max_depth
         block.marked = True
         block.initial_depth = depth
+        done = False
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth >= max_depth:
                 max_depth = depth
             if instr.has_jump:
+                target_depth = depth
+                jump_op = instr.opcode
+                if jump_op == ops.FOR_ITER:
+                    target_depth -= 2
+                elif (jump_op == ops.SETUP_FINALLY or
+                      jump_op == ops.SETUP_EXCEPT or
+                      jump_op == ops.SETUP_WITH):
+                    target_depth += 3
+                    if target_depth > max_depth:
+                        max_depth = target_depth
                 max_depth = self._recursive_stack_depth_walk(instr.jump[0],
-                                                             depth, max_depth)
-                if instr.opcode == ops.JUMP_ABSOLUTE or \
-                        instr.opcode == ops.JUMP_FORWARD:
+                                                             target_depth,
+                                                             max_depth)
+                if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
+                    done = True
                     break
-        if block.next_block:
+        if block.next_block and not done:
             max_depth = self._recursive_stack_depth_walk(block.next_block,
                                                          depth, max_depth)
         block.marked = False
@@ -428,6 +469,9 @@ _static_opcode_stack_effects = {
     ops.UNARY_INVERT : 0,
 
     ops.LIST_APPEND : -1,
+    ops.SET_ADD : -1,
+    ops.MAP_ADD : -2,
+    ops.STORE_MAP : -2,
 
     ops.BINARY_POWER : -1,
     ops.BINARY_MULTIPLY : -1,
@@ -488,9 +532,10 @@ _static_opcode_stack_effects = {
 
     ops.WITH_CLEANUP : -1,
     ops.POP_BLOCK : 0,
-    ops.END_FINALLY : -1,
-    ops.SETUP_FINALLY : 3,
-    ops.SETUP_EXCEPT : 3,
+    ops.END_FINALLY : -3,
+    ops.SETUP_WITH : 1,
+    ops.SETUP_FINALLY : 0,
+    ops.SETUP_EXCEPT : 0,
 
     ops.LOAD_LOCALS : 1,
     ops.RETURN_VALUE : -1,
@@ -498,6 +543,7 @@ _static_opcode_stack_effects = {
     ops.YIELD_VALUE : 0,
     ops.BUILD_CLASS : -2,
     ops.BUILD_MAP : 1,
+    ops.BUILD_SET : 1,
     ops.COMPARE_OP : -1,
 
     ops.LOOKUP_METHOD : 1,
@@ -525,13 +571,15 @@ _static_opcode_stack_effects = {
     ops.LOAD_CONST : 1,
 
     ops.IMPORT_STAR : -1,
-    ops.IMPORT_NAME : 0,
+    ops.IMPORT_NAME : -1,
     ops.IMPORT_FROM : 1,
 
     ops.JUMP_FORWARD : 0,
     ops.JUMP_ABSOLUTE : 0,
-    ops.JUMP_IF_TRUE : 0,
-    ops.JUMP_IF_FALSE : 0,
+    ops.JUMP_IF_TRUE_OR_POP : 0,
+    ops.JUMP_IF_FALSE_OR_POP : 0,
+    ops.POP_JUMP_IF_TRUE : -1,
+    ops.POP_JUMP_IF_FALSE : -1,
 }
 
 
@@ -548,7 +596,7 @@ def _compute_BUILD_LIST(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):
-    return -arg
+    return -arg - 1
 
 def _compute_MAKE_FUNCTION(arg):
     return -arg
