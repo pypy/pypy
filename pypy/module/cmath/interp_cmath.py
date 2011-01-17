@@ -19,6 +19,7 @@ from pypy.module.cmath.special_value import exp_special_values
 from pypy.module.cmath.special_value import cosh_special_values
 from pypy.module.cmath.special_value import sinh_special_values
 from pypy.module.cmath.special_value import tanh_special_values
+from pypy.module.cmath.special_value import rect_special_values
 
 
 def unaryfn(c_func):
@@ -449,3 +450,31 @@ def c_tan(x, y):
     # tan(z) = -i tanh(iz)
     sx, sy = c_tanh(-y, x)
     return sy, -sx
+
+
+@unaryfn
+def c_rect(r, phi):
+    if not isfinite(r) or not isfinite(phi):
+        # if r is +/-infinity and phi is finite but nonzero then
+        # result is (+-INF +-INF i), but we need to compute cos(phi)
+        # and sin(phi) to figure out the signs.
+        if isinf(r) and isfinite(phi) and phi != 0.:
+            if r > 0:
+                real = copysign(INF, math.cos(phi))
+                imag = copysign(INF, math.sin(phi))
+            else:
+                real = -copysign(INF, math.cos(phi))
+                imag = -copysign(INF, math.sin(phi))
+            z = (real, imag)
+        else:
+            z = rect_special_values[special_type(r)][special_type(phi)]
+
+        # need to raise ValueError if r is a nonzero number and phi
+        # is infinite
+        if r != 0. and not isnan(r) and isinf(phi):
+            raise ValueError("math domain error")
+        return z
+
+    real = r * math.cos(phi)
+    imag = r * math.sin(phi)
+    return real, imag

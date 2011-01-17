@@ -21,6 +21,7 @@ names_and_docstrings = {
     'cos': "Return the cosine of x.",
     'sin': "Return the sine of x.",
     'tan': "Return the tangent of x.",
+    'rect': "Convert from polar coordinates to rectangular coordinates.",
     }
 
 

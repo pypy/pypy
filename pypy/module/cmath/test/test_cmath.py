@@ -123,12 +123,6 @@ def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
 
-    def rect_complex(z):
-        """Wrapped version of rect that accepts a complex number instead of
-        two float arguments."""
-        xxx
-        return cmath.rect(z.real, z.imag)
-
     def polar_complex(z):
         """Wrapped version of polar that returns a complex number instead of
         two floats."""
@@ -138,9 +132,7 @@ def test_specific_values():
     for id, fn, ar, ai, er, ei, flags in parse_testfile('cmath_testcases.txt'):
         arg = (ar, ai)
         expected = (er, ei)
-        if fn == 'rect':
-            function = rect_complex
-        elif fn == 'polar':
+        if fn == 'polar':
             function = polar_complex
         else:
             function = getattr(interp_cmath, 'c_' + fn)
