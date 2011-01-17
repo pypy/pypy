@@ -464,7 +464,7 @@ def lgamma(space, w_x):
 lgamma.unwrap_spec = [ObjSpace, W_Root]
 
 # Implementation of the error function, the complimentary error function, the
-# gamma function, and the natural log of the gamma function.  This exist in
+# gamma function, and the natural log of the gamma function.  These exist in
 # libm, but I hear those implementations are horrible.
 
 ERF_SERIES_CUTOFF = 1.5
