@@ -60,6 +60,12 @@ class AppTestSSL:
             skip("This test needs a running entropy gathering daemon")
         _ssl.RAND_egd("entropy")
 
+    def test_sslwrap(self):
+        import _ssl
+        import _socket
+        s = _socket.socket()
+        _ssl.sslwrap(s, 0)
+
 class AppTestConnectedSSL:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_ssl', '_socket'))

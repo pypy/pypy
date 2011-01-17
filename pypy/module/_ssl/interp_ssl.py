@@ -23,6 +23,8 @@ PY_SSL_ERROR_INVALID_ERROR_CODE = 9
 
 PY_SSL_CERT_NONE, PY_SSL_CERT_OPTIONAL, PY_SSL_CERT_REQUIRED = 0, 1, 2
 
+PY_SSL_CLIENT, PY_SSL_SERVER = 0, 1
+
 (PY_SSL_VERSION_SSL2, PY_SSL_VERSION_SSL3,
  PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1) = range(4)
 
@@ -260,7 +262,7 @@ SSLObject.typedef = TypeDef("SSLObject",
 
 def new_sslobject(space, w_sock, side, w_key_file, w_cert_file):
     ss = SSLObject(space)
-    
+
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
     w_timeout = space.call_method(w_sock, "gettimeout")
     if space.is_w(w_timeout, space.w_None):
@@ -274,26 +276,32 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file):
     if space.is_w(w_cert_file, space.w_None):
         cert_file = None
     else:
-        cert_file = space.str_w(w_cert_file)    
-    
+        cert_file = space.str_w(w_cert_file)
 
-    if ((key_file and not cert_file) or (not key_file and cert_file)):
-        raise ssl_error(space, "Both the key & certificate files must be specified")
+    if side == PY_SSL_SERVER and (not key_file or not cert_file):
+        raise ssl_error(space, "Both the key & certificate files "
+                        "must be specified for server-side operation")
 
     ss.ctx = libssl_SSL_CTX_new(libssl_SSLv23_method()) # set up context
     if not ss.ctx:
-        raise ssl_error(space, "SSL_CTX_new error")
+        raise ssl_error(space, "Invalid SSL protocol variant specified")
+
+    # XXX SSL_CTX_set_cipher_list?
+
+    # XXX SSL_CTX_load_verify_locations?
 
     if key_file:
         ret = libssl_SSL_CTX_use_PrivateKey_file(ss.ctx, key_file,
-            SSL_FILETYPE_PEM)
+                                                 SSL_FILETYPE_PEM)
         if ret < 1:
             raise ssl_error(space, "SSL_CTX_use_PrivateKey_file error")
 
         ret = libssl_SSL_CTX_use_certificate_chain_file(ss.ctx, cert_file)
-        libssl_SSL_CTX_ctrl(ss.ctx, SSL_CTRL_OPTIONS, SSL_OP_ALL, None)
         if ret < 1:
             raise ssl_error(space, "SSL_CTX_use_certificate_chain_file error")
+
+    # ssl compatibility
+    libssl_SSL_CTX_set_options(ss.ctx, SSL_OP_ALL)
 
     libssl_SSL_CTX_set_verify(ss.ctx, SSL_VERIFY_NONE, None) # set verify level
     ss.ssl = libssl_SSL_new(ss.ctx) # new ssl struct
@@ -307,44 +315,10 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file):
         libssl_BIO_ctrl(libssl_SSL_get_wbio(ss.ssl), BIO_C_SET_NBIO, 1, None)
     libssl_SSL_set_connect_state(ss.ssl)
 
-    # Actually negotiate SSL connection
-    # XXX If SSL_connect() returns 0, it's also a failure.
-    sockstate = 0
-    while True:
-        ret = libssl_SSL_connect(ss.ssl)
-        err = libssl_SSL_get_error(ss.ssl, ret)
-        
-        if err == SSL_ERROR_WANT_READ:
-            sockstate = check_socket_and_wait_for_timeout(space, w_sock, False)
-        elif err == SSL_ERROR_WANT_WRITE:
-            sockstate = check_socket_and_wait_for_timeout(space, w_sock, True)
-        else:
-            sockstate = SOCKET_OPERATION_OK
-        
-        if sockstate == SOCKET_HAS_TIMED_OUT:
-            raise ssl_error(space, "The connect operation timed out")
-        elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-            raise ssl_error(space, "Underlying socket has been closed.")
-        elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-            raise ssl_error(space, "Underlying socket too large for select().")
-        elif sockstate == SOCKET_IS_NONBLOCKING:
-            break
-        
-        if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
-            continue
-        else:
-            break
-    
-    if ret <= 0:
-        errstr, errval = _ssl_seterror(space, ss, ret)
-        raise ssl_error(space, "%s: %d" % (errstr, errval))
-    
-    ss.server_cert = libssl_SSL_get_peer_certificate(ss.ssl)
-    if ss.server_cert:
-        libssl_X509_NAME_oneline(libssl_X509_get_subject_name(ss.server_cert),
-            ss._server, X509_NAME_MAXLEN)
-        libssl_X509_NAME_oneline(libssl_X509_get_issuer_name(ss.server_cert),
-            ss._issuer, X509_NAME_MAXLEN)
+    if side == PY_SSL_CLIENT:
+        libssl_SSL_set_connect_state(ss.ssl)
+    else:
+        libssl_SSL_set_accept_state(ss.ssl)
 
     ss.w_socket = w_sock
     return ss
