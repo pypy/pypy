@@ -776,6 +776,10 @@ class FloatOpAssemlber(object):
         arg1, arg2, result = arglocs
         self.mc.VADD(result.value, arg1.value, arg2.value)
 
+    def emit_op_float_sub(self, op, arglocs, regalloc, fcon):
+        arg1, arg2, result = arglocs
+        self.mc.VSUB(result.value, arg1.value, arg2.value)
+
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,
                     FieldOpAssembler, ArrayOpAssember,

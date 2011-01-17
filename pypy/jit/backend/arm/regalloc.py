@@ -7,8 +7,9 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_op_unary_cmp,
                                                     prepare_op_ri,
                                                     prepare_cmp_op,
+                                                    prepare_float_op,
                                                     _check_imm_arg)
-from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr, 
+from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxInt, BoxPtr, AbstractFailDescr,
                                         INT, REF, FLOAT, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
@@ -781,14 +782,8 @@ class Regalloc(object):
         return size, scale, ofs, ofs_length, ptr
 
 
-    def prepare_op_float_add(self, op, fcond):
-        loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
-        loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
-        self.vfprm.possibly_free_var(box1)
-        self.vfprm.possibly_free_var(box2)
-        res  = self.vfprm.force_allocate_reg(op.result)
-        self.vfprm.possibly_free_var(op.result)
-        return [loc1, loc2, res]
+    prepare_op_float_add = prepare_float_op()
+    prepare_op_float_sub = prepare_float_op()
 
 def make_operation_list():
     def notimplemented(self, op, fcond):
