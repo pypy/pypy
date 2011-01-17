@@ -146,12 +146,12 @@ class AppTestBytesArray:
             assert set(type(x) for x in result) == set([bytearray])
 
         b = bytearray('mississippi')
-        check(b.split('i'), [b'm', b'ss', b'ss', b'pp', b''])
-        check(b.rsplit('i'), [b'm', b'ss', b'ss', b'pp', b''])
-        check(b.rsplit('i', 2), [b'mississ', b'pp', b''])
+        check(b.split('i'), eval("[b'm', b'ss', b'ss', b'pp', b'']"))
+        check(b.rsplit('i'), eval("[b'm', b'ss', b'ss', b'pp', b'']"))
+        check(b.rsplit('i', 2), eval("[b'mississ', b'pp', b'']"))
 
-        check(b.partition(b'ss'), (b'mi', b'ss', b'issippi'))
-        check(b.rpartition(b'ss'), (b'missi', b'ss', b'ippi'))
+        check(b.partition(eval("b'ss'")), eval("(b'mi', b'ss', b'issippi')"))
+        check(b.rpartition(eval("b'ss'")), eval("(b'missi', b'ss', b'ippi')"))
         
     def test_append(self):
         b = bytearray('abc')
