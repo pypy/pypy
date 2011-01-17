@@ -25,5 +25,10 @@ class LibTest(unittest.TestCase):
         lib.my_qsort(chars, len(chars)-1, sizeof(c_char), comparefunc(sort))
         self.assertEqual(chars.raw, "   ,,aaaadmmmnpppsss\x00")
 
+    def test_no_more_xfail(self):
+        import ctypes.test
+        self.assertTrue(not hasattr(ctypes.test, 'xfail'),
+                        "You should incrementally grep for '@xfail' and remove them, they are real failures")
+
 if __name__ == "__main__":
     unittest.main()

@@ -166,6 +166,19 @@ class AppTestBytesArray:
         b.append(ord('e'))
         assert b == 'abcde'
 
+    def test_delitem(self):
+        b = bytearray('abc')
+        del b[1]
+        assert b == bytearray('ac')
+        del b[1:1]
+        assert b == bytearray('ac')
+        del b[:]
+        assert b == bytearray()
+
+        b = bytearray('fooble')
+        del b[::2]
+        assert b == bytearray('obe')
+
     def test_iadd(self):
         b = bytearray('abc')
         b += 'def'
@@ -180,6 +193,22 @@ class AppTestBytesArray:
         b.extend(buffer('jkl'))
         assert b == 'abcdefghijkl'
 
+        b = bytearray('world')
+        b.extend([ord(c) for c in 'hello'])
+        assert b == bytearray('worldhello')
+
+        b = bytearray('world')
+        b.extend(list('hello'))
+        assert b == bytearray('worldhello')
+
+        b = bytearray('world')
+        b.extend(c for c in 'hello')
+        assert b == bytearray('worldhello')
+
+        raises(ValueError, b.extend, ['fish'])
+        raises(ValueError, b.extend, [256])
+        raises(TypeError, b.extend, object())
+        raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")
 
     def test_delslice(self):

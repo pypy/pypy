@@ -1,5 +1,6 @@
 from ctypes import *
 import unittest
+from ctypes.test import xfail
 
 class X(Structure):
     _fields_ = [("a", c_int),
@@ -20,6 +21,7 @@ class Y(Structure):
 
 
 class InitTest(unittest.TestCase):
+    @xfail
     def test_get(self):
         # make sure the only accessing a nested structure
         # doesn't call the structure's __new__ and __init__

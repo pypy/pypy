@@ -13,7 +13,7 @@ from pypy.interpreter.argument import Signature
 
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
-    
+
     def __init__(w_self, wrappeditems):
         w_self.wrappeditems = wrappeditems
 
@@ -98,7 +98,7 @@ def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = len(w_list.wrappeditems)
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _delitem_slice_helper(space, w_list, start, 1, stop-start)
+    _delitem_slice_helper(space, w_list.wrappeditems, start, 1, stop-start)
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
@@ -214,22 +214,21 @@ def delitem__List_ANY(space, w_list, w_idx):
 def delitem__List_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = w_slice.indices4(space,
                                                       len(w_list.wrappeditems))
-    _delitem_slice_helper(space, w_list, start, step, slicelength)
+    _delitem_slice_helper(space, w_list.wrappeditems, start, step, slicelength)
 
-def _delitem_slice_helper(space, w_list, start, step, slicelength):
+def _delitem_slice_helper(space, items, start, step, slicelength):
     if slicelength==0:
         return
 
     if step < 0:
         start = start + step * (slicelength-1)
         step = -step
-        
+
     if step == 1:
         assert start >= 0
         assert slicelength >= 0
-        del w_list.wrappeditems[start:start+slicelength]
+        del items[start:start+slicelength]
     else:
-        items = w_list.wrappeditems
         n = len(items)
         i = start
 
@@ -322,7 +321,7 @@ app = gateway.applevel("""
                 del currently_in_repr[list_id]
             except:
                 pass
-""", filename=__file__) 
+""", filename=__file__)
 
 listrepr = app.interphook("listrepr")
 
@@ -466,15 +465,15 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
     has_reverse = space.is_true(w_reverse)
 
     # create and setup a TimSort instance
-    if has_cmp: 
-        if has_key: 
+    if has_cmp:
+        if has_key:
             sorterclass = CustomKeyCompareSort
-        else: 
+        else:
             sorterclass = CustomCompareSort
-    else: 
-        if has_key: 
+    else:
+        if has_key:
             sorterclass = CustomKeySort
-        else: 
+        else:
             sorterclass = SimpleSort
     items = w_list.wrappeditems
     sorter = sorterclass(items, len(items))

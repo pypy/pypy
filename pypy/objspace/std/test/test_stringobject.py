@@ -661,6 +661,7 @@ class AppTestStringObject:
         assert len(b) == 5
         assert b[-1] == "o"
         assert b[:] == "hello"
+        assert b[1:0] == ""
         raises(TypeError, "b[3] = 'x'")
 
     def test_getnewargs(self):

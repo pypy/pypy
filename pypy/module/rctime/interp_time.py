@@ -24,42 +24,36 @@ if _WIN:
     from pypy.interpreter.error import wrap_windowserror, wrap_oserror
     from pypy.module.thread import ll_thread as thread
 
-    # This is needed because the handler function must have the "WINAPI"
-    # calling convention, which is not supported by lltype.Ptr.
-    CtrlHandler_type = lltype.Ptr(lltype.FuncType([], rwin32.BOOL))
     eci = ExternalCompilationInfo(
         separate_module_sources=['''
             #include <windows.h>
 
-            static BOOL (*CtrlHandlerRoutine)(
-                DWORD dwCtrlType);
+            static HANDLE interrupt_event;
 
-            static BOOL WINAPI winapi_CtrlHandlerRoutine(
+            static BOOL WINAPI CtrlHandlerRoutine(
               DWORD dwCtrlType)
             {
-                return CtrlHandlerRoutine(dwCtrlType);
+                SetEvent(interrupt_event);
+                /* allow other default handlers to be called.
+                 * Default Python handler will setup the
+                 * KeyboardInterrupt exception.
+                 */
+                return 0;
             }
 
-            BOOL pypy_timemodule_setCtrlHandlerRoutine(BOOL (*f)(DWORD))
+            BOOL pypy_timemodule_setCtrlHandler(HANDLE event)
             {
-                CtrlHandlerRoutine = f;
-                SetConsoleCtrlHandler(winapi_CtrlHandlerRoutine, TRUE);
+                interrupt_event = event;
+                return SetConsoleCtrlHandler(CtrlHandlerRoutine, TRUE);
             }
 
         '''],
-        export_symbols=['pypy_timemodule_setCtrlHandlerRoutine'],
+        export_symbols=['pypy_timemodule_setCtrlHandler'],
         )
     _setCtrlHandlerRoutine = rffi.llexternal(
-        'pypy_timemodule_setCtrlHandlerRoutine',
-        [CtrlHandler_type], rwin32.BOOL,
+        'pypy_timemodule_setCtrlHandler',
+        [rwin32.HANDLE], rwin32.BOOL,
         compilation_info=eci)
-
-    def ProcessingCtrlHandler():
-        rwin32.SetEvent(globalState.interrupt_event)
-        # allow other default handlers to be called.
-        # Default Python handler will setup the
-        # KeyboardInterrupt exception.
-        return 0
 
     class GlobalState:
         def __init__(self):
@@ -75,7 +69,7 @@ if _WIN:
                     rffi.NULL, True, False, rffi.NULL)
             except WindowsError, e:
                 raise wrap_windowserror(space, e)
-            if not _setCtrlHandlerRoutine(ProcessingCtrlHandler):
+            if not _setCtrlHandlerRoutine(globalState.interrupt_event):
                 raise wrap_windowserror(
                     space, rwin32.lastWindowsError("SetConsoleCtrlHandler"))
 
