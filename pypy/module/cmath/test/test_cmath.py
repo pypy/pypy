@@ -45,6 +45,22 @@ class AppTestCMath:
         z = cmath.log(100j, 10j)
         assert abs(z - (1.6824165174565446-0.46553647994440367j)) < 1e-10
 
+    def test_pi_e(self):
+        import cmath, math
+        assert cmath.pi == math.pi
+        assert cmath.e == math.e
+
+    def test_rect(self):
+        import cmath
+        z = cmath.rect(2.0, cmath.pi/2)
+        assert abs(z - 2j) < 1e-10
+
+    def test_polar(self):
+        import cmath
+        r, phi = cmath.polar(2j)
+        assert r == 2
+        assert abs(phi - cmath.pi/2) < 1e-10
+
 
 def parse_testfile(fname):
     """Parse a file with test values

@@ -1,5 +1,6 @@
 import math
 from math import fabs
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf, isnan
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
@@ -21,18 +22,27 @@ from pypy.module.cmath.special_value import sinh_special_values
 from pypy.module.cmath.special_value import tanh_special_values
 from pypy.module.cmath.special_value import rect_special_values
 
+pi = math.pi
+e  = math.e
+
+
+@specialize.arg(0)
+def call_c_func(c_func, x, y):
+    try:
+        resx, resy = c_func(x, y)
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("math domain error"))
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("math range error"))
+    return resx, resy
+
 
 def unaryfn(c_func):
     def wrapper(space, w_z):
         x, y = space.unpackcomplex(w_z)
-        try:
-            resx, resy = c_func(x, y)
-        except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("math domain error"))
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("math range error"))
+        resx, resy = call_c_func(c_func, x, y)
         return space.newcomplex(resx, resy)
     #
     name = c_func.func_name
@@ -283,6 +293,8 @@ def wrapped_log(space, w_z, w_base=NoneNotWrapped):
         return space.truediv(w_logz, w_logbase)
     else:
         return w_logz
+wrapped_log.unwrap_spec = [ObjSpace, W_Root, W_Root]
+wrapped_log.func_doc = _inner_wrapped_log.func_doc
 
 
 @unaryfn
@@ -452,7 +464,6 @@ def c_tan(x, y):
     return sy, -sx
 
 
-@unaryfn
 def c_rect(r, phi):
     if not isfinite(r) or not isfinite(phi):
         # if r is +/-infinity and phi is finite but nonzero then
@@ -478,6 +489,14 @@ def c_rect(r, phi):
     real = r * math.cos(phi)
     imag = r * math.sin(phi)
     return real, imag
+
+def wrapped_rect(space, w_x, w_y):
+    x = space.float_w(w_x)
+    y = space.float_w(w_y)
+    resx, resy = call_c_func(c_rect, x, y)
+    return space.newcomplex(resx, resy)
+wrapped_rect.unwrap_spec = [ObjSpace, W_Root, W_Root]
+wrapped_rect.func_doc = names_and_docstrings['rect']
 
 
 def c_atan2(x, y):
@@ -505,8 +524,14 @@ def c_atan2(x, y):
     return math.atan2(y, x)
 
 
-@unaryfn
 def c_polar(x, y):
     phi = c_atan2(x, y)
     r = math.hypot(x, y)
     return r, phi
+
+def wrapped_polar(space, w_z):
+    x, y = space.unpackcomplex(w_z)
+    resx, resy = call_c_func(c_polar, x, y)
+    return space.newtuple([space.newfloat(resx), space.newfloat(resy)])
+wrapped_polar.unwrap_spec = [ObjSpace, W_Root]
+wrapped_polar.func_doc = names_and_docstrings['polar']
