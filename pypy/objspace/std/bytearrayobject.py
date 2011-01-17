@@ -381,13 +381,21 @@ def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
     if space.isinstance_w(w_other, space.w_unicode):
         raise OperationError(space.w_TypeError, space.wrap(
             "bytes string or buffer expected"))
-    if not space.isinstance_w(w_other, space.w_list):
-        w_bytearray.data += [c for c in space.bufferstr_w(w_other)]
-    else:
-        l = list()
+    try:
+        other = space.bufferstr_w(w_other)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        # We now try treating w_other as an iterable
+        l = []
         for w_item in space.unpackiterable(w_other):
             if space.isinstance_w(w_item, space.w_str):
                 res = space.str_w(w_item)
+                if len(res) != 1:
+                    raise OperationError(
+                        space.w_ValueError,
+                        space.wrap("string must be of size 1")
+                    )
             else:
                 i = space.int_w(w_item)
                 try:
@@ -398,9 +406,10 @@ def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
                         space.wrap("byte must be in range(0, 256)")
                     )
 
-
             l.append(res)
         w_bytearray.data += l
+    else:
+        w_bytearray.data += [c for c in other]
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
