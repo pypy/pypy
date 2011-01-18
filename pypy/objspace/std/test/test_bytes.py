@@ -57,6 +57,7 @@ class AppTestBytesArray:
         b2 = bytearray('world')
         assert b1 + b2 == bytearray('hello world')
         assert b1 * 2 == bytearray('hello hello ')
+        assert b1 * 1 is not b1
 
     def test_contains(self):
         assert ord('l') in bytearray('hello')

@@ -64,11 +64,6 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     newdata = [data[start + i*step] for i in range(slicelength)]
     return W_BytearrayObject(newdata)
 
-def getslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
-    length = len(w_bytearray.data)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    return W_BytearrayObject(w_bytearray.data[start:stop])
-
 def contains__Bytearray_Int(space, w_bytearray, w_char):
     char = w_char.intval
     if not 0 <= char < 256:
@@ -96,8 +91,6 @@ def mul_bytearray_times(space, w_bytearray, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    if times == 1 and space.type(w_bytearray) == space.w_bytearray:
-        return w_bytearray
     data = w_bytearray.data
     return W_BytearrayObject(data * times)
 
