@@ -285,6 +285,7 @@ def getsitepackages():
     if hasattr(sys, 'pypy_version_info') and hasattr(sys, 'prefix'):
         from distutils.sysconfig import get_python_lib
         sitedir = get_python_lib(standard_lib=False)
+        return [sitedir]
 
     # cpython logic
     sitepackages = []
