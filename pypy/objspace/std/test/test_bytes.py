@@ -216,6 +216,19 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")
 
+    def test_setslice(self):
+        b = bytearray('hello')
+        b[:] = [ord(c) for c in 'world']
+        assert b == bytearray('world')
+
+        b = bytearray('hello world')
+        b[::2] = 'bogoff'
+        assert b == bytearray('beolg ooflf')
+
+        def set_wrong_size():
+            b[::2] = 'foo'
+        raises(ValueError, set_wrong_size)
+
     def test_delslice(self):
         b = bytearray('abcdefghi')
         del b[5:8]

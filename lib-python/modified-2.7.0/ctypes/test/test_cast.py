@@ -22,7 +22,6 @@ class Test(unittest.TestCase):
                 self.assertEqual([ptr[i] for i in range(6)],
                                      [0, 42, 0, 17, 0, 2])
 
-    @xfail
     def test_address2pointer(self):
         array = (c_int * 3)(42, 17, 2)
 

@@ -6,7 +6,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import _delitem_slice_helper
+from pypy.objspace.std.listobject import _delitem_slice_helper, _setitem_slice_helper
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -391,13 +391,6 @@ def inplace_add__Bytearray_ANY(space, w_bytearray1, w_iterable2):
     list_extend__Bytearray_ANY(space, w_bytearray1, w_iterable2)
     return w_bytearray1
 
-def delslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
-    length = len(w_bytearray.data)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    if start == stop:
-        return
-    del w_bytearray.data[start:stop]
-
 def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
     from pypy.objspace.std.bytearraytype import getbytevalue
     idx = space.getindex_w(w_index, space.w_IndexError, "bytearray index")
@@ -410,11 +403,8 @@ def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
 def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     oldsize = len(w_bytearray.data)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    if step != 1:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("fixme: only step=1 for the moment"))
-    _setitem_helper(w_bytearray, start, stop, slicelength,
-                    space.str_w(w_other))
+    sequence2 = makebytearraydata_w(space, w_other)
+    setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2)
 
 def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
     idx = get_list_index(space, w_idx)
@@ -430,32 +420,11 @@ def delitem__Bytearray_Slice(space, w_bytearray, w_slice):
                                                       len(w_bytearray.data))
     delitem_slice_helper(space, w_bytearray.data, start, step, slicelength)
 
-# create new helper function with different list type specialisation
+# create new helper functions with different list type specialisation
 delitem_slice_helper = func_with_new_name(_delitem_slice_helper,
                                           'delitem_slice_helper')
-
-def _setitem_helper(w_bytearray, start, stop, slicelength, data):
-    assert start >= 0
-    assert stop >= 0
-    step = 1
-    len2 = len(data)
-    delta = slicelength - len2
-    if delta < 0:
-        delta = -delta
-        newsize = len(w_bytearray.data) + delta
-        w_bytearray.data += ['\0'] * delta
-        lim = start + len2
-        i = newsize - 1
-        while i >= lim:
-            w_bytearray.data[i] = w_bytearray.data[i-delta]
-            i -= 1
-    elif start >= 0:
-        del w_bytearray.data[start:start+delta]
-    else:
-        assert delta == 0
-    for i in range(len2):
-        w_bytearray.data[start] = data[i]
-        start += step
+setitem_slice_helper = func_with_new_name(_setitem_slice_helper,
+                                          'setitem_slice_helper')
 
 # __________________________________________________________
 # Buffer interface
