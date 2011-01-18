@@ -74,7 +74,6 @@ ENABLE_USER_SITE = None
 USER_SITE = None
 USER_BASE = None
 
-
 def makepath(*paths):
     dir = os.path.join(*paths)
     try:
@@ -90,7 +89,10 @@ def abs__file__():
         if hasattr(m, '__loader__'):
             continue   # don't mess with a PEP 302-supplied __file__
         try:
-            m.__file__ = os.path.abspath(m.__file__)
+            prev = m.__file__
+            new = os.path.abspath(m.__file__)
+            if prev != new:
+                m.__file__ = new
         except (AttributeError, OSError):
             pass
 
@@ -279,6 +281,12 @@ def getsitepackages():
     will find its `site-packages` subdirectory depending on the system
     environment, and will return a list of full paths.
     """
+    # pypy specific logic
+    if hasattr(sys, 'pypy_version_info') and hasattr(sys, 'prefix'):
+        from distutils.sysconfig import get_python_lib
+        sitedir = get_python_lib(standard_lib=False)
+
+    # cpython logic
     sitepackages = []
     seen = set()
 
@@ -425,22 +433,33 @@ class _Printer(object):
                 if key == 'q':
                     break
 
+##def setcopyright():
+##    """Set 'copyright' and 'credits' in __builtin__"""
+##    __builtin__.copyright = _Printer("copyright", sys.copyright)
+##    if sys.platform[:4] == 'java':
+##        __builtin__.credits = _Printer(
+##            "credits",
+##            "Jython is maintained by the Jython developers (www.jython.org).")
+##    else:
+##        __builtin__.credits = _Printer("credits", """\
+##    Thanks to CWI, CNRI, BeOpen.com, Zope Corporation and a cast of thousands
+##    for supporting Python development.  See www.python.org for more information.""")
+##    here = os.path.dirname(os.__file__)
+##    __builtin__.license = _Printer(
+##        "license", "See http://www.python.org/%.3s/license.html" % sys.version,
+##        ["LICENSE.txt", "LICENSE"],
+##        [os.path.join(here, os.pardir), here, os.curdir])
+
 def setcopyright():
-    """Set 'copyright' and 'credits' in __builtin__"""
+    # XXX this is the PyPy-specific version.  Should be unified with the above.
     __builtin__.copyright = _Printer("copyright", sys.copyright)
-    if sys.platform[:4] == 'java':
-        __builtin__.credits = _Printer(
-            "credits",
-            "Jython is maintained by the Jython developers (www.jython.org).")
-    else:
-        __builtin__.credits = _Printer("credits", """\
-    Thanks to CWI, CNRI, BeOpen.com, Zope Corporation and a cast of thousands
-    for supporting Python development.  See www.python.org for more information.""")
-    here = os.path.dirname(os.__file__)
+    __builtin__.credits = _Printer(
+        "credits",
+        "PyPy is maintained by the PyPy developers: http://codespeak.net/pypy")
     __builtin__.license = _Printer(
-        "license", "See http://www.python.org/%.3s/license.html" % sys.version,
-        ["LICENSE.txt", "LICENSE"],
-        [os.path.join(here, os.pardir), here, os.curdir])
+        "license",
+        "See http://codespeak.net/svn/pypy/dist/LICENSE")
+
 
 
 class _Helper(object):
@@ -466,7 +485,7 @@ def aliasmbcs():
     if sys.platform == 'win32':
         import locale, codecs
         enc = locale.getdefaultlocale()[1]
-        if enc.startswith('cp'):            # "cp***" ?
+        if enc is not None and enc.startswith('cp'):            # "cp***" ?
             try:
                 codecs.lookup(enc)
             except LookupError:
