@@ -22,7 +22,7 @@ class W_BytearrayObject(W_Object):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
 
     def __init__(w_self, data):
-        w_self.data = list(data)
+        w_self.data = data
 
     def __repr__(w_self):
         """ representation for debugging purposes """
