@@ -65,10 +65,12 @@ class W_StringIO(W_TextIOBase):
         self._check_closed(space)
         size = convert_size(space, w_size)
         start = self.pos
-        if size >= 0:
+        available = len(self.buf) - start
+        if size >= 0 and size <= available:
             end = start + size
         else:
             end = len(self.buf)
+        assert 0 <= start <= end
         self.pos = end
         return space.wrap(u''.join(self.buf[start:end]))
 
