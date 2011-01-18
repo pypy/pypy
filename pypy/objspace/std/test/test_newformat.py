@@ -101,6 +101,56 @@ class BaseStringFormatTests:
     def test_non_ascii_presentation(self):
         raises(ValueError, format, self.s(""), "\x234")
 
+    def test_oldstyle_custom_format(self):
+        class C:
+            def __init__(self, x=100):
+                self._x = x
+            def __format__(self, spec):
+                return spec
+        class D:
+            def __init__(self, x):
+                self.x = x
+            def __format__(self, spec):
+                return str(self.x)
+        class E:
+            def __init__(self, x):
+                self.x = x
+            def __str__(self):
+                return 'E(' + self.x + ')'
+        class G:
+            def __init__(self, x):
+                self.x = x
+            def __str__(self):
+                return "string is " + self.x
+            def __format__(self, format_spec):
+                if format_spec == 'd':
+                    return 'G(' + self.x + ')'
+                return object.__format__(self, format_spec)
+
+        assert self.s("{1}{0}").format(D(10), D(20)) == self.s("2010")
+        assert self.s("{0._x.x}").format(C(D("abc"))) == self.s("abc")
+        assert self.s("{0[1][0].x}").format(["abc", [D("def")]]) == self.s("def")
+        assert self.s("{0}").format(E("data")) == self.s("E(data)")
+        assert self.s("{0:d}").format(G("data")) == self.s("G(data)")
+        assert self.s("{0!s}").format(G("data")) == self.s("string is data")
+
+        # XXX: run thests tests, self.space isn't available at app-level
+#        warnings = []
+#        def my_warn(msg, warning_cls):
+#            warnings.append((msg, warning_cls))
+#        prev_warning = self.space.warn
+#        space.warn = prev_warning
+#        expected_warning = [
+#            ("object.__format__ with a non-empty format string is deprecated", PendingDeprecationWarning)
+#        ]
+
+        assert self.s("{0:^10}").format(E("data")) == self.s(" E(data)  ")
+#        assert warnings == expected_warning
+        assert self.s("{0:^10s}").format(E("data")) == self.s(" E(data)  ")
+#        assert warnings == expected_warning * 2
+        assert self.s("{0:>15s}").format(G("data")) == self.s(" string is data")
+#        assert warnings == expected_warning * 3
+#        self.space.warn = prev_warn
 
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
