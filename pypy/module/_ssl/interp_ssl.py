@@ -4,8 +4,10 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 
-from pypy.rlib import rpoll
+from pypy.rlib import rpoll, rsocket
 from pypy.rlib.ropenssl import *
+
+from pypy.module._socket import interp_socket
 
 import sys
 
@@ -64,10 +66,15 @@ ver, major  = divmod(ver, 256)
 constants["OPENSSL_VERSION_INFO"] = (major, minor, fix, patch, status)
 constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
-def ssl_error(space, msg):
+def ssl_error(space, msg, errno=0):
     w_module = space.getbuiltinmodule('_ssl')
-    w_exception = space.getattr(w_module, space.wrap('SSLError'))
-    return OperationError(w_exception, space.wrap(msg))
+    w_exception_class = space.getattr(w_module, space.wrap('SSLError'))
+    if errno:
+        w_exception = space.call_function(w_exception_class,
+                                          space.wrap(e.errno), space.wrap(msg))
+    else:
+        w_exception = space.call_function(w_exception_class, space.wrap(msg))
+    return OperationError(w_exception_class, w_exception)
 
 if HAVE_OPENSSL_RAND:
     # helper routines for seeding the SSL PRNG
@@ -121,7 +128,7 @@ class SSLObject(Wrappable):
         self.w_socket = None
         self.ctx = lltype.nullptr(SSL_CTX.TO)
         self.ssl = lltype.nullptr(SSL.TO)
-        self.server_cert = lltype.nullptr(X509.TO)
+        self.peer_cert = lltype.nullptr(X509.TO)
         self._server = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
         self._server[0] = '\0'
         self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
@@ -136,8 +143,8 @@ class SSLObject(Wrappable):
     issuer.unwrap_spec = ['self']
     
     def __del__(self):
-        if self.server_cert:
-            libssl_X509_free(self.server_cert)
+        if self.peer_cert:
+            libssl_X509_free(self.peer_cert)
         if self.ssl:
             libssl_SSL_free(self.ssl)
         if self.ctx:
@@ -190,8 +197,7 @@ class SSLObject(Wrappable):
         if num_bytes > 0:
             return self.space.wrap(num_bytes)
         else:
-            errstr, errval = _ssl_seterror(self.space, self, num_bytes)
-            raise ssl_error(self.space, "%s: %d" % (errstr, errval))
+            raise _ssl_seterror(self.space, self, num_bytes)
     write.unwrap_spec = ['self', 'bufferstr']
     
     def read(self, num_bytes=1024):
@@ -235,17 +241,61 @@ class SSLObject(Wrappable):
                 break
                 
         if count <= 0:
-            errstr, errval = _ssl_seterror(self.space, self, count)
-            raise ssl_error(self.space, "%s: %d" % (errstr, errval))
+            raise _ssl_seterror(self.space, self, count)
 
         result = rffi.str_from_buffer(raw_buf, gc_buf, num_bytes, count)
         rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return self.space.wrap(result)
     read.unwrap_spec = ['self', int]
 
-    def do_handshake(self):
-        # XXX
-        pass
+    def do_handshake(self, space):
+        # just in case the blocking state of the socket has been changed
+        w_timeout = space.call_method(self.w_socket, "gettimeout")
+        nonblocking = not space.is_w(w_timeout, space.w_None)
+        libssl_BIO_set_nbio(libssl_SSL_get_rbio(self.ssl), nonblocking)
+        libssl_BIO_set_nbio(libssl_SSL_get_wbio(self.ssl), nonblocking)
+
+        # Actually negotiate SSL connection
+        # XXX If SSL_do_handshake() returns 0, it's also a failure.
+        while True:
+            ret = libssl_SSL_do_handshake(self.ssl)
+            err = libssl_SSL_get_error(self.ssl, ret)
+            # XXX PyErr_CheckSignals()
+            if err == SSL_ERROR_WANT_READ:
+                sockstate = check_socket_and_wait_for_timeout(
+                    space, w_sock, False)
+            elif err == SSL_ERROR_WANT_WRITE:
+                sockstate = check_socket_and_wait_for_timeout(
+                    space, w_sock, True)
+            else:
+                sockstate = SOCKET_OPERATION_OK
+            if sockstate == SOCKET_HAS_TIMED_OUT:
+                raise ssl_error(space, "The handshake operation timed out")
+            elif sockstate == SOCKET_HAS_BEEN_CLOSED:
+                raise ssl_error(space, "Underlying socket has been closed.")
+            elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
+                raise ssl_error(space, "Underlying socket too large for select().")
+            elif sockstate == SOCKET_IS_NONBLOCKING:
+                break
+
+            if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
+                continue
+            else:
+                break
+
+        if ret <= 0:
+            raise _ssl_seterror(space, self, ret)
+
+        if self.peer_cert:
+            libssl_X509_free(self.peer_cert)
+        self.peer_cert = libssl_SSL_get_peer_certificate(self.ssl)
+        if self.peer_cert:
+            libssl_X509_NAME_oneline(
+                libssl_X509_get_subject_name(self.peer_cert),
+                self._server, X509_NAME_MAXLEN)
+            libssl_X509_NAME_oneline(
+                libssl_X509_get_issuer_name(self.peer_cert),
+                self._issuer, X509_NAME_MAXLEN)
 
 
 SSLObject.typedef = TypeDef("SSLObject",
@@ -256,7 +306,8 @@ SSLObject.typedef = TypeDef("SSLObject",
     write = interp2app(SSLObject.write,
         unwrap_spec=SSLObject.write.unwrap_spec),
     read = interp2app(SSLObject.read, unwrap_spec=SSLObject.read.unwrap_spec),
-    do_handshake=interp2app(SSLObject.do_handshake, unwrap_spec=['self']),
+    do_handshake=interp2app(SSLObject.do_handshake,
+                            unwrap_spec=['self', ObjSpace]),
 )
 
 
@@ -402,7 +453,8 @@ def _ssl_seterror(space, ss, ret):
                 errval = PY_SSL_ERROR_EOF
             elif ret == -1:
                 # the underlying BIO reported an I/0 error
-                return errstr, errval # sock.errorhandler()?
+                error = rsocket.last_error()
+                return interp_socket.converted_error(space, error)
             else:
                 errstr = "Some I/O error occurred"
                 errval = PY_SSL_ERROR_SYSCALL
@@ -420,7 +472,7 @@ def _ssl_seterror(space, ss, ret):
         errstr = "Invalid error code"
         errval = PY_SSL_ERROR_INVALID_ERROR_CODE
 
-    return errstr, errval
+    return ssl_error(space, errstr, errval)
 
 
 def sslwrap(space, w_socket, side, w_key_file=None, w_cert_file=None,

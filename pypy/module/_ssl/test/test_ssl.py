@@ -64,7 +64,9 @@ class AppTestSSL:
         import _ssl
         import _socket
         s = _socket.socket()
-        _ssl.sslwrap(s, 0)
+        ss = _ssl.sslwrap(s, 0)
+        exc = raises(_socket.error, ss.do_handshake)
+        assert exc.value.errno == 32 # Broken pipe
 
 class AppTestConnectedSSL:
     def setup_class(cls):

@@ -109,6 +109,7 @@ ssl_external('SSL_get_wbio', [SSL], BIO)
 ssl_external('SSL_set_connect_state', [SSL], lltype.Void)
 ssl_external('SSL_set_accept_state', [SSL], lltype.Void)
 ssl_external('SSL_connect', [SSL], rffi.INT)
+ssl_external('SSL_do_handshake', [SSL], rffi.INT)
 ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
 
 ssl_external('ERR_get_error', [], rffi.INT)
@@ -150,6 +151,8 @@ EVP_MD_CTX_cleanup = external(
 
 def libssl_SSL_CTX_set_options(ctx, op):
     return libssl_SSL_CTX_ctrl(ctx, SSL_CTRL_OPTIONS, op, None)
+def libssl_BIO_set_nbio(bio, nonblocking):
+    return libssl_BIO_ctrl(bio, BIO_C_SET_NBIO, nonblocking, None)
 
 def init_ssl():
     libssl_SSL_load_error_strings()
