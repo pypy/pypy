@@ -71,7 +71,7 @@ def ssl_error(space, msg, errno=0):
     w_exception_class = space.getattr(w_module, space.wrap('SSLError'))
     if errno:
         w_exception = space.call_function(w_exception_class,
-                                          space.wrap(e.errno), space.wrap(msg))
+                                          space.wrap(errno), space.wrap(msg))
     else:
         w_exception = space.call_function(w_exception_class, space.wrap(msg))
     return OperationError(w_exception_class, w_exception)
