@@ -23,6 +23,7 @@ from pypy.annotation.model import SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rlib import rarithmetic
+from pypy.tool.error import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
@@ -819,7 +820,13 @@ _make_none_union('SomeWeakRef',         'obj.classdef')
 
 class __extend__(pairtype(SomePBC, SomeObject)):
     def getitem((pbc, o)):
+        if not pbc.isNone():
+            raise AnnotatorError("getitem on %r" % pbc)
         return s_ImpossibleValue
+
+    def setitem((pbc, o, s_v)):
+        if not pbc.isNone():
+            raise AnnotatorError("setitem on %r" % pbc)
 
 class __extend__(pairtype(SomeExternalObject, SomeExternalObject)):
     def union((ext1, ext2)):
