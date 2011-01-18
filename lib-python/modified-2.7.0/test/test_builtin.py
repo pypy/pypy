@@ -494,9 +494,10 @@ class BuiltinTest(unittest.TestCase):
         execfile(TESTFN, globals, locals)
         self.assertEqual(locals['z'], 2)
 
+        self.assertRaises(TypeError, execfile, TESTFN, {}, ())
         unlink(TESTFN)
         self.assertRaises(TypeError, execfile)
-        self.assertRaises(TypeError, execfile, TESTFN, {}, ())
+        self.assertRaises((TypeError, IOError), execfile, TESTFN, {}, ())
         import os
         self.assertRaises(IOError, execfile, os.curdir)
         self.assertRaises(IOError, execfile, "I_dont_exist")
