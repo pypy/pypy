@@ -14,18 +14,29 @@ class AppTestW_SmallTupleObject(AppTestW_TupleObject):
             return issmall
         """)
 
+    def test_smalltuple(self):
+        self.issmall((1,2))
+        self.issmall((1,2,3))
+
     def test_slicing_to_small(self):
-        self.issmall((1, 2, 3)[0:2])
+        self.issmall((1, 2, 3)[0:2])    # SmallTuple2
         self.issmall((1, 2, 3)[0:2:1])
 
+        self.issmall((1, 2, 3, 4)[0:3])    # SmallTuple3
+        self.issmall((1, 2, 3, 4)[0:3:1])
+
     def test_adding_to_small(self):
-        self.issmall((1,)+(2,))
+        self.issmall((1,)+(2,))       # SmallTuple2
+        self.issmall((1,1)+(2,))      # SmallTuple3
+        self.issmall((1,)+(2,3))
 
     def test_multiply_to_small(self):
         self.issmall((1,)*2)
+        self.issmall((1,)*3)
 
     def test_slicing_from_small(self):
         assert (1,2)[0:1:1] == (1,)
+        assert (1,2,3)[0:2:1] == (1,2)
 
 class TestW_SmallTupleObject():
 

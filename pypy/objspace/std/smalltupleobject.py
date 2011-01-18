@@ -24,7 +24,8 @@ def make_specialized_class(n):
     iter_n = unrolling_iterable(range(n))
     class cls(W_SmallTupleObject):
 
-        def __init__(self, *values):
+        def __init__(self, values):
+            assert len(values) == n
             for i in iter_n:
                 setattr(self, 'w_value%s' % i, values[i])
 
@@ -47,6 +48,7 @@ def make_specialized_class(n):
     return cls
 
 W_SmallTupleObject2 = make_specialized_class(2)
+W_SmallTupleObject3 = make_specialized_class(3)
 
 registerimplementation(W_SmallTupleObject)
 
