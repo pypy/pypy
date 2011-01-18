@@ -33,6 +33,10 @@ bytearray_remove  = SMM('remove', 2,
                     doc="B.remove(int) -> None\n\n"
                     "Remove the first occurance of a value in B.")
 
+bytearray_reverse  = SMM('reverse', 1,
+                    doc="B.reverse() -> None\n\n"
+                    "Reverse the order of the values in B in place.")
+
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)

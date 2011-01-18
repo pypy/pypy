@@ -223,6 +223,10 @@ class AppTestBytesArray:
         b.remove(Indexable())
         assert b == ''
 
+    def test_reverse(self):
+        b = bytearray('hello')
+        b.reverse()
+        assert b == bytearray('olleh')
 
     def test_delitem(self):
         b = bytearray('abc')

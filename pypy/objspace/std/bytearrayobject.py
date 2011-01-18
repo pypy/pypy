@@ -287,6 +287,9 @@ def bytearray_remove__Bytearray_ANY(space, w_bytearray, w_char):
     except ValueError:
         raise OperationError(space.w_ValueError, space.wrap(
             "value not found in bytearray"))
+
+def bytearray_reverse__Bytearray(space, w_bytearray):
+    w_bytearray.data.reverse()
     return space.w_None
 
 # These methods could just delegate to the string implementation,
