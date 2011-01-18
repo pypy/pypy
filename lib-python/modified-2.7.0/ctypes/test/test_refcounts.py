@@ -83,7 +83,6 @@ class RefcountTestCase(unittest.TestCase):
         self.assertEqual(grc(func), 2)
 
 class AnotherLeak(unittest.TestCase):
-    @xfail
     def test_callback(self):
         import sys
 
