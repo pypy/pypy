@@ -539,6 +539,7 @@ class ExpectTestMethod(py.test.collect.Function):
         s = s.replace("()", "paren")
         s = s.replace(".py", "")
         s = s.replace(".", "_")
+        s = s.replace(os.sep, "_")
         return s
 
     safe_name = staticmethod(safe_name)
