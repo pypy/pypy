@@ -350,7 +350,7 @@ class CDLL(object):
             _restype_ = self._func_restype_
         self._FuncPtr = _FuncPtr
 
-        if handle is None and name is not None:
+        if handle is None:
             #self._handle = _dlopen(self._name, mode)
             self._handle = _ffi.CDLL(name)
         else:
