@@ -1333,8 +1333,8 @@ def _AsDouble(n):
     # ties rounded to even).
     q = (q >> 2) + (bool(q & 2) and bool(q & 5))
 
-    if (exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
-                              q == r_ulonglong(2) ** DBL_MANT_DIG)):
+    if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
+                             q == r_ulonglong(1) << DBL_MANT_DIG):
         raise OverflowError("integer too large to convert to float")
 
     ad = math.ldexp(float(q), exp - DBL_MANT_DIG)
