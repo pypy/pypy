@@ -1047,18 +1047,30 @@ def ttyname(space, fd):
         raise wrap_oserror(space, e)
 ttyname.unwrap_spec = [ObjSpace, "c_int"]
 
-def sysconf(space, w_num_or_name):
+def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
-    if space.is_true(space.isinstance(w_num_or_name, space.w_basestring)):
+    if space.is_true(space.isinstance(w_name, space.w_basestring)):
         try:
-            num = os.sysconf_names[space.str_w(w_num_or_name)]
+            num = namespace[space.str_w(w_name)]
         except KeyError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("unrecognized configuration name"))
     else:
-        num = space.int_w(w_num_or_name)
+        num = space.int_w(w_name)
+    return num
+
+def sysconf(space, w_name):
+    num = confname_w(space, w_name, os.sysconf_names)
     return space.wrap(os.sysconf(num))
 sysconf.unwrap_spec = [ObjSpace, W_Root]
+
+def fpathconf(space, fd, w_name):
+    num = confname_w(space, w_name, os.pathconf_names)
+    try:
+        return space.wrap(os.fpathconf(fd, num))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fpathconf.unwrap_spec = [ObjSpace, int, W_Root]
 
 def chown(space, path, uid, gid):
     try:

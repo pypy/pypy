@@ -517,7 +517,14 @@ class AppTestPosix:
         def test_os_sysconf_error(self):
             os = self.posix
             raises(ValueError, os.sysconf, "!@#$%!#$!@#")
-    
+
+    if hasattr(os, 'fpathconf'):
+        def test_os_fpathconf(self):
+            os = self.posix
+            assert os.fpathconf(1, "PC_PIPE_BUF") >= 128
+            raises(OSError, os.fpathconf, -1, "PC_PIPE_BUF")
+            raises(ValueError, os.fpathconf, 1, "##")
+
     if hasattr(os, 'wait'):
         def test_os_wait(self):
             os = self.posix
