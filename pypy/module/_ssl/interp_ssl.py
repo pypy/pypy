@@ -263,10 +263,10 @@ class SSLObject(Wrappable):
             # XXX PyErr_CheckSignals()
             if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(
-                    space, w_sock, False)
+                    space, self.w_socket, False)
             elif err == SSL_ERROR_WANT_WRITE:
                 sockstate = check_socket_and_wait_for_timeout(
-                    space, w_sock, True)
+                    space, self.w_socket, True)
             else:
                 sockstate = SOCKET_OPERATION_OK
             if sockstate == SOCKET_HAS_TIMED_OUT:
