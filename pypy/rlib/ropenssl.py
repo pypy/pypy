@@ -6,7 +6,8 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
-    libraries = ['libeay32', 'ssleay32', 'user32', 'advapi32', 'gdi32']
+    libraries = ['libeay32', 'ssleay32',
+                 'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
         # need of winsock2.  Remove this when separate compilation is
@@ -26,7 +27,7 @@ else:
 eci = ExternalCompilationInfo(
     libraries = libraries,
     includes = includes,
-    export_symbols = ['SSL_load_error_strings'],
+    export_symbols = [],
     )
 
 eci = rffi_platform.configure_external_library(
@@ -82,6 +83,7 @@ HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
+    eci.export_symbols += (name,)
     return rffi.llexternal(
         name, argtypes, restype, **kw)
 
@@ -110,7 +112,9 @@ ssl_external('SSL_set_connect_state', [SSL], lltype.Void)
 ssl_external('SSL_set_accept_state', [SSL], lltype.Void)
 ssl_external('SSL_connect', [SSL], rffi.INT)
 ssl_external('SSL_do_handshake', [SSL], rffi.INT)
+ssl_external('SSL_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
+ssl_external('SSL_set_read_ahead', [SSL, rffi.INT], lltype.Void)
 
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
