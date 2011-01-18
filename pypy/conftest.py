@@ -19,6 +19,8 @@ rsyncignore = ['_cache']
 # to py.test's standard options)
 #
 
+option = None
+
 def pytest_report_header():
     return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
 
