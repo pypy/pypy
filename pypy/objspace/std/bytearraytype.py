@@ -18,6 +18,7 @@ from pypy.objspace.std.stringtype import (
 from pypy.objspace.std.listtype import (
     list_append, list_extend)
 
+
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)
@@ -104,6 +105,49 @@ def descr_bytearray__reduce__(space, w_self):
             space.wrap('latin-1')]),
         w_dict])
 
+def _hex_digit_to_int(d):
+    val = ord(d)
+    if 47 < val < 58:
+        return val - 48
+    if 96 < val < 103:
+        return val - 87
+    return -1
+
+@gateway.unwrap_spec(ObjSpace, W_Root, W_Root)
+def descr_fromhex(space, w_type, w_hexstring):
+    "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
+    "from a string of hexadecimal numbers.\nSpaces between two numbers are "
+    "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
+    "bytearray(b'\\xb9\\x01\\xef')."
+    hexstring = space.str_w(w_hexstring)
+    hexstring = hexstring.lower()
+    data = []
+    length = len(hexstring)
+    i = -2
+    while True:
+        i += 2
+        while i < length and hexstring[i] == ' ':
+            i += 1
+        if i >= length:
+            break
+        if i+1 == length:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+
+        top = _hex_digit_to_int(hexstring[i])
+        if top == -1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+        bot = _hex_digit_to_int(hexstring[i+1])
+        if bot == -1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
+        data.append(chr(top*16 + bot))
+
+    # in CPython bytearray.fromhex is a staticmethod, so
+    # we ignore w_type and always return a bytearray
+    return new_bytearray(space, space.w_bytearray, data)
+
 # ____________________________________________________________
 
 bytearray_typedef = StdTypeDef("bytearray",
@@ -114,5 +158,6 @@ If the argument is a bytearray, the return value is the same object.''',
     __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     __reduce__ = gateway.interp2app(descr_bytearray__reduce__),
+    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
     )
 bytearray_typedef.registermethods(globals())

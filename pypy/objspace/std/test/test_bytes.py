@@ -190,6 +190,26 @@ class AppTestBytesArray:
         assert b == 'abcdef'
         assert isinstance(b, bytearray)
 
+    def test_fromhex(self):
+        raises(TypeError, bytearray.fromhex, 9)
+
+        assert bytearray.fromhex('') == bytearray()
+        assert bytearray.fromhex(u'') == bytearray()
+
+        b = bytearray([0x1a, 0x2b, 0x30])
+        assert bytearray.fromhex('1a2B30') == b
+        assert bytearray.fromhex(u'1a2B30') == b
+        assert bytearray.fromhex(u'  1A 2B  30   ') == b
+        assert bytearray.fromhex(u'0000') == '\0\0'
+
+        raises(ValueError, bytearray.fromhex, u'a')
+        raises(ValueError, bytearray.fromhex, u'A')
+        raises(ValueError, bytearray.fromhex, u'rt')
+        raises(ValueError, bytearray.fromhex, u'1a b cd')
+        raises(ValueError, bytearray.fromhex, u'\x00')
+        raises(ValueError, bytearray.fromhex, u'12   \x00   34')
+        raises(UnicodeEncodeError, bytearray.fromhex, u'\u1234')
+
     def test_extend(self):
         b = bytearray('abc')
         b.extend(bytearray('def'))
@@ -229,12 +249,16 @@ class AppTestBytesArray:
             b[::2] = 'foo'
         raises(ValueError, set_wrong_size)
 
-    def test_delslice(self):
+    def test_delitem_slice(self):
         b = bytearray('abcdefghi')
         del b[5:8]
         assert b == 'abcdei'
         del b[:3]
         assert b == 'dei'
+
+        b = bytearray('hello world')
+        del b[::2]
+        assert b == bytearray('el ol')
 
     def test_setitem(self):
         b = bytearray('abcdefghi')
