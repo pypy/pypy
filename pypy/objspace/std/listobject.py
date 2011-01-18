@@ -93,7 +93,10 @@ def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
 def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
     length = len(w_list.wrappeditems)
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _setitem_slice_helper(space, w_list, start, 1, stop-start, w_sequence)
+
+    sequence2 = space.listview(w_sequence)
+    items = w_list.wrappeditems
+    _setitem_slice_helper(space, items, start, 1, stop-start, sequence2)
 
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = len(w_list.wrappeditems)
@@ -259,12 +262,13 @@ def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
     oldsize = len(w_list.wrappeditems)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable)
 
-def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
     sequence2 = space.listview(w_iterable)
-    assert slicelength >= 0
     items = w_list.wrappeditems
+    _setitem_slice_helper(space, items, start, step, slicelength, sequence2)
+
+def _setitem_slice_helper(space, items, start, step, slicelength, sequence2):
+    assert slicelength >= 0
     oldsize = len(items)
     len2 = len(sequence2)
     if step == 1:  # Support list resizing for non-extended slices
