@@ -1,7 +1,7 @@
 import py, sys
+import pytest
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
 from pypy.rpython.lltypesystem import llmemory
-from pypy.jit.backend import conftest as demo_conftest
 from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
 from pypy.jit.metainterp.history import BoxInt, ConstInt, LoopToken
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr
@@ -136,8 +136,8 @@ class OperationBuilder(object):
                 #if getattr(op, 'suboperations', None) is not None:
                 #    print_loop_prebuilt(op.suboperations)
 
-        if demo_conftest.option.output:
-            s = open(demo_conftest.option.output, "w")
+        if pytest.config.option.output:
+            s = open(pytest.config.option.output, "w")
         else:
             s = sys.stdout
         names = {None: 'None'}
@@ -200,7 +200,7 @@ class OperationBuilder(object):
                 print >>s, ('    assert cpu.get_latest_value_int(%d) == %d'
                             % (i, v.value))
         self.names = names
-        if demo_conftest.option.output:
+        if pytest.config.option.output:
             s.close()
 
 class CannotProduceOperation(Exception):
@@ -453,7 +453,7 @@ OperationBuilder.OPERATIONS = OPERATIONS
 
 def Random():
     import random
-    seed = demo_conftest.option.randomseed
+    seed = pytest.config.option.randomseed
     print
     print 'Random seed value is %d.' % (seed,)
     print
@@ -486,14 +486,14 @@ def Random():
     return r
 
 def get_cpu():
-    if demo_conftest.option.backend == 'llgraph':
+    if pytest.config.option.backend == 'llgraph':
         from pypy.jit.backend.llgraph.runner import LLtypeCPU
         return LLtypeCPU(None)
-    elif demo_conftest.option.backend == 'x86':
+    elif pytest.config.option.backend == 'x86':
         from pypy.jit.backend.x86.runner import CPU386
         return CPU386(None, None)
     else:
-        assert 0, "unknown backend %r" % demo_conftest.option.backend
+        assert 0, "unknown backend %r" % pytest.config.option.backend
 
 # ____________________________________________________________    
 
@@ -510,11 +510,11 @@ class RandomLoop(object):
                 # have a lot of them
                 k = r.random()
                 # but make sure there is at least one BoxInt
-                at_least_once = r.randrange(0, demo_conftest.option.n_vars)
+                at_least_once = r.randrange(0, pytest.config.option.n_vars)
             else:
                 k = -1
                 at_least_once = 0
-            for i in range(demo_conftest.option.n_vars):
+            for i in range(pytest.config.option.n_vars):
                 if r.random() < k and i != at_least_once:
                     startvars.append(BoxFloat(r.random_float()))
                 else:
@@ -539,7 +539,7 @@ class RandomLoop(object):
         cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
 
     def generate_ops(self, builder, r, loop, startvars):
-        block_length = demo_conftest.option.block_length
+        block_length = pytest.config.option.block_length
 
         for i in range(block_length):
             try:
@@ -572,7 +572,7 @@ class RandomLoop(object):
         self.expected = {}
         for v in endvars:
             self.expected[v] = v.value
-        if demo_conftest.option.output:
+        if pytest.config.option.output:
             builder.print_loop()
 
     def get_fail_args(self):
@@ -711,10 +711,10 @@ def check_random_function(cpu, BuilderClass, r, num=None, max=None):
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
     cpu = get_cpu()
-    if demo_conftest.option.repeat == -1:
+    if pytest.config.option.repeat == -1:
         while 1:
             check_random_function(cpu, BuilderClass, r)
     else:
-        for i in range(demo_conftest.option.repeat):
+        for i in range(pytest.config.option.repeat):
             check_random_function(cpu, BuilderClass, r, i,
-                                  demo_conftest.option.repeat)
+                                  pytest.config.option.repeat)
