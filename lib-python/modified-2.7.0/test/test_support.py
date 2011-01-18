@@ -1073,6 +1073,27 @@ def _run_suite(suite):
                 err += "; run in verbose mode for details"
         raise TestFailed(err)
 
+def filter_maybe(suite):
+    try:
+        i = sys.argv.index('--filter')
+        filter = sys.argv[i+1]
+    except (ValueError, IndexError):
+        return suite
+    tests = []
+    for test in linearize_suite(suite):
+        if filter in test._testMethodName:
+            tests.append(test)
+    return unittest.TestSuite(tests)
+
+def linearize_suite(suite_or_test):
+    try:
+        it = iter(suite_or_test)
+    except TypeError:
+        yield suite_or_test
+        return
+    for subsuite in it:
+        for item in linearize_suite(subsuite):
+            yield item
 
 def run_unittest(*classes):
     """Run tests from unittest.TestCase-derived classes."""
@@ -1088,6 +1109,7 @@ def run_unittest(*classes):
             suite.addTest(cls)
         else:
             suite.addTest(unittest.makeSuite(cls))
+    suite = filter_maybe(suite)
     _run_suite(suite)
 
 
