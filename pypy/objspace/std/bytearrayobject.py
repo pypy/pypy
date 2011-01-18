@@ -5,6 +5,7 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.debug import check_annotation
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import _delitem_slice_helper, _setitem_slice_helper
 from pypy.objspace.std.listtype import get_list_index
@@ -18,11 +19,17 @@ from pypy.objspace.std.bytearraytype import makebytearraydata_w
 from pypy.tool.sourcetools import func_with_new_name
 
 
+def bytearray_checker(s_arg, bookkeeper):
+    from pypy.annotation.model import SomeList, SomeChar, SomeImpossibleValue
+    assert isinstance(s_arg, SomeList)
+    assert isinstance(s_arg.listdef.listitem.s_value, (SomeChar, SomeImpossibleValue))
+
 class W_BytearrayObject(W_Object):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
 
     def __init__(w_self, data):
         w_self.data = data
+        check_annotation(w_self.data, bytearray_checker)
 
     def __repr__(w_self):
         """ representation for debugging purposes """
