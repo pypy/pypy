@@ -172,6 +172,62 @@ class AppTestBytesArray:
         b.append(ord('e'))
         assert b == 'abcde'
 
+    def test_insert(self):
+        b = bytearray('abc')
+        b.insert(0, 'd')
+        assert b == bytearray('dabc')
+
+        b.insert(-1, ord('e'))
+        assert b == bytearray('dabec')
+
+        b.insert(6, 'f')
+        assert b == bytearray('dabecf')
+
+        b.insert(1, 'g')
+        assert b == bytearray('dgabecf')
+
+        b.insert(-12, 'h')
+        assert b == bytearray('hdgabecf')
+
+        raises(ValueError, b.insert, 1, 'go')
+        raises(TypeError, b.insert, 'g', 'o')
+
+    def test_pop(self):
+        b = bytearray('world')
+        assert b.pop() == ord('d')
+        assert b.pop(0) == ord('w')
+        assert b.pop(-2) == ord('r')
+        raises(IndexError, b.pop, 10)
+        raises(OverflowError, bytearray().pop)
+        assert bytearray(b'\xff').pop() == 0xff
+
+    def test_remove(self):
+        class Indexable:
+            def __index__(self):
+                return ord('e')
+
+        b = bytearray(b'hello')
+        b.remove(ord('l'))
+        assert b == 'helo'
+        b.remove(ord('l'))
+        assert b == 'heo'
+        raises(ValueError, b.remove, ord('l'))
+        raises(ValueError, b.remove, 400)
+        raises(TypeError, b.remove, u'e')
+        raises(TypeError, b.remove, 2.3)
+        # remove first and last
+        b.remove(ord('o'))
+        b.remove(ord('h'))
+        assert b == 'e'
+        raises(TypeError, b.remove, u'e')
+        b.remove(Indexable())
+        assert b == ''
+
+    def test_reverse(self):
+        b = bytearray('hello')
+        b.reverse()
+        assert b == bytearray('olleh')
+
     def test_delitem(self):
         b = bytearray('abc')
         del b[1]

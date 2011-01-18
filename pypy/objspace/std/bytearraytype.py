@@ -19,6 +19,24 @@ from pypy.objspace.std.listtype import (
     list_append, list_extend)
 
 
+bytearray_insert  = SMM('insert', 3,
+                    doc="B.insert(index, int) -> None\n\n"
+                    "Insert a single item into the bytearray before "
+                    "the given index.")
+
+bytearray_pop  = SMM('pop', 2, defaults=(-1,),
+                    doc="B.pop([index]) -> int\n\nRemove and return a "
+                    "single item from B. If no index\nargument is given, "
+                    "will pop the last value.")
+
+bytearray_remove  = SMM('remove', 2,
+                    doc="B.remove(int) -> None\n\n"
+                    "Remove the first occurance of a value in B.")
+
+bytearray_reverse  = SMM('reverse', 1,
+                    doc="B.reverse() -> None\n\n"
+                    "Reverse the order of the values in B in place.")
+
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)
