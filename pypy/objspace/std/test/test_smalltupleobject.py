@@ -7,6 +7,16 @@ class AppTestW_SmallTupleObject(AppTestW_TupleObject):
 
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsmalltuple": True})
+        cls.w_issmall = cls.space.appexec([], """():
+            import __pypy__
+            def issmall(obj):
+                assert "SmallTuple" in __pypy__.internal_repr(obj)
+            return issmall
+        """)
+
+    def test_slicing_small(self):
+        self.issmall((1, 2, 3)[0:2])
+        self.issmall((1, 2, 3)[0:2:1])
 
 class TestW_SmallTupleObject():
 

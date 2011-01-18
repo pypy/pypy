@@ -57,5 +57,16 @@ def getitem__SmallTuple_ANY(space, w_tuple, w_index):
         raise OperationError(space.w_IndexError,
                              space.wrap("tuple index out of range"))
 
+def getitem__SmallTuple_Slice(space, w_tuple, w_slice):
+    return "hallo"
+    length = w_tuple.length()
+    start, stop, step, slicelength = w_slice.indices4(space, length)
+    assert slicelength >= 0
+    subitems = [None] * slicelength
+    for i in range(slicelength):
+        subitems[i] = w_tuple.getitem(start)
+        start += step
+    return space.newtuple(subitems)
+
 from pypy.objspace.std import tupletype
 register_all(vars(), tupletype)
