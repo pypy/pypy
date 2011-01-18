@@ -824,7 +824,7 @@ class __extend__(pairtype(SomePBC, SomeObject)):
             raise AnnotatorError("getitem on %r" % pbc)
         return s_ImpossibleValue
 
-    def setitem((pbc, o, s_v)):
+    def setitem((pbc, o), s_value):
         if not pbc.isNone():
             raise AnnotatorError("setitem on %r" % pbc)
 
