@@ -38,7 +38,7 @@ class Hashable(object):
     key in dictionaries.  This is based on id() for mutable objects and on
     real hash/compare for immutable ones.
     """
-    __slots__ = ["_key", "value"]
+    __slots__ = ["key", "value"]
     
     def __init__(self, value):
         self.value = value     # a concrete value
@@ -49,25 +49,23 @@ class Hashable(object):
         # translating the cmath module)
         if key[0] is float and not self.value:
             from pypy.rlib.rarithmetic import copysign
-            if copysign(1., self.value) == 1.:    # +0.0
-                key = (float, "+0.0")
-            else:
+            if copysign(1., self.value) == -1.:    # -0.0
                 key = (float, "-0.0")
         #
         try:
             hash(key)
         except TypeError:
             key = id(self.value)
-        self._key = key
+        self.key = key
 
     def __eq__(self, other):
-        return self.__class__ is other.__class__ and self._key == other._key
+        return self.__class__ is other.__class__ and self.key == other.key
 
     def __ne__(self, other):
         return not (self == other)
 
     def __hash__(self):
-        return hash(self._key)
+        return hash(self.key)
 
     def __repr__(self):
         return '(%s)' % (self,)
