@@ -5,9 +5,9 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
 def wraptuple(space, list_w):
     from pypy.objspace.std.tupleobject import W_TupleObject
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject
+    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject2
     if space.config.objspace.std.withsmalltuple and len(list_w) == 2:
-        return W_SmallTupleObject(list_w[0], list_w[1])
+        return W_SmallTupleObject2(list_w[0], list_w[1])
     else:
         return W_TupleObject(list_w)
 

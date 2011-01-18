@@ -13,9 +13,17 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 class W_SmallTupleObject(W_Object):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
 
+    def tolist(self):
+        raise NotImplementedError
+
+class W_SmallTupleObject2(W_SmallTupleObject):
+
     def __init__(self, w_value01, w_value02):
         self.w_value01 = w_value01
         self.w_value02 = w_value02
+
+    def tolist(self):
+        return [self.w_value01, self.w_value02]
 
 registerimplementation(W_SmallTupleObject)
 
