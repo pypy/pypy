@@ -16,6 +16,9 @@ class W_SmallTupleObject(W_Object):
     def tolist(self):
         raise NotImplementedError
 
+    def length(self):
+        raise NotImplementedError
+
 class W_SmallTupleObject2(W_SmallTupleObject):
 
     def __init__(self, w_value01, w_value02):
@@ -25,10 +28,34 @@ class W_SmallTupleObject2(W_SmallTupleObject):
     def tolist(self):
         return [self.w_value01, self.w_value02]
 
+    def length(self):
+        return 2
+
+    def getitem(self, index):
+        if index == 0:
+            return self.w_value01
+        elif index == 1:
+            return self.w_value02
+        else:
+            raise IndexError
+
 registerimplementation(W_SmallTupleObject)
 
 def delegate_SmallTuple2Tuple(space, w_small):
     return W_TupleObject([w_small.w_value01, w_small.w_value02])
+
+def len__SmallTuple(space, w_tuple):
+    return space.wrap(w_tuple.length())
+
+def getitem__SmallTuple_ANY(space, w_tuple, w_index):
+    index = space.getindex_w(w_index, space.w_IndexError, "tuple index")
+    if index < 0:
+        index += w_tuple.length()
+    try:
+        return w_tuple.getitem(index)
+    except IndexError:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("tuple index out of range"))
 
 from pypy.objspace.std import tupletype
 register_all(vars(), tupletype)
