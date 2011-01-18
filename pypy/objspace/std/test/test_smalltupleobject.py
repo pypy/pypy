@@ -24,6 +24,9 @@ class AppTestW_SmallTupleObject(AppTestW_TupleObject):
     def test_multiply_to_small(self):
         self.issmall((1,)*2)
 
+    def test_slicing_from_small(self):
+        assert (1,2)[0:1:1] == (1,)
+
 class TestW_SmallTupleObject():
 
     def setup_class(cls):

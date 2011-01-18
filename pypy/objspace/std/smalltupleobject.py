@@ -58,7 +58,6 @@ def getitem__SmallTuple_ANY(space, w_tuple, w_index):
                              space.wrap("tuple index out of range"))
 
 def getitem__SmallTuple_Slice(space, w_tuple, w_slice):
-    return "hallo"
     length = w_tuple.length()
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
