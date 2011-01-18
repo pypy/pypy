@@ -435,3 +435,13 @@ class TestFunctions(BaseCTypesTestChecker):
         a[1].x = 33
         u = dll.ret_un_func(a[1])
         assert u.y == 33*10000
+
+    def test_cache_funcptr(self):
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        assert tf_b(-126) == -42
+        ptr = tf_b._ptr
+        assert ptr is not None
+        assert tf_b(-126) == -42
+        assert tf_b._ptr is ptr

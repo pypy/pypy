@@ -68,7 +68,7 @@ class CFuncPtr(_CData):
                     raise TypeError(
                         "item %d in _argtypes_ has no from_param method" % (
                             i + 1,))
-            self._argtypes_ = argtypes
+            self._argtypes_ = list(argtypes)
     argtypes = property(_getargtypes, _setargtypes)
 
     def _getrestype(self):
@@ -265,7 +265,7 @@ class CFuncPtr(_CData):
         return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
-        if self._ptr is not None and argtypes is self._argtypes_:
+        if self._ptr is not None and argtypes == self._argtypes_:
             return self._ptr
         if restype is None or not isinstance(restype, _CDataMeta):
             import ctypes
@@ -274,7 +274,7 @@ class CFuncPtr(_CData):
         resshape = restype._ffiargshape
         if self._buffer is not None:
             ptr = self._getfuncptr_fromaddress(argshapes, resshape)
-            if argtypes is self._argtypes_:
+            if argtypes == self._argtypes_:
                 self._ptr = ptr
             return ptr
 
