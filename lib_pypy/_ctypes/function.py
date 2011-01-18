@@ -243,7 +243,7 @@ class CFuncPtr(_CData):
                 set_errno(_rawffi.get_errno())
             if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
                 set_last_error(_rawffi.get_last_error())
-        result = self._build_result(restype, result, argtypes, newargs)
+        result = self._build_result(restype, result, newargs)
 
         # The 'errcheck' protocol
         if self._errcheck_:
@@ -434,7 +434,7 @@ class CFuncPtr(_CData):
         retval = restype._CData_retval(buf)
         return retval
 
-    def _build_result(self, restype, result, argtypes, argsandobjs):
+    def _build_result(self, restype, result, argsandobjs):
         """Build the function result:
            If there is no OUT parameter, return the actual function result
            If there is one OUT parameter, return it
@@ -474,8 +474,7 @@ class CFuncPtr(_CData):
 
         results = []
         if self._paramflags:
-            for argtype, obj, paramflag in zip(argtypes[1:], argsandobjs[1:],
-                                               self._paramflags):
+            for obj, paramflag in zip(argsandobjs[1:], self._paramflags):
                 if len(paramflag) == 2:
                     idlflag, name = paramflag
                 elif len(paramflag) == 3:
