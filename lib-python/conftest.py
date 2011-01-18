@@ -36,7 +36,9 @@ def pytest_addoption(parser):
     group.addoption('--pypy', action="store", type="string",
        dest="pypy",  help="use given pypy executable to run lib-python tests. "
                           "This will run the tests directly (i.e. not through py.py)")
-   
+    group.addoption('--filter', action="store", type="string", default=None,
+                    dest="unittest_filter",  help="Similar to -k, XXX")
+
 option = py.test.config.option 
 
 def gettimeout(): 
@@ -687,7 +689,14 @@ class ReallyRunFileExternal(py.test.collect.Item):
             else:
                 status = 'abnormal termination 0x%x' % status
         else:
-            status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
+            if self.config.option.unittest_filter is not None:
+                cmd += ' --filter %s' % self.config.option.unittest_filter
+            if self.config.option.usepdb:
+                cmd += ' --pdb'
+            if self.config.option.capture == 'no':
+                status = os.system(cmd)
+            else:
+                status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
             if os.WIFEXITED(status):
                 status = os.WEXITSTATUS(status)
             else:
