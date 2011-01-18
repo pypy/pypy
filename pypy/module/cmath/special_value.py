@@ -43,6 +43,8 @@ P34 = 0.75 * math.pi
 INF = 1e200 * 1e200
 N   = INF / INF
 U   = -9.5426319407711027e33   # unlikely value, used as placeholder
+Z   = 0.0    # defined here instead of in the tuples below, because of a bug
+             # in pypy releases < 1.5
 NAN = N
 
 def build_table(lst):
@@ -58,111 +60,113 @@ def build_table(lst):
     return table
 
 acos_special_values = build_table([
-    (P34,INF), (P,INF),  (P,INF),  (P,-INF),  (P,-INF),  (P34,-INF), (N,INF),
-    (P12,INF), (U,U),    (U,U),    (U,U),     (U,U),     (P12,-INF), (N,N),
-    (P12,INF), (U,U),    (P12,0.), (P12,-0.), (U,U),     (P12,-INF), (P12,N),
-    (P12,INF), (U,U),    (P12,0.), (P12,-0.), (U,U),     (P12,-INF), (P12,N),
-    (P12,INF), (U,U),    (U,U),    (U,U),     (U,U),     (P12,-INF), (N,N),
-    (P14,INF), (0.,INF), (0.,INF), (0.,-INF), (0.,-INF), (P14,-INF), (N,INF),
-    (N,INF),   (N,N),    (N,N),    (N,N),     (N,N),     (N,-INF),   (N,N),
+    (P34,INF), (P,INF), (P,INF), (P,-INF), (P,-INF), (P34,-INF), (N,INF),
+    (P12,INF), (U,U),   (U,U),   (U,U),    (U,U),    (P12,-INF), (N,N),
+    (P12,INF), (U,U),   (P12,Z), (P12,-Z), (U,U),    (P12,-INF), (P12,N),
+    (P12,INF), (U,U),   (P12,Z), (P12,-Z), (U,U),    (P12,-INF), (P12,N),
+    (P12,INF), (U,U),   (U,U),   (U,U),    (U,U),    (P12,-INF), (N,N),
+    (P14,INF), (Z,INF), (Z,INF), (Z,-INF), (Z,-INF), (P14,-INF), (N,INF),
+    (N,INF),   (N,N),   (N,N),   (N,N),    (N,N),    (N,-INF),   (N,N),
     ])
 
 acosh_special_values = build_table([
-    (INF,-P34), (INF,-P),  (INF,-P),  (INF,P),  (INF,P),  (INF,P34), (INF,N),
-    (INF,-P12), (U,U),     (U,U),     (U,U),    (U,U),    (INF,P12), (N,N),
-    (INF,-P12), (U,U),     (0.,-P12), (0.,P12), (U,U),    (INF,P12), (N,N),
-    (INF,-P12), (U,U),     (0.,-P12), (0.,P12), (U,U),    (INF,P12), (N,N),
-    (INF,-P12), (U,U),     (U,U),     (U,U),    (U,U),    (INF,P12), (N,N),
-    (INF,-P14), (INF,-0.), (INF,-0.), (INF,0.), (INF,0.), (INF,P14), (INF,N),
-    (INF,N),    (N,N),     (N,N),     (N,N),    (N,N),    (INF,N),   (N,N),
+    (INF,-P34), (INF,-P), (INF,-P), (INF,P), (INF,P), (INF,P34), (INF,N),
+    (INF,-P12), (U,U),    (U,U),    (U,U),   (U,U),   (INF,P12), (N,N),
+    (INF,-P12), (U,U),    (Z,-P12), (Z,P12), (U,U),   (INF,P12), (N,N),
+    (INF,-P12), (U,U),    (Z,-P12), (Z,P12), (U,U),   (INF,P12), (N,N),
+    (INF,-P12), (U,U),    (U,U),    (U,U),   (U,U),   (INF,P12), (N,N),
+    (INF,-P14), (INF,-Z), (INF,-Z), (INF,Z), (INF,Z), (INF,P14), (INF,N),
+    (INF,N),    (N,N),    (N,N),    (N,N),   (N,N),   (INF,N),   (N,N),
     ])
 
 asinh_special_values = build_table([
-    (-INF,-P14),(-INF,-0.),(-INF,-0.),(-INF,0.),(-INF,0.),(-INF,P14),(-INF,N),
-    (-INF,-P12),(U,U),     (U,U),     (U,U),    (U,U),    (-INF,P12),(N,N),
-    (-INF,-P12),(U,U),     (-0.,-0.), (-0.,0.), (U,U),    (-INF,P12),(N,N),
-    (INF,-P12), (U,U),     (0.,-0.),  (0.,0.),  (U,U),    (INF,P12), (N,N),
-    (INF,-P12), (U,U),     (U,U),     (U,U),    (U,U),    (INF,P12), (N,N),
-    (INF,-P14), (INF,-0.), (INF,-0.), (INF,0.), (INF,0.), (INF,P14), (INF,N),
-    (INF,N),    (N,N),     (N,-0.),   (N,0.),   (N,N),    (INF,N),   (N,N),
+    (-INF,-P14), (-INF,-Z), (-INF,-Z),(-INF,Z), (-INF,Z), (-INF,P14), (-INF,N),
+    (-INF,-P12), (U,U),     (U,U),    (U,U),    (U,U),    (-INF,P12), (N,N),
+    (-INF,-P12), (U,U),     (-Z,-Z),  (-Z,Z),   (U,U),    (-INF,P12), (N,N),
+    (INF,-P12),  (U,U),     (Z,-Z),   (Z,Z),    (U,U),    (INF,P12),  (N,N),
+    (INF,-P12),  (U,U),     (U,U),    (U,U),    (U,U),    (INF,P12),  (N,N),
+    (INF,-P14),  (INF,-Z),  (INF,-Z), (INF,Z),  (INF,Z),  (INF,P14),  (INF,N),
+    (INF,N),     (N,N),     (N,-Z),   (N,Z),    (N,N),    (INF,N),    (N,N),
     ])
 
 atanh_special_values = build_table([
-    (-0.,-P12),(-0.,-P12),(-0.,-P12),(-0.,P12),(-0.,P12),(-0.,P12),(-0.,N),
-    (-0.,-P12),(U,U),     (U,U),     (U,U),    (U,U),    (-0.,P12),(N,N),
-    (-0.,-P12),(U,U),     (-0.,-0.), (-0.,0.), (U,U),    (-0.,P12),(-0.,N),
-    (0.,-P12), (U,U),     (0.,-0.),  (0.,0.),  (U,U),    (0.,P12), (0.,N),
-    (0.,-P12), (U,U),     (U,U),     (U,U),    (U,U),    (0.,P12), (N,N),
-    (0.,-P12), (0.,-P12), (0.,-P12), (0.,P12), (0.,P12), (0.,P12), (0.,N),
-    (0.,-P12), (N,N),     (N,N),     (N,N),    (N,N),    (0.,P12), (N,N),
+    (-Z,-P12), (-Z,-P12), (-Z,-P12), (-Z,P12), (-Z,P12), (-Z,P12), (-Z,N),
+    (-Z,-P12), (U,U),     (U,U),     (U,U),    (U,U),    (-Z,P12), (N,N),
+    (-Z,-P12), (U,U),     (-Z,-Z),   (-Z,Z),   (U,U),    (-Z,P12), (-Z,N),
+    (Z,-P12),  (U,U),     (Z,-Z),    (Z,Z),    (U,U),    (Z,P12),  (Z,N),
+    (Z,-P12),  (U,U),     (U,U),     (U,U),    (U,U),    (Z,P12),  (N,N),
+    (Z,-P12),  (Z,-P12),  (Z,-P12),  (Z,P12),  (Z,P12),  (Z,P12),  (Z,N),
+    (Z,-P12),  (N,N),     (N,N),     (N,N),    (N,N),    (Z,P12),  (N,N),
     ])
 
 log_special_values = build_table([
-    (INF,-P34), (INF,-P),  (INF,-P),   (INF,P),   (INF,P),  (INF,P34), (INF,N),
-    (INF,-P12), (U,U),     (U,U),      (U,U),     (U,U),    (INF,P12), (N,N),
-    (INF,-P12), (U,U),     (-INF,-P),  (-INF,P),  (U,U),    (INF,P12), (N,N),
-    (INF,-P12), (U,U),     (-INF,-0.), (-INF,0.), (U,U),    (INF,P12), (N,N),
-    (INF,-P12), (U,U),     (U,U),      (U,U),     (U,U),    (INF,P12), (N,N),
-    (INF,-P14), (INF,-0.), (INF,-0.),  (INF,0.),  (INF,0.), (INF,P14), (INF,N),
-    (INF,N),    (N,N),     (N,N),      (N,N),     (N,N),    (INF,N),   (N,N),
+    (INF,-P34), (INF,-P), (INF,-P),  (INF,P),  (INF,P), (INF,P34), (INF,N),
+    (INF,-P12), (U,U),    (U,U),     (U,U),    (U,U),   (INF,P12), (N,N),
+    (INF,-P12), (U,U),    (-INF,-P), (-INF,P), (U,U),   (INF,P12), (N,N),
+    (INF,-P12), (U,U),    (-INF,-Z), (-INF,Z), (U,U),   (INF,P12), (N,N),
+    (INF,-P12), (U,U),    (U,U),     (U,U),    (U,U),   (INF,P12), (N,N),
+    (INF,-P14), (INF,-Z), (INF,-Z),  (INF,Z),  (INF,Z), (INF,P14), (INF,N),
+    (INF,N),    (N,N),    (N,N),     (N,N),    (N,N),   (INF,N),   (N,N),
     ])
 
 sqrt_special_values = build_table([
-    (INF,-INF), (0.,-INF), (0.,-INF), (0.,INF), (0.,INF), (INF,INF), (N,INF),
-    (INF,-INF), (U,U),     (U,U),     (U,U),    (U,U),    (INF,INF), (N,N),
-    (INF,-INF), (U,U),     (0.,-0.),  (0.,0.),  (U,U),    (INF,INF), (N,N),
-    (INF,-INF), (U,U),     (0.,-0.),  (0.,0.),  (U,U),    (INF,INF), (N,N),
-    (INF,-INF), (U,U),     (U,U),     (U,U),    (U,U),    (INF,INF), (N,N),
-    (INF,-INF), (INF,-0.), (INF,-0.), (INF,0.), (INF,0.), (INF,INF), (INF,N),
-    (INF,-INF), (N,N),     (N,N),     (N,N),    (N,N),    (INF,INF), (N,N),
+    (INF,-INF), (Z,-INF), (Z,-INF), (Z,INF), (Z,INF), (INF,INF), (N,INF),
+    (INF,-INF), (U,U),    (U,U),    (U,U),   (U,U),   (INF,INF), (N,N),
+    (INF,-INF), (U,U),    (Z,-Z),   (Z,Z),   (U,U),   (INF,INF), (N,N),
+    (INF,-INF), (U,U),    (Z,-Z),   (Z,Z),   (U,U),   (INF,INF), (N,N),
+    (INF,-INF), (U,U),    (U,U),    (U,U),   (U,U),   (INF,INF), (N,N),
+    (INF,-INF), (INF,-Z), (INF,-Z), (INF,Z), (INF,Z), (INF,INF), (INF,N),
+    (INF,-INF), (N,N),    (N,N),    (N,N),   (N,N),   (INF,INF), (N,N),
     ])
 
 exp_special_values = build_table([
-    (0.,0.), (U,U), (0.,-0.),  (0.,0.),  (U,U), (0.,0.), (0.,0.),
-    (N,N),   (U,U), (U,U),     (U,U),    (U,U), (N,N),   (N,N),
-    (N,N),   (U,U), (1.,-0.),  (1.,0.),  (U,U), (N,N),   (N,N),
-    (N,N),   (U,U), (1.,-0.),  (1.,0.),  (U,U), (N,N),   (N,N),
-    (N,N),   (U,U), (U,U),     (U,U),    (U,U), (N,N),   (N,N),
-    (INF,N), (U,U), (INF,-0.), (INF,0.), (U,U), (INF,N), (INF,N),
-    (N,N),   (N,N), (N,-0.),   (N,0.),   (N,N), (N,N),   (N,N),
+    (Z,Z),   (U,U), (Z,-Z),   (Z,Z),   (U,U), (Z,Z),   (Z,Z),
+    (N,N),   (U,U), (U,U),    (U,U),   (U,U), (N,N),   (N,N),
+    (N,N),   (U,U), (1.,-Z),  (1.,Z),  (U,U), (N,N),   (N,N),
+    (N,N),   (U,U), (1.,-Z),  (1.,Z),  (U,U), (N,N),   (N,N),
+    (N,N),   (U,U), (U,U),    (U,U),   (U,U), (N,N),   (N,N),
+    (INF,N), (U,U), (INF,-Z), (INF,Z), (U,U), (INF,N), (INF,N),
+    (N,N),   (N,N), (N,-Z),   (N,Z),   (N,N), (N,N),   (N,N),
     ])
 
 cosh_special_values = build_table([
-    (INF,N), (U,U), (INF,0.),  (INF,-0.), (U,U), (INF,N), (INF,N),
-    (N,N),   (U,U), (U,U),     (U,U),     (U,U), (N,N),   (N,N),
-    (N,0.),  (U,U), (1.,0.),   (1.,-0.),  (U,U), (N,0.),  (N,0.),
-    (N,0.),  (U,U), (1.,-0.),  (1.,0.),   (U,U), (N,0.),  (N,0.),
-    (N,N),   (U,U), (U,U),     (U,U),     (U,U), (N,N),   (N,N),
-    (INF,N), (U,U), (INF,-0.), (INF,0.),  (U,U), (INF,N), (INF,N),
-    (N,N),   (N,N), (N,0.),    (N,0.),    (N,N), (N,N),   (N,N),
+    (INF,N), (U,U), (INF,Z),  (INF,-Z), (U,U), (INF,N), (INF,N),
+    (N,N),   (U,U), (U,U),    (U,U),    (U,U), (N,N),   (N,N),
+    (N,Z),   (U,U), (1.,Z),   (1.,-Z),  (U,U), (N,Z),   (N,Z),
+    (N,Z),   (U,U), (1.,-Z),  (1.,Z),   (U,U), (N,Z),   (N,Z),
+    (N,N),   (U,U), (U,U),    (U,U),    (U,U), (N,N),   (N,N),
+    (INF,N), (U,U), (INF,-Z), (INF,Z),  (U,U), (INF,N), (INF,N),
+    (N,N),   (N,N), (N,Z),    (N,Z),    (N,N), (N,N),   (N,N),
     ])
 
 sinh_special_values = build_table([
-    (INF,N), (U,U), (-INF,-0.), (-INF,0.), (U,U), (INF,N), (INF,N),
-    (N,N),   (U,U), (U,U),      (U,U),     (U,U), (N,N),   (N,N),
-    (0.,N),  (U,U), (-0.,-0.),  (-0.,0.),  (U,U), (0.,N),  (0.,N),
-    (0.,N),  (U,U), (0.,-0.),   (0.,0.),   (U,U), (0.,N),  (0.,N),
-    (N,N),   (U,U), (U,U),      (U,U),     (U,U), (N,N),   (N,N),
-    (INF,N), (U,U), (INF,-0.),  (INF,0.),  (U,U), (INF,N), (INF,N),
-    (N,N),   (N,N), (N,-0.),    (N,0.),    (N,N), (N,N),   (N,N),
+    (INF,N), (U,U), (-INF,-Z), (-INF,Z), (U,U), (INF,N), (INF,N),
+    (N,N),   (U,U), (U,U),     (U,U),    (U,U), (N,N),   (N,N),
+    (Z,N),   (U,U), (-Z,-Z),   (-Z,Z),   (U,U), (Z,N),   (Z,N),
+    (Z,N),   (U,U), (Z,-Z),    (Z,Z),    (U,U), (Z,N),   (Z,N),
+    (N,N),   (U,U), (U,U),     (U,U),    (U,U), (N,N),   (N,N),
+    (INF,N), (U,U), (INF,-Z),  (INF,Z),  (U,U), (INF,N), (INF,N),
+    (N,N),   (N,N), (N,-Z),    (N,Z),    (N,N), (N,N),   (N,N),
     ])
 
 tanh_special_values = build_table([
-    (-1.,0.), (U,U), (-1.,-0.), (-1.,0.), (U,U), (-1.,0.), (-1.,0.),
-    (N,N),    (U,U), (U,U),     (U,U),    (U,U), (N,N),    (N,N),
-    (N,N),    (U,U), (-0.,-0.), (-0.,0.), (U,U), (N,N),    (N,N),
-    (N,N),    (U,U), (0.,-0.),  (0.,0.),  (U,U), (N,N),    (N,N),
-    (N,N),    (U,U), (U,U),     (U,U),    (U,U), (N,N),    (N,N),
-    (1.,0.),  (U,U), (1.,-0.),  (1.,0.),  (U,U), (1.,0.),  (1.,0.),
-    (N,N),    (N,N), (N,-0.),   (N,0.),   (N,N), (N,N),    (N,N),
+    (-1.,Z), (U,U), (-1.,-Z), (-1.,Z), (U,U), (-1.,Z), (-1.,Z),
+    (N,N),   (U,U), (U,U),    (U,U),   (U,U), (N,N),   (N,N),
+    (N,N),   (U,U), (-Z,-Z),  (-Z,Z),  (U,U), (N,N),   (N,N),
+    (N,N),   (U,U), (Z,-Z),   (Z,Z),   (U,U), (N,N),   (N,N),
+    (N,N),   (U,U), (U,U),    (U,U),   (U,U), (N,N),   (N,N),
+    (1.,Z),  (U,U), (1.,-Z),  (1.,Z),  (U,U), (1.,Z),  (1.,Z),
+    (N,N),   (N,N), (N,-Z),   (N,Z),   (N,N), (N,N),   (N,N),
     ])
 
 rect_special_values = build_table([
-    (INF,N), (U,U), (-INF,0.), (-INF,-0.), (U,U), (INF,N), (INF,N),
-    (N,N),   (U,U), (U,U),     (U,U),      (U,U), (N,N),   (N,N),
-    (0.,0.), (U,U), (-0.,0.),  (-0.,-0.),  (U,U), (0.,0.), (0.,0.),
-    (0.,0.), (U,U), (0.,-0.),  (0.,0.),    (U,U), (0.,0.), (0.,0.),
-    (N,N),   (U,U), (U,U),     (U,U),      (U,U), (N,N),   (N,N),
-    (INF,N), (U,U), (INF,-0.), (INF,0.),   (U,U), (INF,N), (INF,N),
-    (N,N),   (N,N), (N,0.),    (N,0.),     (N,N), (N,N),   (N,N),
+    (INF,N), (U,U), (-INF,Z), (-INF,-Z), (U,U), (INF,N), (INF,N),
+    (N,N),   (U,U), (U,U),    (U,U),     (U,U), (N,N),   (N,N),
+    (Z,Z),   (U,U), (-Z,Z),   (-Z,-Z),   (U,U), (Z,Z),   (Z,Z),
+    (Z,Z),   (U,U), (Z,-Z),   (Z,Z),     (U,U), (Z,Z),   (Z,Z),
+    (N,N),   (U,U), (U,U),    (U,U),     (U,U), (N,N),   (N,N),
+    (INF,N), (U,U), (INF,-Z), (INF,Z),   (U,U), (INF,N), (INF,N),
+    (N,N),   (N,N), (N,Z),    (N,Z),     (N,N), (N,N),   (N,N),
     ])
+
+assert copysign(1., acosh_special_values[5][2][1]) == -1.
