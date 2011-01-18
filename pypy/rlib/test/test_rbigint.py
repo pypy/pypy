@@ -176,6 +176,24 @@ class Test_rbigint(object):
         d = f2.tofloat()
         assert d == float(2097152 << SHIFT)
 
+    def test_tofloat_precision(self):
+        assert rbigint.fromlong(0).tofloat() == 0.0
+        for sign in [1, -1]:
+            for p in xrange(100):
+                x = long(2**p * (2**53 + 1) + 1) * sign
+                y = long(2**p * (2**53+ 2)) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
+                #
+                x = long(2**p * (2**53 + 1)) * sign
+                y = long(2**p * 2**53) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
+
     def test_fromfloat(self):
         x = 1234567890.1234567890
         f1 = rbigint.fromfloat(x)

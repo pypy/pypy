@@ -435,7 +435,7 @@ def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     oldsize = len(w_bytearray.data)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
     sequence2 = makebytearraydata_w(space, w_other)
-    setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2)
+    setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
 
 def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
     idx = get_list_index(space, w_idx)

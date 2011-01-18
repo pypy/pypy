@@ -40,6 +40,9 @@ import inspect, weakref
 DEBUG = False    # set to False to disable recording of debugging information
 TLS = tlsobject()
 
+class NoPreciseAnnotation(Exception):
+    pass
+
 class SomeObject(object):
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
@@ -742,9 +745,7 @@ def missing_operation(cls, name):
         for arg in flattened:
             if arg.__class__ is SomeObject and arg.knowntype is not type:
                 return  SomeObject()
-        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-        bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
-        return s_ImpossibleValue
+        raise NoPreciseAnnotation()
     setattr(cls, name, default_op)
 
 class HarmlesslyBlocked(Exception):

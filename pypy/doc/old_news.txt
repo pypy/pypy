@@ -96,7 +96,7 @@ Review passed with flying colours
 =================================
 
 On the 31st of May 2007 the PyPy project was reviewed by the EU
-Commission in Brussels. Reviewers were Roel Wuyts, Unversité Libre de
+Commission in Brussels. Reviewers were Roel Wuyts, UnversitÃ© Libre de
 Bruxelles and Aki Lumiaho, Ramboll, Finland. Present was also our
 Project Officer, Charles McMillan. After 6 hours of presentations of
 the various aspects of the project, it only took the reviewers a few
