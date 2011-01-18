@@ -797,12 +797,14 @@ class FloatOpAssemlber(object):
         self.mc.VPUSH([temp.value])
         # res is lower register than r.ip
         self.mc.POP([res.value, r.ip.value])
+        return fcond
 
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
         arg, temp, res = arglocs
         self.mc.PUSH([arg.value, r.ip.value])
         self.mc.VPOP([temp.value])
         self.mc.VCVT_int_to_float(res.value, temp.value)
+        return fcond
 
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,

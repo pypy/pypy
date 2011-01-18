@@ -181,7 +181,8 @@ class AssemblerARM(ResOpAssembler):
                 j += 1
                 res = enc[j]
 
-            assert res in [self.INT_TYPE, self.REF_TYPE], 'location type is not supported'
+            assert res in [self.FLOAT_TYPE, self.INT_TYPE, self.REF_TYPE], 'location type is not supported'
+            res_type = res
             j += 1
             res = enc[j]
             if res == self.IMM_LOC:
@@ -192,7 +193,10 @@ class AssemblerARM(ResOpAssembler):
                 loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
                 j += 4
             else: # REG_LOC
-                loc = r.all_regs[ord(res)]
+                if res_type == self.FLOAT_TYPE:
+                    loc = r.all_vfp_regs[ord(res)]
+                else:
+                    loc = r.all_regs[ord(res)]
             j += 1
             locs.append(loc)
         return locs
