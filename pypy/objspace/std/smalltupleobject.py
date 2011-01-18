@@ -76,5 +76,23 @@ def getitem__SmallTuple_Slice(space, w_tuple, w_slice):
         start += step
     return space.newtuple(subitems)
 
+def mul_smalltuple_times(space, w_tuple, w_times):
+    try:
+        times = space.getindex_w(w_times, space.w_OverflowError)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise
+    if times == 1 and space.type(w_tuple) == space.w_tuple:
+        return w_tuple
+    items = w_tuple.tolist()
+    return space.newtuple(items * times)
+
+def mul__SmallTuple_ANY(space, w_tuple, w_times):
+    return mul_smalltuple_times(space, w_tuple, w_times)
+
+def mul__ANY_SmallTuple(space, w_times, w_tuple):
+    return mul_smalltuple_times(space, w_tuple, w_times)
+
 from pypy.objspace.std import tupletype
 register_all(vars(), tupletype)
