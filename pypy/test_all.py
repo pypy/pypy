@@ -2,5 +2,5 @@
 
 if __name__ == '__main__':
     import tool.autopath
-    import py
-    py.cmdline.pytest()
+    import pytest
+    pytest.main()

@@ -3,14 +3,23 @@ import py
 
 BuiltinAssertionError = py.builtin.builtins.AssertionError
 
+_reprcompare = None # if set, will be called by assert reinterp for comparison ops
 
 def _format_explanation(explanation):
-    # uck!  See CallFunc for where \n{ and \n} escape sequences are used
+    """This formats an explanation
+
+    Normally all embedded newlines are escaped, however there are
+    three exceptions: \n{, \n} and \n~.  The first two are intended
+    cover nested explanations, see function and attribute explanations
+    for examples (.visit_Call(), visit_Attribute()).  The last one is
+    for when one explanation needs to span multiple lines, e.g. when
+    displaying diffs.
+    """
     raw_lines = (explanation or '').split('\n')
-    # escape newlines not followed by { and }
+    # escape newlines not followed by {, } and ~
     lines = [raw_lines[0]]
     for l in raw_lines[1:]:
-        if l.startswith('{') or l.startswith('}'):
+        if l.startswith('{') or l.startswith('}') or l.startswith('~'):
             lines.append(l)
         else:
             lines[-1] += '\\n' + l
@@ -28,23 +37,25 @@ def _format_explanation(explanation):
             stackcnt[-1] += 1
             stackcnt.append(0)
             result.append(' +' + '  '*(len(stack)-1) + s + line[1:])
-        else:
+        elif line.startswith('}'):
             assert line.startswith('}')
             stack.pop()
             stackcnt.pop()
             result[stack[-1]] += line[1:]
+        else:
+            assert line.startswith('~')
+            result.append('  '*len(stack) + line[1:])
     assert len(stack) == 1
     return '\n'.join(result)
 
 
 class AssertionError(BuiltinAssertionError):
-
     def __init__(self, *args):
         BuiltinAssertionError.__init__(self, *args)
         if args:
             try:
                 self.msg = str(args[0])
-            except (KeyboardInterrupt, SystemExit):
+            except py.builtin._sysex:
                 raise
             except:
                 self.msg = "<[broken __repr__] %s at %0xd>" %(
@@ -52,18 +63,24 @@ class AssertionError(BuiltinAssertionError):
         else:
             f = py.code.Frame(sys._getframe(1))
             try:
-                source = f.statement
-                source = str(source.deindent()).strip()
+                source = f.code.fullsource
+                if source is not None:
+                    try:
+                        source = source.getstatement(f.lineno, assertion=True)
+                    except IndexError:
+                        source = None
+                    else:
+                        source = str(source.deindent()).strip()
             except py.error.ENOENT:
                 source = None
                 # this can also occur during reinterpretation, when the
                 # co_filename is set to "<run>".
             if source:
                 self.msg = reinterpret(source, f, should_fail=True)
-                if not self.args:
-                    self.args = (self.msg,)
             else:
-                self.msg = None
+                self.msg = "<could not determine information>"
+            if not self.args:
+                self.args = (self.msg,)
 
 if sys.version_info > (3, 0):
     AssertionError.__module__ = "builtins"
@@ -74,4 +91,4 @@ if sys.version_info >= (2, 6) or (sys.platform.startswith("java")):
     from py._code._assertionnew import interpret as reinterpret
 else:
     reinterpret = reinterpret_old
-    
+

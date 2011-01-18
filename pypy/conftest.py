@@ -9,9 +9,9 @@ from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 from pypy.tool import leakfinder
+import pytest
 
 # pytest settings
-pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
 
@@ -19,14 +19,15 @@ rsyncignore = ['_cache']
 # to py.test's standard options)
 #
 
+def pytest_report_header():
+    return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
+
 def _set_platform(opt, opt_str, value, parser):
     from pypy.config.translationoption import PLATFORMS
     from pypy.translator.platform import set_platform
     if value not in PLATFORMS:
         raise ValueError("%s not in %s" % (value, PLATFORMS))
     set_platform(value, None)
-
-option = py.test.config.option
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
@@ -57,6 +58,7 @@ _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
     """ helper for instantiating and caching space's for testing.
     """
+    option = pytest.config.option
     try:
         config = make_config(option, objspace=name, **kwds)
     except ConflictConfigError, e:
@@ -80,12 +82,12 @@ def gettestobjspace(name=None, **kwds):
 
 def maketestobjspace(config=None):
     if config is None:
-        config = make_config(option)
+        config = make_config(pytest.config.option)
     try:
         space = make_objspace(config)
     except OperationError, e:
         check_keyboard_interrupt(e)
-        if option.verbose:
+        if pytest.config.option.verbose:
             import traceback
             traceback.print_exc()
         py.test.fail("fatal: cannot initialize objspace: %r" %
@@ -179,7 +181,7 @@ class TinyObjSpace(object):
         return __import__(name)
 
 def translation_test_so_skip_if_appdirect():
-    if option.runappdirect:
+    if pytest.config.option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
 
 
@@ -226,7 +228,7 @@ class PyPyModule(py.test.collect.Module):
         super(PyPyModule, self).__init__(*args, **kwargs)
 
     def accept_regular_test(self):
-        if option.runappdirect:
+        if self.config.option.runappdirect:
             # only collect regular tests if we are in an 'app_test' directory,
             # or in test_lib_pypy
             names = self.listnames()
@@ -265,7 +267,7 @@ class PyPyModule(py.test.collect.Module):
             if name.startswith('AppTest'):
                 return AppClassCollector(name, parent=self)
             elif name.startswith('ExpectTest'):
-                if option.rundirect:
+                if self.config.option.rundirect:
                     return py.test.collect.Class(name, parent=self)
                 return ExpectClassCollector(name, parent=self)
             # XXX todo
@@ -402,7 +404,7 @@ class IntTestFunction(PyPyTestFunction):
             global _pygame_imported
             if not _pygame_imported:
                 _pygame_imported = True
-                assert option.view, ("should not invoke Pygame "
+                assert pytest.config.option.view, ("should not invoke Pygame "
                                      "if conftest.option.view is False")
         super(IntTestFunction, self).runtest_finish()
 
@@ -419,7 +421,7 @@ class AppTestFunction(PyPyTestFunction):
 
     def runtest_perform(self):
         target = self.obj
-        if option.runappdirect:
+        if self.config.option.runappdirect:
             return target()
         space = gettestobjspace()
         filename = self._getdynfilename(target)
@@ -439,7 +441,7 @@ class AppTestMethod(AppTestFunction):
         space = instance.space
         for name in dir(instance):
             if name.startswith('w_'):
-                if option.runappdirect:
+                if self.config.option.runappdirect:
                     # if the value is a function living on the class,
                     # don't turn it into a bound method here
                     obj = getwithoutbinding(instance, name)
@@ -460,7 +462,7 @@ class AppTestMethod(AppTestFunction):
 
     def runtest_perform(self):
         target = self.obj
-        if option.runappdirect:
+        if self.config.option.runappdirect:
             return target()
         space = target.im_self.space
         filename = self._getdynfilename(target)
@@ -498,7 +500,7 @@ class AppClassInstance(py.test.collect.Instance):
         instance = self.obj
         space = instance.space
         w_class = self.parent.w_class
-        if option.runappdirect:
+        if self.config.option.runappdirect:
             self.w_instance = instance
         else:
             self.w_instance = space.call_function(w_class)
@@ -518,7 +520,7 @@ class AppClassCollector(PyPyClassCollector):
         cls = self.obj
         space = cls.space
         clsname = cls.__name__
-        if option.runappdirect:
+        if self.config.option.runappdirect:
             w_class = cls
         else:
             w_class = space.call_function(space.w_type,
