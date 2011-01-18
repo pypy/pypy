@@ -1052,14 +1052,23 @@ def check_impl_detail(**guards):
     guards, default = _parse_guards(guards)
     return guards.get(platform.python_implementation().lower(), default)
 
+class TestResultWithPdb(unittest.result.TestResult):
 
+    def addError(self, testcase, exc_info):
+        unittest.result.TestResult.addError(self, testcase, exc_info)
+        if '--pdb' in sys.argv:
+            import pdb, traceback
+            traceback.print_tb(exc_info[2])
+            pdb.post_mortem(exc_info[2], pdb.Pdb)
 
 def _run_suite(suite):
     """Run tests from a unittest.TestSuite-derived class."""
     if verbose:
-        runner = unittest.TextTestRunner(sys.stdout, verbosity=2)
+        runner = unittest.TextTestRunner(sys.stdout, verbosity=2,
+                                         resultclass=TestResultWithPdb)
     else:
-        runner = BasicTestRunner()
+        runner = BasicTestRunner(resultclass=TestResultWithPdb)
+
 
     result = runner.run(suite)
     if not result.wasSuccessful():

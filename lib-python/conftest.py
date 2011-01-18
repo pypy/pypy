@@ -692,6 +692,8 @@ class ReallyRunFileExternal(py.test.collect.Item):
         else:
             if self.config.option.unittest_filter is not None:
                 cmd += ' --filter %s' % self.config.option.unittest_filter
+            if self.config.option.usepdb:
+                cmd += ' --pdb'
             if self.config.option.capture == 'no':
                 status = os.system(cmd)
             else:
