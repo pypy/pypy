@@ -70,6 +70,44 @@ class AppTestCMath:
         import cmath
         raises(ValueError, cmath.log, 0j)
 
+    def test_stringarg(self):
+        import cmath
+        raises(TypeError, cmath.log, "-3j")
+
+    def test_isinf(self):
+        import cmath
+        assert not cmath.isinf(2+3j)
+        assert cmath.isinf(float("inf"))
+        assert cmath.isinf(-float("inf"))
+        assert cmath.isinf(complex("infj"))
+        assert cmath.isinf(complex("2-infj"))
+        assert cmath.isinf(complex("inf+nanj"))
+        assert cmath.isinf(complex("nan+infj"))
+
+    def test_isnan(self):
+        import cmath
+        assert not cmath.isnan(2+3j)
+        assert cmath.isnan(float("nan"))
+        assert cmath.isnan(complex("nanj"))
+        assert cmath.isnan(complex("inf+nanj"))
+        assert cmath.isnan(complex("nan+infj"))
+
+    def test_user_defined_complex(self):
+        import cmath
+        class Foo(object):
+            def __complex__(self):
+                return 2j
+        r, phi = cmath.polar(Foo())
+        assert r == 2
+        assert abs(phi - cmath.pi/2) < 1e-10
+
+    def test_user_defined_float(self):
+        import cmath
+        class Foo(object):
+            def __float__(self):
+                return 2.0
+        assert cmath.polar(Foo()) == (2, 0)
+
 
 def parse_testfile(fname):
     """Parse a file with test values

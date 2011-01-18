@@ -265,18 +265,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ComplexObject(realval, imagval)
 
     def unpackcomplex(self, w_complex):
-        if isinstance(w_complex, W_ComplexObject):
-            return (w_complex.realval, w_complex.imagval)
-        else:
-            try:
-                floatval = self.float_w(w_complex)
-            except OperationError, e:
-                if not e.match(self, self.w_TypeError):
-                    raise
-                raise operationerrfmt(self.w_TypeError,
-                                      "complex number expected, got '%s'",
-                                      self.type(w_complex).getname(self))
-            return (floatval, 0.0)
+        from pypy.objspace.std.complextype import unpackcomplex
+        return unpackcomplex(self, w_complex)
 
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)

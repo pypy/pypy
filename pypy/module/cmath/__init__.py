@@ -27,6 +27,8 @@ names_and_docstrings = {
               "to polar coordinates. r is\n"
               "the distance from 0 and phi the phase angle."),
     'phase': "Return argument, also known as the phase angle, of a complex.",
+    'isinf': "Checks if the real or imaginary part of z is infinite.",
+    'isnan': "Checks if the real or imaginary part of z is not a number (NaN)",
     }
 
 

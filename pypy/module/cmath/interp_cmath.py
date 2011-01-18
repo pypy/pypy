@@ -564,3 +564,25 @@ def wrapped_polar(space, w_z):
     return space.newtuple([space.newfloat(resx), space.newfloat(resy)])
 wrapped_polar.unwrap_spec = [ObjSpace, W_Root]
 wrapped_polar.func_doc = names_and_docstrings['polar']
+
+
+def c_isinf(x, y):
+    return isinf(x) or isinf(y)
+
+def wrapped_isinf(space, w_z):
+    x, y = space.unpackcomplex(w_z)
+    res = c_isinf(x, y)
+    return space.newbool(res)
+wrapped_isinf.unwrap_spec = [ObjSpace, W_Root]
+wrapped_isinf.func_doc = names_and_docstrings['isinf']
+
+
+def c_isnan(x, y):
+    return isnan(x) or isnan(y)
+
+def wrapped_isnan(space, w_z):
+    x, y = space.unpackcomplex(w_z)
+    res = c_isnan(x, y)
+    return space.newbool(res)
+wrapped_isnan.unwrap_spec = [ObjSpace, W_Root]
+wrapped_isnan.func_doc = names_and_docstrings['isnan']
