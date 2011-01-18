@@ -264,10 +264,10 @@ The PyPy team has been sprinting on the following occasions::
     * Louvain-La-Neuve                March   2006
     * Leysin                          April   2006
     * Tokyo                           April   2006
-    * Düsseldorf                      June    2006
+    * DÃ¼sseldorf                      June    2006
     * Europython/Geneva               July    2006
     * Limerick                        Aug     2006
-    * Düsseldorf                      Oct     2006
+    * DÃ¼sseldorf                      Oct     2006
     * Leysin                          Jan     2007
     * Hildesheim                      Feb     2007
     
@@ -280,10 +280,10 @@ so we can correct it):
     Samuele Pedroni
     Christian Tismer
     Laura Creighton
-    Jacob Hallén
+    Jacob HallÃ©n
     Michael Hudson
     Richard Emslie
-    Anders Chrigström
+    Anders ChrigstrÃ¶m
     Alex Martelli
     Ludovic Aubry
     Adrien DiMascio
@@ -317,7 +317,7 @@ so we can correct it):
     Alan McIntyre
     Lutz Paelike
     Michael Chermside
-    Beatrice Düring
+    Beatrice DÃ¼ring
     Boris Feigin
     Amaury Forgeot d'Arc 
     Andrew Thompson      
@@ -335,8 +335,8 @@ so we can correct it):
     Michael Twomey 
     Wanja Saatkamp
     Alexandre Fayolle
-    Raphaël Collet
-    Grégoire Dooms
+    RaphaÃ«l Collet
+    GrÃ©goire Dooms
     Sanghyeon Seo
     Yutaka Niibe
     Yusei Tahara
