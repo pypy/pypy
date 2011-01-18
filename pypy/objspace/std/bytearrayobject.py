@@ -15,7 +15,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.buffer import RWBuffer
-from pypy.objspace.std.bytearraytype import makebytearraydata_w
+from pypy.objspace.std.bytearraytype import makebytearraydata_w, getbytevalue
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -260,6 +260,12 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
             newdata.extend(data)
         newdata.extend([c for c in space.str_w(list_w[i])])
     return W_BytearrayObject(newdata)
+
+def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
+    index = w_idx.intval
+    val = getbytevalue(space, w_other)
+    w_bytearray.data.insert(index, val)
+    return space.w_None
 
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.

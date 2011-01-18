@@ -172,6 +172,26 @@ class AppTestBytesArray:
         b.append(ord('e'))
         assert b == 'abcde'
 
+    def test_insert(self):
+        b = bytearray('abc')
+        b.insert(0, 'd')
+        assert b == bytearray('dabc')
+
+        b.insert(-1, ord('e'))
+        assert b == bytearray('dabec')
+
+        b.insert(6, 'f')
+        assert b == bytearray('dabecf')
+
+        b.insert(1, 'g')
+        assert b == bytearray('dgabecf')
+
+        b.insert(-12, 'h')
+        assert b == bytearray('hdgabecf')
+
+        raises(ValueError, b.insert, 1, 'go')
+        raises(TypeError, b.insert, 'g', 'o')
+
     def test_delitem(self):
         b = bytearray('abc')
         del b[1]

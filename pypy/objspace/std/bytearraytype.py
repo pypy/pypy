@@ -19,6 +19,11 @@ from pypy.objspace.std.listtype import (
     list_append, list_extend)
 
 
+bytearray_insert  = SMM('insert',3,
+                    doc="B.insert(index, int) -> None\n\n"
+                    "Insert a single item into the bytearray before "
+                    "the given index.")
+
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)
