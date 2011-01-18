@@ -8,6 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.objspace.std.tupleobject import W_TupleObject
 
 class W_SmallTupleObject(W_Object):
@@ -19,25 +20,33 @@ class W_SmallTupleObject(W_Object):
     def length(self):
         raise NotImplementedError
 
-class W_SmallTupleObject2(W_SmallTupleObject):
+def make_specialized_class(n):
+    iter_n = unrolling_iterable(range(n))
+    class cls(W_SmallTupleObject):
 
-    def __init__(self, w_value01, w_value02):
-        self.w_value01 = w_value01
-        self.w_value02 = w_value02
+        def __init__(self, *values):
+            for i in iter_n:
+                setattr(self, 'w_value%s' % i, values[i])
 
-    def tolist(self):
-        return [self.w_value01, self.w_value02]
+        def tolist(self):
+            l = [None] * n
+            for i in iter_n:
+                l[i] = getattr(self, 'w_value%s' % i)
+            return l
 
-    def length(self):
-        return 2
+        def length(self):
+            return n
 
-    def getitem(self, index):
-        if index == 0:
-            return self.w_value01
-        elif index == 1:
-            return self.w_value02
-        else:
+        def getitem(self, index):
+            for i in iter_n:
+                if index == i:
+                    return getattr(self,'w_value%s' % i)
             raise IndexError
+
+    cls.__name__ = "W_SmallTupleObject%s" % n
+    return cls
+
+W_SmallTupleObject2 = make_specialized_class(2)
 
 registerimplementation(W_SmallTupleObject)
 
