@@ -203,7 +203,7 @@ def repr__Bytearray(space, w_bytearray):
     return space.wrap(buf.build())
 
 def str__Bytearray(space, w_bytearray):
-    return W_StringObject(''.join(w_bytearray.data))
+    return space.wrap(''.join(w_bytearray.data))
 
 def _convert_idx_params(space, w_self, w_start, w_stop):
     start = slicetype._Eval_SliceIndex(space, w_start)
@@ -279,6 +279,15 @@ def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
             "pop index out of range"))
     return space.wrap(ord(result))
 
+
+def bytearray_remove__Bytearray_ANY(space, w_bytearray, w_char):
+    char = space.int_w(space.index(w_char))
+    try:
+        result = w_bytearray.data.remove(chr(char))
+    except ValueError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "value not found in bytearray"))
+    return space.w_None
 
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.

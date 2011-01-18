@@ -201,6 +201,29 @@ class AppTestBytesArray:
         raises(OverflowError, bytearray().pop)
         assert bytearray(b'\xff').pop() == 0xff
 
+    def test_remove(self):
+        class Indexable:
+            def __index__(self):
+                return ord('e')
+
+        b = bytearray(b'hello')
+        b.remove(ord('l'))
+        assert b == 'helo'
+        b.remove(ord('l'))
+        assert b == 'heo'
+        raises(ValueError, b.remove, ord('l'))
+        raises(ValueError, b.remove, 400)
+        raises(TypeError, b.remove, u'e')
+        raises(TypeError, b.remove, 2.3)
+        # remove first and last
+        b.remove(ord('o'))
+        b.remove(ord('h'))
+        assert b == 'e'
+        raises(TypeError, lambda: b.remove(u'e'))
+        b.remove(Indexable())
+        assert b == ''
+
+
     def test_delitem(self):
         b = bytearray('abc')
         del b[1]
