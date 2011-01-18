@@ -3,6 +3,13 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
+def wraptuple(space, list_w):
+    from pypy.objspace.std.tupleobject import W_TupleObject
+    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject
+    if space.config.objspace.std.withsmalltuple and len(list_w) == 2:
+        return W_SmallTupleObject(list_w[0], list_w[1])
+    else:
+        return W_TupleObject(list_w)
 
 tuple_count = SMM("count", 2,
                   doc="count(obj) -> number of times obj appears in the tuple")
