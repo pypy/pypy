@@ -53,7 +53,7 @@ def void(self, op, fcond):
 class VFPRegisterManager(RegisterManager):
     all_regs = r.all_vfp_regs
     box_types = [FLOAT]
-    save_around_call_regs = all_regs
+    save_around_call_regs = r.all_vfp_regs
 
     def convert_to_imm(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
@@ -786,6 +786,50 @@ class Regalloc(object):
     prepare_op_float_sub = prepare_float_op()
     prepare_op_float_mul = prepare_float_op()
     prepare_op_float_truediv = prepare_float_op()
+    prepare_op_float_lt = prepare_float_op(float_result=False)
+    prepare_op_float_le = prepare_float_op(float_result=False)
+    prepare_op_float_eq = prepare_float_op(float_result=False)
+    prepare_op_float_ne = prepare_float_op(float_result=False)
+    prepare_op_float_gt = prepare_float_op(float_result=False)
+    prepare_op_float_ge = prepare_float_op(float_result=False)
+    prepare_op_float_neg = prepare_float_op(base=False)
+    prepare_op_float_abs = prepare_float_op(base=False)
+
+    def prepare_op_cast_float_to_int(self, op, fcond):
+        locs = []
+
+        loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
+        locs.append(loc1)
+        self.possibly_free_var(box1)
+
+        t = TempFloat()
+        temp_loc = self.vfprm.force_allocate_reg(t)
+        locs.append(temp_loc)
+        self.possibly_free_var(t)
+
+        res  = self.rm.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        locs.append(res)
+
+        return locs
+
+    def prepare_op_cast_int_to_float(self, op, fcond):
+        locs = []
+
+        loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
+        locs.append(loc1)
+        self.possibly_free_var(box1)
+
+        t = TempFloat()
+        temp_loc = self.vfprm.force_allocate_reg(t)
+        locs.append(temp_loc)
+        self.possibly_free_var(t)
+
+        res  = self.vfprm.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        locs.append(res)
+
+        return locs
 
 def make_operation_list():
     def notimplemented(self, op, fcond):

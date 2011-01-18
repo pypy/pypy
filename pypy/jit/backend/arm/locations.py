@@ -33,6 +33,15 @@ class RegisterLocation(AssemblerLocation):
     def as_key(self):
         return self.value
 
+class VFPRegisterLocation(RegisterLocation):
+    _immutable_ = True
+
+    def get_single_precision_regs(self):
+        return [VFPRegisterLocation(i) for i in [self.value*2, self.value*2+1]]
+
+    def __repr__(self):
+        return 'f%d' % self.value
+
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
 

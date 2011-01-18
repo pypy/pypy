@@ -152,6 +152,10 @@ class TestInstrCodeBuilder(ASMTest):
     def test_vstr_offset(self):
         assert py.test.raises(AssertionError, 'self.cb.VSTR(r.d1, r.r4, 3)')
 
+    def test_vmrs(self):
+        self.cb.VMRS(conditions.AL)
+        self.assert_equal("vmrs APSR_nzcv, fpscr")
+
     def test_pop_raises_on_lr(self):
         assert py.test.raises(AssertionError, 'self.cb.POP([r.lr.value])')
 
@@ -175,8 +179,15 @@ def gen_test_float64_data_proc_instructions_func(name, table):
     tests = []
     for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:
         for reg in range(16):
-            asm = 'd%d, d1, d2' % reg
-            tests.append((asm, (reg, r.d1.value, r.d2.value), {}, '.F64'))
+            if 'result' in table and not table['result']:
+                asm = 'd%d, d2' % reg
+                tests.append((asm, (reg, r.d2.value), {}, '.F64'))
+            elif 'base' in table and not table['base']:
+                asm = 'd%d, d2' % reg
+                tests.append((asm, (reg, r.d2.value), {}, '.F64'))
+            else:
+                asm = 'd%d, d1, d2' % reg
+                tests.append((asm, (reg, r.d1.value, r.d2.value), {}, '.F64'))
     return tests
 
 def gen_test_data_proc_imm_func(name, table):

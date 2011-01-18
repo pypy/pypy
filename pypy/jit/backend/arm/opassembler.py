@@ -10,7 +10,9 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
                                                     gen_emit_op_ri,
                                                     gen_emit_cmp_op,
-                                                    gen_emit_float_op)
+                                                    gen_emit_float_op,
+                                                    gen_emit_float_cmp_op,
+                                                    gen_emit_unary_float_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import Regalloc
@@ -778,6 +780,29 @@ class FloatOpAssemlber(object):
     emit_op_float_sub = gen_emit_float_op('VSUB')
     emit_op_float_mul = gen_emit_float_op('VMUL')
     emit_op_float_truediv = gen_emit_float_op('VDIV')
+
+    emit_op_float_neg = gen_emit_unary_float_op('VNEG')
+    emit_op_float_abs = gen_emit_unary_float_op('VABS')
+
+    emit_op_float_lt = gen_emit_float_cmp_op(c.LT)
+    emit_op_float_le = gen_emit_float_cmp_op(c.LE)
+    emit_op_float_eq = gen_emit_float_cmp_op(c.EQ)
+    emit_op_float_ne = gen_emit_float_cmp_op(c.NE)
+    emit_op_float_gt = gen_emit_float_cmp_op(c.GT)
+    emit_op_float_ge = gen_emit_float_cmp_op(c.GE)
+
+    def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
+        arg, temp, res = arglocs
+        self.mc.VCVT_float_to_int(temp.value, arg.value)
+        self.mc.VPUSH([temp.value])
+        # res is lower register than r.ip
+        self.mc.POP([res.value, r.ip.value])
+
+    def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
+        arg, temp, res = arglocs
+        self.mc.PUSH([arg.value, r.ip.value])
+        self.mc.VPOP([temp.value])
+        self.mc.VCVT_int_to_float(res.value, temp.value)
 
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,

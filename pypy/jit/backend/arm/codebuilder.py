@@ -44,18 +44,58 @@ class AbstractARMv7Builder(object):
         self.write32(instr)
 
     def VPUSH(self, regs, cond=cond.AL):
-        nregs = len(regs) 
+        nregs = len(regs)
         assert nregs > 0 and nregs <= 16
         freg = regs[0]
         D = (freg & 0x10) >> 4
         Dd = (freg & 0xF)
-        nregs *= 2 
-        instr = (cond << 28 
-                | 0xD2D << 16 
-                | D << 22 
+        nregs *= 2
+        instr = (cond << 28
+                | 0xD2D << 16
+                | D << 22
                 | Dd << 12
                 | 0xB << 8
                 | nregs)
+        self.write32(instr)
+
+    def VPOP(self, regs, cond=cond.AL):
+        nregs = len(regs)
+        assert nregs > 0 and nregs <= 16
+        freg = regs[0]
+        D = (freg & 0x10) >> 4
+        Dd = (freg & 0xF)
+        nregs *= 2
+        instr = (cond << 28
+                | 0xCBD << 16
+                | D << 22
+                | Dd << 12
+                | 0xB << 8
+                | nregs)
+        self.write32(instr)
+
+    def VCVT_float_to_int(self, target, source, cond=cond.AL):
+        opc2 = 0x5
+        sz = 1
+        self._VCVT(target, source, cond, opc2, sz)
+
+    def VCVT_int_to_float(self, target, source, cond=cond.AL):
+        self._VCVT(target, source, cond, 0, 1)
+
+    def _VCVT(self, target, source, cond, opc2, sz):
+        D = 0x0
+        M = 0
+        op = 1
+        instr = (cond << 28
+                | 0xEB8 << 16
+                | D << 22
+                | opc2 << 16
+                | (target & 0xF) << 12
+                | 0x5 << 9
+                | sz << 8
+                | op << 7
+                | 1 << 6
+                | M << 5
+                | (source & 0xF))
         self.write32(instr)
 
     def POP(self, regs, cond=cond.AL):
@@ -65,6 +105,10 @@ class AbstractARMv7Builder(object):
 
     def BKPT(self, cond=cond.AL):
         self.write32(cond << 28 | 0x1200070)
+
+    # corresponds to the instruction vmrs APSR_nzcv, fpscr
+    def VMRS(self, cond=cond.AL):
+        self.write32(cond << 28 | 0xEF1FA10)
 
     def B(self, target, c=cond.AL):
         if c == cond.AL:

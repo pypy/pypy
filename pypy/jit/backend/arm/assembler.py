@@ -139,7 +139,7 @@ class AssemblerARM(ResOpAssembler):
             i += 1
             res = enc[i]
             if res == self.IMM_LOC:
-                assert group == self.INT_TYPE
+                assert group == self.INT_TYPE or group == self.REF_TYPE
                 # imm value
                 value = self.decode32(enc, i+1)
                 i += 4
@@ -210,7 +210,7 @@ class AssemblerARM(ResOpAssembler):
         low = self.decode32(mem, index)
         index += 4
         high = self.decode32(mem, index)
-        return r_longlong(r_uint(low) | (r_longlong(high << 32)))
+        return r_longlong(high << 32) | r_longlong(r_uint(low))
 
     def encode32(self, mem, i, n):
         mem[i] = chr(n & 0xFF)
@@ -273,7 +273,9 @@ class AssemblerARM(ResOpAssembler):
                     mem[j] = chr(loc.value)
                     j += 1
                 elif loc.is_imm():
-                    assert arg.type == INT or arg.type == REF
+                    if not arg.type == INT or arg.type == REF:
+                        print "Expected INT or REF values"
+                        assert 0
                     mem[j] = self.IMM_LOC
                     self.encode32(mem, j+1, loc.getint())
                     j += 5

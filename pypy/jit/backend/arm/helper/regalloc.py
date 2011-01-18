@@ -51,15 +51,24 @@ def prepare_op_ri(imm_size=0xFF, commutative=True, allow_zero=True):
         return [l0, l1, res]
     return f
 
-def prepare_float_op():
+def prepare_float_op(base=True, float_result=True):
     def f(self, op, fcond):
+        locs = []
         loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
-        loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
+        locs.append(loc1)
         self.vfprm.possibly_free_var(box1)
-        self.vfprm.possibly_free_var(box2)
-        res  = self.vfprm.force_allocate_reg(op.result)
-        self.vfprm.possibly_free_var(op.result)
-        return [loc1, loc2, res]
+        if base:
+            loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
+            locs.append(loc2)
+            self.vfprm.possibly_free_var(box2)
+        if float_result:
+            res  = self.vfprm.force_allocate_reg(op.result)
+            self.vfprm.possibly_free_var(op.result)
+        else:
+            res  = self.rm.force_allocate_reg(op.result)
+            self.rm.possibly_free_var(op.result)
+        locs.append(res)
+        return locs
     return f
 
 def prepare_op_by_helper_call():
