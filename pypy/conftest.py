@@ -288,7 +288,7 @@ class PyPyModule(py.test.collect.Module):
                     "generator app level functions? you must be joking"
                 return AppTestFunction(name, parent=self)
             elif obj.func_code.co_flags & 32: # generator function
-                return self.Generator(name, parent=self)
+                return pytest.Generator(name, parent=self)
             else:
                 return IntTestFunction(name, parent=self)
 
