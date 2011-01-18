@@ -229,12 +229,16 @@ class AppTestBytesArray:
             b[::2] = 'foo'
         raises(ValueError, set_wrong_size)
 
-    def test_delslice(self):
+    def test_delitem_slice(self):
         b = bytearray('abcdefghi')
         del b[5:8]
         assert b == 'abcdei'
         del b[:3]
         assert b == 'dei'
+
+        b = bytearray('hello world')
+        del b[::2]
+        assert b == bytearray('el ol')
 
     def test_setitem(self):
         b = bytearray('abcdefghi')
