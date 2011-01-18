@@ -6,7 +6,8 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
-    libraries = ['libeay32', 'ssleay32', 'user32', 'advapi32', 'gdi32']
+    libraries = ['libeay32', 'ssleay32',
+                 'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
         # need of winsock2.  Remove this when separate compilation is
@@ -26,7 +27,7 @@ else:
 eci = ExternalCompilationInfo(
     libraries = libraries,
     includes = includes,
-    export_symbols = ['SSL_load_error_strings'],
+    export_symbols = [],
     )
 
 eci = rffi_platform.configure_external_library(
@@ -65,7 +66,9 @@ class CConfig:
     SSL_ERROR_SYSCALL = rffi_platform.ConstantInteger("SSL_ERROR_SYSCALL")
     SSL_ERROR_SSL = rffi_platform.ConstantInteger("SSL_ERROR_SSL")
     SSL_CTRL_OPTIONS = rffi_platform.ConstantInteger("SSL_CTRL_OPTIONS")
+    SSL_CTRL_MODE = rffi_platform.ConstantInteger("SSL_CTRL_MODE")
     BIO_C_SET_NBIO = rffi_platform.ConstantInteger("BIO_C_SET_NBIO")
+    SSL_MODE_AUTO_RETRY = rffi_platform.ConstantInteger("SSL_MODE_AUTO_RETRY")
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
@@ -82,6 +85,7 @@ HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
+    eci.export_symbols += (name,)
     return rffi.llexternal(
         name, argtypes, restype, **kw)
 
@@ -103,6 +107,7 @@ ssl_external('SSL_CTX_ctrl', [SSL_CTX, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT
 ssl_external('SSL_CTX_set_verify', [SSL_CTX, rffi.INT, rffi.VOIDP], lltype.Void)
 ssl_external('SSL_new', [SSL_CTX], SSL)
 ssl_external('SSL_set_fd', [SSL, rffi.INT], rffi.INT)
+ssl_external('SSL_ctrl', [SSL, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
 ssl_external('BIO_ctrl', [BIO, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
 ssl_external('SSL_get_rbio', [SSL], BIO)
 ssl_external('SSL_get_wbio', [SSL], BIO)
@@ -110,7 +115,9 @@ ssl_external('SSL_set_connect_state', [SSL], lltype.Void)
 ssl_external('SSL_set_accept_state', [SSL], lltype.Void)
 ssl_external('SSL_connect', [SSL], rffi.INT)
 ssl_external('SSL_do_handshake', [SSL], rffi.INT)
+ssl_external('SSL_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
+ssl_external('SSL_set_read_ahead', [SSL, rffi.INT], lltype.Void)
 
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
@@ -149,6 +156,8 @@ EVP_MD_CTX_copy = external(
 EVP_MD_CTX_cleanup = external(
     'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT)
 
+def libssl_SSL_set_mode(ssl, op):
+    return libssl_SSL_ctrl(ssl, SSL_CTRL_MODE, op, None)
 def libssl_SSL_CTX_set_options(ctx, op):
     return libssl_SSL_CTX_ctrl(ctx, SSL_CTRL_OPTIONS, op, None)
 def libssl_BIO_set_nbio(bio, nonblocking):

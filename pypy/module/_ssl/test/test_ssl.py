@@ -61,12 +61,14 @@ class AppTestSSL:
         _ssl.RAND_egd("entropy")
 
     def test_sslwrap(self):
-        import _ssl
-        import _socket
+        import _ssl, _socket, sys
         s = _socket.socket()
         ss = _ssl.sslwrap(s, 0)
         exc = raises(_socket.error, ss.do_handshake)
-        assert exc.value.errno == 32 # Broken pipe
+        if sys.platform == 'win32':
+            assert exc.value.errno == 2 # Cannot find file (=not a socket)
+        else:
+            assert exc.value.errno == 32 # Broken pipe
 
 class AppTestConnectedSSL:
     def setup_class(cls):
@@ -75,7 +77,7 @@ class AppTestConnectedSSL:
 
     def setup_method(self, method):
         # https://codespeak.net/
-        ADDR = "codespeak.net", 443
+        ADDR = "intranet", 443
 
         self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
             import socket
@@ -131,6 +133,13 @@ class AppTestConnectedSSL:
         assert isinstance(data, str)
         assert len(data) == 10
         self.s.close()
+
+    def test_shutdown(self):
+        import socket, ssl
+        ss = socket.ssl(self.s)
+        ss.write("hello\n")
+        assert ss.shutdown() is self.s._sock
+        raises(ssl.SSLError, ss.write, "hello\n")
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout
