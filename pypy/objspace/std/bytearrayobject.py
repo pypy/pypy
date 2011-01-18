@@ -262,9 +262,16 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
     return W_BytearrayObject(newdata)
 
 def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
-    index = w_idx.intval
+    where = w_idx.intval
+    length = len(w_bytearray.data)
+    if where < 0:
+        where += length
+        if where < 0:
+            where = 0
+    elif where > length:
+        where = length
     val = getbytevalue(space, w_other)
-    w_bytearray.data.insert(index, val)
+    w_bytearray.data.insert(where, val)
     return space.w_None
 
 def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
