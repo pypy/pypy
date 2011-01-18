@@ -96,7 +96,8 @@ def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
 
     sequence2 = space.listview(w_sequence)
     items = w_list.wrappeditems
-    _setitem_slice_helper(space, items, start, 1, stop-start, sequence2)
+    _setitem_slice_helper(space, items, start, 1, stop-start, sequence2,
+                          empty_elem=None)
 
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = len(w_list.wrappeditems)
@@ -265,9 +266,11 @@ def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
 
     sequence2 = space.listview(w_iterable)
     items = w_list.wrappeditems
-    _setitem_slice_helper(space, items, start, step, slicelength, sequence2)
+    _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
+                          empty_elem=None)
 
-def _setitem_slice_helper(space, items, start, step, slicelength, sequence2):
+def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
+                          empty_elem):
     assert slicelength >= 0
     oldsize = len(items)
     len2 = len(sequence2)
@@ -277,7 +280,7 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2):
             delta = -delta
             newsize = oldsize + delta
             # XXX support this in rlist!
-            items += [None] * delta
+            items += [empty_elem] * delta
             lim = start+len2
             i = newsize - 1
             while i >= lim:
