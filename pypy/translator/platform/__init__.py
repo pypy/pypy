@@ -180,7 +180,7 @@ class Platform(object):
             dirname = ofiles[0].dirpath()
         else:
             dirname = udir.join('module_cache')
-        exe_name = dirname.join(outputfilename)
+        exe_name = dirname.join(outputfilename, abs=True)
         if standalone:
             if self.exe_ext:
                 exe_name += '.' + self.exe_ext
