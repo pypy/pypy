@@ -23,6 +23,10 @@ bytearray_insert  = SMM('insert',3,
                     doc="B.insert(index, int) -> None\n\n"
                     "Insert a single item into the bytearray before "
                     "the given index.")
+bytearray_pop  = SMM('pop',2, defaults=(-1,),
+                    doc="B.pop([index]) -> int\n\nRemove and return a "
+                    "single item from B. If no index\nargument is given, "
+                    "will pop the last value.")
 
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):

@@ -267,6 +267,19 @@ def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
     w_bytearray.data.insert(index, val)
     return space.w_None
 
+def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
+    index = w_idx.intval
+    try:
+        result = w_bytearray.data.pop(index)
+    except IndexError:
+        if not w_bytearray.data:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "cannot pop an empty bytearray"))
+        raise OperationError(space.w_IndexError, space.wrap(
+            "pop index out of range"))
+    return space.wrap(ord(result))
+
+
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.
 def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max):

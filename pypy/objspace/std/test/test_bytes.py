@@ -192,6 +192,15 @@ class AppTestBytesArray:
         raises(ValueError, b.insert, 1, 'go')
         raises(TypeError, b.insert, 'g', 'o')
 
+    def test_pop(self):
+        b = bytearray('world')
+        assert b.pop() == ord('d')
+        assert b.pop(0) == ord('w')
+        assert b.pop(-2) == ord('r')
+        raises(IndexError, b.pop, 10)
+        raises(OverflowError, bytearray().pop)
+        assert bytearray(b'\xff').pop() == 0xff
+
     def test_delitem(self):
         b = bytearray('abc')
         del b[1]
