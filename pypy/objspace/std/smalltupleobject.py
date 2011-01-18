@@ -42,7 +42,7 @@ class W_SmallTupleObject2(W_SmallTupleObject):
 registerimplementation(W_SmallTupleObject)
 
 def delegate_SmallTuple2Tuple(space, w_small):
-    return W_TupleObject([w_small.w_value01, w_small.w_value02])
+    return W_TupleObject(w_small.tolist())
 
 def len__SmallTuple(space, w_tuple):
     return space.wrap(w_tuple.length())
