@@ -139,6 +139,8 @@ class BaseStringFormatTests:
         expected_warning = [
             ("object.__format__ with a non-empty format string is deprecated", PendingDeprecationWarning),
         ]
+        # XXX: need to change the filter so that PendingDeprecationWarnings are
+        # issued and not ignored
         with warnings.catch_warnings(record=True) as log:
             assert self.s("{0:^10}").format(E("data")) == self.s(" E(data)  ")
             assert log == expected_warning * 1
