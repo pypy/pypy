@@ -286,6 +286,12 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     target = target.instructions[0].jump[0]
                                     instr.opcode = ops.JUMP_ABSOLUTE
                                     absolute = True
+                                elif target_op == ops.RETURN_VALUE:
+                                    # Replace JUMP_* to a RETURN into just a RETURN
+                                    instr.opcode = ops.RETURN_VALUE
+                                    instr.arg = 0
+                                    instr.has_jump = False
+                                    continue
                         if absolute:
                             jump_arg = target.offset
                         else:
