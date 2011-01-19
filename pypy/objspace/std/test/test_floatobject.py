@@ -389,22 +389,15 @@ class AppTestAppFloatTest:
 
 
 class AppTestFloatHex:
-
-    def setup_class(cls):
-        space = cls.space
-        cls.w_identical = space.appexec((), """():
+    def w_identical(self, x, y):
         import math
-        def identical(x, y):
-            # check that floats x and y are identical, or that both
-            # are NaNs
-            if math.isnan(x) or math.isnan(y):
-                if math.isnan(x) == math.isnan(y):
-                    return
-            assert (x == y and (x != 0.0 or
-                                math.copysign(1.0, x) == math.copysign(1.0, y)))
-        return identical
-        """)
-
+        # check that floats x and y are identical, or that both
+        # are NaNs
+        if math.isnan(x) or math.isnan(y):
+            if math.isnan(x) == math.isnan(y):
+                return
+        assert (x == y and (x != 0.0 or
+                            math.copysign(1.0, x) == math.copysign(1.0, y)))
 
     def test_from_hex(self):
         fromHex = float.fromhex
