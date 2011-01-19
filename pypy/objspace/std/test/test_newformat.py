@@ -136,18 +136,22 @@ class BaseStringFormatTests:
         assert self.s("{0:d}").format(G("data")) == self.s("G(data)")
         assert self.s("{0!s}").format(G("data")) == self.s("string is data")
 
-        expected_warning = [
-            ("object.__format__ with a non-empty format string is deprecated", PendingDeprecationWarning),
-        ]
-        # XXX: need to change the filter so that PendingDeprecationWarnings are
-        # issued and not ignored
+        msg = "object.__format__ with a non-empty format string is deprecated",
         with warnings.catch_warnings(record=True) as log:
+            # This is ok because warnings.catch_warnings resets the filters
+            warnings.simplefilter("always", PendingDeprecationWarning)
             assert self.s("{0:^10}").format(E("data")) == self.s(" E(data)  ")
-            assert log == expected_warning * 1
+            assert log[0].message.args == msg
+            assert type(log[0].message) is PendingDeprecationWarning
+
             assert self.s("{0:^10s}").format(E("data")) == self.s(" E(data)  ")
-            assert log == expected_warning * 2
+            assert log[1].message.args == msg
+            assert type(log[1].message) is PendingDeprecationWarning
+
             assert self.s("{0:>15s}").format(G("data")) == self.s(" string is data")
-            assert log == expected_warning * 3
+            assert log[2].message.args == msg
+            assert type(log[2].message) is PendingDeprecationWarning
+        assert len(log) == 3
 
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
