@@ -291,6 +291,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     instr.opcode = ops.RETURN_VALUE
                                     instr.arg = 0
                                     instr.has_jump = False
+                                    # The size of the code changed,
+                                    # we have to trigger another pass
+                                    extended_arg_count += 1
                                     continue
                         if absolute:
                             jump_arg = target.offset
