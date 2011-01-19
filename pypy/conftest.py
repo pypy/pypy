@@ -383,11 +383,9 @@ class PyPyTestFunction(py.test.collect.Function):
 _pygame_imported = False
 
 class IntTestFunction(PyPyTestFunction):
-    def _haskeyword(self, keyword):
-        return keyword == 'interplevel' or \
-               super(IntTestFunction, self)._haskeyword(keyword)
-    def _keywords(self):
-        return super(IntTestFunction, self)._keywords() + ['interplevel']
+    def __init__(self, *args, **kwargs):
+        super(IntTestFunction, self).__init__(*args, **kwargs)
+        self.keywords['interplevel'] = True
 
     def runtest_perform(self):
         try:
@@ -415,15 +413,12 @@ class IntTestFunction(PyPyTestFunction):
         super(IntTestFunction, self).runtest_finish()
 
 class AppTestFunction(PyPyTestFunction):
+    def __init__(self, *args, **kwargs):
+        super(AppTestFunction, self).__init__(*args, **kwargs)
+        self.keywords['applevel'] = True
+
     def _prunetraceback(self, traceback):
         return traceback
-
-    def _haskeyword(self, keyword):
-        return keyword == 'applevel' or \
-               super(AppTestFunction, self)._haskeyword(keyword)
-
-    def _keywords(self):
-        return ['applevel'] + super(AppTestFunction, self)._keywords()
 
     def runtest_perform(self):
         target = self.obj

@@ -2,31 +2,30 @@
 import py
 
 innertest = py.path.local(__file__).dirpath('conftest1_innertest.py')
-pytest_plugins = "pytest_pytester"
+pytest_plugins = "pytester"
 
 class TestPyPyTests:
-    def test_select_interplevel(self, testdir): 
-        sorter = testdir.inline_run("-k", "interplevel", innertest)
+    def test_selection_by_keyword_interp(self, testdir): 
+        sorter = testdir.inline_run("-k", "interplevel", innertest, )
         passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 2
+        assert len(passed) == 2, len(passed)
         assert not skipped and not failed 
-        for repevent in passed: 
-            assert repevent.item.name in ('test_something', 'test_method')
+        assert "test_something" in passed[0].nodeid
+        assert "test_method" in passed[1].nodeid
 
-    def test_select_applevel(self, testdir): 
+    def test_selection_by_keyword_app(self, testdir): 
         sorter = testdir.inline_run("-k", "applevel", innertest)
         passed, skipped, failed = sorter.listoutcomes()
         assert len(passed) == 2
         assert not skipped and not failed 
-        for repevent in passed: 
-            assert repevent.item.name in ('app_test_something', 'test_method_app')
+        assert "app_test_something" in passed[0].nodeid
+        assert "test_method_app" in passed[1].nodeid
 
     def test_appdirect(self, testdir):
         sorter = testdir.inline_run(innertest, '-k', 'applevel', '--runappdirect')
         passed, skipped, failed = sorter.listoutcomes()
         assert len(passed) == 2
         print passed
-        names = [x.item.name for x in passed]
-        assert 'app_test_something' in names 
-        assert 'test_method_app' in names 
+        assert "app_test_something" in passed[0].nodeid
+        assert "test_method_app" in passed[1].nodeid
         
