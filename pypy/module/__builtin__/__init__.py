@@ -30,9 +30,6 @@ class Module(MixedModule):
         'print'         : 'app_io.print_',
 
         'apply'         : 'app_functional.apply',
-        #'range'         : 'app_functional.range',
-        # redirected to functional.py, applevel version
-        # is still needed and should stay where it is.
         'sorted'        : 'app_functional.sorted',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',

@@ -11,22 +11,11 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
-from pypy.module.__builtin__.app_functional import range as app_range
 from inspect import getsource, getfile
 from pypy.rlib.jit import unroll_safe
 
-"""
-Implementation of the common integer case of range. Instead of handling
-all other cases here, too, we fall back to the applevel implementation
-for non-integer arguments.
-Ideally this implementation could be saved, if we were able to
-specialize the geninterp generated code. But I guess having this
-hand-optimized is a good idea.
 
-Note the fun of using range inside range :-)
-"""
-
-def get_len_of_range(lo, hi, step):
+def get_len_of_range(space, lo, hi, step):
     """
     Return number of items in range/xrange (lo, hi, step).
     Raise ValueError if step == 0 and OverflowError if the true value is too
@@ -44,7 +33,8 @@ def get_len_of_range(lo, hi, step):
     # hi-lo-1 = M-(-M-1)-1 = 2*M.  Therefore unsigned long has enough
     # precision to compute the RHS exactly.
     if step == 0:
-        raise ValueError
+        raise OperationError(space.w_ValueError,
+                             space.wrap("step argument must not be zero"))
     elif step < 0:
         lo, hi, step = hi, lo, -step
     if lo < hi:
@@ -53,27 +43,48 @@ def get_len_of_range(lo, hi, step):
         diff = uhi - ulo - 1
         n = intmask(diff // r_uint(step) + 1)
         if n < 0:
-            raise OverflowError
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap("result has too many items"))
     else:
         n = 0
     return n
 
-def range(space, w_x, w_y=None, w_step=1):
+def range_int(space, w_x, w_y=NoneNotWrapped, w_step=1):
     """Return a list of integers in arithmetic position from start (defaults
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
+    if w_y is None:
+        w_start = space.wrap(0)
+        w_stop = w_x
+    else:
+        w_start = w_x
+        w_stop = w_y
+
+    if space.is_true(space.isinstance(w_stop, space.w_float)):
+        raise OperationError(space.w_TypeError,
+            space.wrap("range() integer end argument expected, got float."))
+    if space.is_true(space.isinstance(w_start, space.w_float)):
+        raise OperationError(space.w_TypeError,
+            space.wrap("range() integer start argument expected, got float."))
+    if space.is_true(space.isinstance(w_step, space.w_float)):
+        raise OperationError(space.w_TypeError,
+            space.wrap("range() integer step argument expected, got float."))
+
+    w_start = space.int(w_start)
+    w_stop  = space.int(w_stop)
+    w_step  = space.int(w_step)
+
     try:
-        x = space.int_w(space.int(w_x))
-        if space.is_w(w_y, space.w_None):
-            start, stop = 0, x
-        else:
-            start, stop = x, space.int_w(space.int(w_y))
-        step = space.int_w(space.int(w_step))
-        howmany = get_len_of_range(start, stop, step)
-    except (ValueError, OverflowError, OperationError):
-        # save duplication by redirecting every error to applevel
-        return range_fallback(space, w_x, w_y, w_step)
+        start = space.int_w(w_start)
+        stop  = space.int_w(w_stop)
+        step  = space.int_w(w_step)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+        return range_with_longs(space, w_start, w_stop, w_step)
+
+    howmany = get_len_of_range(space, start, stop, step)
 
     if space.config.objspace.std.withrangelist:
         return range_withspecialized_implementation(space, start,
@@ -84,12 +95,8 @@ get a list in decending order."""
         res_w[idx] = space.wrap(v)
         v += step
     return space.newlist(res_w)
-range_int = range
 range_int.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
-del range # don't hide the builtin one
 
-range_fallback = applevel(getsource(app_range), getfile(app_range)
-                          ).interphook('range')
 
 def range_withspecialized_implementation(space, start, step, howmany):
     assert space.config.objspace.std.withrangelist
@@ -585,15 +592,7 @@ class W_XRange(Wrappable):
             start, stop = 0, start
         else:
             stop = _toint(space, w_stop)
-        try:
-            howmany = get_len_of_range(start, stop, step)
-        except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("xrange() arg 3 must not be zero"))
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("xrange() result has "
-                                            "too many items"))
+        howmany = get_len_of_range(space, start, stop, step)
         obj = space.allocate_instance(W_XRange, w_subtype)
         W_XRange.__init__(obj, space, start, howmany, step)
         return space.wrap(obj)

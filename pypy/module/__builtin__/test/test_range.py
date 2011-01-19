@@ -60,8 +60,12 @@ class AppTestRange:
        raises(ValueError, range, 1, 5, 0)
 
    def test_range_float(self):
-       "How CPython does it - UGLY."
-       assert range(0.1, 2.0, 1.1) == [0, 1]
+       raises(TypeError, range, 0.1)
+       raises(TypeError, range, 0.1, 0)
+       raises(TypeError, range, 0, 0.1)
+       raises(TypeError, range, 0.1, 0, 0)
+       raises(TypeError, range, 0, 0.1, 0)
+       raises(TypeError, range, 0, 0, 0.1)
 
    def test_range_wrong_type(self):
        raises(TypeError, range, "42")
@@ -83,10 +87,7 @@ class AppTestRange:
        assert range(0, 2**100, -1) == []
 
        a = long(10 * sys.maxint)
-       b = long(100 * sys.maxint)
-       c = long(50 * sys.maxint)
-
        assert range(a, a+2) == [a, a+1]
        assert range(a+2, a, -1L) == [a+2, a+1]
        assert range(a+4, a, -2) == [a+4, a+2]
- 
+       assert range(a, a*5, a) == [a, 2*a, 3*a, 4*a]
