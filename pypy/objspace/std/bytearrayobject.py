@@ -7,7 +7,10 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import check_annotation
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import _delitem_slice_helper, _setitem_slice_helper
+from pypy.objspace.std.listobject import (
+    _delitem_slice_helper, _setitem_slice_helper,
+    get_positive_index
+)
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -15,7 +18,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.buffer import RWBuffer
-from pypy.objspace.std.bytearraytype import makebytearraydata_w
+from pypy.objspace.std.bytearraytype import makebytearraydata_w, getbytevalue
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -65,7 +68,7 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     return W_BytearrayObject(newdata)
 
 def contains__Bytearray_Int(space, w_bytearray, w_char):
-    char = w_char.intval
+    char = space.int_w(w_char)
     if not 0 <= char < 256:
         raise OperationError(space.w_ValueError,
                              space.wrap("byte must be in range(0, 256)"))
@@ -203,7 +206,7 @@ def repr__Bytearray(space, w_bytearray):
     return space.wrap(buf.build())
 
 def str__Bytearray(space, w_bytearray):
-    return W_StringObject(''.join(w_bytearray.data))
+    return space.wrap(''.join(w_bytearray.data))
 
 def _convert_idx_params(space, w_self, w_start, w_stop):
     start = slicetype._Eval_SliceIndex(space, w_start)
@@ -260,6 +263,39 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
             newdata.extend(data)
         newdata.extend([c for c in space.str_w(list_w[i])])
     return W_BytearrayObject(newdata)
+
+def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
+    where = space.int_w(w_idx)
+    length = len(w_bytearray.data)
+    index = get_positive_index(where, length)
+    val = getbytevalue(space, w_other)
+    w_bytearray.data.insert(index, val)
+    return space.w_None
+
+def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
+    index = space.int_w(w_idx)
+    try:
+        result = w_bytearray.data.pop(index)
+    except IndexError:
+        if not w_bytearray.data:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "cannot pop an empty bytearray"))
+        raise OperationError(space.w_IndexError, space.wrap(
+            "pop index out of range"))
+    return space.wrap(ord(result))
+
+
+def bytearray_remove__Bytearray_ANY(space, w_bytearray, w_char):
+    char = space.int_w(space.index(w_char))
+    try:
+        result = w_bytearray.data.remove(chr(char))
+    except ValueError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "value not found in bytearray"))
+
+def bytearray_reverse__Bytearray(space, w_bytearray):
+    w_bytearray.data.reverse()
+    return space.w_None
 
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.
@@ -404,7 +440,7 @@ def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     oldsize = len(w_bytearray.data)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
     sequence2 = makebytearraydata_w(space, w_other)
-    setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2)
+    setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
 
 def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
     idx = get_list_index(space, w_idx)

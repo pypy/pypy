@@ -1,6 +1,7 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
 import os
+import signal as cpy_signal
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -16,6 +17,12 @@ class Module(MixedModule):
         interpleveldefs['alarm'] = 'interp_signal.alarm'
         interpleveldefs['pause'] = 'interp_signal.pause'
         interpleveldefs['siginterrupt'] = 'interp_signal.siginterrupt'
+
+    if hasattr(cpy_signal, 'setitimer'):
+        interpleveldefs['setitimer'] = 'interp_signal.setitimer'
+        interpleveldefs['getitimer'] = 'interp_signal.getitimer'
+        for name in ['ITIMER_REAL', 'ITIMER_VIRTUAL', 'ITIMER_PROF']:
+            interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
 
     appleveldefs = {
         'default_int_handler': 'app_signal.default_int_handler',

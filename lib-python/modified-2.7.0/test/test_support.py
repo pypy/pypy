@@ -1052,6 +1052,11 @@ def check_impl_detail(**guards):
     guards, default = _parse_guards(guards)
     return guards.get(platform.python_implementation().lower(), default)
 
+# ----------------------------------
+# PyPy extension: you can run::
+#     python ..../test_foo.py --pdb
+# to get a pdb prompt in case of exceptions
+
 class TestResultWithPdb(unittest.result.TestResult):
 
     def addError(self, testcase, exc_info):
@@ -1060,6 +1065,8 @@ class TestResultWithPdb(unittest.result.TestResult):
             import pdb, traceback
             traceback.print_tb(exc_info[2])
             pdb.post_mortem(exc_info[2], pdb.Pdb)
+
+# ----------------------------------
 
 def _run_suite(suite):
     """Run tests from a unittest.TestSuite-derived class."""
@@ -1082,6 +1089,11 @@ def _run_suite(suite):
                 err += "; run in verbose mode for details"
         raise TestFailed(err)
 
+# ----------------------------------
+# PyPy extension: you can run::
+#     python ..../test_foo.py --filter bar
+# to run only the test cases whose name contains bar
+
 def filter_maybe(suite):
     try:
         i = sys.argv.index('--filter')
@@ -1103,6 +1115,8 @@ def linearize_suite(suite_or_test):
     for subsuite in it:
         for item in linearize_suite(subsuite):
             yield item
+
+# ----------------------------------
 
 def run_unittest(*classes):
     """Run tests from unittest.TestCase-derived classes."""

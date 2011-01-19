@@ -4,6 +4,8 @@ import pprint
 
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
+MANDATORY_LINE_BREAKS = ["BK", "CR", "LF", "NL"] # line break categories
+
 class Fraction:
     def __init__(self, numerator, denominator):
         self.numerator = numerator
@@ -35,6 +37,7 @@ class Unicodechar:
         self.canonical_decomp = None
         self.compat_decomp = None
         self.excluded = False
+        self.linebreak = False
         self.decompositionTag = ''
         if data[5]:
             self.raw_decomposition = data[5]
@@ -94,7 +97,7 @@ def get_canonical_decomposition(table, code):
     return table[code].canonical_decomp
 
 def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
-                     unihan_file=None):
+                     unihan_file=None, linebreak_file=None):
     rangeFirst = {}
     rangeLast = {}
     table = [None] * (MAXUNICODE + 1)
@@ -130,7 +133,22 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         if not line:
             continue
         table[int(line, 16)].excluded = True
-        
+
+    # Read line breaks
+    for line in linebreak_file:
+        line = line.split('#', 1)[0].strip()
+        if not line:
+            continue
+        data = [v.strip() for v in line.split(';')]
+        if len(data) < 2 or data[1] not in MANDATORY_LINE_BREAKS:
+            continue
+        if '..' not in data[0]:
+            first = last = int(data[0], 16)
+        else:
+            first, last = [int(c, 16) for c in data[0].split('..')]
+        for char in range(first, last+1):
+            table[char].linebreak = True
+
     # Read east asian width
     for line in east_asian_width_file:
         line = line.split('#', 1)[0].strip()
@@ -250,7 +268,7 @@ def writeDbRecord(outfile, table):
             flags |= IS_SPACE
         if char.category in ("Lm", "Lt", "Lu", "Ll", "Lo"):
             flags |= IS_ALPHA
-        if char.category == "Zl" or char.bidirectional == "B":
+        if char.linebreak or char.bidirectional == "B":
             flags |= IS_LINEBREAK
         if char.numeric is not None:
             flags |= IS_NUMERIC
@@ -664,8 +682,10 @@ def main():
     exclusions = open('CompositionExclusions-%s.txt' % options.unidata_version)
     east_asian_width = open('EastAsianWidth-%s.txt' % options.unidata_version)
     unihan = open('UnihanNumeric-%s.txt' % options.unidata_version)
+    linebreak = open('LineBreak-%s.txt' % options.unidata_version)
 
-    table = read_unicodedata(infile, exclusions, east_asian_width, unihan)
+    table = read_unicodedata(infile, exclusions, east_asian_width, unihan,
+                             linebreak)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)

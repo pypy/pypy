@@ -1,11 +1,15 @@
+from __future__ import with_statement
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
+from pypy.interpreter.gateway import unwrap_spec
 import signal as cpy_signal
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
+import sys
 from pypy.tool import autopath
 from pypy.rlib import jit, rposix
 from pypy.rlib.rarithmetic import intmask
@@ -21,8 +25,12 @@ SIG_DFL = cpy_signal.SIG_DFL
 SIG_IGN = cpy_signal.SIG_IGN
 signal_names = list(setup())
 
+includes = ['stdlib.h', 'src/signals.h']
+if sys.platform != 'win32':
+    includes.append('sys/time.h')
+
 eci = ExternalCompilationInfo(
-    includes = ['stdlib.h', 'src/signals.h'],
+    includes = includes,
     separate_module_sources = ['#include <src/signals.h>'],
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['pypysig_poll', 'pypysig_default',
@@ -30,6 +38,28 @@ eci = ExternalCompilationInfo(
                       'pypysig_set_wakeup_fd',
                       'pypysig_getaddr_occurred'],
 )
+
+class CConfig:
+    _compilation_info_ = eci
+
+    for name in """ITIMER_REAL ITIMER_VIRTUAL ITIMER_PROF""".split():
+        locals()[name] = rffi_platform.DefinedConstantInteger(name)
+
+
+    timeval = rffi_platform.Struct(
+        'struct timeval',
+        [('tv_sec', rffi.LONG),
+         ('tv_usec', rffi.LONG)])
+
+    itimerval = rffi_platform.Struct(
+        'struct itimerval',
+        [('it_value', timeval),
+         ('it_interval', timeval)])
+
+for k, v in rffi_platform.configure(CConfig).items():
+    globals()[k] = v
+
+itimervalP = rffi.CArrayPtr(itimerval)
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
@@ -54,6 +84,10 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
+
+c_setitimer = external('setitimer',
+                       [rffi.INT, itimervalP, itimervalP], rffi.INT)
+c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)
 
 
 class SignalActionFlag(AbstractActionFlag):
@@ -252,3 +286,39 @@ def siginterrupt(space, signum, flag):
         errno = rposix.get_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))
 siginterrupt.unwrap_spec = [ObjSpace, int, int]
+
+
+#__________________________________________________________
+
+def timeval_from_double(d, timeval):
+    timeval.c_tv_sec = int(d)
+    timeval.c_tv_usec = int((d - int(d)) * 1000000)
+
+def double_from_timeval(tv):
+    return tv.c_tv_sec + (tv.c_tv_usec / 1000000.0)
+
+def itimer_retval(space, val):
+    w_value = space.wrap(double_from_timeval(val.c_it_value))
+    w_interval = space.wrap(double_from_timeval(val.c_it_interval))
+    return space.newtuple([w_value, w_interval])
+
+@unwrap_spec(ObjSpace, int, float, float)
+def setitimer(space, which, first, interval=0):
+    with lltype.scoped_alloc(itimervalP.TO, 1) as new:
+
+        timeval_from_double(first, new[0].c_it_value)
+        timeval_from_double(interval, new[0].c_it_interval)
+
+        with lltype.scoped_alloc(itimervalP.TO, 1) as old:
+
+            c_setitimer(which, new, old)
+
+            return itimer_retval(space, old[0])
+
+@unwrap_spec(ObjSpace, int)
+def getitimer(space, which):
+    with lltype.scoped_alloc(itimervalP.TO, 1) as old:
+
+        c_getitimer(which, old)
+
+        return itimer_retval(space, old[0])

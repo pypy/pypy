@@ -96,7 +96,8 @@ def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
 
     sequence2 = space.listview(w_sequence)
     items = w_list.wrappeditems
-    _setitem_slice_helper(space, items, start, 1, stop-start, sequence2)
+    _setitem_slice_helper(space, items, start, 1, stop-start, sequence2,
+                          empty_elem=None)
 
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = len(w_list.wrappeditems)
@@ -265,9 +266,11 @@ def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
 
     sequence2 = space.listview(w_iterable)
     items = w_list.wrappeditems
-    _setitem_slice_helper(space, items, start, step, slicelength, sequence2)
+    _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
+                          empty_elem=None)
 
-def _setitem_slice_helper(space, items, start, step, slicelength, sequence2):
+def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
+                          empty_elem):
     assert slicelength >= 0
     oldsize = len(items)
     len2 = len(sequence2)
@@ -277,7 +280,7 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2):
             delta = -delta
             newsize = oldsize + delta
             # XXX support this in rlist!
-            items += [None] * delta
+            items += [empty_elem] * delta
             lim = start+len2
             i = newsize - 1
             while i >= lim:
@@ -341,14 +344,18 @@ def repr__List(space, w_list):
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
     where = space.int_w(w_where)
     length = len(w_list.wrappeditems)
+    index = get_positive_index(where, length)
+    w_list.wrappeditems.insert(index, w_any)
+    return space.w_None
+
+def get_positive_index(where, length):
     if where < 0:
         where += length
         if where < 0:
             where = 0
     elif where > length:
         where = length
-    w_list.wrappeditems.insert(where, w_any)
-    return space.w_None
+    return where
 
 def list_append__List_ANY(space, w_list, w_any):
     w_list.wrappeditems.append(w_any)
