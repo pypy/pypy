@@ -294,16 +294,6 @@ def skip_on_missing_buildoption(**ropts):
     py.test.skip("need translated pypy with: %s, got %s"
                  %(ropts,options))
 
-def getwithoutbinding(x, name):
-    try:
-        return x.__dict__[name]
-    except (AttributeError, KeyError):
-        for cls in getmro(x.__class__):
-            if name in cls.__dict__:
-                return cls.__dict__[name]
-        # uh? not found anywhere, fall back (which might raise AttributeError)
-        return getattr(x, name)
-
 class LazyObjSpaceGetter(object):
     def __get__(self, obj, cls=None):
         space = gettestobjspace()
