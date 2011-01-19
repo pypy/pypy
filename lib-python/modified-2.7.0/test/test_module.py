@@ -1,6 +1,6 @@
 # Test the module type
 import unittest
-from test.test_support import run_unittest, gc_collect
+from test.test_support import run_unittest, gc_collect, check_impl_detail
 
 import sys
 ModuleType = type(sys)
@@ -10,8 +10,10 @@ class ModuleTests(unittest.TestCase):
         # An uninitialized module has no __dict__ or __name__,
         # and __doc__ is None
         foo = ModuleType.__new__(ModuleType)
-        self.assertTrue(foo.__dict__ is None)
-        self.assertRaises(SystemError, dir, foo)
+        self.assertFalse(foo.__dict__)
+        if check_impl_detail():
+            self.assertTrue(foo.__dict__ is None)
+            self.assertRaises(SystemError, dir, foo)
         try:
             s = foo.__name__
             self.fail("__name__ = %s" % repr(s))
