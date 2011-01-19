@@ -302,6 +302,7 @@ def itimer_retval(space, val):
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+@jit.dont_look_inside
 @unwrap_spec(ObjSpace, int, float, float)
 def setitimer(space, which, first, interval=0):
     with lltype.scoped_alloc(itimervalP.TO, 1) as new:
@@ -315,6 +316,7 @@ def setitimer(space, which, first, interval=0):
 
             return itimer_retval(space, old[0])
 
+@jit.dont_look_inside
 @unwrap_spec(ObjSpace, int)
 def getitimer(space, which):
     with lltype.scoped_alloc(itimervalP.TO, 1) as old:
