@@ -425,11 +425,12 @@ class TestCompiler:
         decl = str(decl) + "\n"
         yield self.st, decl, 'x', (1, 2, 3, 4)
 
-        source = """def f(a):
-    del a
-    def x():
-        a
-"""
+        source = """if 1:
+        def f(a):
+            del a
+            def x():
+                a
+        """
         exc = py.test.raises(SyntaxError, self.run, source).value
         assert exc.msg == "Can't delete variable used in nested scopes: 'a'"
 
@@ -732,15 +733,16 @@ class TestCompiler:
         yield self.st, "x = None; y = `x`", "y", "None"
 
     def test_deleting_attributes(self):
-        test = """class X():
-   x = 3
-del X.x
-try:
-    X.x
-except AttributeError:
-    pass
-else:
-    raise AssertionError("attribute not removed")"""
+        test = """if 1:
+        class X():
+           x = 3
+        del X.x
+        try:
+            X.x
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError("attribute not removed")"""
         yield self.st, test, "X.__name__", "X"
 
 
@@ -760,10 +762,12 @@ class AppTestCompiler:
         assert "0 ('hi')" not in output.getvalue()
 
     def test_print_to(self):
-         exec """from StringIO import StringIO
-s = StringIO()
-print >> s, "hi", "lovely!"
-assert s.getvalue() == "hi lovely!\\n"
-s = StringIO()
-print >> s, "hi", "lovely!",
-assert s.getvalue() == "hi lovely!\"""" in {}
+         exec """if 1:
+         from StringIO import StringIO
+         s = StringIO()
+         print >> s, "hi", "lovely!"
+         assert s.getvalue() == "hi lovely!\\n"
+         s = StringIO()
+         print >> s, "hi", "lovely!",
+         assert s.getvalue() == "hi lovely!"
+         """ in {}
