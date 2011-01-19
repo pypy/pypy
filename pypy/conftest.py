@@ -128,7 +128,7 @@ class TinyObjSpace(object):
 
         for name in ('int', 'long', 'str', 'unicode'):
             setattr(self, 'w_' + name, eval(name))
-        
+
 
     def appexec(self, args, body):
         body = body.lstrip()
@@ -429,10 +429,7 @@ class AppTestMethod(AppTestFunction):
         for name in dir(instance):
             if name.startswith('w_'):
                 if option.runappdirect:
-                    # if the value is a function living on the class,
-                    # don't turn it into a bound method here
-                    obj = getwithoutbinding(instance, name)
-                    setattr(instance, name[2:], obj)
+                    setattr(instance, name[2:], getattr(instance, name))
                 else:
                     obj = getattr(instance, name)
                     if isinstance(obj, types.MethodType):
