@@ -236,3 +236,22 @@ class AppTestSignalSocket:
             alarm(0)
         finally:
             signal(SIGALRM, SIG_DFL)
+
+class AppTestItimer:
+    def test_itimer_real(self):
+        import signal
+
+        def sig_alrm(*args):
+            self.called = True
+
+        signal.signal(signal.SIGALRM, sig_alrm)
+        old = signal.setitimer(signal.ITIMER_REAL, 1.0)
+        assert old == (0, 0)
+
+        val, interval = signal.getitimer(signal.ITIMER_REAL)
+        assert val <= 1.0
+        assert interval == 0.0
+
+        signal.pause()
+        assert self.called
+

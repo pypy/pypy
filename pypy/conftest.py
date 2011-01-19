@@ -128,7 +128,7 @@ class TinyObjSpace(object):
 
         for name in ('int', 'long', 'str', 'unicode'):
             setattr(self, 'w_' + name, eval(name))
-        
+
 
     def appexec(self, args, body):
         body = body.lstrip()
@@ -294,16 +294,6 @@ def skip_on_missing_buildoption(**ropts):
     py.test.skip("need translated pypy with: %s, got %s"
                  %(ropts,options))
 
-def getwithoutbinding(x, name):
-    try:
-        return x.__dict__[name]
-    except (AttributeError, KeyError):
-        for cls in getmro(x.__class__):
-            if name in cls.__dict__:
-                return cls.__dict__[name]
-        # uh? not found anywhere, fall back (which might raise AttributeError)
-        return getattr(x, name)
-
 class LazyObjSpaceGetter(object):
     def __get__(self, obj, cls=None):
         space = gettestobjspace()
@@ -429,10 +419,7 @@ class AppTestMethod(AppTestFunction):
         for name in dir(instance):
             if name.startswith('w_'):
                 if option.runappdirect:
-                    # if the value is a function living on the class,
-                    # don't turn it into a bound method here
-                    obj = getwithoutbinding(instance, name)
-                    setattr(instance, name[2:], obj)
+                    setattr(instance, name[2:], getattr(instance, name))
                 else:
                     obj = getattr(instance, name)
                     if isinstance(obj, types.MethodType):

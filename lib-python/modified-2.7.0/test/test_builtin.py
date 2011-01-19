@@ -398,12 +398,16 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual(eval('dir()', g, m), list('xyz'))
         self.assertEqual(eval('globals()', g, m), g)
         self.assertEqual(eval('locals()', g, m), m)
-        self.assertRaises(TypeError, eval, 'a', m)
+        # on top of CPython, the first dictionary (the globals) has to
+        # be a real dict.  This is not the case on top of PyPy.
+        if check_impl_detail(pypy=False):
+            self.assertRaises(TypeError, eval, 'a', m)
+
         class A:
             "Non-mapping"
             pass
         m = A()
-        self.assertRaises(TypeError, eval, 'a', g, m)
+        self.assertRaises((TypeError, AttributeError), eval, 'a', g, m)
 
         # Verify that dict subclasses work as well
         class D(dict):
@@ -494,9 +498,10 @@ class BuiltinTest(unittest.TestCase):
         execfile(TESTFN, globals, locals)
         self.assertEqual(locals['z'], 2)
 
+        self.assertRaises(TypeError, execfile, TESTFN, {}, ())
         unlink(TESTFN)
         self.assertRaises(TypeError, execfile)
-        self.assertRaises(TypeError, execfile, TESTFN, {}, ())
+        self.assertRaises((TypeError, IOError), execfile, TESTFN, {}, ())
         import os
         self.assertRaises(IOError, execfile, os.curdir)
         self.assertRaises(IOError, execfile, "I_dont_exist")

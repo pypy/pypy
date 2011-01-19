@@ -1156,38 +1156,66 @@ class ObjSpace(object):
         # This is here mostly just for gateway.int_unwrapping_space_method().
         return bool(self.int_w(w_obj))
 
-    def nonnegint_w(self, w_obj):
-        # Like space.int_w(), but raises an app-level ValueError if
-        # the integer is negative.  Mostly here for gateway.py.
-        value = self.int_w(w_obj)
+    # This is all interface for gateway.py.
+    def gateway_int_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.int_w(self.int(w_obj))
+
+    def gateway_float_w(self, w_obj):
+        return self.float_w(self.float(w_obj))
+
+    def gateway_r_longlong_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.r_longlong_w(self.int(w_obj))
+
+    def gateway_r_uint_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.uint_w(self.int(w_obj))
+
+    def gateway_r_ulonglong_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.r_ulonglong_w(self.int(w_obj))
+
+    def gateway_nonnegint_w(self, w_obj):
+        # Like space.gateway_int_w(), but raises an app-level ValueError if
+        # the integer is negative.  Here for gateway.py.
+        value = self.gateway_int_w(w_obj)
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
         return value
 
     def c_int_w(self, w_obj):
-        # Like space.int_w(), but raises an app-level OverflowError if
-        # the integer does not fit in 32 bits.  Mostly here for gateway.py.
-        value = self.int_w(w_obj)
+        # Like space.gateway_int_w(), but raises an app-level OverflowError if
+        # the integer does not fit in 32 bits.  Here for gateway.py.
+        value = self.gateway_int_w(w_obj)
         if value < -2147483647-1 or value > 2147483647:
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
 
     def c_uint_w(self, w_obj):
-        # Like space.uint_w(), but raises an app-level OverflowError if
-        # the integer does not fit in 32 bits.  Mostly here for gateway.py.
-        value = self.uint_w(w_obj)
+        # Like space.gateway_uint_w(), but raises an app-level OverflowError if
+        # the integer does not fit in 32 bits.  Here for gateway.py.
+        value = self.gateway_r_uint_w(w_obj)
         if value > UINT_MAX_32_BITS:
             raise OperationError(self.w_OverflowError,
                               self.wrap("expected an unsigned 32-bit integer"))
         return value
 
     def c_nonnegint_w(self, w_obj):
-        # Like space.int_w(), but raises an app-level ValueError if
-        # the integer is negative or does not fit in 32 bits.  Mostly here
+        # Like space.gateway_int_w(), but raises an app-level ValueError if
+        # the integer is negative or does not fit in 32 bits.  Here
         # for gateway.py.
-        value = self.int_w(w_obj)
+        value = self.gateway_int_w(w_obj)
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
@@ -1197,6 +1225,10 @@ class ObjSpace(object):
         return value
 
     def c_filedescriptor_w(self, w_fd):
+        # This is only used sometimes in CPython, e.g. for os.fsync() but
+        # not os.close().  It's likely designed for 'select'.  It's irregular
+        # in the sense that it expects either a real int/long or an object
+        # with a fileno(), but not an object with an __int__().
         if (not self.isinstance_w(w_fd, self.w_int) and
             not self.isinstance_w(w_fd, self.w_long)):
             try:

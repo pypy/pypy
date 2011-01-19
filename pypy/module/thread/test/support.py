@@ -7,7 +7,7 @@ from pypy.module.thread import gil
 
 NORMAL_TIMEOUT = 300.0   # 5 minutes
 
-def waitfor(space, w_condition, delay=1):
+def waitfor(w_self, space, w_condition, delay=1):
     adaptivedelay = 0.04
     limit = time.time() + delay * NORMAL_TIMEOUT
     while time.time() <= limit:
@@ -19,15 +19,15 @@ def waitfor(space, w_condition, delay=1):
             return
         adaptivedelay *= 1.05
     print '*** timed out ***'
-waitfor.unwrap_spec = [ObjSpace, W_Root, float]
+waitfor.unwrap_spec = [W_Root, ObjSpace, W_Root, float]
 
-def timeout_killer(pid, delay):
+def timeout_killer(w_self, pid, delay):
     def kill():
         time.sleep(delay)
         os.kill(pid, 9)
         print "process %s killed!" % (pid,)
     thread.start_new_thread(kill, ())
-timeout_killer.unwrap_spec = [int, float]
+timeout_killer.unwrap_spec = [W_Root, int, float]
 
 class GenericTestThread:
 
@@ -36,7 +36,7 @@ class GenericTestThread:
         cls.space = space
 
         if option.runappdirect:
-            def plain_waitfor(condition, delay=1):
+            def plain_waitfor(self, condition, delay=1):
                 adaptivedelay = 0.04
                 limit = time.time() + NORMAL_TIMEOUT * delay
                 while time.time() <= limit:
@@ -54,4 +54,8 @@ class GenericTestThread:
             import time
             return time.sleep
         """)
-        cls.w_timeout_killer = space.wrap(interp2app_temp(timeout_killer))
+        
+        if option.runappdirect:
+            cls.w_timeout_killer = timeout_killer
+        else:
+            cls.w_timeout_killer = space.wrap(interp2app_temp(timeout_killer))

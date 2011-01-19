@@ -344,14 +344,18 @@ def repr__List(space, w_list):
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
     where = space.int_w(w_where)
     length = len(w_list.wrappeditems)
+    index = get_positive_index(where, length)
+    w_list.wrappeditems.insert(index, w_any)
+    return space.w_None
+
+def get_positive_index(where, length):
     if where < 0:
         where += length
         if where < 0:
             where = 0
     elif where > length:
         where = length
-    w_list.wrappeditems.insert(where, w_any)
-    return space.w_None
+    return where
 
 def list_append__List_ANY(space, w_list, w_any):
     w_list.wrappeditems.append(w_any)

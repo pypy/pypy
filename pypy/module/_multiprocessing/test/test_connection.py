@@ -14,7 +14,7 @@ class AppTestBufferTooShort:
         cls.space = space
 
         if option.runappdirect:
-            def raiseBufferTooShort(data):
+            def raiseBufferTooShort(self, data):
                 import multiprocessing
                 raise multiprocessing.BufferTooShort(data)
             cls.w_raiseBufferTooShort = raiseBufferTooShort
@@ -81,13 +81,10 @@ class AppTestWinpipeConnection(BaseConnectionTest):
         else:
             import _multiprocessing
 
-        cls.w_make_pair = cls.space.appexec([], """():
-            import multiprocessing
-            def make_pair():
-                rhandle, whandle = multiprocessing.Pipe(duplex=False)
-                return rhandle, whandle
-            return make_pair
-        """)
+    def w_make_pair(self):
+        import multiprocessing
+
+        return multiprocessing.Pipe(duplex=False)
 
 class AppTestSocketConnection(BaseConnectionTest):
     def setup_class(cls):
@@ -116,24 +113,20 @@ class AppTestSocketConnection(BaseConnectionTest):
 
             return space.wrap((server.fileno(), client.fileno()))
         if option.runappdirect:
-            w_socketpair = lambda: socketpair(space)
+            cls.w_socketpair = lambda self: socketpair(space)
         else:
-            w_socketpair = space.wrap(interp2app(socketpair))
+            cls.w_socketpair = space.wrap(interp2app(socketpair))
 
-        cls.w_make_pair = space.appexec(
-            [w_socketpair, cls.w_connections], """(socketpair, connections):
-            import _multiprocessing
-            import os
-            def make_pair():
-                fd1, fd2 = socketpair()
-                rhandle = _multiprocessing.Connection(fd1, writable=False)
-                whandle = _multiprocessing.Connection(fd2, readable=False)
-                connections.append(rhandle)
-                connections.append(whandle)
-                return rhandle, whandle
-            return make_pair
-        """)
+    def w_make_pair(self):
+        import _multiprocessing
+        import os
 
+        fd1, fd2 = self.socketpair()
+        rhandle = _multiprocessing.Connection(fd1, writable=False)
+        whandle = _multiprocessing.Connection(fd2, readable=False)
+        self.connections.append(rhandle)
+        self.connections.append(whandle)
+        return rhandle, whandle
 
     def teardown_method(self, func):
         # Work hard to close all sockets and connections now!

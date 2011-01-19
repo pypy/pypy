@@ -1057,10 +1057,12 @@ def check_impl_detail(**guards):
 #     python ..../test_foo.py --pdb
 # to get a pdb prompt in case of exceptions
 
-class TestResultWithPdb(unittest.result.TestResult):
+ResultClass = unittest.TextTestRunner.resultclass
+
+class TestResultWithPdb(ResultClass):
 
     def addError(self, testcase, exc_info):
-        unittest.result.TestResult.addError(self, testcase, exc_info)
+        ResultClass.addError(self, testcase, exc_info)
         if '--pdb' in sys.argv:
             import pdb, traceback
             traceback.print_tb(exc_info[2])
@@ -1074,7 +1076,7 @@ def _run_suite(suite):
         runner = unittest.TextTestRunner(sys.stdout, verbosity=2,
                                          resultclass=TestResultWithPdb)
     else:
-        runner = BasicTestRunner(resultclass=TestResultWithPdb)
+        runner = BasicTestRunner()
 
 
     result = runner.run(suite)

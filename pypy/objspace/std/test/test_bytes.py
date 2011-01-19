@@ -219,7 +219,7 @@ class AppTestBytesArray:
         b.remove(ord('o'))
         b.remove(ord('h'))
         assert b == 'e'
-        raises(TypeError, lambda: b.remove(u'e'))
+        raises(TypeError, b.remove, u'e')
         b.remove(Indexable())
         assert b == ''
 

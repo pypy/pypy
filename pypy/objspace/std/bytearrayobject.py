@@ -7,7 +7,10 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import check_annotation
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import _delitem_slice_helper, _setitem_slice_helper
+from pypy.objspace.std.listobject import (
+    _delitem_slice_helper, _setitem_slice_helper,
+    get_positive_index
+)
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -65,7 +68,7 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     return W_BytearrayObject(newdata)
 
 def contains__Bytearray_Int(space, w_bytearray, w_char):
-    char = w_char.intval
+    char = space.int_w(w_char)
     if not 0 <= char < 256:
         raise OperationError(space.w_ValueError,
                              space.wrap("byte must be in range(0, 256)"))
@@ -262,20 +265,15 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
     return W_BytearrayObject(newdata)
 
 def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
-    where = w_idx.intval
+    where = space.int_w(w_idx)
     length = len(w_bytearray.data)
-    if where < 0:
-        where += length
-        if where < 0:
-            where = 0
-    elif where > length:
-        where = length
+    index = get_positive_index(where, length)
     val = getbytevalue(space, w_other)
-    w_bytearray.data.insert(where, val)
+    w_bytearray.data.insert(index, val)
     return space.w_None
 
 def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
-    index = w_idx.intval
+    index = space.int_w(w_idx)
     try:
         result = w_bytearray.data.pop(index)
     except IndexError:
