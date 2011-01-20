@@ -8,6 +8,7 @@ def get_mercurial_info(hgexe=None):
     '''Obtain Mercurial version information by invoking the 'hg' command.'''
     # TODO: support extracting from .hg_archival.txt
 
+    default_retval = 'PyPy', '?', '?'
     pypyroot = os.path.abspath(os.path.join(pypydir, '..'))
     if hgexe is None:
         hgexe = py.path.local.sysfind('hg')
@@ -23,10 +24,10 @@ def get_mercurial_info(hgexe=None):
 
     if not os.path.isdir(os.path.join(pypyroot, '.hg')):
         maywarn('Not running from a Mercurial repository!')
-        return 'PyPy', '', ''
+        return default_retval
     elif not hgexe:
         maywarn('Cannot find Mercurial command!')
-        return 'PyPy', '', ''
+        return default_retval
     else:
         env = dict(os.environ)
         # get Mercurial into scripting mode
@@ -39,21 +40,25 @@ def get_mercurial_info(hgexe=None):
                       stdout=PIPE, stderr=PIPE, env=env)
         except OSError, e:
             maywarn(e)
-            return 'PyPy', '', ''
+            return default_retval
 
         if not p.stdout.read().startswith('Mercurial Distributed SCM'):
             maywarn('command does not identify itself as Mercurial')
-            return 'PyPy', '', ''
+            return default_retval
 
         p = Popen([str(hgexe), 'id', '-i', pypyroot],
                   stdout=PIPE, stderr=PIPE, env=env)
         hgid = p.stdout.read().strip()
         maywarn(p.stderr.read())
+        if p.wait() != 0:
+            hgid = '?'
 
         p = Popen([str(hgexe), 'id', '-t', pypyroot],
                   stdout=PIPE, stderr=PIPE, env=env)
         hgtags = [t for t in p.stdout.read().strip().split() if t != 'tip']
         maywarn(p.stderr.read())
+        if p.wait() != 0:
+            hgtags = ['?']
 
         if hgtags:
             return 'PyPy', hgtags[0], hgid

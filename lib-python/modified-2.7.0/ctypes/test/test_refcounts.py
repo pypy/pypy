@@ -1,6 +1,7 @@
 import unittest
 import ctypes
 import gc
+from ctypes.test import xfail
 
 MyCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
 OtherCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_ulonglong)
@@ -82,6 +83,7 @@ class RefcountTestCase(unittest.TestCase):
         self.assertEqual(grc(func), 2)
 
 class AnotherLeak(unittest.TestCase):
+    @xfail
     def test_callback(self):
         import sys
 

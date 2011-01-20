@@ -185,7 +185,9 @@ class CFuncPtr(_CData):
                     % (len(self._argtypes_), plural, len(args)))
 
             # check that arguments are convertible
-            self._convert_args(self._argtypes_, args)
+            ## XXX Not as long as ctypes.cast is a callback function with
+            ## py_object arguments...
+            ## self._convert_args(self._argtypes_, args)
 
             try:
                 res = self.callable(*args)

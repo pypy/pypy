@@ -1,6 +1,6 @@
 from ctypes import *
 import unittest, sys
-from ctypes.test import is_resource_enabled
+from ctypes.test import is_resource_enabled, xfail
 
 ################################################################
 # This section should be moved into ctypes\__init__.py, when it's ready.
@@ -17,6 +17,7 @@ else:
 
 class PythonAPITestCase(unittest.TestCase):
 
+    @xfail
     def test_PyString_FromStringAndSize(self):
         PyString_FromStringAndSize = pythonapi.PyString_FromStringAndSize
 
@@ -25,6 +26,7 @@ class PythonAPITestCase(unittest.TestCase):
 
         self.assertEqual(PyString_FromStringAndSize("abcdefghi", 3), "abc")
 
+    @xfail
     def test_PyString_FromString(self):
         pythonapi.PyString_FromString.restype = py_object
         pythonapi.PyString_FromString.argtypes = (c_char_p,)
@@ -56,6 +58,7 @@ class PythonAPITestCase(unittest.TestCase):
             del res
             self.assertEqual(grc(42), ref42)
 
+    @xfail
     def test_PyObj_FromPtr(self):
         s = "abc def ghi jkl"
         ref = grc(s)
@@ -81,6 +84,7 @@ class PythonAPITestCase(unittest.TestCase):
         # not enough arguments
         self.assertRaises(TypeError, PyOS_snprintf, buf)
 
+    @xfail
     def test_pyobject_repr(self):
         self.assertEqual(repr(py_object()), "py_object(<NULL>)")
         self.assertEqual(repr(py_object(42)), "py_object(42)")

@@ -2,6 +2,8 @@ from ctypes import *
 import unittest
 import sys
 
+from ctypes.test import xfail
+
 class Test(unittest.TestCase):
 
     def test_array2pointer(self):

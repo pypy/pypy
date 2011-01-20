@@ -599,12 +599,14 @@ def create_slot(w_self, slot_name):
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
-        w_self.dict_w['__dict__'] = w_self.space.wrap(std_dict_descr)
+        w_self.dict_w.setdefault('__dict__',
+                                 w_self.space.wrap(std_dict_descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
-        w_self.dict_w['__weakref__'] = w_self.space.wrap(weakref_descr)
+        w_self.dict_w.setdefault('__weakref__',
+                                 w_self.space.wrap(weakref_descr))
         w_self.weakrefable = True
 
 def valid_slot_name(slot_name):

@@ -388,8 +388,9 @@ def set_opt_level(config, level):
         else:
             raise ValueError(word)
 
-    hasbackendopts = 'nobackendopt' not in words
-    config.translation.suggest(list_comprehension_operations=hasbackendopts)
+    # list_comprehension_operations is needed for translation, because
+    # make_sure_not_resized often relies on it, so we always enable them
+    config.translation.suggest(list_comprehension_operations=True)
 
 # ----------------------------------------------------------------
 

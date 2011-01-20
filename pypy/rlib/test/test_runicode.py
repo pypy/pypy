@@ -178,11 +178,11 @@ class TestDecoding(UnicodeTests):
         s = u"a+-b".encode('utf-7')
         assert s == "a+--b"
         decode = self.getdecoder('utf-7')
-        assert decode(s, 1, None)[0] == u'a'
-        assert decode(s, 2, None)[0] == u'a'
-        assert decode(s, 3, None)[0] == u'a+'
-        assert decode(s, 4, None)[0] == u'a+-'
-        assert decode(s, 5, None)[0] == u'a+-b'
+        assert decode(s, 1, None) == (u'a', 1)
+        assert decode(s, 2, None) == (u'a', 1)
+        assert decode(s, 3, None) == (u'a+', 3)
+        assert decode(s, 4, None) == (u'a+-', 4)
+        assert decode(s, 5, None) == (u'a+-b', 5)
 
 
 class TestEncoding(UnicodeTests):

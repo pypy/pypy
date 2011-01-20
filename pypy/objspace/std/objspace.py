@@ -12,6 +12,7 @@ from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
+from pypy.rlib.rbigint import rbigint
 from pypy.tool.sourcetools import func_with_new_name
 
 # Object imports
@@ -181,8 +182,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return self.newint(x)
             else:
                 return W_LongObject.fromrarith_int(x)
+        return self._wrap_not_rpython(x)
+    wrap._annspecialcase_ = "specialize:wrap"
 
-        # _____ below here is where the annotator should not get _____
+    def _wrap_not_rpython(self, x):
+        "NOT_RPYTHON"
+        # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.
@@ -226,9 +231,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.w_Ellipsis
 
         if self.config.objspace.nofaking:
-            # annotation should actually not get here.  If it does, you get
-            # an error during rtyping because '%r' is not supported.  It tells
-            # you that there was a space.wrap() on a strange object.
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("nofaking enabled: refusing "
                                            "to wrap cpython value %r" %(x,)))
@@ -238,8 +240,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return w_result
         from fake import fake_object
         return fake_object(self, x)
-
-    wrap._annspecialcase_ = "specialize:wrap"
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
@@ -264,8 +264,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newcomplex(self, realval, imagval):
         return W_ComplexObject(realval, imagval)
 
+    def unpackcomplex(self, w_complex):
+        from pypy.objspace.std.complextype import unpackcomplex
+        return unpackcomplex(self, w_complex)
+
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)
+
+    def newlong_from_rbigint(self, val):
+        return W_LongObject(val)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)

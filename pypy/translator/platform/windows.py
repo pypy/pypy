@@ -169,8 +169,8 @@ class MsvcPlatform(Platform):
 
         if self.version >= 80:
             # Tell the linker to generate a manifest file
-            temp_manifest = ofile.dirpath().join(
-                ofile.purebasename + '.manifest')
+            temp_manifest = exe_name.dirpath().join(
+                exe_name.purebasename + '.manifest')
             args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
 
         self._execute_c_compiler(self.link, args, exe_name)

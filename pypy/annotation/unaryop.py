@@ -670,7 +670,8 @@ class __extend__(SomePBC):
     getattr.can_only_throw = []
 
     def setattr(pbc, s_attr, s_value):
-        getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
+        if not pbc.isNone():
+            raise AnnotatorError("setattr on %r" % pbc)
 
     def call(pbc, args):
         bookkeeper = getbookkeeper()

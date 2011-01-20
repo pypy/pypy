@@ -9,7 +9,7 @@ from pypy.translator.platform import platform
 CPYTHON_VERSION            = (2, 7, 0, "final", 42)   #XXX # sync patchlevel.h
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 4, 1, "beta", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (1, 5, 0, "alpha", 0)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
@@ -44,16 +44,17 @@ def get_version_info(space):
     return space.wrap(CPYTHON_VERSION)
 
 def get_version(space):
-    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy %d.%d.%d%s]" % (
+    ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])
+    if PYPY_VERSION[3] != "final":
+        ver = ver + "-%s%d" %(PYPY_VERSION[3], PYPY_VERSION[4])
+    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy %s%s]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
         hg_universal_id(),
         date,
         time,
-        PYPY_VERSION[0],
-        PYPY_VERSION[1],
-        PYPY_VERSION[2],
+        ver,
         compiler_version()))
 
 def get_winver(space):

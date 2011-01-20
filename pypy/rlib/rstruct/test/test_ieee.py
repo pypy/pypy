@@ -1,3 +1,4 @@
+import py, sys
 import random
 import struct
 
@@ -6,6 +7,10 @@ from pypy.rlib.rstruct.ieee import float_pack, float_unpack
 
 
 class TestFloatPacking:
+
+    def setup_class(cls):
+        if sys.version_info < (2, 6):
+            py.test.skip("the 'struct' module of this old CPython is broken")
 
     def check_float(self, x):
         # check roundtrip
@@ -43,8 +48,12 @@ class TestFloatPacking:
         self.check_float(-0.0)
 
     def test_nans(self):
-        self.check_float(float('nan'))
-        self.check_float(float('-nan'))
+        Q = float_pack(float('nan'), 8)
+        y = float_unpack(Q, 8)
+        assert repr(y) == 'nan'
+        L = float_pack(float('nan'), 4)
+        z = float_unpack(L, 4)
+        assert repr(z) == 'nan'
 
     def test_simple(self):
         test_values = [1e-10, 0.00123, 0.5, 0.7, 1.0, 123.456, 1e10]

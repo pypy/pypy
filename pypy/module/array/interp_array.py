@@ -362,10 +362,19 @@ def make_array(mytype):
             self.setlen(0)
             self.fromsequence(w_lst)
         else:
-            j = 0
-            for i in range(start, stop, step):
-                self.buffer[i] = w_item.buffer[j]
-                j += 1
+            if self is w_item:
+                with lltype.scoped_alloc(mytype.arraytype, self.allocated) as new_buffer:
+                    for i in range(self.len):
+                        new_buffer[i] = w_item.buffer[i]
+                    j = 0
+                    for i in range(start, stop, step):
+                        self.buffer[i] = new_buffer[j]
+                        j += 1
+            else:
+                j = 0
+                for i in range(start, stop, step):
+                    self.buffer[i] = w_item.buffer[j]
+                    j += 1
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)

@@ -176,8 +176,11 @@ class Platform(object):
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:
             outputfilename = ofiles[0].purebasename
-        exe_name = py.path.local(os.path.join(str(ofiles[0].dirpath()),
-                                              outputfilename))
+        if ofiles:
+            dirname = ofiles[0].dirpath()
+        else:
+            dirname = udir.join('module_cache')
+        exe_name = dirname.join(outputfilename, abs=True)
         if standalone:
             if self.exe_ext:
                 exe_name += '.' + self.exe_ext

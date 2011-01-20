@@ -834,21 +834,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Const(self, const):
         self.update_position(const.lineno)
         space = self.space
-        value = const.value
-        # Constant tuples are tricky because we have to avoid letting equal
-        # values of the tuple that are not the same types being held together in
-        # the constant dict.  So we make the key include the type of each item
-        # in the sequence.
-        if space.is_true(space.isinstance(value, space.w_tuple)):
-            length = space.int_w(space.len(value))
-            key_w = [None]*(length + 2)
-            key_w[0] = value
-            for i in range(1, length + 1):
-                key_w[i] = space.type(space.getitem(value, space.wrap(i - 1)))
-            key_w[-1] = space.w_tuple
-            self.load_const(value, space.newtuple(key_w))
-        else:
-            self.load_const(value)
+        self.load_const(const.value)
 
     def visit_UnaryOp(self, op):
         self.update_position(op.lineno)

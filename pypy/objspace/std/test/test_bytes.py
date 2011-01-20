@@ -22,6 +22,11 @@ class AppTestBytesArray:
             assert b == data.encode(encoding)
         raises(TypeError, bytearray, 9, 'utf8')
 
+    def test_encoding_with_ignore_errors(self):
+        data = u"H\u1234"
+        b = bytearray(data, "latin1", errors="ignore")
+        assert b == "H"
+
     def test_len(self):
         b = bytearray('test')
         assert len(b) == 4
@@ -52,6 +57,7 @@ class AppTestBytesArray:
         b2 = bytearray('world')
         assert b1 + b2 == bytearray('hello world')
         assert b1 * 2 == bytearray('hello hello ')
+        assert b1 * 1 is not b1
 
     def test_contains(self):
         assert ord('l') in bytearray('hello')
@@ -166,6 +172,62 @@ class AppTestBytesArray:
         b.append(ord('e'))
         assert b == 'abcde'
 
+    def test_insert(self):
+        b = bytearray('abc')
+        b.insert(0, 'd')
+        assert b == bytearray('dabc')
+
+        b.insert(-1, ord('e'))
+        assert b == bytearray('dabec')
+
+        b.insert(6, 'f')
+        assert b == bytearray('dabecf')
+
+        b.insert(1, 'g')
+        assert b == bytearray('dgabecf')
+
+        b.insert(-12, 'h')
+        assert b == bytearray('hdgabecf')
+
+        raises(ValueError, b.insert, 1, 'go')
+        raises(TypeError, b.insert, 'g', 'o')
+
+    def test_pop(self):
+        b = bytearray('world')
+        assert b.pop() == ord('d')
+        assert b.pop(0) == ord('w')
+        assert b.pop(-2) == ord('r')
+        raises(IndexError, b.pop, 10)
+        raises(OverflowError, bytearray().pop)
+        assert bytearray(b'\xff').pop() == 0xff
+
+    def test_remove(self):
+        class Indexable:
+            def __index__(self):
+                return ord('e')
+
+        b = bytearray(b'hello')
+        b.remove(ord('l'))
+        assert b == 'helo'
+        b.remove(ord('l'))
+        assert b == 'heo'
+        raises(ValueError, b.remove, ord('l'))
+        raises(ValueError, b.remove, 400)
+        raises(TypeError, b.remove, u'e')
+        raises(TypeError, b.remove, 2.3)
+        # remove first and last
+        b.remove(ord('o'))
+        b.remove(ord('h'))
+        assert b == 'e'
+        raises(TypeError, b.remove, u'e')
+        b.remove(Indexable())
+        assert b == ''
+
+    def test_reverse(self):
+        b = bytearray('hello')
+        b.reverse()
+        assert b == bytearray('olleh')
+
     def test_delitem(self):
         b = bytearray('abc')
         del b[1]
@@ -185,6 +247,26 @@ class AppTestBytesArray:
         assert b == 'abcdef'
         assert isinstance(b, bytearray)
 
+    def test_fromhex(self):
+        raises(TypeError, bytearray.fromhex, 9)
+
+        assert bytearray.fromhex('') == bytearray()
+        assert bytearray.fromhex(u'') == bytearray()
+
+        b = bytearray([0x1a, 0x2b, 0x30])
+        assert bytearray.fromhex('1a2B30') == b
+        assert bytearray.fromhex(u'1a2B30') == b
+        assert bytearray.fromhex(u'  1A 2B  30   ') == b
+        assert bytearray.fromhex(u'0000') == '\0\0'
+
+        raises(ValueError, bytearray.fromhex, u'a')
+        raises(ValueError, bytearray.fromhex, u'A')
+        raises(ValueError, bytearray.fromhex, u'rt')
+        raises(ValueError, bytearray.fromhex, u'1a b cd')
+        raises(ValueError, bytearray.fromhex, u'\x00')
+        raises(ValueError, bytearray.fromhex, u'12   \x00   34')
+        raises(UnicodeEncodeError, bytearray.fromhex, u'\u1234')
+
     def test_extend(self):
         b = bytearray('abc')
         b.extend(bytearray('def'))
@@ -193,14 +275,47 @@ class AppTestBytesArray:
         b.extend(buffer('jkl'))
         assert b == 'abcdefghijkl'
 
+        b = bytearray('world')
+        b.extend([ord(c) for c in 'hello'])
+        assert b == bytearray('worldhello')
+
+        b = bytearray('world')
+        b.extend(list('hello'))
+        assert b == bytearray('worldhello')
+
+        b = bytearray('world')
+        b.extend(c for c in 'hello')
+        assert b == bytearray('worldhello')
+
+        raises(ValueError, b.extend, ['fish'])
+        raises(ValueError, b.extend, [256])
+        raises(TypeError, b.extend, object())
+        raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")
 
-    def test_delslice(self):
+    def test_setslice(self):
+        b = bytearray('hello')
+        b[:] = [ord(c) for c in 'world']
+        assert b == bytearray('world')
+
+        b = bytearray('hello world')
+        b[::2] = 'bogoff'
+        assert b == bytearray('beolg ooflf')
+
+        def set_wrong_size():
+            b[::2] = 'foo'
+        raises(ValueError, set_wrong_size)
+
+    def test_delitem_slice(self):
         b = bytearray('abcdefghi')
         del b[5:8]
         assert b == 'abcdei'
         del b[:3]
         assert b == 'dei'
+
+        b = bytearray('hello world')
+        del b[::2]
+        assert b == bytearray('el ol')
 
     def test_setitem(self):
         b = bytearray('abcdefghi')

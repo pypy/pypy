@@ -25,6 +25,22 @@ class AppTestEpoll(object):
         for socket in self.space.unpackiterable(self.w_sockets):
             self.space.call_method(socket, "close")
 
+    def w_socket_pair(self):
+        import socket
+
+        server_socket = socket.socket()
+        server_socket.bind(('127.0.0.1', 0))
+        server_socket.listen(1)
+        client = socket.socket()
+        client.setblocking(False)
+        raises(socket.error,
+            client.connect, ('127.0.0.1', server_socket.getsockname()[1])
+        )
+        server, addr = server_socket.accept()
+
+        self.sockets.extend([server_socket, client, server])
+        return client, server
+
     def test_create(self):
         import select
 
@@ -46,21 +62,9 @@ class AppTestEpoll(object):
         raises(TypeError, select.epoll, {})
 
     def test_add(self):
-        import posix
         import select
-        import socket
 
-        server_socket = socket.socket()
-        server_socket.bind(('127.0.0.1', 0))
-        server_socket.listen(1)
-        client = socket.socket()
-        client.setblocking(False)
-        raises(socket.error,
-            client.connect, ('127.0.0.1', server_socket.getsockname()[1])
-        )
-        server, addr = server_socket.accept()
-
-        self.sockets.extend([server_socket, client, server])
+        client, server = self.socket_pair()
 
         ep = select.epoll(2)
         ep.register(server, select.EPOLLIN | select.EPOLLOUT)
@@ -89,20 +93,8 @@ class AppTestEpoll(object):
     def test_fromfd(self):
         import errno
         import select
-        import socket
 
-        server_socket = socket.socket()
-        server_socket.bind(('127.0.0.1', 0))
-        server_socket.listen(1)
-        client = socket.socket()
-        client.setblocking(False)
-        raises(socket.error,
-            client.connect, ('127.0.0.1', server_socket.getsockname()[1])
-        )
-        server, addr = server_socket.accept()
-
-        self.sockets.extend([server_socket, client, server])
-
+        client, server = self.socket_pair()
 
         ep1 = select.epoll(2)
         ep2 = select.epoll.fromfd(ep1.fileno())
@@ -121,21 +113,9 @@ class AppTestEpoll(object):
 
     def test_control_and_wait(self):
         import select
-        import socket
         import time
 
-        server_socket = socket.socket()
-        server_socket.bind(('127.0.0.1', 0))
-        server_socket.listen(1)
-        client = socket.socket()
-        client.setblocking(False)
-        raises(socket.error,
-            client.connect, ('127.0.0.1', server_socket.getsockname()[1])
-        )
-        server, addr = server_socket.accept()
-
-        self.sockets.extend([server_socket, client, server])
-
+        client, server = self.socket_pair()
 
         ep = select.epoll(16)
         ep.register(server.fileno(),
@@ -201,28 +181,16 @@ class AppTestEpoll(object):
 
     def test_unregister_closed(self):
         import select
-        import socket
         import time
 
-        server_socket = socket.socket()
-        server_socket.bind(('127.0.0.1', 0))
-        server_socket.listen(1)
-        client = socket.socket()
-        client.setblocking(False)
-        raises(socket.error,
-            client.connect, ('127.0.0.1', server_socket.getsockname()[1])
-        )
-        server, addr = server_socket.accept()
-
-        self.sockets.extend([server_socket, client, server])
-
+        client, server = self.socket_pair()
 
         fd = server.fileno()
         ep = select.epoll(16)
         ep.register(server)
 
         now = time.time()
-        events = ep.poll(1, 4)
+        ep.poll(1, 4)
         then = time.time()
         assert then - now < 0.01
 

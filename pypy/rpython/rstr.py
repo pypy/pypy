@@ -284,7 +284,10 @@ class __extend__(AbstractStringRepr):
         return hop.gendirectcall(self.ll.ll_float, v_str)
 
     def ll_str(self, s):
-        return s
+        if s:
+            return s
+        else:
+            return self.ll.ll_constant('None')
 
 class __extend__(AbstractUnicodeRepr):
     def rtype_method_encode(self, hop):

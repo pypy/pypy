@@ -1052,14 +1052,32 @@ def check_impl_detail(**guards):
     guards, default = _parse_guards(guards)
     return guards.get(platform.python_implementation().lower(), default)
 
+# ----------------------------------
+# PyPy extension: you can run::
+#     python ..../test_foo.py --pdb
+# to get a pdb prompt in case of exceptions
 
+ResultClass = unittest.TextTestRunner.resultclass
+
+class TestResultWithPdb(ResultClass):
+
+    def addError(self, testcase, exc_info):
+        ResultClass.addError(self, testcase, exc_info)
+        if '--pdb' in sys.argv:
+            import pdb, traceback
+            traceback.print_tb(exc_info[2])
+            pdb.post_mortem(exc_info[2], pdb.Pdb)
+
+# ----------------------------------
 
 def _run_suite(suite):
     """Run tests from a unittest.TestSuite-derived class."""
     if verbose:
-        runner = unittest.TextTestRunner(sys.stdout, verbosity=2)
+        runner = unittest.TextTestRunner(sys.stdout, verbosity=2,
+                                         resultclass=TestResultWithPdb)
     else:
         runner = BasicTestRunner()
+
 
     result = runner.run(suite)
     if not result.wasSuccessful():
@@ -1073,6 +1091,34 @@ def _run_suite(suite):
                 err += "; run in verbose mode for details"
         raise TestFailed(err)
 
+# ----------------------------------
+# PyPy extension: you can run::
+#     python ..../test_foo.py --filter bar
+# to run only the test cases whose name contains bar
+
+def filter_maybe(suite):
+    try:
+        i = sys.argv.index('--filter')
+        filter = sys.argv[i+1]
+    except (ValueError, IndexError):
+        return suite
+    tests = []
+    for test in linearize_suite(suite):
+        if filter in test._testMethodName:
+            tests.append(test)
+    return unittest.TestSuite(tests)
+
+def linearize_suite(suite_or_test):
+    try:
+        it = iter(suite_or_test)
+    except TypeError:
+        yield suite_or_test
+        return
+    for subsuite in it:
+        for item in linearize_suite(subsuite):
+            yield item
+
+# ----------------------------------
 
 def run_unittest(*classes):
     """Run tests from unittest.TestCase-derived classes."""
@@ -1088,6 +1134,7 @@ def run_unittest(*classes):
             suite.addTest(cls)
         else:
             suite.addTest(unittest.makeSuite(cls))
+    suite = filter_maybe(suite)
     _run_suite(suite)
 
 

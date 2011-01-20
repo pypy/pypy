@@ -4,6 +4,7 @@ import os
 
 import ctypes
 import _ctypes_test
+from ctypes.test import xfail
 
 class BITS(Structure):
     _fields_ = [("A", c_int, 1),
@@ -112,6 +113,7 @@ class BitFieldTest(unittest.TestCase):
         return self.get_except(type(Structure), "X", (),
                                {"_fields_": fields})
 
+    @xfail
     def test_nonint_types(self):
         # bit fields are not allowed on non-integer types.
         result = self.fail_fields(("a", c_char_p, 1))
@@ -141,6 +143,7 @@ class BitFieldTest(unittest.TestCase):
         result = self.fail_fields(("a", Dummy, 1))
         self.assertEqual(result, (TypeError, 'bit fields not allowed for type Dummy'))
 
+    @xfail
     def test_single_bitfield_size(self):
         for c_typ in int_types:
             result = self.fail_fields(("a", c_typ, -1))
