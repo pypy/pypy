@@ -306,6 +306,22 @@ class AppTestZipimport:
         assert z.is_package("package")
         assert z.get_filename("package") == mod.__file__
 
+    def test_subdirectory_twice(self):
+        import os, zipimport
+ 
+        self.writefile(
+            os.sep.join(("package", "__init__.py")), "")
+        self.writefile(
+            os.sep.join(("package", "subpackage",
+                         "__init__.py")), "")
+        self.writefile(
+            os.sep.join(("package", "subpackage",
+                         "foo.py")), "")
+        import sys
+        print sys.path
+        mod = __import__('package.subpackage.foo', None, None, [])
+        assert mod
+
     def test_zip_directory_cache(self):
         """ Check full dictionary interface
         """
