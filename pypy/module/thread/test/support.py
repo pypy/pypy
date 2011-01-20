@@ -7,7 +7,7 @@ from pypy.module.thread import gil
 
 NORMAL_TIMEOUT = 300.0   # 5 minutes
 
-def waitfor(w_self, space, w_condition, delay=1):
+def waitfor(space, w_condition, delay=1):
     adaptivedelay = 0.04
     limit = time.time() + delay * NORMAL_TIMEOUT
     while time.time() <= limit:
@@ -19,15 +19,13 @@ def waitfor(w_self, space, w_condition, delay=1):
             return
         adaptivedelay *= 1.05
     print '*** timed out ***'
-waitfor.unwrap_spec = [W_Root, ObjSpace, W_Root, float]
 
-def timeout_killer(w_self, pid, delay):
+def timeout_killer(pid, delay):
     def kill():
         time.sleep(delay)
         os.kill(pid, 9)
         print "process %s killed!" % (pid,)
     thread.start_new_thread(kill, ())
-timeout_killer.unwrap_spec = [W_Root, int, float]
 
 class GenericTestThread:
 
@@ -49,13 +47,10 @@ class GenericTestThread:
                 
             cls.w_waitfor = plain_waitfor
         else:
-            cls.w_waitfor = space.wrap(interp2app_temp(waitfor))
+            cls.w_waitfor = space.wrap(lambda self, condition, delay=1: waitfor(space, condition, delay))
         cls.w_busywait = space.appexec([], """():
             import time
             return time.sleep
         """)
         
-        if option.runappdirect:
-            cls.w_timeout_killer = timeout_killer
-        else:
-            cls.w_timeout_killer = space.wrap(interp2app_temp(timeout_killer))
+        cls.w_timeout_killer = space.wrap(lambda self, *args, **kwargs: timeout_killer(*args, **kwargs))
