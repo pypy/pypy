@@ -1100,3 +1100,74 @@ W_Product.typedef = TypeDef(
            for prod in result:
                yield tuple(prod)
 """)
+
+class W_Combinations(Wrappable):
+    def __init__(self, space, pool_w, indices, r):
+        self.pool_w = pool_w
+        self.indices = indices
+        self.r = r
+        self.last_result_w = None
+        self.stopped = r > len(pool_w)
+
+    @unwrap_spec(ObjSpace, W_Root, W_Root, int)
+    def descr__new__(space, w_subtype, w_iterable, r):
+        pool_w = space.fixedview(w_iterable)
+        n = len(pool_w)
+        if r < 0:
+            raise OperationError(space.w_ValueError,
+                space.wrap("r must be non-negative")
+            )
+        indices = list(xrange(r))
+        return W_Combinations(space, pool_w, indices, r)
+
+    @unwrap_spec("self", ObjSpace)
+    def descr__iter__(self, space):
+        return self
+
+    @unwrap_spec("self", ObjSpace)
+    def descr_next(self, space):
+        if self.stopped:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        if self.last_result_w is None:
+            # On the first pass, initialize result tuple using the indices
+            result_w = [None] * self.r
+            for i in xrange(self.r):
+                index = self.indices[i]
+                result_w[i] = self.pool_w[index]
+        else:
+            # Copy the previous result
+            result_w = self.last_result_w[:]
+            # Scan indices right-to-left until finding one that is not at its
+            # maximum (i + n - r).
+            i = self.r - 1
+            while i >= 0 and self.indices[i] == i + len(self.pool_w) - self.r:
+                i -= 1
+
+            # If i is negative, then the indices are all at their maximum value
+            # and we're done
+            if i < 0:
+                self.stopped = True
+                raise OperationError(space.w_StopIteration, space.w_None)
+
+            # Increment the current index which we know is not at its maximum.
+            # Then move back to the right setting each index to its lowest
+            # possible value (one higher than the index to its left -- this
+            # maintains the sort order invariant).
+            self.indices[i] += 1
+            for j in xrange(i + 1, self.r):
+                self.indices[j] = self.indices[j-1] + 1
+
+            # Update the result for the new indices starting with i, the
+            # leftmost index that changed
+            for i in xrange(i, self.r):
+                index = self.indices[i]
+                w_elem = self.pool_w[index]
+                result_w[i] = w_elem
+        self.last_result_w = result_w
+        return space.newtuple(result_w)
+
+W_Combinations.typedef = TypeDef("combinations",
+    __new__ = interp2app(W_Combinations.descr__new__.im_func),
+    __iter__ = interp2app(W_Combinations.descr__iter__),
+    next = interp2app(W_Combinations.descr_next),
+)
