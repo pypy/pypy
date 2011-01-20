@@ -411,15 +411,19 @@ class CFuncPtr(_CData):
         assert len(argtypes) == len(args)
         newargs = []
         for argtype, arg in zip(argtypes, args):
-            shape = argtype._ffiargshape
-            if isinstance(shape, str) and shape in "POszZ": # pointer types
-                value = arg._get_buffer_value()
-            elif is_struct_shape(shape):
-                value = arg._buffer
-            else:
-                value = arg.value
+            value = self._unwrap_single_arg(argtype, arg)
             newargs.append(value)
         return newargs
+
+    def _unwrap_single_arg(self, argtype, arg):
+        shape = argtype._ffiargshape
+        if isinstance(shape, str) and shape in "POszZ": # pointer types
+            value = arg._get_buffer_value()
+        elif is_struct_shape(shape):
+            value = arg._buffer
+        else:
+            value = arg.value
+        return value
     
     def _wrap_result(self, restype, result):
         """
@@ -533,11 +537,10 @@ def make_specialized_subclass(CFuncPtr):
         _num_args = 1
 
         def _are_assumptions_met(self, args):
-            assert len(self._argtypes_) == self._num_args
-            return (len(args) == self._num_args and
+            return (self._argtypes_ is not None and
+                    len(args) == len(self._argtypes_) == self._num_args and
                     self.callable is None and
                     not self._com_index and
-                    self._argtypes_ is not None and
                     self._errcheck_ is None)
 
         def __call__(self, *args):
@@ -572,5 +575,7 @@ def make_specialized_subclass(CFuncPtr):
         assert len(wrapped_args) == len(args)
         return wrapped_args
 
+    def _unwrap_args(self, argtypes, args):
+        return [self._unwrap_single_arg(argtypes[0], args[0])]
 
     return CFuncPtr_1
