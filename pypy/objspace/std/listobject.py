@@ -156,21 +156,20 @@ def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     return w_list.getslice(start, stop, 1, stop - start)
 
 def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
-    length = len(w_list.wrappeditems)
+    length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
     _setitem_slice_helper(space, w_list, start, 1, stop-start, w_sequence)
 
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
-    length = len(w_list.wrappeditems)
+    length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
     _delitem_slice_helper(space, w_list.wrappeditems, start, 1, stop-start)
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
     i = 0
-    items_w = w_list.wrappeditems
-    while i < len(items_w): # intentionally always calling len!
-        if space.eq_w(items_w[i], w_obj):
+    while i < w_list.length(): # intentionally always calling len!
+        if space.eq_w(w_list.getitem(i), w_obj):
             return space.w_True
         i += 1
     return space.w_False
