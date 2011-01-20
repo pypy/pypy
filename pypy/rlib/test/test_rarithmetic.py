@@ -343,7 +343,6 @@ class BaseTestRarithmetic(BaseRtypingTest):
         assert res == '3.33'
 
     def test_formatd_repr(self):
-        py.test.skip('WIP: Need full dtoa support to run this test')
         from pypy.rlib.rarithmetic import formatd
         def f(x):
             return formatd(x, 'r', 0, 0)
