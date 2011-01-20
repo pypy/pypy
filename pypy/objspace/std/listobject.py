@@ -151,9 +151,9 @@ def getitem__List_Slice(space, w_list, w_slice):
     return w_list.getslice(start, stop, step, slicelength)
 
 def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
-    length = len(w_list.wrappeditems)
+    length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    return W_ListObject(w_list.wrappeditems[start:stop])
+    return w_list.getslice(start, stop, 1, stop - start)
 
 def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
     length = len(w_list.wrappeditems)
