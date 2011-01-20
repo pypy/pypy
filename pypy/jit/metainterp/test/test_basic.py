@@ -1908,17 +1908,20 @@ class BasicTests:
                     x = z
             return res
         def g(x, y):
-            a1 = f(A(x), y, A(x))
-            a2 = f(A(x), y, A(x))
-            b1 = f(B(x), y, B(x))
-            b2 = f(B(x), y, B(x))
+            #a1 = f(A(x), y, A(x))
+            #a2 = f(A(x), y, A(x))
+            #assert a1.val == a2.val
+            #return a1.val
+            #b1 = f(B(x), y, B(x))
+            #b2 = f(B(x), y, B(x))
+            #assert b1.val == b2.val
+            #return a1.val + b1.val
             c1 = f(B(x), y, A(x))
             c2 = f(B(x), y, A(x))
+            assert c1.val == c2.val
+            return c1.val
             d1 = f(A(x), y, B(x))
             d2 = f(A(x), y, B(x))
-            assert a1.val == a2.val
-            assert b1.val == b2.val
-            assert c1.val == c2.val
             assert d1.val == d2.val
             return a1.val + b1.val + c1.val + d1.val
         res = self.meta_interp(g, [3, 14])

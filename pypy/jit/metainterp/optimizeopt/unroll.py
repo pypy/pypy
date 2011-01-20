@@ -172,7 +172,7 @@ class UnrollOptimizer(Optimization):
                     # FIXME: This should save some memory but requires
                     # a lot of tests to be fixed...
                     loop.preamble.operations = short[:]
-                    
+
                 # Turn guards into conditional jumps to the preamble
                 for i in range(len(short)):
                     op = short[i]
@@ -180,7 +180,9 @@ class UnrollOptimizer(Optimization):
                         op = op.clone()
                         #op.setfailargs(loop.preamble.inputargs)
                         #op.setjumptarget(loop.preamble.token)
-                        op.setdescr(loop.preamble.token.start_resumedescr)
+                        start_resumedescr = loop.preamble.token.start_resumedescr.clone_if_mutable()
+                        start_resumedescr.rd_snapshot.prev.boxes = loop.preamble.inputargs[:]
+                        op.setdescr(start_resumedescr)
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')

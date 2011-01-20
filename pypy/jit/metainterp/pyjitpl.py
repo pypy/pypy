@@ -1796,7 +1796,7 @@ class MetaInterp(object):
                     bridge_arg_boxes = self.retracing_loop_from.live_arg_boxes
                     self.compile_bridge_and_loop(original_boxes, \
                                                  live_arg_boxes, start,
-                                                 bridge_arg_boxes)
+                                                 bridge_arg_boxes, resumedescr)
                 else:
                     self.compile(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
@@ -1894,7 +1894,7 @@ class MetaInterp(object):
             self.history.operations.pop()     # remove the JUMP
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
-                                bridge_arg_boxes):
+                                bridge_arg_boxes, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
         original_inputargs = self.history.inputargs
         greenkey = original_boxes[:num_green_args]
@@ -1903,7 +1903,7 @@ class MetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, [], greenkey, start)
+        loop_token = compile.compile_new_loop(self, [], greenkey, start, start_resumedescr)
         self.history.operations.pop()     # remove the JUMP
         if loop_token is None:
             return
