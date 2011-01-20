@@ -2,6 +2,7 @@
 The Windows implementation of some posix modules,
 based on the Win32 API.
 """
+from __future__ import with_statement
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
