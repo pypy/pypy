@@ -3,6 +3,7 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import check_annotation
@@ -18,7 +19,10 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.buffer import RWBuffer
-from pypy.objspace.std.bytearraytype import makebytearraydata_w, getbytevalue
+from pypy.objspace.std.bytearraytype import (
+    makebytearraydata_w, getbytevalue,
+    new_bytearray
+)
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -297,6 +301,26 @@ def bytearray_reverse__Bytearray(space, w_bytearray):
     w_bytearray.data.reverse()
     return space.w_None
 
+_space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])
+
+def bytearray_strip__Bytearray_None(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, _space_chars, 1, 1)
+
+def bytearray_strip__Bytearray_ANY(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 1, 1)
+
+def bytearray_lstrip__Bytearray_None(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, _space_chars, 1, 0)
+
+def bytearray_lstrip__Bytearray_ANY(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 1, 0)
+
+def bytearray_rstrip__Bytearray_None(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, _space_chars, 0, 1)
+
+def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 0, 1)
+
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.
 def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max):
@@ -327,21 +351,6 @@ def str_swapcase__Bytearray(space, w_bytearray):
 def str_capitalize__Bytearray(space, w_bytearray):
     w_str = delegate_Bytearray2String(space, w_bytearray)
     w_res = space.call_method(w_str, "capitalize")
-    return String2Bytearray(space, w_res)
-
-def str_lstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "lstrip", w_chars)
-    return String2Bytearray(space, w_res)
-
-def str_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "rstrip", w_chars)
-    return String2Bytearray(space, w_res)
-
-def str_strip__Bytearray_ANY(space, w_bytearray, w_chars):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "strip", w_chars)
     return String2Bytearray(space, w_res)
 
 def str_ljust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
@@ -461,6 +470,22 @@ delitem_slice_helper = func_with_new_name(_delitem_slice_helper,
                                           'delitem_slice_helper')
 setitem_slice_helper = func_with_new_name(_setitem_slice_helper,
                                           'setitem_slice_helper')
+
+def _strip(space, w_bytearray, u_chars, left, right):
+    u_self = w_bytearray.data
+
+    lpos = 0
+    rpos = len(u_self)
+
+    if left:
+        while lpos < rpos and u_self[lpos] in u_chars:
+            lpos += 1
+
+    if right:
+        while rpos > lpos and u_self[rpos - 1] in u_chars:
+            rpos -= 1
+
+    return new_bytearray(space, space.w_bytearray, u_self[lpos:rpos])
 
 # __________________________________________________________
 # Buffer interface

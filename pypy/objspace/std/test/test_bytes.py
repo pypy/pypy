@@ -78,6 +78,22 @@ class AppTestBytesArray:
             assert c == bytearray('hee')
             assert isinstance(c, bytearray)
 
+    def test_strip(self):
+        b = bytearray('mississippi ')
+
+        assert b.strip() == 'mississippi'
+        assert b.strip(None) == 'mississippi'
+
+        b = bytearray('mississippi')
+
+        for strip_type in str, memoryview:
+            assert b.strip(strip_type('i')) == 'mississipp'
+            assert b.strip(strip_type('m')) == 'ississippi'
+            assert b.strip(strip_type('pi')) == 'mississ'
+            assert b.strip(strip_type('im')) == 'ssissipp'
+            assert b.strip(strip_type('pim')) == 'ssiss'
+            assert b.strip(strip_type(b)) == ''
+
     def test_iter(self):
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
 
@@ -148,8 +164,10 @@ class AppTestBytesArray:
         check(bytearray('1\t2').expandtabs(5), '1    2')
 
         check(bytearray(',').join(['a', bytearray('b')]), 'a,b')
-        check(bytearray('abc').lstrip('a'), 'bc')
-        check(bytearray('abc').rstrip('c'), 'ab')
+        check(bytearray('abca').lstrip('a'), 'bca')
+        check(bytearray('cabc').rstrip('c'), 'cab')
+        check(bytearray('abc').lstrip(memoryview('a')), 'bc')
+        check(bytearray('abc').rstrip(memoryview('c')), 'ab')
         check(bytearray('aba').strip('a'), 'b')
 
     def test_split(self):

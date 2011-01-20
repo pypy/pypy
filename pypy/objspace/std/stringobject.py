@@ -541,11 +541,11 @@ def _strip(space, w_self, w_chars, left, right):
     if left:
         #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
         while lpos < rpos and u_self[lpos] in u_chars:
-           lpos += 1
+            lpos += 1
 
     if right:
         while rpos > lpos and u_self[rpos - 1] in u_chars:
-           rpos -= 1
+            rpos -= 1
 
     assert rpos >= lpos    # annotator hint, don't remove
     return sliced(space, u_self, lpos, rpos, w_self)

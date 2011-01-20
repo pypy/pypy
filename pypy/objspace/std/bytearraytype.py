@@ -11,8 +11,7 @@ from pypy.objspace.std.stringtype import (
     str_startswith, str_endswith, str_islower, str_isupper, str_isalpha,
     str_isalnum, str_isdigit, str_isspace, str_istitle,
     str_upper, str_lower, str_title, str_swapcase, str_capitalize,
-    str_expandtabs, str_lstrip, str_rstrip, str_strip,
-    str_ljust, str_rjust, str_center, str_zfill,
+    str_expandtabs, str_ljust, str_rjust, str_center, str_zfill,
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
     str_splitlines, str_translate)
 from pypy.objspace.std.listtype import (
@@ -36,6 +35,21 @@ bytearray_remove  = SMM('remove', 2,
 bytearray_reverse  = SMM('reverse', 1,
                     doc="B.reverse() -> None\n\n"
                     "Reverse the order of the values in B in place.")
+
+bytearray_strip  = SMM('strip', 2, defaults=(None,),
+                    doc="B.strip([bytes]) -> bytearray\n\nStrip leading "
+                    "and trailing bytes contained in the argument.\nIf "
+                    "the argument is omitted, strip ASCII whitespace.")
+
+bytearray_lstrip  = SMM('lstrip', 2, defaults=(None,),
+                    doc="B.lstrip([bytes]) -> bytearray\n\nStrip leading "
+                    "bytes contained in the argument.\nIf the argument is "
+                    "omitted, strip leading ASCII whitespace.")
+
+bytearray_rstrip  = SMM('rstrip', 2, defaults=(None,),
+                    doc="'B.rstrip([bytes]) -> bytearray\n\nStrip trailing "
+                    "bytes contained in the argument.\nIf the argument is "
+                    "omitted, strip trailing ASCII whitespace.")
 
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
