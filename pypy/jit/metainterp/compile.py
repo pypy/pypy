@@ -80,11 +80,11 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
-                     full_preamble_needed=True):
+def compile_new_loop(metainterp, old_loop_tokens, greenkey, start, start_resumedescr):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
+    full_preamble_needed=True
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.inputargs = history.inputargs
@@ -102,6 +102,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
     loop.preamble = create_empty_loop(metainterp, 'Preamble ')
     loop.preamble.inputargs = loop.inputargs
     loop.preamble.token = make_loop_token(len(loop.inputargs), jitdriver_sd)
+    loop.preamble.token.start_resumedescr = start_resumedescr
 
     try:
         old_loop_token = jitdriver_sd.warmstate.optimize_loop(

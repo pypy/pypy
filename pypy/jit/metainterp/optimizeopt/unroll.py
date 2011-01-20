@@ -178,8 +178,9 @@ class UnrollOptimizer(Optimization):
                     op = short[i]
                     if op.is_guard():
                         op = op.clone()
-                        op.setfailargs(loop.preamble.inputargs)
-                        op.setjumptarget(loop.preamble.token)
+                        #op.setfailargs(loop.preamble.inputargs)
+                        #op.setjumptarget(loop.preamble.token)
+                        op.setdescr(loop.preamble.token.start_resumedescr)
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')
@@ -566,26 +567,6 @@ class OptInlineShortPreamble(Optimization):
             newop = inliner.inline_op(op)
             
             if not dryrun:
-                # FIXME: Emit a proper guard instead to move these
-                # forceings into the the small bridge back to the preamble
-                if newop.is_guard():
-                    failargs = newop.getfailargs()
-                    for i in range(len(failargs)):
-                        box = failargs[i]
-                        if box in self.optimizer.values:
-                            value = self.optimizer.values[box]
-                            if value.is_constant():
-                                newbox = box.clonebox()
-                                op = ResOperation(rop.SAME_AS,
-                                                  [value.force_box()], newbox)
-                                self.optimizer.newoperations.append(op)
-                                box = newbox
-                            else:
-                                box = value.force_box()
-                        failargs[i] = box
-                    newop.setfailargs(failargs)
-                                
-                
                 self.emit_operation(newop)
             else:
                 if not self.is_emittable(newop):

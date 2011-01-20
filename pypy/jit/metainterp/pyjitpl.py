@@ -832,6 +832,9 @@ class MIFrame(object):
     @arguments("orgpc", "int", "boxes3", "jitcode_position", "boxes3")
     def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes,
                                jcposition, redboxes):
+        resumedescr = compile.ResumeGuardDescr()
+        self.capture_resumedata(resumedescr)
+
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
@@ -857,7 +860,7 @@ class MIFrame(object):
             # much less expensive to blackhole out of.
             saved_pc = self.pc
             self.pc = orgpc
-            self.metainterp.reached_loop_header(greenboxes, redboxes)
+            self.metainterp.reached_loop_header(greenboxes, redboxes, resumedescr)
             self.pc = saved_pc
             # no exception, which means that the jit_merge_point did not
             # close the loop.  We have to put the possibly-modified list
@@ -1075,6 +1078,14 @@ class MIFrame(object):
             resumedescr = compile.ResumeGuardDescr()
         guard_op = metainterp.history.record(opnum, moreargs, None,
                                              descr=resumedescr)
+        self.capture_resumedata(resumedescr, resumepc)
+        self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS)
+        # count
+        metainterp.attach_debug_info(guard_op)
+        return guard_op
+
+    def capture_resumedata(self, resumedescr, resumepc=-1):
+        metainterp = self.metainterp
         virtualizable_boxes = None
         if (metainterp.jitdriver_sd.virtualizable_info is not None or
             metainterp.jitdriver_sd.greenfield_info is not None):
@@ -1085,10 +1096,6 @@ class MIFrame(object):
         resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
                                   metainterp.virtualref_boxes, resumedescr)
         self.pc = saved_pc
-        self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS)
-        # count
-        metainterp.attach_debug_info(guard_op)
-        return guard_op
 
     def implement_guard_value(self, orgpc, box):
         """Promote the given Box into a Const.  Note: be careful, it's a
@@ -1734,7 +1741,7 @@ class MetaInterp(object):
             else:
                 duplicates[box] = None
 
-    def reached_loop_header(self, greenboxes, redboxes):
+    def reached_loop_header(self, greenboxes, redboxes, resumedescr):
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
                                           duplicates)
@@ -1791,7 +1798,7 @@ class MetaInterp(object):
                                                  live_arg_boxes, start,
                                                  bridge_arg_boxes)
                 else:
-                    self.compile(original_boxes, live_arg_boxes, start)
+                    self.compile(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 #self.staticdata.log('cancelled, tracing more...')
                 self.staticdata.log('cancelled, stopping tracing')
@@ -1854,14 +1861,14 @@ class MetaInterp(object):
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
         cell.set_compiled_merge_points(looptokens)
 
-    def compile(self, original_boxes, live_arg_boxes, start):
+    def compile(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop_token = compile.compile_new_loop(self, old_loop_tokens,
-                                              greenkey, start)
+                                              greenkey, start, start_resumedescr)
         if loop_token is not None: # raise if it *worked* correctly
             self.set_compiled_merge_points(greenkey, old_loop_tokens)
             raise GenerateMergePoint(live_arg_boxes, loop_token)
