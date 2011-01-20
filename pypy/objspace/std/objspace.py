@@ -184,8 +184,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return W_LongObject.fromrarith_int(x)
         if isinstance(x, rbigint):
             return W_LongObject(x)
+        return self._wrap_not_rpython(x)
+    wrap._annspecialcase_ = "specialize:wrap"
 
-        # _____ below here is where the annotator should not get _____
+    def _wrap_not_rpython(self, x):
+        "NOT_RPYTHON"
+        # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.
@@ -229,9 +233,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.w_Ellipsis
 
         if self.config.objspace.nofaking:
-            # annotation should actually not get here.  If it does, you get
-            # an error during rtyping because '%r' is not supported.  It tells
-            # you that there was a space.wrap() on a strange object.
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("nofaking enabled: refusing "
                                            "to wrap cpython value %r" %(x,)))
@@ -241,8 +242,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return w_result
         from fake import fake_object
         return fake_object(self, x)
-
-    wrap._annspecialcase_ = "specialize:wrap"
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
