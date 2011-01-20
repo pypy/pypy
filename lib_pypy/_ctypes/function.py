@@ -232,8 +232,22 @@ class CFuncPtr(_CData):
         argtypes = [type(arg) for arg in args]
         newargs = self._unwrap_args(argtypes, args)
 
-        restype = self._restype_
-        funcptr = self._getfuncptr(argtypes, restype, thisarg)
+        funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
+        result = self._call_funcptr(funcptr, *newargs)
+        # The 'errcheck' protocol
+        if self._errcheck_:
+            v = self._errcheck_(result, self, args)
+            # If the errcheck funtion failed, let it throw
+            # If the errcheck function returned callargs unchanged,
+            # continue normal processing.
+            # If the errcheck function returned something else,
+            # use that as result.
+            if v is not args:
+                result = v
+        return result
+
+    def _call_funcptr(self, funcptr, *newargs):
+
         if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
             set_errno(_rawffi.get_errno())
         if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
@@ -247,20 +261,8 @@ class CFuncPtr(_CData):
                 set_errno(_rawffi.get_errno())
             if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
                 set_last_error(_rawffi.get_last_error())
-        result = self._build_result(restype, result, newargs)
-
-        # The 'errcheck' protocol
-        if self._errcheck_:
-            v = self._errcheck_(result, self, args)
-            # If the errcheck funtion failed, let it throw
-            # If the errcheck function returned callargs unchanged,
-            # continue normal processing.
-            # If the errcheck function returned something else,
-            # use that as result.
-            if v is not args:
-                result = v
-
-        return result
+        #
+        return self._build_result(self._restype_, result, newargs)
 
     def _getfuncptr_fromaddress(self, argshapes, resshape):
         address = self._get_address()
@@ -534,7 +536,8 @@ def make_specialized_subclass(CFuncPtr):
             return (len(args) == self._num_args and
                     self.callable is None and
                     not self._com_index and
-                    self._argtypes_ is not None)
+                    self._argtypes_ is not None and
+                    self._errcheck_ is None)
 
         def __call__(self, *args):
             if not self._are_assumptions_met(args):
@@ -550,32 +553,6 @@ def make_specialized_subclass(CFuncPtr):
 
             restype = self._restype_
             funcptr = self._getfuncptr(argtypes, restype, thisarg)
-            if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
-                set_errno(_rawffi.get_errno())
-            if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
-                set_last_error(_rawffi.get_last_error())
-            try:
-                result = funcptr(*newargs)
-                ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
-                ##                       for arg in args])
-            finally:
-                if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
-                    set_errno(_rawffi.get_errno())
-                if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
-                    set_last_error(_rawffi.get_last_error())
-            result = self._build_result(restype, result, newargs)
-
-            # The 'errcheck' protocol
-            if self._errcheck_:
-                v = self._errcheck_(result, self, args)
-                # If the errcheck funtion failed, let it throw
-                # If the errcheck function returned callargs unchanged,
-                # continue normal processing.
-                # If the errcheck function returned something else,
-                # use that as result.
-                if v is not args:
-                    result = v
-
-            return result
+            return self._call_funcptr(funcptr, *newargs)
 
     return CFuncPtr_1
