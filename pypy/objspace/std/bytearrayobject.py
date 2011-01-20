@@ -509,6 +509,7 @@ def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
 
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
+    w_by = space.wrap(space.bufferstr_w(w_by))
     w_list = space.call_method(w_str, "split", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
@@ -517,6 +518,7 @@ def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
 
 def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
+    w_by = space.wrap(space.bufferstr_w(w_by))
     w_list = space.call_method(w_str, "rsplit", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
@@ -525,6 +527,7 @@ def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
 
 def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
     w_str = str__Bytearray(space, w_bytearray)
+    w_sub = space.wrap(space.bufferstr_w(w_sub))
     w_tuple = stringobject.str_partition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([
@@ -534,6 +537,7 @@ def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
 
 def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
     w_str = str__Bytearray(space, w_bytearray)
+    w_sub = space.wrap(space.bufferstr_w(w_sub))
     w_tuple = stringobject.str_rpartition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([

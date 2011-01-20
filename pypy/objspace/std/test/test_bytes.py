@@ -193,12 +193,19 @@ class AppTestBytesArray:
             assert set(type(x) for x in result) == set([bytearray])
 
         b = bytearray('mississippi')
-        check(b.split('i'), eval("[b'm', b'ss', b'ss', b'pp', b'']"))
-        check(b.rsplit('i'), eval("[b'm', b'ss', b'ss', b'pp', b'']"))
-        check(b.rsplit('i', 2), eval("[b'mississ', b'pp', b'']"))
+        check(b.split('i'), ['m', 'ss', 'ss', 'pp', ''])
+        check(b.split(memoryview('i')), ['m', 'ss', 'ss', 'pp', ''])
+        check(b.rsplit('i'), ['m', b'ss', b'ss', b'pp', b''])
+        check(b.rsplit(memoryview('i')), ['m', b'ss', b'ss', b'pp', b''])
+        check(b.rsplit('i', 2), ['mississ', 'pp', ''])
 
-        check(b.partition(eval("b'ss'")), eval("(b'mi', b'ss', b'issippi')"))
-        check(b.rpartition(eval("b'ss'")), eval("(b'missi', b'ss', b'ippi')"))
+        check(bytearray('foo bar').split(), ['foo', 'bar'])
+        check(bytearray('foo bar').split(None), ['foo', 'bar'])
+
+        check(b.partition('ss'), ('mi', 'ss', 'issippi'))
+        check(b.partition(memoryview('ss')), ('mi', 'ss', 'issippi'))
+        check(b.rpartition('ss'), ('missi', 'ss', 'ippi'))
+        check(b.rpartition(memoryview('ss')), ('missi', 'ss', 'ippi'))
 
     def test_append(self):
         b = bytearray('abc')
