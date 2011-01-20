@@ -157,6 +157,7 @@ class AppTestBytesArray:
             assert type(result) is bytearray
 
         check(bytearray('abc').replace('b', bytearray('d')), 'adc')
+        check(bytearray('abc').replace('b', 'd'), 'adc')
 
         check(bytearray('abc').upper(), 'ABC')
         check(bytearray('ABC').lower(), 'abc')

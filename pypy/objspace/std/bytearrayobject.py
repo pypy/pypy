@@ -7,6 +7,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import check_annotation
+from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import (
     _delitem_slice_helper, _setitem_slice_helper,
@@ -118,7 +119,7 @@ def contains__Bytearray_Int(space, w_bytearray, w_char):
 def contains__Bytearray_String(space, w_bytearray, w_str):
     # XXX slow - copies, needs rewriting
     w_str2 = str__Bytearray(space, w_bytearray)
-    return space.call_method(w_str2, "__contains__", w_str)
+    return stringobject.contains__String_String(space, w_str2, w_str)
 
 def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
@@ -209,7 +210,8 @@ def gt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
 def str_translate__Bytearray_ANY_ANY(space, w_bytearray1, w_table, w_deletechars):
     # XXX slow, copies *twice* needs proper implementation
     w_str_copy = str__Bytearray(space, w_bytearray1)
-    w_res = space.call_method(w_str_copy, 'translate', w_table, w_deletechars)
+    w_res = stringobject.str_translate__String_ANY_ANY(space, w_str_copy,
+                                                       w_table, w_deletechars)
     return String2Bytearray(space, w_res)
 
 # Mostly copied from repr__String, but without the "smart quote"
@@ -304,6 +306,10 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
         newdata.extend([c for c in space.str_w(list_w[i])])
     return W_BytearrayObject(newdata)
 
+def str_islower__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_islower__String(space, w_str)
+
 def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
     where = space.int_w(w_idx)
     length = len(w_bytearray.data)
@@ -323,7 +329,6 @@ def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
         raise OperationError(space.w_IndexError, space.wrap(
             "pop index out of range"))
     return space.wrap(ord(result))
-
 
 def bytearray_remove__Bytearray_ANY(space, w_bytearray, w_char):
     char = space.int_w(space.index(w_char))
@@ -361,57 +366,61 @@ def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
 # but they have to return a bytearray.
 def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "replace", w_str1, w_str2, w_max)
+    w_res = stringobject.str_replace__String_ANY_ANY_ANY(space, w_str, w_str1,
+                                                         w_str2, w_max)
     return String2Bytearray(space, w_res)
 
 def str_upper__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "upper")
+    w_res = stringobject.str_upper__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_lower__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "lower")
+    w_res = stringobject.str_lower__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_title__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "title")
+    w_res = stringobject.str_title__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_swapcase__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "swapcase")
+    w_res = stringobject.str_swapcase__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_capitalize__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "capitalize")
+    w_res = stringobject.str_capitalize__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_ljust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "ljust", w_width, w_fillchar)
+    w_res = stringobject.str_ljust__String_ANY_ANY(space, w_str, w_width,
+                                                   w_fillchar)
     return String2Bytearray(space, w_res)
 
 def str_rjust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "rjust", w_width, w_fillchar)
+    w_res = stringobject.str_rjust__String_ANY_ANY(space, w_str, w_width,
+                                                   w_fillchar)
     return String2Bytearray(space, w_res)
 
 def str_center__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "center", w_width, w_fillchar)
+    w_res = stringobject.str_center__String_ANY_ANY(space, w_str, w_width,
+                                                    w_fillchar)
     return String2Bytearray(space, w_res)
 
 def str_zfill__Bytearray_ANY(space, w_bytearray, w_width):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "zfill", w_width)
+    w_res = stringobject.str_zfill__String_ANY(space, w_str, w_width)
     return String2Bytearray(space, w_res)
 
 def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
     w_str = str__Bytearray(space, w_bytearray)
-    w_res = space.call_method(w_str, "expandtabs", w_tabsize)
+    w_res = stringobject.str_expandtabs__String_ANY(space, w_str, w_tabsize)
     return String2Bytearray(space, w_res)
 
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
@@ -432,7 +441,7 @@ def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
 
 def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
     w_str = str__Bytearray(space, w_bytearray)
-    w_tuple = space.call_method(w_str, "partition", w_sub)
+    w_tuple = stringobject.str_partition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([
         String2Bytearray(space, w_a),
@@ -441,7 +450,7 @@ def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
 
 def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
     w_str = str__Bytearray(space, w_bytearray)
-    w_tuple = space.call_method(w_str, "rpartition", w_sub)
+    w_tuple = stringobject.str_rpartition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([
         String2Bytearray(space, w_a),
