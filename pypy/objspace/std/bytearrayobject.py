@@ -619,6 +619,7 @@ def _strip(space, w_bytearray, u_chars, left, right):
     if right:
         while rpos > lpos and u_self[rpos - 1] in u_chars:
             rpos -= 1
+        assert rpos >= 0
 
     return new_bytearray(space, space.w_bytearray, u_self[lpos:rpos])
 
