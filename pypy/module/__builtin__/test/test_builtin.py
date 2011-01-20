@@ -651,6 +651,13 @@ class AppTestBuiltinOptimized(object):
         assert round(-(5e15-1)) == -(5e15-1)
         assert round(-5e15) == -5e15
 
+    def test_vars_obscure_case(self):
+        class C_get_vars(object):
+            def getDict(self):
+                return {'a':2}
+            __dict__ = property(fget=getDict)
+        assert vars(C_get_vars()) == {'a':2}
+
 
 class TestInternal:
     def test_execfile(self, space):
