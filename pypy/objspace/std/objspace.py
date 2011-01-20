@@ -12,6 +12,7 @@ from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
+from pypy.rlib.rbigint import rbigint
 from pypy.tool.sourcetools import func_with_new_name
 
 # Object imports
@@ -181,6 +182,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return self.newint(x)
             else:
                 return W_LongObject.fromrarith_int(x)
+        if isinstance(x, rbigint):
+            return W_LongObject(x)
 
         # _____ below here is where the annotator should not get _____
 
