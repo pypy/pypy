@@ -509,7 +509,8 @@ def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
 
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
-    w_by = space.wrap(space.bufferstr_w(w_by))
+    if not space.is_w(w_by, space.w_None):
+        w_by = space.wrap(space.bufferstr_w(w_by))
     w_list = space.call_method(w_str, "split", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
@@ -518,7 +519,8 @@ def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
 
 def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
-    w_by = space.wrap(space.bufferstr_w(w_by))
+    if not space.is_w(w_by, space.w_None):
+        w_by = space.wrap(space.bufferstr_w(w_by))
     w_list = space.call_method(w_str, "rsplit", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
