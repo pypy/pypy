@@ -64,7 +64,6 @@ _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
     """ helper for instantiating and caching space's for testing.
     """
-    option = pytest.config.option
     try:
         config = make_config(option, objspace=name, **kwds)
     except ConflictConfigError, e:
@@ -88,12 +87,12 @@ def gettestobjspace(name=None, **kwds):
 
 def maketestobjspace(config=None):
     if config is None:
-        config = make_config(pytest.config.option)
+        config = make_config(option)
     try:
         space = make_objspace(config)
     except OperationError, e:
         check_keyboard_interrupt(e)
-        if pytest.config.option.verbose:
+        if option.verbose:
             import traceback
             traceback.print_exc()
         py.test.fail("fatal: cannot initialize objspace: %r" %
@@ -187,7 +186,7 @@ class TinyObjSpace(object):
         return __import__(name)
 
 def translation_test_so_skip_if_appdirect():
-    if pytest.config.option.runappdirect:
+    if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
 
 
@@ -234,7 +233,7 @@ class PyPyModule(py.test.collect.Module):
         super(PyPyModule, self).__init__(*args, **kwargs)
 
     def accept_regular_test(self):
-        if self.config.option.runappdirect:
+        if option.runappdirect:
             # only collect regular tests if we are in an 'app_test' directory,
             # or in test_lib_pypy
             names = self.listnames()
@@ -408,7 +407,7 @@ class IntTestFunction(PyPyTestFunction):
             global _pygame_imported
             if not _pygame_imported:
                 _pygame_imported = True
-                assert pytest.config.option.view, ("should not invoke Pygame "
+                assert self.config.option.view, ("should not invoke Pygame "
                                      "if conftest.option.view is False")
         super(IntTestFunction, self).runtest_finish()
 
