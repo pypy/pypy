@@ -227,6 +227,11 @@ def setup_sys_executable(executable, nanos):
                     executable = fn
                     break
     sys.executable = os.path.abspath(executable)
+    #
+    # 'sys.executable' should not end up being an non-existing file;
+    # just use '' in this case. (CPython issue #7774)
+    if not os.path.isfile(sys.executable):
+        sys.executable = ''
 
 def setup_initial_paths(ignore_environment=False, **extra):
     newpath = get_library_path(sys.executable)

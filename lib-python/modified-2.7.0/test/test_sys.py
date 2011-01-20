@@ -384,7 +384,10 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(len(sys.float_info), 11)
         self.assertEqual(sys.float_info.radix, 2)
         self.assertEqual(len(sys.long_info), 2)
-        self.assertTrue(sys.long_info.bits_per_digit % 5 == 0)
+        if test.test_support.check_impl_detail(cpython=True):
+            self.assertTrue(sys.long_info.bits_per_digit % 5 == 0)
+        else:
+            self.assertTrue(sys.long_info.bits_per_digit >= 1)
         self.assertTrue(sys.long_info.sizeof_digit >= 1)
         self.assertEqual(type(sys.long_info.bits_per_digit), int)
         self.assertEqual(type(sys.long_info.sizeof_digit), int)
@@ -475,6 +478,7 @@ class SysModuleTest(unittest.TestCase):
         p.wait()
         self.assertIn(executable, ["''", repr(sys.executable)])
 
+@unittest.skipUnless(test.test_support.check_impl_detail(), "sys.getsizeof()")
 class SizeofTest(unittest.TestCase):
 
     TPFLAGS_HAVE_GC = 1<<14

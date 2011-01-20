@@ -422,7 +422,7 @@ testmap = [
     RegrTest('test_sundry.py'),
     RegrTest('test_symtable.py', skip="implementation detail"),
     RegrTest('test_syntax.py', core=True),
-    RegrTest('test_sys.py', core=True),
+    RegrTest('test_sys.py', core=True, usemodules='struct'),
     RegrTest('test_sys_settrace.py', core=True),
     RegrTest('test_sys_setprofile.py', core=True),
     RegrTest('test_sysconfig.py'),
