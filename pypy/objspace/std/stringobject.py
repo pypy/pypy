@@ -950,11 +950,10 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     remaining characters have been mapped through the given translation table,
     which must be a string of length 256"""
 
-    # XXX CPython accepts buffers, too, not sure what we should do
     if space.is_w(w_table, space.w_None):
         table = DEFAULT_NOOP_TABLE
     else:
-        table = space.str_w(w_table)
+        table = space.bufferstr_w(w_table)
         if len(table) != 256:
             raise OperationError(
                 space.w_ValueError,

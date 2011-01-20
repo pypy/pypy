@@ -272,6 +272,23 @@ class AppTestBytesArray:
         assert b == 'abcdef'
         assert isinstance(b, bytearray)
 
+    def test_add(self):
+        b1 = bytearray("abc")
+        b2 = bytearray("def")
+
+        def check(a, b, expected):
+            result = a + b
+            assert result == expected
+            assert isinstance(result, bytearray)
+
+        check(b1, b2, "abcdef")
+        check(b1, "def", "abcdef")
+        check("def", b1, "defabc")
+        check(b1, memoryview("def"), "abcdef")
+        check(memoryview("def"), b1, "defabc")
+        raises(TypeError, lambda: b1 + u"def")
+        raises(TypeError, lambda: u"abc" + b2)
+
     def test_fromhex(self):
         raises(TypeError, bytearray.fromhex, 9)
 
