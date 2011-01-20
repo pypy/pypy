@@ -16,26 +16,25 @@ eci = ExternalCompilationInfo(
     separate_module_sources = ['''
        #include <stdlib.h>
        #include <assert.h>
-       #define WITH_PYMALLOC
-       #include "src/obmalloc.c"
+       #include "src/allocator.h"
     '''],
-    export_symbols = ['_Py_dg_strtod',
-                      '_Py_dg_dtoa',
-                      '_Py_dg_freedtoa',
+    export_symbols = ['_PyPy_dg_strtod',
+                      '_PyPy_dg_dtoa',
+                      '_PyPy_dg_freedtoa',
                       ],
     )
 
 dg_strtod = rffi.llexternal(
-    '_Py_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
+    '_PyPy_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
     compilation_info=eci)
 
 dg_dtoa = rffi.llexternal(
-    '_Py_dg_dtoa', [rffi.DOUBLE, rffi.INT, rffi.INT,
+    '_PyPy_dg_dtoa', [rffi.DOUBLE, rffi.INT, rffi.INT,
                     rffi.INTP, rffi.INTP, rffi.CCHARPP], rffi.CCHARP,
     compilation_info=eci)
 
 dg_freedtoa = rffi.llexternal(
-    '_Py_dg_freedtoa', [rffi.CCHARP], lltype.Void,
+    '_PyPy_dg_freedtoa', [rffi.CCHARP], lltype.Void,
     compilation_info=eci)
 
 def strtod(input):
