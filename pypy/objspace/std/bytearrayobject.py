@@ -75,6 +75,9 @@ def init__Bytearray(space, w_bytearray, __args__):
         if not e.match(space, space.w_TypeError):
             raise
     else:
+        if count < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("bytearray negative count"))
         w_bytearray.data[:] = ['\0'] * count
         return
 
