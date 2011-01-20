@@ -52,32 +52,50 @@ def dtoa(value, mode=0, precision=0, flags=0):
     with lltype.scoped_alloc(rffi.INTP.TO, 1) as decpt_ptr:
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as sign_ptr:
             with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as end_ptr:
-                output_ptr = dg_dtoa(value, mode, precision,
+                digits = dg_dtoa(value, mode, precision,
                                      decpt_ptr, sign_ptr, end_ptr)
                 try:
-                    if sign_ptr[0] == 1:
+                    buflen = (rffi.cast(rffi.LONG, end_ptr[0]) -
+                              rffi.cast(rffi.LONG, digits))
+                    sign = rffi.cast(lltype.Signed, sign_ptr[0])
+
+                    # Handle nan and inf
+                    if buflen and not digits[0].isdigit():
+                        if digits[0] == 'i' or digits[0] == 'I':
+                            if sign == 1:
+                                builder.append('-')
+                            elif flags & rarithmetic.DTSF_SIGN:
+                                builder.append('+')
+                            builder.append('inf')
+                        elif digits[0] == 'n' or digits[0] == 'N':
+                            builder.append('nan')
+                        else:
+                            # shouldn't get here
+                            raise ValueError
+                        return builder.build()
+
+                    if sign == 1:
                         builder.append('-')
                     elif flags & rarithmetic.DTSF_SIGN:
                         builder.append('+')
-                    buflen = (rffi.cast(rffi.LONG, end_ptr[0]) -
-                              rffi.cast(rffi.LONG, output_ptr))
+
                     intpart = rffi.cast(lltype.Signed, decpt_ptr[0])
                     if intpart <= buflen:
-                        builder.append(rffi.charpsize2str(output_ptr, intpart))
+                        builder.append(rffi.charpsize2str(digits, intpart))
                     else:
-                        builder.append(rffi.charpsize2str(output_ptr, buflen))
+                        builder.append(rffi.charpsize2str(digits, buflen))
                         while buflen < intpart:
                             builder.append('0')
                             intpart -= 1
                     fracpart = buflen - intpart
                     if fracpart > 0:
                         builder.append('.')
-                        ptr = rffi.ptradd(output_ptr, intpart)
+                        ptr = rffi.ptradd(digits, intpart)
                         builder.append(rffi.charpsize2str(ptr, fracpart))
                     elif flags & rarithmetic.DTSF_ADD_DOT_0:
                         builder.append('.0')
                 finally:
-                    dg_freedtoa(output_ptr)
+                    dg_freedtoa(digits)
     return builder.build()
 
 def llimpl_strtod(value, code, precision, flags):

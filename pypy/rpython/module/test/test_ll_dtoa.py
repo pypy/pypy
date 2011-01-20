@@ -14,3 +14,7 @@ def test_dtoa():
     assert dtoa(12.3577) == "12.3577"
     assert dtoa(10.0) == "10"
     assert dtoa(1.0e100) == "1" + "0" * 100
+
+    assert dtoa(rarithmetic.INFINITY) == 'inf'
+    assert dtoa(-rarithmetic.INFINITY) == '-inf'
+    assert dtoa(rarithmetic.NAN) == 'nan'
