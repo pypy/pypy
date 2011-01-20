@@ -110,6 +110,19 @@ class AppTestBuiltinApp:
             __dict__ = 8
         raises(TypeError, dir, Foo("foo"))
 
+    def test_dir_custom(self):
+        class Foo(object):
+            def __dir__(self):
+                return [1, 3, 2]
+        f = Foo()
+        assert dir(f) == [1, 2, 3]
+        #
+        class Foo(object):
+            def __dir__(self):
+                return 42
+        f = Foo()
+        raises(TypeError, dir, f)
+
     def test_format(self):
         assert format(4) == "4"
         assert format(10, "o") == "12"
@@ -631,6 +644,12 @@ class AppTestBuiltinOptimized(object):
         exec s in ns
         res = ns["test"]([2,3,4])
         assert res == 18
+
+    def test_round(self):
+        assert round(5e15-1) == 5e15-1
+        assert round(5e15) == 5e15
+        assert round(-(5e15-1)) == -(5e15-1)
+        assert round(-5e15) == -5e15
 
 
 class TestInternal:

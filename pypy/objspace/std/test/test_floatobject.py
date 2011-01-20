@@ -1,6 +1,6 @@
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.multimethod import FailedToImplement
-import py
+import py, sys
 
 class TestW_FloatObject:
 
@@ -60,6 +60,9 @@ class TestW_FloatObject:
 
 
 class AppTestAppFloatTest:
+    def setup_class(cls):
+        cls.w_py26 = cls.space.wrap(sys.version_info >= (2, 6))
+
     def test_negatives(self):
         assert -1.1 < 0
         assert -0.1 < 0
@@ -196,7 +199,8 @@ class AppTestAppFloatTest:
         assert pw(-1.0, 2.0) == 1.0
         assert pw(-1.0, 3.0) == -1.0
         assert pw(-1.0, 1e200) == 1.0
-        assert pw(0.0, float("-inf")) == float("inf")
+        if self.py26:
+            assert pw(0.0, float("-inf")) == float("inf")
 
     def test_pow_neg_base(self):
         import math

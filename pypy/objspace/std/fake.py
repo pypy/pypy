@@ -1,3 +1,5 @@
+import types
+
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import baseobjspace
 from pypy.interpreter import eval
@@ -121,6 +123,9 @@ def really_build_fake_type(cpy_type):
             return w_self.space.wrap(d)
         def unwrap(w_self, space):
             return w_self.val
+        if cpy_type is types.FunctionType:
+            def __get__(self, obj, owner):
+                return fake_object(self.space, self.val.__get__(obj, owner))
     W_Fake.__name__ = 'W_Fake%s'%(cpy_type.__name__.capitalize())
     W_Fake.typedef.fakedcpytype = cpy_type
     return W_Fake
