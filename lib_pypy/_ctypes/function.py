@@ -533,6 +533,7 @@ def make_specialized_subclass(CFuncPtr):
         _num_args = 1
 
         def _are_assumptions_met(self, args):
+            assert len(self._argtypes_) == self._num_args
             return (len(args) == self._num_args and
                     self.callable is None and
                     not self._com_index and
@@ -558,5 +559,18 @@ def make_specialized_subclass(CFuncPtr):
             result = self._call_funcptr(funcptr, *newargs)
             assert self._errcheck_ is None
             return result
+
+    def _convert_args(self, argtypes, args):
+        """
+        jit-friendly version assuming that len(argtypes) == len(args)
+        """
+        assert self._paramflags is None
+        try:
+            wrapped_args = [self._conv_param(argtypes[0], args[0], 0)]
+        except (UnicodeError, TypeError, ValueError), e:
+            raise ArgumentError(str(e))
+        assert len(wrapped_args) == len(args)
+        return wrapped_args
+
 
     return CFuncPtr_1
