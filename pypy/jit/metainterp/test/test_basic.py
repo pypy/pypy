@@ -1854,7 +1854,7 @@ class BasicTests:
                 return A(self.val + other.val)
         class B(Base):
             def binop(self, other):
-                return B(self.val * other.val)
+                return B(self.val - other.val)
         def f(x, y):
             res = x
             array = [1, 2, 3]
@@ -1921,6 +1921,33 @@ class BasicTests:
             assert c1.val == c2.val
             assert d1.val == d2.val
             return a1.val + b1.val + c1.val + d1.val
+        res = self.meta_interp(g, [3, 14])
+        assert res == g(3, 14)
+
+    def test_inlined_guard_in_short_preamble(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def getval(self):
+                return self.val
+            def binop(self, other):
+                return A(self.getval() + other.getval())
+        def f(x, y, z):
+            res = x
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, z=z, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, z=z, res=res)
+                res = res.binop(x)
+                y -= 1
+                if y < 7:
+                    x = z
+            return res
+        def g(x, y):
+            a1 = f(A(x), y, A(x))
+            a2 = f(A(x), y, A(x))
+            assert a1.val == a2.val
+            return a1.val
         res = self.meta_interp(g, [3, 14])
         assert res == g(3, 14)
 
