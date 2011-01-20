@@ -758,3 +758,13 @@ class AppTestItertools:
         prod = product('abc', repeat=0)
         assert prod.next() == ()
         raises (StopIteration, prod.next)
+
+    def test_combinations(self):
+        from itertools import combinations
+
+        raises(TypeError, combinations, "abc")
+        raises(TypeError, combinations, "abc", 2, 1)
+        raises(TypeError, None)
+        raises(ValueError, combinations, "abc", -2)
+        assert list(combinations("abc", 32)) == []
+        assert list(combinations(range(4), 3)) == [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)]
