@@ -160,6 +160,16 @@ def mul__Bytearray_ANY(space, w_bytearray, w_times):
 def mul__ANY_Bytearray(space, w_times, w_bytearray):
     return mul_bytearray_times(space, w_bytearray, w_times)
 
+def inplace_mul__Bytearray_ANY(space, w_bytearray, w_times):
+    try:
+        times = space.getindex_w(w_times, space.w_OverflowError)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise
+    w_bytearray.data *= times
+    return w_bytearray
+
 def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
     data2 = w_bytearray2.data
