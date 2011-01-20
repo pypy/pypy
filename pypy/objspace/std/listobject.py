@@ -11,10 +11,23 @@ from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.listsort import TimSort
 from pypy.interpreter.argument import Signature
 
+class cast_to_void_star(object):
+    # this will later be replaced by something in rlib.rerased
+    def __init__(self, content, from_where=""):
+        self._content = content
+        self._from_where = from_where
+
+def cast_from_void_star(wrapper, from_where=""):
+    # this will later be replaced by something in rlib.rerased
+    assert wrapper._from_where == from_where
+    return wrapper._content
+
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
     def __init__(w_self, wrappeditems):
+        w_self.strategy = ObjectListStrategy()
+        w_self.strategy.init_from_list_w(w_self, wrappeditems)
         w_self.wrappeditems = wrappeditems
 
     def __repr__(w_self):
@@ -22,13 +35,55 @@ class W_ListObject(W_Object):
         return "%s(%s)" % (w_self.__class__.__name__, w_self.wrappeditems)
 
     def unwrap(w_list, space):
-        items = [space.unwrap(w_item) for w_item in w_list.wrappeditems]# XXX generic mixed types unwrap
+        # for tests only!
+        items = [space.unwrap(w_item) for w_item in w_list.wrappeditems]
         return list(items)
 
     def append(w_list, w_item):
         w_list.wrappeditems.append(w_item)
 
+    # ___________________________________________________
+
+    def length(self):
+        return self.strategy.length(self)
+
+    def getitem(self, index):
+        return self.strategy.getitem(self, index)
+
 registerimplementation(W_ListObject)
+
+
+class ListStrategy(object):
+    def init_from_list_w(self, w_list, list_w):
+        raise NotImplementedError
+
+    def length(self, w_list):
+        raise NotImplementedError
+
+    def getitem(self, w_list, index):
+        raise NotImplementedError
+
+class EmptyListStrategy(ListStrategy):
+    def init_from_list_w(self, w_list, list_w):
+        assert len(list_w) == 0
+        w_list.storage = cast_to_void_star(None)
+
+    def length(self, w_list):
+        return 0
+
+    def getitem(self, w_list, index):
+        raise IndexError
+
+class ObjectListStrategy(ListStrategy):
+    def init_from_list_w(self, w_list, list_w):
+        w_list.storage = cast_to_void_star(list_w, "object")
+
+    def length(self, w_list):
+        return len(cast_from_void_star(w_list.storage, "object"))
+
+    def getitem(self, w_list, index):
+        return cast_from_void_star(w_list.storage, "object")[index]
+
 
 
 init_signature = Signature(['sequence'], None, None)
@@ -60,12 +115,12 @@ def init__List(space, w_list, __args__):
             items_w.append(w_item)
 
 def len__List(space, w_list):
-    result = len(w_list.wrappeditems)
+    result = w_list.length()
     return wrapint(space, result)
 
 def getitem__List_ANY(space, w_list, w_index):
     try:
-        return w_list.wrappeditems[get_list_index(space, w_index)]
+        return w_list.getitem(get_list_index(space, w_index))
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
