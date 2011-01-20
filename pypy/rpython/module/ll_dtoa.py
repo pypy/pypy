@@ -55,6 +55,10 @@ def dtoa(value, mode=0, precision=0, flags=0):
                 output_ptr = dg_dtoa(value, mode, precision,
                                      decpt_ptr, sign_ptr, end_ptr)
                 try:
+                    if sign_ptr[0] == 1:
+                        builder.append('-')
+                    elif flags & rarithmetic.DTSF_SIGN:
+                        builder.append('+')
                     buflen = (rffi.cast(rffi.LONG, end_ptr[0]) -
                               rffi.cast(rffi.LONG, output_ptr))
                     intpart = rffi.cast(lltype.Signed, decpt_ptr[0])
