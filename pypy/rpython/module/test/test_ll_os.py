@@ -63,6 +63,25 @@ def test_getcwd():
     data = getllimpl(os.getcwd)()
     assert data == os.getcwd()
 
+def test_chdir():
+    def check_special_envvar():
+        if sys.platform != 'win32':
+            return
+        pwd = os.getcwd()
+        import ctypes
+        buf = ctypes.create_string_buffer(1000)
+        ctypes.windll.kernel32.GetEnvironmentVariableA('=%c:' % pwd[0], buf, 1000)
+        assert str(buf.value) == pwd
+
+    pwd = os.getcwd()
+    try:
+        check_special_envvar()
+        getllimpl(os.chdir)('..')
+        assert os.getcwd() == os.path.dirname(pwd)
+        check_special_envvar()
+    finally:
+        os.chdir(pwd)
+
 def test_strerror():
     data = getllimpl(os.strerror)(2)
     assert data == os.strerror(2)

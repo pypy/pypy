@@ -129,6 +129,21 @@ def make_win32_traits(traits):
              traits.CCHARP, LPSTRP],
             rwin32.DWORD)
 
+        GetCurrentDirectory = external(
+            'GetCurrentDirectory' + suffix,
+            [rwin32.DWORD, traits.CCHARP],
+            rwin32.DWORD)
+
+        SetCurrentDirectory = external(
+            'SetCurrentDirectory' + suffix,
+            [traits.CCHARP],
+            rwin32.BOOL)
+
+        SetEnvironmentVariable = external(
+            'SetEnvironmentVariable' + suffix,
+            [traits.CCHARP, traits.CCHARP],
+            rwin32.BOOL)
+
     return Win32Traits
 
 #_______________________________________________________________
@@ -187,6 +202,54 @@ def make_listdir_impl(traits):
             lltype.free(filedata, flavor='raw')
 
     return listdir_llimpl
+
+#_______________________________________________________________
+# chdir
+
+def make_chdir_impl(traits):
+    from pypy.rlib import rwin32
+    win32traits = make_win32_traits(traits)
+
+    if traits.str is unicode:
+        def isUNC(path):
+            return path[0] == u'\\' or path[0] == u'/'
+        def magic_envvar(path):
+            return u'=' + path[0] + u':'
+    else:
+        def isUNC(path):
+            return path[0] == '\\' or path[0] == '/'
+        def magic_envvar(path):
+            return '=' + path[0] + ':'
+
+    @func_renamer('chdir_llimpl_%s' % traits.str.__name__)
+    def chdir_llimpl(path):
+        """This is a reimplementation of the C library's chdir function,
+        but one that produces Win32 errors instead of DOS error codes.
+        chdir is essentially a wrapper around SetCurrentDirectory; however,
+        it also needs to set "magic" environment variables indicating
+        the per-drive current directory, which are of the form =<drive>:
+        """
+        if not win32traits.SetCurrentDirectory(path):
+            raise rwin32.lastWindowsError()
+
+        with rffi.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
+            res = win32traits.GetCurrentDirectory(rwin32.MAX_PATH + 1, path.raw)
+            if not res:
+                raise rwin32.lastWindowsError()
+            if res <= rwin32.MAX_PATH + 1:
+                new_path = path.str(rffi.cast(lltype.Signed, res))
+            else:
+                with rffi.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
+                    res = win32traits.GetCurrentDirectory(res, path.raw)
+                    if not res:
+                        raise rwin32.lastWindowsError()
+                    new_path = path.str(rffi.cast(lltype.Signed, res))
+        if isUNC(new_path):
+            return
+        if not win32traits.SetEnvironmentVariable(magic_envvar(new_path), new_path):
+            raise rwin32.lastWindowsError()
+
+    return chdir_llimpl
 
 #_______________________________________________________________
 # getfullpathname

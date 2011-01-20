@@ -1277,12 +1277,17 @@ class RegisterOs(BaseLazyRegistering):
         os_chdir = self.llexternal(traits.posix_function_name('chdir'),
                                    [traits.CCHARP], rffi.INT)
 
-        def chdir_llimpl(path):
+        def os_chdir_llimpl(path):
             res = rffi.cast(lltype.Signed, os_chdir(path))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chdir failed")
 
-        return extdef([traits.str], s_None, llimpl=chdir_llimpl,
+        # On Windows, use an implementation that will produce Win32 errors
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_chdir_impl
+            os_chdir_llimpl = make_chdir_impl(traits)
+
+        return extdef([traits.str], s_None, llimpl=os_chdir_llimpl,
                       export_name=traits.ll_os_name('chdir'))
 
     @registering_str_unicode(os.mkdir)
