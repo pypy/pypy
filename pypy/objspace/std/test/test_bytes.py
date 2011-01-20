@@ -14,6 +14,7 @@ class AppTestBytesArray:
         raises(ValueError, bytearray, ['a', 'bc'])
         raises(ValueError, bytearray, [65, -3])
         raises(TypeError, bytearray, [65.0])
+        raises(ValueError, bytearray, -1)
 
     def test_init_override(self):
         class subclass(bytearray):

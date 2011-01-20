@@ -167,7 +167,6 @@ def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
             return space.w_False
     return space.w_True
 
-
 def String2Bytearray(space, w_str):
     data = [c for c in space.str_w(w_str)]
     return W_BytearrayObject(data)
