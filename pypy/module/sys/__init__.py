@@ -56,6 +56,7 @@ class Module(MixedModule):
         'setprofile'            : 'vm.setprofile',
         'getprofile'            : 'vm.getprofile',
         'call_tracing'          : 'vm.call_tracing',
+        'getsizeof'             : 'vm.getsizeof',
         
         'executable'            : 'space.wrap("py.py")', 
         'api_version'           : 'version.get_api_version(space)',
