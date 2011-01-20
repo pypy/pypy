@@ -91,3 +91,24 @@ class AppTestRange:
        assert range(a+2, a, -1L) == [a+2, a+1]
        assert range(a+4, a, -2) == [a+4, a+2]
        assert range(a, a*5, a) == [a, 2*a, 3*a, 4*a]
+
+   def test_range_cases(self):
+       import sys
+       for start in [10, 10 * sys.maxint]:
+           for stop in [start-4, start-1, start, start+1, start+4]:
+              for step in [1, 2, 3, 4]:
+                  lst = range(start, stop, step)
+                  expected = []
+                  a = start
+                  while a < stop:
+                      expected.append(a)
+                      a += step
+                  assert lst == expected
+              for step in [-1, -2, -3, -4]:
+                  lst = range(start, stop, step)
+                  expected = []
+                  a = start
+                  while a > stop:
+                      expected.append(a)
+                      a += step
+                  assert lst == expected

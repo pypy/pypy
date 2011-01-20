@@ -13,6 +13,7 @@ from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
 from inspect import getsource, getfile
 from pypy.rlib.jit import unroll_safe
+from pypy.rlib.rbigint import rbigint
 
 
 def get_len_of_range(space, lo, hi, step):
@@ -102,6 +103,38 @@ def range_withspecialized_implementation(space, start, step, howmany):
     assert space.config.objspace.std.withrangelist
     from pypy.objspace.std.rangeobject import W_RangeListObject
     return W_RangeListObject(start, step, howmany)
+
+bigint_one = rbigint.fromint(1)
+
+def range_with_longs(space, w_start, w_stop, w_step):
+
+    start = lo = space.bigint_w(w_start)
+    stop  = hi = space.bigint_w(w_stop)
+    step  = st = space.bigint_w(w_step)
+
+    if not step.tobool():
+        raise OperationError(space.w_ValueError,
+                             space.wrap("step argument must not be zero"))
+    elif step.sign < 0:
+        lo, hi, st = hi, lo, st.neg()
+
+    if lo.lt(hi):
+        diff = hi.sub(lo).sub(bigint_one)
+        n = diff.floordiv(st).add(bigint_one)
+        try:
+            howmany = n.toint()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap("result has too many items"))
+    else:
+        howmany = 0
+
+    res_w = [None] * howmany
+    v = start
+    for idx in range(howmany):
+        res_w[idx] = space.wrap(v)
+        v = v.add(step)
+    return space.newlist(res_w)
 
 
 @unroll_safe
