@@ -294,7 +294,6 @@ class AppTestBytesArray:
         check(b1, "def", "abcdef")
         check("def", b1, "defabc")
         check(b1, memoryview("def"), "abcdef")
-        check(memoryview("def"), b1, "defabc")
         raises(TypeError, lambda: b1 + u"def")
         raises(TypeError, lambda: u"abc" + b2)
 

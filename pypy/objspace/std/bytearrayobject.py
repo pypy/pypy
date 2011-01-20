@@ -128,6 +128,10 @@ def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     return W_BytearrayObject(data1 + data2)
 
 def add__Bytearray_ANY(space, w_bytearray1, w_other):
+    if space.isinstance_w(w_other, space.w_unicode):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "can't concat bytearray to unicode"))
+
     data1 = w_bytearray1.data
     data2 = [c for c in space.bufferstr_w(w_other)]
     return W_BytearrayObject(data1 + data2)
