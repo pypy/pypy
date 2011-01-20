@@ -128,6 +128,7 @@ class ThreadRunningTests(BasicThreadTest):
         del task
         while not done:
             time.sleep(0.01)
+            test_support.gc_collect()
         self.assertEqual(thread._count(), orig)
 
 
