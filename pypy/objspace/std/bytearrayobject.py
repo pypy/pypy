@@ -3,36 +3,37 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import check_annotation
+from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import (
     _delitem_slice_helper, _setitem_slice_helper,
     get_positive_index
 )
 from pypy.objspace.std.listtype import get_list_index
-from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
+from pypy.interpreter.argument import Signature
 from pypy.interpreter.buffer import RWBuffer
-from pypy.objspace.std.bytearraytype import makebytearraydata_w, getbytevalue
+from pypy.objspace.std.bytearraytype import (
+    makebytearraydata_w, getbytevalue,
+    new_bytearray
+)
 from pypy.tool.sourcetools import func_with_new_name
 
-
-def bytearray_checker(s_arg, bookkeeper):
-    from pypy.annotation.model import SomeList, SomeChar, SomeImpossibleValue
-    assert isinstance(s_arg, SomeList)
-    assert isinstance(s_arg.listdef.listitem.s_value, (SomeChar, SomeImpossibleValue))
 
 class W_BytearrayObject(W_Object):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
 
     def __init__(w_self, data):
         w_self.data = data
-        check_annotation(w_self.data, bytearray_checker)
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -40,6 +41,48 @@ class W_BytearrayObject(W_Object):
 
 registerimplementation(W_BytearrayObject)
 
+init_signature = Signature(['source', 'encoding', 'errors'], None, None)
+init_defaults = [None, None, None]
+
+def init__Bytearray(space, w_bytearray, __args__):
+    # this is on the silly side
+    w_source, w_encoding, w_errors = __args__.parse_obj(
+            None, 'bytearray', init_signature, init_defaults)
+
+    if w_source is None:
+        w_source = space.wrap('')
+    if w_encoding is None:
+        w_encoding = space.w_None
+    if w_errors is None:
+        w_errors = space.w_None
+
+    # Unicode argument
+    if not space.is_w(w_encoding, space.w_None):
+        from pypy.objspace.std.unicodetype import (
+            _get_encoding_and_errors, encode_object
+        )
+        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+
+        # if w_source is an integer this correctly raises a TypeError
+        # the CPython error message is: "encoding or errors without a string argument"
+        # ours is: "expected unicode, got int object"
+        w_source = encode_object(space, w_source, encoding, errors)
+
+    # Is it an int?
+    try:
+        count = space.int_w(w_source)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        if count < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("bytearray negative count"))
+        w_bytearray.data[:] = ['\0'] * count
+        return
+
+    data = makebytearraydata_w(space, w_source)
+    w_bytearray.data[:] = data
 
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
@@ -79,12 +122,26 @@ def contains__Bytearray_Int(space, w_bytearray, w_char):
 
 def contains__Bytearray_String(space, w_bytearray, w_str):
     # XXX slow - copies, needs rewriting
-    w_str2 = delegate_Bytearray2String(space, w_bytearray)
-    return space.call_method(w_str2, "__contains__", w_str)
+    w_str2 = str__Bytearray(space, w_bytearray)
+    return stringobject.contains__String_String(space, w_str2, w_str)
 
 def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
     data2 = w_bytearray2.data
+    return W_BytearrayObject(data1 + data2)
+
+def add__Bytearray_ANY(space, w_bytearray1, w_other):
+    if space.isinstance_w(w_other, space.w_unicode):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "can't concat bytearray to unicode"))
+
+    data1 = w_bytearray1.data
+    data2 = [c for c in space.bufferstr_w(w_other)]
+    return W_BytearrayObject(data1 + data2)
+
+def add__String_Bytearray(space, w_str, w_bytearray):
+    data2 = w_bytearray.data
+    data1 = [c for c in space.str_w(w_str)]
     return W_BytearrayObject(data1 + data2)
 
 def mul_bytearray_times(space, w_bytearray, w_times):
@@ -103,6 +160,16 @@ def mul__Bytearray_ANY(space, w_bytearray, w_times):
 def mul__ANY_Bytearray(space, w_times, w_bytearray):
     return mul_bytearray_times(space, w_bytearray, w_times)
 
+def inplace_mul__Bytearray_ANY(space, w_bytearray, w_times):
+    try:
+        times = space.getindex_w(w_times, space.w_OverflowError)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise
+    w_bytearray.data *= times
+    return w_bytearray
+
 def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
     data2 = w_bytearray2.data
@@ -113,16 +180,12 @@ def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
             return space.w_False
     return space.w_True
 
-# bytearray-to-string delegation
-def delegate_Bytearray2String(space, w_bytearray):
-    return str__Bytearray(space, w_bytearray)
-
 def String2Bytearray(space, w_str):
     data = [c for c in space.str_w(w_str)]
     return W_BytearrayObject(data)
 
 def eq__Bytearray_String(space, w_bytearray, w_other):
-    return space.eq(delegate_Bytearray2String(space, w_bytearray), w_other)
+    return space.eq(str__Bytearray(space, w_bytearray), w_other)
 
 def eq__Bytearray_Unicode(space, w_bytearray, w_other):
     return space.w_False
@@ -131,7 +194,7 @@ def eq__Unicode_Bytearray(space, w_other, w_bytearray):
     return space.w_False
 
 def ne__Bytearray_String(space, w_bytearray, w_other):
-    return space.ne(delegate_Bytearray2String(space, w_bytearray), w_other)
+    return space.ne(str__Bytearray(space, w_bytearray), w_other)
 
 def ne__Bytearray_Unicode(space, w_bytearray, w_other):
     return space.w_True
@@ -166,10 +229,11 @@ def gt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     # No more items to compare -- compare sizes
     return space.newbool(len(data1) > len(data2))
 
-def str_translate__Bytearray_Bytearray_String(space, w_bytearray1, w_bytearray2, w_str):
+def str_translate__Bytearray_ANY_ANY(space, w_bytearray1, w_table, w_deletechars):
     # XXX slow, copies *twice* needs proper implementation
-    w_str_copy = delegate_Bytearray2String(space, w_bytearray1)
-    w_res = space.call_method(w_str_copy, 'translate', w_bytearray2, w_str)
+    w_str_copy = str__Bytearray(space, w_bytearray1)
+    w_res = stringobject.str_translate__String_ANY_ANY(space, w_str_copy,
+                                                       w_table, w_deletechars)
     return String2Bytearray(space, w_res)
 
 # Mostly copied from repr__String, but without the "smart quote"
@@ -232,15 +296,61 @@ def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop
             count += 1
     return space.wrap(count)
 
-def str_index__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    char = w_char.intval
-    start, stop, length = _convert_idx_params(space, w_bytearray, w_start, w_stop)
-    for i in range(start, min(stop, length)):
-        c = w_bytearray.data[i]
-        if ord(c) == char:
-            return space.wrap(i)
-    raise OperationError(space.w_ValueError,
-                         space.wrap("bytearray.index(x): x not in bytearray"))
+def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_count__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_index__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_index__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_rindex__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_rindex__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_find__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_find__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_rfind__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_rfind__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
+    w_prefix = space.wrap(space.bufferstr_w(w_prefix))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_startswith__String_String_ANY_ANY(space, w_str, w_prefix,
+                                                              w_start, w_stop)
+
+def str_startswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
+    w_str = str__Bytearray(space, w_bytearray)
+    w_prefix = space.newtuple([space.wrap(space.bufferstr_w(w_entry)) for w_entry in
+                               space.unpackiterable(w_prefix)])
+    return stringobject.str_startswith__String_Tuple_ANY_ANY(space, w_str, w_prefix,
+                                                              w_start, w_stop)
+
+def str_endswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
+    w_suffix = space.wrap(space.bufferstr_w(w_suffix))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_endswith__String_String_ANY_ANY(space, w_str, w_suffix,
+                                                              w_start, w_stop)
+
+def str_endswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
+    w_str = str__Bytearray(space, w_bytearray)
+    w_suffix = space.newtuple([space.wrap(space.bufferstr_w(w_entry)) for w_entry in
+                               space.unpackiterable(w_suffix)])
+    return stringobject.str_endswith__String_Tuple_ANY_ANY(space, w_str, w_suffix,
+                                                              w_start, w_stop)
 
 def str_join__Bytearray_ANY(space, w_self, w_list):
     list_w = space.listview(w_list)
@@ -256,13 +366,45 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
                 space.w_TypeError,
                 "sequence item %d: expected string, %s "
                 "found", i, space.type(w_s).getname(space, '?'))
-        reslen += len(space.str_w(w_s))
+        reslen += len(space.bufferstr_w(w_s))
     newdata = []
     for i in range(len(list_w)):
         if data and i != 0:
             newdata.extend(data)
-        newdata.extend([c for c in space.str_w(list_w[i])])
+        newdata.extend([c for c in space.bufferstr_w(list_w[i])])
     return W_BytearrayObject(newdata)
+
+def str_decode__Bytearray_ANY_ANY(space, w_bytearray, w_encoding, w_errors):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_decode__String_ANY_ANY(space, w_str, w_encoding, w_errors)
+
+def str_islower__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_islower__String(space, w_str)
+
+def str_isupper__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isupper__String(space, w_str)
+
+def str_isalpha__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isalpha__String(space, w_str)
+
+def str_isalnum__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isalnum__String(space, w_str)
+
+def str_isdigit__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isdigit__String(space, w_str)
+
+def str_istitle__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_istitle__String(space, w_str)
+
+def str_isspace__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isspace__String(space, w_str)
 
 def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
     where = space.int_w(w_idx)
@@ -284,7 +426,6 @@ def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
             "pop index out of range"))
     return space.wrap(ord(result))
 
-
 def bytearray_remove__Bytearray_ANY(space, w_bytearray, w_char):
     char = space.int_w(space.index(w_char))
     try:
@@ -297,80 +438,91 @@ def bytearray_reverse__Bytearray(space, w_bytearray):
     w_bytearray.data.reverse()
     return space.w_None
 
+_space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])
+
+def bytearray_strip__Bytearray_None(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, _space_chars, 1, 1)
+
+def bytearray_strip__Bytearray_ANY(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 1, 1)
+
+def bytearray_lstrip__Bytearray_None(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, _space_chars, 1, 0)
+
+def bytearray_lstrip__Bytearray_ANY(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 1, 0)
+
+def bytearray_rstrip__Bytearray_None(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, _space_chars, 0, 1)
+
+def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
+    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 0, 1)
+
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.
 def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "replace", w_str1, w_str2, w_max)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_replace__String_ANY_ANY_ANY(space, w_str, w_str1,
+                                                         w_str2, w_max)
     return String2Bytearray(space, w_res)
 
 def str_upper__Bytearray(space, w_bytearray):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "upper")
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_upper__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_lower__Bytearray(space, w_bytearray):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "lower")
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_lower__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_title__Bytearray(space, w_bytearray):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "title")
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_title__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_swapcase__Bytearray(space, w_bytearray):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "swapcase")
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_swapcase__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_capitalize__Bytearray(space, w_bytearray):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "capitalize")
-    return String2Bytearray(space, w_res)
-
-def str_lstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "lstrip", w_chars)
-    return String2Bytearray(space, w_res)
-
-def str_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "rstrip", w_chars)
-    return String2Bytearray(space, w_res)
-
-def str_strip__Bytearray_ANY(space, w_bytearray, w_chars):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "strip", w_chars)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_capitalize__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_ljust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "ljust", w_width, w_fillchar)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_ljust__String_ANY_ANY(space, w_str, w_width,
+                                                   w_fillchar)
     return String2Bytearray(space, w_res)
 
 def str_rjust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "rjust", w_width, w_fillchar)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_rjust__String_ANY_ANY(space, w_str, w_width,
+                                                   w_fillchar)
     return String2Bytearray(space, w_res)
 
 def str_center__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "center", w_width, w_fillchar)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_center__String_ANY_ANY(space, w_str, w_width,
+                                                    w_fillchar)
     return String2Bytearray(space, w_res)
 
 def str_zfill__Bytearray_ANY(space, w_bytearray, w_width):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "zfill", w_width)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_zfill__String_ANY(space, w_str, w_width)
     return String2Bytearray(space, w_res)
 
 def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_res = space.call_method(w_str, "expandtabs", w_tabsize)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_res = stringobject.str_expandtabs__String_ANY(space, w_str, w_tabsize)
     return String2Bytearray(space, w_res)
 
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_str = str__Bytearray(space, w_bytearray)
+    if not space.is_w(w_by, space.w_None):
+        w_by = space.wrap(space.bufferstr_w(w_by))
     w_list = space.call_method(w_str, "split", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
@@ -378,7 +530,9 @@ def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     return w_list
 
 def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
+    w_str = str__Bytearray(space, w_bytearray)
+    if not space.is_w(w_by, space.w_None):
+        w_by = space.wrap(space.bufferstr_w(w_by))
     w_list = space.call_method(w_str, "rsplit", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
@@ -386,8 +540,9 @@ def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     return w_list
 
 def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_tuple = space.call_method(w_str, "partition", w_sub)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_sub = space.wrap(space.bufferstr_w(w_sub))
+    w_tuple = stringobject.str_partition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([
         String2Bytearray(space, w_a),
@@ -395,8 +550,9 @@ def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
         String2Bytearray(space, w_c)])
 
 def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
-    w_str = delegate_Bytearray2String(space, w_bytearray)
-    w_tuple = space.call_method(w_str, "rpartition", w_sub)
+    w_str = str__Bytearray(space, w_bytearray)
+    w_sub = space.wrap(space.bufferstr_w(w_sub))
+    w_tuple = stringobject.str_rpartition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([
         String2Bytearray(space, w_a),
@@ -461,6 +617,23 @@ delitem_slice_helper = func_with_new_name(_delitem_slice_helper,
                                           'delitem_slice_helper')
 setitem_slice_helper = func_with_new_name(_setitem_slice_helper,
                                           'setitem_slice_helper')
+
+def _strip(space, w_bytearray, u_chars, left, right):
+    u_self = w_bytearray.data
+
+    lpos = 0
+    rpos = len(u_self)
+
+    if left:
+        while lpos < rpos and u_self[lpos] in u_chars:
+            lpos += 1
+
+    if right:
+        while rpos > lpos and u_self[rpos - 1] in u_chars:
+            rpos -= 1
+        assert rpos >= 0
+
+    return new_bytearray(space, space.w_bytearray, u_self[lpos:rpos])
 
 # __________________________________________________________
 # Buffer interface
