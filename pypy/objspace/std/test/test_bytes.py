@@ -15,6 +15,13 @@ class AppTestBytesArray:
         raises(ValueError, bytearray, [65, -3])
         raises(TypeError, bytearray, [65.0])
 
+    def test_init_override(self):
+        class subclass(bytearray):
+            def __init__(self, newarg=1, *args, **kwargs):
+                bytearray.__init__(self, *args, **kwargs)
+        x = subclass(4, source="abcd")
+        assert x == "abcd"
+
     def test_encoding(self):
         data = u"Hello world\n\u1234\u5678\u9abc\def0\def0"
         for encoding in 'utf8', 'utf16':
