@@ -81,6 +81,7 @@ def dir(*args):
         if not isinstance(result, list):
             raise TypeError("__dir__() must return a list, not %r" % (
                 type(result),))
+        result.sort()
         return result
 
     else: #(regular item)

@@ -113,7 +113,7 @@ class AppTestBuiltinApp:
     def test_dir_custom(self):
         class Foo(object):
             def __dir__(self):
-                return [1, 2, 3]
+                return [1, 3, 2]
         f = Foo()
         assert dir(f) == [1, 2, 3]
         #
