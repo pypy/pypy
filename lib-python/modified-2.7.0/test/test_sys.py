@@ -478,6 +478,7 @@ class SysModuleTest(unittest.TestCase):
         p.wait()
         self.assertIn(executable, ["''", repr(sys.executable)])
 
+@unittest.skipUnless(test.test_support.check_impl_detail(), "sys.getsizeof()")
 class SizeofTest(unittest.TestCase):
 
     TPFLAGS_HAVE_GC = 1<<14
