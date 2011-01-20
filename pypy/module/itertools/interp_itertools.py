@@ -91,8 +91,8 @@ class W_Repeat(Wrappable):
             s = 'repeat(%s)' % (objrepr,)
         return self.space.wrap(s)
 
-def W_Repeat___new__(space, w_subtype, w_obj, w_times=None):
-    return space.wrap(W_Repeat(space, w_obj, w_times))
+def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
+    return space.wrap(W_Repeat(space, w_object, w_times))
 
 W_Repeat.typedef = TypeDef(
         'repeat',
