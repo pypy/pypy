@@ -545,14 +545,18 @@ def make_specialized_subclass(CFuncPtr):
                 self.__class__ = CFuncPtr
                 return self(*args)
 
+            assert self.callable is None
+            assert not self._com_index
+            assert self._argtypes_ is not None
             argtypes = self._argtypes_
             thisarg = None
             args = self._convert_args(argtypes, args)
-            argtypes = [type(arg) for arg in args]
+            argtypes = [type(args[0])]
             newargs = self._unwrap_args(argtypes, args)
-
             restype = self._restype_
             funcptr = self._getfuncptr(argtypes, restype, thisarg)
-            return self._call_funcptr(funcptr, *newargs)
+            result = self._call_funcptr(funcptr, *newargs)
+            assert self._errcheck_ is None
+            return result
 
     return CFuncPtr_1
