@@ -182,8 +182,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return self.newint(x)
             else:
                 return W_LongObject.fromrarith_int(x)
-        if isinstance(x, rbigint):
-            return W_LongObject(x)
         return self._wrap_not_rpython(x)
     wrap._annspecialcase_ = "specialize:wrap"
 
@@ -272,6 +270,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)
+
+    def newlong_from_rbigint(self, val):
+        return W_LongObject(val)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)
