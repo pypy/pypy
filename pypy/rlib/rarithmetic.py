@@ -72,10 +72,12 @@ except ImportError:
 
     def copysign(x, y):
         """NOT_RPYTHON. Return x with the sign of y"""
+        if x < 0.:
+            x = -x
         if y > 0. or (y == 0. and math.atan2(y, -1.) > 0.):
-            return math.fabs(x)
+            return x
         else:
-            return -math.fabs(x)
+            return -x
 
     _2_to_m28 = 3.7252902984619141E-09; # 2**-28
     _2_to_p28 = 268435456.0; # 2**28
