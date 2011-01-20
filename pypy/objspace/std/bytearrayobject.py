@@ -345,13 +345,17 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
                 space.w_TypeError,
                 "sequence item %d: expected string, %s "
                 "found", i, space.type(w_s).getname(space, '?'))
-        reslen += len(space.str_w(w_s))
+        reslen += len(space.bufferstr_w(w_s))
     newdata = []
     for i in range(len(list_w)):
         if data and i != 0:
             newdata.extend(data)
-        newdata.extend([c for c in space.str_w(list_w[i])])
+        newdata.extend([c for c in space.bufferstr_w(list_w[i])])
     return W_BytearrayObject(newdata)
+
+def str_decode__Bytearray_ANY_ANY(space, w_bytearray, w_encoding, w_errors):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_decode__String_ANY_ANY(space, w_str, w_encoding, w_errors)
 
 def str_islower__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
