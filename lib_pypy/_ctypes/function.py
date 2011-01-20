@@ -68,6 +68,10 @@ class CFuncPtr(_CData):
                     raise TypeError(
                         "item %d in _argtypes_ has no from_param method" % (
                             i + 1,))
+            #
+            # XXX tentative hack to make it jit-friendly
+            if len(argtypes) == 1:
+                self.__class__ = make_specialized_subclass(self.__class__)
             self._argtypes_ = list(argtypes)
     argtypes = property(_getargtypes, _setargtypes)
 
@@ -517,3 +521,61 @@ class CFuncPtr(_CData):
                 self._ptr.free()
                 self._ptr = None
             self._needs_free = False
+
+
+def make_specialized_subclass(CFuncPtr):
+    # XXX: we should probably cache the results
+
+    class CFuncPtr_1(CFuncPtr):
+
+        _num_args = 1
+
+        def _are_assumptions_met(self, args):
+            return (len(args) == self._num_args and
+                    self.callable is None and
+                    not self._com_index and
+                    self._argtypes_ is not None)
+
+        def __call__(self, *args):
+            if not self._are_assumptions_met(args):
+                # our assumptions are not met, rollback to the general, slow case
+                self.__class__ = CFuncPtr
+                return self(*args)
+
+            argtypes = self._argtypes_
+            thisarg = None
+            args = self._convert_args(argtypes, args)
+            argtypes = [type(arg) for arg in args]
+            newargs = self._unwrap_args(argtypes, args)
+
+            restype = self._restype_
+            funcptr = self._getfuncptr(argtypes, restype, thisarg)
+            if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+                set_errno(_rawffi.get_errno())
+            if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+                set_last_error(_rawffi.get_last_error())
+            try:
+                result = funcptr(*newargs)
+                ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
+                ##                       for arg in args])
+            finally:
+                if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+                    set_errno(_rawffi.get_errno())
+                if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+                    set_last_error(_rawffi.get_last_error())
+            result = self._build_result(restype, result, newargs)
+
+            # The 'errcheck' protocol
+            if self._errcheck_:
+                v = self._errcheck_(result, self, args)
+                # If the errcheck funtion failed, let it throw
+                # If the errcheck function returned callargs unchanged,
+                # continue normal processing.
+                # If the errcheck function returned something else,
+                # use that as result.
+                if v is not args:
+                    result = v
+
+            return result
+
+    return CFuncPtr_1
