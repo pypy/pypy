@@ -645,6 +645,12 @@ class AppTestBuiltinOptimized(object):
         res = ns["test"]([2,3,4])
         assert res == 18
 
+    def test_round(self):
+        assert round(5e15-1) == 5e15-1
+        assert round(5e15) == 5e15
+        assert round(-(5e15-1)) == -(5e15-1)
+        assert round(-5e15) == -5e15
+
 
 class TestInternal:
     def test_execfile(self, space):

@@ -175,6 +175,8 @@ This always returns a floating point number.  Precision may be negative."""
         z = math.floor(y + 0.5)
     else:
         z = math.ceil(y - 0.5)
+    if math.fabs(y-z) == 1.0:   # obscure case, see the test
+        z = y
 
     if ndigits >= 0:
         z = (z / pow2) / pow1
