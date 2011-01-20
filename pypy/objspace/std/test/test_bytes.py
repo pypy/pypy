@@ -136,19 +136,27 @@ class AppTestBytesArray:
 
         assert bytearray('hello').count('l') == 2
         assert bytearray('hello').count(bytearray('l')) == 2
+        assert bytearray('hello').count(memoryview('l')) == 2
         assert bytearray('hello').count(ord('l')) == 2
 
         assert bytearray('hello').index('e') == 1
         assert bytearray('hello').rindex('l') == 3
         assert bytearray('hello').index(bytearray('e')) == 1
-        assert bytearray('hello').index(ord('e')) == 1
         assert bytearray('hello').find('l') == 2
         assert bytearray('hello').rfind('l') == 3
 
+        # these checks used to not raise in pypy but they should
+        raises(TypeError, bytearray('hello').index, ord('e'))
+        raises(TypeError, bytearray('hello').rindex, ord('e'))
+        raises(TypeError, bytearray('hello').find, ord('e'))
+        raises(TypeError, bytearray('hello').rfind, ord('e'))
+
         assert bytearray('hello').startswith('he')
         assert bytearray('hello').startswith(bytearray('he'))
+        assert bytearray('hello').startswith(('lo', bytearray('he')))
         assert bytearray('hello').endswith('lo')
         assert bytearray('hello').endswith(bytearray('lo'))
+        assert bytearray('hello').endswith((bytearray('lo'), 'he'))
 
     def test_stringlike_conversions(self):
         # methods that should return bytearray (and not str)

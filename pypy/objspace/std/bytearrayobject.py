@@ -14,9 +14,10 @@ from pypy.objspace.std.listobject import (
     get_positive_index
 )
 from pypy.objspace.std.listtype import get_list_index
-from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
@@ -274,15 +275,61 @@ def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop
             count += 1
     return space.wrap(count)
 
-def str_index__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    char = w_char.intval
-    start, stop, length = _convert_idx_params(space, w_bytearray, w_start, w_stop)
-    for i in range(start, min(stop, length)):
-        c = w_bytearray.data[i]
-        if ord(c) == char:
-            return space.wrap(i)
-    raise OperationError(space.w_ValueError,
-                         space.wrap("bytearray.index(x): x not in bytearray"))
+def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_count__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_index__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_index__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_rindex__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_rindex__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_find__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_find__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_rfind__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_rfind__String_String_ANY_ANY(space, w_str, w_char,
+                                                         w_start, w_stop)
+
+def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
+    w_prefix = space.wrap(space.bufferstr_w(w_prefix))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_startswith__String_String_ANY_ANY(space, w_str, w_prefix,
+                                                              w_start, w_stop)
+
+def str_startswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
+    w_str = str__Bytearray(space, w_bytearray)
+    w_prefix = space.newtuple([space.wrap(space.bufferstr_w(w_entry)) for w_entry in
+                               space.unpackiterable(w_prefix)])
+    return stringobject.str_startswith__String_Tuple_ANY_ANY(space, w_str, w_prefix,
+                                                              w_start, w_stop)
+
+def str_endswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
+    w_suffix = space.wrap(space.bufferstr_w(w_suffix))
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_endswith__String_String_ANY_ANY(space, w_str, w_suffix,
+                                                              w_start, w_stop)
+
+def str_endswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
+    w_str = str__Bytearray(space, w_bytearray)
+    w_suffix = space.newtuple([space.wrap(space.bufferstr_w(w_entry)) for w_entry in
+                               space.unpackiterable(w_suffix)])
+    return stringobject.str_endswith__String_Tuple_ANY_ANY(space, w_str, w_suffix,
+                                                              w_start, w_stop)
 
 def str_join__Bytearray_ANY(space, w_self, w_list):
     list_w = space.listview(w_list)
@@ -309,6 +356,30 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
 def str_islower__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_islower__String(space, w_str)
+
+def str_isupper__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isupper__String(space, w_str)
+
+def str_isalpha__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isalpha__String(space, w_str)
+
+def str_isalnum__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isalnum__String(space, w_str)
+
+def str_isdigit__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isdigit__String(space, w_str)
+
+def str_istitle__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_istitle__String(space, w_str)
+
+def str_isspace__Bytearray(space, w_bytearray):
+    w_str = str__Bytearray(space, w_bytearray)
+    return stringobject.str_isspace__String(space, w_str)
 
 def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
     where = space.int_w(w_idx)
