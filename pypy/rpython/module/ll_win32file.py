@@ -162,6 +162,16 @@ def make_win32_traits(traits):
             [traits.CCHARP, traits.CCHARP],
             rwin32.BOOL)
 
+        DeleteFile = external(
+            'DeleteFile' + suffix,
+            [traits.CCHARP],
+            rwin32.BOOL)
+
+        MoveFile = external(
+            'MoveFile' + suffix,
+            [traits.CCHARP, traits.CCHARP],
+            rwin32.BOOL)
+
     return Win32Traits
 
 #_______________________________________________________________

@@ -1271,6 +1271,15 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_unlink failed")
 
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_win32_traits
+            win32traits = make_win32_traits(traits)
+
+            @func_renamer('unlink_llimpl_%s' % traits.str.__name__)
+            def unlink_llimpl(path):
+                if not win32traits.DeleteFile(path):
+                    raise rwin32.lastWindowsError()
+
         return extdef([traits.str], s_None, llimpl=unlink_llimpl,
                       export_name=traits.ll_os_name('unlink'))
 
@@ -1354,6 +1363,15 @@ class RegisterOs(BaseLazyRegistering):
             res = rffi.cast(lltype.Signed, os_rename(oldpath, newpath))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rename failed")
+
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_win32_traits
+            win32traits = make_win32_traits(traits)
+
+            @func_renamer('rename_llimpl_%s' % traits.str.__name__)
+            def rename_llimpl(oldpath, newpath):
+                if not win32traits.MoveFile(oldpath, newpath):
+                    raise rwin32.lastWindowsError()
 
         return extdef([traits.str, traits.str], s_None, llimpl=rename_llimpl,
                       export_name=traits.ll_os_name('rename'))
