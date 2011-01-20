@@ -34,3 +34,8 @@ def test_operationerrfmt():
 
 def test_operationerrfmt_empty():
     py.test.raises(AssertionError, operationerrfmt, "w_type", "foobar")
+
+def test_errorstr(space):
+    operr = OperationError(space.w_ValueError, space.wrap("message"))
+    assert operr.errorstr(space) == "ValueError: message"
+    assert operr.errorstr(space, use_repr=True) == "ValueError: 'message'"

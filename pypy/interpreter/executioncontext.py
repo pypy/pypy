@@ -217,6 +217,9 @@ class ExecutionContext(object):
         else:
             self.setllprofile(app_profile_call, w_func)
 
+    def getprofile(self):
+        return self.w_profilefuncarg
+
     def setllprofile(self, func, w_arg):
         if func is not None:
             if w_arg is None:

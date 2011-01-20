@@ -7,13 +7,13 @@ from pypy.objspace.std.stringobject import W_StringObject, make_rsplit_with_deli
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash
-from pypy.rlib.rstring import string_repeat
+from pypy.rlib.rstring import UnicodeBuilder, string_repeat
 from pypy.rlib.runicode import unicode_encode_unicode_escape
-from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
+from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.objspace.std.formatting import mod_format
@@ -182,28 +182,35 @@ def contains__Unicode_Unicode(space, w_container, w_item):
     return space.newbool(container.find(item) != -1)
 
 def unicode_join__Unicode_ANY(space, w_self, w_list):
-    l = space.unpackiterable(w_list)
-    delim = w_self._value
-    totlen = 0
-    if len(l) == 0:
+    list_w = space.unpackiterable(w_list)
+    size = len(list_w)
+
+    if size == 0:
         return W_UnicodeObject.EMPTY
-    if (len(l) == 1 and
-        space.is_w(space.type(l[0]), space.w_unicode)):
-        return l[0]
-    
-    values_list = [None] * len(l)
-    for i in range(len(l)):
-        item = l[i]
-        if isinstance(item, W_UnicodeObject):
-            # shortcut for performane
-            item = item._value
-        elif space.is_true(space.isinstance(item, space.w_str)):
-            item = space.unicode_w(item)
+
+    if size == 1:
+        w_s = list_w[0]
+        if space.is_w(space.type(w_s), space.w_unicode):
+            return w_s
+
+    self = w_self._value
+    sb = UnicodeBuilder()
+    for i in range(size):
+        if self and i != 0:
+            sb.append(self)
+        w_s = list_w[i]
+        if isinstance(w_s, W_UnicodeObject):
+            # shortcut for performance
+            sb.append(w_s._value)
         else:
-            raise operationerrfmt(space.w_TypeError,
-                "sequence item %d: expected string or Unicode", i)
-        values_list[i] = item
-    return W_UnicodeObject(w_self._value.join(values_list))
+            try:
+                sb.append(space.unicode_w(w_s))
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise operationerrfmt(space.w_TypeError,
+                    "sequence item %d: expected string or Unicode", i)
+    return space.wrap(sb.build())
 
 def hash__Unicode(space, w_uni):
     s = w_uni._value
@@ -838,11 +845,11 @@ def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
     parts = _split_with(self, u'\t')
     result = [parts[0]]
     prevsize = 0
-    totalsize = 0
     for ch in parts[0]:
         prevsize += 1
         if ch == u"\n" or ch ==  u"\r":
             prevsize = 0
+    totalsize = prevsize
             
     for i in range(1, len(parts)):
         pad = tabsize - prevsize % tabsize
@@ -901,6 +908,16 @@ def repr__Unicode(space, w_unicode):
 
 def mod__Unicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
+
+def unicode_format__Unicode(space, w_unicode, __args__):
+    return newformat.format_method(space, w_unicode, __args__, True)
+
+def format__Unicode_ANY(space, w_unicode, w_format_spec):
+    if not space.isinstance_w(w_format_spec, space.w_unicode):
+        w_format_spec = space.call_function(space.w_unicode, w_format_spec)
+    spec = space.unicode_w(w_format_spec)
+    formatter = newformat.unicode_formatter(space, spec)
+    return formatter.format_string(w_unicode._value)
 
 def buffer__Unicode(space, w_unicode):
     from pypy.rlib.rstruct.unichar import pack_unichar

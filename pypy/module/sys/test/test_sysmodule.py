@@ -26,7 +26,7 @@ class AppTestAppSysTests:
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
         cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
-    
+
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules
@@ -113,6 +113,27 @@ class AppTestAppSysTests:
     def test_getfilesystemencoding(self):
         import sys
         assert sys.getfilesystemencoding() == self.filesystemenc
+
+    def test_float_info(self):
+        import sys
+        fi = sys.float_info
+        assert isinstance(fi.epsilon, float)
+        assert isinstance(fi.dig, int)
+        assert isinstance(fi.mant_dig, int)
+        assert isinstance(fi.max, float)
+        assert isinstance(fi.max_exp, int)
+        assert isinstance(fi.max_10_exp, int)
+        assert isinstance(fi.min, float)
+        assert isinstance(fi.min_exp, int)
+        assert isinstance(fi.min_10_exp, int)
+        assert isinstance(fi.radix, int)
+        assert isinstance(fi.rounds, int)
+
+    def test_long_info(self):
+        import sys
+        li = sys.long_info
+        assert isinstance(li.bits_per_digit, int)
+        assert isinstance(li.sizeof_digit, int)
 
 class AppTestSysModulePortedFromCPython:
 
@@ -410,6 +431,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.executable, basestring)
         assert isinstance(sys.hexversion, int)
         assert isinstance(sys.maxint, int)
+        assert isinstance(sys.maxsize, int)
         assert isinstance(sys.maxunicode, int)
         assert isinstance(sys.platform, basestring)
         #assert isinstance(sys.prefix, basestring) -- not present!

@@ -165,8 +165,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         state = cls.space.fromcache(RefcountState)
         state.non_heaptypes_w[:] = []
 
-        cls.w_cleanup_references = cls.space.wrap(interp2app(cls.cleanup_references))
-
     def compile_module(self, name, **kwds):
         """
         Build an extension module linked against the cpyext api library.

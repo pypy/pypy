@@ -2,7 +2,7 @@
 
 See the socket module for documentation."""
 
-class error(Exception):
+class error(IOError):
     pass
 
 class herror(error):

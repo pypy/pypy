@@ -84,6 +84,7 @@ str_rsplit  = SMM('rsplit', 3, defaults=(None,-1),
                       ' maxsplit is given, at most maxsplit splits are\ndone.'
                       ' If sep is not specified or is None, any whitespace'
                       ' string\nis a separator.')
+str_format     = SMM('format', 1, general__args__=True)
 str_isdigit    = SMM('isdigit', 1,
                      doc='S.isdigit() -> bool\n\nReturn True if all characters'
                          ' in S are digits\nand there is at least one'
@@ -247,6 +248,7 @@ str_translate  = SMM('translate', 3, defaults=('',), #unicode mimic not supporte
                          ' mapped through the given\ntranslation table, which'
                          ' must be a string of length 256.')
 str_decode     = SMM('decode', 3, defaults=(None, None),
+                     argnames=['encoding', 'errors'],
                      doc='S.decode([encoding[,errors]]) -> object\n\nDecodes S'
                          ' using the codec registered for encoding. encoding'
                          ' defaults\nto the default encoding. errors may be'
@@ -257,6 +259,7 @@ str_decode     = SMM('decode', 3, defaults=(None, None),
                          ' name registerd with codecs.register_error that'
                          ' is\nable to handle UnicodeDecodeErrors.')
 str_encode     = SMM('encode', 3, defaults=(None, None),
+                     argnames=['encoding', 'errors'],
                      doc='S.encode([encoding[,errors]]) -> object\n\nEncodes S'
                          ' using the codec registered for encoding. encoding'
                          ' defaults\nto the default encoding. errors may be'

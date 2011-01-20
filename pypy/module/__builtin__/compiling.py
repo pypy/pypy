@@ -65,7 +65,7 @@ in addition to any features explicitly specified.
 compile.unwrap_spec = [ObjSpace,W_Root,str,str,int,int]
 
 
-def eval(space, w_code, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
+def eval(space, w_code, w_globals=None, w_locals=None):
     """Evaluate the source in the context of globals and locals.
 The source may be a string representing a Python expression
 or a code object as returned by compile().  The globals and locals
@@ -87,13 +87,16 @@ If only globals is given, locals defaults to it.
               w('eval() arg 1 must be a string or code object'))
 
     caller = space.getexecutioncontext().gettopframe_nohidden()
-    if w_globals is None or space.is_w(w_globals, space.w_None): 
+    if space.is_w(w_globals, space.w_None):
         if caller is None:
-            w_globals = w_locals = space.newdict()
+            w_globals = space.newdict()
+            if space.is_w(w_locals, space.w_None):
+                w_locals = w_globals
         else:
             w_globals = caller.w_globals
-            w_locals = caller.getdictscope()
-    elif w_locals is None:
+            if space.is_w(w_locals, space.w_None):
+                w_locals = caller.getdictscope()
+    elif space.is_w(w_locals, space.w_None):
         w_locals = w_globals
 
     try:

@@ -47,4 +47,3 @@ class AppTestStructSeq(AppTestCpythonExtensionBase):
         assert 'hello' in s
         assert 'other' not in s
         del s
-        self.cleanup_references()

@@ -206,6 +206,7 @@ if sys.platform == "win32":
                 raise WindowsError(rwin32.GetLastError(),
                                    "Could not truncate file")
         finally:
+            # we restore the file pointer position in any case
             os.lseek(fd, curpos, 0)
 
 
@@ -1012,6 +1013,7 @@ class TextInputFilter(Stream):
             pos += 1
             self.atcr = False
             if self.buf == "\n":
+                self.CRLF = True
                 self.buf = ""
         return pos - len(self.buf)
 

@@ -590,10 +590,6 @@ class ClassMethod(Wrappable):
         return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
 
     def descr_classmethod__new__(space, w_subtype, w_function):
-        if not space.is_true(space.callable(w_function)):
-            typename = space.type(w_function).getname(space)
-            raise operationerrfmt(space.w_TypeError,
-                                  "'%s' object is not callable", typename)
         instance = space.allocate_instance(ClassMethod, w_subtype)
         instance.__init__(w_function)
         return space.wrap(instance)

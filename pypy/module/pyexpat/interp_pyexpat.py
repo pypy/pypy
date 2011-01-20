@@ -44,6 +44,12 @@ class CConfigure:
         ('type', rffi.INT),
         ('quant', rffi.INT),
     ])
+    XML_Encoding = rffi_platform.Struct('XML_Encoding', [
+        ('map', rffi.CFixedArray(rffi.INT, 1)),
+        ('data', rffi.VOIDP),
+        ('convert', rffi.VOIDP),
+        ('release', rffi.VOIDP),
+    ])
     for name in ['XML_PARAM_ENTITY_PARSING_NEVER',
                  'XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE',
                  'XML_PARAM_ENTITY_PARSING_ALWAYS']:
@@ -56,38 +62,44 @@ for k, v in rffi_platform.configure(CConfigure).items():
     globals()[k] = v
 
 XML_Content_Ptr.TO.become(rffi.CArray(XML_Content))
+XML_Encoding_Ptr = lltype.Ptr(XML_Encoding)
 
 
 def expat_external(*a, **kw):
     kw['compilation_info'] = eci
     return rffi.llexternal(*a, **kw)
 
+INTERNED_CCHARP = "INTERNED"
+
 HANDLERS = dict(
-    StartElementHandler = [rffi.CCHARP, rffi.CCHARPP],
-    EndElementHandler = [rffi.CCHARP],
-    ProcessingInstructionHandler = [rffi.CCHARP, rffi.CCHARP],
+    StartElementHandler = [INTERNED_CCHARP, rffi.CCHARPP],
+    EndElementHandler = [INTERNED_CCHARP],
+    ProcessingInstructionHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
     CharacterDataHandler = [rffi.CCHARP, rffi.INT],
-    UnparsedEntityDeclHandler = [rffi.CCHARP] * 5,
-    NotationDeclHandler = [rffi.CCHARP] * 4,
-    StartNamespaceDeclHandler = [rffi.CCHARP, rffi.CCHARP],
-    EndNamespaceDeclHandler = [rffi.CCHARP],
+    UnparsedEntityDeclHandler = [INTERNED_CCHARP] * 5,
+    NotationDeclHandler = [INTERNED_CCHARP] * 4,
+    StartNamespaceDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
+    EndNamespaceDeclHandler = [INTERNED_CCHARP],
     CommentHandler = [rffi.CCHARP],
     StartCdataSectionHandler = [],
     EndCdataSectionHandler = [],
     DefaultHandler = [rffi.CCHARP, rffi.INT],
     DefaultHandlerExpand = [rffi.CCHARP, rffi.INT],
     NotStandaloneHandler = [],
-    ExternalEntityRefHandler = [rffi.CCHARP] * 4,
-    StartDoctypeDeclHandler = [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.INT],
+    ExternalEntityRefHandler = [rffi.CCHARP] + [INTERNED_CCHARP] * 3,
+    StartDoctypeDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
+                               INTERNED_CCHARP, rffi.INT],
     EndDoctypeDeclHandler = [],
-    EntityDeclHandler = [rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT,
-                         rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.CCHARP],
+    EntityDeclHandler = [INTERNED_CCHARP, rffi.INT, rffi.CCHARP, rffi.INT,
+                         INTERNED_CCHARP, INTERNED_CCHARP, INTERNED_CCHARP,
+                         INTERNED_CCHARP],
     XmlDeclHandler = [rffi.CCHARP, rffi.CCHARP, rffi.INT],
-    ElementDeclHandler = [rffi.CCHARP, lltype.Ptr(XML_Content)],
-    AttlistDeclHandler = [rffi.CCHARP] * 4 + [rffi.INT],
+    ElementDeclHandler = [INTERNED_CCHARP, lltype.Ptr(XML_Content)],
+    AttlistDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
+                          rffi.CCHARP, rffi.CCHARP, rffi.INT],
     )
 if XML_COMBINED_VERSION >= 19504:
-    HANDLERS['SkippedEntityHandler'] = [rffi.CCHARP, rffi.INT]
+    HANDLERS['SkippedEntityHandler'] = [INTERNED_CCHARP, rffi.INT]
 NB_HANDLERS = len(HANDLERS)
 
 class Storage:
@@ -128,6 +140,8 @@ for index, (name, params) in enumerate(HANDLERS.items()):
     warg_names = ['w_arg%d' % (i,) for i in range(len(params))]
 
     converters = []
+    real_params = []
+
     for i, ARG in enumerate(params):
         # Some custom argument conversions
         if name == "StartElementHandler" and i == 1:
@@ -146,6 +160,10 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         elif ARG == rffi.CCHARP:
             converters.append(
                 'w_arg%d = parser.w_convert_charp(space, arg%d)' % (i, i))
+        elif ARG == INTERNED_CCHARP:
+            converters.append(
+                'w_arg%d = parser.w_convert_interned(space, arg%d)' % (i, i))
+            ARG = rffi.CCHARP
         elif ARG == lltype.Ptr(XML_Content):
             converters.append(
                 'w_arg%d = parser.w_convert_model(space, arg%d)' % (i, i))
@@ -154,13 +172,13 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         else:
             converters.append(
                 'w_arg%d = space.wrap(arg%d)' % (i, i))
+        real_params.append(ARG)
     converters = '; '.join(converters)
 
     args = ', '.join(arg_names)
     wargs = ', '.join(warg_names)
 
-    if name in ['UnknownEncodingHandler',
-                'ExternalEntityRefHandler',
+    if name in ['ExternalEntityRefHandler',
                 'NotStandaloneHandler']:
         result_type = rffi.INT
         result_converter = "space.int_w(w_result)"
@@ -176,13 +194,19 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         pre_code = 'parser.flush_character_buffer(space)'
 
     if name == 'ExternalEntityRefHandler':
+        first_arg = 'll_parser'
+        first_lltype = XML_Parser
+        ll_id = 'XML_GetUserData(ll_parser)'
         post_code = 'if space.is_w(w_result, space.w_None): return 0'
     else:
+        first_arg = 'll_userdata'
+        first_lltype = rffi.VOIDP
+        ll_id = 'll_userdata'
         post_code = ''
 
     src = py.code.Source("""
-    def %(name)s_callback(ll_userdata, %(args)s):
-        id = rffi.cast(lltype.Signed, ll_userdata)
+    def %(name)s_callback(%(first_arg)s, %(args)s):
+        id = rffi.cast(lltype.Signed, %(ll_id)s)
         userdata = global_storage.get_object(id)
         space = userdata.space
         parser = userdata.parser
@@ -208,10 +232,34 @@ for index, (name, params) in enumerate(HANDLERS.items()):
 
     c_name = 'XML_Set' + name
     callback_type = lltype.Ptr(lltype.FuncType(
-        [rffi.VOIDP] + params, result_type))
+        [first_lltype] + real_params, result_type))
     func = expat_external(c_name,
                           [XML_Parser, callback_type], lltype.Void)
     SETTERS[name] = (index, func, callback)
+
+# special case for UnknownEncodingHandlerData:
+# XML_SetUnknownEncodingHandler() needs an additional argument,
+# and it's not modifiable via user code anyway
+def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
+    id = rffi.cast(lltype.Signed, ll_userdata)
+    userdata = global_storage.get_object(id)
+    space = userdata.space
+    parser = userdata.parser
+
+    name = rffi.charp2str(name)
+
+    try:
+        parser.UnknownEncodingHandler(space, name, info)
+    except OperationError, e:
+        parser._exc_info = e
+        XML_StopParser(parser.itself, XML_FALSE)
+        return 0
+    return 1
+callback_type = lltype.Ptr(lltype.FuncType(
+    [rffi.VOIDP, rffi.CCHARP, XML_Encoding_Ptr], rffi.INT))
+XML_SetUnknownEncodingHandler = expat_external(
+    'XML_SetUnknownEncodingHandler',
+    [XML_Parser, callback_type, rffi.VOIDP], lltype.Void)
 
 ENUMERATE_SETTERS = unrolling_iterable(SETTERS.items())
 
@@ -225,6 +273,9 @@ XML_ParserFree = expat_external(
     'XML_ParserFree', [XML_Parser], lltype.Void)
 XML_SetUserData = expat_external(
     'XML_SetUserData', [XML_Parser, rffi.VOIDP], lltype.Void)
+def XML_GetUserData(parser):
+    # XXX is this always true?
+    return rffi.cast(rffi.VOIDPP, parser)[0]
 XML_Parse = expat_external(
     'XML_Parse', [XML_Parser, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
 XML_StopParser = expat_external(
@@ -264,27 +315,14 @@ XML_ExternalEntityParserCreate = expat_external(
 
 class W_XMLParserType(Wrappable):
 
-    def __init__(self, encoding, namespace_separator, w_intern,
-                 _from_external_entity=False):
-        if encoding:
-            self.encoding = encoding
-        else:
-            self.encoding = 'utf-8'
-        self.namespace_separator = namespace_separator
+    def __init__(self, space, parser, w_intern):
+        self.itself = parser
 
         self.w_intern = w_intern
 
         self.returns_unicode = True
         self.ordered_attributes = False
         self.specified_attributes = False
-
-        if not _from_external_entity:
-            if namespace_separator:
-                self.itself = XML_ParserCreateNS(
-                    self.encoding,
-                    rffi.cast(rffi.CHAR, namespace_separator))
-            else:
-                self.itself = XML_ParserCreate(self.encoding)
 
         self.handlers = [None] * NB_HANDLERS
 
@@ -294,6 +332,11 @@ class W_XMLParserType(Wrappable):
         self.w_character_data_handler = None
 
         self._exc_info = None
+
+        # Set user data for callback function
+        self.id = global_storage.get_nonmoving_id(
+            CallbackData(space, self))
+        XML_SetUserData(self.itself, rffi.cast(rffi.VOIDP, self.id))
 
     def __del__(self):
         if XML_ParserFree: # careful with CPython interpreter shutdown
@@ -327,10 +370,8 @@ getting the advantage of providing document type information to the parser.
 
     def w_convert(self, space, s):
         if self.returns_unicode:
-            return space.call_function(
-                space.getattr(space.wrap(s), space.wrap("decode")),
-                space.wrap("utf-8"),
-                space.wrap("strict"))
+            from pypy.interpreter.unicodehelper import PyUnicode_DecodeUTF8
+            return space.wrap(PyUnicode_DecodeUTF8(space, s))
         else:
             return space.wrap(s)
 
@@ -339,6 +380,21 @@ getting the advantage of providing document type information to the parser.
             return self.w_convert(space, rffi.charp2str(data))
         else:
             return space.w_None
+
+    def w_convert_interned(self, space, data):
+        if not data:
+            return space.w_None
+        w_data = self.w_convert_charp(space, data)
+        if not self.w_intern:
+            return w_data
+
+        try:
+            return space.getitem(self.w_intern, w_data)
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+        space.setitem(self.w_intern, w_data, w_data)
+        return w_data
 
     def w_convert_charp_n(self, space, data, length):
         ll_length = rffi.cast(lltype.Signed, length)
@@ -410,6 +466,27 @@ getting the advantage of providing document type information to the parser.
 
     sethandler._annspecialcase_ = 'specialize:arg(2)'
 
+    all_chars = ''.join(chr(i) for i in range(256))
+
+    def UnknownEncodingHandler(self, space, name, info):
+        # Yes, supports only 8bit encodings
+        translationmap = space.unicode_w(
+            space.call_method(
+                space.wrap(self.all_chars), "decode",
+                space.wrap(name), space.wrap("replace")))
+
+        for i in range(256):
+            c = translationmap[i]
+            if c == u'\ufffd':
+                info.c_map[i] = rffi.cast(rffi.INT, -1)
+            else:
+                info.c_map[i] = rffi.cast(rffi.INT, c)
+        info.c_data = lltype.nullptr(rffi.VOIDP.TO)
+        info.c_convert = lltype.nullptr(rffi.VOIDP.TO)
+        info.c_release = lltype.nullptr(rffi.VOIDP.TO)
+        return True
+
+
     def setattr(self, space, name, w_value):
         if name == "namespace_prefixes":
             XML_SetReturnNSTriplet(self.itself, space.int_w(w_value))
@@ -471,14 +548,12 @@ information passed to the ExternalEntityRefHandler."""
         else:
             encoding = space.str_w(w_encoding)
 
-        parser = W_XMLParserType(encoding, 0, space.newdict(),
-                                 _from_external_entity=True)
-        parser.itself = XML_ExternalEntityParserCreate(self.itself,
-                                                       context, encoding)
-        global_storage.get_nonmoving_id(
-            CallbackData(space, parser),
-            id=rffi.cast(lltype.Signed, parser.itself))
-        XML_SetUserData(parser.itself, rffi.cast(rffi.VOIDP, parser.itself))
+        xmlparser = XML_ExternalEntityParserCreate(
+            self.itself, context, encoding)
+        if not xmlparser:
+            raise MemoryError
+
+        parser = W_XMLParserType(space, xmlparser, self.w_intern)
 
         # copy handlers from self
         for i in range(NB_HANDLERS):
@@ -505,7 +580,7 @@ information passed to the ExternalEntityRefHandler."""
         err = rffi.charp2strn(XML_ErrorString(code), 200)
         lineno = XML_GetCurrentLineNumber(self.itself)
         colno = XML_GetCurrentColumnNumber(self.itself)
-        msg = "%s: line: %d, column: %d" % (err, lineno, colno)
+        msg = "%s: line %d, column %d" % (err, lineno, colno)
         w_module = space.getbuiltinmodule('pyexpat')
         w_errorcls = space.getattr(w_module, space.wrap('error'))
         w_error = space.call_function(
@@ -527,6 +602,16 @@ information passed to the ExternalEntityRefHandler."""
     def descr_ErrorByteIndex(space, self):
         return space.wrap(XML_GetErrorByteIndex(self.itself))
 
+    def get_buffer_size(space, self):
+        return space.wrap(self.buffer_size)
+    def set_buffer_size(space, self, w_value):
+        value = space.getindex_w(w_value, space.w_TypeError)
+        if value <= 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "buffer_size must be greater than zero"))
+        self.flush_character_buffer(space)
+        self.buffer_size = value
+
     def get_buffer_text(space, self):
         return space.wrap(self.buffer_w is not None)
     def set_buffer_text(space, self, w_value):
@@ -538,7 +623,10 @@ information passed to the ExternalEntityRefHandler."""
             self.buffer_w = None
 
     def get_intern(space, self):
-        return self.w_intern
+        if self.w_intern:
+            return self.w_intern
+        else:
+            return space.w_None
 
 
 def bool_property(name, cls, doc=None):
@@ -561,6 +649,9 @@ W_XMLParserType.typedef = TypeDef(
     ordered_attributes = bool_property('ordered_attributes', W_XMLParserType),
     specified_attributes = bool_property('specified_attributes', W_XMLParserType),
     intern = GetSetProperty(W_XMLParserType.get_intern, cls=W_XMLParserType),
+    buffer_size = GetSetProperty(W_XMLParserType.get_buffer_size,
+                                 W_XMLParserType.set_buffer_size,
+                                 cls=W_XMLParserType),
     buffer_text = GetSetProperty(W_XMLParserType.get_buffer_text,
                                  W_XMLParserType.set_buffer_text, cls=W_XMLParserType),
 
@@ -613,19 +704,28 @@ Return a new XML parser object."""
             space.wrap('ParserCreate() argument 2 must be string or None,'
                        ' not %s' % (type_name,)))
 
+    # Explicitly passing None means no interning is desired.
+    # Not passing anything means that a new dictionary is used.
     if w_intern is None:
         w_intern = space.newdict()
+    elif space.is_w(w_intern, space.w_None):
+        w_intern = None
 
-    parser = W_XMLParserType(encoding, namespace_separator, w_intern)
-    if not parser.itself:
+    if namespace_separator:
+        xmlparser = XML_ParserCreateNS(
+            encoding,
+            rffi.cast(rffi.CHAR, namespace_separator))
+    else:
+        xmlparser = XML_ParserCreate(encoding)
+
+    if not xmlparser:
         raise OperationError(space.w_RuntimeError,
                              space.wrap('XML_ParserCreate failed'))
 
-    global_storage.get_nonmoving_id(
-        CallbackData(space, parser),
-        id=rffi.cast(lltype.Signed, parser.itself))
-    XML_SetUserData(parser.itself, rffi.cast(rffi.VOIDP, parser.itself))
-
+    parser = W_XMLParserType(space, xmlparser, w_intern)
+    XML_SetUnknownEncodingHandler(
+        parser.itself, UnknownEncodingHandlerData_callback,
+        rffi.cast(rffi.VOIDP, parser.id))
     return space.wrap(parser)
 ParserCreate.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 

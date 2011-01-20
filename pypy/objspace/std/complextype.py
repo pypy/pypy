@@ -11,9 +11,6 @@ from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
 ERR_WRONG_SECOND = "complex() can't take second arg if first is a string"
 ERR_MALFORMED = "complex() arg is a malformed string"
 
-OVERFLOWED_FLOAT = 1e200
-OVERFLOWED_FLOAT *= OVERFLOWED_FLOAT
-
 complex_conjugate = StdObjSpaceMultiMethod('conjugate', 1,
                                            doc="(A+Bj).conjugate() -> A-Bj")
 
@@ -32,6 +29,10 @@ def _split_complex(s):
     # ignore whitespace
     while i < slen and s[i] == ' ':
         i += 1
+    
+    if s[i] == '(' and s[slen-1] == ')':
+        i += 1
+        slen -= 1
 
     # extract first number
     realstart = i
@@ -135,12 +136,6 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
             imagval = string_to_float(imagstr)
         except ParseStringError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
-        else:
-            # check for overflow
-            if (abs(realval) == OVERFLOWED_FLOAT or
-                abs(imagval) == OVERFLOWED_FLOAT):
-                raise OperationError(space.w_ValueError,space.wrap(
-                                    "complex() literal too large to convert"))
 
     else:
         # non-string arguments
@@ -155,13 +150,11 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
                 raise
         else:
             w_real = space.call_function(w_method)
-            # __complex__() could return a string, which space.float()
-            # could accept below...  Let's catch this case.
-            if (space.is_true(space.isinstance(w_imag, space.w_str)) or
-                space.is_true(space.isinstance(w_imag, space.w_unicode))):
+            # __complex__() must return a complex object
+            if not space.is_true(space.isinstance(w_real, space.w_complex)):
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("__complex__() cannot return"
-                                                " a string"))
+                                     space.wrap("__complex__() must return"
+                                                " a complex number"))
 
         # at this point w_real can be an instance of 'complex',
         # either because it is the result of __complex__() or because
@@ -192,7 +185,11 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
                                      space.wrap("complex() second arg"
                                                 " can't be a string"))
             else:
-                imagval += space.float_w(space.float(w_imag))
+                a = space.float_w(space.float(w_imag))
+                if imagval != 0.0:
+                    imagval += a
+                else:
+                    imagval = a
     # done
     w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
     W_ComplexObject.__init__(w_obj, realval, imagval)

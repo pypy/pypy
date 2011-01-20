@@ -1,6 +1,6 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -59,7 +59,6 @@ def external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_)
 
 _flock = lltype.Ptr(cConfig.flock)
-strerror = external('strerror', [rffi.INT], rffi.CCHARP)
 fcntl_int = external('fcntl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
 fcntl_str = external('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT)
 fcntl_flock = external('fcntl', [rffi.INT, rffi.INT, _flock], rffi.INT)
@@ -70,9 +69,10 @@ has_flock = cConfig.has_flock
 if has_flock:
     c_flock = external('flock', [rffi.INT, rffi.INT], rffi.INT)
 
-def _get_error_msg():
+def _get_error(space, funcname):
     errno = rposix.get_errno()
-    return rffi.charp2str(strerror(errno))
+    return wrap_oserror(space, OSError(errno, funcname),
+                        exception_name = 'w_IOError')
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('fcntl')
@@ -125,8 +125,7 @@ def fcntl(space, w_fd, op, w_arg=0):
         intarg = rffi.cast(rffi.INT, intarg)   # C long => C int
         rv = fcntl_int(fd, op, intarg)
         if rv < 0:
-            raise OperationError(space.w_IOError,
-                space.wrap(_get_error_msg()))
+            raise _get_error(space, "fcntl")
         return space.wrap(rv)
 
     try:
@@ -140,8 +139,7 @@ def fcntl(space, w_fd, op, w_arg=0):
         arg = rffi.charpsize2str(ll_arg, len(arg))
         lltype.free(ll_arg, flavor='raw')
         if rv < 0:
-            raise OperationError(space.w_IOError,
-                space.wrap(_get_error_msg()))
+            raise _get_error(space, "fcntl")
         return space.wrap(arg)
 
     raise OperationError(space.w_TypeError,
@@ -160,8 +158,7 @@ def flock(space, w_fd, op):
     if has_flock:
         rv = c_flock(fd, op)
         if rv < 0:
-            raise OperationError(space.w_IOError,
-                space.wrap(_get_error_msg()))
+            raise _get_error(space, "flock")
     else:
         l = _check_flock_op(space, op)
         rffi.setintfield(l, 'c_l_whence', 0)
@@ -251,8 +248,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
             arg = rffi.charpsize2str(ll_arg, len(arg))
             lltype.free(ll_arg, flavor='raw')
             if rv < 0:
-                raise OperationError(space.w_IOError,
-                    space.wrap(_get_error_msg()))
+                raise _get_error(space, "ioctl")
             rwbuffer.setslice(0, arg)
             return space.wrap(rv)
 
@@ -276,8 +272,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
         arg = rffi.charpsize2str(ll_arg, len(arg))
         lltype.free(ll_arg, flavor='raw')
         if rv < 0:
-            raise OperationError(space.w_IOError,
-                space.wrap(_get_error_msg()))
+            raise _get_error(space, "ioctl")
         return space.wrap(arg)
 
     raise OperationError(space.w_TypeError,

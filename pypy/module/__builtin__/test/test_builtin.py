@@ -16,6 +16,10 @@ class AppTestBuiltinApp:
         except KeyError:
             cls.w_sane_lookup = cls.space.wrap(False)
 
+    def test_bytes_alias(self):
+        assert bytes is str
+        assert isinstance(eval("b'hi'"), str)
+
     def test_import(self):
         m = __import__('pprint')
         assert m.pformat({}) == '{}'
@@ -27,6 +31,13 @@ class AppTestBuiltinApp:
         assert chr(65) == 'A'
         raises(ValueError, chr, -1)
         raises(TypeError, chr, 'a')
+
+    def test_bin(self):
+        assert bin(0) == "0b0"
+        assert bin(-1) == "-0b1"
+        assert bin(2L) == "0b10"
+        assert bin(-2L) == "-0b10"
+        raises(TypeError, bin, 0.)
 
     def test_unichr(self):
         import sys
@@ -92,6 +103,19 @@ class AppTestBuiltinApp:
             def keys(self):
                 return 'a'    # not a list!
         raises(TypeError, eval, "dir()", {}, C())
+
+    def test_dir_broken_module(self):
+        import types
+        class Foo(types.ModuleType):
+            __dict__ = 8
+        raises(TypeError, dir, Foo("foo"))
+
+    def test_format(self):
+        assert format(4) == "4"
+        assert format(10, "o") == "12"
+        assert format(10, "#o") == "0o12"
+        assert format("hi") == "hi"
+        assert isinstance(format(4, u""), unicode)
 
     def test_vars(self):
         def f():
@@ -175,7 +199,28 @@ class AppTestBuiltinApp:
         raises(StopIteration, enum.next)
         raises(TypeError, enumerate, 1)
         raises(TypeError, enumerate, None)
-        
+        enum = enumerate(range(5), 2)
+        assert list(enum) == zip(range(2, 7), range(5))
+
+    def test_next(self):
+        x = iter(['a', 'b', 'c'])
+        assert next(x) == 'a'
+        assert next(x) == 'b'
+        assert next(x) == 'c'
+        raises(StopIteration, next, x)
+        assert next(x, 42) == 42
+
+    def test_next__next__(self):
+        class Counter:
+            def __init__(self):
+                self.count = 0
+            def next(self):
+                self.count += 1
+                return self.count
+        x = Counter()
+        assert next(x) == 1
+        assert next(x) == 2
+        assert next(x) == 3
 
     def test_xrange_args(self):
 ##        # xrange() attributes are deprecated and were removed in Python 2.3.
@@ -393,6 +438,7 @@ class AppTestBuiltinApp:
         assert eval("3", None, None) == 3
         i = 4
         assert eval("i", None, None) == 4
+        assert eval('a', None, dict(a=42)) == 42
 
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
@@ -413,7 +459,15 @@ class AppTestBuiltinApp:
     def test_unicode_encoding_compile(self):
         code = u"# -*- coding: utf-8 -*-\npass\n"
         raises(SyntaxError, compile, code, "tmp", "exec")
-            
+
+    def test_recompile_ast(self):
+        import _ast
+        # raise exception when node type doesn't match with compile mode
+        co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
+        raises(TypeError, compile, co1, '<ast>', 'eval')
+        co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
+        compile(co2, '<ast>', 'eval')
+
     def test_isinstance(self):
         assert isinstance(5, int)
         assert isinstance(5, object)
@@ -483,6 +537,44 @@ def fn(): pass
         co = compile(src, 'mymod', 'exec')
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
+
+    def test_print_function(self):
+        import __builtin__
+        import sys
+        import StringIO
+        pr = getattr(__builtin__, "print")
+        save = sys.stdout
+        out = sys.stdout = StringIO.StringIO()
+        try:
+            pr("Hello,", "person!")
+        finally:
+            sys.stdout = save
+        assert out.getvalue() == "Hello, person!\n"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out)
+        assert out.getvalue() == "Hello, person!\n"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out, end="")
+        assert out.getvalue() == "Hello, person!"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out, sep="X")
+        assert out.getvalue() == "Hello,Xperson!\n"
+        out = StringIO.StringIO()
+        pr(u"Hello,", u"person!", file=out)
+        result = out.getvalue()
+        assert isinstance(result, unicode)
+        assert result == u"Hello, person!\n"
+        pr("Hello", file=None) # This works.
+        out = StringIO.StringIO()
+        pr(None, file=out)
+        assert out.getvalue() == "None\n"
+
+    def test_print_exceptions(self):
+        import __builtin__
+        pr = getattr(__builtin__, "print")
+        raises(TypeError, pr, x=3)
+        raises(TypeError, pr, end=3)
+        raises(TypeError, pr, sep=42)
 
 class AppTestBuiltinOptimized(object):
     def setup_class(cls):

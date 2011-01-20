@@ -5,9 +5,10 @@ Implementation of the interpreter-level default import logic.
 import sys, os, stat
 
 from pypy.interpreter.module import Module
-from pypy.interpreter import gateway
+from pypy.interpreter.gateway import Arguments, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.eval import Code
 from pypy.rlib import streamio, jit
 from pypy.rlib.streamio import StreamErrors
@@ -107,8 +108,9 @@ def check_sys_modules(space, w_modulename):
 def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
-def importhook(space, modulename, w_globals=None,
+def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
+    modulename = name
     space.timer.start_name("importhook", modulename)
     if not modulename and level < 0: 
         raise OperationError(
@@ -124,7 +126,7 @@ def importhook(space, modulename, w_globals=None,
     rel_modulename = None
     if (level != 0 and
         w_globals is not None and
-        not space.is_w(w_globals, space.w_None)):
+        space.isinstance_w(w_globals, space.w_dict)):
         ctxt_w_name = space.finditem(w_globals, w('__name__'))
         ctxt_w_path = space.finditem(w_globals, w('__path__'))
         if ctxt_w_name is not None:
@@ -273,8 +275,7 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
     w_path_importer_cache = space.sys.get("path_importer_cache")
     w_importer = space.finditem(w_path_importer_cache, w_pathitem)
     if w_importer is None:
-        w_importer = space.w_None
-        space.setitem(w_path_importer_cache, w_pathitem, w_importer)
+        space.setitem(w_path_importer_cache, w_pathitem, space.w_None)
         for w_hook in space.unpackiterable(space.sys.get("path_hooks")):
             try:
                 w_importer = space.call_function(w_hook, w_pathitem)
@@ -283,12 +284,46 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
                     raise
             else:
                 break
+        if w_importer is None:
+            w_importer = space.wrap(W_NullImporter(space))
         if space.is_true(w_importer):
             space.setitem(w_path_importer_cache, w_pathitem, w_importer)
     if space.is_true(w_importer):
         w_loader = space.call_method(w_importer, "find_module", w_modulename)
         if space.is_true(w_loader):
             return w_loader
+
+
+class W_NullImporter(Wrappable):
+    def __init__(self, space):
+        pass
+
+    @unwrap_spec('self', ObjSpace, str)
+    def descr_init(self, space, path):
+        if not path:
+            raise OperationError(space.w_ImportError, space.wrap(
+                "empty pathname"))
+
+        # Directory should not exist
+        try:
+            st = os.stat(path)
+        except OSError:
+            pass
+        else:
+            if stat.S_ISDIR(st.st_mode):
+                raise OperationError(space.w_ImportError, space.wrap(
+                    "existing directory"))
+
+    @unwrap_spec('self', ObjSpace, Arguments)
+    def find_module_w(self, space, __args__):
+        return space.wrap(None)
+
+W_NullImporter.typedef = TypeDef(
+    'imp.NullImporter',
+    __new__=generic_new_descr(W_NullImporter),
+    __init__=interp2app(W_NullImporter.descr_init),
+    find_module=interp2app(W_NullImporter.find_module_w),
+    )
 
 class FindInfo:
     def __init__(self, modtype, filename, stream,
@@ -596,6 +631,13 @@ class ImportRLock:
         if self.lockcounter == 0:
             self.lockowner = None
             self.lock.release()
+
+    def reinit_lock(self):
+        # Called after fork() to ensure that newly created child
+        # processes do not share locks with the parent
+        self.lock = None
+        self.lockowner = None
+        self.lockcounter = 0
 
 def getimportlock(space):
     return space.fromcache(ImportRLock)

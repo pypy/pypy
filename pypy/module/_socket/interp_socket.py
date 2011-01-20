@@ -4,10 +4,18 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
+
+class SignalChecker:
+    def __init__(self, space):
+        self.space = space
+
+    def check(self):
+        self.space.getexecutioncontext().checksignals()
 
 class W_RSocket(Wrappable, RSocket):
     def __del__(self):
@@ -233,7 +241,7 @@ class W_RSocket(Wrappable, RSocket):
         to tell how much data has been sent.
         """
         try:
-            count = self.sendall(data, flags)
+            count = self.sendall(data, flags, SignalChecker(space))
         except SocketError, e:
             raise converted_error(space, e)
     sendall_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', int]
@@ -337,7 +345,48 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)        
     recvfrom_into_w.unwrap_spec = ['self', ObjSpace, W_Root, int, int]
-    
+
+    def ioctl_w(self, space, cmd, w_option):
+        from pypy.rpython.lltypesystem import rffi, lltype
+        from pypy.rlib import rwin32
+        from pypy.rlib.rsocket import _c
+
+        recv_ptr = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+        try:
+            if cmd == _c.SIO_RCVALL:
+                value_size = rffi.sizeof(rffi.INTP)
+            elif cmd == _c.SIO_KEEPALIVE_VALS:
+                value_size = rffi.sizeof(_c.tcp_keepalive)
+            else:
+                raise operationerrfmt(space.w_ValueError,
+                                      "invalid ioctl command %d", cmd)
+
+            value_ptr = lltype.malloc(rffi.VOIDP.TO, value_size, flavor='raw')
+            try:
+                if cmd == _c.SIO_RCVALL:
+                    option_ptr = rffi.cast(rffi.INTP, value_ptr)
+                    option_ptr[0] = space.int_w(w_option)
+                elif cmd == _c.SIO_KEEPALIVE_VALS:
+                    w_onoff, w_time, w_interval = space.unpackiterable(w_option)
+                    option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
+                    option_ptr.c_onoff = space.uint_w(w_onoff)
+                    option_ptr.c_keepalivetime = space.uint_w(w_time)
+                    option_ptr.c_keepaliveinterval = space.uint_w(w_interval)
+
+                res = _c.WSAIoctl(
+                    self.fd, cmd, value_ptr, value_size,
+                    rffi.NULL, 0, recv_ptr, rffi.NULL, rffi.NULL)
+                if res < 0:
+                    raise converted_error(space, rsocket.last_error())
+            finally:
+                if value_ptr:
+                    lltype.free(value_ptr, flavor='raw')
+
+            return space.wrap(recv_ptr[0])
+        finally:
+            lltype.free(recv_ptr, flavor='raw')
+    ioctl_w.unwrap_spec = ['self', ObjSpace, int, W_Root]
+
     def shutdown_w(self, space, how):
         """shutdown(flag)
 
@@ -429,6 +478,8 @@ setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
 for name in ('dup',):
     if not hasattr(RSocket, name):
         socketmethodnames.remove(name)
+if hasattr(rsocket._c, 'WSAIoctl'):
+    socketmethodnames.append('ioctl')
 
 socketmethods = {}
 for methodname in socketmethodnames:

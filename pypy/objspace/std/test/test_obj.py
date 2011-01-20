@@ -46,3 +46,25 @@ class AppTestObject:
                 return object.__reduce__(self) + (':-)',)
         s = X().__reduce__()
         assert s[-1] == ':-)'
+
+    def test_default_format(self):
+        class x(object):
+            def __str__(self):
+                return "Pickle"
+            def __unicode__(self):
+                return u"Cheese"
+        res = format(x())
+        assert res == "Pickle"
+        assert isinstance(res, str)
+        res = format(x(), u"")
+        assert res == u"Cheese"
+        assert isinstance(res, unicode)
+        del x.__unicode__
+        res = format(x(), u"")
+        assert res == u"Pickle"
+        assert isinstance(res, unicode)
+
+    def test_subclasshook(self):
+        class x(object):
+            pass
+        assert x().__subclasshook__(object()) is NotImplemented

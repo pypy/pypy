@@ -169,16 +169,18 @@ class LLHelpers(AbstractLLHelpers):
             buf.ll_append(lastitem)
         return buf.ll_build()
 
-    def ll_join_chars(length_dummy, lst):
-        if typeOf(lst).ITEM == Char:
+    def ll_join_chars(length_dummy, lst, RES):
+        if RES is ootype.String:
+            target = Char
             buf = ootype.new(ootype.StringBuilder)
         else:
+            target = UniChar
             buf = ootype.new(ootype.UnicodeBuilder)
         length = lst.ll_length()
         buf.ll_allocate(length)
         i = 0
         while i < length:
-            buf.ll_append_char(lst.ll_getitem_fast(i))
+            buf.ll_append_char(cast_primitive(target, lst.ll_getitem_fast(i)))
             i += 1
         return buf.ll_build()
 
