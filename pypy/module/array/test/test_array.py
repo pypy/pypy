@@ -853,3 +853,8 @@ class AppTestArray(BaseArrayTests):
         import _rawffi
         data = _rawffi.charp2string(bi[0])
         assert data[0:3] == 'Hi!'
+
+    def test_array_reverse_slice_assign_self(self):
+        a = self.array('b', range(4))
+        a[::-1] = a
+        assert a == self.array('b', [3, 2, 1, 0])

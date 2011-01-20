@@ -269,25 +269,40 @@ def test_infinite_float():
     res = f1(3)
     assert res == 1.5
 
-def test_nan():
+def test_nan_and_special_values():
     from pypy.translator.c.primitive import isnan, isinf
+    from pypy.rlib.rarithmetic import copysign
     inf = 1e300 * 1e300
     assert isinf(inf)
     nan = inf/inf
     assert isnan(nan)
 
-    l = [nan]
-    def f():
-        return nan
-    f1 = compile(f, [])
-    res = f1()
-    assert isnan(res)
+    for value, checker in [
+            (inf,   lambda x: isinf(x) and x > 0.0),
+            (-inf,  lambda x: isinf(x) and x < 0.0),
+            (nan,   isnan),
+            (0.0,   lambda x: not x and copysign(1., x) == 1.),
+            (-0.0,  lambda x: not x and copysign(1., x) == -1.),
+            ]:
+        def f():
+            return value
+        f1 = compile(f, [])
+        res = f1()
+        assert checker(res)
 
-    def g(x):
-        return l[x]
-    g2 = compile(g, [int])
-    res = g2(0)
-    assert isnan(res)
+        l = [value]
+        def g(x):
+            return l[x]
+        g2 = compile(g, [int])
+        res = g2(0)
+        assert checker(res)
+
+        l2 = [(-value, -value), (value, value)]
+        def h(x):
+            return l2[x][1]
+        h3 = compile(h, [int])
+        res = h3(1)
+        assert checker(res)
 
 def test_prebuilt_instance_with_dict():
     class A:

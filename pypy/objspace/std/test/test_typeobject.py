@@ -978,6 +978,15 @@ class AppTestTypeObject:
         assert ("x", 1) in d.items()
         assert ("y", 2) in d.items()
 
+    def test_type_descriptors_overridden(self):
+        class A(object):
+            __dict__ = 42
+        assert A().__dict__ == 42
+        #
+        class B(object):
+            __weakref__ = 42
+        assert B().__weakref__ == 42
+
 
 class AppTestMutableBuiltintypes:
 

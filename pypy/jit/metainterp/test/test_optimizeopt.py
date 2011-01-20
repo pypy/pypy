@@ -577,6 +577,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         self.optimize_loop(ops, expected, preamble)
 
     def test_int_is_true_is_zero(self):
+        py.test.skip("in-progress")
         ops = """
         [i0]
         i1 = int_add(i0, 1)

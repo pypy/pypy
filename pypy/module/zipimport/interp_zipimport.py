@@ -229,7 +229,7 @@ class W_ZipImporter(Wrappable):
         startpos = fullname.rfind('.') + 1 # 0 when not found
         assert startpos >= 0
         subname = fullname[startpos:]
-        return self.prefix + subname
+        return self.prefix + subname.replace('.', '/')
 
     def load_module(self, space, fullname):
         w = space.wrap
@@ -247,7 +247,7 @@ class W_ZipImporter(Wrappable):
                 pass
             else:
                 if is_package:
-                    pkgpath = (self.name + os.path.sep +
+                    pkgpath = (self.filename + os.path.sep +
                                self.corr_zname(filename))
                 else:
                     pkgpath = None

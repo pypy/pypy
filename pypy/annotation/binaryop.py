@@ -828,6 +828,18 @@ class __extend__(pairtype(SomePBC, SomeObject)):
         if not pbc.isNone():
             raise AnnotatorError("setitem on %r" % pbc)
 
+class __extend__(pairtype(SomePBC, SomeString)):
+    def add((pbc, o)):
+        if not pbc.isNone():
+            raise AnnotatorError('add on %r' % pbc)
+        return s_ImpossibleValue
+
+class __extend__(pairtype(SomeString, SomePBC)):
+    def add((o, pbc)):
+        if not pbc.isNone():
+            raise AnnotatorError('add on %r' % pbc)
+        return s_ImpossibleValue
+
 class __extend__(pairtype(SomeExternalObject, SomeExternalObject)):
     def union((ext1, ext2)):
         if ext1.knowntype == ext2.knowntype:

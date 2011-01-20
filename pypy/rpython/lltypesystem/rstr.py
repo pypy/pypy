@@ -145,6 +145,8 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     def ll_str(self, s):
         # XXX crazy that this is here, but I don't want to break
         #     rmodel logic
+        if not s:
+            return self.ll.ll_constant('None')
         lgt = len(s.chars)
         result = mallocstr(lgt)
         for i in range(lgt):

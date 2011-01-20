@@ -1116,7 +1116,8 @@ class BuiltinTest(unittest.TestCase):
             def __cmp__(self, other):
                 raise RuntimeError
             __hash__ = None # Invalid cmp makes this unhashable
-        self.assertRaises(RuntimeError, range, a, a + 1, badzero(1))
+        if check_impl_detail(cpython=True):
+            self.assertRaises(RuntimeError, range, a, a + 1, badzero(1))
 
         # Reject floats.
         self.assertRaises(TypeError, range, 1., 1., 1.)
