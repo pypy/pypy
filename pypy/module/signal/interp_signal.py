@@ -42,24 +42,22 @@ eci = ExternalCompilationInfo(
 class CConfig:
     _compilation_info_ = eci
 
+if sys.platform != 'win32':
     for name in """ITIMER_REAL ITIMER_VIRTUAL ITIMER_PROF""".split():
-        locals()[name] = rffi_platform.DefinedConstantInteger(name)
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
 
-
-    timeval = rffi_platform.Struct(
+    CConfig.timeval = rffi_platform.Struct(
         'struct timeval',
         [('tv_sec', rffi.LONG),
          ('tv_usec', rffi.LONG)])
 
-    itimerval = rffi_platform.Struct(
+    CConfig.itimerval = rffi_platform.Struct(
         'struct itimerval',
-        [('it_value', timeval),
-         ('it_interval', timeval)])
+        [('it_value', CConfig.timeval),
+         ('it_interval', CConfig.timeval)])
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
-
-itimervalP = rffi.CArrayPtr(itimerval)
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
@@ -85,9 +83,11 @@ c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
 
-c_setitimer = external('setitimer',
-                       [rffi.INT, itimervalP, itimervalP], rffi.INT)
-c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)
+if sys.platform != 'win32':
+    itimervalP = rffi.CArrayPtr(itimerval)
+    c_setitimer = external('setitimer',
+                           [rffi.INT, itimervalP, itimervalP], rffi.INT)
+    c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)
 
 
 class SignalActionFlag(AbstractActionFlag):
@@ -302,6 +302,7 @@ def itimer_retval(space, val):
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+@jit.dont_look_inside
 @unwrap_spec(ObjSpace, int, float, float)
 def setitimer(space, which, first, interval=0):
     with lltype.scoped_alloc(itimervalP.TO, 1) as new:
@@ -315,6 +316,7 @@ def setitimer(space, which, first, interval=0):
 
             return itimer_retval(space, old[0])
 
+@jit.dont_look_inside
 @unwrap_spec(ObjSpace, int)
 def getitimer(space, which):
     with lltype.scoped_alloc(itimervalP.TO, 1) as old:

@@ -3,30 +3,24 @@ MARKER = 42
 class AppTestImpModule:
     def setup_class(cls):
         cls.w_imp = cls.space.getbuiltinmodule('imp')
+        cls.w_file_module = cls.space.wrap(__file__)
 
-        cls.w__py_file = cls.space.appexec(
-            [cls.space.wrap(__file__)], r"""(__file__):
-        def _py_file():
-            fn = __file__
-            if fn.lower().endswith('c') or fn.lower().endswith('o'):
-                fn = fn[:-1]
-            assert fn.lower().endswith('.py')
-            return fn
-        return _py_file""")
+    def w__py_file(self):
+        fn = self.file_module
+        if fn.lower().endswith('c') or fn.lower().endswith('o'):
+            fn = fn[:-1]
+        assert fn.lower().endswith('.py')
+        return fn
 
-        cls.w__pyc_file = cls.space.appexec([], r"""():
-        def _pyc_file():
-            import marshal, imp
-            co = compile("marker=42", "x.py", "exec")
-            f = open('@TEST.pyc', 'wb')
-            f.write(imp.get_magic())
-            f.write('\x00\x00\x00\x00')
-            marshal.dump(co, f)
-            f.close()
-            return '@TEST.pyc'
-        return _pyc_file""")
-
-
+    def w__pyc_file(self):
+        import marshal, imp
+        co = compile("marker=42", "x.py", "exec")
+        f = open('@TEST.pyc', 'wb')
+        f.write(imp.get_magic())
+        f.write('\x00\x00\x00\x00')
+        marshal.dump(co, f)
+        f.close()
+        return '@TEST.pyc'
 
     def test_find_module(self):
         import os

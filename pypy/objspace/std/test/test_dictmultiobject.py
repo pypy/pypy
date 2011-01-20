@@ -667,13 +667,10 @@ class AppTestDictViews:
 class AppTestModuleDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
-        cls.w_impl_used = cls.space.appexec([], """():
-            import __pypy__
-            def impl_used(obj):
-                assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
-            return impl_used
-        """)
 
+    def w_impl_used(self, obj):
+        import __pypy__
+        assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
         m = type(__builtins__)("abc")
