@@ -27,17 +27,11 @@ from pypy.objspace.std.bytearraytype import (
 from pypy.tool.sourcetools import func_with_new_name
 
 
-def bytearray_checker(s_arg, bookkeeper):
-    from pypy.annotation.model import SomeList, SomeChar, SomeImpossibleValue
-    assert isinstance(s_arg, SomeList)
-    assert isinstance(s_arg.listdef.listitem.s_value, (SomeChar, SomeImpossibleValue))
-
 class W_BytearrayObject(W_Object):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
 
     def __init__(w_self, data):
         w_self.data = data
-        check_annotation(w_self.data, bytearray_checker)
 
     def __repr__(w_self):
         """ representation for debugging purposes """
