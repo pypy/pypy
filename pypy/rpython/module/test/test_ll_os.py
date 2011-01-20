@@ -82,6 +82,14 @@ def test_chdir():
     finally:
         os.chdir(pwd)
 
+def test_mkdir():
+    filename = str(udir.join('test_mkdir.dir'))
+    getllimpl(os.mkdir)(filename, 0)
+    exc = raises(OSError, getllimpl(os.mkdir), filename, 0)
+    assert exc.value.errno == errno.EEXIST
+    if sys.platform == 'win32':
+        assert exc.type is WindowsError
+
 def test_strerror():
     data = getllimpl(os.strerror)(2)
     assert data == os.strerror(2)

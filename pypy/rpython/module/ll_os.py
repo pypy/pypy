@@ -73,6 +73,7 @@ class StringTraits:
     charp2str = staticmethod(rffi.charp2str)
     str2charp = staticmethod(rffi.str2charp)
     free_charp = staticmethod(rffi.free_charp)
+    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
 
     @staticmethod
     def posix_function_name(name):
@@ -89,6 +90,7 @@ class UnicodeTraits:
     charp2str = staticmethod(rffi.wcharp2unicode)
     str2charp = staticmethod(rffi.unicode2wcharp)
     free_charp = staticmethod(rffi.free_wcharp)
+    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
 
     @staticmethod
     def posix_function_name(name):
@@ -1292,24 +1294,25 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_str_unicode(os.mkdir)
     def register_os_mkdir(self, traits):
-        if os.name == 'nt':
-            ARG2 = []         # no 'mode' argument on Windows - just ignored
-        else:
-            ARG2 = [rffi.MODE_T]
         os_mkdir = self.llexternal(traits.posix_function_name('mkdir'),
-                                   [traits.CCHARP] + ARG2, rffi.INT)
-        IGNORE_MODE = len(ARG2) == 0
+                                   [traits.CCHARP, rffi.MODE_T], rffi.INT)
 
-        def mkdir_llimpl(pathname, mode):
-            if IGNORE_MODE:
-                res = os_mkdir(pathname)
-            else:
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_win32_traits
+            win32traits = make_win32_traits(traits)
+
+            @func_renamer('mkdir_llimpl_%s' % traits.str.__name__)
+            def os_mkdir_llimpl(path, mode):
+                if not win32traits.CreateDirectory(path, None):
+                    raise rwin32.lastWindowsError()
+        else:
+            def os_mkdir_llimpl(pathname, mode):
                 res = os_mkdir(pathname, mode)
-            res = rffi.cast(lltype.Signed, res)
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_mkdir failed")
+                res = rffi.cast(lltype.Signed, res)
+                if res < 0:
+                    raise OSError(rposix.get_errno(), "os_mkdir failed")
 
-        return extdef([traits.str, int], s_None, llimpl=mkdir_llimpl,
+        return extdef([traits.str, int], s_None, llimpl=os_mkdir_llimpl,
                       export_name=traits.ll_os_name('mkdir'))
 
     @registering_str_unicode(os.rmdir)

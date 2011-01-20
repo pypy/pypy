@@ -139,6 +139,11 @@ def make_win32_traits(traits):
             [traits.CCHARP],
             rwin32.BOOL)
 
+        CreateDirectory = external(
+            'CreateDirectory' + suffix,
+            [traits.CCHARP, rffi.VOIDP],
+            rwin32.BOOL)
+
         SetEnvironmentVariable = external(
             'SetEnvironmentVariable' + suffix,
             [traits.CCHARP, traits.CCHARP],
@@ -232,14 +237,14 @@ def make_chdir_impl(traits):
         if not win32traits.SetCurrentDirectory(path):
             raise rwin32.lastWindowsError()
 
-        with rffi.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
+        with traits.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
             res = win32traits.GetCurrentDirectory(rwin32.MAX_PATH + 1, path.raw)
             if not res:
                 raise rwin32.lastWindowsError()
             if res <= rwin32.MAX_PATH + 1:
                 new_path = path.str(rffi.cast(lltype.Signed, res))
             else:
-                with rffi.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
+                with traits.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
                     res = win32traits.GetCurrentDirectory(res, path.raw)
                     if not res:
                         raise rwin32.lastWindowsError()
