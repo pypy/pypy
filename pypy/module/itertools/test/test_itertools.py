@@ -766,7 +766,16 @@ class AppTestItertools:
 
         raises(TypeError, combinations, "abc")
         raises(TypeError, combinations, "abc", 2, 1)
-        raises(TypeError, None)
+        raises(TypeError, combinations, None)
         raises(ValueError, combinations, "abc", -2)
         assert list(combinations("abc", 32)) == []
         assert list(combinations(range(4), 3)) == [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)]
+
+    def test_combinations_with_replacement(self):
+        from itertools import combinations_with_replacement
+
+        raises(TypeError, combinations_with_replacement, "abc")
+        raises(TypeError, combinations_with_replacement, "abc", 2, 1)
+        raises(TypeError, combinations_with_replacement, None)
+        raises(ValueError, combinations_with_replacement, "abc", -2)
+        assert list(combinations_with_replacement("ABC", 2)) == [("A", "A"), ("A", 'B'), ("A", "C"), ("B", "B"), ("B", "C"), ("C", "C")]
