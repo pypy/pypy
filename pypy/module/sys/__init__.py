@@ -26,7 +26,6 @@ class Module(MixedModule):
         'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)', 
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
-        'maxint'                : 'space.wrap(sys.maxint)',
         'stdin'                 : 'state.getio(space).w_stdin',
         '__stdin__'             : 'state.getio(space).w_stdin',
         'stdout'                : 'state.getio(space).w_stdout',
