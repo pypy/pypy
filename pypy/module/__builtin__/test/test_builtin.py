@@ -110,6 +110,19 @@ class AppTestBuiltinApp:
             __dict__ = 8
         raises(TypeError, dir, Foo("foo"))
 
+    def test_dir_custom(self):
+        class Foo(object):
+            def __dir__(self):
+                return [1, 2, 3]
+        f = Foo()
+        assert dir(f) == [1, 2, 3]
+        #
+        class Foo(object):
+            def __dir__(self):
+                return 42
+        f = Foo()
+        raises(TypeError, dir, f)
+
     def test_format(self):
         assert format(4) == "4"
         assert format(10, "o") == "12"

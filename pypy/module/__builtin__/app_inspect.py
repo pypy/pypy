@@ -76,6 +76,13 @@ def dir(*args):
         result.sort()
         return result
 
+    elif hasattr(obj, '__dir__'):
+        result = obj.__dir__()
+        if not isinstance(result, list):
+            raise TypeError("__dir__() must return a list, not %r" % (
+                type(result),))
+        return result
+
     else: #(regular item)
         Dict = {}
         try:
