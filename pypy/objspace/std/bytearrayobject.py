@@ -78,11 +78,11 @@ def init__Bytearray(space, w_bytearray, __args__):
         if count < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("bytearray negative count"))
-        w_bytearray.data[:] = ['\0'] * count
+        w_bytearray.data = ['\0'] * count
         return
 
     data = makebytearraydata_w(space, w_source)
-    w_bytearray.data[:] = data
+    w_bytearray.data = data
 
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
