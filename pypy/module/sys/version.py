@@ -4,6 +4,7 @@ Version numbers exposed by PyPy through the 'sys' module.
 import os
 import re
 from pypy.translator.platform import platform
+from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
 CPYTHON_VERSION            = (2, 7, 0, "final", 42)   #XXX # sync patchlevel.h
@@ -37,11 +38,26 @@ del t
 
 # ____________________________________________________________
 
+app = gateway.applevel('''
+"NOT_RPYTHON"
+from _structseq import structseqtype, structseqfield
+class version_info:
+    __metaclass__ = structseqtype
+
+    major        = structseqfield(0, "Major release number")
+    minor        = structseqfield(1, "Minor release number")
+    micro        = structseqfield(2, "Patch release number")
+    releaselevel = structseqfield(3,
+                       "'alpha', 'beta', 'candidate', or 'release'")
+    serial       = structseqfield(4, "Serial release number")
+''')
+
 def get_api_version(space):
     return space.wrap(CPYTHON_API_VERSION)
 
 def get_version_info(space):
-    return space.wrap(CPYTHON_VERSION)
+    w_version_info = app.wget(space, "version_info")
+    return space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
 
 def get_version(space):
     ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])
@@ -68,7 +84,8 @@ def get_hexversion(space):
 def get_pypy_version_info(space):
     ver = PYPY_VERSION
     #ver = ver[:-1] + (svn_revision(),)
-    return space.wrap(ver)
+    w_version_info = app.wget(space, "version_info")
+    return space.call_function(w_version_info, space.wrap(ver))
 
 def get_subversion_info(space):
     return space.wrap(('PyPy', '', ''))

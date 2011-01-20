@@ -132,7 +132,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
     res_w = [None] * howmany
     v = start
     for idx in range(howmany):
-        res_w[idx] = space.wrap(v)
+        res_w[idx] = space.newlong_from_rbigint(v)
         v = v.add(step)
     return space.newlist(res_w)
 
