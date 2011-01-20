@@ -1,32 +1,29 @@
 from __future__ import with_statement
+from pypy.rlib import rarithmetic
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstring import StringBuilder
 import py
 
-includes = []
-libraries = []
-
 cdir = py.path.local(pypydir) / 'translator' / 'c'
-files = [cdir / 'src' / 'dtoa.c']
 include_dirs = [cdir]
 
 eci = ExternalCompilationInfo(
-    include_dirs = include_dirs,
-    libraries = libraries,
-    separate_module_files = files,
+    include_dirs = [cdir],
+    libraries = [],
+    separate_module_files = [cdir / 'src' / 'dtoa.c'],
     separate_module_sources = ['''
-        #include <stdlib.h>
-        #include <assert.h>
-        #define WITH_PYMALLOC
-        #include "src/obmalloc.c"
+       #include <stdlib.h>
+       #include <assert.h>
+       #define WITH_PYMALLOC
+       #include "src/obmalloc.c"
     '''],
     export_symbols = ['_Py_dg_strtod',
                       '_Py_dg_dtoa',
                       '_Py_dg_freedtoa',
                       ],
-)
+    )
 
 dg_strtod = rffi.llexternal(
     '_Py_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
@@ -51,7 +48,7 @@ def strtod(input):
                 raise ValueError("invalid input at position %d" % (offset,))
             return result
 
-def dtoa(value, mode=0, precision=0):
+def dtoa(value, mode=0, precision=0, flags=0):
     builder = StringBuilder(20)
     with lltype.scoped_alloc(rffi.INTP.TO, 1) as decpt_ptr:
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as sign_ptr:
@@ -69,24 +66,36 @@ def dtoa(value, mode=0, precision=0):
                         while buflen < intpart:
                             builder.append('0')
                             intpart -= 1
-                    builder.append('.')
                     fracpart = buflen - intpart
                     if fracpart > 0:
+                        builder.append('.')
                         ptr = rffi.ptradd(output_ptr, intpart)
                         builder.append(rffi.charpsize2str(ptr, fracpart))
+                    elif flags & rarithmetic.DTSF_ADD_DOT_0:
+                        builder.append('.0')
                 finally:
                     dg_freedtoa(output_ptr)
     return builder.build()
 
-def test_strtod():
-    assert strtod("12345") == 12345.0
-    assert strtod("1.1") == 1.1
-    assert strtod("3.47") == 3.47
-    raises(ValueError, strtod, "123A")
+def llimpl_strtod(value, code, precision, flags):
+    if code in 'EFG':
+        code = code.lower()
 
-def test_dtoa():
-    assert dtoa(3.47) == "3.47"
-    assert dtoa(1.1) == "1.1"
-    assert dtoa(12.3577) == "12.3577"
-    assert dtoa(10) == "10."
-    assert dtoa(1e100) == "1" + "0" * 100 + "."
+    if code == 'e':
+        mode = 2
+        precision += 1
+    elif code == 'f':
+        mode = 3
+    elif code == 'g':
+        mode = 2
+        # precision 0 makes no sense for 'g' format; interpret as 1
+        if precision == 0:
+            precision = 1
+    elif code == 'r':
+        # repr format
+        mode = 0
+        assert precision == 0
+    else:
+        raise ValueError('Invalid mode')
+
+    return dtoa(value, mode=mode, precision=precision, flags=flags)
