@@ -563,19 +563,19 @@ def make_specialized_subclass(CFuncPtr):
             assert self._errcheck_ is None
             return result
 
-    def _convert_args(self, argtypes, args):
-        """
-        jit-friendly version assuming that len(argtypes) == len(args)
-        """
-        assert self._paramflags is None
-        try:
-            wrapped_args = [self._conv_param(argtypes[0], args[0], 0)]
-        except (UnicodeError, TypeError, ValueError), e:
-            raise ArgumentError(str(e))
-        assert len(wrapped_args) == len(args)
-        return wrapped_args
+        def _convert_args(self, argtypes, args):
+            """
+            jit-friendly version assuming that len(argtypes) == len(args)
+            """
+            assert self._paramflags is None
+            try:
+                wrapped_args = [self._conv_param(argtypes[0], args[0], 0)]
+            except (UnicodeError, TypeError, ValueError), e:
+                raise ArgumentError(str(e))
+            assert len(wrapped_args) == len(args)
+            return wrapped_args
 
-    def _unwrap_args(self, argtypes, args):
-        return [self._unwrap_single_arg(argtypes[0], args[0])]
+        def _unwrap_args(self, argtypes, args):
+            return [self._unwrap_single_arg(argtypes[0], args[0])]
 
     return CFuncPtr_1
