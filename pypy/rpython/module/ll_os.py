@@ -1338,6 +1338,10 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chmod failed")
 
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_chmod_impl
+            chmod_llimpl = make_chmod_impl(traits)
+
         return extdef([traits.str, int], s_None, llimpl=chmod_llimpl,
                       export_name=traits.ll_os_name('chmod'))
 
