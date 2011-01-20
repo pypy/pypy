@@ -26,6 +26,7 @@ class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
     def __init__(w_self, wrappeditems):
+        assert isinstance(wrappeditems, list)
         w_self.strategy = ObjectListStrategy()
         w_self.strategy.init_from_list_w(w_self, wrappeditems)
         w_self.wrappeditems = wrappeditems
@@ -50,6 +51,9 @@ class W_ListObject(W_Object):
     def getitem(self, index):
         return self.strategy.getitem(self, index)
 
+    def getslice(self, start, stop, step, length):
+        return self.strategy.getslice(self, start, stop, step, length)
+
 registerimplementation(W_ListObject)
 
 
@@ -63,6 +67,9 @@ class ListStrategy(object):
     def getitem(self, w_list, index):
         raise NotImplementedError
 
+    def getslice(self, w_list, start, stop, step, length):
+        raise NotImplementedError
+
 class EmptyListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
@@ -74,6 +81,9 @@ class EmptyListStrategy(ListStrategy):
     def getitem(self, w_list, index):
         raise IndexError
 
+    def getslice(self, w_list, start, stop, step, length):
+        return W_ListObject([])
+
 class ObjectListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "object")
@@ -84,7 +94,15 @@ class ObjectListStrategy(ListStrategy):
     def getitem(self, w_list, index):
         return cast_from_void_star(w_list.storage, "object")[index]
 
-
+    def getslice(self, w_list, start, stop, step, length):
+        if step == 1:
+            return W_ListObject(cast_from_void_star(w_list.storage, "object")[start:stop])
+        else:
+            subitems_w = [None] * length
+            for i in range(length):
+                subitems_w[i] = w_list.getitem(start)
+                start += step
+            return W_ListObject(subitems_w)
 
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
@@ -127,18 +145,10 @@ def getitem__List_ANY(space, w_list, w_index):
 
 def getitem__List_Slice(space, w_list, w_slice):
     # XXX consider to extend rlist's functionality?
-    length = len(w_list.wrappeditems)
+    length = w_list.length()
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
-    if step == 1 and 0 <= start <= stop:
-        return W_ListObject(w_list.wrappeditems[start:stop])
-    w_res = W_ListObject([None] * slicelength)
-    items_w = w_list.wrappeditems
-    subitems_w = w_res.wrappeditems
-    for i in range(slicelength):
-        subitems_w[i] = items_w[start]
-        start += step
-    return w_res
+    return w_list.getslice(start, stop, step, slicelength)
 
 def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = len(w_list.wrappeditems)
