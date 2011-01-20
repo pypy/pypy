@@ -132,6 +132,11 @@ def add__Bytearray_ANY(space, w_bytearray1, w_other):
     data2 = [c for c in space.bufferstr_w(w_other)]
     return W_BytearrayObject(data1 + data2)
 
+def add__String_Bytearray(space, w_str, w_bytearray):
+    data2 = w_bytearray.data
+    data1 = [c for c in space.str_w(w_str)]
+    return W_BytearrayObject(data1 + data2)
+
 def mul_bytearray_times(space, w_bytearray, w_times):
     try:
         times = space.getindex_w(w_times, space.w_OverflowError)
