@@ -316,11 +316,18 @@ class DescrOperation(object):
     def format(space, w_obj, w_format_spec):
         w_descr = space.lookup(w_obj, '__format__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object does not define __format__",
                                   typename)
-        return space.get_and_call_function(w_descr, w_obj, w_format_spec)
+        w_res = space.get_and_call_function(w_descr, w_obj, w_format_spec)
+        if not space.is_true(space.isinstance(w_res, space.w_basestring)):
+            typename = space.type(w_obj).getname(space)
+            restypename = space.type(w_res).getname(space)
+            raise operationerrfmt(space.w_TypeError,
+                "%s.__format__ must return string or unicode, not %s",
+                                  typename, restypename)
+        return w_res
 
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)

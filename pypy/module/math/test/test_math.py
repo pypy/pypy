@@ -8,10 +8,9 @@ class AppTestMath:
         cls.space = gettestobjspace(usemodules=['math'])
         cls.w_cases = cls.space.wrap(test_direct.MathTests.TESTCASES)
         cls.w_consistent_host = cls.space.wrap(test_direct.consistent_host)
-        cls.w_ftest = cls.space.appexec((), """():
-        def ftest(actual, expected):
-            assert abs(actual - expected) < 10E-5
-        return ftest""")
+
+    def w_ftest(self, actual, expected):
+        assert abs(actual - expected) < 10E-5
 
     def test_all_cases(self):
         if not self.consistent_host:

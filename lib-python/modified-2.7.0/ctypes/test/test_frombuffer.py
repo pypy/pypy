@@ -2,6 +2,7 @@ from ctypes import *
 import array
 import gc
 import unittest
+from ctypes.test import xfail
 
 class X(Structure):
     _fields_ = [("c_int", c_int)]
@@ -10,6 +11,7 @@ class X(Structure):
         self._init_called = True
 
 class Test(unittest.TestCase):
+    @xfail
     def test_fom_buffer(self):
         a = array.array("i", range(16))
         x = (c_int * 16).from_buffer(a)
@@ -35,6 +37,7 @@ class Test(unittest.TestCase):
         self.assertRaises(TypeError,
                           (c_char * 16).from_buffer, "a" * 16)
 
+    @xfail
     def test_fom_buffer_with_offset(self):
         a = array.array("i", range(16))
         x = (c_int * 15).from_buffer(a, sizeof(c_int))
@@ -43,6 +46,7 @@ class Test(unittest.TestCase):
         self.assertRaises(ValueError, lambda: (c_int * 16).from_buffer(a, sizeof(c_int)))
         self.assertRaises(ValueError, lambda: (c_int * 1).from_buffer(a, 16 * sizeof(c_int)))
 
+    @xfail
     def test_from_buffer_copy(self):
         a = array.array("i", range(16))
         x = (c_int * 16).from_buffer_copy(a)
@@ -67,6 +71,7 @@ class Test(unittest.TestCase):
         x = (c_char * 16).from_buffer_copy("a" * 16)
         self.assertEqual(x[:], "a" * 16)
 
+    @xfail
     def test_fom_buffer_copy_with_offset(self):
         a = array.array("i", range(16))
         x = (c_int * 15).from_buffer_copy(a, sizeof(c_int))

@@ -163,11 +163,16 @@ class SomeFloat(SomeObject):
     immutable = True
 
     def __eq__(self, other):
-        # NaN unpleasantness.
         if (type(self) is SomeFloat and type(other) is SomeFloat and
-            self.is_constant() and other.is_constant() and
-            isnan(self.const) and isnan(other.const)):
-            return True
+            self.is_constant() and other.is_constant()):
+            # NaN unpleasantness.
+            if isnan(self.const) and isnan(other.const):
+                return True
+            # 0.0 vs -0.0 unpleasantness.
+            if not self.const and not other.const:
+                from pypy.rlib.rarithmetic import copysign
+                return copysign(1., self.const) == copysign(1., other.const)
+            #
         return super(SomeFloat, self).__eq__(other)
 
     def can_be_none(self):

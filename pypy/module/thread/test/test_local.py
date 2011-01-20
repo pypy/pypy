@@ -74,14 +74,14 @@ class AppTestLocal(GenericTestThread):
     def test_local_setdict(self):
         import thread
         x = thread._local()
+        # XXX: On Cpython these are AttributeErrors
         raises(TypeError, "x.__dict__ = 42")
+        raises(TypeError, "x.__dict__ = {}")
+
         done = []
         def f(n):
             x.spam = n
             assert x.__dict__["spam"] == n
-            x.__dict__ = {"bar": n+1}
-            assert x.bar == n+1
-            assert not hasattr(x, "spam")
             done.append(1)
         for i in range(5):
             thread.start_new_thread(f, (i,))

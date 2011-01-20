@@ -1,4 +1,5 @@
 """Test unicode/str's format method"""
+from __future__ import with_statement
 
 
 class BaseStringFormatTests:
@@ -101,6 +102,57 @@ class BaseStringFormatTests:
     def test_non_ascii_presentation(self):
         raises(ValueError, format, self.s(""), "\x234")
 
+    def test_oldstyle_custom_format(self):
+        import warnings
+
+        class C:
+            def __init__(self, x=100):
+                self._x = x
+            def __format__(self, spec):
+                return spec
+        class D:
+            def __init__(self, x):
+                self.x = x
+            def __format__(self, spec):
+                return str(self.x)
+        class E:
+            def __init__(self, x):
+                self.x = x
+            def __str__(self):
+                return 'E(' + self.x + ')'
+        class G:
+            def __init__(self, x):
+                self.x = x
+            def __str__(self):
+                return "string is " + self.x
+            def __format__(self, format_spec):
+                if format_spec == 'd':
+                    return 'G(' + self.x + ')'
+                return object.__format__(self, format_spec)
+
+        assert self.s("{1}{0}").format(D(10), D(20)) == self.s("2010")
+        assert self.s("{0._x.x}").format(C(D("abc"))) == self.s("abc")
+        assert self.s("{0[1][0].x}").format(["abc", [D("def")]]) == self.s("def")
+        assert self.s("{0}").format(E("data")) == self.s("E(data)")
+        assert self.s("{0:d}").format(G("data")) == self.s("G(data)")
+        assert self.s("{0!s}").format(G("data")) == self.s("string is data")
+
+        msg = "object.__format__ with a non-empty format string is deprecated",
+        with warnings.catch_warnings(record=True) as log:
+            # This is ok because warnings.catch_warnings resets the filters
+            warnings.simplefilter("always", PendingDeprecationWarning)
+            assert self.s("{0:^10}").format(E("data")) == self.s(" E(data)  ")
+            assert log[0].message.args == msg
+            assert type(log[0].message) is PendingDeprecationWarning
+
+            assert self.s("{0:^10s}").format(E("data")) == self.s(" E(data)  ")
+            assert log[1].message.args == msg
+            assert type(log[1].message) is PendingDeprecationWarning
+
+            assert self.s("{0:>15s}").format(G("data")) == self.s(" string is data")
+            assert log[2].message.args == msg
+            assert type(log[2].message) is PendingDeprecationWarning
+        assert len(log) == 3
 
 
 class AppTestUnicodeFormat(BaseStringFormatTests):

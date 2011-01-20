@@ -204,49 +204,61 @@ class PythonCodeMaker(ast.ASTVisitor):
             container[name] = index
         return index
 
-    def add_const(self, obj, w_key=None):
+    def add_const(self, obj):
         """Add a W_Root to the constant array and return its location."""
         space = self.space
-        # To avoid confusing equal but separate types, we hash store the type of
-        # the constant in the dictionary.
-        if w_key is None:
-            # We have to keep the difference between -0.0 and 0.0 floats.
-            w_type = space.type(obj)
-            if space.is_w(w_type, space.w_float):
-                val = space.float_w(obj)
-                if val == 0.0 and rarithmetic.copysign(1., val) < 0:
-                    w_key = space.newtuple([obj, space.w_float, space.w_None])
-                else:
-                    w_key = space.newtuple([obj, space.w_float])
-            elif space.is_w(w_type, space.w_complex):
-                w_real = space.getattr(obj, space.wrap("real"))
-                w_imag = space.getattr(obj, space.wrap("imag"))
-                real = space.float_w(w_real)
-                imag = space.float_w(w_imag)
-                real_negzero = (real == 0.0 and
-                                rarithmetic.copysign(1., real) < 0)
-                imag_negzero = (imag == 0.0 and
-                                rarithmetic.copysign(1., imag) < 0)
-                if real_negzero and imag_negzero:
-                    tup = [obj, space.w_complex, space.w_None, space.w_None,
-                           space.w_None]
-                elif imag_negzero:
-                    tup = [obj, space.w_complex, space.w_None, space.w_None]
-                elif real_negzero:
-                    tup = [obj, space.w_complex, space.w_None]
-                else:
-                    tup = [obj, space.w_complex]
-                w_key = space.newtuple(tup)
-            else:
-                w_key = space.newtuple([obj, w_type])
+        # To avoid confusing equal but separate types, we hash store the type
+        # of the constant in the dictionary.  Moreover, we have to keep the
+        # difference between -0.0 and 0.0 floats, and this recursively in
+        # tuples.
+        w_key = self._make_key(obj)
+
         w_len = space.finditem(self.w_consts, w_key)
         if w_len is None:
             w_len = space.len(self.w_consts)
             space.setitem(self.w_consts, w_key, w_len)
         return space.int_w(w_len)
 
-    def load_const(self, obj, w_key=None):
-        index = self.add_const(obj, w_key)
+    def _make_key(self, obj):
+        # see the tests 'test_zeros_not_mixed*' in ../test/test_compiler.py
+        space = self.space
+        w_type = space.type(obj)
+        if space.is_w(w_type, space.w_float):
+            val = space.float_w(obj)
+            if val == 0.0 and rarithmetic.copysign(1., val) < 0:
+                w_key = space.newtuple([obj, space.w_float, space.w_None])
+            else:
+                w_key = space.newtuple([obj, space.w_float])
+        elif space.is_w(w_type, space.w_complex):
+            w_real = space.getattr(obj, space.wrap("real"))
+            w_imag = space.getattr(obj, space.wrap("imag"))
+            real = space.float_w(w_real)
+            imag = space.float_w(w_imag)
+            real_negzero = (real == 0.0 and
+                            rarithmetic.copysign(1., real) < 0)
+            imag_negzero = (imag == 0.0 and
+                            rarithmetic.copysign(1., imag) < 0)
+            if real_negzero and imag_negzero:
+                tup = [obj, space.w_complex, space.w_None, space.w_None,
+                       space.w_None]
+            elif imag_negzero:
+                tup = [obj, space.w_complex, space.w_None, space.w_None]
+            elif real_negzero:
+                tup = [obj, space.w_complex, space.w_None]
+            else:
+                tup = [obj, space.w_complex]
+            w_key = space.newtuple(tup)
+        elif space.is_w(w_type, space.w_tuple):
+            result_w = [obj, w_type]
+            for w_item in space.fixedview(obj):
+                result_w.append(self._make_key(w_item))
+            w_key = space.newtuple(result_w[:])
+        else:
+            w_key = space.newtuple([obj, w_type])
+        return w_key
+
+    def load_const(self, obj):
+        index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
     def update_position(self, lineno, force=False):
@@ -286,6 +298,15 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     target = target.instructions[0].jump[0]
                                     instr.opcode = ops.JUMP_ABSOLUTE
                                     absolute = True
+                                elif target_op == ops.RETURN_VALUE:
+                                    # Replace JUMP_* to a RETURN into just a RETURN
+                                    instr.opcode = ops.RETURN_VALUE
+                                    instr.arg = 0
+                                    instr.has_jump = False
+                                    # The size of the code changed,
+                                    # we have to trigger another pass
+                                    extended_arg_count += 1
+                                    continue
                         if absolute:
                             jump_arg = target.offset
                         else:

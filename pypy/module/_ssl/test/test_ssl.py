@@ -60,6 +60,16 @@ class AppTestSSL:
             skip("This test needs a running entropy gathering daemon")
         _ssl.RAND_egd("entropy")
 
+    def test_sslwrap(self):
+        import _ssl, _socket, sys
+        s = _socket.socket()
+        ss = _ssl.sslwrap(s, 0)
+        exc = raises(_socket.error, ss.do_handshake)
+        if sys.platform == 'win32':
+            assert exc.value.errno == 2 # Cannot find file (=not a socket)
+        else:
+            assert exc.value.errno == 32 # Broken pipe
+
 class AppTestConnectedSSL:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_ssl', '_socket'))
@@ -123,6 +133,13 @@ class AppTestConnectedSSL:
         assert isinstance(data, str)
         assert len(data) == 10
         self.s.close()
+
+    def test_shutdown(self):
+        import socket, ssl
+        ss = socket.ssl(self.s)
+        ss.write("hello\n")
+        assert ss.shutdown() is self.s._sock
+        raises(ssl.SSLError, ss.write, "hello\n")
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout

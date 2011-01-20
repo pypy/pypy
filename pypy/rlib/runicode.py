@@ -738,6 +738,8 @@ def str_decode_utf_7(s, size, errors, final=False,
         msg = "unterminated shift sequence"
         res, pos = errorhandler(errors, 'utf-7', msg, s, startinpos, pos)
         result.append(res)
+    elif inShift:
+        pos = startinpos
 
     return result.build(), pos
 

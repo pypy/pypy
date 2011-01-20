@@ -96,6 +96,10 @@ class _handle:
     def __int__(self):
         return self.handle
 
+    def __del__(self):
+        if self.handle is not None:
+            _CloseHandle(self.handle)
+
     def Detach(self):
         handle, self.handle = self.handle, None
         return handle

@@ -88,6 +88,17 @@ class AppTestUnicodeData:
             skip("requires a 'wide' python build.")
         assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
 
+    def test_linebreaks(self):
+        linebreaks = (0x0a, 0x0b, 0x0c, 0x0d, 0x85,
+                      0x1c, 0x1d, 0x1e, 0x2028, 0x2029)
+        for i in linebreaks:
+            for j in range(-2, 3):
+                lines = (unichr(i + j) + u'A').splitlines()
+                if i + j in linebreaks:
+                    assert len(lines) == 2
+                else:
+                    assert len(lines) == 1
+
 class TestUnicodeData(object):
     def setup_class(cls):
         import random, unicodedata
@@ -115,27 +126,10 @@ class TestUnicodeData(object):
         for chr in self.nocharlist:
             raises(KeyError, unicodedb_5_2_0.name, ord(chr))
 
-    diff_numeric = set([0x3405, 0x3483, 0x382a, 0x3b4d, 0x4e00, 0x4e03,
-                        0x4e07, 0x4e09, 0x4e5d, 0x4e8c, 0x4e94, 0x4e96,
-                        0x4ebf, 0x4ec0, 0x4edf, 0x4ee8, 0x4f0d, 0x4f70,
-                        0x5104, 0x5146, 0x5169, 0x516b, 0x516d, 0x5341,
-                        0x5343, 0x5344, 0x5345, 0x534c, 0x53c1, 0x53c2,
-                        0x53c3, 0x53c4, 0x56db, 0x58f1, 0x58f9, 0x5e7a,
-                        0x5efe, 0x5eff, 0x5f0c, 0x5f0d, 0x5f0e, 0x5f10,
-                        0x62fe, 0x634c, 0x67d2, 0x7396, 0x767e, 0x8086,
-                        0x842c, 0x8cae, 0x8cb3, 0x8d30, 0x9646, 0x964c,
-                        0x9678, 0x96f6])
-
-    diff_title = set([0x01c5, 0x01c8, 0x01cb, 0x01f2])
-
-    diff_isspace = set([0x180e, 0x200b])
-    
     def test_compare_functions(self):
         import unicodedata # CPython implementation
 
         def getX(fun, code):
-            if fun == 'numeric' and code in self.diff_numeric:
-                return -1
             try:
                 return getattr(unicodedb_5_2_0, fun)(code)
             except KeyError:
@@ -160,14 +154,14 @@ class TestUnicodeData(object):
             assert char.isdecimal() == unicodedb_5_2_0.isdecimal(code)
             assert char.isdigit() == unicodedb_5_2_0.isdigit(code)
             assert char.islower() == unicodedb_5_2_0.islower(code)
-            assert (code in self.diff_numeric or char.isnumeric()) == unicodedb_5_2_0.isnumeric(code)
-            assert code in self.diff_isspace or char.isspace() == unicodedb_5_2_0.isspace(code), hex(code)
+            assert char.isnumeric() == unicodedb_5_2_0.isnumeric(code)
+            assert char.isspace() == unicodedb_5_2_0.isspace(code), hex(code)
             assert char.istitle() == (unicodedb_5_2_0.isupper(code) or unicodedb_5_2_0.istitle(code)), code
             assert char.isupper() == unicodedb_5_2_0.isupper(code)
 
             assert char.lower() == unichr(unicodedb_5_2_0.tolower(code))
             assert char.upper() == unichr(unicodedb_5_2_0.toupper(code))
-            assert code in self.diff_title or char.title() == unichr(unicodedb_5_2_0.totitle(code)), hex(code)
+            assert char.title() == unichr(unicodedb_5_2_0.totitle(code)), hex(code)
 
     def test_hangul_difference_520(self):
         assert unicodedb_5_2_0.name(40874) == 'CJK UNIFIED IDEOGRAPH-9FAA'

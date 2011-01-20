@@ -18,6 +18,25 @@ from pypy.objspace.std.stringtype import (
 from pypy.objspace.std.listtype import (
     list_append, list_extend)
 
+
+bytearray_insert  = SMM('insert', 3,
+                    doc="B.insert(index, int) -> None\n\n"
+                    "Insert a single item into the bytearray before "
+                    "the given index.")
+
+bytearray_pop  = SMM('pop', 2, defaults=(-1,),
+                    doc="B.pop([index]) -> int\n\nRemove and return a "
+                    "single item from B. If no index\nargument is given, "
+                    "will pop the last value.")
+
+bytearray_remove  = SMM('remove', 2,
+                    doc="B.remove(int) -> None\n\n"
+                    "Remove the first occurance of a value in B.")
+
+bytearray_reverse  = SMM('reverse', 1,
+                    doc="B.reverse() -> None\n\n"
+                    "Reverse the order of the values in B in place.")
+
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)
@@ -42,28 +61,17 @@ def new_bytearray(space, w_bytearraytype, data):
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root, W_Root)
 def descr__new__(space, w_bytearraytype,
                  w_source='', w_encoding=None, w_errors=None):
-    data = []
     # Unicode argument
     if not space.is_w(w_encoding, space.w_None):
         from pypy.objspace.std.unicodetype import (
             _get_encoding_and_errors, encode_object
         )
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, space.w_None)
+        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
 
         # if w_source is an integer this correctly raises a TypeError
         # the CPython error message is: "encoding or errors without a string argument"
         # ours is: "expected unicode, got int object"
         w_source = encode_object(space, w_source, encoding, errors)
-
-    # String-like argument
-    try:
-        string = space.str_w(w_source)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-    else:
-        data = [c for c in string]
-        return new_bytearray(space, w_bytearraytype, data)
 
     # Is it an int?
     try:
@@ -75,7 +83,21 @@ def descr__new__(space, w_bytearraytype,
         data = ['\0'] * count
         return new_bytearray(space, w_bytearraytype, data)
 
+    data = makebytearraydata_w(space, w_source)
+    return new_bytearray(space, w_bytearraytype, data)
+
+def makebytearraydata_w(space, w_source):
+    # String-like argument
+    try:
+        string = space.str_w(w_source)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        return [c for c in string]
+
     # sequence of bytes
+    data = []
     w_iter = space.iter(w_source)
     while True:
         try:
@@ -86,8 +108,7 @@ def descr__new__(space, w_bytearraytype,
             break
         value = getbytevalue(space, w_item)
         data.append(value)
-
-    return new_bytearray(space, w_bytearraytype, data)
+    return data
 
 @gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root)
 def descr_bytearray__reduce__(space, w_self):
@@ -102,6 +123,49 @@ def descr_bytearray__reduce__(space, w_self):
             space.wrap('latin-1')]),
         w_dict])
 
+def _hex_digit_to_int(d):
+    val = ord(d)
+    if 47 < val < 58:
+        return val - 48
+    if 96 < val < 103:
+        return val - 87
+    return -1
+
+@gateway.unwrap_spec(ObjSpace, W_Root, W_Root)
+def descr_fromhex(space, w_type, w_hexstring):
+    "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
+    "from a string of hexadecimal numbers.\nSpaces between two numbers are "
+    "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
+    "bytearray(b'\\xb9\\x01\\xef')."
+    hexstring = space.str_w(w_hexstring)
+    hexstring = hexstring.lower()
+    data = []
+    length = len(hexstring)
+    i = -2
+    while True:
+        i += 2
+        while i < length and hexstring[i] == ' ':
+            i += 1
+        if i >= length:
+            break
+        if i+1 == length:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+
+        top = _hex_digit_to_int(hexstring[i])
+        if top == -1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+        bot = _hex_digit_to_int(hexstring[i+1])
+        if bot == -1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
+        data.append(chr(top*16 + bot))
+
+    # in CPython bytearray.fromhex is a staticmethod, so
+    # we ignore w_type and always return a bytearray
+    return new_bytearray(space, space.w_bytearray, data)
+
 # ____________________________________________________________
 
 bytearray_typedef = StdTypeDef("bytearray",
@@ -112,5 +176,6 @@ If the argument is a bytearray, the return value is the same object.''',
     __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     __reduce__ = gateway.interp2app(descr_bytearray__reduce__),
+    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
     )
 bytearray_typedef.registermethods(globals())

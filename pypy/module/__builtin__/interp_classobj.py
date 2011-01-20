@@ -1,7 +1,7 @@
 import new
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
-from pypy.interpreter.gateway import interp2app, ObjSpace
+from pypy.interpreter.gateway import (ObjSpace, W_Root, NoneNotWrapped,
+    applevel, interp2app, ObjSpace, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
@@ -31,7 +31,7 @@ def unwrap_attr(space, w_attr):
 def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
     if not space.is_true(space.isinstance(w_bases, space.w_tuple)):
         raise_type_err(space, 'bases', 'tuple', w_bases)
-    
+
     if not space.is_true(space.isinstance(w_dict, space.w_dict)):
         raise_type_err(space, 'bases', 'tuple', w_bases)
 
@@ -39,7 +39,7 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
         space.setitem(w_dict, space.wrap("__doc__"), space.w_None)
 
     # XXX missing: lengthy and obscure logic about "__module__"
-        
+
     bases_w = space.fixedview(w_bases)
     for w_base in bases_w:
         if not isinstance(w_base, W_ClassObject):
@@ -58,7 +58,7 @@ class W_ClassObject(Wrappable):
         make_sure_not_resized(bases)
         self.bases_w = bases
         self.w_dict = w_dict
- 
+
     def instantiate(self, space):
         cache = space.fromcache(Cache)
         if self.lookup(space, '__del__') is not None:
@@ -87,7 +87,7 @@ class W_ClassObject(Wrappable):
     def setbases(self, space, w_bases):
         # XXX in theory, this misses a check against inheritance cycles
         # although on pypy we don't get a segfault for infinite
-        # recursion anyway 
+        # recursion anyway
         if not space.is_true(space.isinstance(w_bases, space.w_tuple)):
             raise OperationError(
                     space.w_TypeError,
@@ -454,6 +454,24 @@ class W_InstanceObject(Wrappable):
             return self.descr_str(space)
         return space.call_function(w_meth)
 
+    @unwrap_spec("self", ObjSpace, W_Root)
+    def descr_format(self, space, w_format_spec):
+        w_meth = self.getattr(space, "__format__", False)
+        if w_meth is not None:
+            return space.call_function(w_meth, w_format_spec)
+        else:
+            if space.isinstance_w(w_format_spec, space.w_unicode):
+                w_as_str = self.descr_unicode(space)
+            else:
+                w_as_str = self.descr_str(space)
+            if space.int_w(space.len(w_format_spec)) > 0:
+                space.warn(
+                    ("object.__format__ with a non-empty format string is "
+                        "deprecated"),
+                    space.w_PendingDeprecationWarning
+                )
+            return space.format(w_as_str, w_format_spec)
+
     def descr_len(self, space):
         w_meth = self.getattr(space, '__len__')
         w_result = space.call_function(w_meth)
@@ -772,6 +790,7 @@ W_InstanceObject.typedef = TypeDef("instance",
                          unwrap_spec=['self', ObjSpace]),
     __unicode__ = interp2app(W_InstanceObject.descr_unicode,
                          unwrap_spec=['self', ObjSpace]),
+    __format__ = interp2app(W_InstanceObject.descr_format),
     __len__ = interp2app(W_InstanceObject.descr_len,
                          unwrap_spec=['self', ObjSpace]),
     __getitem__ = interp2app(W_InstanceObject.descr_getitem,

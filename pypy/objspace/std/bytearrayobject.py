@@ -5,8 +5,12 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.debug import check_annotation
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import _delitem_slice_helper
+from pypy.objspace.std.listobject import (
+    _delitem_slice_helper, _setitem_slice_helper,
+    get_positive_index
+)
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -14,15 +18,21 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.buffer import RWBuffer
-
+from pypy.objspace.std.bytearraytype import makebytearraydata_w, getbytevalue
 from pypy.tool.sourcetools import func_with_new_name
 
+
+def bytearray_checker(s_arg, bookkeeper):
+    from pypy.annotation.model import SomeList, SomeChar, SomeImpossibleValue
+    assert isinstance(s_arg, SomeList)
+    assert isinstance(s_arg.listdef.listitem.s_value, (SomeChar, SomeImpossibleValue))
 
 class W_BytearrayObject(W_Object):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
 
     def __init__(w_self, data):
-        w_self.data = list(data)
+        w_self.data = data
+        check_annotation(w_self.data, bytearray_checker)
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -57,13 +67,8 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     newdata = [data[start + i*step] for i in range(slicelength)]
     return W_BytearrayObject(newdata)
 
-def getslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
-    length = len(w_bytearray.data)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    return W_BytearrayObject(w_bytearray.data[start:stop])
-
 def contains__Bytearray_Int(space, w_bytearray, w_char):
-    char = w_char.intval
+    char = space.int_w(w_char)
     if not 0 <= char < 256:
         raise OperationError(space.w_ValueError,
                              space.wrap("byte must be in range(0, 256)"))
@@ -89,8 +94,6 @@ def mul_bytearray_times(space, w_bytearray, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    if times == 1 and space.type(w_bytearray) == space.w_bytearray:
-        return w_bytearray
     data = w_bytearray.data
     return W_BytearrayObject(data * times)
 
@@ -203,7 +206,7 @@ def repr__Bytearray(space, w_bytearray):
     return space.wrap(buf.build())
 
 def str__Bytearray(space, w_bytearray):
-    return W_StringObject(''.join(w_bytearray.data))
+    return space.wrap(''.join(w_bytearray.data))
 
 def _convert_idx_params(space, w_self, w_start, w_stop):
     start = slicetype._Eval_SliceIndex(space, w_start)
@@ -260,6 +263,39 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
             newdata.extend(data)
         newdata.extend([c for c in space.str_w(list_w[i])])
     return W_BytearrayObject(newdata)
+
+def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
+    where = space.int_w(w_idx)
+    length = len(w_bytearray.data)
+    index = get_positive_index(where, length)
+    val = getbytevalue(space, w_other)
+    w_bytearray.data.insert(index, val)
+    return space.w_None
+
+def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
+    index = space.int_w(w_idx)
+    try:
+        result = w_bytearray.data.pop(index)
+    except IndexError:
+        if not w_bytearray.data:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "cannot pop an empty bytearray"))
+        raise OperationError(space.w_IndexError, space.wrap(
+            "pop index out of range"))
+    return space.wrap(ord(result))
+
+
+def bytearray_remove__Bytearray_ANY(space, w_bytearray, w_char):
+    char = space.int_w(space.index(w_char))
+    try:
+        result = w_bytearray.data.remove(chr(char))
+    except ValueError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "value not found in bytearray"))
+
+def bytearray_reverse__Bytearray(space, w_bytearray):
+    w_bytearray.data.reverse()
+    return space.w_None
 
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.
@@ -380,8 +416,8 @@ def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
 def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
     if space.isinstance_w(w_other, space.w_unicode):
         raise OperationError(space.w_TypeError, space.wrap(
-            "bytes string of buffer expected"))
-    w_bytearray.data += [c for c in space.bufferstr_w(w_other)]
+            "bytes string or buffer expected"))
+    w_bytearray.data += makebytearraydata_w(space, w_other)
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
@@ -390,13 +426,6 @@ def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
 def inplace_add__Bytearray_ANY(space, w_bytearray1, w_iterable2):
     list_extend__Bytearray_ANY(space, w_bytearray1, w_iterable2)
     return w_bytearray1
-
-def delslice__Bytearray_ANY_ANY(space, w_bytearray, w_start, w_stop):
-    length = len(w_bytearray.data)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    if start == stop:
-        return
-    del w_bytearray.data[start:stop]
 
 def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
     from pypy.objspace.std.bytearraytype import getbytevalue
@@ -410,11 +439,8 @@ def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
 def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     oldsize = len(w_bytearray.data)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    if step != 1:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("fixme: only step=1 for the moment"))
-    _setitem_helper(w_bytearray, start, stop, slicelength,
-                    space.str_w(w_other))
+    sequence2 = makebytearraydata_w(space, w_other)
+    setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
 
 def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
     idx = get_list_index(space, w_idx)
@@ -430,32 +456,11 @@ def delitem__Bytearray_Slice(space, w_bytearray, w_slice):
                                                       len(w_bytearray.data))
     delitem_slice_helper(space, w_bytearray.data, start, step, slicelength)
 
-# create new helper function with different list type specialisation
+# create new helper functions with different list type specialisation
 delitem_slice_helper = func_with_new_name(_delitem_slice_helper,
                                           'delitem_slice_helper')
-
-def _setitem_helper(w_bytearray, start, stop, slicelength, data):
-    assert start >= 0
-    assert stop >= 0
-    step = 1
-    len2 = len(data)
-    delta = slicelength - len2
-    if delta < 0:
-        delta = -delta
-        newsize = len(w_bytearray.data) + delta
-        w_bytearray.data += ['\0'] * delta
-        lim = start + len2
-        i = newsize - 1
-        while i >= lim:
-            w_bytearray.data[i] = w_bytearray.data[i-delta]
-            i -= 1
-    elif start >= 0:
-        del w_bytearray.data[start:start+delta]
-    else:
-        assert delta == 0
-    for i in range(len2):
-        w_bytearray.data[start] = data[i]
-        start += step
+setitem_slice_helper = func_with_new_name(_setitem_slice_helper,
+                                          'setitem_slice_helper')
 
 # __________________________________________________________
 # Buffer interface
