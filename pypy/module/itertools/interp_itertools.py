@@ -1117,7 +1117,7 @@ class W_Combinations(Wrappable):
             raise OperationError(space.w_ValueError,
                 space.wrap("r must be non-negative")
             )
-        indices = list(xrange(r))
+        indices = range(r)
         return W_Combinations(space, pool_w, indices, r)
 
     @unwrap_spec("self", ObjSpace)
