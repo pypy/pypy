@@ -50,6 +50,14 @@ class AppTestItertools:
         it.next()
         assert repr(it) == 'count(124)'
 
+    def test_count_kwargs(self):
+        import itertools
+
+        it = itertools.count(start=2, step=3)
+        assert it.next() == 2
+        assert it.next() == 5
+        assert it.next() == 8
+
     def test_repeat(self):
         import itertools
 
@@ -80,6 +88,8 @@ class AppTestItertools:
         it = itertools.repeat(None, -1)
         raises(StopIteration, it.next)
         raises(StopIteration, it.next)
+
+        assert list(itertools.repeat(object='a', times=3)) == ['a', 'a', 'a']
 
     def test_repeat_overflow(self):
         import itertools
@@ -758,3 +768,22 @@ class AppTestItertools:
         prod = product('abc', repeat=0)
         assert prod.next() == ()
         raises (StopIteration, prod.next)
+
+    def test_combinations(self):
+        from itertools import combinations
+
+        raises(TypeError, combinations, "abc")
+        raises(TypeError, combinations, "abc", 2, 1)
+        raises(TypeError, combinations, None)
+        raises(ValueError, combinations, "abc", -2)
+        assert list(combinations("abc", 32)) == []
+        assert list(combinations(range(4), 3)) == [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)]
+
+    def test_combinations_with_replacement(self):
+        from itertools import combinations_with_replacement
+
+        raises(TypeError, combinations_with_replacement, "abc")
+        raises(TypeError, combinations_with_replacement, "abc", 2, 1)
+        raises(TypeError, combinations_with_replacement, None)
+        raises(ValueError, combinations_with_replacement, "abc", -2)
+        assert list(combinations_with_replacement("ABC", 2)) == [("A", "A"), ("A", 'B'), ("A", "C"), ("B", "B"), ("B", "C"), ("C", "C")]
