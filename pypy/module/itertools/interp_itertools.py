@@ -34,8 +34,8 @@ class W_Count(Wrappable):
         
 
 
-def W_Count___new__(space, w_subtype, firstval=0, step=1):
-    return space.wrap(W_Count(space, firstval, step))
+def W_Count___new__(space, w_subtype, start=0, step=1):
+    return space.wrap(W_Count(space, start, step))
 
 W_Count.typedef = TypeDef(
         'count',
@@ -708,6 +708,7 @@ def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
 W_StarMap.typedef = TypeDef(
         'starmap',
         __new__  = interp2app(W_StarMap___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
+
         __iter__ = interp2app(W_StarMap.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_StarMap.next_w, unwrap_spec=['self']),
         __doc__  = """Make an iterator that computes the function using arguments
@@ -1109,16 +1110,11 @@ class W_Combinations(Wrappable):
         self.last_result_w = None
         self.stopped = r > len(pool_w)
 
-    @unwrap_spec(ObjSpace, W_Root, W_Root, int)
-    def descr__new__(space, w_subtype, w_iterable, r):
-        pool_w = space.fixedview(w_iterable)
-        n = len(pool_w)
-        if r < 0:
-            raise OperationError(space.w_ValueError,
-                space.wrap("r must be non-negative")
-            )
-        indices = range(r)
-        return W_Combinations(space, pool_w, indices, r)
+    def get_maximum(self, i):
+        return i + len(self.pool_w) - self.r
+
+    def max_index(self, j):
+        return self.indices[j - 1] + 1
 
     @unwrap_spec("self", ObjSpace)
     def descr__iter__(self, space):
@@ -1138,9 +1134,9 @@ class W_Combinations(Wrappable):
             # Copy the previous result
             result_w = self.last_result_w[:]
             # Scan indices right-to-left until finding one that is not at its
-            # maximum (i + n - r).
+            # maximum
             i = self.r - 1
-            while i >= 0 and self.indices[i] == i + len(self.pool_w) - self.r:
+            while i >= 0 and self.indices[i] == self.get_maximum(i):
                 i -= 1
 
             # If i is negative, then the indices are all at their maximum value
@@ -1151,11 +1147,10 @@ class W_Combinations(Wrappable):
 
             # Increment the current index which we know is not at its maximum.
             # Then move back to the right setting each index to its lowest
-            # possible value (one higher than the index to its left -- this
-            # maintains the sort order invariant).
+            # possible value
             self.indices[i] += 1
             for j in xrange(i + 1, self.r):
-                self.indices[j] = self.indices[j-1] + 1
+                self.indices[j] = self.max_index(j)
 
             # Update the result for the new indices starting with i, the
             # leftmost index that changed
@@ -1166,8 +1161,41 @@ class W_Combinations(Wrappable):
         self.last_result_w = result_w
         return space.newtuple(result_w)
 
+@unwrap_spec(ObjSpace, W_Root, W_Root, int)
+def W_Combinations__new__(space, w_subtype, w_iterable, r):
+    pool_w = space.fixedview(w_iterable)
+    if r < 0:
+        raise OperationError(space.w_ValueError,
+            space.wrap("r must be non-negative")
+        )
+    indices = range(len(pool_w))
+    return W_Combinations(space, pool_w, indices, r)
+
 W_Combinations.typedef = TypeDef("combinations",
-    __new__ = interp2app(W_Combinations.descr__new__.im_func),
+    __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
     next = interp2app(W_Combinations.descr_next),
+)
+
+class W_CombinationsWithReplacement(W_Combinations):
+    def get_maximum(self, i):
+        return len(self.pool_w) - 1
+
+    def max_index(self, j):
+        return self.indices[j - 1]
+
+@unwrap_spec(ObjSpace, W_Root, W_Root, int)
+def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
+        pool_w = space.fixedview(w_iterable)
+        if r < 0:
+            raise OperationError(space.w_ValueError,
+                space.wrap("r must be non-negative")
+            )
+        indices = [0] * len(pool_w)
+        return W_CombinationsWithReplacement(space, pool_w, indices, r)
+
+W_CombinationsWithReplacement.typedef = TypeDef("combinations_with_replacement",
+    __new__ = interp2app(W_CombinationsWithReplacement__new__),
+    __iter__ = interp2app(W_CombinationsWithReplacement.descr__iter__),
+    next = interp2app(W_CombinationsWithReplacement.descr_next),
 )

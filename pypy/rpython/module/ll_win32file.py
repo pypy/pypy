@@ -260,19 +260,25 @@ def make_chdir_impl(traits):
         """
         if not win32traits.SetCurrentDirectory(path):
             raise rwin32.lastWindowsError()
+        MAX_PATH = rwin32.MAX_PATH
+        assert MAX_PATH > 0
 
-        with traits.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
-            res = win32traits.GetCurrentDirectory(rwin32.MAX_PATH + 1, path.raw)
+        with traits.scoped_alloc_buffer(MAX_PATH) as path:
+            res = win32traits.GetCurrentDirectory(MAX_PATH + 1, path.raw)
             if not res:
                 raise rwin32.lastWindowsError()
-            if res <= rwin32.MAX_PATH + 1:
-                new_path = path.str(rffi.cast(lltype.Signed, res))
+            res = rffi.cast(lltype.Signed, res)
+            assert res > 0
+            if res <= MAX_PATH + 1:
+                new_path = path.str(res)
             else:
-                with traits.scoped_alloc_buffer(rwin32.MAX_PATH) as path:
+                with traits.scoped_alloc_buffer(res) as path:
                     res = win32traits.GetCurrentDirectory(res, path.raw)
                     if not res:
                         raise rwin32.lastWindowsError()
-                    new_path = path.str(rffi.cast(lltype.Signed, res))
+                    res = rffi.cast(lltype.Signed, res)
+                    assert res > 0
+                    new_path = path.str(res)
         if isUNC(new_path):
             return
         if not win32traits.SetEnvironmentVariable(magic_envvar(new_path), new_path):
