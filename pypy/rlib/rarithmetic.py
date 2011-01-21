@@ -573,6 +573,7 @@ def break_up_float(s):
 # string -> float helper
 
 def parts_to_float(sign, beforept, afterpt, exponent):
+    "NOT_RPYTHON"
     if not exponent:
         exponent = '0'
     return float("%s%s.%se%s" % (sign, beforept, afterpt, exponent))
