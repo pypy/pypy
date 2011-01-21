@@ -390,7 +390,9 @@ class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
-    pass
+    def test_formatd_repr(self):
+        sys.version_info < (2, 7):
+            skip('cannot oofake short float repr before python 2.7')
 
 def test_isinf():
     assert isinf(INFINITY)

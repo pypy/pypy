@@ -120,6 +120,8 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags):
     if use_exp:
         exp = decpt - 1
         decpt = 1
+    else:
+        exp = 0
 
     # ensure vdigits_start < decpt <= vdigits_end, or vdigits_start <
     # decpt < vdigits_end if add_dot_0_if_integer and no exponent
