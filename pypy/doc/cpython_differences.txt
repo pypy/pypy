@@ -215,5 +215,11 @@ Miscellaneous
   at 768 KB, corresponding to roughly 1480 Python calls on
   Linux.)
 
+* assignment to ``__class__`` is limited to the cases where it
+  works on CPython 2.5.  On CPython 2.6 and 2.7 it works in a bit
+  more cases, which are not supported by PyPy so far.  (If needed,
+  it could be supported, but then it will likely work in many
+  *more* case on PyPy than on CPython 2.6/2.7.)
+
 
 .. include:: _ref.txt
