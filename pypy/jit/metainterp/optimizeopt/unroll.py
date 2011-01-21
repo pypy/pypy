@@ -169,7 +169,9 @@ class UnrollOptimizer(Optimization):
             start_resumedescr = loop.preamble.token.start_resumedescr.clone_if_mutable()
             snapshot_args = start_resumedescr.rd_snapshot.prev.boxes 
             for a in snapshot_args:
-                new_snapshot_args.append(loop.preamble.inputargs[jump_args.index(a)])
+                if not isinstance(a, Const):
+                    a = loop.preamble.inputargs[jump_args.index(a)]
+                new_snapshot_args.append(a)
             start_resumedescr.rd_snapshot.prev.boxes = new_snapshot_args
 
             short = self.create_short_preamble(loop.preamble, loop)

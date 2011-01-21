@@ -17,7 +17,7 @@ def _optimize_loop(metainterp_sd, old_loop_tokens, loop):
     optimize_loop_1(metainterp_sd, loop, False)
     return None
 
-def optimize_bridge(metainterp_sd, old_loop_tokens, bridge):
+def optimize_bridge(metainterp_sd, old_loop_tokens, bridge, inline_short_preamble):
     debug_start("jit-optimize")
     try:
         return _optimize_bridge(metainterp_sd, old_loop_tokens, bridge)

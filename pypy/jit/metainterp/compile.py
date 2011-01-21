@@ -400,7 +400,7 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
         self.copy_all_attrbutes_into(res)
         return res
 
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def not_handle_fail(self, metainterp_sd, jitdriver_sd):
         if True or self.must_compile(metainterp_sd, jitdriver_sd):
             return self._trace_and_compile_from_bridge(metainterp_sd,
                                                        jitdriver_sd)
