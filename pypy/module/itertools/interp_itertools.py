@@ -708,6 +708,7 @@ def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
 W_StarMap.typedef = TypeDef(
         'starmap',
         __new__  = interp2app(W_StarMap___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
+
         __iter__ = interp2app(W_StarMap.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_StarMap.next_w, unwrap_spec=['self']),
         __doc__  = """Make an iterator that computes the function using arguments
@@ -1115,16 +1116,6 @@ class W_Combinations(Wrappable):
     def max_index(self, j):
         return self.indices[j - 1] + 1
 
-    @unwrap_spec(ObjSpace, W_Root, W_Root, int)
-    def descr__new__(space, w_subtype, w_iterable, r):
-        pool_w = space.fixedview(w_iterable)
-        if r < 0:
-            raise OperationError(space.w_ValueError,
-                space.wrap("r must be non-negative")
-            )
-        indices = range(len(pool_w))
-        return W_Combinations(space, pool_w, indices, r)
-
     @unwrap_spec("self", ObjSpace)
     def descr__iter__(self, space):
         return self
@@ -1170,8 +1161,18 @@ class W_Combinations(Wrappable):
         self.last_result_w = result_w
         return space.newtuple(result_w)
 
+@unwrap_spec(ObjSpace, W_Root, W_Root, int)
+def W_Combinations__new__(space, w_subtype, w_iterable, r):
+    pool_w = space.fixedview(w_iterable)
+    if r < 0:
+        raise OperationError(space.w_ValueError,
+            space.wrap("r must be non-negative")
+        )
+    indices = range(len(pool_w))
+    return W_Combinations(space, pool_w, indices, r)
+
 W_Combinations.typedef = TypeDef("combinations",
-    __new__ = interp2app(W_Combinations.descr__new__.im_func),
+    __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
     next = interp2app(W_Combinations.descr_next),
 )
@@ -1184,7 +1185,7 @@ class W_CombinationsWithReplacement(W_Combinations):
         return self.indices[j - 1]
 
     @unwrap_spec(ObjSpace, W_Root, W_Root, int)
-    def descr__new__(space, w_subtype, w_iterable, r):
+def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
         pool_w = space.fixedview(w_iterable)
         if r < 0:
             raise OperationError(space.w_ValueError,
@@ -1194,7 +1195,7 @@ class W_CombinationsWithReplacement(W_Combinations):
         return W_CombinationsWithReplacement(space, pool_w, indices, r)
 
 W_CombinationsWithReplacement.typedef = TypeDef("combinations_with_replacement",
-    __new__ = interp2app(W_CombinationsWithReplacement.descr__new__.im_func),
+    __new__ = interp2app(W_CombinationsWithReplacement__new__),
     __iter__ = interp2app(W_CombinationsWithReplacement.descr__iter__),
     next = interp2app(W_CombinationsWithReplacement.descr_next),
 )
