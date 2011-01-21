@@ -1128,7 +1128,7 @@ order (MRO) for bases """
 
         # Test lookup leaks [SF bug 572567]
         import gc
-        if hasattr(gc, 'get_objects'):
+        if test_support.check_impl_detail():
             class G(object):
                 def __cmp__(self, other):
                     return 0
