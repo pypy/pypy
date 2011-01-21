@@ -125,6 +125,12 @@ def contains__Bytearray_String(space, w_bytearray, w_str):
     w_str2 = str__Bytearray(space, w_bytearray)
     return stringobject.contains__String_String(space, w_str2, w_str)
 
+def contains__Bytearray_ANY(space, w_bytearray, w_sub):
+    # XXX slow - copies, needs rewriting
+    w_str = space.wrap(space.bufferstr_w(w_sub))
+    w_str2 = str__Bytearray(space, w_bytearray)
+    return stringobject.contains__String_String(space, w_str2, w_str)
+
 def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
     data2 = w_bytearray2.data
@@ -618,6 +624,8 @@ setitem_slice_helper = func_with_new_name(_setitem_slice_helper,
                                           'setitem_slice_helper')
 
 def _strip(space, w_bytearray, u_chars, left, right):
+    # note: mostly copied from stringobject._strip
+    # should really be shared
     u_self = w_bytearray.data
 
     lpos = 0

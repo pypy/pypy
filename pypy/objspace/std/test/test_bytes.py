@@ -76,6 +76,8 @@ class AppTestBytesArray:
     def test_contains(self):
         assert ord('l') in bytearray('hello')
         assert 'l' in bytearray('hello')
+        assert bytearray('ll') in bytearray('hello')
+        assert memoryview('ll') in bytearray('hello')
 
     def test_translate(self):
         b = 'hello'
