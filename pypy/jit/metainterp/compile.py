@@ -391,6 +391,26 @@ class ResumeGuardDescr(ResumeDescr):
         self.copy_all_attrbutes_into(res)
         return res
 
+class ResumeAtPositionDescr(ResumeGuardDescr):
+    #def __init__(self, position):
+    #    self.position = position
+        
+    def _clone_if_mutable(self):
+        res = ResumeAtPositionDescr()
+        self.copy_all_attrbutes_into(res)
+        return res
+
+    def handle_fail(self, metainterp_sd, jitdriver_sd):
+        if True or self.must_compile(metainterp_sd, jitdriver_sd):
+            return self._trace_and_compile_from_bridge(metainterp_sd,
+                                                       jitdriver_sd)
+        else:
+            raise NotImplementedError
+            # FIXME: patch blackhole._prepare_resume_from_failure(self, opnum)
+            from pypy.jit.metainterp.blackhole import resume_in_blackhole
+            resume_in_blackhole(metainterp_sd, jitdriver_sd, self)
+            assert 0, "unreachable"
+
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
     def __init__(self, metainterp_sd, jitdriver_sd):
@@ -589,7 +609,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
         prepare_last_operation(new_loop, target_loop_token)
         resumekey.compile_and_attach(metainterp, new_loop)
-        compile_known_target_bridges(metainterp, new_loop)
+        #compile_known_target_bridges(metainterp, new_loop)
         record_loop_or_bridge(metainterp_sd, new_loop)
     return target_loop_token
 

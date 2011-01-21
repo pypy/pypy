@@ -19,7 +19,7 @@ from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
-from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.optimizeutil import RetraceLoop
 
@@ -832,8 +832,13 @@ class MIFrame(object):
     @arguments("orgpc", "int", "boxes3", "jitcode_position", "boxes3")
     def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes,
                                jcposition, redboxes):
+        #try:
+        #resumedescr = compile.ResumeAtPositionDescr() #ResumeGuardDescr()
         resumedescr = compile.ResumeGuardDescr()
-        self.capture_resumedata(resumedescr)
+        self.capture_resumedata(resumedescr, orgpc)
+        #except MissingLiveness:
+        #    resumedescr = None
+        #resumedescr.rd_frame_info_list.pc = orgpc # FIXME: IS this safe?
 
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
@@ -1091,11 +1096,13 @@ class MIFrame(object):
             metainterp.jitdriver_sd.greenfield_info is not None):
             virtualizable_boxes = metainterp.virtualizable_boxes
         saved_pc = self.pc
-        if resumepc >= 0:
-            self.pc = resumepc
-        resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
-                                  metainterp.virtualref_boxes, resumedescr)
-        self.pc = saved_pc
+        try:
+            if resumepc >= 0:
+                self.pc = resumepc
+            resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
+                                      metainterp.virtualref_boxes, resumedescr)
+        finally:
+            self.pc = saved_pc
 
     def implement_guard_value(self, orgpc, box):
         """Promote the given Box into a Const.  Note: be careful, it's a

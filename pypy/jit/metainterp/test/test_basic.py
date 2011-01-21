@@ -1944,16 +1944,16 @@ class BasicTests:
                 myjitdriver.jit_merge_point(y=y, x=x, z=z, res=res)
                 res = res.binop(x)
                 y -= 1
-                if y < 7:
+                if y < 8:
                     x = z
             return res
         def g(x, y):
-            c1 = f(B(x), y, A(x))
-            c2 = f(B(x), y, A(x))
+            c1 = f(A(x), y, B(x))
+            c2 = f(A(x), y, B(x))
             assert c1.val == c2.val
             return c1.val
-        res = self.meta_interp(g, [3, 14])
-        assert res == g(3, 14)
+        res = self.meta_interp(g, [3, 16])
+        assert res == g(3, 16)
 
     def test_inlined_guard_in_short_preamble(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
