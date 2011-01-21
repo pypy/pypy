@@ -91,8 +91,8 @@ class W_Repeat(Wrappable):
             s = 'repeat(%s)' % (objrepr,)
         return self.space.wrap(s)
 
-def W_Repeat___new__(space, w_subtype, w_obj, w_times=None):
-    return space.wrap(W_Repeat(space, w_obj, w_times))
+def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
+    return space.wrap(W_Repeat(space, w_object, w_times))
 
 W_Repeat.typedef = TypeDef(
         'repeat',
@@ -1117,7 +1117,7 @@ class W_Combinations(Wrappable):
             raise OperationError(space.w_ValueError,
                 space.wrap("r must be non-negative")
             )
-        indices = list(xrange(r))
+        indices = range(r)
         return W_Combinations(space, pool_w, indices, r)
 
     @unwrap_spec("self", ObjSpace)

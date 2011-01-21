@@ -81,6 +81,8 @@ class AppTestItertools:
         raises(StopIteration, it.next)
         raises(StopIteration, it.next)
 
+        assert list(itertools.repeat(object='a', times=3)) == ['a', 'a', 'a']
+
     def test_repeat_overflow(self):
         import itertools
         import sys
