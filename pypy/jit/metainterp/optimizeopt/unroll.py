@@ -166,7 +166,7 @@ class UnrollOptimizer(Optimization):
             loop.operations = self.optimizer.newoperations
 
             new_snapshot_args = []
-            start_resumedescr = loop.preamble.token.start_resumedescr.clone_if_mutable()
+            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
             snapshot_args = start_resumedescr.rd_snapshot.prev.boxes 
             for a in snapshot_args:
                 if not isinstance(a, Const):

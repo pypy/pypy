@@ -102,7 +102,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start, start_resumed
     loop.preamble = create_empty_loop(metainterp, 'Preamble ')
     loop.preamble.inputargs = loop.inputargs
     loop.preamble.token = make_loop_token(len(loop.inputargs), jitdriver_sd)
-    loop.preamble.token.start_resumedescr = start_resumedescr
+    loop.preamble.start_resumedescr = start_resumedescr
 
     try:
         old_loop_token = jitdriver_sd.warmstate.optimize_loop(
