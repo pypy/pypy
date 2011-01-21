@@ -531,6 +531,12 @@ def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
     w_res = stringobject.str_expandtabs__String_ANY(space, w_str, w_tabsize)
     return String2Bytearray(space, w_res)
 
+def str_splitlines__Bytearray_ANY(space, w_bytearray, w_keepends):
+    w_str = str__Bytearray(space, w_bytearray)
+    w_result = stringobject.str_splitlines__String_ANY(space, w_str, w_keepends)
+    return space.newlist([new_bytearray(space, space.w_bytearray, space.str_w(entry))
+                          for entry in space.unpackiterable(w_result)])
+
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
     if not space.is_w(w_by, space.w_None):

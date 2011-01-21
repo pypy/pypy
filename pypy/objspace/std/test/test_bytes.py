@@ -79,6 +79,15 @@ class AppTestBytesArray:
         assert bytearray('ll') in bytearray('hello')
         assert memoryview('ll') in bytearray('hello')
 
+    def test_splitlines(self):
+        b = bytearray('1234')
+        assert b.splitlines()[0] == b
+        assert b.splitlines()[0] is not b
+
+        assert len(bytearray('foo\nbar').splitlines()) == 2
+        for item in bytearray('foo\nbar').splitlines():
+            assert isinstance(item, bytearray)
+
     def test_ord(self):
         b = bytearray('\0A\x7f\x80\xff')
         assert ([ord(b[i:i+1]) for i in range(len(b))] ==
