@@ -14,6 +14,7 @@ register_all(vars(), globals())
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject
+
     w_value = w_x     # 'x' is the keyword argument name in CPython
     if w_base is None:
         # check for easy cases
@@ -48,9 +49,6 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                     w_obj = space.long(w_obj)
                 else:
                     w_obj = space.int(w_obj)
-            # 'long(x)' should return whatever x.__long__() returned
-            if space.is_w(w_longtype, space.w_long):
-                return w_obj
             if space.is_true(space.isinstance(w_obj, space.w_long)):
                 assert isinstance(w_obj, W_LongObject)  # XXX this could fail!
                 # XXX find a way to do that even if w_obj is not a W_LongObject
