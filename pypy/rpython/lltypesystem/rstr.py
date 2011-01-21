@@ -489,6 +489,7 @@ class LLHelpers(AbstractLLHelpers):
                 return i
             i += 1
         return -1
+    ll_find_char._annenforceargs_ = [None, None, int, int]
 
     @purefunction
     def ll_rfind_char(s, ch, start, end):

@@ -1,3 +1,5 @@
+from __future__ import with_statement
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi

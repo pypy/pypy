@@ -541,11 +541,11 @@ def _strip(space, w_self, w_chars, left, right):
     if left:
         #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
         while lpos < rpos and u_self[lpos] in u_chars:
-           lpos += 1
+            lpos += 1
 
     if right:
         while rpos > lpos and u_self[rpos - 1] in u_chars:
-           rpos -= 1
+            rpos -= 1
 
     assert rpos >= lpos    # annotator hint, don't remove
     return sliced(space, u_self, lpos, rpos, w_self)
@@ -950,11 +950,10 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     remaining characters have been mapped through the given translation table,
     which must be a string of length 256"""
 
-    # XXX CPython accepts buffers, too, not sure what we should do
     if space.is_w(w_table, space.w_None):
         table = DEFAULT_NOOP_TABLE
     else:
-        table = space.str_w(w_table)
+        table = space.bufferstr_w(w_table)
         if len(table) != 256:
             raise OperationError(
                 space.w_ValueError,
