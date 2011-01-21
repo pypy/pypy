@@ -189,6 +189,7 @@ class UnrollOptimizer(Optimization):
                         op = op.clone()
                         #op.setfailargs(loop.preamble.inputargs)
                         #op.setjumptarget(loop.preamble.token)
+                        op.setfailargs(None)
                         op.setdescr(start_resumedescr.clone_if_mutable())
                         short[i] = op
 
@@ -373,10 +374,7 @@ class UnrollOptimizer(Optimization):
         for box in preamble.inputargs:
             seen[box] = True
         for op in short_preamble:
-            args = op.getarglist()
-            if op.is_guard():
-                args = args + op.getfailargs()
-            for box in args:
+            for box in op.getarglist():
                 if isinstance(box, Const):
                     continue
                 if box not in seen:
