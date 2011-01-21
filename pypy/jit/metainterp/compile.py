@@ -595,10 +595,14 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     new_loop.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
+    if isinstance(resumekey, ResumeAtPositionDescr):
+        inline_short_preamble = False
+    else:
+        inline_short_preamble = True
     try:
         target_loop_token = state.optimize_bridge(metainterp_sd,
                                                   old_loop_tokens,
-                                                  new_loop)
+                                                  new_loop, inline_short_preamble)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

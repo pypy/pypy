@@ -152,7 +152,6 @@ class UnrollOptimizer(Optimization):
         if jumpop:
             assert jumpop.getdescr() is loop.token
             loop.preamble.operations = self.optimizer.newoperations
-
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
 
             jump_args = jumpop.getarglist()
@@ -165,6 +164,13 @@ class UnrollOptimizer(Optimization):
             loop.preamble.operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
+
+            new_snapshot_args = []
+            start_resumedescr = loop.preamble.token.start_resumedescr.clone_if_mutable()
+            snapshot_args = start_resumedescr.rd_snapshot.prev.boxes 
+            for a in snapshot_args:
+                new_snapshot_args.append(loop.preamble.inputargs[jump_args.index(a)])
+            start_resumedescr.rd_snapshot.prev.boxes = new_snapshot_args
 
             short = self.create_short_preamble(loop.preamble, loop)
             if short:
@@ -180,9 +186,7 @@ class UnrollOptimizer(Optimization):
                         op = op.clone()
                         #op.setfailargs(loop.preamble.inputargs)
                         #op.setjumptarget(loop.preamble.token)
-                        start_resumedescr = loop.preamble.token.start_resumedescr.clone_if_mutable()
-                        start_resumedescr.rd_snapshot.prev.boxes = loop.preamble.inputargs[:]
-                        op.setdescr(start_resumedescr)
+                        op.setdescr(start_resumedescr.clone_if_mutable())
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')

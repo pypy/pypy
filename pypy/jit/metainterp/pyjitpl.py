@@ -819,9 +819,13 @@ class MIFrame(object):
         self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
         return clsbox
 
-    @arguments("int")
-    def opimpl_loop_header(self, jdindex):
+    @arguments("int", "orgpc")
+    def opimpl_loop_header(self, jdindex, orgpc):
+        #resumedescr = compile.ResumeGuardDescr()
+        resumedescr = compile.ResumeAtPositionDescr()
+        self.capture_resumedata(resumedescr, orgpc)
         self.metainterp.seen_loop_header_for_jdindex = jdindex
+        self.metainterp.loop_header_resumedescr = resumedescr
 
     def verify_green_args(self, jitdriver_sd, varargs):
         num_green_args = jitdriver_sd.num_green_args
@@ -833,19 +837,21 @@ class MIFrame(object):
     def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes,
                                jcposition, redboxes):
         #try:
-        #resumedescr = compile.ResumeAtPositionDescr() #ResumeGuardDescr()
-        resumedescr = compile.ResumeGuardDescr()
-        self.capture_resumedata(resumedescr, orgpc)
+        #resumedescr = compile.ResumeAtPositionDescr()
+        #resumedescr = compile.ResumeGuardDescr()
+        #self.capture_resumedata(resumedescr, orgpc)
         #except MissingLiveness:
         #    resumedescr = None
         #resumedescr.rd_frame_info_list.pc = orgpc # FIXME: IS this safe?
-
+        resumedescr = self.metainterp.loop_header_resumedescr
+        
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
         # xxx we may disable the following line in some context later
         self.debug_merge_point(jitdriver_sd, self.metainterp.in_recursion,
                                greenboxes)
+
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not jitdriver_sd.no_loop_header or not any_operation:
                 return
@@ -856,6 +862,7 @@ class MIFrame(object):
             "found a loop_header for a JitDriver that does not match "
             "the following jit_merge_point's")
         self.metainterp.seen_loop_header_for_jdindex = -1
+        
         #
         if not self.metainterp.in_recursion:
             assert jitdriver_sd is self.metainterp.jitdriver_sd
@@ -1419,6 +1426,7 @@ class MetaInterp(object):
         self.free_frames_list = []
         self.last_exc_value_box = None
         self.retracing_loop_from = None
+        self.loop_header_resumedescr = None
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
