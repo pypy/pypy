@@ -48,6 +48,7 @@ class StdTypeModel:
             from pypy.objspace.std.dicttype   import dict_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
+            from pypy.objspace.std.bytearraytype import bytearray_typedef
             from pypy.objspace.std.typetype   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
@@ -72,6 +73,7 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import stringobject
+        from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import ropeobject
         from pypy.objspace.std import ropeunicodeobject
         from pypy.objspace.std import strsliceobject
@@ -104,6 +106,7 @@ class StdTypeModel:
             dictmultiobject.W_DictMultiObject: [],
             dictmultiobject.W_DictMultiIterObject: [],
             stringobject.W_StringObject: [],
+            bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
             longobject.W_LongObject: [],
@@ -119,6 +122,9 @@ class StdTypeModel:
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
             dictproxyobject.W_DictProxyObject: [],
+            dictmultiobject.W_DictViewKeysObject: [],
+            dictmultiobject.W_DictViewItemsObject: [],
+            dictmultiobject.W_DictViewValuesObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
@@ -209,6 +215,9 @@ class StdTypeModel:
                 self.typeorder[ropeobject.W_RopeObject] += [
                  (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
                     ]
+        self.typeorder[bytearrayobject.W_BytearrayObject] += [
+             (stringobject.W_StringObject, bytearrayobject.delegate_Bytearray2String),
+                ]
 
         if config.objspace.std.withstrslice:
             self.typeorder[strsliceobject.W_StringSliceObject] += [
@@ -371,6 +380,7 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
         self.operatorsymbol = operatorsymbol
         if specialnames is None:
             specialnames = [operatorsymbol]
+        assert isinstance(specialnames, list)
         self.specialnames = specialnames  # e.g. ['__xxx__', '__rxxx__']
         self.extras = extras
         # transform  '+'  =>  'add'  etc.

@@ -145,6 +145,19 @@ class TestTypeDef:
         w_obj = self.space.wrap(W_SomeType())
         assert self.space.getattr(w_obj, self.space.wrap('x')) is self.space.w_None
 
+    def test_unhashable(self):
+        class W_SomeType(Wrappable):
+            pass
+        W_SomeType.typedef = typedef.TypeDef(
+            'some_type',
+            __hash__ = None)
+        w_obj = self.space.wrap(W_SomeType())
+        self.space.appexec([w_obj], """(obj):
+            assert type(obj).__hash__ is None
+            err = raises(TypeError, hash, obj)
+            assert err.value.message == "'some_type' objects are unhashable"
+            """)
+
 
 class AppTestTypeDef:
 

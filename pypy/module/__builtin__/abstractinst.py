@@ -45,12 +45,20 @@ def abstract_getclass(space, w_obj):
         return space.type(w_obj)
 
 @jit.unroll_safe
-def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
+def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
     """Implementation for the full 'isinstance(obj, klass_or_tuple)'."""
+
+    # -- case (anything, tuple)
+    # XXX it might be risky that the JIT sees this
+    if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
+        for w_klass in space.fixedview(w_klass_or_tuple):
+            if abstract_isinstance_w(space, w_obj, w_klass, allow_override):
+                return True
+        return False
 
     # -- case (anything, type)
     try:
-        w_result = space.isinstance(w_obj, w_klass_or_tuple)
+        w_result = space.isinstance(w_obj, w_klass_or_tuple, allow_override)
     except OperationError, e:   # if w_klass_or_tuple was not a type, ignore it
         if not e.match(space, space.w_TypeError):
             raise       # propagate other errors
@@ -64,7 +72,8 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
             w_pretendtype = space.getattr(w_obj, space.wrap('__class__'))
             if space.is_w(w_pretendtype, space.type(w_obj)):
                 return False     # common case: obj.__class__ is type(obj)
-            w_result = space.issubtype(w_pretendtype, w_klass_or_tuple)
+            w_result = space.issubtype(w_pretendtype, w_klass_or_tuple,
+                                       allow_override)
         except OperationError, e:
             if e.async(space):
                 raise
@@ -78,13 +87,6 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple):
         oldstyleinst = space.interpclass_w(w_obj)
         if isinstance(oldstyleinst, W_InstanceObject):
             return oldstyleinst.w_class.is_subclass_of(oldstyleclass)
-    # -- case (anything, tuple)
-    # XXX it might be risky that the JIT sees this
-    if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
-        for w_klass in space.fixedview(w_klass_or_tuple):
-            if abstract_isinstance_w(space, w_obj, w_klass):
-                return True
-        return False
     return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
 
 @jit.dont_look_inside
@@ -118,12 +120,21 @@ def _issubclass_recurse(space, w_derived, w_top):
 
 
 @jit.unroll_safe
-def abstract_issubclass_w(space, w_derived, w_klass_or_tuple):
+def abstract_issubclass_w(space, w_derived, w_klass_or_tuple,
+                          allow_override=False):
     """Implementation for the full 'issubclass(derived, klass_or_tuple)'."""
+
+    # -- case (class-like-object, tuple-of-classes)
+    # XXX it might be risky that the JIT sees this
+    if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
+        for w_klass in space.fixedview(w_klass_or_tuple):
+            if abstract_issubclass_w(space, w_derived, w_klass, allow_override):
+                return True
+        return False
 
     # -- case (type, type)
     try:
-        w_result = space.issubtype(w_derived, w_klass_or_tuple)
+        w_result = space.issubtype(w_derived, w_klass_or_tuple, allow_override)
     except OperationError, e:   # if one of the args was not a type, ignore it
         if not e.match(space, space.w_TypeError):
             raise       # propagate other errors
@@ -139,14 +150,6 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple):
     else:
         check_class(space, w_derived, "issubclass() arg 1 must be a class")
     # from here on, we are sure that w_derived is a class-like object
-
-    # -- case (class-like-object, tuple-of-classes)
-    # XXX it might be risky that the JIT sees this
-    if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
-        for w_klass in space.fixedview(w_klass_or_tuple):
-            if abstract_issubclass_w(space, w_derived, w_klass):
-                return True
-        return False
 
     # -- case (class-like-object, abstract-class)
     check_class(space, w_klass_or_tuple,
@@ -193,13 +196,15 @@ def issubclass(space, w_cls, w_klass_or_tuple):
     """Check whether a class 'cls' is a subclass (i.e., a derived class) of
 another class.  When using a tuple as the second argument, check whether
 'cls' is a subclass of any of the classes listed in the tuple."""
-    return space.wrap(abstract_issubclass_w(space, w_cls, w_klass_or_tuple))
+    result = abstract_issubclass_w(space, w_cls, w_klass_or_tuple, True)
+    return space.wrap(result)
 
 def isinstance(space, w_obj, w_klass_or_tuple):
     """Check whether an object is an instance of a class (or of a subclass
 thereof).  When using a tuple as the second argument, check whether 'obj'
 is an instance of any of the classes listed in the tuple."""
-    return space.wrap(abstract_isinstance_w(space, w_obj, w_klass_or_tuple))
+    result = abstract_isinstance_w(space, w_obj, w_klass_or_tuple, True)
+    return space.wrap(result)
 
 # avoid namespace pollution
 app_issubclass = issubclass; del issubclass

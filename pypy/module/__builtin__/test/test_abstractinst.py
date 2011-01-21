@@ -182,3 +182,23 @@ class AppTestAbstractInst:
         assert not issubclass(BSub1, BSub2)
         assert not issubclass(MyInst, BSub1)
         assert not issubclass(BSub1, MyInst)
+
+    def test_overriding(self):
+        class ABC(type):
+
+            def __instancecheck__(cls, inst):
+                """Implement isinstance(inst, cls)."""
+                return any(cls.__subclasscheck__(c)
+                           for c in set([type(inst), inst.__class__]))
+
+            def __subclasscheck__(cls, sub):
+                """Implement issubclass(sub, cls)."""
+                candidates = cls.__dict__.get("__subclass__", set()) | set([cls])
+                return any(c in candidates for c in sub.mro())
+        class Integer:
+
+            __metaclass__ = ABC
+
+            __subclass__ = set([int])
+        assert issubclass(int, Integer)
+        assert issubclass(int, (Integer,))

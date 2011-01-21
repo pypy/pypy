@@ -246,7 +246,12 @@ class DescrOperation(object):
                                       "'%s' object is not iterable",
                                       typename)
             return space.newseqiter(w_obj)
-        return space.get_and_call_function(w_descr, w_obj)
+        w_iter = space.get_and_call_function(w_descr, w_obj)
+        w_next = space.lookup(w_iter, 'next')
+        if w_next is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("iter() returned non-iterator"))
+        return w_iter
 
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, 'next')
@@ -307,6 +312,22 @@ class DescrOperation(object):
             return space.delitem(w_obj, w_slice)
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+
+    def format(space, w_obj, w_format_spec):
+        w_descr = space.lookup(w_obj, '__format__')
+        if w_descr is None:
+            typename = space.type(w_obj).getname(space)
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' object does not define __format__",
+                                  typename)
+        w_res = space.get_and_call_function(w_descr, w_obj, w_format_spec)
+        if not space.is_true(space.isinstance(w_res, space.w_basestring)):
+            typename = space.type(w_obj).getname(space)
+            restypename = space.type(w_res).getname(space)
+            raise operationerrfmt(space.w_TypeError,
+                "%s.__format__ must return string or unicode, not %s",
+                                  typename, restypename)
+        return w_res
 
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
@@ -374,8 +395,10 @@ class DescrOperation(object):
             # default __hash__.  This path should only be taken under very
             # obscure circumstances.
             return default_identity_hash(space, w_obj)
-        # XXX CPython has a special case for types with "__hash__ = None"
-        # to produce a nicer error message, namely "unhashable type: 'X'".
+        if space.is_w(w_hash, space.w_None):
+            typename = space.type(w_obj).getname(space, '?')
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' objects are unhashable", typename)
         w_result = space.get_and_call_function(w_hash, w_obj)
         w_resulttype = space.type(w_result)
         if space.is_w(w_resulttype, space.w_int):
@@ -446,10 +469,22 @@ class DescrOperation(object):
             raise OperationError(space.w_TypeError,
                                  space.wrap("coercion should return None or 2-tuple"))
         return w_res
-    
 
+    def issubtype(space, w_sub, w_type, allow_override=False):
+        if allow_override:
+            w_check = space.lookup(w_type, "__subclasscheck__")
+            if w_check is None:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("issubclass not supported here"))
+            return space.get_and_call_function(w_check, w_type, w_sub)
+        return space._type_issubtype(w_sub, w_type)
 
-    # xxx ord
+    def isinstance(space, w_inst, w_type, allow_override=False):
+        if allow_override:
+            w_check = space.lookup(w_type, "__instancecheck__")
+            if w_check is not None:
+                return space.get_and_call_function(w_check, w_type, w_inst)
+        return space.issubtype(space.type(w_inst), w_type, allow_override)
 
 
 

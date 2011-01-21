@@ -183,12 +183,20 @@ class W_ZipImporter(Wrappable):
             return False
         return True
 
+    def can_use_pyc(self, space, filename, magic, timestamp):
+        if magic != importing.get_pyc_magic(space):
+            return False
+        if self.check_newer_pyfile(space, filename[:-1], timestamp):
+            return False
+        if not self.check_compatible_mtime(space, filename, timestamp):
+            return False
+        return True
+
     def import_pyc_file(self, space, modname, filename, buf, pkgpath):
         w = space.wrap
         magic = importing._get_long(buf[:4])
         timestamp = importing._get_long(buf[4:8])
-        if (self.check_newer_pyfile(space, filename[:-1], timestamp) or
-            not self.check_compatible_mtime(space, filename, timestamp)):
+        if not self.can_use_pyc(space, filename, magic, timestamp):
             return self.import_py_file(space, modname, filename[:-1], buf,
                                        pkgpath)
         buf = buf[8:] # XXX ugly copy, should use sequential read instead
@@ -204,7 +212,6 @@ class W_ZipImporter(Wrappable):
     def have_modulefile(self, space, filename):
         if ZIPSEP != os.path.sep:
             filename = filename.replace(os.path.sep, ZIPSEP)
-        w = space.wrap
         try:
             self.dir[filename]
             return True
@@ -212,18 +219,21 @@ class W_ZipImporter(Wrappable):
             return False
 
     def find_module(self, space, fullname, w_path=None):
-        filename = self.mangle(fullname)
+        filename = self.make_filename(fullname)
         for _, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(self)
     find_module.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
-    def mangle(self, name):
-        return name.replace('.', ZIPSEP)
+    def make_filename(self, fullname):
+        startpos = fullname.rfind('.') + 1 # 0 when not found
+        assert startpos >= 0
+        subname = fullname[startpos:]
+        return self.prefix + subname
 
     def load_module(self, space, fullname):
         w = space.wrap
-        filename = self.mangle(fullname)
+        filename = self.make_filename(fullname)
         last_exc = None
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
@@ -237,7 +247,8 @@ class W_ZipImporter(Wrappable):
                 pass
             else:
                 if is_package:
-                    pkgpath = self.name + os.path.sep + filename
+                    pkgpath = (self.name + os.path.sep +
+                               self.corr_zname(filename))
                 else:
                     pkgpath = None
                 try:
@@ -272,23 +283,29 @@ class W_ZipImporter(Wrappable):
     get_data.unwrap_spec = ['self', ObjSpace, str]
 
     def get_code(self, space, fullname):
-        filename = self.mangle(fullname)
-        w = space.wrap
+        filename = self.make_filename(fullname)
         for compiled, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
+                w_source = self.get_data(space, filename + ext)
+                source = space.str_w(w_source)
                 if compiled:
-                    return self.get_data(space, filename + ext)
+                    magic = importing._get_long(source[:4])
+                    timestamp = importing._get_long(source[4:8])
+                    if not self.can_use_pyc(space, filename + ext,
+                                            magic, timestamp):
+                        continue
+                    code_w = importing.read_compiled_module(
+                        space, filename + ext, source[8:])
                 else:
-                    w_source = self.get_data(space, filename + ext)
-                    w_code = space.builtin.call('compile', w_source,
-                                                w(filename + ext), w('exec'))
-                    return w_code
+                    code_w = importing.parse_source_module(
+                        space, filename + ext, source)
+                return space.wrap(code_w)
         raise operationerrfmt(self.w_ZipImportError,
             "Cannot find source or code for %s in %s", filename, self.name)
     get_code.unwrap_spec = ['self', ObjSpace, str]
 
     def get_source(self, space, fullname):
-        filename = self.mangle(fullname)
+        filename = self.make_filename(fullname)
         found = False
         for compiled, _, ext in ENUMERATE_EXTS:
             fname = filename + ext
@@ -303,8 +320,18 @@ class W_ZipImporter(Wrappable):
             "Cannot find source for %s in %s", filename, self.name)
     get_source.unwrap_spec = ['self', ObjSpace, str]
 
+    def get_filename(self, space, fullname):
+        filename = self.make_filename(fullname)
+        for _, is_package, ext in ENUMERATE_EXTS:
+            if self.have_modulefile(space, filename + ext):
+                return space.wrap(self.filename + os.path.sep +
+                                  self.corr_zname(filename + ext))
+        raise operationerrfmt(self.w_ZipImportError,
+            "Cannot find module %s in %s", filename, self.name)
+    get_filename.unwrap_spec = ['self', ObjSpace, str]
+
     def is_package(self, space, fullname):
-        filename = self.mangle(fullname)
+        filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(is_package)
@@ -373,6 +400,7 @@ W_ZipImporter.typedef = TypeDef(
     get_data    = interp2app(W_ZipImporter.get_data),
     get_code    = interp2app(W_ZipImporter.get_code),
     get_source  = interp2app(W_ZipImporter.get_source),
+    get_filename = interp2app(W_ZipImporter.get_filename),
     is_package  = interp2app(W_ZipImporter.is_package),
     load_module = interp2app(W_ZipImporter.load_module),
     archive     = GetSetProperty(W_ZipImporter.getarchive),

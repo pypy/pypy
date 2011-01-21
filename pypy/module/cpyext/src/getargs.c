@@ -445,19 +445,20 @@ converttuple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 	for (i = 0; i < n; i++) {
 		char *msg;
 		PyObject *item;
-		item = PySequence_GetItem(arg, i);
+        item = PySequence_GetItem(arg, i);
 		if (item == NULL) {
 			PyErr_Clear();
 			levels[0] = i+1;
 			levels[1] = 0;
-			strncpy(msgbuf, "is not retrievable", bufsize);
+			strncpy(msgbuf, "is not retrievable",
+				        bufsize);
 			return msgbuf;
 		}
                 PyPy_Borrow(arg, item);
 		msg = convertitem(item, &format, p_va, flags, levels+1, 
 				  msgbuf, bufsize, freelist);
-		/* PySequence_GetItem calls tp->sq_item, which INCREFs */
-		Py_XDECREF(item);
+        /* PySequence_GetItem calls tp->sq_item, which INCREFs */
+        Py_XDECREF(item);
 		if (msg != NULL) {
 			levels[0] = i+1;
 			return msg;

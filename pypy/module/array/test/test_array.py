@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace
+import sys
 import py
 import py.test
 
@@ -360,7 +361,7 @@ class BaseArrayTests:
     def test_reversingslice_pre26(self):
         import sys
         if sys.version_info >= (2, 6):
-            py.test.skip('arrays can handle more slice opps than lists in 2.6')
+            skip('arrays can handle more slice ops than lists in 2.6')
 
         for a in range(-4, 5):
             for b in range(-4, 5):
@@ -395,7 +396,7 @@ class BaseArrayTests:
         a = self.array('i', s)
         assert a[0] == 1 and a[1] == 2 and a[2] == 3
 
-        unpack = self.struct.unpack
+        from struct import unpack
         values = (-129, 128, -128, 127, 0, 255, -1, 256, -32760, 32760)
         s = self.array('i', values).tostring()
         fmt = 'i' * len(values)
@@ -595,6 +596,9 @@ class BaseArrayTests:
         assert a == b
         a += self.array('i', (7,))
         assert repr(a) == "array('i', [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 7])"
+
+        raises(MemoryError, "a * self.maxint")
+        raises(MemoryError, "a *= self.maxint")
 
         raises(TypeError, "a = self.array('i') + 2")
         raises(TypeError, "self.array('i') + self.array('b')")
@@ -810,6 +814,11 @@ class BaseArrayTests:
         b.byteswap()
         assert a != b
 
+    def test_weakref(self):
+        import weakref
+        a = self.array('c', 'Hi!')
+        r = weakref.ref(a)
+        assert r() is a
 
 class TestCPythonsOwnArray(BaseArrayTests):
 
@@ -818,7 +827,8 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.array = array.array
         import struct
         cls.struct = struct
-        cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))        
+        cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
+        cls.maxint = sys.maxint
 
 class AppTestArray(BaseArrayTests):
     def setup_class(cls):
@@ -827,16 +837,9 @@ class AppTestArray(BaseArrayTests):
             import array
             return array.array
         """)
-        cls.w_struct = cls.space.appexec([], """():
-            import struct
-            return struct
-        """)
-        cls.w_rffi = cls.space.appexec([], """():
-            import _rawffi
-            return _rawffi
-        """)
         cls.w_tempfile = cls.space.wrap(
             str(py.test.ensuretemp('array').join('tmpfile')))
+        cls.w_maxint = cls.space.wrap(sys.maxint)
 
 
 
@@ -847,5 +850,11 @@ class AppTestArray(BaseArrayTests):
         bi = a.buffer_info()
         assert bi[0] != 0
         assert bi[1] == 3
-        data = self.rffi.charp2string(bi[0])
+        import _rawffi
+        data = _rawffi.charp2string(bi[0])
         assert data[0:3] == 'Hi!'
+
+    def test_array_reverse_slice_assign_self(self):
+        a = self.array('b', range(4))
+        a[::-1] = a
+        assert a == self.array('b', [3, 2, 1, 0])

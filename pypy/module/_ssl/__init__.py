@@ -2,12 +2,12 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     interpleveldefs = {
-        'ssl': 'interp_ssl.ssl',
+        'sslwrap': 'interp_ssl.sslwrap',
     }
 
     appleveldefs = {
         '__doc__': 'app_ssl.__doc__',
-        'sslerror': 'app_ssl.sslerror',
+        'SSLError': 'app_ssl.SSLError',
     }
 
     @classmethod
@@ -16,7 +16,7 @@ class Module(MixedModule):
         from pypy.module._ssl.interp_ssl import constants, HAVE_OPENSSL_RAND
 
         for constant, value in constants.iteritems():
-            Module.interpleveldefs[constant] = "space.wrap(%r)" % value
+            Module.interpleveldefs[constant] = "space.wrap(%r)" % (value,)
 
         if HAVE_OPENSSL_RAND:
             Module.interpleveldefs['RAND_add'] = "interp_ssl.RAND_add"
@@ -26,5 +26,5 @@ class Module(MixedModule):
         super(Module, cls).buildloaders()
 
     def startup(self, space):
-        from pypy.module._ssl.interp_ssl import _init_ssl
-        _init_ssl()
+        from pypy.rlib.ropenssl import init_ssl
+        init_ssl()

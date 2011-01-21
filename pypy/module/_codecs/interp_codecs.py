@@ -414,6 +414,9 @@ for encoders in [
          "utf_16_encode",
          "utf_16_be_encode",
          "utf_16_le_encode",
+         "utf_32_encode",
+         "utf_32_be_encode",
+         "utf_32_le_encode",
          "unicode_escape_encode",
          "raw_unicode_escape_encode",
          "unicode_internal_encode",
@@ -428,6 +431,9 @@ for decoders in [
          "utf_16_decode",
          "utf_16_be_decode",
          "utf_16_le_decode",
+         "utf_32_decode",
+         "utf_32_be_decode",
+         "utf_32_le_decode",
          "raw_unicode_escape_decode",
          ]:
     make_decoder_wrapper(decoders)
@@ -455,6 +461,24 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):
     return space.newtuple([space.wrap(res), space.wrap(consumed),
                            space.wrap(byteorder)])
 utf_16_ex_decode.unwrap_spec = [ObjSpace, str, 'str_or_None', int, W_Root]
+
+def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):
+    final = space.is_true(w_final)
+    state = space.fromcache(CodecState)
+    if byteorder == 0:
+        byteorder = 'native'
+    elif byteorder == -1:
+        byteorder = 'little'
+    else:
+        byteorder = 'big'
+    consumed = len(data)
+    if final:
+        consumed = 0
+    res, consumed, byteorder = runicode.str_decode_utf_32_helper(
+        data, len(data), errors, final, state.decode_error_handler, byteorder)
+    return space.newtuple([space.wrap(res), space.wrap(consumed),
+                           space.wrap(byteorder)])
+utf_32_ex_decode.unwrap_spec = [ObjSpace, str, str, int, W_Root]
 
 # ____________________________________________________________
 # Charmap

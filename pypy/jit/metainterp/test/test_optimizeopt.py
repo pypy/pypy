@@ -552,21 +552,47 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_int_is_true_is_zero(self):
-        py.test.skip("XXX implement me")
+    def test_bound_int_is_true(self):
         ops = """
         [i0]
-        i1 = int_is_true(i0)
-        guard_true(i1) []
-        i2 = int_is_zero(i0)
-        guard_false(i2) []
-        jump(i0)
+        i1 = int_add(i0, 1)
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        i3 = int_is_true(i1)
+        guard_true(i3) []
+        jump(i1)
         """
         expected = """
         [i0]
-        i1 = int_is_true(i0)
-        guard_true(i1) []
-        jump(i0)
+        i1 = int_add(i0, 1)
+        jump(i1)
+        """
+        preamble = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_int_is_true_is_zero(self):
+        py.test.skip("in-progress")
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_is_true(i1)
+        guard_true(i2) []
+        i3 = int_is_zero(i1)
+        guard_false(i3) []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_is_true(i1)
+        guard_true(i2) []
+        jump(i1)
         """
         self.optimize_loop(ops, expected)
 

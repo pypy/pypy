@@ -5,6 +5,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_int64
+from pypy.rlib import objectmodel
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 
@@ -347,6 +348,18 @@ class BaseTestRint(BaseRtypingTest):
 
         res = self.interpret(f, [3])
         assert res == 3
+
+    def test_hash(self):
+        def f(x):
+            return objectmodel.compute_hash(x)
+        res = self.interpret(f, [123456789])
+        assert res == 123456789
+        res = self.interpret(f, [r_int64(123456789012345678)])
+        if sys.maxint == 2147483647:
+            # check the way we compute such a hash so far
+            assert res == -1506741426 + 9 * 28744523
+        else:
+            assert res == 123456789012345678
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass

@@ -1,6 +1,7 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, isinf, isnan
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.objectmodel import we_are_translated
 
 import math, sys
 
@@ -109,7 +110,7 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         neg = 0
-        if isinf(dval):
+        if isinf(dval) or isnan(dval):
             raise OverflowError
         if dval < 0.0:
             neg = 1
@@ -558,6 +559,23 @@ class rbigint(object):
         if self._numdigits() == 1 and self.digits[0] == 0:
             self.sign = 0
 
+    def bit_length(self):
+        i = self._numdigits()
+        if i == 1 and self.digits[0] == 0:
+            return 0
+        msd = self.digits[i - 1]
+        msd_bits = 0
+        while msd >= 32:
+            msd_bits += 6
+            msd >>= 6
+        msd_bits += [
+            0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
+            ][msd]
+        # yes, this can overflow: a huge number which fits 3 gigabytes of
+        # memory has around 24 gigabits!
+        bits = ovfcheck((i-1) * SHIFT + msd_bits)
+        return bits
 
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, %s>" % (self.digits, self.sign, self.str())
@@ -1259,9 +1277,6 @@ def _AsScaledDouble(v):
     assert x > 0.0
     return x * sign, exponent
 
-def isinf(x):
-    return x != 0.0 and x / 2 == x
-
 ##def ldexp(x, exp):
 ##    assert type(x) is float
 ##    lb1 = LONG_BIT - 1
@@ -1278,15 +1293,54 @@ def isinf(x):
 # XXX make sure that we don't ignore this!
 # YYY no, we decided to do ignore this!
 
-def _AsDouble(v):
+def _AsDouble(n):
     """ Get a C double from a bigint object. """
-    x, e = _AsScaledDouble(v)
-    if e <= sys.maxint / SHIFT:
-        x = math.ldexp(x, e * SHIFT)
-        #if not isinf(x):
-        # this is checked by math.ldexp
-        return x
-    raise OverflowError # can't say "long int too large to convert to float"
+    # This is a "correctly-rounded" version from Python 2.7.
+    #
+    from pypy.rlib import rfloat
+    DBL_MANT_DIG = rfloat.DBL_MANT_DIG  # 53 for IEEE 754 binary64
+    DBL_MAX_EXP = rfloat.DBL_MAX_EXP    # 1024 for IEEE 754 binary64
+    assert DBL_MANT_DIG < r_ulonglong.BITS
+
+    # Reduce to case n positive.
+    sign = n.sign
+    if sign == 0:
+        return 0.0
+    elif sign < 0:
+        n = n.neg()
+
+    # Find exponent: 2**(exp - 1) <= n < 2**exp
+    exp = n.bit_length()
+
+    # Get top DBL_MANT_DIG + 2 significant bits of n, with a 'sticky'
+    # last bit: that is, the least significant bit of the result is 1
+    # iff any of the shifted-out bits is set.
+    shift = DBL_MANT_DIG + 2 - exp
+    if shift >= 0:
+        q = _AsULonglong_mask(n) << shift
+        if not we_are_translated():
+            assert q == n.tolong() << shift   # no masking actually done
+    else:
+        shift = -shift
+        n2 = n.rshift(shift)
+        q = _AsULonglong_mask(n2)
+        if not we_are_translated():
+            assert q == n2.tolong()           # no masking actually done
+        if not n.eq(n2.lshift(shift)):
+            q |= 1
+
+    # Now remove the excess 2 bits, rounding to nearest integer (with
+    # ties rounded to even).
+    q = (q >> 2) + (bool(q & 2) and bool(q & 5))
+
+    if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
+                             q == r_ulonglong(1) << DBL_MANT_DIG):
+        raise OverflowError("integer too large to convert to float")
+
+    ad = math.ldexp(float(q), exp - DBL_MANT_DIG)
+    if sign < 0:
+        ad = -ad
+    return ad
 
 def _loghelper(func, arg):
     """

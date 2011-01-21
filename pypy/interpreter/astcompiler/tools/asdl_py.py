@@ -576,7 +576,7 @@ class NodeVisitorNotImplemented(Exception):
 
 
 class _FieldsWrapper(Wrappable):
-    "Hack around the fact we can't store tuples on a TypeDef."
+    "Hack around the fact we can\'t store tuples on a TypeDef."
 
     def __init__(self, fields):
         self.fields = fields

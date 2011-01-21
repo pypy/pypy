@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.interpreter.astcompiler import consts
 from pypy.rlib import jit
 from pypy.tool.uid import uid
 
@@ -122,7 +123,9 @@ class __extend__(pyframe.PyFrame):
         super_fast2locals(self)
         # cellvars are values exported to inner scopes
         # freevars are values coming from outer scopes 
-        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        freevarnames = list(self.pycode.co_cellvars)
+        if self.pycode.co_flags & consts.CO_OPTIMIZED:
+            freevarnames.extend(self.pycode.co_freevars)
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]

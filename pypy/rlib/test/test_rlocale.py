@@ -4,7 +4,7 @@
 import py
 import locale as cpython_locale
 from pypy.rlib.rlocale import setlocale, LC_ALL, LocaleError, isupper, \
-     islower, isalpha, tolower, isalnum
+     islower, isalpha, tolower, isalnum, numeric_formatting
 
 class TestLocale(object):
     def setup_class(cls):
@@ -28,4 +28,9 @@ class TestLocale(object):
         assert not isalpha(ord(" "))
         assert isalnum(ord("1"))
         assert tolower(ord("A")) == ord("a")
-        
+
+def test_numeric_formatting():
+    dec, th, grouping = numeric_formatting()
+    assert isinstance(dec, str)
+    assert isinstance(th, str)
+    assert isinstance(grouping, str)

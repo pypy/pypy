@@ -19,6 +19,8 @@ error = OSError
 class stat_result:
     __metaclass__ = structseqtype
 
+    name = "posix.stat_result"
+
     st_mode  = structseqfield(0, "protection bits")
     st_ino   = structseqfield(1, "inode")
     st_dev   = structseqfield(2, "device")
@@ -62,6 +64,18 @@ class stat_result:
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
 
+if osname == 'posix':
+    def _validate_fd(fd):
+        import fcntl
+        try:
+            fcntl.fcntl(fd, fcntl.F_GETFD)
+        except IOError, e:
+            raise OSError(e.errno, e.strerror, e.filename)
+else:
+    def _validate_fd(fd):
+        # XXX for the moment
+        return
+
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.
 _fdopen = file.fdopen
@@ -70,7 +84,7 @@ def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
     Return an open file object connected to a file descriptor."""
-
+    _validate_fd(fd)
     return _fdopen(fd, mode, buffering)
 
 
@@ -99,8 +113,9 @@ if osname == 'posix':
             pid = self._childpid
             if pid is not None:
                 self._childpid = None
-                return os.waitpid(pid, 0)[1]
-            return 0
+                sts = os.waitpid(pid, 0)[1]
+                if sts != 0:
+                    return sts
         __del__ = close     # as in CPython, __del__ may call os.waitpid()
 
     def popen(command, mode='r', bufsize=-1):

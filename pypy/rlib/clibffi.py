@@ -1,5 +1,6 @@
 """ Libffi wrapping
 """
+from __future__ import with_statement
 
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -8,7 +9,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
-from pypy.rlib.rdynload import DLOpenError
+from pypy.rlib.rdynload import DLOpenError, DLLHANDLE
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -32,7 +33,7 @@ if _WIN32:
     #include <stdio.h>
 
     /* Get the module where the "fopen" function resides in */
-    HANDLE get_libc_handle() {
+    HANDLE pypy_get_libc_handle() {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
         memset(&mi, 0, sizeof(mi));
@@ -102,7 +103,7 @@ else:
                                  libffidir.join('pypy_ffi.c'),
                                  ],
         export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
-                          'get_libc_handle'],
+                          'pypy_get_libc_handle'],
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
@@ -148,7 +149,7 @@ base_names = ['double', 'uchar', 'schar', 'sshort', 'ushort', 'uint', 'sint',
               # ffi_type_slong and ffi_type_ulong are omitted because
               # their meaning changes too much from one libffi version to
               # another.  DON'T USE THEM!  use cast_type_to_ffitype().
-              'float', 'pointer', 'void',
+              'float', 'longdouble', 'pointer', 'void',
               # by size
               'sint8', 'uint8', 'sint16', 'uint16', 'sint32', 'uint32',
               'sint64', 'uint64']
@@ -171,14 +172,16 @@ for name in type_names:
 
 def _signed_type_for(TYPE):
     sz = rffi.sizeof(TYPE)
-    if sz == 2:   return ffi_type_sint16
+    if sz == 1:   return ffi_type_sint8
+    elif sz == 2: return ffi_type_sint16
     elif sz == 4: return ffi_type_sint32
     elif sz == 8: return ffi_type_sint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
 def _unsigned_type_for(TYPE):
     sz = rffi.sizeof(TYPE)
-    if sz == 2:   return ffi_type_uint16
+    if sz == 1:   return ffi_type_uint8
+    elif sz == 2: return ffi_type_uint16
     elif sz == 4: return ffi_type_uint32
     elif sz == 8: return ffi_type_uint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
@@ -186,6 +189,7 @@ def _unsigned_type_for(TYPE):
 TYPE_MAP = {
     rffi.DOUBLE : ffi_type_double,
     rffi.FLOAT  : ffi_type_float,
+    rffi.LONGDOUBLE : ffi_type_longdouble,
     rffi.UCHAR  : ffi_type_uchar,
     rffi.CHAR   : ffi_type_schar,
     rffi.SHORT  : ffi_type_sshort,
@@ -200,6 +204,7 @@ TYPE_MAP = {
     rffi.LONGLONG  : _signed_type_for(rffi.LONGLONG),
     lltype.Void    : ffi_type_void,
     lltype.UniChar : _unsigned_type_for(lltype.UniChar),
+    lltype.Bool    : _unsigned_type_for(lltype.Bool),
     }
 
 def external(name, args, result, **kwds):
@@ -242,7 +247,7 @@ if _WIN32:
 
     LoadLibrary = rwin32.LoadLibrary
 
-    get_libc_handle = external('get_libc_handle', [], rwin32.HANDLE)
+    get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
@@ -372,6 +377,8 @@ closureHeap = ClosureHeap()
 FUNCFLAG_STDCALL   = 0
 FUNCFLAG_CDECL     = 1  # for WINAPI calls
 FUNCFLAG_PYTHONAPI = 4
+FUNCFLAG_USE_ERRNO = 8
+FUNCFLAG_USE_LASTERROR = 16
 
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
@@ -550,20 +557,9 @@ class FuncPtr(AbstractFuncPtr):
             self.ll_result = lltype.nullptr(rffi.VOIDP.TO)
         AbstractFuncPtr.__del__(self)
 
-class CDLL(object):
-    def __init__(self, libname):
-        """Load the library, or raises DLOpenError."""
-        self.lib = lltype.nullptr(rffi.CCHARP.TO)
-        ll_libname = rffi.str2charp(libname)
-        try:
-            self.lib = dlopen(ll_libname)
-        finally:
-            lltype.free(ll_libname, flavor='raw')
-
-    def __del__(self):
-        if self.lib:
-            dlclose(self.lib)
-            self.lib = lltype.nullptr(rffi.CCHARP.TO)
+class RawCDLL(object):
+    def __init__(self, handle):
+        self.lib = handle
 
     def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         # these arguments are already casted to proper ffi
@@ -587,4 +583,16 @@ class CDLL(object):
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
+
+class CDLL(RawCDLL):
+    def __init__(self, libname):
+        """Load the library, or raises DLOpenError."""
+        RawCDLL.__init__(self, rffi.cast(DLLHANDLE, -1))
+        with rffi.scoped_str2charp(libname) as ll_libname:
+            self.lib = dlopen(ll_libname)
+
+    def __del__(self):
+        if self.lib != rffi.cast(DLLHANDLE, -1):
+            dlclose(self.lib)
+            self.lib = rffi.cast(DLLHANDLE, -1)
 

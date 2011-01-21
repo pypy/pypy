@@ -396,6 +396,18 @@ class AppTestProxy(object):
             print s
             assert "dead" in s
 
+    def test_unicode(self):
+        import _weakref
+        class C(object):
+            def __str__(self):
+                return "string"
+            def __unicode__(self):
+                return u"unicode"
+        instance = C()
+        assert "__unicode__" in dir(_weakref.proxy(instance))
+        assert str(_weakref.proxy(instance)) == "string"
+        assert unicode(_weakref.proxy(instance)) == u"unicode"
+
     def test_eq(self):
         import _weakref
         class A(object):
@@ -423,3 +435,13 @@ class AppTestProxy(object):
         del a1
         gc.collect()
         assert ref1() is None
+
+    def test_init(self):
+        import _weakref, gc
+        # Issue 3634
+        # <weakref to class>.__init__() doesn't check errors correctly
+        r = _weakref.ref(Exception)
+        raises(TypeError, r.__init__, 0, 0, 0, 0, 0)
+        # No exception should be raised here
+        gc.collect()
+

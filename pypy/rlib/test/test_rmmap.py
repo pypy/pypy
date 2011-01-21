@@ -229,6 +229,16 @@ class TestMMap:
         interpret(func, [f.fileno()])
         f.close()
 
+    def test_write_readonly(self):
+        if os.name == "nt":
+            skip("Needs PROT_READ")
+        f = open(self.tmpname + "l", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
+        raises(RTypeError, m.write, "foo")
+        f.close()
+
     def test_size(self):
         f = open(self.tmpname + "l", "w+")
         

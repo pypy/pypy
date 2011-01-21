@@ -4,10 +4,10 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable,\
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module._rawffi.structure import unpack_fields
 from pypy.module._rawffi.array import get_elem, push_elem
+from pypy.module._rawffi.structure import W_Structure
 from pypy.module._rawffi.interp_rawffi import W_DataInstance, letter2tp, \
-     wrap_value, unwrap_value, unwrap_truncate_int
+     wrap_value, unwrap_value, unwrap_truncate_int, unpack_argshapes
 from pypy.rlib.clibffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
 from pypy.rlib.clibffi import ffi_type_void
 from pypy.module._rawffi.tracker import tracker
@@ -27,14 +27,19 @@ def callback(ll_args, ll_res, ll_userdata):
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     callback_ptr = global_counter.CallbackPtr_by_number[userdata.addarg]
     w_callable = callback_ptr.w_callable
-    args = callback_ptr.args
+    argtypes = callback_ptr.argtypes
     space = callback_ptr.space
     try:
-        # XXX The app-level callback gets the arguments as a list of integers.
-        #     Irregular interface here.  Shows something, I say.
-        w_args = space.newlist([space.wrap(rffi.cast(rffi.ULONG, ll_args[i]))
-                                for i in range(len(args))])
-        w_res = space.call(w_callable, w_args)
+        args_w = [None] * len(argtypes)
+        for i in range(len(argtypes)):
+            argtype = argtypes[i]
+            if isinstance(argtype, W_Structure):
+                args_w[i] = argtype.fromaddress(
+                    space, rffi.cast(rffi.SIZE_T, ll_args[i]))
+            else:
+                # XXX other types?
+                args_w[i] = space.wrap(rffi.cast(rffi.ULONG, ll_args[i]))
+        w_res = space.call(w_callable, space.newtuple(args_w))
         if callback_ptr.result is not None: # don't return void
             unwrap_value(space, push_elem, ll_res, 0,
                          callback_ptr.result, w_res)
@@ -63,9 +68,8 @@ class W_CallbackPtr(W_DataInstance):
                  flags=FUNCFLAG_CDECL):
         self.space = space
         self.w_callable = w_callable
-        self.args = [space.str_w(w_arg) for w_arg in space.unpackiterable(
-            w_args)]
-        ffiargs = [letter2tp(space, x).get_basic_ffi_type() for x in self.args]
+        self.argtypes = unpack_argshapes(space, w_args)
+        ffiargs = [tp.get_basic_ffi_type() for tp in self.argtypes]
         if not space.is_w(w_result, space.w_None):
             self.result = space.str_w(w_result)
             ffiresult = letter2tp(space, self.result).get_basic_ffi_type()

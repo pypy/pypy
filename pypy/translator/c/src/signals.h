@@ -8,8 +8,11 @@
 
 #include <stdlib.h>
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #include <process.h>
+#include <io.h>
+#else
+#include <unistd.h>
 #endif
 
 #include <signal.h>
@@ -43,6 +46,7 @@ void pypysig_ignore(int signum);  /* signal will be ignored (SIG_IGN) */
 void pypysig_default(int signum); /* signal will do default action (SIG_DFL) */
 void pypysig_setflag(int signum); /* signal will set a flag which can be
                                      queried with pypysig_poll() */
+int pypysig_set_wakeup_fd(int fd);
 
 /* utility to poll for signals that arrived */
 int pypysig_poll(void);   /* => signum or -1 */
@@ -74,6 +78,7 @@ static char volatile pypysig_flags[NSIG] = {0};
 static int volatile pypysig_occurred = 0;
 /* pypysig_occurred is only an optimization: it tells if any
    pypysig_flags could be set. */
+static int wakeup_fd = -1;
 
 void pypysig_ignore(int signum)
 {
@@ -111,6 +116,9 @@ static void signal_setflag_handler(int signum)
         pypysig_occurred = 1;
         pypysig_counter.value = -1;
       }
+
+    if (wakeup_fd != -1)
+      write(wakeup_fd, "\0", 1);
 }
 
 void pypysig_setflag(int signum)
@@ -142,6 +150,13 @@ int pypysig_poll(void)
           }
     }
   return -1;  /* no pending signal */
+}
+
+int pypysig_set_wakeup_fd(int fd)
+{
+  int old_fd = wakeup_fd;
+  wakeup_fd = fd;
+  return old_fd;
 }
 
 #endif  /* !PYPY_NOT_MAIN_FILE */
