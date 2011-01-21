@@ -7,7 +7,7 @@ from pypy.annotation.signature import annotation
 from pypy.annotation.listdef import ListDef, TooLateForChange
 from pypy.tool.pairtype import pair, pairtype
 from pypy.rlib.rarithmetic import formatd, r_longlong, intmask, LONG_BIT
-from pypy.rlib.rarithmetic import string_to_float
+from pypy.rlib.rarithmetic import rstring_to_float
 from pypy.rlib.unroll import unrolling_iterable
 
 class CannotMarshal(Exception):
@@ -205,7 +205,7 @@ def load_float(loader):
         raise ValueError("expected a float")
     length = ord(readchr(loader))
     s = readstr(loader, length)
-    return string_to_float(s)
+    return rstring_to_float(s)
 add_loader(annmodel.SomeFloat(), load_float)
 
 def dump_string_or_none(buf, x):

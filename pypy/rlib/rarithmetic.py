@@ -517,7 +517,7 @@ else:
     r_int64 = int
 
 
-def string_to_float(s):
+def rstring_to_float(s):
     if USE_SHORT_FLOAT_REPR:
         from pypy.rlib.rdtoa import strtod
         return strtod(s)

@@ -377,13 +377,13 @@ class BaseTestRarithmetic(BaseRtypingTest):
         assert res == 1e-100
 
     def test_string_to_float(self):
-        from pypy.rlib.rarithmetic import string_to_float
+        from pypy.rlib.rarithmetic import rstring_to_float
         def func(x):
             if x == 0:
                 s = '1e23'
             else:
                 s = '-1e23'
-            return string_to_float(s)
+            return rstring_to_float(s)
 
         assert self.interpret(func, [0]) == 1e23
         assert self.interpret(func, [1]) == -1e23

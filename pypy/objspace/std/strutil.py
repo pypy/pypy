@@ -2,7 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rlib.rarithmetic import ovfcheck, string_to_float, INFINITY, NAN
+from pypy.rlib.rarithmetic import ovfcheck, rstring_to_float, INFINITY, NAN
 from pypy.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math
@@ -179,6 +179,6 @@ def string_to_float(s):
         return NAN
 
     try:
-        return string_to_float(s)
+        return rstring_to_float(s)
     except ValueError:
         raise ParseStringError("invalid literal for float()")
