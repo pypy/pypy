@@ -1740,6 +1740,10 @@ order (MRO) for bases """
                 raise MyException
 
         for name, runner, meth_impl, ok, env in specials:
+            if name == '__length_hint__':
+                if not check_impl_detail():
+                    continue
+
             class X(Checker):
                 pass
             for attr, obj in env.iteritems():
