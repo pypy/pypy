@@ -533,8 +533,10 @@ def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
 def str_splitlines__Bytearray_ANY(space, w_bytearray, w_keepends):
     w_str = str__Bytearray(space, w_bytearray)
     w_result = stringobject.str_splitlines__String_ANY(space, w_str, w_keepends)
-    return space.newlist([new_bytearray(space, space.w_bytearray, space.str_w(entry))
-                          for entry in space.unpackiterable(w_result)])
+    return space.newlist([
+        new_bytearray(space, space.w_bytearray, makebytearraydata_w(space, w_entry))
+                        for w_entry in space.unpackiterable(w_result)
+    ])
 
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
