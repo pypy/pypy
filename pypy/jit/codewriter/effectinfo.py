@@ -10,9 +10,9 @@ class EffectInfo(object):
 
     # the 'extraeffect' field is one of the following values:
     EF_PURE                            = 0 #pure function (and cannot raise)
-    EF_CANNOT_RAISE                    = 1 #a function which cannot raise
-    EF_CAN_RAISE                       = 2 #normal function (can raise)
-    EF_LOOPINVARIANT                   = 3 #special: call it only once per loop
+    EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
+    EF_CANNOT_RAISE                    = 2 #a function which cannot raise
+    EF_CAN_RAISE                       = 3 #normal function (can raise)
     EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
 
     # the 'oopspecindex' field is one of the following values:

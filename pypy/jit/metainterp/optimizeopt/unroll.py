@@ -435,8 +435,6 @@ class ExeState(object):
                 if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
                    effectinfo.extraeffect == EffectInfo.EF_PURE:
                     return True
-        elif opnum == rop.GUARD_NO_EXCEPTION:
-            return True # FIXME: Is this safe?
         return False
     
     def update(self, op):

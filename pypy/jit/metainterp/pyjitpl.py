@@ -1203,7 +1203,7 @@ class MIFrame(object):
                     self.execute_varargs(rop.CALL, allboxes, descr, False))
             elif effect == effectinfo.EF_LOOPINVARIANT:
                 return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
-                                            descr, True)
+                                            descr, False)
             else:
                 return self.execute_varargs(rop.CALL, allboxes, descr, True)
 
