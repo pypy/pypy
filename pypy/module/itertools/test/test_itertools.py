@@ -50,6 +50,14 @@ class AppTestItertools:
         it.next()
         assert repr(it) == 'count(124)'
 
+    def test_count_kwargs(self):
+        import itertools
+
+        it = itertools.count(start=2, step=3)
+        assert it.next() == 2
+        assert it.next() == 5
+        assert it.next() == 8
+
     def test_repeat(self):
         import itertools
 

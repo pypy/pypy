@@ -34,8 +34,8 @@ class W_Count(Wrappable):
         
 
 
-def W_Count___new__(space, w_subtype, firstval=0, step=1):
-    return space.wrap(W_Count(space, firstval, step))
+def W_Count___new__(space, w_subtype, start=0, step=1):
+    return space.wrap(W_Count(space, start, step))
 
 W_Count.typedef = TypeDef(
         'count',
