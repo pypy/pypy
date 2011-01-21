@@ -2,8 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rlib.rarithmetic import ovfcheck, break_up_float, parts_to_float,\
-     INFINITY, NAN
+from pypy.rlib.rarithmetic import ovfcheck, string_to_float, INFINITY, NAN
 from pypy.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math
@@ -179,14 +178,7 @@ def string_to_float(s):
     elif low == "nan" or low == "-nan" or low == "+nan":
         return NAN
 
-    # 1) parse the string into pieces.
     try:
-        sign, before_point, after_point, exponent = break_up_float(s)
+        return string_to_float(s)
     except ValueError:
         raise ParseStringError("invalid literal for float()")
-    
-    digits = before_point + after_point
-    if not digits:
-        raise ParseStringError("invalid literal for float()")
-
-    return parts_to_float(sign, before_point, after_point, exponent)

@@ -517,8 +517,15 @@ else:
     r_int64 = int
 
 
-# float as string  -> sign, beforept, afterpt, exponent
+def string_to_float(s):
+    sign, before_point, after_point, exponent = break_up_float(s)
 
+    if not before_point and not after_point:
+        raise ValueError
+
+    return parts_to_float(sign, before_point, after_point, exponent)
+
+# float as string  -> sign, beforept, afterpt, exponent
 def break_up_float(s):
     i = 0
 
