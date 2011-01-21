@@ -1070,7 +1070,7 @@ def fpathconf(space, fd, w_name):
         return space.wrap(os.fpathconf(fd, num))
     except OSError, e:
         raise wrap_oserror(space, e)
-fpathconf.unwrap_spec = [ObjSpace, int, W_Root]
+fpathconf.unwrap_spec = [ObjSpace, 'c_int', W_Root]
 
 def chown(space, path, uid, gid):
     try:
