@@ -518,6 +518,10 @@ else:
 
 
 def string_to_float(s):
+    if USE_SHORT_FLOAT_REPR:
+        from pypy.rlib.rdtoa import strtod
+        return strtod(s)
+
     sign, before_point, after_point, exponent = break_up_float(s)
 
     if not before_point and not after_point:
