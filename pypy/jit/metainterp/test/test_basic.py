@@ -2078,6 +2078,7 @@ class BasicTests:
         
         def main(a, b):
             i = sa = 0
+            #while i < 200:
             while i < 200:
                 myjitdriver.can_enter_jit(a=a, b=b, i=i, sa=sa)
                 myjitdriver.jit_merge_point(a=a, b=b, i=i, sa=sa)
@@ -2090,7 +2091,7 @@ class BasicTests:
             return main(10, 20) + main(-10, -20)
         res = self.meta_interp(g, [])
         assert res == g()
-        self.check_enter_count(2)
+        self.check_enter_count(3)
 
     def test_current_trace_length(self):
         myjitdriver = JitDriver(greens = ['g'], reds = ['x'])

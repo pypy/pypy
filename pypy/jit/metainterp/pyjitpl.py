@@ -1725,8 +1725,12 @@ class MetaInterp(object):
         self.current_merge_points = []
         self.resumekey = key
         self.seen_loop_header_for_jdindex = -1
-        try:
-            self.prepare_resume_from_failure(key.guard_opnum)
+        if isinstance(key, compile.ResumeAtPositionDescr):
+            dont_change_position = True
+        else:
+            dont_change_position = False
+        try:            
+            self.prepare_resume_from_failure(key.guard_opnum, dont_change_position)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(ABORT_BRIDGE)
             self.interpret()
@@ -1830,10 +1834,11 @@ class MetaInterp(object):
         history.set_future_values(self.cpu, residual_args)
         return loop_token
 
-    def prepare_resume_from_failure(self, opnum):
+    def prepare_resume_from_failure(self, opnum, dont_change_position=False):
         frame = self.framestack[-1]
         if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            frame.pc = frame.jitcode.follow_jump(frame.pc)
+            if not dont_change_position:
+                frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping
             pass
         elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:
