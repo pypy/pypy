@@ -20,6 +20,7 @@ from distutils.util import get_platform
 from distutils.errors import DistutilsOptionError
 from site import USER_BASE
 from site import USER_SITE
+from test.test_support import check_impl_detail
 
 
 if sys.version < "2.2":
@@ -82,6 +83,13 @@ INSTALL_SCHEMES = {
         'headers': '$userbase/include/python$py_version_short/$dist_name',
         'scripts': '$userbase/bin',
         'data'   : '$userbase',
+        },
+    'pypy': {
+        'purelib': '$base/site-packages',
+        'platlib': '$base/site-packages',
+        'headers': '$base/include',
+        'scripts': '$base/bin',
+        'data'   : '$base',
         },
     }
 
@@ -467,6 +475,8 @@ class install (Command):
 
     def select_scheme (self, name):
         # it's the caller's problem if they supply a bad name!
+        if hasattr(sys, 'pypy_version_info'):
+            name = 'pypy'
         scheme = INSTALL_SCHEMES[name]
         for key in SCHEME_KEYS:
             attrname = 'install_' + key
