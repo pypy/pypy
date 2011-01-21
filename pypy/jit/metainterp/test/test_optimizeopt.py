@@ -3425,7 +3425,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [i0]
-        i2 = int_add(i0, 10)
         jump(i0)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -4224,7 +4223,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_no_overflow() []
         i2 = int_gt(i1, 1)
         guard_true(i2) []
-        i3 = int_sub(1, i0)
         jump(i0)
         """
         expected = """
@@ -4559,16 +4557,11 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i4) []
         i5 = int_gt(i3, 2)
         guard_true(i5) []
-        jump(i0, i1, i22)
+        jump(i0, i1)
         """
         expected = """
-        [i0, i1, i22]
-        i3 = int_mul(i22, i1)
-        i4 = int_lt(i3, 10)
-        guard_true(i4) []
-        i5 = int_gt(i3, 2)
-        guard_true(i5) []
-        jump(i0, i1, i22)
+        [i0, i1]
+        jump(i0, i1)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -4597,18 +4590,42 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i4) []
         i5 = int_ge(i3, 2)
         guard_true(i5) []
-        jump(i0, i1, i2)
+        jump(i0, i1)
         """
         expected = """
-        [i0, i1, i2]
-        i3 = int_sub(i2, i1)
-        i4 = int_le(i3, 10)
-        guard_true(i4) []
-        i5 = int_ge(i3, 2)
-        guard_true(i5) []
-        jump(i0, i1, i2)
+        [i0, i1]
+        jump(i0, i1)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_invariant_ovf(self):
+        ops = """
+        [i0, i1, i10, i11, i12]
+        i2 = int_add_ovf(i0, i1)
+        guard_no_overflow() []
+        i3 = int_sub_ovf(i0, i1)
+        guard_no_overflow() []
+        i4 = int_mul_ovf(i0, i1)
+        guard_no_overflow() []
+        i24 = int_mul_ovf(i10, i11)
+        guard_no_overflow() []
+        i23 = int_sub_ovf(i10, i11)
+        guard_no_overflow() []
+        i22 = int_add_ovf(i10, i11)
+        guard_no_overflow() []
+        jump(i0, i1, i2, i3, i4)
+        """
+        expected = """
+        [i0, i1, i10, i11, i12]
+        i24 = int_mul_ovf(i10, i11)
+        guard_no_overflow() []
+        i23 = int_sub_ovf(i10, i11)
+        guard_no_overflow() []
+        i22 = int_add_ovf(i10, i11)
+        guard_no_overflow() []
+        jump(i0, i1, i10, i11, i12)
+        """
+        self.optimize_loop(ops, expected, ops)
 
     def test_value_proven_to_be_constant_after_two_iterations(self):
         class FakeDescr(AbstractDescr):

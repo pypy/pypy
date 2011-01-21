@@ -3708,7 +3708,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_no_overflow() []
         i2 = int_gt(i1, 1)
         guard_true(i2) []
-        i3 = int_sub(1, i0)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
