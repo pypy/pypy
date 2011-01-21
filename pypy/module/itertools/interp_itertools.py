@@ -1184,7 +1184,7 @@ class W_CombinationsWithReplacement(W_Combinations):
     def max_index(self, j):
         return self.indices[j - 1]
 
-    @unwrap_spec(ObjSpace, W_Root, W_Root, int)
+@unwrap_spec(ObjSpace, W_Root, W_Root, int)
 def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
         pool_w = space.fixedview(w_iterable)
         if r < 0:
