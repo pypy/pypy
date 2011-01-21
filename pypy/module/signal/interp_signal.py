@@ -291,11 +291,12 @@ siginterrupt.unwrap_spec = [ObjSpace, int, int]
 #__________________________________________________________
 
 def timeval_from_double(d, timeval):
-    timeval.c_tv_sec = int(d)
-    timeval.c_tv_usec = int((d - int(d)) * 1000000)
+    rffi.setintfield(timeval, 'c_tv_sec', int(d))
+    rffi.setintfield(timeval, 'c_tv_usec', int((d - int(d)) * 1000000))
 
 def double_from_timeval(tv):
-    return tv.c_tv_sec + (tv.c_tv_usec / 1000000.0)
+    return rffi.getintfield(tv, 'c_tv_sec') + (
+        rffi.getintfield(tv, 'c_tv_usec') / 1000000.0)
 
 def itimer_retval(space, val):
     w_value = space.wrap(double_from_timeval(val.c_it_value))
