@@ -176,6 +176,13 @@ class BaseTestOptimizeOpt(BaseTest):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
+        class FakeDescr(AbstractDescr):
+            class rd_snapshot:
+                class prev:
+                    boxes = []
+            def clone_if_mutable(self):
+                return self
+        loop.preamble.start_resumedescr = FakeDescr()
         optimize_loop_1(metainterp_sd, loop)
         #
 

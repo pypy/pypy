@@ -167,6 +167,7 @@ class UnrollOptimizer(Optimization):
 
             new_snapshot_args = []
             start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
+            assert isinstance(start_resumedescr, ResumeGuardDescr)
             snapshot_args = start_resumedescr.rd_snapshot.prev.boxes 
             for a in snapshot_args:
                 if not isinstance(a, Const):
@@ -195,18 +196,22 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = loop.preamble.inputargs[:]
                 short_loop.operations = short
 
+                try:
+                    # Clone ops and boxes to get private versions and 
+                    newargs = [a.clonebox() for a in short_loop.inputargs]
+                    inliner = Inliner(short_loop.inputargs, newargs)
+                    short_loop.inputargs = newargs
+                    ops = [inliner.inline_op(op) for op in short_loop.operations]
+                    short_loop.operations = ops
+                except KeyError:
+                    debug_print("failed to clone short preamble, killing it instead")
+                    return
+
                 assert isinstance(loop.preamble.token, LoopToken)
                 if loop.preamble.token.short_preamble:
                     loop.preamble.token.short_preamble.append(short_loop)
                 else:
                     loop.preamble.token.short_preamble = [short_loop]
-
-                # Clone ops and boxes to get private versions and 
-                newargs = [a.clonebox() for a in short_loop.inputargs]
-                inliner = Inliner(short_loop.inputargs, newargs)
-                short_loop.inputargs = newargs
-                ops = [inliner.inline_op(op) for op in short_loop.operations]
-                short_loop.operations = ops
 
                 # Forget the values to allow them to be freed
                 for box in short_loop.inputargs:
@@ -214,38 +219,6 @@ class UnrollOptimizer(Optimization):
                 for op in short_loop.operations:
                     if op.result:
                         op.result.forget_value()
-                
-                if False:
-                    boxmap = {}
-                    for i in range(len(short_loop.inputargs)):
-                        box = short_loop.inputargs[i]
-                        newbox = box.clonebox()
-                        boxmap[box] = newbox
-                        newbox.forget_value()
-                        short_loop.inputargs[i] = newbox
-                    for i in range(len(short)):
-                        oldop = short[i]
-                        op = oldop.clone()
-                        args = []
-                        for a in op.getarglist():
-                            if not isinstance(a, Const):
-                                a = boxmap[a]
-                            args.append(a)
-                        op.initarglist(args)
-                        if op.is_guard():
-                            args = []
-                            for a in op.getfailargs():
-                                if not isinstance(a, Const):
-                                    a = boxmap[a]
-                                args.append(a)
-                            op.setfailargs(args)
-                        box = op.result
-                        if box:
-                            newbox = box.clonebox()
-                            boxmap[box] = newbox
-                            newbox.forget_value()
-                            op.result = newbox
-                        short[i] = op
                 
 
     def inline(self, loop_operations, loop_args, jump_args):
@@ -400,7 +373,10 @@ class UnrollOptimizer(Optimization):
         for box in preamble.inputargs:
             seen[box] = True
         for op in short_preamble:
-            for box in op.getarglist():
+            args = op.getarglist()
+            if op.is_guard():
+                args = args + op.getfailargs()
+            for box in args:
                 if isinstance(box, Const):
                     continue
                 if box not in seen:
