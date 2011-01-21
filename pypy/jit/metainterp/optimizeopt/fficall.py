@@ -68,6 +68,8 @@ class FuncInfo(object):
             return f.inst_argtypes, f.inst_restype
 
 
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
+
 class OptFfiCall(Optimization):
 
     def __init__(self):
@@ -78,18 +80,21 @@ class OptFfiCall(Optimization):
         # FIXME: Should any status be saved for next iteration?
 
     def begin_optimization(self, funcval, op):
-        self.rollback_maybe()
+        self.rollback_maybe('begin_optimization ' + op.repr())
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)
 
     def commit_optimization(self):
         self.funcinfo = None
 
-    def rollback_maybe(self):
+    def rollback_maybe(self, msg):
         if self.funcinfo is None:
             return # nothing to rollback
         #
         # we immediately set funcinfo to None to prevent recursion when
         # calling emit_op
+        debug_start('jit-log-opt-debug-ffi')
+        debug_print('rollback: ' + msg)
+        debug_stop('jit-log-opt-debug-ffi')
         funcinfo = self.funcinfo
         self.funcinfo = None
         self.emit_operation(funcinfo.prepare_op)
@@ -100,7 +105,7 @@ class OptFfiCall(Optimization):
 
     def emit_operation(self, op):
         # we cannot emit any operation during the optimization
-        self.rollback_maybe()
+        self.rollback_maybe('invalid operation: ' + op.repr())
         Optimization.emit_operation(self, op)
 
     def optimize_CALL(self, op):
@@ -147,7 +152,7 @@ class OptFfiCall(Optimization):
             self.funcinfo.force_token_op = op
 
     def do_prepare_call(self, op):
-        self.rollback_maybe()
+        self.rollback_maybe('prepare call: ' + op.repr())
         funcval = self._get_funcval(op)
         if not funcval.is_constant():
             return [op] # cannot optimize
