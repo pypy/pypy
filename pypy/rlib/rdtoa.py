@@ -221,7 +221,7 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0):
                 finally:
                     dg_freedtoa(digits)
 
-def llimpl_strtod(value, code, precision, flags):
+def dtoa_formatd(value, code, precision, flags):
     if code in 'EFG':
         code = code.lower()
 

@@ -9,8 +9,6 @@ from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
 
-USE_DTOA = True # XXX make it a translation option
-
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes = ['src/ll_strtod.h'],
@@ -60,10 +58,6 @@ class RegisterStrtod(BaseLazyRegistering):
                 s = s.upper()
 
             return s
-
-        if USE_DTOA:
-            from pypy.rpython.module.ll_dtoa import llimpl_strtod
-            llimpl = llimpl_strtod
 
         def oofakeimpl(x, code, precision, flags):
             return ootype.oostring(rarithmetic.formatd(x, code, precision, flags), -1)

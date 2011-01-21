@@ -1,4 +1,5 @@
-from pypy.rpython.module.ll_dtoa import strtod, dtoa, rarithmetic
+from pypy.rlib.rdtoa import strtod, dtoa
+from pypy.rlib import rarithmetic
 
 def test_strtod():
     assert strtod("12345") == 12345.0

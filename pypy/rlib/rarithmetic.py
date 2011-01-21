@@ -37,6 +37,8 @@ import sys, math
 from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
+USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
+
 # set up of machine internals
 _bits = 0
 _itest = 1
@@ -615,8 +617,13 @@ def _formatd(x, code, precision, flags):
         s = s[:-2]
 
     return s
+
 def formatd(x, code, precision, flags=0):
-    return _formatd(x, code, precision, flags)
+    if USE_SHORT_FLOAT_REPR:
+        from pypy.rlib.rdtoa import dtoa_formatd
+        return dtoa_formatd(x, code, precision, flags)
+    else:
+        return _formatd(x, code, precision, flags)
 
 formatd_max_length = 120
 
