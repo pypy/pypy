@@ -569,7 +569,8 @@ class TestGetcallargsFunctions(unittest.TestCase):
         else:
             self.fail('Exception not raised')
         self.assertIs(type(ex1), type(ex2))
-        self.assertEqual(str(ex1), str(ex2))
+        if check_impl_detail():
+            self.assertEqual(str(ex1), str(ex2))
 
     def makeCallable(self, signature):
         """Create a function that returns its locals(), excluding the
