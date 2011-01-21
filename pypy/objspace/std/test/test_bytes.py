@@ -79,6 +79,13 @@ class AppTestBytesArray:
         assert bytearray('ll') in bytearray('hello')
         assert memoryview('ll') in bytearray('hello')
 
+    def test_ord(self):
+        b = bytearray('\0A\x7f\x80\xff')
+        assert ([ord(b[i:i+1]) for i in range(len(b))] ==
+                         [0, 65, 127, 128, 255])
+        raises(TypeError, ord, bytearray('ll'))
+        raises(TypeError, ord, bytearray())
+
     def test_translate(self):
         b = 'hello'
         ba = bytearray(b)

@@ -88,6 +88,13 @@ def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
     return wrapint(space, result)
 
+def ord__Bytearray(space, w_bytearray):
+    if len(w_bytearray.data) != 1:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected a character, but string"
+                            "of length %s found" % len(w_bytearray.data)))
+    return space.wrap(ord(w_bytearray.data[0]))
+
 def getitem__Bytearray_ANY(space, w_bytearray, w_index):
     # getindex_w should get a second argument space.w_IndexError,
     # but that doesn't exist the first time this is called.
