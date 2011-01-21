@@ -11,6 +11,7 @@ include_dirs = [cdir]
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
+    includes = ['src/dtoa.h'],
     libraries = [],
     separate_module_files = [cdir / 'src' / 'dtoa.c'],
     separate_module_sources = ['''
