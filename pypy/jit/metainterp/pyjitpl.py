@@ -821,11 +821,7 @@ class MIFrame(object):
 
     @arguments("int", "orgpc")
     def opimpl_loop_header(self, jdindex, orgpc):
-        #resumedescr = compile.ResumeGuardDescr()
-        resumedescr = compile.ResumeAtPositionDescr()
-        self.capture_resumedata(resumedescr, orgpc)
         self.metainterp.seen_loop_header_for_jdindex = jdindex
-        self.metainterp.loop_header_resumedescr = resumedescr
 
     def verify_green_args(self, jitdriver_sd, varargs):
         num_green_args = jitdriver_sd.num_green_args
@@ -836,14 +832,8 @@ class MIFrame(object):
     @arguments("orgpc", "int", "boxes3", "jitcode_position", "boxes3")
     def opimpl_jit_merge_point(self, orgpc, jdindex, greenboxes,
                                jcposition, redboxes):
-        #try:
-        #resumedescr = compile.ResumeAtPositionDescr()
-        #resumedescr = compile.ResumeGuardDescr()
-        #self.capture_resumedata(resumedescr, orgpc)
-        #except MissingLiveness:
-        #    resumedescr = None
-        #resumedescr.rd_frame_info_list.pc = orgpc # FIXME: IS this safe?
-        resumedescr = self.metainterp.loop_header_resumedescr
+        resumedescr = compile.ResumeAtPositionDescr()
+        self.capture_resumedata(resumedescr, orgpc)
         
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
@@ -1426,7 +1416,6 @@ class MetaInterp(object):
         self.free_frames_list = []
         self.last_exc_value_box = None
         self.retracing_loop_from = None
-        self.loop_header_resumedescr = None
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1726,6 +1715,7 @@ class MetaInterp(object):
         self.resumekey = key
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
+            self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
             dont_change_position = True
         else:
             dont_change_position = False
