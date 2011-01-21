@@ -88,13 +88,6 @@ def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
     return wrapint(space, result)
 
-def ord__Bytearray(space, w_bytearray):
-    if len(w_bytearray.data) != 1:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a character, but string"
-                            "of length %s found" % len(w_bytearray.data)))
-    return space.wrap(ord(w_bytearray.data[0]))
-
 def getitem__Bytearray_ANY(space, w_bytearray, w_index):
     # getindex_w should get a second argument space.w_IndexError,
     # but that doesn't exist the first time this is called.
@@ -129,12 +122,6 @@ def contains__Bytearray_Int(space, w_bytearray, w_char):
 
 def contains__Bytearray_String(space, w_bytearray, w_str):
     # XXX slow - copies, needs rewriting
-    w_str2 = str__Bytearray(space, w_bytearray)
-    return stringobject.contains__String_String(space, w_str2, w_str)
-
-def contains__Bytearray_ANY(space, w_bytearray, w_sub):
-    # XXX slow - copies, needs rewriting
-    w_str = space.wrap(space.bufferstr_w(w_sub))
     w_str2 = str__Bytearray(space, w_bytearray)
     return stringobject.contains__String_String(space, w_str2, w_str)
 
@@ -370,8 +357,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
     if not list_w:
         return W_BytearrayObject([])
     data = w_self.data
-
-    newdata = []
+    reslen = 0
     for i in range(len(list_w)):
         w_s = list_w[i]
         if not (space.is_true(space.isinstance(w_s, space.w_str)) or
@@ -380,10 +366,12 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
                 space.w_TypeError,
                 "sequence item %d: expected string, %s "
                 "found", i, space.type(w_s).getname(space, '?'))
-
+        reslen += len(space.bufferstr_w(w_s))
+    newdata = []
+    for i in range(len(list_w)):
         if data and i != 0:
             newdata.extend(data)
-        newdata.extend([c for c in space.bufferstr_w(w_s)])
+        newdata.extend([c for c in space.bufferstr_w(list_w[i])])
     return W_BytearrayObject(newdata)
 
 def str_decode__Bytearray_ANY_ANY(space, w_bytearray, w_encoding, w_errors):
@@ -531,12 +519,6 @@ def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
     w_res = stringobject.str_expandtabs__String_ANY(space, w_str, w_tabsize)
     return String2Bytearray(space, w_res)
 
-def str_splitlines__Bytearray_ANY(space, w_bytearray, w_keepends):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_result = stringobject.str_splitlines__String_ANY(space, w_str, w_keepends)
-    return space.newlist([new_bytearray(space, space.w_bytearray, space.str_w(entry))
-                          for entry in space.unpackiterable(w_result)])
-
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
     if not space.is_w(w_by, space.w_None):
@@ -637,8 +619,6 @@ setitem_slice_helper = func_with_new_name(_setitem_slice_helper,
                                           'setitem_slice_helper')
 
 def _strip(space, w_bytearray, u_chars, left, right):
-    # note: mostly copied from stringobject._strip
-    # should really be shared
     u_self = w_bytearray.data
 
     lpos = 0
