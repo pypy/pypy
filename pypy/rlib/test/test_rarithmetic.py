@@ -391,7 +391,7 @@ class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
 
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
     def test_formatd_repr(self):
-        sys.version_info < (2, 7):
+        if sys.version_info < (2, 7):
             skip('cannot oofake short float repr before python 2.7')
 
 def test_isinf():
