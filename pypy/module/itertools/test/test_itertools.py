@@ -741,6 +741,8 @@ class AppTestItertools26:
                (2, 'b', 2, 'b')]
         assert list(prodlist) == ans
 
+        raises(TypeError, product, [], foobar=3)
+
     def test_product_diff_sizes(self):
         from itertools import product
         l = [1, 2]
