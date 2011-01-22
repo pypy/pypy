@@ -437,14 +437,11 @@ class Optimizer(Optimization):
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
-        ###pendingfields = self.heap_op_optimizer.force_lazy_setfields_for_guard()
-        if op.getjumptarget():
-            return op
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values, self.pendingfields)
-        descr.start_indexes = [...]
+        #descr.start_indexes = [self.getvalue(b).start_index for b in op.getfailargs()]
         if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
             compile.giveup()
         descr.store_final_boxes(op, newboxes)
