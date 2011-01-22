@@ -401,7 +401,7 @@ class BasicTests:
         self.check_loops({'int_add': 2, 'int_lt': 1,
                           'int_sub': 2, 'guard_false': 1,
                           'jump': 2,
-                          'int_gt': 1, 'guard_true': 1, 'int_mul': 1})
+                          'int_gt': 1, 'guard_true': 1})
 
     def test_loop_invariant_intbox(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])

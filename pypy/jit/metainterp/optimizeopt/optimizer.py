@@ -282,9 +282,13 @@ class Optimizer(Optimization):
             print
             print
             for op in resumedescr.parent_short_preamble.operations[:-1]:
-                newop = inliner.inline_op(op, inline_result=True)
-                print newop
-                self.first_optimization.propagate_forward(newop)
+                if op.result and op.result not in inliner.argmap:
+                    continue
+                try:
+                    newop = inliner.inline_op(op, inline_result=True)
+                    self.first_optimization.propagate_forward(newop)
+                except KeyError:
+                    pass
                 # FIMXE: only ops with boxes in myboxes
         
     def force_at_end_of_preamble(self):

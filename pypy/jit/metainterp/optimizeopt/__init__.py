@@ -36,7 +36,7 @@ def optimize_loop_1(metainterp_sd, loop, unroll=True, resumekey=None):
         optimize_unroll(metainterp_sd, loop, optimizations)
     else:
         optimizer = Optimizer(metainterp_sd, loop, optimizations)
-        if resumekey:
+        if resumekey and resumekey.has_parent_short_preamble():
             optimizer.initialize_state_from_guard_failure(resumekey)
         optimizer.propagate_all_forward()
 

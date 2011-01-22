@@ -267,6 +267,8 @@ def make_done_loop_tokens():
 class ResumeDescr(AbstractFailDescr):
     def inline_short_preamble(self):
         return True
+    def has_parent_short_preamble(self):
+        return False
 
 class ResumeGuardDescr(ResumeDescr):
     _counter = 0        # if < 0, there is one counter per value;
@@ -283,7 +285,7 @@ class ResumeGuardDescr(ResumeDescr):
     parent_short_preamble = None
     start_indexes = None
     rd_extrafailargs = None
-    # FIXME: Add theese to copy_all_attrbutes_into
+
 
     CNT_INT   = -0x20000000
     CNT_REF   = -0x40000000
@@ -398,12 +400,18 @@ class ResumeGuardDescr(ResumeDescr):
         res.rd_consts = self.rd_consts
         res.rd_virtuals = self.rd_virtuals
         res.rd_pendingfields = self.rd_pendingfields
+        res.parent_short_preamble = self.parent_short_preamble 
+        res.start_indexes = self.start_indexes 
+        res.rd_extrafailargs = self.rd_extrafailargs 
 
     def _clone_if_mutable(self):
         res = ResumeGuardDescr()
         self.copy_all_attrbutes_into(res)
         return res
 
+    def has_parent_short_preamble(self):
+        return self.parent_short_preamble is not None
+    
 class ResumeAtPositionDescr(ResumeGuardDescr):
     def inline_short_preamble(self):
         return False

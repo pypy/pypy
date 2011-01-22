@@ -99,6 +99,10 @@ class Inliner(object):
             else:
                 newop.setfailargs([])
 
+        descr = newop.getdescr()
+        if isinstance(descr, ResumeGuardDescr):
+            descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
+
         if newop.result and not ignore_result:
             old_result = newop.result
             if inline_result:
@@ -106,10 +110,6 @@ class Inliner(object):
             else:
                 newop.result = newop.result.clonebox()
             self.argmap[old_result] = newop.result
-
-        descr = newop.getdescr()
-        if isinstance(descr, ResumeGuardDescr):
-            descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
 
         return newop
     
