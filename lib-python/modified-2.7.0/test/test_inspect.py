@@ -4,7 +4,6 @@ import types
 import unittest
 import inspect
 import linecache
-import datetime
 from UserList import UserList
 from UserDict import UserDict
 
@@ -94,9 +93,9 @@ class TestPredicates(IsTestBase):
         else:
             self.assertFalse(inspect.isgetsetdescriptor(type(tb.tb_frame).f_locals))
         if hasattr(types, 'MemberDescriptorType'):
-            self.istest(inspect.ismemberdescriptor, 'datetime.timedelta.days')
+            self.istest(inspect.ismemberdescriptor, 'type(lambda: None).func_globals')
         else:
-            self.assertFalse(inspect.ismemberdescriptor(datetime.timedelta.days))
+            self.assertFalse(inspect.ismemberdescriptor(type(lambda: None).func_globals))
 
     def test_isroutine(self):
         self.assertTrue(inspect.isroutine(mod.spam))
