@@ -165,15 +165,18 @@ class UnrollOptimizer(Optimization):
 
             loop.operations = self.optimizer.newoperations
 
-            new_snapshot_args = []
             start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
             assert isinstance(start_resumedescr, ResumeGuardDescr)
-            snapshot_args = start_resumedescr.rd_snapshot.prev.boxes 
-            for a in snapshot_args:
-                if not isinstance(a, Const):
-                    a = loop.preamble.inputargs[jump_args.index(a)]
-                new_snapshot_args.append(a)
-            start_resumedescr.rd_snapshot.prev.boxes = new_snapshot_args
+            snapshot = start_resumedescr.rd_snapshot
+            while snapshot is not None:
+                snapshot_args = snapshot.boxes 
+                new_snapshot_args = []
+                for a in snapshot_args:
+                    if not isinstance(a, Const):
+                        a = loop.preamble.inputargs[jump_args.index(a)]
+                    new_snapshot_args.append(a)
+                snapshot.boxes = new_snapshot_args
+                snapshot = snapshot.prev
 
             short = self.create_short_preamble(loop.preamble, loop)
             if short:
@@ -197,16 +200,12 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = loop.preamble.inputargs[:]
                 short_loop.operations = short
 
-                try:
-                    # Clone ops and boxes to get private versions and 
-                    newargs = [a.clonebox() for a in short_loop.inputargs]
-                    inliner = Inliner(short_loop.inputargs, newargs)
-                    short_loop.inputargs = newargs
-                    ops = [inliner.inline_op(op) for op in short_loop.operations]
-                    short_loop.operations = ops
-                except KeyError:
-                    debug_print("failed to clone short preamble, killing it instead")
-                    return
+                # Clone ops and boxes to get private versions and 
+                newargs = [a.clonebox() for a in short_loop.inputargs]
+                inliner = Inliner(short_loop.inputargs, newargs)
+                short_loop.inputargs = newargs
+                ops = [inliner.inline_op(op) for op in short_loop.operations]
+                short_loop.operations = ops
 
                 assert isinstance(loop.preamble.token, LoopToken)
                 if loop.preamble.token.short_preamble:
