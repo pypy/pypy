@@ -243,7 +243,7 @@ if sys.platform == 'win32':
             time.sleep(0.001)
 
             # if this is main thread let KeyboardInterrupt be raised
-            # XXX PyErr_CheckSignals()
+            _check_signals(self.space)
 
             # recalculate timeout
             if msecs != rwin32.INFINITE:
@@ -327,7 +327,7 @@ else:
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
                     raise
-                # XXX PyErr_CheckSignals()
+                _check_signals(space)
 
                 return True
         finally:
@@ -520,3 +520,6 @@ W_SemLock.typedef = TypeDef(
     __exit__=interp2app(W_SemLock.exit),
     SEM_VALUE_MAX=SEM_VALUE_MAX,
     )
+
+def _check_signals(space):
+    space.getexecutioncontext().checksignals()
