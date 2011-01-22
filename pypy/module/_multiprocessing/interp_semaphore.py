@@ -124,7 +124,7 @@ else:
             res = _gettimeofday(now, None)
             if res < 0:
                 raise OSError(rposix.get_errno(), "gettimeofday failed")
-            return now[0].c_tv_sec, now[0].c_tv_usec
+            return rffi.getintfield(now[0], 'c_tv_sec'), rffi.getintfield(now[0], 'c_tv_usec')
         finally:
             lltype.free(now, flavor='raw')
 
@@ -257,10 +257,13 @@ else:
             now_sec, now_usec = gettimeofday()
 
             deadline = lltype.malloc(TIMESPECP.TO, 1, flavor='raw')
-            deadline[0].c_tv_sec = now_sec + sec
-            rffi.setintfield(deadline[0], "c_tv_nsec", now_usec * 1000 + nsec)
-            deadline[0].c_tv_sec += (deadline[0].c_tv_nsec / 1000000000)
-            deadline[0].c_tv_nsec %= 1000000000
+            rffi.setintfield(deadline[0], 'c_tv_sec', now_sec + sec)
+            rffi.setintfield(deadline[0], 'c_tv_nsec', now_usec * 1000 + nsec)
+            val = rffi.getintfield(deadline[0], 'c_tv_sec') + \
+                                rffi.getintfield(deadline[0], 'c_tv_nsec') / 1000000000
+            rffi.setintfield(deadline[0], 'c_tv_sec', val)
+            val = rffi.getintfield(deadline[0], 'c_tv_nsec') % 1000000000
+            rffi.setintfield(deadline[0], 'c_tv_nsec', val)
         try:
             while True:
                 try:
