@@ -623,6 +623,14 @@ class AppTestItertools26:
         assert it.next() == -sys.maxint - 1
         assert it.next() == -sys.maxint
         assert it.next() == -sys.maxint + 1
+        it = itertools.count(0, sys.maxint)
+        assert it.next() == sys.maxint * 0
+        assert it.next() == sys.maxint * 1
+        assert it.next() == sys.maxint * 2
+        it = itertools.count(0, sys.maxint + 1)
+        assert it.next() == (sys.maxint + 1) * 0
+        assert it.next() == (sys.maxint + 1) * 1
+        assert it.next() == (sys.maxint + 1) * 2
 
     def test_chain_fromiterable(self):
         import itertools

@@ -7,41 +7,39 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
 
-    def __init__(self, space, firstval, step):
+    def __init__(self, space, w_firstval, w_step):
         self.space = space
-        self.c = firstval
-        self.step = step
+        self.w_c = w_firstval
+        self.w_step = w_step
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
-        c = self.c
-        try:
-            self.c = ovfcheck(self.c + self.step)
-        except OverflowError:
-            raise OperationError(self.space.w_OverflowError,
-                    self.space.wrap("cannot count beyond sys.maxint"))
-
-        return self.space.wrap(c)
+        w_c = self.w_c
+        self.w_c = self.space.add(w_c, self.w_step)
+        return w_c
 
     def repr_w(self):
-        if self.step == 1:
-            s = 'count(%d)' % (self.c,)
+        space = self.space
+        c = space.str_w(space.repr(self.w_c))
+        if space.eq_w(self.w_step, space.wrap(1)):
+            s = 'count(%s)' % (c,)
         else:
-            s = 'count(%d, %d)' % (self.c, self.step)
+            step = space.str_w(space.repr(self.w_step))
+            s = 'count(%s, %s)' % (c, step)
         return self.space.wrap(s)
-        
 
 
-def W_Count___new__(space, w_subtype, start=0, step=1):
+@unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
+def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
     r = space.allocate_instance(W_Count, w_subtype)
-    r.__init__(space, start, step)
+    r.__init__(space, w_start, w_step)
     return space.wrap(r)
 
 W_Count.typedef = TypeDef(
         'count',
-        __new__ = interp2app(W_Count___new__, unwrap_spec=[ObjSpace, W_Root, int, int]),
+        __new__ = interp2app(W_Count___new__),
         __iter__ = interp2app(W_Count.iter_w, unwrap_spec=['self']),
         next = interp2app(W_Count.next_w, unwrap_spec=['self']),
         __repr__ = interp2app(W_Count.repr_w, unwrap_spec=['self']),
