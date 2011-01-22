@@ -3,6 +3,9 @@ from pypy.conftest import gettestobjspace
 class AppTestItertools: 
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['itertools'])
+        cls.w_py27 = cls.space.appexec([], """():
+            import sys; return sys.version_info >= (2, 7)
+            """)
 
     def test_compress(self):
         import itertools
@@ -787,3 +790,45 @@ class AppTestItertools:
         raises(TypeError, combinations_with_replacement, None)
         raises(ValueError, combinations_with_replacement, "abc", -2)
         assert list(combinations_with_replacement("ABC", 2)) == [("A", "A"), ("A", 'B'), ("A", "C"), ("B", "B"), ("B", "C"), ("C", "C")]
+
+    def test_subclassing(self):
+        if not self.py27:
+            skip("requires Python 2.7")
+        import itertools
+        class A(itertools.count): pass
+        assert type(A(5)) is A
+        class A(itertools.repeat): pass
+        assert type(A('foo')) is A
+        class A(itertools.takewhile): pass
+        assert type(A(lambda x: True, [])) is A
+        class A(itertools.dropwhile): pass
+        assert type(A(lambda x: True, [])) is A
+        class A(itertools.ifilter): pass
+        assert type(A(lambda x: True, [])) is A
+        class A(itertools.ifilterfalse): pass
+        assert type(A(lambda x: True, [])) is A
+        class A(itertools.islice): pass
+        assert type(A([], 0)) is A
+        class A(itertools.chain): pass
+        assert type(A([], [])) is A
+        assert type(A.from_iterable([])) is A
+        class A(itertools.imap): pass
+        assert type(A(lambda: 5, [])) is A
+        class A(itertools.izip): pass
+        assert type(A([], [])) is A
+        class A(itertools.izip_longest): pass
+        assert type(A([], [])) is A
+        class A(itertools.cycle): pass
+        assert type(A([])) is A
+        class A(itertools.starmap): pass
+        assert type(A(lambda: 5, [])) is A
+        class A(itertools.groupby): pass
+        assert type(A([], lambda: 5)) is A
+        class A(itertools.compress): pass
+        assert type(A('', [])) is A
+        class A(itertools.product): pass
+        assert type(A('', '')) is A
+        class A(itertools.combinations): pass
+        assert type(A('', 0)) is A
+        class A(itertools.combinations_with_replacement): pass
+        assert type(A('', 0)) is A
