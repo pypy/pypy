@@ -9,7 +9,7 @@ from UserList import UserList
 from UserDict import UserDict
 
 from test.test_support import run_unittest, check_py3k_warnings
-from pypy.test_support import check_impl_detail
+from test.test_support import check_impl_detail
 
 with check_py3k_warnings(
         ("tuple parameter unpacking has been removed", SyntaxWarning),
