@@ -258,7 +258,7 @@ else:
 
             deadline = lltype.malloc(TIMESPECP.TO, 1, flavor='raw')
             deadline[0].c_tv_sec = now_sec + sec
-            deadline[0].c_tv_nsec = now_usec * 1000 + nsec
+            rffi.setintfield(deadline[0], "c_tv_nsec", now_usec * 1000 + nsec)
             deadline[0].c_tv_sec += (deadline[0].c_tv_nsec / 1000000000)
             deadline[0].c_tv_nsec %= 1000000000
         try:
