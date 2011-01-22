@@ -39,6 +39,7 @@ class TestW_ComplexObject:
         test_cparse('.e+5', '.e+5', '0.0')
         test_cparse('(1+2j)', '1', '2')
         test_cparse('(1-6j)', '1', '-6')
+        test_cparse(' ( +3.14-6J )','+3.14','-6')
 
     def test_unpackcomplex(self):
         space = self.space
@@ -275,6 +276,7 @@ class AppTestAppComplexTest:
         h.assertAlmostEqual(complex(),  0)
         h.assertAlmostEqual(complex("-1"), -1)
         h.assertAlmostEqual(complex("+1"), +1)
+        h.assertAlmostEqual(complex(" ( +3.14-6J )"), 3.14-6j)
 
         class complex2(complex): pass
         h.assertAlmostEqual(complex(complex2(1+1j)), 1+1j)
@@ -357,12 +359,12 @@ class AppTestAppComplexTest:
         x.foo = 42
         assert x.foo == 42
         assert type(complex(x)) == complex
-    
+
     def test_infinity(self):
         inf = 1e200*1e200
         assert complex("1"*500) == complex(inf)
         assert complex("-inf") == complex(-inf)
-        
+
     def test_repr(self):
         assert repr(1+6j) == '(1+6j)'
         assert repr(1-6j) == '(1-6j)'

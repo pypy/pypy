@@ -1,24 +1,9 @@
+import py
 from pypy.conftest import gettestobjspace
 
 class AppTestItertools: 
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['itertools'])
-        cls.w_py27 = cls.space.appexec([], """():
-            import sys; return sys.version_info >= (2, 7)
-            """)
-
-    def test_compress(self):
-        import itertools
-
-        it = itertools.compress(['a', 'b', 'c'], [0, 1, 0])
-
-        assert list(it) == ['b']
-
-    def test_compress_diff_len(self):
-        import itertools
-
-        it = itertools.compress(['a'], [])
-        raises(StopIteration, it.next)
 
     def test_count(self):
         import itertools
@@ -34,17 +19,6 @@ class AppTestItertools:
         for x in range(10):
             assert it.next() == x + 3
 
-    def test_count_overflow(self):
-        import itertools, sys
-
-        # this checks for exact implementation details... that's 2.5 behavior
-        it = itertools.count(sys.maxint - 1)
-        assert it.next() == sys.maxint - 1
-        raises(OverflowError, it.next)
-        raises(OverflowError, it.next)
-
-        raises(OverflowError, itertools.count, sys.maxint + 1)
-
     def test_count_repr(self):
         import itertools
 
@@ -52,14 +26,6 @@ class AppTestItertools:
         assert repr(it) == 'count(123)'
         it.next()
         assert repr(it) == 'count(124)'
-
-    def test_count_kwargs(self):
-        import itertools
-
-        it = itertools.count(start=2, step=3)
-        assert it.next() == 2
-        assert it.next() == 5
-        assert it.next() == 8
 
     def test_repeat(self):
         import itertools
@@ -91,8 +57,6 @@ class AppTestItertools:
         it = itertools.repeat(None, -1)
         raises(StopIteration, it.next)
         raises(StopIteration, it.next)
-
-        assert list(itertools.repeat(object='a', times=3)) == ['a', 'a', 'a']
 
     def test_repeat_overflow(self):
         import itertools
@@ -257,9 +221,8 @@ class AppTestItertools:
     def test_islice_overflow(self):
         import itertools
         import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("CPython 2.5 gives a strange ValueError")
-        raises(OverflowError, itertools.islice, [], sys.maxint + 1)
+        raises((OverflowError, ValueError),    # ValueError on top of CPython
+               itertools.islice, [], sys.maxint + 1)
 
     def test_islice_wrongargs(self):
         import itertools
@@ -296,12 +259,6 @@ class AppTestItertools:
         it = itertools.chain([], [], [1], [])
         assert it.next() == 1
         raises(StopIteration, it.next)
-
-    def test_chain_fromiterable(self):
-        import itertools
-        l = [[1, 2, 3], [4], [5, 6]]
-        it = itertools.chain.from_iterable(l)
-        assert list(it) == sum(l, [])
 
     def test_imap(self):
         import itertools
@@ -643,6 +600,53 @@ class AppTestItertools:
         ref = weakref.ref(b)
         assert ref() is b
 
+
+class AppTestItertools26:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['itertools'])
+        if cls.space.is_true(cls.space.appexec([], """():
+            import sys; return sys.version_info < (2, 6)
+            """)):
+            py.test.skip("Requires Python 2.6")
+
+    def test_count_overflow(self):
+        import itertools, sys
+        it = itertools.count(sys.maxint - 1)
+        assert it.next() == sys.maxint - 1
+        assert it.next() == sys.maxint
+        assert it.next() == sys.maxint + 1
+        it = itertools.count(sys.maxint + 1)
+        assert it.next() == sys.maxint + 1
+        assert it.next() == sys.maxint + 2
+        it = itertools.count(-sys.maxint-2)
+        assert it.next() == -sys.maxint - 2
+        assert it.next() == -sys.maxint - 1
+        assert it.next() == -sys.maxint
+        assert it.next() == -sys.maxint + 1
+        it = itertools.count(0, sys.maxint)
+        assert it.next() == sys.maxint * 0
+        assert it.next() == sys.maxint * 1
+        assert it.next() == sys.maxint * 2
+        it = itertools.count(0, sys.maxint + 1)
+        assert it.next() == (sys.maxint + 1) * 0
+        assert it.next() == (sys.maxint + 1) * 1
+        assert it.next() == (sys.maxint + 1) * 2
+
+    def test_chain_fromiterable(self):
+        import itertools
+        l = [[1, 2, 3], [4], [5, 6]]
+        it = itertools.chain.from_iterable(l)
+        assert list(it) == sum(l, [])
+
+    def test_combinations(self):
+        from itertools import combinations
+
+        raises(TypeError, combinations, "abc")
+        raises(TypeError, combinations, "abc", 2, 1)
+        raises(TypeError, combinations, None)
+        raises(ValueError, combinations, "abc", -2)
+        assert list(combinations(range(4), 3)) == [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)]
+
     def test_iziplongest(self):
         from itertools import izip_longest, islice, count
         for args in [
@@ -715,16 +719,6 @@ class AppTestItertools:
             return result
         assert run(r1, r2) ==  [(1,2), (1,2), (1,2), (0,2)]
 
-        # Formerly, the RuntimeError would be lost
-        # and StopIteration would stop as expected
-        r1 = Repeater(1, 3, RuntimeError)
-        r2 = Repeater(2, 4, StopIteration)
-        it = itertools.izip_longest(r1, r2, fillvalue=0)
-        assert it.next() == (1, 2)
-        assert it.next() == (1, 2)
-        assert it.next()== (1, 2)
-        raises(RuntimeError, it.next)
-
     def test_product(self):
         from itertools import product
         l = [1, 2]
@@ -746,6 +740,8 @@ class AppTestItertools:
                (2, 'b', 1, 'a'), (2, 'b', 1, 'b'), (2, 'b', 2, 'a'),
                (2, 'b', 2, 'b')]
         assert list(prodlist) == ans
+
+        raises(TypeError, product, [], foobar=3)
 
     def test_product_diff_sizes(self):
         from itertools import product
@@ -772,28 +768,76 @@ class AppTestItertools:
         assert prod.next() == ()
         raises (StopIteration, prod.next)
 
-    def test_combinations(self):
-        from itertools import combinations
 
-        raises(TypeError, combinations, "abc")
-        raises(TypeError, combinations, "abc", 2, 1)
-        raises(TypeError, combinations, None)
-        raises(ValueError, combinations, "abc", -2)
+class AppTestItertools27:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['itertools'])
+        if cls.space.is_true(cls.space.appexec([], """():
+            import sys; return sys.version_info < (2, 7)
+            """)):
+            py.test.skip("Requires Python 2.7")
+
+    def test_compress(self):
+        import itertools
+        it = itertools.compress(['a', 'b', 'c'], [0, 1, 0])
+        assert list(it) == ['b']
+
+    def test_compress_diff_len(self):
+        import itertools
+        it = itertools.compress(['a'], [])
+        raises(StopIteration, it.next)
+
+    def test_count_kwargs(self):
+        import itertools
+        it = itertools.count(start=2, step=3)
+        assert it.next() == 2
+        assert it.next() == 5
+        assert it.next() == 8
+
+    def test_repeat_kwargs(self):
+        import itertools
+        assert list(itertools.repeat(object='a', times=3)) == ['a', 'a', 'a']
+
+    def test_combinations_overflow(self):
+        from itertools import combinations
         assert list(combinations("abc", 32)) == []
-        assert list(combinations(range(4), 3)) == [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)]
 
     def test_combinations_with_replacement(self):
         from itertools import combinations_with_replacement
-
         raises(TypeError, combinations_with_replacement, "abc")
         raises(TypeError, combinations_with_replacement, "abc", 2, 1)
         raises(TypeError, combinations_with_replacement, None)
         raises(ValueError, combinations_with_replacement, "abc", -2)
         assert list(combinations_with_replacement("ABC", 2)) == [("A", "A"), ("A", 'B'), ("A", "C"), ("B", "B"), ("B", "C"), ("C", "C")]
 
+    def test_izip_longest3(self):
+        import itertools
+        class Repeater(object):
+            # this class is similar to itertools.repeat
+            def __init__(self, o, t, e):
+                self.o = o
+                self.t = int(t)
+                self.e = e
+            def __iter__(self): # its iterator is itself
+                return self
+            def next(self):
+                if self.t > 0:
+                    self.t -= 1
+                    return self.o
+                else:
+                    raise self.e
+
+        # Formerly, the RuntimeError would be lost
+        # and StopIteration would stop as expected
+        r1 = Repeater(1, 3, RuntimeError)
+        r2 = Repeater(2, 4, StopIteration)
+        it = itertools.izip_longest(r1, r2, fillvalue=0)
+        assert it.next() == (1, 2)
+        assert it.next() == (1, 2)
+        assert it.next()== (1, 2)
+        raises(RuntimeError, it.next)
+
     def test_subclassing(self):
-        if not self.py27:
-            skip("requires Python 2.7")
         import itertools
         class A(itertools.count): pass
         assert type(A(5)) is A
