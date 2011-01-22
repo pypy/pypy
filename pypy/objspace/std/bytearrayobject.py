@@ -144,10 +144,6 @@ def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     return W_BytearrayObject(data1 + data2)
 
 def add__Bytearray_ANY(space, w_bytearray1, w_other):
-    if space.isinstance_w(w_other, space.w_unicode):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "can't concat bytearray to unicode"))
-
     data1 = w_bytearray1.data
     data2 = [c for c in space.bufferstr_w(w_other)]
     return W_BytearrayObject(data1 + data2)
@@ -589,9 +585,6 @@ def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
 
 def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
-    if space.isinstance_w(w_other, space.w_unicode):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "bytes string or buffer expected"))
     w_bytearray.data += makebytearraydata_w(space, w_other)
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
