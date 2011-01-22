@@ -47,7 +47,7 @@ def optimize_loop(metainterp_sd, old_loops, loop):
             jumpop.setdescr(loop.token)
         return None
 
-def optimize_bridge(metainterp_sd, old_loops, loop):
+def optimize_bridge(metainterp_sd, old_loops, loop, inline_short_preamble):
     optimize_loop(metainterp_sd, [], loop)
     jumpop = loop.operations[-1]
     if jumpop.getopnum() == rop.JUMP:
