@@ -1175,6 +1175,12 @@ W_Combinations.typedef = TypeDef("combinations",
     __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
     next = interp2app(W_Combinations.descr_next),
+    __doc__ = """\
+combinations(iterable, r) --> combinations object
+
+Return successive r-length combinations of elements in the iterable.
+
+combinations(range(4), 3) --> (0,1,2), (0,1,3), (0,2,3), (1,2,3)""",
 )
 
 class W_CombinationsWithReplacement(W_Combinations):
@@ -1198,4 +1204,10 @@ W_CombinationsWithReplacement.typedef = TypeDef("combinations_with_replacement",
     __new__ = interp2app(W_CombinationsWithReplacement__new__),
     __iter__ = interp2app(W_CombinationsWithReplacement.descr__iter__),
     next = interp2app(W_CombinationsWithReplacement.descr_next),
+    __doc__ = """\
+combinations_with_replacement(iterable, r) --> combinations_with_replacement object
+
+Return successive r-length combinations of elements in the iterable
+allowing individual elements to have successive repeats.
+combinations_with_replacement('ABC', 2) --> AA AB AC BB BC CC""",
 )
