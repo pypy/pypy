@@ -27,7 +27,7 @@ class OptValue(object):
     __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound')
     last_guard_index = -1
-    start_index = -1
+    #start_index = -1
 
     level = LEVEL_UNKNOWN
     known_class = None
@@ -246,6 +246,7 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.newoperations = []
+        self.inputargs = []
 
         self.set_optimizations(optimizations)
 
@@ -440,11 +441,12 @@ class Optimizer(Optimization):
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
-        newboxes = modifier.finish(self.values, self.pendingfields)
-        #descr.start_indexes = [self.getvalue(b).start_index for b in op.getfailargs()]
+        newboxes = modifier.finish(self.values, self.pendingfields, self.inputargs)
+        # FIXME: Do we realy want to append all inputargs?
         if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
             compile.giveup()
         descr.store_final_boxes(op, newboxes)
+        #descr.start_indexes = [self.getvalue(b).start_index for b in op.getfailargs()]
         #
         if op.getopnum() == rop.GUARD_VALUE:
             if self.getvalue(op.getarg(0)) in self.bool_boxes:

@@ -155,8 +155,9 @@ class UnrollOptimizer(Optimization):
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
 
             jump_args = jumpop.getarglist()
-            for i in range(len(jump_args)):
-                self.getvalue(jump_args[i]).start_index = i
+            #for i in range(len(jump_args)):
+            #    self.getvalue(jump_args[i]).start_index = i
+
             jumpop.initarglist([])            
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
@@ -219,6 +220,20 @@ class UnrollOptimizer(Optimization):
                 for op in short_loop.operations:
                     if op.result:
                         op.result.forget_value()
+
+                for op in loop.operations:
+                    if op.is_guard():
+                        descr = op.getdescr()
+                        descr.start_indexes = []
+                        for box in op.getfailargs():
+                            try:
+                                i = loop.inputargs.index(box)
+                            except ValueError:
+                                i = -1
+                            descr.start_indexes.append(i)
+                        descr.parent_short_preamble = short_loop
+                            
+                                
                 
 
     def inline(self, loop_operations, loop_args, jump_args):
@@ -227,7 +242,7 @@ class UnrollOptimizer(Optimization):
         for v in self.optimizer.values.values():
             v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
 
-        inputargs = []
+        self.optimizer.inputargs = inputargs = []
         seen_inputargs = {}
         for arg in jump_args:
             boxes = []
@@ -238,12 +253,30 @@ class UnrollOptimizer(Optimization):
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
+        boxes_created_this_iteration = {}
+        last_emitted_len = -1
         for newop in loop_operations:
             if newop.getopnum() == rop.JUMP:
                 newop.initarglist(inputargs)
             newop = inliner.inline_op(newop, clone=False)
-
+            
             self.optimizer.first_optimization.propagate_forward(newop)
+
+            # This should take care of updating inputargs in most cases i.e.
+            # when newoperations is not reorder too much. The rest should be
+            # pacthed below. Bridges will only be able to inherit the part of
+            # the short preamble that produces the boxes that are placed in 
+            # inputargs before the guard producing the bridge is emitted.
+            i = max(last_emitted_len - 2, 0)
+            while i < len(self.optimizer.newoperations):
+                op = self.optimizer.newoperations[i]
+                boxes_created_this_iteration[op.result] = True
+                for a in op.getarglist():
+                    if not isinstance(a, Const) and not a in boxes_created_this_iteration:
+                        if a not in inputargs:
+                            inputargs.append(a)
+                i += 1
+            last_emitted_len = len(self.optimizer.newoperations)
 
         # Remove jump to make sure forced code are placed before it
         newoperations = self.optimizer.newoperations
@@ -251,7 +284,6 @@ class UnrollOptimizer(Optimization):
         assert jmp.getopnum() == rop.JUMP
         self.optimizer.newoperations = newoperations[:-1]
 
-        boxes_created_this_iteration = {}
         jumpargs = jmp.getarglist()
 
         # FIXME: Should also loop over operations added by forcing things in this loop

@@ -279,6 +279,11 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_pendingfields = None
 
+    parent_short_preamble = None
+    start_indexes = None
+    rd_extrafailargs = None
+    # FIXME: Add theese to copy_all_attrbutes_into
+
     CNT_INT   = -0x20000000
     CNT_REF   = -0x40000000
     CNT_FLOAT = -0x60000000
@@ -324,6 +329,13 @@ class ResumeGuardDescr(ResumeDescr):
         # jitdrivers.
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
+        if self.parent_short_preamble:
+            print
+            print
+            print self.parent_short_preamble.operations
+            print self.start_indexes
+            #import pdb; pdb.set_trace()
+
         return metainterp.handle_guard_failure(self)
     _trace_and_compile_from_bridge._dont_inline_ = True
 

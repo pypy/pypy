@@ -302,7 +302,7 @@ class ResumeDataVirtualAdder(object):
         _, tagbits = untag(tagged)
         return tagbits == TAGVIRTUAL
 
-    def finish(self, values, pending_setfields=[]):
+    def finish(self, values, pending_setfields=[], extra_failargs=[]):
         # compute the numbering
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
@@ -334,8 +334,12 @@ class ResumeDataVirtualAdder(object):
             value = values[fieldbox]
             value.get_args_for_fail(self)
 
+        for box in extra_failargs:
+            self.register_box(box)
+            
         self._number_virtuals(liveboxes, values, v)
         self._add_pending_fields(pending_setfields)
+        self._add_extra_failargs(extra_failargs)
 
         storage.rd_consts = self.memo.consts
         dump_storage(storage, liveboxes)
@@ -412,6 +416,12 @@ class ResumeDataVirtualAdder(object):
                 fieldnum = self._gettagged(fieldbox)
                 rd_pendingfields.append((descr, num, fieldnum))
         self.storage.rd_pendingfields = rd_pendingfields
+
+    def _add_extra_failargs(self, extra_failargs):
+        ibox = [self._gettagged(box) for box in extra_failargs if box.type == INT]
+        rbox = [self._gettagged(box) for box in extra_failargs if box.type == REF]
+        fbox = [self._gettagged(box) for box in extra_failargs if box.type == FLOAT]
+        self.storage.rd_extrafailargs = (ibox, rbox, fbox)
 
     def _gettagged(self, box):
         if isinstance(box, Const):
@@ -641,6 +651,7 @@ class AbstractResumeDataReader(object):
     def _prepare(self, storage):
         self._prepare_virtuals(storage.rd_virtuals)
         self._prepare_pendingfields(storage.rd_pendingfields)
+        self._prepare_extrafailargs(storage.rd_extrafailargs)
 
     def getvirtual(self, index):
         # Returns the index'th virtual, building it lazily if needed.
@@ -671,6 +682,9 @@ class AbstractResumeDataReader(object):
             for descr, num, fieldnum in pendingfields:
                 struct = self.decode_ref(num)
                 self.setfield(descr, struct, fieldnum)
+
+    def _prepare_extrafailargs(self, extrafailargs):
+        pass
 
     def _prepare_next_section(self, info):
         # Use info.enumerate_vars(), normally dispatching to
@@ -725,6 +739,15 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.metainterp = metainterp
         self.liveboxes = [None] * metainterp.cpu.get_latest_value_count()
         self._prepare(storage)
+
+    def _prepare_extrafailargs(self, extrafailargs):
+        ibox, rbox, fbox = extrafailargs
+        for num in ibox:
+            self.decode_box(num, INT)
+        for num in rbox:
+            self.decode_box(num, REF)
+        for num in fbox:
+            self.decode_box(num, FLOAT)
 
     def consume_boxes(self, info, boxes_i, boxes_r, boxes_f):
         self.boxes_i = boxes_i
