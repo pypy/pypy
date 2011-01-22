@@ -152,7 +152,10 @@ class PyPyCJITTests(object):
 
         from pypy.jit.tool.jitoutput import parse_prof
         summaries  = logparser.extract_category(log, 'jit-summary')
-        self.jit_summary = parse_prof(summaries[-1])
+        if len(summaries) > 0:
+            self.jit_summary = parse_prof(summaries[-1])
+        else:
+            self.jit_summary = None
         
 
     def parse_rawloops(self, rawloops):
