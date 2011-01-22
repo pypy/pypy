@@ -162,7 +162,7 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
         # but not the new buffer interface (change in python  2.7)
         from pypy.rlib.rstruct.unichar import pack_unichar
         charlist = []
-        for unich in w_object._value:
+        for unich in space.unicode_w(w_object):
             pack_unichar(unich, charlist)
         from pypy.interpreter.buffer import StringBuffer
         w_buffer = space.wrap(StringBuffer(''.join(charlist)))
