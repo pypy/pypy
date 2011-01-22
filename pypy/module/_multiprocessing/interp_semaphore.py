@@ -52,6 +52,7 @@ else:
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
         SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
+        SEM_GETVALUE = platform.Has('sem_getvalue')
 
     config = platform.configure(CConfig)
     TIMEVAL        = config['TIMEVAL']
@@ -62,7 +63,7 @@ else:
     SEM_FAILED     = rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
-    HAVE_BROKEN_SEM_GETVALUE = False
+    HAVE_BROKEN_SEM_GETVALUE = config['SEM_GETVALUE']
 
     def external(name, args, result):
         return rffi.llexternal(name, args, result,
@@ -367,7 +368,8 @@ else:
 
     def semlock_getvalue(self, space):
         if HAVE_BROKEN_SEM_GETVALUE:
-            raise OperationError(space.w_NotImplementedError)
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                        'sem_getvalue is not implemented on this system'))
         else:
             val = sem_getvalue(self.handle)
             # some posix implementations use negative numbers to indicate
