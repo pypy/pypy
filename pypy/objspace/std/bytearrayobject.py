@@ -134,7 +134,7 @@ def contains__Bytearray_String(space, w_bytearray, w_str):
 
 def contains__Bytearray_ANY(space, w_bytearray, w_sub):
     # XXX slow - copies, needs rewriting
-    w_str = space.wrap(space.bufferstr_w(w_sub))
+    w_str = space.wrap(space.bufferstr_new_w(w_sub))
     w_str2 = str__Bytearray(space, w_bytearray)
     return stringobject.contains__String_String(space, w_str2, w_str)
 
@@ -145,7 +145,7 @@ def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
 
 def add__Bytearray_ANY(space, w_bytearray1, w_other):
     data1 = w_bytearray1.data
-    data2 = [c for c in space.bufferstr_w(w_other)]
+    data2 = [c for c in space.bufferstr_new_w(w_other)]
     return W_BytearrayObject(data1 + data2)
 
 def add__String_Bytearray(space, w_str, w_bytearray):
@@ -306,57 +306,57 @@ def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop
     return space.wrap(count)
 
 def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_count__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_index__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_index__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_rindex__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_rindex__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_find__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_find__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_rfind__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_w(w_char))
+    w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_rfind__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
-    w_prefix = space.wrap(space.bufferstr_w(w_prefix))
+    w_prefix = space.wrap(space.bufferstr_new_w(w_prefix))
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_startswith__String_String_ANY_ANY(space, w_str, w_prefix,
                                                               w_start, w_stop)
 
 def str_startswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
     w_str = str__Bytearray(space, w_bytearray)
-    w_prefix = space.newtuple([space.wrap(space.bufferstr_w(w_entry)) for w_entry in
+    w_prefix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
                                space.unpackiterable(w_prefix)])
     return stringobject.str_startswith__String_Tuple_ANY_ANY(space, w_str, w_prefix,
                                                               w_start, w_stop)
 
 def str_endswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
-    w_suffix = space.wrap(space.bufferstr_w(w_suffix))
+    w_suffix = space.wrap(space.bufferstr_new_w(w_suffix))
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_endswith__String_String_ANY_ANY(space, w_str, w_suffix,
                                                               w_start, w_stop)
 
 def str_endswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
     w_str = str__Bytearray(space, w_bytearray)
-    w_suffix = space.newtuple([space.wrap(space.bufferstr_w(w_entry)) for w_entry in
+    w_suffix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
                                space.unpackiterable(w_suffix)])
     return stringobject.str_endswith__String_Tuple_ANY_ANY(space, w_str, w_suffix,
                                                               w_start, w_stop)
@@ -378,7 +378,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
 
         if data and i != 0:
             newdata.extend(data)
-        newdata.extend([c for c in space.bufferstr_w(w_s)])
+        newdata.extend([c for c in space.bufferstr_new_w(w_s)])
     return W_BytearrayObject(newdata)
 
 def str_decode__Bytearray_ANY_ANY(space, w_bytearray, w_encoding, w_errors):
@@ -451,19 +451,19 @@ def bytearray_strip__Bytearray_None(space, w_bytearray, w_chars):
     return _strip(space, w_bytearray, _space_chars, 1, 1)
 
 def bytearray_strip__Bytearray_ANY(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 1, 1)
+    return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 1, 1)
 
 def bytearray_lstrip__Bytearray_None(space, w_bytearray, w_chars):
     return _strip(space, w_bytearray, _space_chars, 1, 0)
 
 def bytearray_lstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 1, 0)
+    return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 1, 0)
 
 def bytearray_rstrip__Bytearray_None(space, w_bytearray, w_chars):
     return _strip(space, w_bytearray, _space_chars, 0, 1)
 
 def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, space.bufferstr_w(w_chars), 0, 1)
+    return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 0, 1)
 
 # These methods could just delegate to the string implementation,
 # but they have to return a bytearray.
@@ -537,7 +537,7 @@ def str_splitlines__Bytearray_ANY(space, w_bytearray, w_keepends):
 def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
     if not space.is_w(w_by, space.w_None):
-        w_by = space.wrap(space.bufferstr_w(w_by))
+        w_by = space.wrap(space.bufferstr_new_w(w_by))
     w_list = space.call_method(w_str, "split", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
@@ -547,7 +547,7 @@ def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
 def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     w_str = str__Bytearray(space, w_bytearray)
     if not space.is_w(w_by, space.w_None):
-        w_by = space.wrap(space.bufferstr_w(w_by))
+        w_by = space.wrap(space.bufferstr_new_w(w_by))
     w_list = space.call_method(w_str, "rsplit", w_by, w_maxsplit)
     list_w = space.listview(w_list)
     for i in range(len(list_w)):
@@ -556,7 +556,7 @@ def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
 
 def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
     w_str = str__Bytearray(space, w_bytearray)
-    w_sub = space.wrap(space.bufferstr_w(w_sub))
+    w_sub = space.wrap(space.bufferstr_new_w(w_sub))
     w_tuple = stringobject.str_partition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([
@@ -566,7 +566,7 @@ def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
 
 def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
     w_str = str__Bytearray(space, w_bytearray)
-    w_sub = space.wrap(space.bufferstr_w(w_sub))
+    w_sub = space.wrap(space.bufferstr_new_w(w_sub))
     w_tuple = stringobject.str_rpartition__String_String(space, w_str, w_sub)
     w_a, w_b, w_c = space.fixedview(w_tuple, 3)
     return space.newtuple([
