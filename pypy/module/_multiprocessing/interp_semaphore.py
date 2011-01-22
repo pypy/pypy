@@ -244,7 +244,7 @@ if sys.platform == 'win32':
             time.sleep(0.001)
 
             # if this is main thread let KeyboardInterrupt be raised
-            _check_signals(self.space)
+            _check_signals(space)
 
             # recalculate timeout
             if msecs != rwin32.INFINITE:
