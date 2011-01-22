@@ -62,8 +62,8 @@ for const in defs_names:
     setattr(CConfig, const, platform.Defined(const))
 
 def decode_timeval(t):
-    return (float(rffi.cast(lltype.Signed, t.c_tv_sec)) +
-            float(rffi.cast(lltype.Signed, t.c_tv_usec)) * 0.000001)
+    return (float(rffi.getintfield(t, 'c_tv_sec')) +
+            float(rffi.getintfield(t, 'c_tv_usec')) * 0.000001)
 
 class RegisterTime(BaseLazyRegistering):
     def __init__(self):
