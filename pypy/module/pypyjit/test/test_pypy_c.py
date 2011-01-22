@@ -1473,7 +1473,7 @@ class PyPyCJITTests(object):
 %s
                 i += 1
             return sa
-        ''' % code, 0, ([a1, b1], 2000 * res1),
+        ''' % code, 150, ([a1, b1], 2000 * res1),
                          ([a2, b2], 2000 * res2),
                          ([a3, b3], 2000 * res3),
                          count_debug_merge_point=False)
