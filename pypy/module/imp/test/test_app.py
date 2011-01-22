@@ -32,6 +32,9 @@ class AppTestImpModule:
         assert pathname.endswith('.py') # even if .pyc is up-to-date
         assert description in self.imp.get_suffixes()
 
+    def test_load_dynamic(self):
+        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar')
+        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar', 'baz.so')
 
     def test_suffixes(self):
         for suffix, mode, type in self.imp.get_suffixes():
