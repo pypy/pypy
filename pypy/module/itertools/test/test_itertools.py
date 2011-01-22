@@ -768,6 +768,35 @@ class AppTestItertools26:
         assert prod.next() == ()
         raises (StopIteration, prod.next)
 
+    def test_permutations(self):
+        from itertools import permutations
+        assert list(permutations('ABCD', 2)) == [
+            ('A', 'B'),
+            ('A', 'C'),
+            ('A', 'D'),
+            ('B', 'A'),
+            ('B', 'C'),
+            ('B', 'D'),
+            ('C', 'A'),
+            ('C', 'B'),
+            ('C', 'D'),
+            ('D', 'A'),
+            ('D', 'B'),
+            ('D', 'C'),
+            ]
+        assert list(permutations(range(3))) == [
+            (0, 1, 2),
+            (0, 2, 1),
+            (1, 0, 2),
+            (1, 2, 0),
+            (2, 0, 1),
+            (2, 1, 0),
+            ]
+        assert list(permutations([])) == [()]
+        assert list(permutations([], 0)) == [()]
+        assert list(permutations([], 1)) == []
+        assert list(permutations(range(3), 4)) == []
+
 
 class AppTestItertools27:
     def setup_class(cls):
