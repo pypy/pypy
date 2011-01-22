@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
@@ -50,15 +51,17 @@ else:
                                                        ('tv_nsec', rffi.LONG)])
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
         SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
+        SEM_TIMED_WAIT = platform.Has('sem_timedwait')
 
     config = platform.configure(CConfig)
-    TIMEVAL       = config['TIMEVAL']
-    TIMESPEC      = config['TIMESPEC']
-    TIMEVALP      = rffi.CArrayPtr(TIMEVAL)
-    TIMESPECP     = rffi.CArrayPtr(TIMESPEC)
-    SEM_T         = rffi.COpaquePtr('sem_t', compilation_info=eci)
-    SEM_FAILED    = rffi.cast(SEM_T, config['SEM_FAILED'])
-    SEM_VALUE_MAX = config['SEM_VALUE_MAX']
+    TIMEVAL        = config['TIMEVAL']
+    TIMESPEC       = config['TIMESPEC']
+    TIMEVALP       = rffi.CArrayPtr(TIMEVAL)
+    TIMESPECP      = rffi.CArrayPtr(TIMESPEC)
+    SEM_T          = rffi.COpaquePtr('sem_t', compilation_info=eci)
+    SEM_FAILED     = rffi.cast(SEM_T, config['SEM_FAILED'])
+    SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
+    SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
     HAVE_BROKEN_SEM_GETVALUE = False
 
     def external(name, args, result):
@@ -71,11 +74,13 @@ else:
     _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
     _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
-    _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP], rffi.INT)
     _sem_post = external('sem_post', [SEM_T], rffi.INT)
     _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT)
 
     _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT)
+
+    _select = external('select', [rffi.INT, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP,
+                                                          TIMEVALP], rffi.INT)
 
     def sem_open(name, oflag, mode, value):
         res = _sem_open(name, oflag, mode, value)
@@ -102,6 +107,48 @@ else:
         res = _sem_timedwait(sem, deadline)
         if res < 0:
             raise OSError(rposix.get_errno(), "sem_timedwait failed")
+
+    def _sem_timedwait_save(sem, deadline):
+        delay = 0
+        void = lltype.nullptr(rffi.VOIDP.TO)
+        with lltype.scoped_alloc(TIMEVALP.TO, 1) as tvdeadline:
+            while True:
+                # poll
+                if _sem_trywait(sem) == 0:
+                    return 0
+                elif rposix.get_errno() != errno.EAGAIN:
+                    return -1
+
+                now = gettimeofday()
+                c_tv_sec = rffi.getintfield(deadline[0], 'c_tv_sec')
+                c_tv_nsec = rffi.getintfield(deadline[0], 'c_tv_nsec')
+                if (c_tv_sec < now[0] or
+                    (c_tv_sec == now[0] and c_tv_nsec <= now[1])):
+                    rposix.set_errno(errno.ETIMEDOUT)
+                    return -1
+
+
+                # calculate how much time is left
+                difference = ((c_tv_sec - now[0]) * 1000000 +
+                                    (c_tv_nsec - now[1]))
+
+                # check delay not too long -- maximum is 20 msecs
+                if delay > 20000:
+                    delay = 20000
+                if delay > difference:
+                    delay = difference
+                delay += 1000
+
+                # sleep
+                rffi.setintfield(tvdeadline[0], 'c_tv_sec', delay / 1000000)
+                rffi.setintfield(tvdeadline[0], 'c_tv_usec', delay % 1000000)
+                if _select(0, void, void, void, tvdeadline) < 0:
+                    return -1
+
+    if SEM_TIMED_WAIT:
+        _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP], rffi.INT)
+    else:
+        _sem_timedwait = _sem_timedwait_save
 
     def sem_post(sem):
         res = _sem_post(sem)
