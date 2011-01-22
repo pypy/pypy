@@ -156,7 +156,19 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     if not space.is_w(w_subtype, space.gettypefor(Buffer)):
         raise OperationError(space.w_TypeError,
                              space.wrap("argument 1 must be 'buffer'"))
-    w_buffer = space.buffer(w_object)
+
+    if space.isinstance_w(w_object, space.w_unicode):
+        # unicode objects support the old buffer interface
+        # but not the new buffer interface (change in python  2.7)
+        from pypy.rlib.rstruct.unichar import pack_unichar
+        charlist = []
+        for unich in w_object._value:
+            pack_unichar(unich, charlist)
+        from pypy.interpreter.buffer import StringBuffer
+        w_buffer = space.wrap(StringBuffer(''.join(charlist)))
+    else:
+        w_buffer = space.buffer(w_object)
+
     buffer = space.interp_w(Buffer, w_buffer)    # type-check
     if offset == 0 and size == -1:
         return w_buffer
