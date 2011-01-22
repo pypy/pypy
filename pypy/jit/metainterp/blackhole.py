@@ -9,7 +9,7 @@ from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
-
+from pypy.jit.metainterp.compile import ResumeAtPositionDescr
 
 def arguments(*argtypes, **kwds):
     resulttype = kwds.pop('returns', None)
@@ -1210,13 +1210,14 @@ class BlackholeInterpreter(object):
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    def _prepare_resume_from_failure(self, opnum):
+    def _prepare_resume_from_failure(self, opnum, dont_change_position=False):
         from pypy.jit.metainterp.resoperation import rop
         #
         if opnum == rop.GUARD_TRUE:
             # Produced directly by some goto_if_not_xxx() opcode that did not
             # jump, but which must now jump.  The pc is just after the opcode.
-            self.position = self.jitcode.follow_jump(self.position)
+            if not dont_change_position:
+                self.position = self.jitcode.follow_jump(self.position)
         #
         elif opnum == rop.GUARD_FALSE:
             # Produced directly by some goto_if_not_xxx() opcode that jumped,
@@ -1372,8 +1373,14 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
         jitdriver_sd,
         resumedescr,
         all_virtuals)
+    if isinstance(resumedescr, ResumeAtPositionDescr):
+        dont_change_position = True
+    else:
+        dont_change_position = False
+
     current_exc = blackholeinterp._prepare_resume_from_failure(
-        resumedescr.guard_opnum)
+        resumedescr.guard_opnum, dont_change_position)
+        
     try:
         _run_forever(blackholeinterp, current_exc)
     finally:

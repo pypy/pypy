@@ -80,11 +80,11 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
-                     full_preamble_needed=True):
+def compile_new_loop(metainterp, old_loop_tokens, greenkey, start, start_resumedescr):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
+    full_preamble_needed=True
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.inputargs = history.inputargs
@@ -102,6 +102,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
     loop.preamble = create_empty_loop(metainterp, 'Preamble ')
     loop.preamble.inputargs = loop.inputargs
     loop.preamble.token = make_loop_token(len(loop.inputargs), jitdriver_sd)
+    loop.preamble.start_resumedescr = start_resumedescr
 
     try:
         old_loop_token = jitdriver_sd.warmstate.optimize_loop(
@@ -390,6 +391,26 @@ class ResumeGuardDescr(ResumeDescr):
         self.copy_all_attrbutes_into(res)
         return res
 
+class ResumeAtPositionDescr(ResumeGuardDescr):
+    #def __init__(self, position):
+    #    self.position = position
+        
+    def _clone_if_mutable(self):
+        res = ResumeAtPositionDescr()
+        self.copy_all_attrbutes_into(res)
+        return res
+
+    def not_handle_fail(self, metainterp_sd, jitdriver_sd):
+        if True or self.must_compile(metainterp_sd, jitdriver_sd):
+            return self._trace_and_compile_from_bridge(metainterp_sd,
+                                                       jitdriver_sd)
+        else:
+            raise NotImplementedError
+            # FIXME: patch blackhole._prepare_resume_from_failure(self, opnum)
+            from pypy.jit.metainterp.blackhole import resume_in_blackhole
+            resume_in_blackhole(metainterp_sd, jitdriver_sd, self)
+            assert 0, "unreachable"
+
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
     def __init__(self, metainterp_sd, jitdriver_sd):
@@ -574,10 +595,14 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     new_loop.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
+    if isinstance(resumekey, ResumeAtPositionDescr):
+        inline_short_preamble = False
+    else:
+        inline_short_preamble = True
     try:
         target_loop_token = state.optimize_bridge(metainterp_sd,
                                                   old_loop_tokens,
-                                                  new_loop)
+                                                  new_loop, inline_short_preamble)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
@@ -588,7 +613,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
         prepare_last_operation(new_loop, target_loop_token)
         resumekey.compile_and_attach(metainterp, new_loop)
-        compile_known_target_bridges(metainterp, new_loop)
+        #compile_known_target_bridges(metainterp, new_loop)
         record_loop_or_bridge(metainterp_sd, new_loop)
     return target_loop_token
 

@@ -86,7 +86,7 @@ def test_compile_new_loop():
     metainterp.history.inputargs = loop.inputargs[:]
     #
     loop_tokens = []
-    loop_token = compile_new_loop(metainterp, loop_tokens, [], 0)
+    loop_token = compile_new_loop(metainterp, loop_tokens, [], 0, None)
     assert loop_tokens == [loop_token]
     assert loop_token.number == 1
     assert staticdata.globaldata.loopnumbering == 2
@@ -102,7 +102,7 @@ def test_compile_new_loop():
     metainterp.history.operations = loop.operations[:]
     metainterp.history.inputargs = loop.inputargs[:]
     #
-    loop_token_2 = compile_new_loop(metainterp, loop_tokens, [], 0)
+    loop_token_2 = compile_new_loop(metainterp, loop_tokens, [], 0, None)
     assert loop_token_2 is loop_token
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0
