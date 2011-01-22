@@ -2001,7 +2001,7 @@ class MetaInterp(object):
         self.virtualref_boxes = []
         self.initialize_withgreenfields(original_boxes)
         self.initialize_virtualizable(original_boxes)
-
+        
     def initialize_state_from_guard_failure(self, resumedescr):
         # guard failure: rebuild a complete MIFrame stack
         self.in_recursion = -1 # always one portal around

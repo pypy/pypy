@@ -86,7 +86,7 @@ class Inliner(object):
         self.snapshot_map = {None: None}
 
     def inline_op(self, newop, ignore_result=False, clone=True,
-                  ignore_failargs=False):
+                  ignore_failargs=False, inline_result=False):
         if clone:
             newop = newop.clone()
         args = newop.getarglist()
@@ -101,7 +101,10 @@ class Inliner(object):
 
         if newop.result and not ignore_result:
             old_result = newop.result
-            newop.result = newop.result.clonebox()
+            if inline_result:
+                newop.result = self.inline_arg(old_result)
+            else:
+                newop.result = newop.result.clonebox()
             self.argmap[old_result] = newop.result
 
         descr = newop.getdescr()
@@ -242,7 +245,7 @@ class UnrollOptimizer(Optimization):
         for v in self.optimizer.values.values():
             v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
 
-        self.optimizer.inputargs = inputargs = []
+        self.optimizer.extraargs = inputargs = []
         seen_inputargs = {}
         for arg in jump_args:
             boxes = []

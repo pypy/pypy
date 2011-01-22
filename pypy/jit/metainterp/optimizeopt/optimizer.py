@@ -246,7 +246,7 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.newoperations = []
-        self.inputargs = []
+        self.extraargs = []
 
         self.set_optimizations(optimizations)
 
@@ -265,6 +265,28 @@ class Optimizer(Optimization):
             
         self.optimizations  = optimizations 
 
+    def initialize_state_from_guard_failure(self, resumedescr):
+        if resumedescr.parent_short_preamble:
+            myboxes = []
+            preamble_boxes = []
+            jumpop = resumedescr.parent_short_preamble.operations[-1]
+            jumpargs = jumpop.getarglist()
+            for i in range(len(self.loop.inputargs)):
+                box = self.loop.inputargs[i]
+                idx = resumedescr.start_indexes[i]
+                if idx > -1:
+                    myboxes.append(box)
+                    preamble_boxes.append(jumpargs[idx])
+            from pypy.jit.metainterp.optimizeopt.unroll import Inliner
+            inliner = Inliner(preamble_boxes, myboxes)
+            print
+            print
+            for op in resumedescr.parent_short_preamble.operations[:-1]:
+                newop = inliner.inline_op(op, inline_result=True)
+                print newop
+                self.first_optimization.propagate_forward(newop)
+                # FIMXE: only ops with boxes in myboxes
+        
     def force_at_end_of_preamble(self):
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.metainterp_sd)
         for o in self.optimizations:
@@ -441,7 +463,7 @@ class Optimizer(Optimization):
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
-        newboxes = modifier.finish(self.values, self.pendingfields, self.inputargs)
+        newboxes = modifier.finish(self.values, self.pendingfields, self.extraargs)
         # FIXME: Do we realy want to append all inputargs?
         if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
             compile.giveup()

@@ -265,7 +265,8 @@ def make_done_loop_tokens():
             }
 
 class ResumeDescr(AbstractFailDescr):
-    pass
+    def inline_short_preamble(self):
+        return True
 
 class ResumeGuardDescr(ResumeDescr):
     _counter = 0        # if < 0, there is one counter per value;
@@ -404,6 +405,9 @@ class ResumeGuardDescr(ResumeDescr):
         return res
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
+    def inline_short_preamble(self):
+        return False
+
     def _clone_if_mutable(self):
         res = ResumeAtPositionDescr()
         self.copy_all_attrbutes_into(res)
@@ -593,14 +597,10 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     new_loop.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
-    if isinstance(resumekey, ResumeAtPositionDescr):
-        inline_short_preamble = False
-    else:
-        inline_short_preamble = True
     try:
         target_loop_token = state.optimize_bridge(metainterp_sd,
                                                   old_loop_tokens,
-                                                  new_loop, inline_short_preamble)
+                                                  new_loop, resumekey)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
