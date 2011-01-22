@@ -80,7 +80,7 @@ def descr__new__(space, w_bytearraytype, __args__):
 def makebytearraydata_w(space, w_source):
     # String-like argument
     try:
-        string = space.str_w(w_source)
+        string = space.bufferstr_w(w_source)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise

@@ -79,6 +79,8 @@ class AppTestBytesArray:
         assert bytearray('ll') in bytearray('hello')
         assert memoryview('ll') in bytearray('hello')
 
+        raises(TypeError, lambda: u'foo' in bytearray('foobar'))
+
     def test_splitlines(self):
         b = bytearray('1234')
         assert b.splitlines()[0] == b

@@ -11,6 +11,7 @@ class AppTestSemaphore:
 
     def test_semaphore(self):
         from _multiprocessing import SemLock
+        import sys
         assert SemLock.SEM_VALUE_MAX > 10
 
         kind = self.SEMAPHORE
@@ -22,12 +23,18 @@ class AppTestSemaphore:
         assert isinstance(sem.handle, (int, long))
 
         assert sem._count() == 0
-        assert sem._get_value() == 1
+        if sys.platform == 'darwin':
+            raises(NotImplementedError, 'sem._get_value()')
+        else:
+            assert sem._get_value() == 1
         assert sem._is_zero() == False
         sem.acquire()
         assert sem._is_mine()
         assert sem._count() == 1
-        assert sem._get_value() == 0
+        if sys.platform == 'darwin':
+            raises(NotImplementedError, 'sem._get_value()')
+        else:
+            assert sem._get_value() == 0
         assert sem._is_zero() == True
         sem.release()
         assert sem._count() == 0
