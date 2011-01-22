@@ -155,6 +155,8 @@ class UnrollOptimizer(Optimization):
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
 
             jump_args = jumpop.getarglist()
+            for i in range(len(jump_args)):
+                self.getvalue(jump_args[i]).start_index = i
             jumpop.initarglist([])            
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)

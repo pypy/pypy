@@ -27,6 +27,7 @@ class OptValue(object):
     __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound')
     last_guard_index = -1
+    start_index = -1
 
     level = LEVEL_UNKNOWN
     known_class = None
@@ -443,6 +444,7 @@ class Optimizer(Optimization):
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values, self.pendingfields)
+        descr.start_indexes = [...]
         if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
             compile.giveup()
         descr.store_final_boxes(op, newboxes)
