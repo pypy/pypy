@@ -770,6 +770,7 @@ class AppTestItertools26:
 
     def test_permutations(self):
         from itertools import permutations
+        assert list(permutations('AB')) == [('A', 'B'), ('B', 'A')]
         assert list(permutations('ABCD', 2)) == [
             ('A', 'B'),
             ('A', 'C'),

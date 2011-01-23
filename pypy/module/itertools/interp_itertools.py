@@ -1250,3 +1250,71 @@ Return successive r-length combinations of elements in the iterable
 allowing individual elements to have successive repeats.
 combinations_with_replacement('ABC', 2) --> AA AB AC BB BC CC""",
 )
+
+
+class W_Permutations(Wrappable):
+    def __init__(self, space, pool_w, r):
+        self.pool_w = pool_w
+        self.r = r
+        n = len(pool_w)
+        n_minus_r = n - r
+        if n_minus_r < 0:
+            self.stopped = True
+        else:
+            self.stopped = False
+            self.indices = range(n)
+            self.cycles = range(n, n_minus_r, -1)
+
+    @unwrap_spec("self", ObjSpace)
+    def descr__iter__(self, space):
+        return self
+
+    @unwrap_spec("self", ObjSpace)
+    def descr_next(self, space):
+        if self.stopped:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        r = self.r
+        indices = self.indices
+        w_result = space.newtuple([self.pool_w[indices[i]]
+                                   for i in range(r)])
+        cycles = self.cycles
+        i = r - 1
+        while i >= 0:
+            j = cycles[i] - 1
+            if j > 0:
+                cycles[i] = j
+                indices[i], indices[-j] = indices[-j], indices[i]
+                return w_result
+            cycles[i] = len(indices) - i
+            n1 = len(indices) - 1
+            assert n1 >= 0
+            num = indices[i]
+            for k in range(i, n1):
+                indices[k] = indices[k+1]
+            indices[n1] = num
+            i -= 1
+        self.stopped = True
+        return w_result
+
+@unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
+def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
+    pool_w = space.fixedview(w_iterable)
+    if space.is_w(w_r, space.w_None):
+        r = len(pool_w)
+    else:
+        r = space.gateway_nonnegint_w(w_r)
+    res = space.allocate_instance(W_Permutations, w_subtype)
+    res.__init__(space, pool_w, r)
+    return space.wrap(res)
+
+W_Permutations.typedef = TypeDef("permutations",
+    __new__ = interp2app(W_Permutations__new__),
+    __iter__ = interp2app(W_Permutations.descr__iter__),
+    next = interp2app(W_Permutations.descr_next),
+    __doc__ = """\
+permutations(iterable[, r]) --> permutations object
+
+Return successive r-length permutations of elements in the iterable.
+
+permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)""",
+)
