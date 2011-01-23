@@ -170,6 +170,10 @@ class CConfig:
                            ('tms_stime', rffi.INT),
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
+        
+        GID_T = platform.SimpleType('gid_t',rffi.INT) 
+        #TODO right now is used only in getgroups, may need to update other functions like setgid
+                           
 
     SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
@@ -673,6 +677,24 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'getegid')
     def register_os_getegid(self):
         return self.extdef_for_os_function_returning_int('getegid')
+        
+    @registering_if(os, 'getgroups')
+    def register_os_getgroups(self):
+        GP = rffi.CArrayPtr(self.GID_T)
+        c_getgroups = self.llexternal('getgroups',[rffi.INT, GP],rffi.INT)
+
+        def getgroups_llimpl():
+            n = c_getgroups(0,s_None)
+            if n >= 0:
+                groups = lltype.malloc(GP.TO, n, flavor='raw')
+                n = c_getgroups(n,groups)
+                result = [g for g in groups]
+                lltype.free(groups, flavor='raw')
+                if n >= 0:
+                    return result
+            raise OSError(rposix.get_errno(), "os_getgroups failed")
+
+        return extdef([],[self.GID_T],llimpl=getgroups_llimpl, export_name="ll_os.ll_getgroups")
 
     @registering_if(os, 'getpgrp')
     def register_os_getpgrp(self):
