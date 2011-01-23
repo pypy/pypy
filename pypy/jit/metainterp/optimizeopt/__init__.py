@@ -6,17 +6,19 @@ from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.string import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 
-def optimize_loop_1(metainterp_sd, loop, unroll=True):
+def optimize_loop_1(metainterp_sd, loop, unroll=True, inline_short_preamble=True):
     """Optimize loop.operations to remove internal overheadish operations. 
     """
     opt_str = OptString()
-    optimizations = [OptInlineShortPreamble(),
-                     OptIntBounds(),
+    optimizations = [OptIntBounds(),
                      OptRewrite(),
                      OptVirtualize(),
                      opt_str,
                      OptHeap(),
                     ]
+    if inline_short_preamble:
+        optimizations = [OptInlineShortPreamble()] +  optimizations
+        
     if metainterp_sd.jit_ffi:
         from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
         optimizations = optimizations + [
@@ -31,6 +33,6 @@ def optimize_loop_1(metainterp_sd, loop, unroll=True):
         optimizer = Optimizer(metainterp_sd, loop, optimizations)
         optimizer.propagate_all_forward()
 
-def optimize_bridge_1(metainterp_sd, bridge):
+def optimize_bridge_1(metainterp_sd, bridge, inline_short_preamble=True):
     """The same, but for a bridge. """
-    optimize_loop_1(metainterp_sd, bridge, False)
+    optimize_loop_1(metainterp_sd, bridge, False, inline_short_preamble)

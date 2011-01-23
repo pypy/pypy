@@ -7,39 +7,39 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
 
-    def __init__(self, space, firstval, step):
+    def __init__(self, space, w_firstval, w_step):
         self.space = space
-        self.c = firstval
-        self.step = step
+        self.w_c = w_firstval
+        self.w_step = w_step
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
-        c = self.c
-        try:
-            self.c = ovfcheck(self.c + self.step)
-        except OverflowError:
-            raise OperationError(self.space.w_OverflowError,
-                    self.space.wrap("cannot count beyond sys.maxint"))
-
-        return self.space.wrap(c)
+        w_c = self.w_c
+        self.w_c = self.space.add(w_c, self.w_step)
+        return w_c
 
     def repr_w(self):
-        if self.step == 1:
-            s = 'count(%d)' % (self.c,)
+        space = self.space
+        c = space.str_w(space.repr(self.w_c))
+        if space.eq_w(self.w_step, space.wrap(1)):
+            s = 'count(%s)' % (c,)
         else:
-            s = 'count(%d, %d)' % (self.c, self.step)
+            step = space.str_w(space.repr(self.w_step))
+            s = 'count(%s, %s)' % (c, step)
         return self.space.wrap(s)
-        
 
 
-def W_Count___new__(space, w_subtype, start=0, step=1):
-    return space.wrap(W_Count(space, start, step))
+@unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
+def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
+    r = space.allocate_instance(W_Count, w_subtype)
+    r.__init__(space, w_start, w_step)
+    return space.wrap(r)
 
 W_Count.typedef = TypeDef(
         'count',
-        __new__ = interp2app(W_Count___new__, unwrap_spec=[ObjSpace, W_Root, int, int]),
+        __new__ = interp2app(W_Count___new__),
         __iter__ = interp2app(W_Count.iter_w, unwrap_spec=['self']),
         next = interp2app(W_Count.next_w, unwrap_spec=['self']),
         __repr__ = interp2app(W_Count.repr_w, unwrap_spec=['self']),
@@ -92,7 +92,9 @@ class W_Repeat(Wrappable):
         return self.space.wrap(s)
 
 def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
-    return space.wrap(W_Repeat(space, w_object, w_times))
+    r = space.allocate_instance(W_Repeat, w_subtype)
+    r.__init__(space, w_object, w_times)
+    return space.wrap(r)
 
 W_Repeat.typedef = TypeDef(
         'repeat',
@@ -141,7 +143,9 @@ class W_TakeWhile(Wrappable):
         return w_obj
 
 def W_TakeWhile___new__(space, w_subtype, w_predicate, w_iterable):
-    return space.wrap(W_TakeWhile(space, w_predicate, w_iterable))
+    r = space.allocate_instance(W_TakeWhile, w_subtype)
+    r.__init__(space, w_predicate, w_iterable)
+    return space.wrap(r)
 
 
 W_TakeWhile.typedef = TypeDef(
@@ -187,7 +191,9 @@ class W_DropWhile(Wrappable):
         return w_obj
 
 def W_DropWhile___new__(space, w_subtype, w_predicate, w_iterable):
-    return space.wrap(W_DropWhile(space, w_predicate, w_iterable))
+    r = space.allocate_instance(W_DropWhile, w_subtype)
+    r.__init__(space, w_predicate, w_iterable)
+    return space.wrap(r)
 
 
 W_DropWhile.typedef = TypeDef(
@@ -242,7 +248,9 @@ class W_IFilter(_IFilterBase):
     reverse = False
 
 def W_IFilter___new__(space, w_subtype, w_predicate, w_iterable):
-    return space.wrap(W_IFilter(space, w_predicate, w_iterable))
+    r = space.allocate_instance(W_IFilter, w_subtype)
+    r.__init__(space, w_predicate, w_iterable)
+    return space.wrap(r)
 
 W_IFilter.typedef = TypeDef(
         'ifilter',
@@ -267,7 +275,9 @@ class W_IFilterFalse(_IFilterBase):
     reverse = True
 
 def W_IFilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
-    return space.wrap(W_IFilterFalse(space, w_predicate, w_iterable))
+    r = space.allocate_instance(W_IFilterFalse, w_subtype)
+    r.__init__(space, w_predicate, w_iterable)
+    return space.wrap(r)
 
 W_IFilterFalse.typedef = TypeDef(
         'ifilterfalse',
@@ -355,7 +365,9 @@ class W_ISlice(Wrappable):
                 return w_obj
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
-    return space.wrap(W_ISlice(space, w_iterable, w_startstop, args_w))
+    r = space.allocate_instance(W_ISlice, w_subtype)
+    r.__init__(space, w_iterable, w_startstop, args_w)
+    return space.wrap(r)
 
 W_ISlice.typedef = TypeDef(
         'islice',
@@ -410,15 +422,19 @@ class W_Chain(Wrappable):
                 pass # loop back to the start of _handle_error(e)
 
 def W_Chain___new__(space, w_subtype, args_w):
+    r = space.allocate_instance(W_Chain, w_subtype)
     w_args = space.newtuple(args_w)
-    return space.wrap(W_Chain(space, space.iter(w_args)))
+    r.__init__(space, space.iter(w_args))
+    return space.wrap(r)
 
 def chain_from_iterable(space, w_cls, w_arg):
     """chain.from_iterable(iterable) --> chain object
 
     Alternate chain() contructor taking a single iterable argument
     that evaluates lazily."""
-    return space.wrap(W_Chain(space, space.iter(w_arg)))
+    r = space.allocate_instance(W_Chain, w_cls)
+    r.__init__(space, space.iter(w_arg))
+    return space.wrap(r)
 
 W_Chain.typedef = TypeDef(
         'chain',
@@ -496,7 +512,9 @@ def W_IMap___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:
         raise OperationError(space.w_TypeError,
                   space.wrap("imap() must have at least two arguments"))
-    return space.wrap(W_IMap(space, w_fun, args_w))
+    r = space.allocate_instance(W_IMap, w_subtype)
+    r.__init__(space, w_fun, args_w)
+    return space.wrap(r)
 
 W_IMap.typedef = TypeDef(
         'imap',
@@ -538,7 +556,9 @@ class W_IZip(W_IMap):
         return W_IMap.next_w(self)
 
 def W_IZip___new__(space, w_subtype, args_w):
-    return space.wrap(W_IZip(space, space.w_None, args_w))
+    r = space.allocate_instance(W_IZip, w_subtype)
+    r.__init__(space, space.w_None, args_w)
+    return space.wrap(r)
 
 W_IZip.typedef = TypeDef(
         'izip',
@@ -592,16 +612,18 @@ class W_IZipLongest(W_IMap):
 
 @unwrap_spec(ObjSpace, W_Root, Arguments)
 def W_IZipLongest___new__(space, w_subtype, __args__):
-    kwds = __args__.keywords
+    arguments_w, kwds_w = __args__.unpack()
     w_fillvalue = space.w_None
-    if kwds:
-        if kwds[0] == "fillvalue" and len(kwds) == 1:
-            w_fillvalue = __args__.keywords_w[0]
-        else:
+    if kwds_w:
+        if "fillvalue" in kwds_w:
+            w_fillvalue = kwds_w["fillvalue"]
+            del kwds_w["fillvalue"]
+        if kwds_w:
             raise OperationError(space.w_TypeError, space.wrap(
-                "izip_longest() got unexpected keyword argument"))
+                "izip_longest() got unexpected keyword argument(s)"))
 
-    self = W_IZipLongest(space, space.w_None, __args__.arguments_w)
+    self = space.allocate_instance(W_IZipLongest, w_subtype)
+    self.__init__(space, space.w_None, arguments_w)
     self.w_fillvalue = w_fillvalue
     self.active = len(self.iterators_w)
 
@@ -662,7 +684,9 @@ class W_Cycle(Wrappable):
         return w_obj
 
 def W_Cycle___new__(space, w_subtype, w_iterable):
-    return space.wrap(W_Cycle(space, w_iterable))
+    r = space.allocate_instance(W_Cycle, w_subtype)
+    r.__init__(space, w_iterable)
+    return space.wrap(r)
 
 W_Cycle.typedef = TypeDef(
         'cycle',
@@ -703,7 +727,9 @@ class W_StarMap(Wrappable):
         return self.space.call(self.w_fun, w_obj)
 
 def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
-    return space.wrap(W_StarMap(space, w_fun, w_iterable))
+    r = space.allocate_instance(W_StarMap, w_subtype)
+    r.__init__(space, w_fun, w_iterable)
+    return space.wrap(r)
 
 W_StarMap.typedef = TypeDef(
         'starmap',
@@ -910,7 +936,9 @@ class W_GroupBy(Wrappable):
                     raise StopIteration
 
 def W_GroupBy___new__(space, w_subtype, w_iterable, w_key=None):
-    return space.wrap(W_GroupBy(space, w_iterable, w_key))
+    r = space.allocate_instance(W_GroupBy, w_subtype)
+    r.__init__(space, w_iterable, w_key)
+    return space.wrap(r)
 
 W_GroupBy.typedef = TypeDef(
         'groupby',
@@ -985,7 +1013,9 @@ class W_Compress(Wrappable):
 
 
 def W_Compress__new__(space, w_subtype, w_data, w_selectors):
-    return space.wrap(W_Compress(space, w_data, w_selectors))
+    r = space.allocate_instance(W_Compress, w_subtype)
+    r.__init__(space, w_data, w_selectors)
+    return space.wrap(r)
 
 W_Compress.typedef = TypeDef(
     'compress',
@@ -1009,7 +1039,7 @@ class W_Product(Wrappable):
 
     def __init__(self, space, args_w, w_repeat):
         self.space = space
-        self.gears_w = [x for x in args_w] * space.int_w(w_repeat)
+        self.gears_w = args_w * space.int_w(w_repeat)
         self.num_gears = len(self.gears_w)
         # initialization of indicies to loop over
         self.indicies = [(0, space.int_w(space.len(w_gear)))
@@ -1058,19 +1088,25 @@ class W_Product(Wrappable):
         return self.space.newtuple(l)
 
 
-def W_Product__new__(space, args_w):
-    star_args_w, kw_args_w = args_w.unpack()
-    if len(kw_args_w) > 1:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("product() takes at most 1 argument (%d given)" %
-                             len(kw_args_w)))
-    w_repeat = kw_args_w.get('repeat', space.wrap(1))
-    return space.wrap(W_Product(space, star_args_w[1:], w_repeat))
+@unwrap_spec(ObjSpace, W_Root, Arguments)
+def W_Product__new__(space, w_subtype, __args__):
+    arguments_w, kwds_w = __args__.unpack()
+    w_repeat = space.wrap(1)
+    if kwds_w:
+        if 'repeat' in kwds_w:
+            w_repeat = kwds_w['repeat']
+            del kwds_w['repeat']
+        if kwds_w:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "product() got unexpected keyword argument(s)"))
+
+    r = space.allocate_instance(W_Product, w_subtype)
+    r.__init__(space, arguments_w, w_repeat)
+    return space.wrap(r)
 
 W_Product.typedef = TypeDef(
     'product',
-    __new__ = interp2app(W_Product__new__,
-                         unwrap_spec=[ObjSpace, Arguments]),
+    __new__ = interp2app(W_Product__new__),
     __iter__ = interp2app(W_Product.iter_w, unwrap_spec=['self']),
     next = interp2app(W_Product.next_w, unwrap_spec=['self']),
     __doc__ = """
@@ -1169,12 +1205,20 @@ def W_Combinations__new__(space, w_subtype, w_iterable, r):
             space.wrap("r must be non-negative")
         )
     indices = range(len(pool_w))
-    return W_Combinations(space, pool_w, indices, r)
+    res = space.allocate_instance(W_Combinations, w_subtype)
+    res.__init__(space, pool_w, indices, r)
+    return space.wrap(res)
 
 W_Combinations.typedef = TypeDef("combinations",
     __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
     next = interp2app(W_Combinations.descr_next),
+    __doc__ = """\
+combinations(iterable, r) --> combinations object
+
+Return successive r-length combinations of elements in the iterable.
+
+combinations(range(4), 3) --> (0,1,2), (0,1,3), (0,2,3), (1,2,3)""",
 )
 
 class W_CombinationsWithReplacement(W_Combinations):
@@ -1186,16 +1230,23 @@ class W_CombinationsWithReplacement(W_Combinations):
 
 @unwrap_spec(ObjSpace, W_Root, W_Root, int)
 def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
-        pool_w = space.fixedview(w_iterable)
-        if r < 0:
-            raise OperationError(space.w_ValueError,
-                space.wrap("r must be non-negative")
-            )
-        indices = [0] * len(pool_w)
-        return W_CombinationsWithReplacement(space, pool_w, indices, r)
+    pool_w = space.fixedview(w_iterable)
+    if r < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("r must be non-negative"))
+    indices = [0] * len(pool_w)
+    res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
+    res.__init__(space, pool_w, indices, r)
+    return space.wrap(res)
 
 W_CombinationsWithReplacement.typedef = TypeDef("combinations_with_replacement",
     __new__ = interp2app(W_CombinationsWithReplacement__new__),
     __iter__ = interp2app(W_CombinationsWithReplacement.descr__iter__),
     next = interp2app(W_CombinationsWithReplacement.descr_next),
+    __doc__ = """\
+combinations_with_replacement(iterable, r) --> combinations_with_replacement object
+
+Return successive r-length combinations of elements in the iterable
+allowing individual elements to have successive repeats.
+combinations_with_replacement('ABC', 2) --> AA AB AC BB BC CC""",
 )
