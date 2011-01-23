@@ -279,16 +279,24 @@ class Optimizer(Optimization):
                     preamble_boxes.append(jumpargs[idx])
             from pypy.jit.metainterp.optimizeopt.unroll import Inliner
             inliner = Inliner(preamble_boxes, myboxes)
-            print
-            print
+
             for op in resumedescr.parent_short_preamble.operations[:-1]:
                 if op.result and op.result not in inliner.argmap:
                     continue
-                try:
-                    newop = inliner.inline_op(op, inline_result=True)
-                    self.first_optimization.propagate_forward(newop)
-                except KeyError:
-                    pass
+                opnum = op.getopnum()
+                if opnum == rop.CALL:
+                    effectinfo = op.getdescr().get_extra_info()
+                    if effectinfo is not None:
+                        continue
+                    if effectinfo.extraeffect != EffectInfo.EF_LOOPINVARIANT and \
+                       effectinfo.extraeffect != EffectInfo.EF_PURE:
+                        continue
+                if op.is_always_pure() or op.is_foldable_guard() or opnum == rop.CALL:
+                    try:
+                        newop = inliner.inline_op(op, inline_result=True)
+                        self.first_optimization.propagate_forward(newop)
+                    except KeyError:
+                        pass
                 # FIMXE: only ops with boxes in myboxes
         
     def force_at_end_of_preamble(self):
