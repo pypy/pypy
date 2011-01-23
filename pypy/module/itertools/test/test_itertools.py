@@ -768,6 +768,31 @@ class AppTestItertools26:
         assert prod.next() == ()
         raises (StopIteration, prod.next)
 
+    def test_permutations(self):
+        from itertools import permutations
+        perm = list(permutations([1, 2, 3, 4]))
+        assert perm == [(1, 2, 3, 4), (1, 2, 4, 3), (1, 3, 2, 4), (1, 3, 4, 2),
+                        (1, 4, 2, 3), (1, 4, 3, 2), (2, 1, 3, 4), (2, 1, 4, 3),
+                        (2, 3, 1, 4), (2, 3, 4, 1), (2, 4, 1, 3), (2, 4, 3, 1),
+                        (3, 1, 2, 4), (3, 1, 4, 2), (3, 2, 1, 4), (3, 2, 4, 1),
+                        (3, 4, 1, 2), (3, 4, 2, 1), (4, 1, 2, 3), (4, 1, 3, 2),
+                        (4, 2, 1, 3), (4, 2, 3, 1), (4, 3, 1, 2), (4, 3, 2, 1)]
+
+    def test_permutations_r(self):
+        from itertools import permutations
+        perm = list(permutations([1, 2, 3, 4], 2))
+        assert perm == [(1, 2), (1, 3), (1, 4), (2, 1), (2, 3), (2, 4), (3, 1),
+                       (3, 2), (3, 4), (4, 1), (4, 2), (4, 3)]
+
+    def test_permutations_r_gt_n(self):
+        from itertools import permutations
+        perm = permutations([1, 2], 3)
+        raises(StopIteration, perm.next)
+
+    def test_permutations_neg_r(self):
+        from itertools import permutations
+        raises(ValueError, permutations, [1, 2], -1)
+
 
 class AppTestItertools27:
     def setup_class(cls):
