@@ -60,7 +60,7 @@ else:
     TIMEVALP       = rffi.CArrayPtr(TIMEVAL)
     TIMESPECP      = rffi.CArrayPtr(TIMESPEC)
     SEM_T          = rffi.COpaquePtr('sem_t', compilation_info=eci)
-    SEM_FAILED     = rffi.cast(SEM_T, config['SEM_FAILED'])
+    SEM_FAILED     = config['SEM_FAILED'] # rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
     HAVE_BROKEN_SEM_GETVALUE = config['SEM_GETVALUE']
@@ -85,7 +85,7 @@ else:
 
     def sem_open(name, oflag, mode, value):
         res = _sem_open(name, oflag, mode, value)
-        if res == SEM_FAILED:
+        if res == rffi.cast(SEM_T, SEM_FAILED):
             raise OSError(rposix.get_errno(), "sem_open failed")
         return res
 
@@ -244,7 +244,7 @@ if sys.platform == 'win32':
             time.sleep(0.001)
 
             # if this is main thread let KeyboardInterrupt be raised
-            _check_signals(self.space)
+            _check_signals(space)
 
             # recalculate timeout
             if msecs != rwin32.INFINITE:
