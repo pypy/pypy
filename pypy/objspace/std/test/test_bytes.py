@@ -76,6 +76,26 @@ class AppTestBytesArray:
     def test_contains(self):
         assert ord('l') in bytearray('hello')
         assert 'l' in bytearray('hello')
+        assert bytearray('ll') in bytearray('hello')
+        assert memoryview('ll') in bytearray('hello')
+
+        raises(TypeError, lambda: u'foo' in bytearray('foobar'))
+
+    def test_splitlines(self):
+        b = bytearray('1234')
+        assert b.splitlines()[0] == b
+        assert b.splitlines()[0] is not b
+
+        assert len(bytearray('foo\nbar').splitlines()) == 2
+        for item in bytearray('foo\nbar').splitlines():
+            assert isinstance(item, bytearray)
+
+    def test_ord(self):
+        b = bytearray('\0A\x7f\x80\xff')
+        assert ([ord(b[i:i+1]) for i in range(len(b))] ==
+                         [0, 65, 127, 128, 255])
+        raises(TypeError, ord, bytearray('ll'))
+        raises(TypeError, ord, bytearray())
 
     def test_translate(self):
         b = 'hello'

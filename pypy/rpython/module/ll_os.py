@@ -613,7 +613,13 @@ class RegisterOs(BaseLazyRegistering):
         c_sysconf = self.llexternal('sysconf', [rffi.INT], rffi.LONG)
 
         def sysconf_llimpl(i):
-            return c_sysconf(i)
+            rposix.set_errno(0)
+            res = c_sysconf(i)
+            if res == -1:
+                errno = rposix.get_errno()
+                if errno != 0:
+                    raise OSError(errno, "sysconf failed")
+            return res
         return extdef([int], int, "ll_os.ll_sysconf", llimpl=sysconf_llimpl)
 
     @registering_if(os, 'fpathconf')
@@ -622,7 +628,13 @@ class RegisterOs(BaseLazyRegistering):
                                       [rffi.INT, rffi.INT], rffi.LONG)
 
         def fpathconf_llimpl(fd, i):
-            return c_fpathconf(fd, i)
+            rposix.set_errno(0)
+            res = c_fpathconf(fd, i)
+            if res == -1:
+                errno = rposix.get_errno()
+                if errno != 0:
+                    raise OSError(errno, "fpathconf failed")
+            return res
         return extdef([int, int], int, "ll_os.ll_fpathconf",
                       llimpl=fpathconf_llimpl)
 
