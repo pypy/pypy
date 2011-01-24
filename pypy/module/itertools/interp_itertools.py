@@ -721,9 +721,6 @@ class W_StarMap(Wrappable):
 
     def next_w(self):
         w_obj = self.space.next(self.w_iterable)
-        if not self.space.is_true(self.space.isinstance(w_obj, self.space.w_tuple)):
-            raise OperationError(self.space.w_TypeError, self.space.wrap("iterator must return a tuple"))
-
         return self.space.call(self.w_fun, w_obj)
 
 def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):

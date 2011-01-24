@@ -369,6 +369,8 @@ class AppTestItertools:
             assert it.next() == x
         raises(StopIteration, it.next)
 
+        assert list(itertools.starmap(operator.add, [iter((40,2))])) == [42]
+
     def test_starmap_wrongargs(self):
         import itertools
 
