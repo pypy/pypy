@@ -368,6 +368,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withmapdict=True)
         config.objspace.std.suggest(withstrslice=True)
         config.objspace.std.suggest(withstrjoin=True)
+        if not IS_64_BITS:
+            config.objspace.std.suggest(withsmalllong=True)
         # xxx other options? ropes maybe?
 
     # completely disable geninterp in a level 0 translation
