@@ -39,14 +39,20 @@ dg_freedtoa = rffi.llexternal(
     compilation_info=eci)
 
 def strtod(input):
-    with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as end_ptr:
-        with rffi.scoped_str2charp(input) as ll_input:
+    end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+    try:
+        ll_input = rffi.str2charp(input)
+        try:
             result = dg_strtod(ll_input, end_ptr)
             if end_ptr[0] and ord(end_ptr[0][0]):
                 offset = (rffi.cast(rffi.LONG, end_ptr[0]) -
                           rffi.cast(rffi.LONG, ll_input))
                 raise ValueError("invalid input at position %d" % (offset,))
             return result
+        finally:
+            rffi.free_charp(ll_input)
+    finally:
+        lltype.free(end_ptr, flavor='raw')
 
 def format_nonfinite(digits, sign, flags):
     "Format dtoa's output for nonfinite numbers"
@@ -200,9 +206,12 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags):
     return s
 
 def dtoa(value, code='r', mode=0, precision=0, flags=0):
-    with lltype.scoped_alloc(rffi.INTP.TO, 1) as decpt_ptr:
-        with lltype.scoped_alloc(rffi.INTP.TO, 1) as sign_ptr:
-            with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as end_ptr:
+    decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    try:
+        sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        try:
+            end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+            try:
                 digits = dg_dtoa(value, mode, precision,
                                      decpt_ptr, sign_ptr, end_ptr)
                 try:
@@ -221,6 +230,12 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0):
 
                 finally:
                     dg_freedtoa(digits)
+            finally:
+                lltype.free(end_ptr, flavor='raw')
+        finally:
+            lltype.free(sign_ptr, flavor='raw')
+    finally:
+        lltype.free(decpt_ptr, flavor='raw')
 
 def dtoa_formatd(value, code, precision, flags):
     if code in 'EFG':
