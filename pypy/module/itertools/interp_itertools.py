@@ -1038,11 +1038,15 @@ W_Compress.typedef = TypeDef(
 
 class W_Product(Wrappable):
     def __init__(self, space, args_w, w_repeat):
-        self.gears_w = args_w * space.int_w(w_repeat)
+        self.gears_w = [
+            space.fixedview(arg_w) for arg_w in args_w
+        ] * space.int_w(w_repeat)
         self.num_gears = len(self.gears_w)
         # initialization of indicies to loop over
-        self.indicies = [(0, space.int_w(space.len(w_gear)))
-                         for w_gear in self.gears_w]
+        self.indicies = [
+            (0, len(w_gear))
+            for w_gear in self.gears_w
+        ]
         self.cont = True
 
     def roll_gears(self):
@@ -1082,10 +1086,10 @@ class W_Product(Wrappable):
         l = [None] * self.num_gears
         for x in range(0, self.num_gears):
             index, limit = self.indicies[x]
-            if space.int_w(space.len(self.gears_w[x])) == 0:
+            if len(self.gears_w[x]) == 0:
                 self.cont = False
                 raise OperationError(space.w_StopIteration, space.w_None)
-            l[x] = space.getitem(self.gears_w[x], space.wrap(index))
+            l[x] = self.gears_w[x][index]
         self.roll_gears()
         return space.newtuple(l)
 
