@@ -1157,8 +1157,7 @@ class W_Permutations(Wrappable):
 
     def next_w(self):
         if self.r > self.n:
-            raise OperationError(self.space.w_StopIteration,
-                                 self.space.w_None)
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
         if self.first_run:
             self.first_run = False
         else:
@@ -1166,21 +1165,20 @@ class W_Permutations(Wrappable):
             for i in xrange(self.r - 1, -1, -1):
                 self.cycles[i] -= 1
                 if self.cycles[i] == 0:
-                    new_indices = self.indices[i + 1:] +\
-                        self.indices[i:i + 1]
+                    new_indices = self.indices[i + 1:] + self.indices[i:i + 1]
                     for x in xrange(len(new_indices)):
                         self.indices[i + x] = new_indices[x]
                     self.cycles[i] = self.n - i
                 else:
                     j = self.cycles[i]
-                    self.indices[i], self.indices[-j] = self.indices[-j], \
-                        self.indices[i]
+                    self.indices[i], self.indices[-j] = (self.indices[-j],
+                                                         self.indices[i])
                     break
             else:
                 raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
-        return self.space.newtuple(
-            [self.pool_w[self.indices[x]] for x in range(self.r)])
+        res_w = [self.pool_w[self.indices[x]] for x in range(self.r)]
+        return self.space.newtuple(res_w)
 
 
 def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
