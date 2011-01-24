@@ -190,7 +190,7 @@ def _ll_2_int_floordiv_ovf(x, y):
 def _ll_2_int_floordiv_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
-    return llop.int_floordiv_zer(lltype.Signed, x, y)
+    return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_mod_ovf_zer(x, y):
     if y == 0:
