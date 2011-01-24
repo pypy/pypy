@@ -1036,11 +1036,11 @@ class W_Product(Wrappable):
 
     def __init__(self, space, args_w, w_repeat):
         self.space = space
-        self.gears_w = args_w * space.int_w(w_repeat)
-        self.num_gears = len(self.gears_w)
+        args = [space.fixedview(w_arg) for w_arg in args_w]
+        self.gears = args * space.int_w(w_repeat)
+        self.num_gears = len(self.gears)
         # initialization of indicies to loop over
-        self.indicies = [(0, space.int_w(space.len(w_gear)))
-                         for w_gear in self.gears_w]
+        self.indicies = [(0, len(gear)) for gear in self.gears]
         self.cont = True
         for _, lim in self.indicies:
             if lim <= 0:
@@ -1082,8 +1082,7 @@ class W_Product(Wrappable):
         l = [None] * self.num_gears
         for x in range(0, self.num_gears):
             index, limit = self.indicies[x]
-            l[x] = self.space.getitem(self.gears_w[x],
-                                      self.space.wrap(index))
+            l[x] = self.gears[x][index]
         self.roll_gears()
         return self.space.newtuple(l)
 

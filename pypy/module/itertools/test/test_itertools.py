@@ -729,6 +729,9 @@ class AppTestItertools26:
         prodlist = product(l, m)
         assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
 
+        prodlist = product(iter(l), iter(m))
+        assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+
     def test_product_repeat(self):
         from itertools import product
         l = [1, 2]
