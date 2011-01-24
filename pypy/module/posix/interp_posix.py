@@ -923,6 +923,14 @@ def geteuid(space):
     return space.wrap(os.geteuid())
 geteuid.unwrap_spec = [ObjSpace]
 
+def getgroups(space):
+    """ getgroups() -> list of group IDs
+
+    Return list of supplemental group IDs for the process.
+    """
+    return space.newlist([space.wrap(e) for e in os.getgroups()])
+getgroups.unwrap_spec = [ObjSpace]
+
 def getpgrp(space):
     """ getpgrp() -> pgrp
 
