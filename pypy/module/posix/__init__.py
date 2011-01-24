@@ -110,11 +110,16 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['execv'] = 'interp_posix.execv'
     if hasattr(os, 'execve'):
         interpleveldefs['execve'] = 'interp_posix.execve'
+    if hasattr(posix, 'spawnv'):
+        interpleveldefs['spawnv'] = 'interp_posix.spawnv'
     if hasattr(os, 'uname'):
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):
         interpleveldefs['sysconf'] = 'interp_posix.sysconf'
         interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
+    if hasattr(os, 'fpathconf'):
+        interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
+        interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):

@@ -150,6 +150,14 @@ class PyPyCJITTests(object):
         _, self.sliced_entrybridge, _ = \
                                     self.parse_rawloops(self.rawentrybridges)
 
+        from pypy.jit.tool.jitoutput import parse_prof
+        summaries  = logparser.extract_category(log, 'jit-summary')
+        if len(summaries) > 0:
+            self.jit_summary = parse_prof(summaries[-1])
+        else:
+            self.jit_summary = None
+        
+
     def parse_rawloops(self, rawloops):
         from pypy.jit.tool.oparser import parse
         loops = [parse(part, no_namespace=True) for part in rawloops]
@@ -1437,7 +1445,6 @@ class PyPyCJITTests(object):
                          count_debug_merge_point=False)
         
     def test_mod(self):
-        py.test.skip('Results are correct, but traces 1902 times (on trunk too).')
         avalues = ('a', 'b', 7, -42, 8)
         bvalues = ['b'] + range(-10, 0) + range(1,10)
         code = ''
@@ -1466,11 +1473,40 @@ class PyPyCJITTests(object):
 %s
                 i += 1
             return sa
-        ''' % code, 0, ([a1, b1], 2000 * res1),
+        ''' % code, 150, ([a1, b1], 2000 * res1),
                          ([a2, b2], 2000 * res2),
                          ([a3, b3], 2000 * res3),
                          count_debug_merge_point=False)
         
+    def test_dont_trace_every_iteration(self):
+        self.run_source('''
+        def main(a, b):
+            i = sa = 0
+            while i < 200:
+                if a > 0: pass
+                if 1 < b < 2: pass
+                sa += a % b
+                i += 1
+            return sa
+        ''', 11,  ([10, 20], 200 * (10 % 20)),
+                 ([-10, -20], 200 * (-10 % -20)),
+                        count_debug_merge_point=False)
+        assert self.jit_summary.tracing_no == 2
+    def test_id_compare_optimization(self):
+        # XXX: lower the instruction count, 35 is the old value.
+        self.run_source("""
+        class A(object):
+            pass
+        def main():
+            i = 0
+            a = A()
+            while i < 5:
+                if A() != a:
+                    pass
+                i += 1
+        """, 35, ([], None))
+        _, compare = self.get_by_bytecode("COMPARE_OP")
+        assert "call" not in compare.get_opnames()
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):

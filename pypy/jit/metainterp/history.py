@@ -282,8 +282,9 @@ class ConstInt(Const):
         cpu.set_future_value_int(j, self.value)
 
     def same_constant(self, other):
-        assert isinstance(other, Const)
-        return self.value == other.getint()
+        if isinstance(other, Const):
+            return self.value == other.getint()
+        return False
 
     def nonnull(self):
         return self.value != 0
@@ -321,8 +322,9 @@ class ConstFloat(Const):
         cpu.set_future_value_float(j, self.getfloat())
 
     def same_constant(self, other):
-        assert isinstance(other, ConstFloat)
-        return self.value == other.value
+        if isinstance(other, ConstFloat):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return self.value != 0.0
@@ -369,8 +371,9 @@ class ConstPtr(Const):
         cpu.set_future_value_ref(j, self.value)
 
     def same_constant(self, other):
-        assert isinstance(other, ConstPtr)
-        return self.value == other.value
+        if isinstance(other, ConstPtr):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return bool(self.value)
@@ -428,8 +431,9 @@ class ConstObj(Const):
 ##        return self.value
 
     def same_constant(self, other):
-        assert isinstance(other, ConstObj)
-        return self.value == other.value
+        if isinstance(other, ConstObj):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return bool(self.value)

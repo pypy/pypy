@@ -33,15 +33,15 @@ class Buffer(Wrappable):
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
         # May be overridden.
-        return self.getslice(0, self.getlength())
+        return self.getslice(0, self.getlength(), 1, self.getlength())
 
     def getitem(self, index):
         "Returns the index'th character in the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
 
-    def getslice(self, start, stop):
+    def getslice(self, start, stop, step, size):
         # May be overridden.  No bounds checks.
-        return ''.join([self.getitem(i) for i in range(start, stop)])
+        return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
     # __________ app-level support __________
 
@@ -50,16 +50,11 @@ class Buffer(Wrappable):
     descr_len.unwrap_spec = ['self', ObjSpace]
 
     def descr_getitem(self, space, w_index):
-        start, stop, step = space.decode_index(w_index, self.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step == 0:  # index only
             return space.wrap(self.getitem(start))
-        elif step == 1:
-            res = self.getslice(start, stop)
-            return space.wrap(res)
-        else:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("buffer object does not support"
-                                            " slicing with a step"))
+        res = self.getslice(start, stop, step, size)
+        return space.wrap(res)
     descr_getitem.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def descr_setitem(self, space, w_index, newstring):
@@ -135,7 +130,7 @@ class Buffer(Wrappable):
         else:
             info = 'read-only buffer'
         addrstring = self.getaddrstring(space)
-        
+
         return space.wrap("<%s for 0x%s, size %d>" %
                           (info, addrstring, self.getlength()))
     descr_repr.unwrap_spec = ['self', ObjSpace]
@@ -161,7 +156,19 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     if not space.is_w(w_subtype, space.gettypefor(Buffer)):
         raise OperationError(space.w_TypeError,
                              space.wrap("argument 1 must be 'buffer'"))
-    w_buffer = space.buffer(w_object)
+
+    if space.isinstance_w(w_object, space.w_unicode):
+        # unicode objects support the old buffer interface
+        # but not the new buffer interface (change in python  2.7)
+        from pypy.rlib.rstruct.unichar import pack_unichar
+        charlist = []
+        for unich in space.unicode_w(w_object):
+            pack_unichar(unich, charlist)
+        from pypy.interpreter.buffer import StringBuffer
+        w_buffer = space.wrap(StringBuffer(''.join(charlist)))
+    else:
+        w_buffer = space.buffer(w_object)
+
     buffer = space.interp_w(Buffer, w_buffer)    # type-check
     if offset == 0 and size == -1:
         return w_buffer
@@ -226,9 +233,13 @@ class StringBuffer(Buffer):
     def getitem(self, index):
         return self.value[index]
 
-    def getslice(self, start, stop):
-        assert 0 <= start <= stop <= len(self.value)
-        return self.value[start:stop]
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ""
+        if step == 1:
+            assert 0 <= start <= stop
+            return self.value[start:stop]
+        return "".join([self.value[start + i*step] for i in xrange(size)])
 
 
 class StringLikeBuffer(Buffer):
@@ -254,8 +265,11 @@ class StringLikeBuffer(Buffer):
         char = s[0]   # annotator hint
         return char
 
-    def getslice(self, start, stop):
+    def getslice(self, start, stop, step, size):
         space = self.space
+        if step != 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "buffer object does not support slicing with a step"))
         s = space.str_w(space.getslice(self.w_obj, space.wrap(start),
                                                    space.wrap(stop)))
         return s
@@ -282,11 +296,11 @@ class SubBufferMixin(object):
     def getitem(self, index):
         return self.buffer.getitem(self.offset + index)
 
-    def getslice(self, start, stop):
+    def getslice(self, start, stop, step, size):
         if start == stop:
             return ''     # otherwise, adding self.offset might make them
                           # out of bounds
-        return self.buffer.getslice(self.offset + start, self.offset + stop)
+        return self.buffer.getslice(self.offset + start, self.offset + stop, step, size)
 
 class SubBuffer(SubBufferMixin, Buffer):
     pass

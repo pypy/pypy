@@ -220,7 +220,6 @@ if IS_X86_32:
             return intmask(self.aslonglong)
 
         def high_part(self):
-            assert IS_X86_32
             return intmask(self.aslonglong >> 32)
 
         def low_part_loc(self):
@@ -475,6 +474,7 @@ class LocationCodeBuilder(object):
     SHR = _binaryop('SHR')
     SAR = _binaryop('SAR')
     TEST = _binaryop('TEST')
+    TEST8 = _binaryop('TEST8')
 
     ADD = _binaryop('ADD')
     SUB = _binaryop('SUB')

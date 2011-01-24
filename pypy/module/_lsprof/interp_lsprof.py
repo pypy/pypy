@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.function import Method, Function
+from pypy.interpreter.error import OperationError
 import time, sys
 
 class W_StatsEntry(Wrappable):
@@ -216,7 +217,12 @@ class W_Profiler(Wrappable):
     def timer(self):
         if self.w_callable:
             space = self.space
-            return space.float_w(space.call_function(self.w_callable))
+            try:
+                return space.float_w(space.call_function(self.w_callable))
+            except OperationError, e:
+                e.write_unraisable(space, "timer function ",
+                                   self.w_callable)
+                return 0.0
         return time.time()
 
     def enable(self, space, w_subcalls=NoneNotWrapped,

@@ -103,11 +103,18 @@ class W_Property(Wrappable):
         self.w_fset = w_fset
         self.w_fdel = w_fdel
         self.w_doc = w_doc
+        self.getter_doc = False
         # our __doc__ comes from the getter if we don't have an explicit one
-        if space.is_w(self.w_doc, space.w_None):
+        if (space.is_w(self.w_doc, space.w_None) and
+            not space.is_w(self.w_fget, space.w_None)):
             w_getter_doc = space.findattr(self.w_fget, space.wrap("__doc__"))
             if w_getter_doc is not None:
-                self.w_doc = w_getter_doc
+                if type(self) is W_Property:
+                    self.w_doc = w_getter_doc
+                else:
+                    space.setattr(space.wrap(self), space.wrap("__doc__"),
+                                  w_getter_doc)
+                self.getter_doc = True
     init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, W_Root]
 
     def new(space, w_subtype, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
@@ -140,27 +147,31 @@ class W_Property(Wrappable):
         return space.w_None
     delete.unwrap_spec = ['self', ObjSpace, W_Root]
 
-    def getattribute(self, space, attr):
-        # XXX fixme: this is a workaround.  It's hard but not impossible
-        # to have both a __doc__ on the 'property' type, and a __doc__
-        # descriptor that can read the docstring of 'property' instances.
-        if attr == '__doc__':
-            return self.w_doc
-        # shortcuts
-        return space.call_function(object_getattribute(space),
-                                   space.wrap(self), space.wrap(attr))
-    getattribute.unwrap_spec = ['self', ObjSpace, str]
+    def getter(self, space, w_getter):
+        return self._copy(space, w_getter=w_getter)
+    getter.unwrap_spec = ['self', ObjSpace, W_Root]
 
-    def setattr(self, space, attr, w_value):
-        # XXX kill me?  This is mostly to make tests happy, raising
-        # a TypeError instead of an AttributeError and using "readonly"
-        # instead of "read-only" in the error message :-/
-        if attr in ["__doc__", "fget", "fset", "fdel"]:
-            raise operationerrfmt(space.w_TypeError,
-                "Trying to set readonly attribute %s on property", attr)
-        return space.call_function(object_setattr(space),
-                                   space.wrap(self), space.wrap(attr), w_value)
-    setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
+    def setter(self, space, w_setter):
+        return self._copy(space, w_setter=w_setter)
+    setter.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def deleter(self, space, w_deleter):
+        return self._copy(space, w_deleter=w_deleter)
+    deleter.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def _copy(self, space, w_getter=None, w_setter=None, w_deleter=None):
+        if w_getter is None:
+            w_getter = self.w_fget
+        if w_setter is None:
+            w_setter = self.w_fset
+        if w_deleter is None:
+            w_deleter = self.w_fdel
+        if self.getter_doc and w_getter is not None:
+            w_doc = space.w_None
+        else:
+            w_doc = self.w_doc
+        w_type = self.getclass(space)
+        return space.call_function(w_type, w_getter, w_setter, w_deleter, w_doc)
 
 W_Property.typedef = TypeDef(
     'property',
@@ -179,9 +190,15 @@ class C(object):
     __get__ = interp2app(W_Property.get),
     __set__ = interp2app(W_Property.set),
     __delete__ = interp2app(W_Property.delete),
-    __getattribute__ = interp2app(W_Property.getattribute),
-    __setattr__ = interp2app(W_Property.setattr),
     fdel = interp_attrproperty_w('w_fdel', W_Property),
     fget = interp_attrproperty_w('w_fget', W_Property),
     fset = interp_attrproperty_w('w_fset', W_Property),
+    getter = interp2app(W_Property.getter),
+    setter = interp2app(W_Property.setter),
+    deleter = interp2app(W_Property.deleter),
 )
+# This allows there to be a __doc__ of the property type and a __doc__
+# descriptor for the instances.
+W_Property.typedef.rawdict['__doc__'] = interp_attrproperty_w('w_doc',
+                                                              W_Property)
+

@@ -126,5 +126,5 @@ def ll_int2oct(i, addPrefix):
 ll_int2oct._pure_function_ = True
 
 def ll_float_str(repr, f):
-    return llstr(formatd("%f", f))
+    return llstr(formatd(f, 'f', 6))
 ll_float_str._pure_function_ = True

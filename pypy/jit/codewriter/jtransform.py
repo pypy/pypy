@@ -1049,7 +1049,9 @@ class Transformer(object):
         op1 = SpaceOperation('jit_merge_point', args, None)
         op2 = SpaceOperation('-live-', [], None)
         # ^^^ we need a -live- for the case of do_recursive_call()
-        return ops + [op1, op2]
+        op3 = SpaceOperation('-live-', [], None)
+        # and one for inlined short preambles
+        return ops + [op3, op1, op2]
 
     def handle_jit_marker__loop_header(self, op, jitdriver):
         jd = self.callcontrol.jitdriver_sd_from_jitdriver(jitdriver)

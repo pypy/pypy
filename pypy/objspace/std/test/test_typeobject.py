@@ -103,6 +103,15 @@ class TestTypeObject:
 
 class AppTestTypeObject:
 
+    def test_abstract_methods(self):
+        class X(object):
+            pass
+        X.__abstractmethods__ = ("meth",)
+        raises(TypeError, X)
+        del X.__abstractmethods__
+        X()
+        raises(AttributeError, getattr, type, "__abstractmethods__")
+
     def test_call_type(self):
         assert type(42) is int
         C = type('C', (object,), {'x': lambda: 42})
@@ -655,6 +664,20 @@ class AppTestTypeObject:
         assert c.a == 42
         assert c.e == 85
 
+    def test_string_slots(self):
+        class A(object):
+            __slots__ = "abc"
+
+        class B(object):
+            __slots__ = u"abc"
+
+        a = A()
+        a.abc = "awesome"
+        assert a.abc == "awesome"
+        b = B()
+        b.abc = "awesomer"
+        assert b.abc == "awesomer"
+
     def test_base_attr(self):
         # check the '__base__'
         class A(object):
@@ -781,6 +804,8 @@ class AppTestTypeObject:
         class AA(object):
             __slots__ = ('a',)
         aa = AA()
+        # the following line works on CPython >= 2.6 but not on PyPy.
+        # but see below for more
         raises(TypeError, "aa.__class__ = A")
         raises(TypeError, "aa.__class__ = object")
         class Z1(A):
@@ -840,6 +865,28 @@ class AppTestTypeObject:
 
         raises(TypeError, "Int().__class__ = int")
 
+        class Order1(object):
+            __slots__ = ['a', 'b']
+        class Order2(object):
+            __slots__ = ['b', 'a']
+        # the following line works on CPython >= 2.6 but not on PyPy.
+        # but see below for more
+        raises(TypeError, "Order1().__class__ = Order2")
+
+        class U1(object):
+            __slots__ = ['a', 'b']
+        class U2(U1):
+            __slots__ = ['c', 'd', 'e']
+        class V1(object):
+            __slots__ = ['a', 'b']
+        class V2(V1):
+            __slots__ = ['c', 'd', 'e']
+        # the following line does not work on CPython >= 2.6 either.
+        # that's just obscure.  Really really.  So we just ignore
+        # the whole issue until someone comes complaining.  Then we'll
+        # just kill slots altogether apart from maybe doing a few checks.
+        raises(TypeError, "U2().__class__ = V2")
+
     def test_name(self):
         class Abc(object):
             pass
@@ -847,6 +894,22 @@ class AppTestTypeObject:
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
+
+    def test_compare(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        A.__eq__
+        A.__ne__
+        assert A.__eq__(A)
+        assert not A.__eq__(B)
+        assert A.__ne__(B)
+        assert not A.__ne__(A)
+        assert A == A
+        assert A != B
+        assert not A == B
+        assert not A != A
 
     def test_class_variations(self):
         class A(object):
@@ -939,6 +1002,15 @@ class AppTestTypeObject:
         assert ("x", 1) in d.items()
         assert ("y", 2) in d.items()
 
+    def test_type_descriptors_overridden(self):
+        class A(object):
+            __dict__ = 42
+        assert A().__dict__ == 42
+        #
+        class B(object):
+            __weakref__ = 42
+        assert B().__weakref__ == 42
+
 
 class AppTestMutableBuiltintypes:
 
@@ -963,6 +1035,16 @@ class AppTestMutableBuiltintypes:
         del list.doublelen
         del list.a
         raises(AttributeError, "l.a")
+
+    def test_doc(self):
+        class C(object):
+            pass
+
+        assert C.__dict__['__dict__'].__doc__.startswith("dictionary for")
+        assert C.__dict__['__weakref__'].__doc__.startswith("list of weak")
+        assert property.__doc__.startswith("property(fget=None,")
+        assert type.__doc__.startswith("type(object)")
+        assert "run-time error" in RuntimeError.__doc__
 
 class AppTestGetattributeShortcut:
 
@@ -1093,4 +1175,3 @@ class AppTestNewShortcut:
                 return x + 1
         a = A()
         assert a.f(1) == 2
-

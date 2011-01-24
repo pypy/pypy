@@ -227,6 +227,11 @@ def setup_sys_executable(executable, nanos):
                     executable = fn
                     break
     sys.executable = os.path.abspath(executable)
+    #
+    # 'sys.executable' should not end up being an non-existing file;
+    # just use '' in this case. (CPython issue #7774)
+    if not os.path.isfile(sys.executable):
+        sys.executable = ''
 
 def setup_initial_paths(ignore_environment=False, **extra):
     newpath = get_library_path(sys.executable)
@@ -271,7 +276,7 @@ default_options = dict.fromkeys(
     "unbuffered"), 0)
 
 
-PYTHON26 = False
+PYTHON26 = True
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -400,6 +405,10 @@ def parse_command_line(argv):
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = sys.flags.py3k_warning
+
+        if sys.py3kwarning:
+            print >> sys.stderr, (
+                "Warning: pypy does not implement py3k warnings")
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):

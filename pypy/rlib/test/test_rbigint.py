@@ -179,6 +179,24 @@ class Test_rbigint(object):
         d = f2.tofloat()
         assert d == float(2097152 << SHIFT)
 
+    def test_tofloat_precision(self):
+        assert rbigint.fromlong(0).tofloat() == 0.0
+        for sign in [1, -1]:
+            for p in xrange(100):
+                x = long(2**p * (2**53 + 1) + 1) * sign
+                y = long(2**p * (2**53+ 2)) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
+                #
+                x = long(2**p * (2**53 + 1)) * sign
+                y = long(2**p * 2**53) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
+
     def test_fromfloat(self):
         x = 1234567890.1234567890
         f1 = rbigint.fromfloat(x)
@@ -344,6 +362,16 @@ class Test_rbigint(object):
         a = rbigint.fromlong(-1<<10000)
         b = rbigint.fromlong(-1<<3000)
         assert a.mul(b).tolong() == (-1<<10000)*(-1<<3000)
+
+    def test_bit_length(self):
+        assert rbigint.fromlong(0).bit_length() == 0
+        assert rbigint.fromlong(1).bit_length() == 1
+        assert rbigint.fromlong(2).bit_length() == 2
+        assert rbigint.fromlong(3).bit_length() == 2
+        assert rbigint.fromlong(4).bit_length() == 3
+        assert rbigint.fromlong(-3).bit_length() == 2
+        assert rbigint.fromlong(-4).bit_length() == 3
+        assert rbigint.fromlong(1<<40).bit_length() == 41
 
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):

@@ -13,7 +13,7 @@ from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
-from pypy.annotation.model import SomeSingleFloat
+from pypy.annotation.model import SomeSingleFloat, SomeLongFloat
 from pypy.annotation.model import unionof, UnionError, missing_operation
 from pypy.annotation.model import isdegenerated, TLS
 from pypy.annotation.model import read_can_only_throw
@@ -23,6 +23,7 @@ from pypy.annotation.model import SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rlib import rarithmetic
+from pypy.tool.error import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
@@ -490,6 +491,12 @@ class __extend__(pairtype(SomeSingleFloat, SomeSingleFloat)):
         return SomeSingleFloat()
 
 
+class __extend__(pairtype(SomeLongFloat, SomeLongFloat)):
+    
+    def union((flt1, flt2)):
+        return SomeLongFloat()
+
+
 class __extend__(pairtype(SomeList, SomeList)):
 
     def union((lst1, lst2)):
@@ -813,6 +820,24 @@ _make_none_union('SomeWeakRef',         'obj.classdef')
 
 class __extend__(pairtype(SomePBC, SomeObject)):
     def getitem((pbc, o)):
+        if not pbc.isNone():
+            raise AnnotatorError("getitem on %r" % pbc)
+        return s_ImpossibleValue
+
+    def setitem((pbc, o), s_value):
+        if not pbc.isNone():
+            raise AnnotatorError("setitem on %r" % pbc)
+
+class __extend__(pairtype(SomePBC, SomeString)):
+    def add((pbc, o)):
+        if not pbc.isNone():
+            raise AnnotatorError('add on %r' % pbc)
+        return s_ImpossibleValue
+
+class __extend__(pairtype(SomeString, SomePBC)):
+    def add((o, pbc)):
+        if not pbc.isNone():
+            raise AnnotatorError('add on %r' % pbc)
         return s_ImpossibleValue
 
 class __extend__(pairtype(SomeExternalObject, SomeExternalObject)):

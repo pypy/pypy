@@ -592,6 +592,7 @@ class TestFlatten:
         self.encoding_test(f, [4, 5], """
             -live- %i0, %i1
             int_guard_value %i0
+            -live- %i0, %i1
             jit_merge_point $27, I[%i0], R[], F[], I[%i1], R[], F[]
             -live-
             loop_header $27

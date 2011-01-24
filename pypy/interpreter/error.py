@@ -56,7 +56,7 @@ class OperationError(Exception):
             s = self._compute_value()
         return '[%s: %s]' % (self.w_type, s)
 
-    def errorstr(self, space):
+    def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
         w_value = self.get_w_value(space)
         if space is None:
@@ -74,7 +74,10 @@ class OperationError(Exception):
                 exc_value = ""
             else:
                 try:
-                    exc_value = space.str_w(space.str(w_value))
+                    if use_repr:
+                        exc_value = space.str_w(space.repr(w_value))
+                    else:
+                        exc_value = space.str_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
                     exc_value = "<oups, exception object itself cannot be str'd>"
@@ -202,19 +205,14 @@ class OperationError(Exception):
                         w_value = space.call_function(w_type, w_value)
                     w_type = space.exception_getclass(w_value)
 
-        elif space.full_exceptions and space.is_w(space.type(w_type),
-                                                  space.w_str):
-            space.warn("raising a string exception is deprecated", 
-                       space.w_DeprecationWarning)
-
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
             w_instclass = space.exception_getclass(w_inst)
             if not space.exception_is_valid_class_w(w_instclass):
                 instclassname = w_instclass.getname(space)
-                msg = ("exceptions must be classes, or instances, "
-                       "or strings (deprecated), not %s")
+                msg = ("exceptions must be old-style classes or derived "
+                       "from BaseException, not %s")
                 raise operationerrfmt(space.w_TypeError, msg, instclassname)
 
             if not space.is_w(w_value, space.w_None):
@@ -235,8 +233,8 @@ class OperationError(Exception):
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
                 objrepr = '?'
-        msg = 'Exception "%s" in %s%s ignored\n' % (self.errorstr(space),
-                                                    where, objrepr)
+        msg = 'Exception %s in %s%s ignored\n' % (
+            self.errorstr(space, use_repr=True), where, objrepr)
         try:
             space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
         except OperationError:

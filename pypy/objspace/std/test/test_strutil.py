@@ -48,10 +48,9 @@ class TestStrUtil:
                  ('0x10', 0, 16),
                  ('0XE',  0, 14),
                  ('0',    0, 0),
-                 ('0x',   0, 0),    # according to CPython so far
-                 ('0X',   0, 0),    #     "           "
-                 ('0x',  16, 0),    #     "           "
-                 ('0X',  16, 0),    #     "           "
+                 ('0b11', 2, 3),
+                 ('0B10', 2, 2),
+                 ('0o77', 8, 63),
                  ]
         for s, base, expected in cases:
             assert string_to_int(s, base) == expected
@@ -65,6 +64,8 @@ class TestStrUtil:
         space = self.space
         cases = ['0x123',    # must use base 0 or 16
                  ' 0X12 ',
+                 '0b01',
+                 '0o01',
                  '',
                  '++12',
                  '+-12',
@@ -83,6 +84,11 @@ class TestStrUtil:
             raises(ParseStringError, string_to_int, s+'  ')
             raises(ParseStringError, string_to_int, '+'+s)
             raises(ParseStringError, string_to_int, '-'+s)
+        raises(ParseStringError, string_to_int, '0x', 16)
+        raises(ParseStringError, string_to_int, '-0x', 16)
+
+        exc = raises(ParseStringError, string_to_int, '')
+        assert exc.value.msg == "invalid literal for int() with base 10: ''"
 
     def test_string_to_int_overflow(self):
         import sys

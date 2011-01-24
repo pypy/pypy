@@ -11,7 +11,14 @@ class GeneratorIterator(Wrappable):
     def __init__(self, frame):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
+        self.pycode = frame.pycode
         self.running = False
+
+    def descr__repr__(self, space):
+        code_name = self.frame.pycode.co_name
+        addrstring = self.getaddrstring(space)
+        return space.wrap("<generator object %s at 0x%s>" %
+                          (code_name, addrstring))
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -81,7 +88,7 @@ return next yielded value or raise StopIteration."""
             self.running = False
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
-        """throw(typ[,val[,tb]]) -> raise exception in generator,
+        """x.throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
         return self.throw(w_type, w_val, w_tb)
 
@@ -101,11 +108,11 @@ return next yielded value or raise StopIteration."""
         return self.send_ex(space.w_None, operr)
              
     def descr_next(self):
-        """next() -> the next value, or raise StopIteration"""
+        """x.next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
  
     def descr_close(self):
-        """close(arg) -> raise GeneratorExit inside generator."""
+        """x.close(arg) -> raise GeneratorExit inside generator."""
         space = self.space
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,
@@ -125,6 +132,13 @@ return next yielded value or raise StopIteration."""
             return self.frame
         else:
             return space.w_None
+
+    def descr_gi_code(space, self):
+        return self.pycode
+
+    def descr__name__(space, self):
+        code_name = self.frame.pycode.co_name
+        return space.wrap(code_name)
 
     def descr__del__(self):        
         """

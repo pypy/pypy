@@ -108,4 +108,3 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                                       datetime.time,
                                       datetime.timedelta)
         module.clear_types()
-        self.cleanup_references()

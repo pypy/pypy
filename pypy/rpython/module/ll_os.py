@@ -73,6 +73,7 @@ class StringTraits:
     charp2str = staticmethod(rffi.charp2str)
     str2charp = staticmethod(rffi.str2charp)
     free_charp = staticmethod(rffi.free_charp)
+    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
 
     @staticmethod
     def posix_function_name(name):
@@ -89,6 +90,7 @@ class UnicodeTraits:
     charp2str = staticmethod(rffi.wcharp2unicode)
     str2charp = staticmethod(rffi.unicode2wcharp)
     free_charp = staticmethod(rffi.free_wcharp)
+    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
 
     @staticmethod
     def posix_function_name(name):
@@ -611,8 +613,30 @@ class RegisterOs(BaseLazyRegistering):
         c_sysconf = self.llexternal('sysconf', [rffi.INT], rffi.LONG)
 
         def sysconf_llimpl(i):
-            return c_sysconf(i)
+            rposix.set_errno(0)
+            res = c_sysconf(i)
+            if res == -1:
+                errno = rposix.get_errno()
+                if errno != 0:
+                    raise OSError(errno, "sysconf failed")
+            return res
         return extdef([int], int, "ll_os.ll_sysconf", llimpl=sysconf_llimpl)
+
+    @registering_if(os, 'fpathconf')
+    def register_os_fpathconf(self):
+        c_fpathconf = self.llexternal('fpathconf',
+                                      [rffi.INT, rffi.INT], rffi.LONG)
+
+        def fpathconf_llimpl(fd, i):
+            rposix.set_errno(0)
+            res = c_fpathconf(fd, i)
+            if res == -1:
+                errno = rposix.get_errno()
+                if errno != 0:
+                    raise OSError(errno, "fpathconf failed")
+            return res
+        return extdef([int, int], int, "ll_os.ll_fpathconf",
+                      llimpl=fpathconf_llimpl)
 
     @registering_if(os, 'getuid')
     def register_os_getuid(self):
@@ -1259,6 +1283,15 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_unlink failed")
 
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_win32_traits
+            win32traits = make_win32_traits(traits)
+
+            @func_renamer('unlink_llimpl_%s' % traits.str.__name__)
+            def unlink_llimpl(path):
+                if not win32traits.DeleteFile(path):
+                    raise rwin32.lastWindowsError()
+
         return extdef([traits.str], s_None, llimpl=unlink_llimpl,
                       export_name=traits.ll_os_name('unlink'))
 
@@ -1267,34 +1300,40 @@ class RegisterOs(BaseLazyRegistering):
         os_chdir = self.llexternal(traits.posix_function_name('chdir'),
                                    [traits.CCHARP], rffi.INT)
 
-        def chdir_llimpl(path):
+        def os_chdir_llimpl(path):
             res = rffi.cast(lltype.Signed, os_chdir(path))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chdir failed")
 
-        return extdef([traits.str], s_None, llimpl=chdir_llimpl,
+        # On Windows, use an implementation that will produce Win32 errors
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_chdir_impl
+            os_chdir_llimpl = make_chdir_impl(traits)
+
+        return extdef([traits.str], s_None, llimpl=os_chdir_llimpl,
                       export_name=traits.ll_os_name('chdir'))
 
     @registering_str_unicode(os.mkdir)
     def register_os_mkdir(self, traits):
-        if os.name == 'nt':
-            ARG2 = []         # no 'mode' argument on Windows - just ignored
-        else:
-            ARG2 = [rffi.MODE_T]
         os_mkdir = self.llexternal(traits.posix_function_name('mkdir'),
-                                   [traits.CCHARP] + ARG2, rffi.INT)
-        IGNORE_MODE = len(ARG2) == 0
+                                   [traits.CCHARP, rffi.MODE_T], rffi.INT)
 
-        def mkdir_llimpl(pathname, mode):
-            if IGNORE_MODE:
-                res = os_mkdir(pathname)
-            else:
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_win32_traits
+            win32traits = make_win32_traits(traits)
+
+            @func_renamer('mkdir_llimpl_%s' % traits.str.__name__)
+            def os_mkdir_llimpl(path, mode):
+                if not win32traits.CreateDirectory(path, None):
+                    raise rwin32.lastWindowsError()
+        else:
+            def os_mkdir_llimpl(pathname, mode):
                 res = os_mkdir(pathname, mode)
-            res = rffi.cast(lltype.Signed, res)
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_mkdir failed")
+                res = rffi.cast(lltype.Signed, res)
+                if res < 0:
+                    raise OSError(rposix.get_errno(), "os_mkdir failed")
 
-        return extdef([traits.str, int], s_None, llimpl=mkdir_llimpl,
+        return extdef([traits.str, int], s_None, llimpl=os_mkdir_llimpl,
                       export_name=traits.ll_os_name('mkdir'))
 
     @registering_str_unicode(os.rmdir)
@@ -1320,6 +1359,10 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chmod failed")
 
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_chmod_impl
+            chmod_llimpl = make_chmod_impl(traits)
+
         return extdef([traits.str, int], s_None, llimpl=chmod_llimpl,
                       export_name=traits.ll_os_name('chmod'))
 
@@ -1332,6 +1375,15 @@ class RegisterOs(BaseLazyRegistering):
             res = rffi.cast(lltype.Signed, os_rename(oldpath, newpath))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rename failed")
+
+        if sys.platform == 'win32':
+            from pypy.rpython.module.ll_win32file import make_win32_traits
+            win32traits = make_win32_traits(traits)
+
+            @func_renamer('rename_llimpl_%s' % traits.str.__name__)
+            def rename_llimpl(oldpath, newpath):
+                if not win32traits.MoveFile(oldpath, newpath):
+                    raise rwin32.lastWindowsError()
 
         return extdef([traits.str, traits.str], s_None, llimpl=rename_llimpl,
                       export_name=traits.ll_os_name('rename'))

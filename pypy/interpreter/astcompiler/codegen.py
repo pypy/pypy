@@ -11,7 +11,6 @@ from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
-from pypy.interpreter.pyparser import future
 from pypy.interpreter.error import OperationError
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX
 
@@ -109,6 +108,47 @@ slice_operations = misc.dict_to_switch({
     ast.Store : ops.STORE_SLICE,
     ast.Del : ops.DELETE_SLICE
 })
+
+
+class __extend__(ast.GeneratorExp):
+
+    def build_container(self, codegen):
+        pass
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.elt.walkabout(codegen)
+        codegen.emit_op(ops.YIELD_VALUE)
+        codegen.emit_op(ops.POP_TOP)
+
+
+class __extend__(ast.SetComp):
+
+    def build_container(self, codegen):
+        codegen.emit_op_arg(ops.BUILD_SET, 0)
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.elt.walkabout(codegen)
+        codegen.emit_op_arg(ops.SET_ADD, index)
+
+
+class __extend__(ast.DictComp):
+
+    def build_container(self, codegen):
+        codegen.emit_op_arg(ops.BUILD_MAP, 0)
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.value.walkabout(codegen)
+        self.key.walkabout(codegen)
+        codegen.emit_op_arg(ops.MAP_ADD, index)
 
 
 # These are frame blocks.
@@ -256,8 +296,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_FunctionDef(self, func):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
-        if func.decorators:
-            self.visit_sequence(func.decorators)
+        if func.decorator_list:
+            self.visit_sequence(func.decorator_list)
         args = func.args
         assert isinstance(args, ast.arguments)
         if args.defaults:
@@ -269,8 +309,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                               func.lineno)
         self._make_function(code, num_defaults)
         # Apply decorators.
-        if func.decorators:
-            for i in range(len(func.decorators)):
+        if func.decorator_list:
+            for i in range(len(func.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store)
 
@@ -288,6 +328,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
+        if cls.decorator_list:
+            self.visit_sequence(cls.decorator_list)
         self.load_const(self.space.wrap(cls.name))
         if cls.bases:
             bases_count = len(cls.bases)
@@ -299,6 +341,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_function(code, 0)
         self.emit_op_arg(ops.CALL_FUNCTION, 0)
         self.emit_op(ops.BUILD_CLASS)
+        if cls.decorator_list:
+            for i in range(len(cls.decorator_list)):
+                self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(cls.name, ast.Store)
 
     def _op_for_augassign(self, op):
@@ -334,13 +379,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(self._op_for_augassign(assign.op))
             self.name_op(target.id, ast.Store)
         else:
-            raise AssertionError("unknown augassign")
+            self.error("illegal expression for augmented assignment", assign)
 
     def visit_Assert(self, asrt):
         self.update_position(asrt.lineno)
         end = self.new_block()
         asrt.test.accept_jump_if(self, True, end)
-        self.emit_op(ops.POP_TOP)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
             asrt.msg.walkabout(self)
@@ -348,7 +392,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self.emit_op_arg(ops.RAISE_VARARGS, 1)
         self.use_next_block(end)
-        self.emit_op(ops.POP_TOP)
 
     def _binop(self, op):
         if op == ast.Div:
@@ -409,14 +452,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif test_constant == optimize.CONST_TRUE:
             self.visit_sequence(if_.body)
         else:
-            next = self.new_block()
-            if_.test.accept_jump_if(self, False, next)
-            self.emit_op(ops.POP_TOP)
+            if if_.orelse:
+                otherwise = self.new_block()
+            else:
+                otherwise = end
+            if_.test.accept_jump_if(self, False, otherwise)
             self.visit_sequence(if_.body)
             self.emit_jump(ops.JUMP_FORWARD, end)
-            self.use_next_block(next)
-            self.emit_op(ops.POP_TOP)
             if if_.orelse:
+                self.use_next_block(otherwise)
                 self.visit_sequence(if_.orelse)
         self.use_next_block(end)
 
@@ -495,12 +539,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # Force another lineno to be set for tracing purposes.
                 self.lineno_set = False
                 wh.test.accept_jump_if(self, False, anchor)
-                self.emit_op(ops.POP_TOP)
             self.visit_sequence(wh.body)
             self.emit_jump(ops.JUMP_ABSOLUTE, loop, True)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)
-                self.emit_op(ops.POP_TOP)
                 self.emit_op(ops.POP_BLOCK)
             self.pop_frame_block(F_BLOCK_LOOP, loop)
             if wh.orelse:
@@ -521,15 +563,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         for handler in te.handlers:
-            assert isinstance(handler, ast.excepthandler)
+            assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno, True)
             next_except = self.new_block()
             if handler.type:
                 self.emit_op(ops.DUP_TOP)
                 handler.type.walkabout(self)
                 self.emit_op_arg(ops.COMPARE_OP, 10)
-                self.emit_jump(ops.JUMP_IF_FALSE, next_except)
-                self.emit_op(ops.POP_TOP)
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except, True)
             self.emit_op(ops.POP_TOP)
             if handler.name:
                 handler.name.walkabout(self)
@@ -539,8 +580,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(handler.body)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
-            if handler.type:
-                self.emit_op(ops.POP_TOP)
         self.emit_op(ops.END_FINALLY)
         self.use_next_block(otherwise)
         if te.orelse:
@@ -619,9 +658,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                                "of file", imp)
             if star_import:
                 self.error("* not valid in __future__ imports", imp)
+            compiler = space.createcompiler()
             for alias in imp.names:
                 assert isinstance(alias, ast.alias)
-                if alias.name not in future.futureFlags_2_5.compiler_features:
+                if alias.name not in compiler.future_flags.compiler_features:
                     if alias.name == "braces":
                         self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
@@ -712,35 +752,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(wih.lineno, True)
         body_block = self.new_block()
         cleanup = self.new_block()
-        exit_storage = self.current_temporary_name()
-        temp_result = None
-        if wih.optional_vars:
-            temp_result = self.current_temporary_name()
         wih.context_expr.walkabout(self)
-        self.emit_op(ops.DUP_TOP)
-        self.emit_op_name(ops.LOAD_ATTR, self.names, "__exit__")
-        self.name_op(exit_storage, ast.Store)
-        self.emit_op_name(ops.LOAD_ATTR, self.names, "__enter__")
-        self.emit_op_arg(ops.CALL_FUNCTION, 0)
-        if wih.optional_vars:
-            self.name_op(temp_result, ast.Store)
-        else:
-            self.emit_op(ops.POP_TOP)
-        self.emit_jump(ops.SETUP_FINALLY, cleanup)
+        self.emit_jump(ops.SETUP_WITH, cleanup)
         self.use_next_block(body_block)
         self.push_frame_block(F_BLOCK_FINALLY, body_block)
         if wih.optional_vars:
-            self.name_op(temp_result, ast.Load)
-            self.name_op(temp_result, ast.Del)
             wih.optional_vars.walkabout(self)
+        else:
+            self.emit_op(ops.POP_TOP)
         self.visit_sequence(wih.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body_block)
         self.load_const(self.space.w_None)
         self.use_next_block(cleanup)
         self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
-        self.name_op(exit_storage, ast.Load)
-        self.name_op(exit_storage, ast.Del)
         self.emit_op(ops.WITH_CLEANUP)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
@@ -809,21 +834,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Const(self, const):
         self.update_position(const.lineno)
         space = self.space
-        value = const.value
-        # Constant tuples are tricky because we have to avoid letting equal
-        # values of the tuple that are not the same types being held together in
-        # the constant dict.  So we make the key include the type of each item
-        # in the sequence.
-        if space.is_true(space.isinstance(value, space.w_tuple)):
-            length = space.int_w(space.len(value))
-            key_w = [None]*(length + 2)
-            key_w[0] = value
-            for i in range(1, length + 1):
-                key_w[i] = space.type(space.getitem(value, space.wrap(i - 1)))
-            key_w[-1] = space.w_tuple
-            self.load_const(value, space.newtuple(key_w))
-        else:
-            self.load_const(value)
+        self.load_const(const.value)
 
     def visit_UnaryOp(self, op):
         self.update_position(op.lineno)
@@ -833,14 +844,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_BoolOp(self, op):
         self.update_position(op.lineno)
         if op.op == ast.And:
-            instr = ops.JUMP_IF_FALSE
+            instr = ops.JUMP_IF_FALSE_OR_POP
         else:
-            instr = ops.JUMP_IF_TRUE
+            instr = ops.JUMP_IF_TRUE_OR_POP
         end = self.new_block()
         for value in op.values[:-1]:
             value.walkabout(self)
-            self.emit_jump(instr, end)
-            self.emit_op(ops.POP_TOP)
+            self.emit_jump(instr, end, True)
         op.values[-1].walkabout(self)
         self.use_next_block(end)
 
@@ -857,8 +867,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.ROT_THREE)
             op_kind = compare_operations(comp.ops[i - 1])
             self.emit_op_arg(ops.COMPARE_OP, op_kind)
-            self.emit_jump(ops.JUMP_IF_FALSE, cleanup)
-            self.emit_op(ops.POP_TOP)
+            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
         comp.comparators[-1].walkabout(self)
@@ -877,11 +886,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         end = self.new_block()
         otherwise = self.new_block()
         ifexp.test.accept_jump_if(self, False, otherwise)
-        self.emit_op(ops.POP_TOP)
         ifexp.body.walkabout(self)
         self.emit_jump(ops.JUMP_FORWARD, end)
         self.use_next_block(otherwise)
-        self.emit_op(ops.POP_TOP)
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
@@ -916,11 +923,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.BUILD_MAP, 0)
         if d.values:
             for i in range(len(d.values)):
-                self.emit_op(ops.DUP_TOP)
                 d.values[i].walkabout(self)
-                self.emit_op(ops.ROT_TWO)
                 d.keys[i].walkabout(self)
-                self.emit_op(ops.STORE_SUBSCR)
+                self.emit_op(ops.STORE_MAP)
+
+    def visit_Set(self, s):
+        self.update_position(s.lineno)
+        self.visit_sequence(s.elts)
+        self.emit_op_arg(ops.BUILD_SET, len(s.elts))
 
     def visit_Name(self, name):
         self.update_position(name.lineno)
@@ -1011,7 +1021,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
-    def _listcomp_generator(self, list_name, gens, gen_index, elt):
+    def _listcomp_generator(self, gens, gen_index, elt):
         start = self.new_block()
         skip = self.new_block()
         if_cleanup = self.new_block()
@@ -1029,48 +1039,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for if_ in gen.ifs:
                 if_.accept_jump_if(self, False, if_cleanup)
                 self.use_next_block()
-                self.emit_op(ops.POP_TOP)
         else:
             if_count = 0
         gen_index += 1
         if gen_index < len(gens):
-            self._listcomp_generator(list_name, gens, gen_index, elt)
+            self._listcomp_generator(gens, gen_index, elt)
         else:
-            self.name_op(list_name, ast.Load)
             elt.walkabout(self)
-            self.emit_op(ops.LIST_APPEND)
+            self.emit_op_arg(ops.LIST_APPEND, gen_index + 1)
             self.use_next_block(skip)
-        for i in range(if_count):
-            self.emit_op_arg(ops.JUMP_FORWARD, 1)
-            if i == 0:
-                self.use_next_block(if_cleanup)
-            self.emit_op(ops.POP_TOP)
+        self.use_next_block(if_cleanup)
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
         self.use_next_block(anchor)
-        if gen_index == 1:
-            self.name_op(list_name, ast.Del)
 
     def visit_ListComp(self, lc):
         self.update_position(lc.lineno)
-        tmp_name = self.current_temporary_name()
         self.emit_op_arg(ops.BUILD_LIST, 0)
-        self.emit_op(ops.DUP_TOP)
-        self.name_op(tmp_name, ast.Store)
-        self._listcomp_generator(tmp_name, lc.generators, 0, lc.elt)
+        self._listcomp_generator(lc.generators, 0, lc.elt)
 
-    def _genexp_generator(self, generators, gen_index, elt):
+    def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()
         skip = self.new_block()
         if_cleanup = self.new_block()
         anchor = self.new_block()
-        end = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
-        self.emit_jump(ops.SETUP_LOOP, end)
-        self.push_frame_block(F_BLOCK_LOOP, start)
         if gen_index == 0:
             self.argcount = 1
-            self.name_op(".0", ast.Load)
+            self.emit_op_arg(ops.LOAD_FAST, 0)
         else:
             gen.iter.walkabout(self)
             self.emit_op(ops.GET_ITER)
@@ -1083,38 +1079,37 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for if_ in gen.ifs:
                 if_.accept_jump_if(self, False, if_cleanup)
                 self.use_next_block()
-                self.emit_op(ops.POP_TOP)
         else:
             ifs_count = 0
         gen_index += 1
         if gen_index < len(generators):
-            self._genexp_generator(generators, gen_index, elt)
+            self._comp_generator(node, generators, gen_index)
         else:
-            elt.walkabout(self)
-            self.emit_op(ops.YIELD_VALUE)
-            self.emit_op(ops.POP_TOP)
-            self.use_next_block(skip)
-        for i in range(ifs_count):
-            self.emit_op_arg(ops.JUMP_FORWARD, 1)
-            if i == 0:
-                self.use_next_block(if_cleanup)
-            self.emit_op(ops.POP_TOP)
+            node.accept_comp_iteration(self, gen_index)
+        self.use_next_block(if_cleanup)
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
         self.use_next_block(anchor)
-        self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_LOOP, start)
-        self.use_next_block(end)
 
-    def visit_GeneratorExp(self, genexp):
-        code = self.sub_scope(GenExpCodeGenerator, "<genexp>", genexp,
-                              genexp.lineno)
-        self.update_position(genexp.lineno)
+    def _compile_comprehension(self, node, name, sub_scope):
+        code = self.sub_scope(sub_scope, name, node, node.lineno)
+        self.update_position(node.lineno)
         self._make_function(code)
-        first_comp = genexp.generators[0]
+        first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
         first_comp.iter.walkabout(self)
         self.emit_op(ops.GET_ITER)
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
+
+    def visit_GeneratorExp(self, genexp):
+        self._compile_comprehension(genexp, "<genexpr>", GenExpCodeGenerator)
+
+    def visit_SetComp(self, setcomp):
+        self._compile_comprehension(setcomp, "<setcomp>",
+                                    ComprehensionCodeGenerator)
+
+    def visit_DictComp(self, dictcomp):
+        self._compile_comprehension(dictcomp, "<dictcomp>",
+                                    ComprehensionCodeGenerator)
 
     def visit_Repr(self, rep):
         self.update_position(rep.lineno)
@@ -1311,15 +1306,26 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class GenExpCodeGenerator(AbstractFunctionCodeGenerator):
+class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
 
-    def _compile(self, genexp):
-        assert isinstance(genexp, ast.GeneratorExp)
-        self.update_position(genexp.lineno)
-        self._genexp_generator(genexp.generators, 0, genexp.elt)
+    def _compile(self, node):
+        assert isinstance(node, ast.expr)
+        self.update_position(node.lineno)
+        node.build_container(self)
+        self._comp_generator(node, node.get_generators(), 0)
+        self._end_comp()
+
+    def _end_comp(self):
+        self.emit_op(ops.RETURN_VALUE)
+
+
+class GenExpCodeGenerator(ComprehensionCodeGenerator):
+
+    def _end_comp(self):
+        pass
 
     def _get_code_flags(self):
-        flags = AbstractFunctionCodeGenerator._get_code_flags(self)
+        flags = ComprehensionCodeGenerator._get_code_flags(self)
         return flags | consts.CO_GENERATOR
 
 

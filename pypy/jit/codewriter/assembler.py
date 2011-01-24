@@ -9,6 +9,10 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 
 
+class AssemblerError(Exception):
+    pass
+
+
 class Assembler(object):
 
     def __init__(self):
@@ -24,7 +28,7 @@ class Assembler(object):
         """Take the 'ssarepr' representation of the code and assemble
         it inside the 'jitcode'.  If jitcode is None, make a new one.
         """
-        self.setup()
+        self.setup(ssarepr.name)
         ssarepr._insns_pos = []
         for insn in ssarepr.insns:
             ssarepr._insns_pos.append(len(self.code))
@@ -40,7 +44,7 @@ class Assembler(object):
         self._count_jitcodes += 1
         return jitcode
 
-    def setup(self):
+    def setup(self, name):
         self.code = []
         self.constants_dict = {}
         self.constants_i = []
@@ -54,6 +58,7 @@ class Assembler(object):
         self.startpoints = set()
         self.alllabels = set()
         self.resulttypes = {}
+        self.ssareprname = name
 
     def emit_reg(self, reg):
         if reg.index >= self.count_regs[reg.kind]:
@@ -62,8 +67,8 @@ class Assembler(object):
 
     def emit_const(self, const, kind, allow_short=False):
         value = const.value
-        TYPE = lltype.typeOf(value)
         if kind == 'int':
+            TYPE = const.concretetype
             if isinstance(TYPE, lltype.Ptr):
                 assert TYPE.TO._gckind == 'raw'
                 self.see_raw_object(value)
@@ -82,10 +87,11 @@ class Assembler(object):
             value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
             constants = self.constants_r
         elif kind == 'float':
-            assert TYPE == lltype.Float
+            assert const.concretetype == lltype.Float
             constants = self.constants_f
         else:
-            raise NotImplementedError(const)
+            raise AssemblerError('unimplemented %r in %r' %
+                                 (const, self.ssareprname))
         key = (kind, Constant(value))
         if key not in self.constants_dict:
             constants.append(value)

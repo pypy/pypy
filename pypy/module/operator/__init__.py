@@ -21,7 +21,7 @@ class Module(MixedModule):
                  'countOf', 'delslice', 'getslice', 'indexOf',
                  'isMappingType', 'isNumberType', 'isSequenceType',
                  'repeat', 'setslice',
-                 'attrgetter', 'itemgetter'
+                 'attrgetter', 'itemgetter', 'methodcaller',
              ]
 
     for name in app_names:

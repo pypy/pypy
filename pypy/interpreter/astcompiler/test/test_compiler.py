@@ -1,9 +1,10 @@
 import py
-from pypy.interpreter.astcompiler import codegen, astbuilder
+from pypy.interpreter.astcompiler import codegen, astbuilder, symtable
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
+from pypy.tool import stdlib_opcode as ops
 
 def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PythonParser(space)
@@ -12,6 +13,18 @@ def compile_with_astcompiler(expr, mode, space):
     ast = astbuilder.ast_from_node(space, cst, info)
     return codegen.compile_ast(space, ast, info)
 
+def generate_function_code(expr, space):
+    p = pyparse.PythonParser(space)
+    info = pyparse.CompileInfo("<test>", 'exec')
+    cst = p.parse_source(expr, info)
+    ast = astbuilder.ast_from_node(space, cst, info)
+    function_ast = ast.body[0]
+    symbols = symtable.SymtableBuilder(space, ast, info)
+    generator = codegen.FunctionCodeGenerator(
+        space, 'function', function_ast, 1, symbols, info)
+    blocks = generator.first_block.post_order()
+    generator._resolve_block_targets(blocks)
+    return generator, blocks
 
 class TestCompiler:
     """These tests compile snippets of code and check them by
@@ -27,8 +40,8 @@ class TestCompiler:
         space = self.space
         code = compile_with_astcompiler(source, 'exec', space)
         # 2.7 bytecode is too different, the standard `dis` module crashes
-        # when trying to display pypy (2.5-like) bytecode.
-        if sys.version_info < (2, 7):
+        # on older cpython versions
+        if sys.version_info >= (2, 7):
             print
             code.dump()
         w_dict = space.newdict()
@@ -129,6 +142,9 @@ class TestCompiler:
             yield self.simple_test, "x = 17 %s 5" % operator, "x", expected
             expected = eval("0 %s 11" % operator)
             yield self.simple_test, "x = 0 %s 11" % operator, "x", expected
+
+    def test_compare(self):
+        yield self.st, "x = 2; y = 5; y; h = 1 < x >= 3 < x", "h", False
 
     def test_augmented_assignment(self):
         for operator in ['+', '-', '*', '**', '/', '&', '|', '^', '//',
@@ -422,11 +438,12 @@ class TestCompiler:
         decl = str(decl) + "\n"
         yield self.st, decl, 'x', (1, 2, 3, 4)
 
-        source = """def f(a):
-    del a
-    def x():
-        a
-"""
+        source = """if 1:
+        def f(a):
+            del a
+            def x():
+                a
+        """
         exc = py.test.raises(SyntaxError, self.run, source).value
         assert exc.msg == "Can't delete variable used in nested scopes: 'a'"
 
@@ -701,6 +718,10 @@ class TestCompiler:
         source = "call(a, b, c) = 3"
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
+    def test_augassig_to_sequence(self):
+        source = "a, b += 3"
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
     def test_broken_setups(self):
         source = """if 1:
         try:
@@ -725,15 +746,16 @@ class TestCompiler:
         yield self.st, "x = None; y = `x`", "y", "None"
 
     def test_deleting_attributes(self):
-        test = """class X():
-   x = 3
-del X.x
-try:
-    X.x
-except AttributeError:
-    pass
-else:
-    raise AssertionError("attribute not removed")"""
+        test = """if 1:
+        class X():
+           x = 3
+        del X.x
+        try:
+            X.x
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError("attribute not removed")"""
         yield self.st, test, "X.__name__", "X"
 
 
@@ -753,10 +775,30 @@ class AppTestCompiler:
         assert "0 ('hi')" not in output.getvalue()
 
     def test_print_to(self):
-         exec """from StringIO import StringIO
-s = StringIO()
-print >> s, "hi", "lovely!"
-assert s.getvalue() == "hi lovely!\\n"
-s = StringIO()
-print >> s, "hi", "lovely!",
-assert s.getvalue() == "hi lovely!\"""" in {}
+         exec """if 1:
+         from StringIO import StringIO
+         s = StringIO()
+         print >> s, "hi", "lovely!"
+         assert s.getvalue() == "hi lovely!\\n"
+         s = StringIO()
+         print >> s, "hi", "lovely!",
+         assert s.getvalue() == "hi lovely!"
+         """ in {}
+
+class TestOptimizations:
+
+    def test_elim_jump_to_return(self):
+        source = """def f():
+        return true_value if cond else false_value
+        """
+        code, blocks = generate_function_code(source, self.space)
+        instrs = []
+        for block in blocks:
+            instrs.extend(block.instructions)
+        print instrs
+        counts = {}
+        for instr in instrs:
+            counts[instr.opcode] = counts.get(instr.opcode, 0) + 1
+        assert ops.JUMP_FORWARD not in counts
+        assert ops.JUMP_ABSOLUTE not in counts
+        assert counts[ops.RETURN_VALUE] == 2
