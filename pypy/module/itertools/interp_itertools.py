@@ -1045,6 +1045,9 @@ class W_Product(Wrappable):
         self.indicies = [(0, space.int_w(space.len(w_gear)))
                          for w_gear in self.gears_w]
         self.cont = True
+        for _, lim in self.indicies:
+            if lim <= 0:
+                self.cont = False
 
     def roll_gears(self):
         if self.num_gears == 0:
