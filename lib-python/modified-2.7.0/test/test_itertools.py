@@ -785,11 +785,11 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(ValueError, islice, xrange(10), 1, -5, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, 0)
-        self.assertRaises(ValueError, islice, xrange(10), 'a')
-        self.assertRaises(ValueError, islice, xrange(10), 'a', 1)
-        self.assertRaises(ValueError, islice, xrange(10), 1, 'a')
-        self.assertRaises(ValueError, islice, xrange(10), 'a', 1, 1)
-        self.assertRaises(ValueError, islice, xrange(10), 1, 'a', 1)
+        self.assertRaises((ValueError,TypeError), islice, xrange(10), 'a')
+        self.assertRaises((ValueError,TypeError), islice, xrange(10), 'a', 1)
+        self.assertRaises((ValueError,TypeError), islice, xrange(10), 1, 'a')
+        self.assertRaises((ValueError,TypeError), islice, xrange(10), 'a', 1, 1)
+        self.assertRaises((ValueError,TypeError), islice, xrange(10), 1, 'a', 1)
         self.assertEqual(len(list(islice(count(), 1, 10, maxsize))), 1)
 
     def test_takewhile(self):
