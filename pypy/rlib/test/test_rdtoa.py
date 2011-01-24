@@ -6,6 +6,7 @@ def test_strtod():
     assert strtod("1.1") == 1.1
     assert strtod("3.47") == 3.47
     raises(ValueError, strtod, "123A")
+    assert strtod(".125") == .125
 
 def test_dtoa():
     assert dtoa(3.47) == "3.47"
@@ -22,3 +23,4 @@ def test_dtoa():
 
 def test_dtoa_precision():
     assert dtoa(1.1, code='f', precision=2) == "1.10"
+    assert dtoa(1e12, code='g', precision=12) == "1e+12"
