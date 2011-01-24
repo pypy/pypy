@@ -1036,9 +1036,7 @@ W_Compress.typedef = TypeDef(
 
 
 class W_Product(Wrappable):
-
     def __init__(self, space, args_w, w_repeat):
-        self.space = space
         self.gears_w = args_w * space.int_w(w_repeat)
         self.num_gears = len(self.gears_w)
         # initialization of indicies to loop over
@@ -1072,20 +1070,23 @@ class W_Product(Wrappable):
             else:
                 break
 
-    def iter_w(self):
-        return self.space.wrap(self)
+    @unwrap_spec("self", ObjSpace)
+    def iter_w(self, space):
+        return space.wrap(self)
 
-    def next_w(self):
+    @unwrap_spec("self", ObjSpace)
+    def next_w(self, space):
         if not self.cont:
-            raise OperationError(self.space.w_StopIteration,
-                                     self.space.w_None)
+            raise OperationError(space.w_StopIteration, space.w_None)
         l = [None] * self.num_gears
         for x in range(0, self.num_gears):
             index, limit = self.indicies[x]
-            l[x] = self.space.getitem(self.gears_w[x],
-                                      self.space.wrap(index))
+            if space.int_w(space.len(self.gears_w[x])) == 0:
+                self.cont = False
+                raise OperationError(space.w_StopIteration, space.w_None)
+            l[x] = space.getitem(self.gears_w[x], space.wrap(index))
         self.roll_gears()
-        return self.space.newtuple(l)
+        return space.newtuple(l)
 
 
 @unwrap_spec(ObjSpace, W_Root, Arguments)
@@ -1107,8 +1108,8 @@ def W_Product__new__(space, w_subtype, __args__):
 W_Product.typedef = TypeDef(
     'product',
     __new__ = interp2app(W_Product__new__),
-    __iter__ = interp2app(W_Product.iter_w, unwrap_spec=['self']),
-    next = interp2app(W_Product.next_w, unwrap_spec=['self']),
+    __iter__ = interp2app(W_Product.iter_w),
+    next = interp2app(W_Product.next_w),
     __doc__ = """
    Cartesian product of input iterables.
 
