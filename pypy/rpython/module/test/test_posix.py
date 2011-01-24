@@ -149,12 +149,6 @@ class BaseTestPosix(BaseRtypingTest):
             def f():
                 return os.getgid()
             assert self.interpret(f, []) == f()
-            
-    if hasattr(os, 'getgroups'):
-        def test_getgroups(self):
-            def f():
-                return os.getgroups()
-            assert self.interpret(f, []) == f()
 
     if hasattr(os, 'setuid'):
         def test_os_setuid(self):
@@ -193,7 +187,13 @@ class BaseTestPosix(BaseRtypingTest):
                 assert res == fun(value)        
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
-    pass
+
+    if hasattr(os, 'getgroups'):
+        def test_getgroups(self):
+            def f():
+                return os.getgroups()
+            ll_a = self.interpret(f, [])
+            assert self.ll_to_list(ll_a) == f()
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     def test_fstat(self):
