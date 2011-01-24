@@ -694,7 +694,7 @@ class RegisterOs(BaseLazyRegistering):
                     lltype.free(groups, flavor='raw')
                 if n >= 0:
                     return result
-                raise OSError(rposix.get_errno(), "os_getgroups failed")
+            raise OSError(rposix.get_errno(), "os_getgroups failed")
 
         return extdef([], [self.GID_T], llimpl=getgroups_llimpl,
                       export_name="ll_os.ll_getgroups")
