@@ -31,7 +31,7 @@ from email import Iterators
 from email import base64MIME
 from email import quopriMIME
 
-from test.test_support import findfile, run_unittest
+from test.test_support import findfile, run_unittest, impl_detail
 from email.test import __file__ as landmark
 
 
@@ -564,6 +564,7 @@ class TestEncoders(unittest.TestCase):
         msg = MIMEText('hello \xf8 world', _charset='iso-8859-1')
         eq(msg['content-transfer-encoding'], 'quoted-printable')
 
+    @impl_detail("PyPy has no cjkc codec yet", pypy=False)
     def test_encode7or8bit(self):
         # Make sure a charset whose input character set is 8bit but
         # whose output character set is 7bit gets a transfer-encoding
