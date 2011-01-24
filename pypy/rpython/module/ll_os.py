@@ -691,7 +691,7 @@ class RegisterOs(BaseLazyRegistering):
                     lltype.free(groups, flavor='raw')
                     groups = lltype.malloc(GP.TO, n, flavor='raw')
                     n = c_getgroups(n,groups)
-                    result = [g for g in groups]
+                    result = [groups[i] for i in range(n)]
                     if n >= 0:
                         return result
                 raise OSError(rposix.get_errno(), "os_getgroups failed")
