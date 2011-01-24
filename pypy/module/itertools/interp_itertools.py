@@ -23,7 +23,8 @@ class W_Count(Wrappable):
     def repr_w(self):
         space = self.space
         c = space.str_w(space.repr(self.w_c))
-        if space.eq_w(self.w_step, space.wrap(1)):
+        if (space.isinstance_w(self.w_step, space.w_int) and
+            space.eq_w(self.w_step, space.wrap(1))):
             s = 'count(%s)' % (c,)
         else:
             step = space.str_w(space.repr(self.w_step))

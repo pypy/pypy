@@ -1,6 +1,7 @@
 import py
 from pypy.conftest import gettestobjspace
 
+
 class AppTestItertools: 
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['itertools'])
@@ -26,6 +27,8 @@ class AppTestItertools:
         assert repr(it) == 'count(123)'
         it.next()
         assert repr(it) == 'count(124)'
+        it = itertools.count(12.1, 1.0)
+        assert repr(it) == 'count(12.1, 1.0)'
 
     def test_repeat(self):
         import itertools
