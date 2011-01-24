@@ -912,6 +912,7 @@ class TestBasicOps(unittest.TestCase):
         p = proxy(a)
         self.assertEqual(getattr(p, '__class__'), type(b))
         del a
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, '__class__')
 
     def test_StopIteration(self):
@@ -1334,6 +1335,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
 
 class LengthTransparency(unittest.TestCase):
 
+    @test_support.impl_detail("__length_hint__() API is undocumented")
     def test_repeat(self):
         from test.test_iterlen import len
         self.assertEqual(len(repeat(None, 50)), 50)
