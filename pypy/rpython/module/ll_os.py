@@ -684,19 +684,17 @@ class RegisterOs(BaseLazyRegistering):
         c_getgroups = self.llexternal('getgroups', [rffi.INT, GP], rffi.INT)
 
         def getgroups_llimpl():
-            groups = lltype.malloc(GP.TO, 0, flavor='raw')
-            try:
-                n = c_getgroups(0, groups)
-                if n >= 0:
-                    lltype.free(groups, flavor='raw')
-                    groups = lltype.malloc(GP.TO, n, flavor='raw')
+            n = c_getgroups(0, lltype.nullptr(GP.TO))
+            if n >= 0:
+                groups = lltype.malloc(GP.TO, n, flavor='raw')
+                try:
                     n = c_getgroups(n, groups)
                     result = [groups[i] for i in range(n)]
-                    if n >= 0:
-                        return result
+                finally:
+                    lltype.free(groups, flavor='raw')
+                if n >= 0:
+                    return result
                 raise OSError(rposix.get_errno(), "os_getgroups failed")
-            finally:
-                lltype.free(groups, flavor='raw')
 
         return extdef([], [self.GID_T], llimpl=getgroups_llimpl,
                       export_name="ll_os.ll_getgroups")
