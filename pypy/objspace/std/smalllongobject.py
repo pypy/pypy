@@ -43,12 +43,29 @@ registerimplementation(W_SmallLongObject)
 
 # ____________________________________________________________
 
-from pypy.rpython.lltypesystem import lltype, rffi
-llong_mul_ovf = rffi.llexternal("op_llong_mul_ovf",
-                                [lltype.SignedLongLong] * 2,
-                                lltype.SignedLongLong,
-                                _callable=lambda x, y: x * y,
-                                _nowrapper=True, pure_function=True)
+def llong_mul_ovf(a, b):
+    # xxx duplication of the logic from translator/c/src/int.h
+    longprod = a * b
+    doubleprod = float(a) * float(b)
+    doubled_longprod = float(longprod)
+
+    # Fast path for normal case:  small multiplicands, and no info
+    # is lost in either method.
+    if doubled_longprod == doubleprod:
+        return longprod
+
+    # Somebody somewhere lost info.  Close enough, or way off?  Note
+    # that a != 0 and b != 0 (else doubled_longprod == doubleprod == 0).
+    # The difference either is or isn't significant compared to the
+    # true value (of which doubleprod is a good approximation).
+    diff = doubled_longprod - doubleprod
+    absdiff = abs(diff)
+    absprod = abs(doubleprod)
+    # absdiff/absprod <= 1/32 iff
+    # 32 * absdiff <= absprod -- 5 good bits is "close enough"
+    if 32.0 * absdiff <= absprod:
+        return longprod
+    raise OverflowError("integer multiplication")
 
 # ____________________________________________________________
 
