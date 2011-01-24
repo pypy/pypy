@@ -129,6 +129,9 @@
 #include <stdio.h>
 #define PyMem_Malloc PyObject_Malloc
 #define PyMem_Free PyObject_Free
+#define _Py_dg_strtod _PyPy_dg_strtod
+#define _Py_dg_dtoa _PyPy_dg_dtoa
+#define _Py_dg_freedtoa _PyPy_dg_freedtoa
 /* End PYPY hacks */
 
 

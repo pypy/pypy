@@ -248,7 +248,7 @@ class AppTestWidthPrec:
         def f(fmt, x):
             return fmt % x
         raises(OverflowError, f, "%.70f", 2.0)
-        raises(OverflowError, f, "%.110g", 2.0)
+        assert '%.110g' % 2.0 == '2'
 
     def test_subnormal(self):
         inf = 1e300 * 1e300
