@@ -40,6 +40,8 @@ class TestW_ComplexObject:
         test_cparse('(1+2j)', '1', '2')
         test_cparse('(1-6j)', '1', '-6')
         test_cparse(' ( +3.14-6J )','+3.14','-6')
+        test_cparse(' +J','0.0','1.0')
+        test_cparse(' -J','0.0','-1.0')
 
     def test_unpackcomplex(self):
         space = self.space

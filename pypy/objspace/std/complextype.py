@@ -60,6 +60,10 @@ def _split_complex(s):
         if s[newstop] in ('j','J'):
             if realstart == newstop:
                 imagpart = '1.0'
+            elif realstart == newstop-1 and s[realstart] == '+':
+                imagpart = '1.0'
+            elif realstart == newstop-1 and s[realstart] == '-':
+                imagpart = '-1.0'
             else:
                 imagpart = s[realstart:newstop]
             return '0.0', imagpart
