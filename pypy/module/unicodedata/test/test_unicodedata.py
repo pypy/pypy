@@ -99,6 +99,11 @@ class AppTestUnicodeData:
                 else:
                     assert len(lines) == 1
 
+    def test_mirrored(self):
+        import unicodedata
+        # For no reason, unicodedata.mirrored() returns an int, not a bool
+        assert repr(unicodedata.mirrored(u' ')) == '0'
+
 class TestUnicodeData(object):
     def setup_class(cls):
         import random, unicodedata

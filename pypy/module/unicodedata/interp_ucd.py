@@ -208,7 +208,8 @@ class UCD(Wrappable):
 
     def mirrored(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._mirrored(code))
+        # For no reason, unicodedata.mirrored() returns an int, not a bool
+        return space.wrap(int(self._mirrored(code)))
     mirrored.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def decomposition(self, space, w_unichr):
