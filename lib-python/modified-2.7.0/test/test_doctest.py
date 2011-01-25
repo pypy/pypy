@@ -782,7 +782,7 @@ replaced with any other string:
     ...     >>> x = 12
     ...     >>> print x//0
     ...     Traceback (most recent call last):
-    ...     ZeroDivisionError: integer division or modulo by zero
+    ...     ZeroDivisionError: integer division by zero
     ...     '''
     >>> test = doctest.DocTestFinder().find(f)[0]
     >>> doctest.DocTestRunner(verbose=False).run(test)
@@ -799,7 +799,7 @@ unexpected exception:
     ...     >>> print 'pre-exception output', x//0
     ...     pre-exception output
     ...     Traceback (most recent call last):
-    ...     ZeroDivisionError: integer division or modulo by zero
+    ...     ZeroDivisionError: integer division by zero
     ...     '''
     >>> test = doctest.DocTestFinder().find(f)[0]
     >>> doctest.DocTestRunner(verbose=False).run(test)
@@ -810,7 +810,7 @@ unexpected exception:
         print 'pre-exception output', x//0
     Exception raised:
         ...
-        ZeroDivisionError: integer division or modulo by zero
+        ZeroDivisionError: integer division by zero
     TestResults(failed=1, attempted=2)
 
 Exception messages may contain newlines:
@@ -978,7 +978,7 @@ unexpected exception:
     Exception raised:
         Traceback (most recent call last):
         ...
-        ZeroDivisionError: integer division or modulo by zero
+        ZeroDivisionError: integer division by zero
     TestResults(failed=1, attempted=1)
 """
     def displayhook(): r"""
@@ -1924,7 +1924,7 @@ def test_pdb_set_trace_nested():
     > <doctest foo-bär@baz[1]>(1)<module>()
     -> calls_set_trace()
     (Pdb) print foo
-    *** NameError: name 'foo' is not defined
+    *** NameError: global name 'foo' is not defined
     (Pdb) continue
     TestResults(failed=0, attempted=2)
 """
@@ -2229,7 +2229,7 @@ def test_unittest_reportflags():
           favorite_color
       Exception raised:
           ...
-          NameError: name 'favorite_color' is not defined
+          NameError: global name 'favorite_color' is not defined
       <BLANKLINE>
       <BLANKLINE>
 
@@ -2289,7 +2289,7 @@ We don't want `-v` in sys.argv for these tests.
         favorite_color
     Exception raised:
         ...
-        NameError: name 'favorite_color' is not defined
+        NameError: global name 'favorite_color' is not defined
     **********************************************************************
     1 items had failures:
        1 of   2 in test_doctest.txt
@@ -2382,7 +2382,7 @@ parameter:
         favorite_color
     Exception raised:
         ...
-        NameError: name 'favorite_color' is not defined
+        NameError: global name 'favorite_color' is not defined
     TestResults(failed=1, attempted=2)
     >>> doctest.master = None  # Reset master.
 
