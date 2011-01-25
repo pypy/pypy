@@ -3,6 +3,7 @@ from pypy.rlib import rarithmetic
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 import py
 
@@ -69,6 +70,7 @@ def format_nonfinite(digits, sign, flags):
         # shouldn't get here
         raise ValueError
 
+@jit.dont_look_inside
 def format_number(digits, buflen, sign, decpt, code, precision, flags):
     # We got digits back, format them.  We may need to pad 'digits'
     # either on the left or right (or both) with extra zeros, so in
