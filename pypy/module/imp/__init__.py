@@ -34,6 +34,7 @@ class Module(MixedModule):
         }
 
     appleveldefs = {
+        'load_dynamic':    'app_imp.load_dynamic',
         }
 
     def __init__(self, space, *args):

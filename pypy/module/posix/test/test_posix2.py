@@ -55,6 +55,8 @@ class AppTestPosix:
             cls.w_geteuid = space.wrap(os.geteuid())
         if hasattr(os, 'getgid'):
             cls.w_getgid = space.wrap(os.getgid())
+        if hasattr(os, 'getgroups'):
+            cls.w_getgroups = space.newlist([space.wrap(e) for e in os.getgroups()])
         if hasattr(os, 'getpgid'):
             cls.w_getpgid = space.wrap(os.getpgid(os.getpid()))
         if hasattr(os, 'getsid'):
@@ -489,6 +491,11 @@ class AppTestPosix:
         def test_os_getgid(self):
             os = self.posix
             assert os.getgid() == self.getgid
+            
+    if hasattr(os, 'getgroups'):
+        def test_os_getgroups(self):
+            os = self.posix
+            assert os.getgroups() == self.getgroups
 
     if hasattr(os, 'getpgid'):
         def test_os_getpgid(self):

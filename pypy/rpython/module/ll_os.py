@@ -171,6 +171,10 @@ class CConfig:
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
 
+        GID_T = platform.SimpleType('gid_t',rffi.INT)
+        #TODO right now is used only in getgroups, may need to update other
+        #functions like setgid
+
     SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = platform.DefinedConstantInteger('SEEK_END')
@@ -613,7 +617,13 @@ class RegisterOs(BaseLazyRegistering):
         c_sysconf = self.llexternal('sysconf', [rffi.INT], rffi.LONG)
 
         def sysconf_llimpl(i):
-            return c_sysconf(i)
+            rposix.set_errno(0)
+            res = c_sysconf(i)
+            if res == -1:
+                errno = rposix.get_errno()
+                if errno != 0:
+                    raise OSError(errno, "sysconf failed")
+            return res
         return extdef([int], int, "ll_os.ll_sysconf", llimpl=sysconf_llimpl)
 
     @registering_if(os, 'fpathconf')
@@ -622,7 +632,13 @@ class RegisterOs(BaseLazyRegistering):
                                       [rffi.INT, rffi.INT], rffi.LONG)
 
         def fpathconf_llimpl(fd, i):
-            return c_fpathconf(fd, i)
+            rposix.set_errno(0)
+            res = c_fpathconf(fd, i)
+            if res == -1:
+                errno = rposix.get_errno()
+                if errno != 0:
+                    raise OSError(errno, "fpathconf failed")
+            return res
         return extdef([int, int], int, "ll_os.ll_fpathconf",
                       llimpl=fpathconf_llimpl)
 
@@ -661,6 +677,27 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'getegid')
     def register_os_getegid(self):
         return self.extdef_for_os_function_returning_int('getegid')
+
+    @registering_if(os, 'getgroups')
+    def register_os_getgroups(self):
+        GP = rffi.CArrayPtr(self.GID_T)
+        c_getgroups = self.llexternal('getgroups', [rffi.INT, GP], rffi.INT)
+
+        def getgroups_llimpl():
+            n = c_getgroups(0, lltype.nullptr(GP.TO))
+            if n >= 0:
+                groups = lltype.malloc(GP.TO, n, flavor='raw')
+                try:
+                    n = c_getgroups(n, groups)
+                    result = [groups[i] for i in range(n)]
+                finally:
+                    lltype.free(groups, flavor='raw')
+                if n >= 0:
+                    return result
+            raise OSError(rposix.get_errno(), "os_getgroups failed")
+
+        return extdef([], [self.GID_T], llimpl=getgroups_llimpl,
+                      export_name="ll_os.ll_getgroups")
 
     @registering_if(os, 'getpgrp')
     def register_os_getpgrp(self):

@@ -923,6 +923,14 @@ def geteuid(space):
     return space.wrap(os.geteuid())
 geteuid.unwrap_spec = [ObjSpace]
 
+def getgroups(space):
+    """ getgroups() -> list of group IDs
+
+    Return list of supplemental group IDs for the process.
+    """
+    return space.newlist([space.wrap(e) for e in os.getgroups()])
+getgroups.unwrap_spec = [ObjSpace]
+
 def getpgrp(space):
     """ getpgrp() -> pgrp
 
@@ -985,7 +993,7 @@ def setreuid(space, ruid, euid):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None                
-setreuid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
+setreuid.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
 def setregid(space, rgid, egid):
     """ setregid(rgid, egid)
@@ -996,8 +1004,8 @@ def setregid(space, rgid, egid):
         os.setregid(rgid, egid)
     except OSError, e:
         raise wrap_oserror(space, e)
-    return space.w_None                
-setregid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
+    return space.w_None
+setregid.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
 def getsid(space, pid):
     """ getsid(pid) -> sid
@@ -1070,7 +1078,7 @@ def fpathconf(space, fd, w_name):
         return space.wrap(os.fpathconf(fd, num))
     except OSError, e:
         raise wrap_oserror(space, e)
-fpathconf.unwrap_spec = [ObjSpace, int, W_Root]
+fpathconf.unwrap_spec = [ObjSpace, 'c_int', W_Root]
 
 def chown(space, path, uid, gid):
     try:
@@ -1078,7 +1086,7 @@ def chown(space, path, uid, gid):
     except OSError, e:
         raise wrap_oserror(space, e, path)
     return space.w_None
-chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
+chown.unwrap_spec = [ObjSpace, str, "c_int", "c_int"]
 
 def lchown(space, path, uid, gid):
     try:
@@ -1086,7 +1094,7 @@ def lchown(space, path, uid, gid):
     except OSError, e:
         raise wrap_oserror(space, e, path)
     return space.w_None
-lchown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
+lchown.unwrap_spec = [ObjSpace, str, "c_int", "c_int"]
 
 def getloadavg(space):
     try:
