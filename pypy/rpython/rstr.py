@@ -712,7 +712,7 @@ class AbstractLLHelpers:
 
     def ll_float(ll_str):
         from pypy.rpython.annlowlevel import hlstr
-        from pypy.rlib.rarithmetic import break_up_float, parts_to_float
+        from pypy.rlib.rarithmetic import rstring_to_float
         s = hlstr(ll_str)
         assert s is not None
 
@@ -732,12 +732,7 @@ class AbstractLLHelpers:
             else:
                 break
         assert end >= 0
-        sign, before_point, after_point, exponent = break_up_float(s[beg:end+1])
-    
-        if not before_point and not after_point:
-            raise ValueError
-
-        return parts_to_float(sign, before_point, after_point, exponent)
+        return rstring_to_float(s[beg:end+1])
 
     def ll_splitlines(cls, LIST, ll_str, keep_newlines):
         from pypy.rpython.annlowlevel import hlstr
