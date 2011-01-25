@@ -317,7 +317,7 @@ class CFuncPtr(_CData):
             raise
 
     @staticmethod
-    def _conv_param(argtype, arg, index):
+    def _conv_param(argtype, arg):
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):
@@ -373,7 +373,7 @@ class CFuncPtr(_CData):
                     val = defaultvalue
                     if val is None:
                         val = 0
-                    wrapped = self._conv_param(argtype, val, consumed)
+                    wrapped = self._conv_param(argtype, val)
                     wrapped_args.append(wrapped)
                     continue
                 else:
@@ -388,7 +388,7 @@ class CFuncPtr(_CData):
                 raise TypeError("Not enough arguments")
 
             try:
-                wrapped = self._conv_param(argtype, arg, consumed)
+                wrapped = self._conv_param(argtype, arg)
             except (UnicodeError, TypeError, ValueError), e:
                 raise ArgumentError(str(e))
             wrapped_args.append(wrapped)
@@ -399,7 +399,7 @@ class CFuncPtr(_CData):
             argtypes = list(argtypes)
             for i, arg in enumerate(extra):
                 try:
-                    wrapped = self._conv_param(None, arg, i)
+                    wrapped = self._conv_param(None, arg)
                 except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
                 wrapped_args.append(wrapped)
@@ -572,7 +572,7 @@ def make_specialized_subclass(CFuncPtr):
             """
             assert self._paramflags is None
             try:
-                wrapped_args = [self._conv_param(argtypes[0], args[0], 0)]
+                wrapped_args = [self._conv_param(argtypes[0], args[0])]
             except (UnicodeError, TypeError, ValueError), e:
                 raise ArgumentError(str(e))
             assert len(wrapped_args) == len(args)
