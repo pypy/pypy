@@ -318,16 +318,19 @@ class CFuncPtr(_CData):
 
     @staticmethod
     def _conv_param(argtype, arg, index):
-        from ctypes import c_char_p, c_wchar_p, c_void_p, c_int
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):
             arg = arg._as_parameter_
-
         if isinstance(arg, _CData):
             # The usual case when argtype is defined
-            cobj = arg
-        elif isinstance(arg, str):
+            return arg
+        #
+        # non-usual case: we do the import here to save a lot of code in the
+        # jit trace of the normal case
+        from ctypes import c_char_p, c_wchar_p, c_void_p, c_int
+        #
+        if isinstance(arg, str):
             cobj = c_char_p(arg)
         elif isinstance(arg, unicode):
             cobj = c_wchar_p(arg)
