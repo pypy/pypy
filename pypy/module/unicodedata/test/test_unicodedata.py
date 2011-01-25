@@ -192,7 +192,9 @@ class TestTranslated(BaseRtypingTest, LLRtypeMixin):
 
     def test_code_to_unichr(self):
         from pypy.module.unicodedata.interp_ucd import code_to_unichr
-        res = self.ll_to_unicode(self.interpret(code_to_unichr, [0x10346]))
+        def f(c):
+            return code_to_unichr(c) + u''
+        res = self.ll_to_unicode(self.interpret(f, [0x10346]))
         assert res == u'\U00010346'
 
 
