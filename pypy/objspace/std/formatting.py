@@ -3,7 +3,7 @@ String formatting routines.
 """
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import (
-    ovfcheck, formatd_overflow, DTSF_ALT, isnan, isinf)
+    ovfcheck, formatd, DTSF_ALT, isnan, isinf)
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -142,11 +142,7 @@ class BaseStringFormatter(object):
             flags = 0
             if self.f_alt:
                 flags |= DTSF_ALT
-            try:
-                r = formatd_overflow(x, char, prec, flags)
-            except OverflowError:
-                raise OperationError(space.w_OverflowError, space.wrap(
-                    "formatted float is too long (precision too large?)"))
+            r = formatd(x, char, prec, flags)
         self.std_wp_number(r)
 
     def std_wp_number(self, r, prefix=''):
