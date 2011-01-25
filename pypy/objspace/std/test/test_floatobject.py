@@ -209,6 +209,7 @@ class AppTestAppFloatTest:
         res = pw(-2.0, -2001.0)
         assert res == -0.0
         assert math.copysign(1., res) == -1.
+        assert pw(-1.0, -1e15) == 1.0
 
     def test_float_cmp(self):
         assert 12.5 == 12.5

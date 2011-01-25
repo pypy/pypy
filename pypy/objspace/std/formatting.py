@@ -143,7 +143,7 @@ class BaseStringFormatter(object):
             if self.f_alt:
                 flags |= DTSF_ALT
             try:
-                r = formatd_overflow(x, char, prec, self.f_alt)
+                r = formatd_overflow(x, char, prec, flags)
             except OverflowError:
                 raise OperationError(space.w_OverflowError, space.wrap(
                     "formatted float is too long (precision too large?)"))

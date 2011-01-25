@@ -89,6 +89,8 @@ class AppTestStringObject:
         big = 1E200
         assert '   inf' == '%6g' % (big * big)
 
+        assert '0.' == '%#.0f' % 0.0
+
     def test_format_int(self):
         import sys
         n = 23
