@@ -52,7 +52,6 @@ else:
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
         SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
-        SEM_GETVALUE = platform.Has('sem_getvalue')
 
     config = platform.configure(CConfig)
     TIMEVAL        = config['TIMEVAL']
@@ -60,10 +59,13 @@ else:
     TIMEVALP       = rffi.CArrayPtr(TIMEVAL)
     TIMESPECP      = rffi.CArrayPtr(TIMESPEC)
     SEM_T          = rffi.COpaquePtr('sem_t', compilation_info=eci)
-    SEM_FAILED     = rffi.cast(SEM_T, config['SEM_FAILED'])
+    SEM_FAILED     = config['SEM_FAILED'] # rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
-    HAVE_BROKEN_SEM_GETVALUE = config['SEM_GETVALUE']
+    if sys.platform == 'darwin':
+        HAVE_BROKEN_SEM_GETVALUE = True
+    else:
+        HAVE_BROKEN_SEM_GETVALUE = False
 
     def external(name, args, result):
         return rffi.llexternal(name, args, result,
@@ -85,7 +87,7 @@ else:
 
     def sem_open(name, oflag, mode, value):
         res = _sem_open(name, oflag, mode, value)
-        if res == SEM_FAILED:
+        if res == rffi.cast(SEM_T, SEM_FAILED):
             raise OSError(rposix.get_errno(), "sem_open failed")
         return res
 

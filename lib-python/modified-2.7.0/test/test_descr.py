@@ -1741,7 +1741,7 @@ order (MRO) for bases """
 
         for name, runner, meth_impl, ok, env in specials:
             if name == '__length_hint__':
-                if not check_impl_detail():
+                if not test_support.check_impl_detail():
                     continue
 
             class X(Checker):

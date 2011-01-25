@@ -1,4 +1,5 @@
 from py.test import raises, skip
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
 from pypy.conftest import gettestobjspace
 
 from pypy.module.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
@@ -49,8 +50,6 @@ class AppTestUnicodeData:
 
     def test_cjk(self):
         import sys
-        if sys.maxunicode < 0x10ffff:
-            skip("requires a 'wide' python build.")
         import unicodedata
         cases = ((0x3400, 0x4DB5),
                  (0x4E00, 0x9FA5))
@@ -62,21 +61,22 @@ class AppTestUnicodeData:
             # Test at and inside the boundary
             for i in (first, first + 1, last - 1, last):
                 charname = 'CJK UNIFIED IDEOGRAPH-%X'%i
-                assert unicodedata.name(unichr(i)) == charname
-                assert unicodedata.lookup(charname) == unichr(i)
+                char = ('\\U%08X' % i).decode('unicode-escape')
+                assert unicodedata.name(char) == charname
+                assert unicodedata.lookup(charname) == char
             # Test outside the boundary
             for i in first - 1, last + 1:
                 charname = 'CJK UNIFIED IDEOGRAPH-%X'%i
+                char = ('\\U%08X' % i).decode('unicode-escape')
                 try:
-                    unicodedata.name(unichr(i))
-                except ValueError:
-                    pass
+                    unicodedata.name(char)
+                except ValueError, e:
+                    assert e.message == 'no such name'
                 raises(KeyError, unicodedata.lookup, charname)
 
     def test_bug_1704793(self): # from CPython
-        import sys, unicodedata
-        if sys.maxunicode == 65535:
-            raises(KeyError, unicodedata.lookup, "GOTHIC LETTER FAIHU")
+        import unicodedata
+        assert unicodedata.lookup("GOTHIC LETTER FAIHU") == u'\U00010346'
 
     def test_normalize(self):
         import unicodedata
@@ -98,6 +98,11 @@ class AppTestUnicodeData:
                     assert len(lines) == 2
                 else:
                     assert len(lines) == 1
+
+    def test_mirrored(self):
+        import unicodedata
+        # For no reason, unicodedata.mirrored() returns an int, not a bool
+        assert repr(unicodedata.mirrored(u' ')) == '0'
 
 class TestUnicodeData(object):
     def setup_class(cls):
@@ -171,6 +176,26 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
         raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
         raises(KeyError, unicodedb_3_2_0.name, 9187)
+
+class TestTranslated(BaseRtypingTest, LLRtypeMixin):
+
+    def test_translated(self):
+        def f(n):
+            if n == 0:
+                return -1
+            else:
+                u = unicodedb_5_2_0.lookup("GOTHIC LETTER FAIHU")
+                return u
+        res = self.interpret(f, [1])
+        print hex(res)
+        assert res == f(1)
+
+    def test_code_to_unichr(self):
+        from pypy.module.unicodedata.interp_ucd import code_to_unichr
+        def f(c):
+            return code_to_unichr(c) + u''
+        res = self.ll_to_unicode(self.interpret(f, [0x10346]))
+        assert res == u'\U00010346'
 
 
 

@@ -1,6 +1,7 @@
 import py
 from pypy.conftest import gettestobjspace
 
+
 class AppTestItertools: 
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['itertools'])
@@ -26,6 +27,8 @@ class AppTestItertools:
         assert repr(it) == 'count(123)'
         it.next()
         assert repr(it) == 'count(124)'
+        it = itertools.count(12.1, 1.0)
+        assert repr(it) == 'count(12.1, 1.0)'
 
     def test_repeat(self):
         import itertools
@@ -727,7 +730,10 @@ class AppTestItertools26:
         m = ['a', 'b']
 
         prodlist = product(l, m)
-        assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+        res = [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+        assert list(prodlist) == res
+        assert list(product([])) == []
+        assert list(product(iter(l), iter(m))) == res
 
         prodlist = product(iter(l), iter(m))
         assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
@@ -805,6 +811,29 @@ class AppTestItertools26:
         assert list(permutations([], 0)) == [()]
         assert list(permutations([], 1)) == []
         assert list(permutations(range(3), 4)) == []
+        #
+        perm = list(permutations([1, 2, 3, 4]))
+        assert perm == [(1, 2, 3, 4), (1, 2, 4, 3), (1, 3, 2, 4), (1, 3, 4, 2),
+                        (1, 4, 2, 3), (1, 4, 3, 2), (2, 1, 3, 4), (2, 1, 4, 3),
+                        (2, 3, 1, 4), (2, 3, 4, 1), (2, 4, 1, 3), (2, 4, 3, 1),
+                        (3, 1, 2, 4), (3, 1, 4, 2), (3, 2, 1, 4), (3, 2, 4, 1),
+                        (3, 4, 1, 2), (3, 4, 2, 1), (4, 1, 2, 3), (4, 1, 3, 2),
+                        (4, 2, 1, 3), (4, 2, 3, 1), (4, 3, 1, 2), (4, 3, 2, 1)]
+
+    def test_permutations_r(self):
+        from itertools import permutations
+        perm = list(permutations([1, 2, 3, 4], 2))
+        assert perm == [(1, 2), (1, 3), (1, 4), (2, 1), (2, 3), (2, 4), (3, 1),
+                       (3, 2), (3, 4), (4, 1), (4, 2), (4, 3)]
+
+    def test_permutations_r_gt_n(self):
+        from itertools import permutations
+        perm = permutations([1, 2], 3)
+        raises(StopIteration, perm.next)
+
+    def test_permutations_neg_r(self):
+        from itertools import permutations
+        raises(ValueError, permutations, [1, 2], -1)
 
 
 class AppTestItertools27:

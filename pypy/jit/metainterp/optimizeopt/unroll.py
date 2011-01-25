@@ -190,8 +190,6 @@ class UnrollOptimizer(Optimization):
                     op = short[i]
                     if op.is_guard():
                         op = op.clone()
-                        #op.setfailargs(loop.preamble.inputargs)
-                        #op.setjumptarget(loop.preamble.token)
                         op.setfailargs(None)
                         op.setdescr(start_resumedescr.clone_if_mutable())
                         short[i] = op
