@@ -372,6 +372,8 @@ class AppTestItertools:
             assert it.next() == x
         raises(StopIteration, it.next)
 
+        assert list(itertools.starmap(operator.add, [iter((40,2))])) == [42]
+
     def test_starmap_wrongargs(self):
         import itertools
 
@@ -733,6 +735,9 @@ class AppTestItertools26:
         assert list(product([])) == []
         assert list(product(iter(l), iter(m))) == res
 
+        prodlist = product(iter(l), iter(m))
+        assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+
     def test_product_repeat(self):
         from itertools import product
         l = [1, 2]
@@ -762,6 +767,9 @@ class AppTestItertools26:
         prodlist = product(l, m)
         assert list(prodlist) == [(1, 'a'), (1, 'b')]
 
+        assert list(product([], [1, 2, 3])) == []
+        assert list(product([1, 2, 3], [])) == []
+
     def test_product_toomany_args(self):
         from itertools import product
         l = [1, 2]
@@ -776,6 +784,34 @@ class AppTestItertools26:
 
     def test_permutations(self):
         from itertools import permutations
+        assert list(permutations('AB')) == [('A', 'B'), ('B', 'A')]
+        assert list(permutations('ABCD', 2)) == [
+            ('A', 'B'),
+            ('A', 'C'),
+            ('A', 'D'),
+            ('B', 'A'),
+            ('B', 'C'),
+            ('B', 'D'),
+            ('C', 'A'),
+            ('C', 'B'),
+            ('C', 'D'),
+            ('D', 'A'),
+            ('D', 'B'),
+            ('D', 'C'),
+            ]
+        assert list(permutations(range(3))) == [
+            (0, 1, 2),
+            (0, 2, 1),
+            (1, 0, 2),
+            (1, 2, 0),
+            (2, 0, 1),
+            (2, 1, 0),
+            ]
+        assert list(permutations([])) == [()]
+        assert list(permutations([], 0)) == [()]
+        assert list(permutations([], 1)) == []
+        assert list(permutations(range(3), 4)) == []
+        #
         perm = list(permutations([1, 2, 3, 4]))
         assert perm == [(1, 2, 3, 4), (1, 2, 4, 3), (1, 3, 2, 4), (1, 3, 4, 2),
                         (1, 4, 2, 3), (1, 4, 3, 2), (2, 1, 3, 4), (2, 1, 4, 3),
