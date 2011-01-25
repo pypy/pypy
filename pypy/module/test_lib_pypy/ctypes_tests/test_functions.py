@@ -445,3 +445,20 @@ class TestFunctions(BaseCTypesTestChecker):
         assert ptr is not None
         assert tf_b(-126) == -42
         assert tf_b._ptr is ptr
+
+    def test_errcheck(self):
+        py.test.skip('fixme')
+        def errcheck(result, func, args):
+            assert result == -42
+            assert type(result) is int
+            arg, = args
+            assert arg == -126
+            assert type(arg) is int
+            return result
+        #
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        tf_b.errcheck = errcheck
+        assert tf_b(-126) == -42
+        del tf_b.errcheck
