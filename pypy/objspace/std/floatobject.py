@@ -410,6 +410,37 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
             "pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
     y = w_float2.floatval
+
+    if x == 0.0:
+        if y < 0.0:
+            if isinf(y):
+                return space.wrap(INFINITY)
+            raise OperationError(space.w_ZeroDivisionError,
+                                 space.wrap("0.0 cannot be raised to "
+                                            "a negative power"))
+
+    negate_result = False
+    # special case: "(-1.0) ** bignum" should not raise ValueError,
+    # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
+    # -           pipermail/python-bugs-list/2003-March/016795.html
+    if x < 0.0:
+        if math.floor(y) != y:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative number cannot be "
+                                            "raised to a fractional power"))
+        # y is an exact integer, albeit perhaps a very large one.
+        # Replace x by its absolute value and remember to negate the
+        # pow result if y is odd.
+        x = -x
+        negate_result = math.fmod(abs(y), 2.0) == 1.0
+
+    if x == 1.0:
+        # (-1) ** large_integer also ends up here
+        if negate_result:
+            return W_FloatObject(-1.0)
+        else:
+            return W_FloatObject(1.0)
+
     try:
         # We delegate to our implementation of math.pow() the error detection.
         z = math.pow(x,y)
@@ -417,33 +448,10 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("float power"))
     except ValueError:
-        # special case: "(-1.0) ** bignum" should not raise ValueError,
-        # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
-        # -           pipermail/python-bugs-list/2003-March/016795.html
-        if x < 0.0:
-            if math.floor(y) != y:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("negative number cannot be "
-                                                "raised to a fractional power"))
-            if x == -1.0:
-                if math.floor(y * 0.5) * 2.0 == y:
-                     return space.wrap(1.0)
-                else:
-                     return space.wrap( -1.0)
-        elif x == 0.0:
-            if y < 0.0:
-                if isinf(y):
-                    return space.wrap(INFINITY)
-                raise OperationError(space.w_ZeroDivisionError,
-                                     space.wrap("0.0 cannot be raised to "
-                                                "a negative power"))
         raise OperationError(space.w_ValueError,
                              space.wrap("float power"))
-    # Should the result be negated?
-    if (not we_are_translated() and sys.version_info < (2, 7) and
-        z == 0.0 and x < 0.0 and
-        not isinf(x) and not isinf(y) and
-        math.fmod(abs(y), 2.0) == 1.0):
+
+    if negate_result:
         z = -z
     return W_FloatObject(z)
 
