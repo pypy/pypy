@@ -27,16 +27,16 @@ eci = ExternalCompilationInfo(
 
 dg_strtod = rffi.llexternal(
     '_PyPy_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
-    compilation_info=eci)
+    compilation_info=eci, sandboxsafe=True)
 
 dg_dtoa = rffi.llexternal(
     '_PyPy_dg_dtoa', [rffi.DOUBLE, rffi.INT, rffi.INT,
                     rffi.INTP, rffi.INTP, rffi.CCHARPP], rffi.CCHARP,
-    compilation_info=eci)
+    compilation_info=eci, sandboxsafe=True)
 
 dg_freedtoa = rffi.llexternal(
     '_PyPy_dg_freedtoa', [rffi.CCHARP], lltype.Void,
-    compilation_info=eci)
+    compilation_info=eci, sandboxsafe=True)
 
 def strtod(input):
     end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
