@@ -10,9 +10,9 @@ class EffectInfo(object):
 
     # the 'extraeffect' field is one of the following values:
     EF_PURE                            = 0 #pure function (and cannot raise)
-    EF_CANNOT_RAISE                    = 1 #a function which cannot raise
-    EF_CAN_RAISE                       = 2 #normal function (can raise)
-    EF_LOOPINVARIANT                   = 3 #special: call it only once per loop
+    EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
+    EF_CANNOT_RAISE                    = 2 #a function which cannot raise
+    EF_CAN_RAISE                       = 3 #normal function (can raise)
     EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
 
     # the 'oopspecindex' field is one of the following values:
@@ -60,8 +60,13 @@ class EffectInfo(object):
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
-        result.write_descrs_fields = write_descrs_fields
-        result.write_descrs_arrays = write_descrs_arrays
+        if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
+           extraeffect == EffectInfo.EF_PURE:            
+            result.write_descrs_fields = []
+            result.write_descrs_arrays = []
+        else:
+            result.write_descrs_fields = write_descrs_fields
+            result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
         result.oopspecindex = oopspecindex
         cls._cache[key] = result

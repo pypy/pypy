@@ -1843,6 +1843,47 @@ class BasicTests:
                           'int_add': 1, 'int_mul': 1, 'int_sub': 2,
                           'int_gt': 2, 'jump': 2})
 
+    def test_multiple_specialied_versions_array(self):
+        myjitdriver = JitDriver(greens = [], reds = ['idx', 'y', 'x', 'res',
+                                                     'array'])
+        class Base:
+            def __init__(self, val):
+                self.val = val
+        class A(Base):
+            def binop(self, other):
+                return A(self.val + other.val)
+        class B(Base):
+            def binop(self, other):
+                return B(self.val - other.val)
+        def f(x, y):
+            res = x
+            array = [1, 2, 3]
+            array[1] = 7
+            idx = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(idx=idx, y=y, x=x, res=res,
+                                          array=array)
+                myjitdriver.jit_merge_point(idx=idx, y=y, x=x, res=res,
+                                            array=array)
+                res = res.binop(x)
+                res.val += array[idx] + array[1]
+                if y < 7:
+                    idx = 2
+                y -= 1
+            return res
+        def g(x, y):
+            a1 = f(A(x), y)
+            a2 = f(A(x), y)
+            b1 = f(B(x), y)
+            b2 = f(B(x), y)
+            assert a1.val == a2.val
+            assert b1.val == b2.val
+            return a1.val + b1.val
+        res = self.meta_interp(g, [6, 14])
+        assert res == g(6, 14)
+        self.check_loop_count(8)
+        self.check_loops(getarrayitem_gc=16, everywhere=True)
+
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
         class Base:
@@ -1869,17 +1910,75 @@ class BasicTests:
         def g(x, y):
             a1 = f(A(x), y, A(x))
             a2 = f(A(x), y, A(x))
+            assert a1.val == a2.val
             b1 = f(B(x), y, B(x))
             b2 = f(B(x), y, B(x))
+            assert b1.val == b2.val
             c1 = f(B(x), y, A(x))
             c2 = f(B(x), y, A(x))
+            assert c1.val == c2.val
             d1 = f(A(x), y, B(x))
             d2 = f(A(x), y, B(x))
-            assert a1.val == a2.val
-            assert b1.val == b2.val
-            assert c1.val == c2.val
             assert d1.val == d2.val
             return a1.val + b1.val + c1.val + d1.val
+        res = self.meta_interp(g, [3, 14])
+        assert res == g(3, 14)
+
+    def test_failing_inlined_guard(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
+        class Base:
+            def __init__(self, val):
+                self.val = val
+            def getval(self):
+                return self.val
+        class A(Base):
+            def binop(self, other):
+                return A(self.getval() + other.getval())
+        class B(Base):
+            def binop(self, other):
+                return B(self.getval() * other.getval())
+        def f(x, y, z):
+            res = x
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, z=z, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, z=z, res=res)
+                res = res.binop(x)
+                y -= 1
+                if y < 8:
+                    x = z
+            return res
+        def g(x, y):
+            c1 = f(A(x), y, B(x))
+            c2 = f(A(x), y, B(x))
+            assert c1.val == c2.val
+            return c1.val
+        res = self.meta_interp(g, [3, 16])
+        assert res == g(3, 16)
+
+    def test_inlined_guard_in_short_preamble(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def getval(self):
+                return self.val
+            def binop(self, other):
+                return A(self.getval() + other.getval())
+        def f(x, y, z):
+            res = x
+            while y > 0:
+                myjitdriver.can_enter_jit(y=y, x=x, z=z, res=res)
+                myjitdriver.jit_merge_point(y=y, x=x, z=z, res=res)
+                res = res.binop(x)
+                y -= 1
+                if y < 7:
+                    x = z
+            return res
+        def g(x, y):
+            a1 = f(A(x), y, A(x))
+            a2 = f(A(x), y, A(x))
+            assert a1.val == a2.val
+            return a1.val
         res = self.meta_interp(g, [3, 14])
         assert res == g(3, 14)
 
@@ -1973,6 +2072,26 @@ class BasicTests:
         self.check_loop_count(6)
         self.check_loops(guard_true=4, guard_class=0, int_add=2, int_mul=2,
                          guard_false=2)
+
+    def test_dont_trace_every_iteration(self):
+        myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'i', 'sa'])
+        
+        def main(a, b):
+            i = sa = 0
+            #while i < 200:
+            while i < 200:
+                myjitdriver.can_enter_jit(a=a, b=b, i=i, sa=sa)
+                myjitdriver.jit_merge_point(a=a, b=b, i=i, sa=sa)
+                if a > 0: pass
+                if b < 2: pass
+                sa += a % b
+                i += 1
+            return sa
+        def g():
+            return main(10, 20) + main(-10, -20)
+        res = self.meta_interp(g, [])
+        assert res == g()
+        self.check_enter_count(3)
 
     def test_current_trace_length(self):
         myjitdriver = JitDriver(greens = ['g'], reds = ['x'])

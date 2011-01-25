@@ -26,6 +26,8 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'chain'         : 'interp_itertools.W_Chain',
+        'combinations'  : 'interp_itertools.W_Combinations',
+        'combinations_with_replacement' : 'interp_itertools.W_CombinationsWithReplacement',
         'compress'      : 'interp_itertools.W_Compress',
         'count'         : 'interp_itertools.W_Count',
         'cycle'         : 'interp_itertools.W_Cycle',
@@ -37,6 +39,7 @@ class Module(MixedModule):
         'islice'        : 'interp_itertools.W_ISlice',
         'izip'          : 'interp_itertools.W_IZip',
         'izip_longest'  : 'interp_itertools.W_IZipLongest',
+        'permutations'  : 'interp_itertools.W_Permutations',
         'product'       : 'interp_itertools.W_Product',
         'repeat'        : 'interp_itertools.W_Repeat',
         'starmap'       : 'interp_itertools.W_StarMap',

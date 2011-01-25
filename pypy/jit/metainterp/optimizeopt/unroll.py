@@ -6,6 +6,8 @@ from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
+from pypy.jit.metainterp.history import make_hashable_int
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # Assumptions
 # ===========
@@ -83,7 +85,8 @@ class Inliner(object):
            self.argmap[inputargs[i]] = jump_args[i]
         self.snapshot_map = {None: None}
 
-    def inline_op(self, newop, ignore_result=False, clone=True):
+    def inline_op(self, newop, ignore_result=False, clone=True,
+                  ignore_failargs=False):
         if clone:
             newop = newop.clone()
         args = newop.getarglist()
@@ -91,8 +94,10 @@ class Inliner(object):
 
         if newop.is_guard():
             args = newop.getfailargs()
-            if args:
+            if args and not ignore_failargs:
                 newop.setfailargs([self.inline_arg(a) for a in args])
+            else:
+                newop.setfailargs([])
 
         if newop.result and not ignore_result:
             old_result = newop.result
@@ -147,7 +152,6 @@ class UnrollOptimizer(Optimization):
         if jumpop:
             assert jumpop.getdescr() is loop.token
             loop.preamble.operations = self.optimizer.newoperations
-
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
 
             jump_args = jumpop.getarglist()
@@ -161,31 +165,38 @@ class UnrollOptimizer(Optimization):
 
             loop.operations = self.optimizer.newoperations
 
+            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
+            assert isinstance(start_resumedescr, ResumeGuardDescr)
+            snapshot = start_resumedescr.rd_snapshot
+            while snapshot is not None:
+                snapshot_args = snapshot.boxes 
+                new_snapshot_args = []
+                for a in snapshot_args:
+                    if not isinstance(a, Const):
+                        a = loop.preamble.inputargs[jump_args.index(a)]
+                    new_snapshot_args.append(a)
+                snapshot.boxes = new_snapshot_args
+                snapshot = snapshot.prev
+
             short = self.create_short_preamble(loop.preamble, loop)
             if short:
                 if False:
                     # FIXME: This should save some memory but requires
                     # a lot of tests to be fixed...
                     loop.preamble.operations = short[:]
-                    
+
                 # Turn guards into conditional jumps to the preamble
                 for i in range(len(short)):
                     op = short[i]
                     if op.is_guard():
                         op = op.clone()
-                        op.setfailargs(loop.preamble.inputargs)
-                        op.setjumptarget(loop.preamble.token)
+                        op.setfailargs(None)
+                        op.setdescr(start_resumedescr.clone_if_mutable())
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')
                 short_loop.inputargs = loop.preamble.inputargs[:]
                 short_loop.operations = short
-
-                assert isinstance(loop.preamble.token, LoopToken)
-                if loop.preamble.token.short_preamble:
-                    loop.preamble.token.short_preamble.append(short_loop)
-                else:
-                    loop.preamble.token.short_preamble = [short_loop]
 
                 # Clone ops and boxes to get private versions and 
                 newargs = [a.clonebox() for a in short_loop.inputargs]
@@ -194,44 +205,18 @@ class UnrollOptimizer(Optimization):
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
 
+                assert isinstance(loop.preamble.token, LoopToken)
+                if loop.preamble.token.short_preamble:
+                    loop.preamble.token.short_preamble.append(short_loop)
+                else:
+                    loop.preamble.token.short_preamble = [short_loop]
+
                 # Forget the values to allow them to be freed
                 for box in short_loop.inputargs:
                     box.forget_value()
                 for op in short_loop.operations:
                     if op.result:
                         op.result.forget_value()
-                
-                if False:
-                    boxmap = {}
-                    for i in range(len(short_loop.inputargs)):
-                        box = short_loop.inputargs[i]
-                        newbox = box.clonebox()
-                        boxmap[box] = newbox
-                        newbox.forget_value()
-                        short_loop.inputargs[i] = newbox
-                    for i in range(len(short)):
-                        oldop = short[i]
-                        op = oldop.clone()
-                        args = []
-                        for a in op.getarglist():
-                            if not isinstance(a, Const):
-                                a = boxmap[a]
-                            args.append(a)
-                        op.initarglist(args)
-                        if op.is_guard():
-                            args = []
-                            for a in op.getfailargs():
-                                if not isinstance(a, Const):
-                                    a = boxmap[a]
-                                args.append(a)
-                            op.setfailargs(args)
-                        box = op.result
-                        if box:
-                            newbox = box.clonebox()
-                            boxmap[box] = newbox
-                            newbox.forget_value()
-                            op.result = newbox
-                        short[i] = op
                 
 
     def inline(self, loop_operations, loop_args, jump_args):
@@ -299,7 +284,10 @@ class UnrollOptimizer(Optimization):
             box1, box2 = args1[i], args2[i]
             val1 = self.optimizer.getvalue(box1)
             val2 = self.optimizer.getvalue(box2)
-            if val1 is not val2:
+            if val1.is_constant() and val2.is_constant():
+                if not val1.box.same_constant(val2.box):
+                    return False
+            elif val1 is not val2:
                 return False
 
         if not op1.is_guard():
@@ -317,19 +305,21 @@ class UnrollOptimizer(Optimization):
         loop_ops = loop.operations
 
         boxmap = BoxMap()
-        state = ExeState()
+        state = ExeState(self.optimizer)
         short_preamble = []
         loop_i = preamble_i = 0
         while preamble_i < len(preamble_ops):
 
             op = preamble_ops[preamble_i]
             try:
-                newop = self.inliner.inline_op(op, True)
+                newop = self.inliner.inline_op(op, ignore_result=True,
+                                               ignore_failargs=True)
             except KeyError:
                 debug_print("create_short_preamble failed due to",
                             "new boxes created during optimization.",
                             "op:", op.getopnum(),
-                            "at position: ", preamble_i)
+                            "at preamble position: ", preamble_i,
+                            "loop position: ", loop_i)
                 return None
                 
             if self.sameop(newop, loop_ops[loop_i]) \
@@ -340,14 +330,16 @@ class UnrollOptimizer(Optimization):
                     debug_print("create_short_preamble failed due to",
                                 "impossible link of "
                                 "op:", op.getopnum(),
-                                "at position: ", preamble_i)
+                                "at preamble position: ", preamble_i,
+                                "loop position: ", loop_i)
                     return None
                 loop_i += 1
             else:
                 if not state.safe_to_move(op):
                     debug_print("create_short_preamble failed due to",
                                 "unsafe op:", op.getopnum(),
-                                "at position: ", preamble_i)
+                                "at preamble position: ", preamble_i,
+                                "loop position: ", loop_i)
                     return None
                 short_preamble.append(op)
                 
@@ -392,15 +384,19 @@ class UnrollOptimizer(Optimization):
         return short_preamble
 
 class ExeState(object):
-    def __init__(self):
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
         self.heap_dirty = False
         self.unsafe_getitem = {}
-
+        self.unsafe_getarrayitem = {}
+        self.unsafe_getarrayitem_indexes = {}
+        
     # Make sure it is safe to move the instrucions in short_preamble
     # to the top making short_preamble followed by loop equvivalent
     # to preamble
     def safe_to_move(self, op):
         opnum = op.getopnum()
+        descr = op.getdescr()
         if op.is_always_pure() or op.is_foldable_guard():
             return True
         elif opnum == rop.JUMP:
@@ -409,10 +405,31 @@ class ExeState(object):
               opnum == rop.GETFIELD_RAW):
             if self.heap_dirty:
                 return False
-            descr = op.getdescr()
             if descr in self.unsafe_getitem:
                 return False
             return True
+        elif (opnum == rop.GETARRAYITEM_GC or
+              opnum == rop.GETARRAYITEM_RAW):
+            if self.heap_dirty:
+                return False
+            if descr in self.unsafe_getarrayitem:
+                return False
+            index = op.getarg(1)
+            if isinstance(index, Const):
+                d = self.unsafe_getarrayitem_indexes.get(descr, None)
+                if d is not None:
+                    if index.getint() in d:
+                        return False
+            else:
+                if descr in self.unsafe_getarrayitem_indexes:
+                    return False
+            return True
+        elif opnum == rop.CALL:
+            effectinfo = descr.get_extra_info()
+            if effectinfo is not None:
+                if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
+                   effectinfo.extraeffect == EffectInfo.EF_PURE:
+                    return True
         return False
     
     def update(self, op):
@@ -421,13 +438,33 @@ class ExeState(object):
             op.is_guard()): 
             return
         opnum = op.getopnum()
+        descr = op.getdescr()
         if (opnum == rop.DEBUG_MERGE_POINT):
             return
         if (opnum == rop.SETFIELD_GC or
             opnum == rop.SETFIELD_RAW):
-            descr = op.getdescr()
             self.unsafe_getitem[descr] = True
             return
+        if (opnum == rop.SETARRAYITEM_GC or
+            opnum == rop.SETARRAYITEM_RAW):
+            index = op.getarg(1)
+            if isinstance(index, Const):                
+                d = self.unsafe_getarrayitem_indexes.get(descr, None)
+                if d is None:
+                    d = self.unsafe_getarrayitem_indexes[descr] = {}
+                d[index.getint()] = True
+            else:
+                self.unsafe_getarrayitem[descr] = True
+            return
+        if opnum == rop.CALL:
+            effectinfo = descr.get_extra_info()
+            if effectinfo is not None:
+                for fielddescr in effectinfo.write_descrs_fields:
+                    self.unsafe_getitem[fielddescr] = True
+                for arraydescr in effectinfo.write_descrs_arrays:
+                    self.unsafe_getarrayitem[arraydescr] = True
+                return
+        debug_print("heap dirty due to op ", opnum)
         self.heap_dirty = True
 
 class ImpossibleLink(JitException):
@@ -478,14 +515,21 @@ class OptInlineShortPreamble(Optimization):
             assert isinstance(descr, LoopToken)
             # FIXME: Use a tree, similar to the tree formed by the full
             # preamble and it's bridges, instead of a list to save time and
-            # memory  
+            # memory. This should also allow better behaviour in
+            # situations that the is_emittable() chain currently cant
+            # handle and the inlining fails unexpectedly belwo.
             short = descr.short_preamble
             if short:
-                for sh in short:                    
+                for sh in short:
                     if self.inline(sh.operations, sh.inputargs,
                                    op.getarglist(), dryrun=True):
-                        self.inline(sh.operations, sh.inputargs,
-                                   op.getarglist())
+                        try:
+                            self.inline(sh.operations, sh.inputargs,
+                                        op.getarglist())
+                        except InvalidLoop:
+                            debug_print("Inlining failed unexpectedly",
+                                        "jumping to preamble instead")
+                            self.emit_operation(op)
                         return
                     
                 raise RetraceLoop
@@ -500,26 +544,6 @@ class OptInlineShortPreamble(Optimization):
             newop = inliner.inline_op(op)
             
             if not dryrun:
-                # FIXME: Emit a proper guard instead to move these
-                # forceings into the the small bridge back to the preamble
-                if newop.is_guard():
-                    failargs = newop.getfailargs()
-                    for i in range(len(failargs)):
-                        box = failargs[i]
-                        if box in self.optimizer.values:
-                            value = self.optimizer.values[box]
-                            if value.is_constant():
-                                newbox = box.clonebox()
-                                op = ResOperation(rop.SAME_AS,
-                                                  [value.force_box()], newbox)
-                                self.optimizer.newoperations.append(op)
-                                box = newbox
-                            else:
-                                box = value.force_box()
-                        failargs[i] = box
-                    newop.setfailargs(failargs)
-                                
-                
                 self.emit_operation(newop)
             else:
                 if not self.is_emittable(newop):

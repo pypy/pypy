@@ -88,7 +88,7 @@ return next yielded value or raise StopIteration."""
             self.running = False
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
-        """throw(typ[,val[,tb]]) -> raise exception in generator,
+        """x.throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
         return self.throw(w_type, w_val, w_tb)
 
@@ -108,11 +108,11 @@ return next yielded value or raise StopIteration."""
         return self.send_ex(space.w_None, operr)
              
     def descr_next(self):
-        """next() -> the next value, or raise StopIteration"""
+        """x.next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
  
     def descr_close(self):
-        """close(arg) -> raise GeneratorExit inside generator."""
+        """x.close(arg) -> raise GeneratorExit inside generator."""
         space = self.space
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,

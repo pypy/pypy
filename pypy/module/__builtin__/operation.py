@@ -175,6 +175,8 @@ This always returns a floating point number.  Precision may be negative."""
         z = math.floor(y + 0.5)
     else:
         z = math.ceil(y - 0.5)
+    if math.fabs(y-z) == 1.0:   # obscure case, see the test
+        z = y
 
     if ndigits >= 0:
         z = (z / pow2) / pow1
@@ -262,8 +264,6 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
-def format(space, w_obj, w_format_spec=NoneNotWrapped):
+def format(space, w_obj, w_format_spec=""):
     """Format a obj according to format_spec"""
-    if w_format_spec is None:
-        w_format_spec = space.wrap("")
     return space.format(w_obj, w_format_spec)
