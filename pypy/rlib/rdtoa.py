@@ -216,6 +216,9 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0):
             try:
                 digits = dg_dtoa(value, mode, precision,
                                      decpt_ptr, sign_ptr, end_ptr)
+                if not digits:
+                    # The only failure mode is no memory
+                    raise MemoryError
                 try:
                     buflen = (rffi.cast(rffi.LONG, end_ptr[0]) -
                               rffi.cast(rffi.LONG, digits))
