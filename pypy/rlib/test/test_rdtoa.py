@@ -5,8 +5,11 @@ def test_strtod():
     assert strtod("12345") == 12345.0
     assert strtod("1.1") == 1.1
     assert strtod("3.47") == 3.47
-    raises(ValueError, strtod, "123A")
     assert strtod(".125") == .125
+    raises(ValueError, strtod, "123A")
+    raises(ValueError, strtod, "")
+    raises(ValueError, strtod, " ")
+    raises(ValueError, strtod, "\0")
 
 def test_dtoa():
     assert dtoa(3.47) == "3.47"
