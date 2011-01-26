@@ -54,6 +54,9 @@ class W_ListObject(W_Object):
     def getslice(self, start, stop, step, length):
         return self.strategy.getslice(self, start, stop, step, length)
 
+    def getitems(self):
+        return self.strategy.getitems(self)
+
 registerimplementation(W_ListObject)
 
 
@@ -70,6 +73,9 @@ class ListStrategy(object):
     def getslice(self, w_list, start, stop, step, length):
         raise NotImplementedError
 
+    def getitems(self, w_list):
+        raise NotImplementedError
+
 class EmptyListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
@@ -83,6 +89,9 @@ class EmptyListStrategy(ListStrategy):
 
     def getslice(self, w_list, start, stop, step, length):
         return W_ListObject([])
+
+    def getitems(self, w_list):
+        return []
 
 class ObjectListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
@@ -104,6 +113,9 @@ class ObjectListStrategy(ListStrategy):
                 start += step
             return W_ListObject(subitems_w)
 
+    def getitems(self, w_list):
+        return cast_from_void_star(w_list.storage, "object")
+
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
@@ -119,7 +131,7 @@ def init__List(space, w_list, __args__):
     # This is commented out to avoid assigning a new RPython list to
     # 'wrappeditems', which defeats the W_FastSeqIterObject optimization.
     #
-    items_w = w_list.wrappeditems
+    items_w = w_list.getitems()
     del items_w[:]
     if w_iterable is not None:
         w_iterator = space.iter(w_iterable)
@@ -163,7 +175,7 @@ def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _delitem_slice_helper(space, w_list.wrappeditems, start, 1, stop-start)
+    _delitem_slice_helper(space, w_list.getitems(), start, 1, stop-start)
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
@@ -176,10 +188,10 @@ def contains__List_ANY(space, w_list, w_obj):
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
-    return iterobject.W_FastListIterObject(w_list, w_list.wrappeditems)
+    return iterobject.W_FastListIterObject(w_list, w_list.getitems())
 
 def add__List_List(space, w_list1, w_list2):
-    return W_ListObject(w_list1.wrappeditems + w_list2.wrappeditems)
+    return W_ListObject(w_list1.getitems() + w_list2.getitems())
 
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):
@@ -197,7 +209,7 @@ def mul_list_times(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    return W_ListObject(w_list.wrappeditems * times)
+    return W_ListObject(w_list.getitems() * times)
 
 def mul__List_ANY(space, w_list, w_times):
     return mul_list_times(space, w_list, w_times)
@@ -217,8 +229,8 @@ def inplace_mul__List_ANY(space, w_list, w_times):
 
 def eq__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
-    items1_w = w_list1.wrappeditems
-    items2_w = w_list2.wrappeditems
+    items1_w = w_list1.getitems()
+    items2_w = w_list2.getitems()
     return equal_wrappeditems(space, items1_w, items2_w)
 
 def equal_wrappeditems(space, items1_w, items2_w):
@@ -258,12 +270,12 @@ def greaterthan_unwrappeditems(space, items1_w, items2_w):
     return space.newbool(len(items1_w) > len(items2_w))
 
 def lt__List_List(space, w_list1, w_list2):
-    return lessthan_unwrappeditems(space, w_list1.wrappeditems,
-        w_list2.wrappeditems)
+    return lessthan_unwrappeditems(space, w_list1.getitems(),
+        w_list2.getitems())
 
 def gt__List_List(space, w_list1, w_list2):
-    return greaterthan_unwrappeditems(space, w_list1.wrappeditems,
-        w_list2.wrappeditems)
+    return greaterthan_unwrappeditems(space, w_list1.getitems(),
+        w_list2.getitems())
 
 def delitem__List_ANY(space, w_list, w_idx):
     idx = get_list_index(space, w_idx)
