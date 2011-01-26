@@ -66,7 +66,7 @@ class TestLogger(object):
         if check_equal:
             equaloplists(loop.operations, oloop.operations)
             assert oloop.inputargs == loop.inputargs
-        return loop, oloop
+        return logger, loop, oloop
     
     def test_simple(self):
         inp = '''
@@ -108,7 +108,7 @@ class TestLogger(object):
         []
         debug_merge_point("info", 0)
         '''
-        loop, oloop = self.reparse(inp, check_equal=False)
+        _, loop, oloop = self.reparse(inp, check_equal=False)
         assert loop.operations[0].getarg(0)._get_str() == 'info'
         assert oloop.operations[0].getarg(0)._get_str() == 'info'
         
@@ -117,7 +117,7 @@ class TestLogger(object):
         [f0]
         f1 = float_add(3.5, f0)
         '''
-        loop, oloop = self.reparse(inp)
+        _, loop, oloop = self.reparse(inp)
         equaloplists(loop.operations, oloop.operations)
 
     def test_jump(self):
@@ -178,3 +178,14 @@ class TestLogger(object):
         output = capturing(bare_logger.log_bridge, [], [], 3)
         assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
         pure_parse(output)
+
+    def test_repr_single_op(self):
+        inp = '''
+        [i0, i1, i2, p3, p4, p5]
+        i6 = int_add(i1, i2)
+        i8 = int_add(i6, 3)
+        jump(i0, i8, i6, p3, p4, p5)
+        '''
+        logger, loop, _ = self.reparse(inp)
+        op = loop.operations[1]
+        assert logger.repr_of_op(op) == "i8 = int_add(i6, 3)"

@@ -10,9 +10,16 @@ from pypy.jit.metainterp.history import Const, ConstInt, Box, \
 class Logger(object):
 
     def __init__(self, metainterp_sd, guard_number=False):
+        """
+        resoperation logger.  Note that you should call repr_of_op only
+        *after* the corresponding loop has been fully logged, else you might
+        get different results (in particular, variable numbers could be
+        different)
+        """
         self.metainterp_sd = metainterp_sd
         self.ts = metainterp_sd.cpu.ts
         self.guard_number = guard_number
+        self.memo = {}
 
     def log_loop(self, inputargs, operations, number=0, type=None):
         if type is None:
@@ -46,12 +53,12 @@ class Logger(object):
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
 
-    def repr_of_arg(self, memo, arg):
+    def repr_of_arg(self, arg):
         try:
-            mv = memo[arg]
+            mv = self.memo[arg]
         except KeyError:
-            mv = len(memo)
-            memo[arg] = mv
+            mv = len(self.memo)
+            self.memo[arg] = mv
         if isinstance(arg, ConstInt):
             if int_could_be_an_address(arg.value):
                 addr = arg.getaddr()
@@ -75,12 +82,34 @@ class Logger(object):
         else:
             return '?'
 
+    def repr_of_op(self, op):
+        args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
+        if op.result is not None:
+            res = self.repr_of_arg(op.result) + " = "
+        else:
+            res = ""
+        is_guard = op.is_guard()
+        if op.getdescr() is not None:
+            descr = op.getdescr()
+            if is_guard and self.guard_number:
+                index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
+                r = "<Guard%d>" % index
+            else:
+                r = self.repr_of_descr(descr)
+            args += ', descr=' +  r
+        if is_guard and op.getfailargs() is not None:
+            fail_args = ' [' + ", ".join([self.repr_of_arg(arg)
+                                          for arg in op.getfailargs()]) + ']'
+        else:
+            fail_args = ''
+        return res + op.getopname() + '(' + args + ')' + fail_args
+
     def _log_operations(self, inputargs, operations):
+        self.memo = {}
         if not have_debug_prints():
             return
-        memo = {}
         if inputargs is not None:
-            args = ", ".join([self.repr_of_arg(memo, arg) for arg in inputargs])
+            args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')
         for i in range(len(operations)):
             op = operations[i]
@@ -89,28 +118,7 @@ class Logger(object):
                 reclev = op.getarg(1).getint()
                 debug_print("debug_merge_point('%s', %s)" % (loc, reclev))
                 continue
-            args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
-            if op.result is not None:
-                res = self.repr_of_arg(memo, op.result) + " = "
-            else:
-                res = ""
-            is_guard = op.is_guard()
-            if op.getdescr() is not None:
-                descr = op.getdescr()
-                if is_guard and self.guard_number:
-                    index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
-                    r = "<Guard%d>" % index
-                else:
-                    r = self.repr_of_descr(descr)
-                args += ', descr=' +  r
-            if is_guard and op.getfailargs() is not None:
-                fail_args = ' [' + ", ".join([self.repr_of_arg(memo, arg)
-                                              for arg in op.getfailargs()]) + ']'
-            else:
-                fail_args = ''
-            debug_print(res + op.getopname() +
-                        '(' + args + ')' + fail_args)
-
+            debug_print(self.repr_of_op(op))
 
 def int_could_be_an_address(x):
     if we_are_translated():
