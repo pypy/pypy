@@ -1048,6 +1048,7 @@ class W_Product(Wrappable):
         for _, lim in self.indicies:
             if lim <= 0:
                 self.cont = False
+                break
 
     def roll_gears(self):
         if self.num_gears == 0:

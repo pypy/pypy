@@ -637,21 +637,6 @@ def formatd(x, code, precision, flags=0):
     else:
         return _formatd(x, code, precision, flags)
 
-formatd_max_length = 120
-
-def formatd_overflow(x, kind, precision, flags=0):
-    # msvcrt does not support the %F format.
-    # OTOH %F and %f only differ for 'inf' or 'nan' numbers
-    # which are already handled elsewhere
-    if kind == 'F':
-        kind = 'f'
-
-    if ((kind in 'gG' and formatd_max_length < 10+precision) or
-        (kind in 'fF' and formatd_max_length < 53+precision)):
-        raise OverflowError("formatted float is too long (precision too large?)")
-
-    return formatd(x, kind, precision, flags)
-
 def double_to_string(value, tp, precision, flags):
     if isnan(value):
         special = DIST_NAN
@@ -659,7 +644,7 @@ def double_to_string(value, tp, precision, flags):
         special = DIST_INFINITY
     else:
         special = DIST_FINITE
-    result = formatd_overflow(value, tp, precision)
+    result = formatd(value, tp, precision, flags)
     return result, special
 
 # the 'float' C type
