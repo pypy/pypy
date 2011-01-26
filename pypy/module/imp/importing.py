@@ -10,7 +10,7 @@ from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.eval import Code
-from pypy.rlib import streamio, jit
+from pypy.rlib import streamio, jit, rposix
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated, specialize
@@ -127,41 +127,55 @@ def importhook(space, name, w_globals=None,
     if (level != 0 and
         w_globals is not None and
         space.isinstance_w(w_globals, space.w_dict)):
+
         ctxt_w_name = space.finditem(w_globals, w('__name__'))
         ctxt_w_path = space.finditem(w_globals, w('__path__'))
+
+        ctxt_name = None
         if ctxt_w_name is not None:
             try:
                 ctxt_name = space.str_w(ctxt_w_name)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-            else:
-                ctxt_name_prefix_parts = ctxt_name.split('.')
-                if level > 0:
-                    n = len(ctxt_name_prefix_parts)-level+1
-                    assert n>=0
-                    ctxt_name_prefix_parts = ctxt_name_prefix_parts[:n]
-                if ctxt_name_prefix_parts and ctxt_w_path is None: # plain module
-                    ctxt_name_prefix_parts.pop()
-                if ctxt_name_prefix_parts:
-                    rel_modulename = '.'.join(ctxt_name_prefix_parts)
-                    if modulename:
-                        rel_modulename += '.' + modulename
-                baselevel = len(ctxt_name_prefix_parts)
-                if rel_modulename is not None:
-                    w_mod = check_sys_modules(space, w(rel_modulename))
-                    if (w_mod is None or
-                        not space.is_w(w_mod, space.w_None)):
-                        tentative = level < 0
-                        w_mod = absolute_import(space, rel_modulename,
-                                                baselevel,
-                                                fromlist_w,
-                                                tentative=tentative)
-                        if w_mod is not None:
-                            space.timer.stop_name("importhook", modulename)
-                            return w_mod
+
+        if ctxt_name is not None:
+            ctxt_name_prefix_parts = ctxt_name.split('.')
+            if level > 0:
+                n = len(ctxt_name_prefix_parts)-level+1
+                assert n>=0
+                ctxt_name_prefix_parts = ctxt_name_prefix_parts[:n]
+            if ctxt_name_prefix_parts and ctxt_w_path is None: # plain module
+                ctxt_name_prefix_parts.pop()
+            if ctxt_name_prefix_parts:
+                rel_modulename = '.'.join(ctxt_name_prefix_parts)
+                if modulename:
+                    rel_modulename += '.' + modulename
+            baselevel = len(ctxt_name_prefix_parts)
+            if rel_modulename is not None:
+                # XXX What is this check about? There is no test for it
+                w_mod = check_sys_modules(space, w(rel_modulename))
+
+                if (w_mod is None or
+                    not space.is_w(w_mod, space.w_None)):
+
+                    # if no level was set, ignore import errors, and
+                    # fall back to absolute import at the end of the
+                    # function.
+                    if level == -1:
+                        tentative = True
                     else:
-                        rel_modulename = None
+                        tentative = False
+
+                    w_mod = absolute_import(space, rel_modulename,
+                                            baselevel, fromlist_w,
+                                            tentative=tentative)
+                    if w_mod is not None:
+                        space.timer.stop_name("importhook", modulename)
+                        return w_mod
+                else:
+                    rel_modulename = None
+
         if level > 0:
             msg = "Attempted relative import in non-package"
             raise OperationError(space.w_ValueError, w(msg))
@@ -841,7 +855,7 @@ def open_exclusive(space, cpathname, mode):
         pass
 
     flags = (os.O_EXCL|os.O_CREAT|os.O_WRONLY|os.O_TRUNC|
-             getattr(os, 'O_BINARY', 0))
+             streamio.O_BINARY)
     fd = os.open(cpathname, flags, mode)
     return streamio.fdopen_as_stream(fd, "wb")
 
