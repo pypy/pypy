@@ -1278,7 +1278,8 @@ class Transformer(object):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
                                                   extraeffect)
         if extraeffect is not None:
-            assert calldescr.get_extra_info().extraeffect == extraeffect
+            assert (type(calldescr) is str      # for tests
+                    or calldescr.get_extra_info().extraeffect == extraeffect)
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
