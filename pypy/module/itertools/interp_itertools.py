@@ -32,8 +32,17 @@ class W_Count(Wrappable):
         return self.space.wrap(s)
 
 
+def check_number(space, w_obj):
+    if (space.lookup(w_obj, '__add__') is None or
+        space.is_true(space.isinstance(w_obj, space.w_str)) or
+        space.is_true(space.isinstance(w_obj, space.w_unicode))):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected a number"))
+
 @unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
+    check_number(space, w_start)
+    check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)
     r.__init__(space, w_start, w_step)
     return space.wrap(r)

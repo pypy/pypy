@@ -30,6 +30,12 @@ class AppTestItertools:
         it = itertools.count(12.1, 1.0)
         assert repr(it) == 'count(12.1, 1.0)'
 
+    def test_count_invalid(self):
+        import itertools
+
+        raises(TypeError, itertools.count, None)
+        raises(TypeError, itertools.count, 'a')
+
     def test_repeat(self):
         import itertools
 
