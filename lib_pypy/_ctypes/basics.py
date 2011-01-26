@@ -47,6 +47,9 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
+    def get_ffi_param(self, value):
+        return self.from_param(value)._to_ffi_param()
+
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
@@ -119,6 +122,12 @@ class _CData(object):
 
     def _get_buffer_value(self):
         return self._buffer[0]
+
+    def _to_ffi_param(self):
+        if self.__class__._is_pointer_like():
+            return self._get_buffer_value()
+        else:
+            return self.value
 
     def __buffer__(self):
         return buffer(self._buffer)

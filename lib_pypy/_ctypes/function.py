@@ -228,9 +228,7 @@ class CFuncPtr(_CData):
             
         if argtypes is None:
             argtypes = []
-        args = self._convert_args(argtypes, args)
-        argtypes = [type(arg) for arg in args]
-        newargs = self._unwrap_args(argtypes, args)
+        newargs, argtypes = self._convert_args(argtypes, args)
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)
@@ -316,15 +314,19 @@ class CFuncPtr(_CData):
                     pass
             raise
 
-    @staticmethod
-    def _conv_param(argtype, arg):
+    @classmethod
+    def _conv_param(cls, argtype, arg):
+        if isinstance(argtype, _CDataMeta):
+            #arg = argtype.from_param(arg)
+            arg = argtype.get_ffi_param(arg)
+            return arg, argtype
+        
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):
             arg = arg._as_parameter_
         if isinstance(arg, _CData):
-            # The usual case when argtype is defined
-            return arg
+            return arg._to_ffi_param(), type(arg)
         #
         # non-usual case: we do the import here to save a lot of code in the
         # jit trace of the normal case
@@ -341,10 +343,11 @@ class CFuncPtr(_CData):
         else:
             raise TypeError("Don't know how to handle %s" % (arg,))
 
-        return cobj
+        return cobj._to_ffi_param(), type(cobj)
 
     def _convert_args(self, argtypes, args):
-        wrapped_args = []
+        newargs = []
+        newargtypes = []
         consumed = 0
 
         for i, argtype in enumerate(argtypes):
@@ -365,7 +368,8 @@ class CFuncPtr(_CData):
                     import ctypes
                     val = argtype._type_()
                     wrapped = (val, ctypes.byref(val))
-                    wrapped_args.append(wrapped)
+                    newargs.append(wrapped._to_ffi_param())
+                    newargtypes.append(type(wrapped))
                     continue
                 elif idlflag == PARAMFLAG_FIN | PARAMFLAG_FLCID:
                     # Always taken from defaultvalue if given,
@@ -373,8 +377,9 @@ class CFuncPtr(_CData):
                     val = defaultvalue
                     if val is None:
                         val = 0
-                    wrapped = self._conv_param(argtype, val)
-                    wrapped_args.append(wrapped)
+                    newarg, newargtype = self._conv_param(argtype, val)
+                    newargs.append(newarg)
+                    newargtypes.append(newargtype)
                     continue
                 else:
                     raise NotImplementedError(
@@ -388,45 +393,24 @@ class CFuncPtr(_CData):
                 raise TypeError("Not enough arguments")
 
             try:
-                wrapped = self._conv_param(argtype, arg)
+                newarg, newargtype = self._conv_param(argtype, arg)
             except (UnicodeError, TypeError, ValueError), e:
                 raise ArgumentError(str(e))
-            wrapped_args.append(wrapped)
+            newargs.append(newarg)
+            newargtypes.append(newargtype)
             consumed += 1
 
-        if len(wrapped_args) < len(args):
-            extra = args[len(wrapped_args):]
-            argtypes = list(argtypes)
+        if len(newargs) < len(args):
+            extra = args[len(newargs):]
             for i, arg in enumerate(extra):
                 try:
-                    wrapped = self._conv_param(None, arg)
+                    newarg, newargtype = self._conv_param(None, arg)
                 except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
-                wrapped_args.append(wrapped)
-        return wrapped_args
+                newargs.append(newarg)
+                newargtypes.append(newargtype)
+        return newargs, newargtypes
 
-
-    def _unwrap_args(self, argtypes, args):
-        """
-        Convert from ctypes high-level values to low-level values suitables to
-        be passed to _ffi
-        """
-        assert len(argtypes) == len(args)
-        newargs = []
-        for argtype, arg in zip(argtypes, args):
-            value = self._unwrap_single_arg(argtype, arg)
-            newargs.append(value)
-        return newargs
-
-    def _unwrap_single_arg(self, argtype, arg):
-        shape = argtype._ffiargshape
-        if isinstance(shape, str) and shape in "POszZ": # pointer types
-            value = arg._get_buffer_value()
-        elif is_struct_shape(shape):
-            value = arg._buffer
-        else:
-            value = arg.value
-        return value
     
     def _wrap_result(self, restype, result):
         """
@@ -557,9 +541,7 @@ def make_specialized_subclass(CFuncPtr):
             assert self._argtypes_ is not None
             argtypes = self._argtypes_
             thisarg = None
-            args = self._convert_args(argtypes, args)
-            argtypes = [type(args[0])]
-            newargs = self._unwrap_args(argtypes, args)
+            newargs, argtypes = self._convert_args(argtypes, args)
             restype = self._restype_
             funcptr = self._getfuncptr(argtypes, restype, thisarg)
             result = self._call_funcptr(funcptr, *newargs)
@@ -572,13 +554,10 @@ def make_specialized_subclass(CFuncPtr):
             """
             assert self._paramflags is None
             try:
-                wrapped_args = [self._conv_param(argtypes[0], args[0])]
+                wrapped_args = [self._conv_param(argtypes[0], args[0])[0]]
             except (UnicodeError, TypeError, ValueError), e:
                 raise ArgumentError(str(e))
             assert len(wrapped_args) == len(args)
-            return wrapped_args
-
-        def _unwrap_args(self, argtypes, args):
-            return [self._unwrap_single_arg(argtypes[0], args[0])]
+            return wrapped_args, argtypes
 
     return CFuncPtr_1

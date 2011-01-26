@@ -247,7 +247,7 @@ class SimpleType(_CDataMeta):
                 else:
                     self._buffer[0] = 0  # VARIANT_FALSE
             result.value = property(_getvalue, _setvalue)
-
+            
         return result
 
     from_address = cdata_from_address
