@@ -22,7 +22,7 @@ if HAVE_LIBINTL:
         HAVE_LIBINTL = False
 
 class CConfig:
-    includes = ['locale.h', 'limits.h']
+    includes = ['locale.h', 'limits.h', 'ctype.h']
 
     if HAVE_LANGINFO:
         includes += ['langinfo.h']

@@ -29,7 +29,8 @@ def getkind(TYPE, supports_floats=True, supports_longlong=True):
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...
-        if rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed):
+        if (TYPE != llmemory.Address and
+            rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
             if supports_longlong:
                 assert rffi.sizeof(TYPE) == 8
                 return 'float'

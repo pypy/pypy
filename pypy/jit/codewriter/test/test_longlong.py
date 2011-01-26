@@ -16,7 +16,7 @@ class FakeRTyper:
 class FakeBuiltinCallControl:
     def guess_call_kind(self, op):
         return 'builtin'
-    def getcalldescr(self, op, oopspecindex=None):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         assert oopspecindex is not None    # in this test
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):

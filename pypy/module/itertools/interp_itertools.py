@@ -23,7 +23,8 @@ class W_Count(Wrappable):
     def repr_w(self):
         space = self.space
         c = space.str_w(space.repr(self.w_c))
-        if space.eq_w(self.w_step, space.wrap(1)):
+        if (space.isinstance_w(self.w_step, space.w_int) and
+            space.eq_w(self.w_step, space.wrap(1))):
             s = 'count(%s)' % (c,)
         else:
             step = space.str_w(space.repr(self.w_step))
@@ -31,8 +32,17 @@ class W_Count(Wrappable):
         return self.space.wrap(s)
 
 
+def check_number(space, w_obj):
+    if (space.lookup(w_obj, '__add__') is None or
+        space.is_true(space.isinstance(w_obj, space.w_str)) or
+        space.is_true(space.isinstance(w_obj, space.w_unicode))):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected a number"))
+
 @unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
+    check_number(space, w_start)
+    check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)
     r.__init__(space, w_start, w_step)
     return space.wrap(r)
@@ -1033,18 +1043,21 @@ W_Compress.typedef = TypeDef(
 
 
 class W_Product(Wrappable):
-
     def __init__(self, space, args_w, w_repeat):
-        self.space = space
-        args = [space.fixedview(w_arg) for w_arg in args_w]
-        self.gears = args * space.int_w(w_repeat)
+        self.gears = [
+            space.fixedview(arg_w) for arg_w in args_w
+        ] * space.int_w(w_repeat)
         self.num_gears = len(self.gears)
         # initialization of indicies to loop over
-        self.indicies = [(0, len(gear)) for gear in self.gears]
+        self.indicies = [
+            (0, len(gear))
+            for gear in self.gears
+        ]
         self.cont = True
         for _, lim in self.indicies:
             if lim <= 0:
                 self.cont = False
+                break
 
     def roll_gears(self):
         if self.num_gears == 0:
@@ -1072,19 +1085,20 @@ class W_Product(Wrappable):
             else:
                 break
 
-    def iter_w(self):
-        return self.space.wrap(self)
+    @unwrap_spec("self", ObjSpace)
+    def iter_w(self, space):
+        return space.wrap(self)
 
-    def next_w(self):
+    @unwrap_spec("self", ObjSpace)
+    def next_w(self, space):
         if not self.cont:
-            raise OperationError(self.space.w_StopIteration,
-                                     self.space.w_None)
+            raise OperationError(space.w_StopIteration, space.w_None)
         l = [None] * self.num_gears
         for x in range(0, self.num_gears):
             index, limit = self.indicies[x]
             l[x] = self.gears[x][index]
         self.roll_gears()
-        return self.space.newtuple(l)
+        return space.newtuple(l)
 
 
 @unwrap_spec(ObjSpace, W_Root, Arguments)
@@ -1106,8 +1120,8 @@ def W_Product__new__(space, w_subtype, __args__):
 W_Product.typedef = TypeDef(
     'product',
     __new__ = interp2app(W_Product__new__),
-    __iter__ = interp2app(W_Product.iter_w, unwrap_spec=['self']),
-    next = interp2app(W_Product.next_w, unwrap_spec=['self']),
+    __iter__ = interp2app(W_Product.iter_w),
+    next = interp2app(W_Product.next_w),
     __doc__ = """
    Cartesian product of input iterables.
 
@@ -1136,6 +1150,7 @@ W_Product.typedef = TypeDef(
            for prod in result:
                yield tuple(prod)
 """)
+
 
 class W_Combinations(Wrappable):
     def __init__(self, space, pool_w, indices, r):
@@ -1221,6 +1236,10 @@ combinations(range(4), 3) --> (0,1,2), (0,1,3), (0,2,3), (1,2,3)""",
 )
 
 class W_CombinationsWithReplacement(W_Combinations):
+    def __init__(self, space, pool_w, indices, r):
+        W_Combinations.__init__(self, space, pool_w, indices, r)
+        self.stopped = len(pool_w) == 0 and r > 0
+
     def get_maximum(self, i):
         return len(self.pool_w) - 1
 
@@ -1233,7 +1252,7 @@ def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     if r < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("r must be non-negative"))
-    indices = [0] * len(pool_w)
+    indices = [0] * r
     res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
     res.__init__(space, pool_w, indices, r)
     return space.wrap(res)

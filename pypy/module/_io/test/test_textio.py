@@ -166,6 +166,15 @@ class AppTestTextIO:
                         assert got_line == exp_line
                     assert len(got_lines) == len(exp_lines)
 
+    def test_repr(self):
+        import _io
+
+        t = _io.TextIOWrapper(_io.BytesIO(""), encoding="utf-8")
+        assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
+        t = _io.TextIOWrapper(_io.BytesIO(""), encoding="ascii")
+        assert repr(t) == "<_io.TextIOWrapper encoding='ascii'>"
+
+
 class AppTestIncrementalNewlineDecoder:
 
     def test_newline_decoder(self):

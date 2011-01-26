@@ -1,6 +1,7 @@
 import os, sys
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
+from errno import EINTR
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
@@ -366,6 +367,10 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError'):
         return wrap_windowserror(space, e, w_filename)
 
     errno = e.errno
+
+    if errno == EINTR:
+        space.getexecutioncontext().checksignals()
+
     try:
         msg = os.strerror(errno)
     except ValueError:

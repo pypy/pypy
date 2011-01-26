@@ -781,7 +781,7 @@ class Formatter(BaseFormatter):
         tp = self._type
         if tp == "\0":
             tp = "g"
-            default_prec = 12
+            default_precision = 12
             flags |= rarithmetic.DTSF_ADD_DOT_0
         elif tp == "n":
             tp = "g"

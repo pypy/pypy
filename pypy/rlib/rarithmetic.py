@@ -37,6 +37,8 @@ import sys, math
 from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
+USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
+
 # set up of machine internals
 _bits = 0
 _itest = 1
@@ -549,8 +551,19 @@ else:
     r_int64 = int
 
 
-# float as string  -> sign, beforept, afterpt, exponent
+def rstring_to_float(s):
+    if USE_SHORT_FLOAT_REPR:
+        from pypy.rlib.rdtoa import strtod
+        return strtod(s)
 
+    sign, before_point, after_point, exponent = break_up_float(s)
+
+    if not before_point and not after_point:
+        raise ValueError
+
+    return parts_to_float(sign, before_point, after_point, exponent)
+
+# float as string  -> sign, beforept, afterpt, exponent
 def break_up_float(s):
     i = 0
 
@@ -605,6 +618,7 @@ def break_up_float(s):
 # string -> float helper
 
 def parts_to_float(sign, beforept, afterpt, exponent):
+    "NOT_RPYTHON"
     if not exponent:
         exponent = '0'
     return float("%s%s.%se%s" % (sign, beforept, afterpt, exponent))
@@ -649,23 +663,13 @@ def _formatd(x, code, precision, flags):
         s = s[:-2]
 
     return s
+
 def formatd(x, code, precision, flags=0):
-    return _formatd(x, code, precision, flags)
-
-formatd_max_length = 120
-
-def formatd_overflow(x, kind, precision, flags=0):
-    # msvcrt does not support the %F format.
-    # OTOH %F and %f only differ for 'inf' or 'nan' numbers
-    # which are already handled elsewhere
-    if kind == 'F':
-        kind = 'f'
-
-    if ((kind in 'gG' and formatd_max_length < 10+precision) or
-        (kind in 'fF' and formatd_max_length < 53+precision)):
-        raise OverflowError("formatted float is too long (precision too large?)")
-
-    return formatd(x, kind, precision, flags)
+    if USE_SHORT_FLOAT_REPR:
+        from pypy.rlib.rdtoa import dtoa_formatd
+        return dtoa_formatd(x, code, precision, flags)
+    else:
+        return _formatd(x, code, precision, flags)
 
 def double_to_string(value, tp, precision, flags):
     if isnan(value):
@@ -674,7 +678,7 @@ def double_to_string(value, tp, precision, flags):
         special = DIST_INFINITY
     else:
         special = DIST_FINITE
-    result = formatd_overflow(value, tp, precision)
+    result = formatd(value, tp, precision, flags)
     return result, special
 
 # the 'float' C type

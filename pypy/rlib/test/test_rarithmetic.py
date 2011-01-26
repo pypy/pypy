@@ -343,21 +343,26 @@ class BaseTestRarithmetic(BaseRtypingTest):
         assert res == '3.33'
 
     def test_formatd_repr(self):
-        py.test.skip('WIP: Need full dtoa support to run this test')
         from pypy.rlib.rarithmetic import formatd
         def f(x):
             return formatd(x, 'r', 0, 0)
         res = self.ll_to_string(self.interpret(f, [1.1]))
         assert res == '1.1'
 
-    def test_formatd_overflow(self):
+    def test_formatd_huge(self):
+        def f(x):
+            return formatd(x, 'f', 1234, 0)
+        res = self.ll_to_string(self.interpret(f, [1.0]))
+        assert res == '1.' + 1234 * '0'
+
+    def test_formatd_F(self):
         from pypy.translator.c.test.test_genc import compile
-        from pypy.rlib.rarithmetic import formatd_overflow
+        from pypy.rlib.rarithmetic import formatd
 
         def func(x):
             # Test the %F format, which is not supported by
             # the Microsoft's msvcrt library.
-            return formatd_overflow(x, 'F', 4)
+            return formatd(x, 'F', 4)
 
         f = compile(func, [float])
         assert f(10/3.0) == '3.3333'
@@ -377,6 +382,18 @@ class BaseTestRarithmetic(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert res == 1e-100
 
+    def test_string_to_float(self):
+        from pypy.rlib.rarithmetic import rstring_to_float
+        def func(x):
+            if x == 0:
+                s = '1e23'
+            else:
+                s = '-1e23'
+            return rstring_to_float(s)
+
+        assert self.interpret(func, [0]) == 1e23
+        assert self.interpret(func, [1]) == -1e23
+
     def test_compare_singlefloat_crashes(self):
         from pypy.rlib.rarithmetic import r_singlefloat
         from pypy.rpython.error import MissingRTypeOperation
@@ -391,7 +408,17 @@ class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
-    pass
+    def test_formatd(self):
+        skip('formatd is broken on ootype')
+
+    def test_formatd_repr(self):
+        skip('formatd is broken on ootype')
+
+    def test_formatd_huge(self):
+        skip('formatd is broken on ootype')
+
+    def test_string_to_float(self):
+        skip('string_to_float is broken on ootype')
 
 def test_isinf():
     assert isinf(INFINITY)

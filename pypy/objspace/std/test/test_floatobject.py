@@ -184,7 +184,6 @@ class AppTestAppFloatTest:
     def test_getnewargs(self):
         assert  0.0 .__getnewargs__() == (0.0,)
 
-
     def test_pow(self):
         def pw(x, y):
             return x ** y
@@ -210,6 +209,7 @@ class AppTestAppFloatTest:
         res = pw(-2.0, -2001.0)
         assert res == -0.0
         assert math.copysign(1., res) == -1.
+        assert pw(-1.0, -1e15) == 1.0
 
     def test_float_cmp(self):
         assert 12.5 == 12.5
@@ -390,6 +390,9 @@ class AppTestAppFloatTest:
         #if hasattr(long, '__eq__'):  # for py.test -A: CPython is inconsistent
         #    assert 5L .__eq__(3.14) is NotImplemented
         #    assert 3.14 .__eq__(5L) is False
+
+    def test_from_string(self):
+        raises(ValueError, float, "\0")
 
 
 class AppTestFloatHex:

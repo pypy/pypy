@@ -29,10 +29,13 @@ def _split_complex(s):
     # ignore whitespace
     while i < slen and s[i] == ' ':
         i += 1
-    
+
     if s[i] == '(' and s[slen-1] == ')':
         i += 1
         slen -= 1
+        # ignore whitespace after bracket
+        while i < slen and s[i] == ' ':
+            i += 1
 
     # extract first number
     realstart = i
@@ -54,14 +57,18 @@ def _split_complex(s):
         newstop = realstop - 1
         if newstop < 0:
             raise ValueError
-        if s[newstop] in ('j','J'):
+        if s[newstop] in ('j', 'J'):
             if realstart == newstop:
                 imagpart = '1.0'
+            elif realstart == newstop-1 and s[realstart] == '+':
+                imagpart = '1.0'
+            elif realstart == newstop-1 and s[realstart] == '-':
+                imagpart = '-1.0'
             else:
                 imagpart = s[realstart:newstop]
             return '0.0', imagpart
         else:
-            return s[realstart:realstop],'0.0'
+            return s[realstart:realstop], '0.0'
 
     # find sign for imaginary part
     if s[i] == '-' or s[i] == '+':
