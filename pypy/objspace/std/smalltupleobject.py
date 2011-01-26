@@ -49,6 +49,11 @@ def make_specialized_class(n):
 
 W_SmallTupleObject2 = make_specialized_class(2)
 W_SmallTupleObject3 = make_specialized_class(3)
+W_SmallTupleObject4 = make_specialized_class(4)
+W_SmallTupleObject5 = make_specialized_class(5)
+W_SmallTupleObject6 = make_specialized_class(6)
+W_SmallTupleObject7 = make_specialized_class(7)
+W_SmallTupleObject8 = make_specialized_class(8)
 
 registerimplementation(W_SmallTupleObject)
 
