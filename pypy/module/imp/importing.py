@@ -226,6 +226,10 @@ def absolute_import_try(space, modulename, baselevel, fromlist_w):
 def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
     w = space.wrap
 
+    if '/' in modulename or '\\' in modulename:
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Import by filename is not supported."))
+
     w_mod = None
     parts = modulename.split('.')
     prefix = []

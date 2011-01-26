@@ -189,6 +189,13 @@ class AppTestImport:
     def test_import_keywords(self):
         __import__(name='sys', level=0)
 
+    def test_import_by_filename(self):
+        import pkg.a
+        filename = pkg.a.__file__
+        assert filename.endswith('.py')
+        exc = raises(ImportError, __import__, filename[:-3])
+        assert exc.value.message == "Import by filename is not supported."
+
     def test_import_badcase(self):
         def missing(name):
             try:
