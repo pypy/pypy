@@ -49,6 +49,7 @@ def setup_directory_structure(space):
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
+             relative_f = "from .os import sep",
              )
     setuppkg("pkg.pkg1", 
              a          = '',
@@ -276,7 +277,7 @@ class AppTestImport:
     def test_import_relative_partial_success(self):
         def imp():
             import pkg_r.inpkg
-        raises(ImportError,imp)
+        raises(ImportError, imp)
 
     def test_import_builtin_inpackage(self):
         def imp():
@@ -353,6 +354,12 @@ class AppTestImport:
     def test_future_relative_import_without_from_name(self):
         from pkg import relative_b
         assert relative_b.string.inpackage == 1
+
+    def test_no_relative_import(self):
+        def imp():
+            from pkg import relative_f
+        exc = raises(ImportError, imp)
+        assert exc.value.message == "No module named pkg.os"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c

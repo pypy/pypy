@@ -152,17 +152,19 @@ def importhook(space, name, w_globals=None,
                     w_mod = check_sys_modules(space, w(rel_modulename))
                     if (w_mod is None or
                         not space.is_w(w_mod, space.w_None)):
+                        tentative = level < 0
                         w_mod = absolute_import(space, rel_modulename,
                                                 baselevel,
-                                                fromlist_w, tentative=1)
+                                                fromlist_w,
+                                                tentative=tentative)
                         if w_mod is not None:
                             space.timer.stop_name("importhook", modulename)
                             return w_mod
                     else:
                         rel_modulename = None
-    if level > 0:
-        msg = "Attempted relative import in non-package"
-        raise OperationError(space.w_ValueError, w(msg))
+        if level > 0:
+            msg = "Attempted relative import in non-package"
+            raise OperationError(space.w_ValueError, w(msg))
     w_mod = absolute_import_try(space, modulename, 0, fromlist_w)
     if w_mod is None or space.is_w(w_mod, space.w_None):
         w_mod = absolute_import(space, modulename, 0, fromlist_w, tentative=0)
