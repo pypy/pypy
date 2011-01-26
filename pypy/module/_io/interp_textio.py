@@ -11,6 +11,7 @@ from pypy.module._codecs import interp_codecs
 from pypy.module._io.interp_iobase import convert_size
 import sys
 
+
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
 SEEN_CR   = 1
@@ -369,6 +370,12 @@ class W_TextIOWrapper(W_TextIOBase):
     def _check_closed(self, space, message=None):
         self._check_init(space)
         W_TextIOBase._check_closed(self, space, message)
+
+    @unwrap_spec('self', ObjSpace)
+    def descr_repr(self, space):
+        return space.mod(
+            space.wrap("<_io.TextIOWrapper encoding=%r>"), self.w_encoding
+        )
 
     @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
@@ -913,6 +920,7 @@ W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
     __init__  = interp2app(W_TextIOWrapper.descr_init),
+    __repr__ = interp2app(W_TextIOWrapper.descr_repr),
 
     read = interp2app(W_TextIOWrapper.read_w),
     readline = interp2app(W_TextIOWrapper.readline_w),
@@ -929,4 +937,4 @@ W_TextIOWrapper.typedef = TypeDef(
     seekable = interp2app(W_TextIOWrapper.seekable_w),
     fileno = interp2app(W_TextIOWrapper.fileno_w),
     closed = GetSetProperty(W_TextIOWrapper.closed_get_w),
-    )
+)

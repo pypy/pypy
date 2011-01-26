@@ -291,6 +291,15 @@ class AppTestFloatFormatting:
 
     def test_sign(self):
         assert format(-1.23, "1") == "-1.23"
+        x = 100.0 / 7.0
+        s = str(x)
+        assert format(x) == s
+        assert format(x, "-") == s
+        assert format(x, " ") == ' ' + s
+        assert format(x, "+") == '+' + s
+        assert format(-x, "-") == '-' + s
+        assert format(-x, " ") == '-' + s
+        assert format(-x, "+") == '-' + s
 
     def test_digit_separator(self):
         assert format(-1234., "012,f") == "-1,234.000000"

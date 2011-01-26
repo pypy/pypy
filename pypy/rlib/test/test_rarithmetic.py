@@ -349,14 +349,20 @@ class BaseTestRarithmetic(BaseRtypingTest):
         res = self.ll_to_string(self.interpret(f, [1.1]))
         assert res == '1.1'
 
-    def test_formatd_overflow(self):
+    def test_formatd_huge(self):
+        def f(x):
+            return formatd(x, 'f', 1234, 0)
+        res = self.ll_to_string(self.interpret(f, [1.0]))
+        assert res == '1.' + 1234 * '0'
+
+    def test_formatd_F(self):
         from pypy.translator.c.test.test_genc import compile
-        from pypy.rlib.rarithmetic import formatd_overflow
+        from pypy.rlib.rarithmetic import formatd
 
         def func(x):
             # Test the %F format, which is not supported by
             # the Microsoft's msvcrt library.
-            return formatd_overflow(x, 'F', 4)
+            return formatd(x, 'F', 4)
 
         f = compile(func, [float])
         assert f(10/3.0) == '3.3333'
@@ -406,6 +412,9 @@ class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
         skip('formatd is broken on ootype')
 
     def test_formatd_repr(self):
+        skip('formatd is broken on ootype')
+
+    def test_formatd_huge(self):
         skip('formatd is broken on ootype')
 
     def test_string_to_float(self):

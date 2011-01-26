@@ -722,9 +722,6 @@ class W_StarMap(Wrappable):
 
     def next_w(self):
         w_obj = self.space.next(self.w_iterable)
-        if not self.space.is_true(self.space.isinstance(w_obj, self.space.w_tuple)):
-            raise OperationError(self.space.w_TypeError, self.space.wrap("iterator must return a tuple"))
-
         return self.space.call(self.w_fun, w_obj)
 
 def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
@@ -1038,16 +1035,20 @@ W_Compress.typedef = TypeDef(
 
 class W_Product(Wrappable):
     def __init__(self, space, args_w, w_repeat):
-        self.gears_w = [
+        self.gears = [
             space.fixedview(arg_w) for arg_w in args_w
         ] * space.int_w(w_repeat)
-        self.num_gears = len(self.gears_w)
+        self.num_gears = len(self.gears)
         # initialization of indicies to loop over
         self.indicies = [
-            (0, len(w_gear))
-            for w_gear in self.gears_w
+            (0, len(gear))
+            for gear in self.gears
         ]
         self.cont = True
+        for _, lim in self.indicies:
+            if lim <= 0:
+                self.cont = False
+                break
 
     def roll_gears(self):
         if self.num_gears == 0:
@@ -1086,10 +1087,7 @@ class W_Product(Wrappable):
         l = [None] * self.num_gears
         for x in range(0, self.num_gears):
             index, limit = self.indicies[x]
-            if len(self.gears_w[x]) == 0:
-                self.cont = False
-                raise OperationError(space.w_StopIteration, space.w_None)
-            l[x] = self.gears_w[x][index]
+            l[x] = self.gears[x][index]
         self.roll_gears()
         return space.newtuple(l)
 
@@ -1142,68 +1140,6 @@ W_Product.typedef = TypeDef(
                result = [x+[y] for x in result for y in pool]
            for prod in result:
                yield tuple(prod)
-""")
-
-
-class W_Permutations(Wrappable):
-    def __init__(self, space, iterable_w, w_r):
-        self.space = space
-        self.pool_w = iterable_w[:]
-        self.n = n = len(self.pool_w)
-        self.r = r = n if space.is_w(w_r, space.w_None) else space.int_w(w_r)
-        if r < 0:
-            raise OperationError(self.space.w_ValueError,
-                                 self.space.wrap("r cannot be negative"))
-        self.indices = range(n)
-        self.cycles = range(n, n - r, -1)
-        self.first_run = True
-
-    def iter_w(self):
-        return self.space.wrap(self)
-
-    def next_w(self):
-        if self.r > self.n:
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        if self.first_run:
-            self.first_run = False
-        else:
-            # cargo-culted from python docs
-            for i in xrange(self.r - 1, -1, -1):
-                self.cycles[i] -= 1
-                if self.cycles[i] == 0:
-                    new_indices = self.indices[i + 1:] + self.indices[i:i + 1]
-                    for x in xrange(len(new_indices)):
-                        self.indices[i + x] = new_indices[x]
-                    self.cycles[i] = self.n - i
-                else:
-                    j = self.cycles[i]
-                    self.indices[i], self.indices[-j] = (self.indices[-j],
-                                                         self.indices[i])
-                    break
-            else:
-                raise OperationError(self.space.w_StopIteration,
-                                     self.space.w_None)
-        res_w = [self.pool_w[self.indices[x]] for x in range(self.r)]
-        return self.space.newtuple(res_w)
-
-
-def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
-    iterable_w = space.listview(w_iterable)
-    return space.wrap(W_Permutations(space, iterable_w, w_r))
-
-
-W_Permutations.typedef = TypeDef(
-    'permutations',
-    __new__ = interp2app(W_Permutations__new__,
-                         unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-    __iter__ = interp2app(W_Permutations.iter_w, unwrap_spec=['self']),
-    next = interp2app(W_Permutations.next_w, unwrap_spec=['self']),
-    __doc__ = """\
-permutations(iterable[, r]) --> permutations object
-
-Return successive r-length permutations of elements in the iterable.
-
-permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)
 """)
 
 
@@ -1318,4 +1254,72 @@ combinations_with_replacement(iterable, r) --> combinations_with_replacement obj
 Return successive r-length combinations of elements in the iterable
 allowing individual elements to have successive repeats.
 combinations_with_replacement('ABC', 2) --> AA AB AC BB BC CC""",
+)
+
+
+class W_Permutations(Wrappable):
+    def __init__(self, space, pool_w, r):
+        self.pool_w = pool_w
+        self.r = r
+        n = len(pool_w)
+        n_minus_r = n - r
+        if n_minus_r < 0:
+            self.stopped = True
+        else:
+            self.stopped = False
+            self.indices = range(n)
+            self.cycles = range(n, n_minus_r, -1)
+
+    @unwrap_spec("self", ObjSpace)
+    def descr__iter__(self, space):
+        return self
+
+    @unwrap_spec("self", ObjSpace)
+    def descr_next(self, space):
+        if self.stopped:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        r = self.r
+        indices = self.indices
+        w_result = space.newtuple([self.pool_w[indices[i]]
+                                   for i in range(r)])
+        cycles = self.cycles
+        i = r - 1
+        while i >= 0:
+            j = cycles[i] - 1
+            if j > 0:
+                cycles[i] = j
+                indices[i], indices[-j] = indices[-j], indices[i]
+                return w_result
+            cycles[i] = len(indices) - i
+            n1 = len(indices) - 1
+            assert n1 >= 0
+            num = indices[i]
+            for k in range(i, n1):
+                indices[k] = indices[k+1]
+            indices[n1] = num
+            i -= 1
+        self.stopped = True
+        return w_result
+
+@unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
+def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
+    pool_w = space.fixedview(w_iterable)
+    if space.is_w(w_r, space.w_None):
+        r = len(pool_w)
+    else:
+        r = space.gateway_nonnegint_w(w_r)
+    res = space.allocate_instance(W_Permutations, w_subtype)
+    res.__init__(space, pool_w, r)
+    return space.wrap(res)
+
+W_Permutations.typedef = TypeDef("permutations",
+    __new__ = interp2app(W_Permutations__new__),
+    __iter__ = interp2app(W_Permutations.descr__iter__),
+    next = interp2app(W_Permutations.descr_next),
+    __doc__ = """\
+permutations(iterable[, r]) --> permutations object
+
+Return successive r-length permutations of elements in the iterable.
+
+permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)""",
 )
