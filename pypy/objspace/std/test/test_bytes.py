@@ -314,6 +314,7 @@ class AppTestBytesArray:
         b += 'def'
         assert b == 'abcdef'
         assert isinstance(b, bytearray)
+        raises(TypeError, b.__iadd__, u"")
 
     def test_add(self):
         b1 = bytearray("abc")

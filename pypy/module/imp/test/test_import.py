@@ -49,6 +49,7 @@ def setup_directory_structure(space):
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
+             relative_f = "from .os import sep",
              )
     setuppkg("pkg.pkg1", 
              a          = '',
@@ -189,6 +190,13 @@ class AppTestImport:
     def test_import_keywords(self):
         __import__(name='sys', level=0)
 
+    def test_import_by_filename(self):
+        import pkg.a
+        filename = pkg.a.__file__
+        assert filename.endswith('.py')
+        exc = raises(ImportError, __import__, filename[:-3])
+        assert exc.value.message == "Import by filename is not supported."
+
     def test_import_badcase(self):
         def missing(name):
             try:
@@ -269,7 +277,7 @@ class AppTestImport:
     def test_import_relative_partial_success(self):
         def imp():
             import pkg_r.inpkg
-        raises(ImportError,imp)
+        raises(ImportError, imp)
 
     def test_import_builtin_inpackage(self):
         def imp():
@@ -346,6 +354,12 @@ class AppTestImport:
     def test_future_relative_import_without_from_name(self):
         from pkg import relative_b
         assert relative_b.string.inpackage == 1
+
+    def test_no_relative_import(self):
+        def imp():
+            from pkg import relative_f
+        exc = raises(ImportError, imp)
+        assert exc.value.message == "No module named pkg.os"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
@@ -722,6 +736,7 @@ class TestPycStuff:
     def test_write_compiled_module(self):
         space = self.space
         pathname = _testfilesource()
+        os.chmod(pathname, 0777)
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
             w_ret = importing.parse_source_module(space,
@@ -733,10 +748,12 @@ class TestPycStuff:
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
+        mode = 0777
         mtime = 12345
         importing.write_compiled_module(space,
                                         pycode,
                                         cpathname,
+                                        mode,
                                         mtime)
 
         # check
@@ -745,6 +762,9 @@ class TestPycStuff:
                                               mtime)
         assert ret is not None
         ret.close()
+
+        # Check that the executable bit was removed
+        assert os.stat(cpathname).st_mode & 0111 == 0
 
         # read compiled module
         stream = streamio.open_file_as_stream(cpathname, "rb")

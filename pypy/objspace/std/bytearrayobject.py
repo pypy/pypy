@@ -592,7 +592,7 @@ def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     return w_bytearray1
 
 def inplace_add__Bytearray_ANY(space, w_bytearray1, w_iterable2):
-    list_extend__Bytearray_ANY(space, w_bytearray1, w_iterable2)
+    w_bytearray1.data += space.bufferstr_new_w(w_iterable2)
     return w_bytearray1
 
 def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
