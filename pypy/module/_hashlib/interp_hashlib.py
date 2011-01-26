@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import ropenssl
 from pypy.rlib.rstring import StringBuilder
+from pypy.module.thread.os_lock import Lock
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
@@ -16,6 +17,11 @@ class W_Hash(Wrappable):
         self.name = name
         self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
 
+        # Allocate a lock for each HASH object.
+        # An optimization would be to not release the GIL on small requests,
+        # and use a custom lock only when needed.
+        self.lock = Lock(space)
+
         digest = ropenssl.EVP_get_digestbyname(name)
         if not digest:
             raise OperationError(space.w_ValueError,
@@ -23,6 +29,7 @@ class W_Hash(Wrappable):
         ropenssl.EVP_DigestInit(self.ctx, digest)
 
     def __del__(self):
+        # self.lock.free()
         lltype.free(self.ctx, flavor='raw')
 
     @unwrap_spec('self', ObjSpace)
@@ -34,13 +41,16 @@ class W_Hash(Wrappable):
     @unwrap_spec('self', ObjSpace, 'bufferstr')
     def update(self, space, string):
         with rffi.scoped_nonmovingbuffer(string) as buf:
-            ropenssl.EVP_DigestUpdate(self.ctx, buf, len(string))
+            with self.lock:
+                # XXX try to not release the GIL for small requests
+                ropenssl.EVP_DigestUpdate(self.ctx, buf, len(string))
 
     @unwrap_spec('self', ObjSpace)
     def copy(self, space):
         "Return a copy of the hash object."
         w_hash = W_Hash(space, self.name)
-        ropenssl.EVP_MD_CTX_copy(w_hash.ctx, self.ctx)
+        with self.lock:
+            ropenssl.EVP_MD_CTX_copy(w_hash.ctx, self.ctx)
         return w_hash
 
     @unwrap_spec('self', ObjSpace)
