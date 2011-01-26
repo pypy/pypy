@@ -46,8 +46,6 @@ the setsockopt() and getsockopt() methods.
 
 import _socket
 from _socket import *
-from functools import partial
-from types import MethodType
 
 try:
     import _ssl
@@ -240,15 +238,26 @@ class _socketobject(object):
     type = property(lambda self: self._sock.type, doc="the socket type")
     proto = property(lambda self: self._sock.proto, doc="the socket protocol")
 
-def meth(name,self,*args):
-    return getattr(self._sock,name)(*args)
+    # Delegate many calls to the raw socket object.
+    _s = ("def %(name)s(self, %(args)s): return self._sock.%(name)s(%(args)s)\n\n"
+          "%(name)s.__doc__ = _realsocket.%(name)s.__doc__\n")
+    for _m in _socketmethods:
+        # yupi! we're on pypy, all code objects have this interface
+        argcount = getattr(_realsocket, _m).im_func.func_code.co_argcount - 1
+        exec _s % {'name': _m, 'args': ', '.join('arg%d' % i for i in range(argcount))}
+    del _m, _s, argcount
 
-for _m in _socketmethods:
-    p = partial(meth,_m)
-    p.__name__ = _m
-    p.__doc__ = getattr(_realsocket,_m).__doc__
-    m = MethodType(p,None,_socketobject)
-    setattr(_socketobject,_m,m)
+    # Delegation methods with default arguments, that the code above
+    # cannot handle correctly
+    def sendall(self, data, flags=0):
+        self._sock.sendall(data, flags)
+    sendall.__doc__ = _realsocket.sendall.__doc__
+
+    def getsockopt(self, level, optname, buflen=None):
+        if buflen is None:
+            return self._sock.getsockopt(level, optname)
+        return self._sock.getsockopt(level, optname, buflen)
+    getsockopt.__doc__ = _realsocket.getsockopt.__doc__
 
 socket = SocketType = _socketobject
 
