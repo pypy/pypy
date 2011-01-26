@@ -37,6 +37,9 @@ class FakeLogger:
     def log_loop(self, inputargs, operations, number=0, type=None):
         pass
 
+    def repr_of_op(self, op):
+        return repr(op)
+
 class FakeState:
     optimize_loop = staticmethod(nounroll_optimize.optimize_loop)
 

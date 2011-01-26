@@ -1,6 +1,7 @@
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
+from pypy.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeutil import _findall
@@ -68,33 +69,39 @@ class FuncInfo(object):
             return f.inst_argtypes, f.inst_restype
 
 
-from pypy.rlib.debug import debug_start, debug_stop, debug_print
-
 class OptFfiCall(Optimization):
 
-    def __init__(self):
+    def setup(self):
         self.funcinfo = None
+        self.logger = self.optimizer.metainterp_sd.logger_ops
+
+    def propagate_begin_forward(self):
+        debug_start('jit-log-ffiopt')
+        Optimization.propagate_begin_forward(self)
+
+    def propagate_end_forward(self):
+        debug_stop('jit-log-ffiopt')
+        Optimization.propagate_end_forward(self)
 
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return OptFfiCall()
         # FIXME: Should any status be saved for next iteration?
 
     def begin_optimization(self, funcval, op):
-        self.rollback_maybe('begin_optimization ' + op.repr())
+        self.rollback_maybe('begin_optimization', op)
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)
 
     def commit_optimization(self):
         self.funcinfo = None
 
-    def rollback_maybe(self, msg):
+    def rollback_maybe(self, msg, op):
         if self.funcinfo is None:
             return # nothing to rollback
         #
         # we immediately set funcinfo to None to prevent recursion when
         # calling emit_op
-        debug_start('jit-log-opt-debug-ffi')
-        debug_print('rollback: ' + msg)
-        debug_stop('jit-log-opt-debug-ffi')
+        if have_debug_prints():
+            debug_print('rollback: ' + msg + ': ', self.logger.repr_of_op(op))
         funcinfo = self.funcinfo
         self.funcinfo = None
         self.emit_operation(funcinfo.prepare_op)
@@ -105,7 +112,7 @@ class OptFfiCall(Optimization):
 
     def emit_operation(self, op):
         # we cannot emit any operation during the optimization
-        self.rollback_maybe('invalid operation: ' + op.repr())
+        self.rollback_maybe('invalid op', op)
         Optimization.emit_operation(self, op)
 
     def optimize_CALL(self, op):
@@ -152,7 +159,7 @@ class OptFfiCall(Optimization):
             self.funcinfo.force_token_op = op
 
     def do_prepare_call(self, op):
-        self.rollback_maybe('prepare call: ' + op.repr())
+        self.rollback_maybe('prepare call', op)
         funcval = self._get_funcval(op)
         if not funcval.is_constant():
             return [op] # cannot optimize
@@ -186,6 +193,8 @@ class OptFfiCall(Optimization):
         return ops
 
     def propagate_forward(self, op):
+        if have_debug_prints():
+            debug_print(self.logger.repr_of_op(op))
         opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:
