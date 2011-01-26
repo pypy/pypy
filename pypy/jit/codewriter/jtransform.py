@@ -1107,9 +1107,10 @@ class Transformer(object):
     # Strings and Unicodes.
 
     def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
-        if extraeffect:
-            calldescr.get_extra_info().extraeffect = extraeffect
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  extraeffect)
+        if extraeffect is not None:
+            assert calldescr.get_extra_info().extraeffect == extraeffect
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:

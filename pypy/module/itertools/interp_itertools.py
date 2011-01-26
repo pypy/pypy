@@ -32,8 +32,17 @@ class W_Count(Wrappable):
         return self.space.wrap(s)
 
 
+def check_number(space, w_obj):
+    if (space.lookup(w_obj, '__add__') is None or
+        space.is_true(space.isinstance(w_obj, space.w_str)) or
+        space.is_true(space.isinstance(w_obj, space.w_unicode))):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected a number"))
+
 @unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
+    check_number(space, w_start)
+    check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)
     r.__init__(space, w_start, w_step)
     return space.wrap(r)
@@ -1227,6 +1236,10 @@ combinations(range(4), 3) --> (0,1,2), (0,1,3), (0,2,3), (1,2,3)""",
 )
 
 class W_CombinationsWithReplacement(W_Combinations):
+    def __init__(self, space, pool_w, indices, r):
+        W_Combinations.__init__(self, space, pool_w, indices, r)
+        self.stopped = len(pool_w) == 0 and r > 0
+
     def get_maximum(self, i):
         return len(self.pool_w) - 1
 
@@ -1239,7 +1252,7 @@ def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     if r < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("r must be non-negative"))
-    indices = [0] * len(pool_w)
+    indices = [0] * r
     res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
     res.__init__(space, pool_w, indices, r)
     return space.wrap(res)
