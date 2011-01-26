@@ -275,3 +275,7 @@ class TestMatch:
         assert not rsre_core.match(r, "abc", end=1)
         assert not rsre_core.match(r, "abc", end=0)
         assert not rsre_core.match(r, "abc", end=-1)
+
+    def test_match_bug1(self):
+        r = get_code(r'(.*?x?)?$')
+        assert rsre_core.match(r, "abcx")
