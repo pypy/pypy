@@ -1236,6 +1236,10 @@ combinations(range(4), 3) --> (0,1,2), (0,1,3), (0,2,3), (1,2,3)""",
 )
 
 class W_CombinationsWithReplacement(W_Combinations):
+    def __init__(self, space, pool_w, indices, r):
+        W_Combinations.__init__(self, space, pool_w, indices, r)
+        self.stopped = len(pool_w) == 0 and r > 0
+
     def get_maximum(self, i):
         return len(self.pool_w) - 1
 
@@ -1248,7 +1252,7 @@ def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     if r < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("r must be non-negative"))
-    indices = [0] * len(pool_w)
+    indices = [0] * r
     res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
     res.__init__(space, pool_w, indices, r)
     return space.wrap(res)

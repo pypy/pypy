@@ -884,6 +884,15 @@ class AppTestItertools27:
         raises(ValueError, combinations_with_replacement, "abc", -2)
         assert list(combinations_with_replacement("ABC", 2)) == [("A", "A"), ("A", 'B'), ("A", "C"), ("B", "B"), ("B", "C"), ("C", "C")]
 
+    def test_combinations_with_replacement_shortcases(self):
+        from itertools import combinations_with_replacement
+        assert list(combinations_with_replacement([-12], 2)) == [(-12, -12)]
+        assert list(combinations_with_replacement("AB", 3)) == [
+            ("A", "A", "A"), ("A", "A", "B"),
+            ("A", "B", "B"), ("B", "B", "B")]
+        assert list(combinations_with_replacement([], 2)) == []
+        assert list(combinations_with_replacement([], 0)) == [()]
+
     def test_izip_longest3(self):
         import itertools
         class Repeater(object):
