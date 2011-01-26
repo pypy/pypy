@@ -30,6 +30,7 @@ class W_Hash(Wrappable):
 
     def __del__(self):
         # self.lock.free()
+        ropenssl.EVP_MD_CTX_cleanup(self.ctx)
         lltype.free(self.ctx, flavor='raw')
 
     @unwrap_spec('self', ObjSpace)
