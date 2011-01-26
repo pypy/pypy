@@ -30,6 +30,12 @@ class AppTestItertools:
         it = itertools.count(12.1, 1.0)
         assert repr(it) == 'count(12.1, 1.0)'
 
+    def test_count_invalid(self):
+        import itertools
+
+        raises(TypeError, itertools.count, None)
+        raises(TypeError, itertools.count, 'a')
+
     def test_repeat(self):
         import itertools
 
@@ -732,6 +738,7 @@ class AppTestItertools26:
         prodlist = product(l, m)
         res = [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
         assert list(prodlist) == res
+        assert list(product()) == [()]
         assert list(product([])) == []
         assert list(product(iter(l), iter(m))) == res
 
@@ -876,6 +883,15 @@ class AppTestItertools27:
         raises(TypeError, combinations_with_replacement, None)
         raises(ValueError, combinations_with_replacement, "abc", -2)
         assert list(combinations_with_replacement("ABC", 2)) == [("A", "A"), ("A", 'B'), ("A", "C"), ("B", "B"), ("B", "C"), ("C", "C")]
+
+    def test_combinations_with_replacement_shortcases(self):
+        from itertools import combinations_with_replacement
+        assert list(combinations_with_replacement([-12], 2)) == [(-12, -12)]
+        assert list(combinations_with_replacement("AB", 3)) == [
+            ("A", "A", "A"), ("A", "A", "B"),
+            ("A", "B", "B"), ("B", "B", "B")]
+        assert list(combinations_with_replacement([], 2)) == []
+        assert list(combinations_with_replacement([], 0)) == [()]
 
     def test_izip_longest3(self):
         import itertools
