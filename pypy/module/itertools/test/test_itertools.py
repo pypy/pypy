@@ -732,6 +732,7 @@ class AppTestItertools26:
         prodlist = product(l, m)
         res = [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
         assert list(prodlist) == res
+        assert list(product()) == [()]
         assert list(product([])) == []
         assert list(product(iter(l), iter(m))) == res
 
