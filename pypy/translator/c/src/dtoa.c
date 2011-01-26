@@ -127,6 +127,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdio.h>
+#define PYPY_NOT_MAIN_FILE
 #include "src/allocator.h"
 #define PyMem_Malloc PyObject_Malloc
 #define PyMem_Free PyObject_Free
