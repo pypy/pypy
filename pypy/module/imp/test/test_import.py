@@ -722,6 +722,7 @@ class TestPycStuff:
     def test_write_compiled_module(self):
         space = self.space
         pathname = _testfilesource()
+        os.chmod(pathname, 0777)
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
             w_ret = importing.parse_source_module(space,
@@ -733,10 +734,12 @@ class TestPycStuff:
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
+        mode = 0777
         mtime = 12345
         importing.write_compiled_module(space,
                                         pycode,
                                         cpathname,
+                                        mode,
                                         mtime)
 
         # check
@@ -745,6 +748,9 @@ class TestPycStuff:
                                               mtime)
         assert ret is not None
         ret.close()
+
+        # Check that the executable bit was removed
+        assert os.stat(cpathname).st_mode & 0111 == 0
 
         # read compiled module
         stream = streamio.open_file_as_stream(cpathname, "rb")

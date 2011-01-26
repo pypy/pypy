@@ -720,11 +720,14 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
 
     if space.config.objspace.usepycfiles:
         cpathname = pathname + 'c'
-        mtime = int(os.stat(pathname)[stat.ST_MTIME])
+        src_stat = os.stat(pathname)
+        mtime = int(src_stat[stat.ST_MTIME])
+        mode = src_stat[stat.ST_MODE]
         stream = check_compiled_module(space, cpathname, mtime)
     else:
         cpathname = None
         mtime = 0
+        mode = 0
         stream = None
 
     if stream:
@@ -738,7 +741,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
         code_w = parse_source_module(space, pathname, source)
 
         if space.config.objspace.usepycfiles and write_pyc:
-            write_compiled_module(space, code_w, cpathname, mtime)
+            write_compiled_module(space, code_w, cpathname, mode, mtime)
 
     exec_code_module(space, w_mod, code_w)
 
@@ -825,8 +828,18 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
 
     return w_mod
 
+def open_exclusive(space, cpathname, mode):
+    try:
+        os.unlink(cpathname)
+    except OSError:
+        pass
 
-def write_compiled_module(space, co, cpathname, mtime):
+    flags = (os.O_EXCL|os.O_CREAT|os.O_WRONLY|os.O_TRUNC|
+             getattr(os, 'O_BINARY', 0))
+    fd = os.open(cpathname, flags, mode)
+    return streamio.fdopen_as_stream(fd, "wb")
+
+def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
     """
     Write a compiled module to a file, placing the time of last
     modification of its source into the header.
@@ -847,10 +860,16 @@ def write_compiled_module(space, co, cpathname, mtime):
     # Careful here: we must not crash nor leave behind something that looks
     # too much like a valid pyc file but really isn't one.
     #
+    mode = src_mode & ~0111
     try:
-        stream = streamio.open_file_as_stream(cpathname, "wb")
-    except StreamErrors:
-        return    # cannot create file
+        stream = open_exclusive(space, cpathname, mode)
+    except (OSError, StreamErrors):
+        try:
+            os.unlink(cpathname)
+        except OSError:
+            pass
+        return
+
     try:
         try:
             # will patch the header later; write zeroes until we are sure that
@@ -862,7 +881,7 @@ def write_compiled_module(space, co, cpathname, mtime):
             # should be ok (XXX or should call os.fsync() to be sure?)
             stream.seek(0, 0)
             _w_long(stream, get_pyc_magic(space))
-            _w_long(stream, mtime)
+            _w_long(stream, src_mtime)
         finally:
             stream.close()
     except StreamErrors:
