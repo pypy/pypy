@@ -13,7 +13,7 @@ register_all(vars(), globals())
 
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
-    from pypy.objspace.std.longobject import W_LongObject, newbigint
+    from pypy.objspace.std.longobject import W_LongObject
     from pypy.rlib.rbigint import rbigint
     if space.config.objspace.std.withsmalllong:
         from pypy.objspace.std.smalllongobject import W_SmallLongObject
@@ -27,7 +27,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             and space.is_w(w_longtype, space.w_long)):
             return w_value
         elif type(w_value) is W_LongObject:
-            return newbigint(space, w_longtype, w_value.num)
+            return _newbigint(space, w_longtype, w_value.num)
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             return string_to_w_long(space, w_longtype, space.str_w(w_value))
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
@@ -51,7 +51,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 else:
                     w_obj = space.int(w_obj)
             bigint = space.bigint_w(w_obj)
-            return newbigint(space, w_longtype, bigint)
+            return _newbigint(space, w_longtype, bigint)
     else:
         base = space.int_w(w_base)
 
@@ -74,6 +74,10 @@ def string_to_w_long(space, w_longtype, s, base=10):
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
+    return _newbigint(space, w_longtype, bigint)
+string_to_w_long._dont_inline_ = True
+
+def _newbigint(space, w_longtype, bigint):
     if (space.config.objspace.std.withsmalllong
         and space.is_w(w_longtype, space.w_long)):
         from pypy.objspace.std.smalllongobject import W_SmallLongObject
@@ -83,7 +87,6 @@ def string_to_w_long(space, w_longtype, s, base=10):
             pass
     from pypy.objspace.std.longobject import newbigint
     return newbigint(space, w_longtype, bigint)
-string_to_w_long._dont_inline_ = True
 
 def descr_get_numerator(space, w_obj):
     return space.long(w_obj)
