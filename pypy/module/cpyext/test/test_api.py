@@ -77,5 +77,5 @@ def test_copy_header_files(tmpdir):
         assert f.check(file=True)
         py.test.raises(py.error.EACCES, "f.open('w')") # check that it's not writable
     check('Python.h')
-    check('modsupport.inl')
+    check('modsupport.h')
     check('pypy_decl.h')
