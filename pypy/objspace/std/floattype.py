@@ -170,8 +170,10 @@ def descr_fromhex(space, w_cls, s):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("invalid hex string"))
             i += 1
-            exp_start = i
+            exp_sign = 1
             if s[i] == "-" or s[i] == "+":
+                if s[i] == "-":
+                    exp_sign = -1
                 i += 1
                 if i == length:
                     raise OperationError(space.w_ValueError,
@@ -179,18 +181,30 @@ def descr_fromhex(space, w_cls, s):
             if not s[i].isdigit():
                 raise OperationError(space.w_ValueError,
                                      space.wrap("invalid hex string"))
+            exp = ord(s[i]) - ord('0')
             i += 1
             while i < length and s[i].isdigit():
+                exp = exp * 10 + (ord(s[i]) - ord('0'))
+                if exp >= (sys.maxint-9) // 10:
+                    if exp_sign > 0:
+                        exp_sign = 2    # overflow in positive numbers
+                    else:
+                        exp_sign = -2   # overflow in negative numbers
                 i += 1
-            exp = int(s[exp_start:i])
+            if exp_sign == -1:
+                exp = -exp
+            elif exp_sign == -2:
+                exp = -sys.maxint / 2
+            elif exp_sign == 2:
+                exp = sys.maxint / 2
         else:
             exp = 0
         while (total_digits and
                _hex_digit(s, total_digits - 1, co_end, float_digits) == 0):
             total_digits -= 1
-        if not total_digits or exp < -sys.maxint / 2:
+        if not total_digits or exp <= -sys.maxint / 2:
             value = 0.0
-        elif exp > sys.maxint // 2:
+        elif exp >= sys.maxint // 2:
             raise OperationError(space.w_OverflowError, space.wrap("too large"))
         else:
             exp -=  4 * float_digits

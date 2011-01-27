@@ -558,6 +558,9 @@ class AppTestFloatHex:
         self.identical(fromHex('0X0p-1076'), 0.0)
         self.identical(fromHex('-0X0p-2000'), -0.0)
         self.identical(fromHex('-0x0p-123456789123456789'), -0.0)
+        self.identical(fromHex('0x1.0p00000000000000000000000000000003'), 8.0)
+        self.identical(fromHex('0x1.0p+0000000000000000000000000000003'), 8.0)
+        self.identical(fromHex('0x1.0p-000000000000000000000000000003'), 0.125)
 
         # values that should underflow to 0
         self.identical(fromHex('0X1p-1075'), 0.0)
