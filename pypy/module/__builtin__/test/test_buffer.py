@@ -208,4 +208,4 @@ class AppTestMemoryView:
         assert v.suboffsets == None
         v = memoryview(buffer("a"*100, 2))
         assert v.shape == (98,)
-        assert v.suboffsets == (2,)
+        assert v.suboffsets == None
