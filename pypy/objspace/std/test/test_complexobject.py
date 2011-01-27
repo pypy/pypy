@@ -10,10 +10,10 @@ EPS = 1e-9
 
 class TestW_ComplexObject:
 
-    def _test_instantiation(self):
+    def test_instantiation(self):
         def _t_complex(r=0.0,i=0.0):
             c = W_ComplexObject(r, i)
-            assert c.real == float(r) and c.imag == float(i)
+            assert c.realval == float(r) and c.imagval == float(i)
         pairs = (
             (1, 1),
             (1.0, 2.0),
@@ -430,3 +430,6 @@ class AppTestAppComplexTest:
             def __complex__(self):
                 return None
         raises(TypeError, complex, complex2(1j))
+
+    def test_getnewargs(self):
+        assert (1+2j).__getnewargs__() == (1.0, 2.0)
