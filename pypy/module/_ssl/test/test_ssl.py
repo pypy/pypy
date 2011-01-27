@@ -70,6 +70,16 @@ class AppTestSSL:
         else:
             assert exc.value.errno == 32 # Broken pipe
 
+    def test_async_closed(self):
+        import _ssl, _socket
+        s = _socket.socket()
+        s.settimeout(3)
+        ss = _ssl.sslwrap(s, 0)
+        s.close()
+        exc = raises(_ssl.SSLError, ss.write, "data")
+        assert exc.value.message == "Underlying socket has been closed."
+
+
 class AppTestConnectedSSL:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_ssl', '_socket'))

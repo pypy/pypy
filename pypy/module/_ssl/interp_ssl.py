@@ -459,13 +459,12 @@ def check_socket_and_wait_for_timeout(space, w_sock, writing):
         return SOCKET_IS_NONBLOCKING
     sock_timeout = space.float_w(w_timeout)
 
+    sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
+
     # guard against closed socket
-    try:
-        space.call_method(w_sock, "fileno")
-    except:
+    if sock_fd < 0:
         return SOCKET_HAS_BEEN_CLOSED
 
-    sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
 
     # see if the socket is ready
 
