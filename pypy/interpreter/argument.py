@@ -154,6 +154,8 @@ class Arguments(object):
         # unpack the ** arguments
         space = self.space
         if space.isinstance_w(w_starstararg, space.w_dict):
+            if not space.is_true(w_starstararg):
+                return False # don't call unpackiterable - it's jit-opaque
             keys_w = space.unpackiterable(w_starstararg)
         else:
             try:
