@@ -897,9 +897,8 @@ GeneratorIterator.typedef = TypeDef("generator",
 GeneratorIterator.typedef.acceptable_as_base_class = False
 
 Cell.typedef = TypeDef("cell",
-    __eq__       = interp2app(Cell.descr__eq__,
+    __cmp__      = interp2app(Cell.descr__cmp__,
                               unwrap_spec=['self', ObjSpace, W_Root]),
-    __ne__       = descr_generic_ne,
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
