@@ -209,3 +209,8 @@ class AppTestMemoryView:
         v = memoryview(buffer("a"*100, 2))
         assert v.shape == (98,)
         assert v.suboffsets == None
+
+    def test_compare(self):
+        assert memoryview("abc") == "abc"
+        assert memoryview("abc") == bytearray("abc")
+        assert memoryview("abc") != 3
