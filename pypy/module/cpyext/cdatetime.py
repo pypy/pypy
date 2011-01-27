@@ -129,7 +129,6 @@ def PyDateTime_FromDateAndTime(space, year, month, day, hour, minute, second, us
         space.wrap(year), space.wrap(month), space.wrap(day),
         space.wrap(hour), space.wrap(minute), space.wrap(second),
         space.wrap(usecond))
-    raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
 def PyDateTime_FromTimestamp(space, w_args):
