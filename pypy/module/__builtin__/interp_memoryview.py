@@ -114,14 +114,8 @@ class W_MemoryView(Wrappable):
     def w_get_strides(space, self):
         return space.newtuple([space.wrap(1)])
     def w_get_suboffsets(space, self):
-        buf = self.buf
-        if isinstance(buf, buffer.SubBuffer):
-            offset = buf.offset
-        elif isinstance(buf, buffer.RWSubBuffer):
-            offset = buf.offset
-        else:
-            offset = 0
-        return space.newtuple([space.wrap(offset)])
+        # I've never seen anyone filling this field
+        return space.w_None
 
 
 @unwrap_spec(ObjSpace, W_Root, W_Root)

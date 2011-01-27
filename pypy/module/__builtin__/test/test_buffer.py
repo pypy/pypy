@@ -205,7 +205,7 @@ class AppTestMemoryView:
 
     def test_suboffsets(self):
         v = memoryview("a"*100)
-        assert v.suboffsets == (0,)
+        assert v.suboffsets == None
         v = memoryview(buffer("a"*100, 2))
         assert v.shape == (98,)
         assert v.suboffsets == (2,)
