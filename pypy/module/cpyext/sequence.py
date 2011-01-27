@@ -1,10 +1,15 @@
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
+
+from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem
+from pypy.module.cpyext.object import Py_IncRef, Py_DecRef
+
+from pypy.module.cpyext.dictobject import PyDict_Check
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_Repeat(space, w_obj, count):
@@ -132,3 +137,28 @@ def PySeqIter_New(space, w_seq):
     """
     return space.iter(w_seq)
 
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+def PySequence_SetItem(space, w_o, i, w_v):
+    """Assign object v to the ith element of o.  Returns -1 on failure.  This
+    is the equivalent of the Python statement o[i] = v.  This function does
+    not steal a reference to v.
+    
+    This function used an int type for i. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
+        raise operationerrfmt(space.w_TypeError, "'%s' object does not support item assignment",
+                             space.str_w(space.repr(space.type(w_o)))) # FIXME: looks like lisp...
+    space.setitem(w_o, space.wrap(i), w_v)
+    return 0
+
+@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
+def PySequence_DelItem(space, w_o, i):
+    """Delete the ith element of object o.  Returns -1 on failure.  This is the
+    equivalent of the Python statement del o[i].
+    
+    This function used an int type for i. This might require
+    changes in your code for properly supporting 64-bit systems."""
+
+    # FIXME: May be too lenient
+    space.delitem(w_o, space.wrap(i))
+    return 0
