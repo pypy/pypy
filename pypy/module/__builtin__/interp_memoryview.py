@@ -23,12 +23,22 @@ class W_MemoryView(Wrappable):
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
             other = space.interpclass_w(w_other)
-            if not isinstance(other, W_MemoryView):
+            if isinstance(other, W_MemoryView):
+                # xxx not the most efficient implementation
+                str1 = self.as_str()
+                str2 = other.as_str()
+                return space.wrap(getattr(operator, name)(str1, str2))
+
+            try:
+                w_buf = space.buffer(w_other)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
                 return space.w_NotImplemented
-            # xxx not the most efficient implementation
-            str1 = self.as_str()
-            str2 = other.as_str()
-            return space.wrap(getattr(operator, name)(str1, str2))
+            else:
+                str1 = self.as_str()
+                str2 = space.buffer_w(w_buf).as_str()
+                return space.wrap(getattr(operator, name)(str1, str2))
         descr__cmp.unwrap_spec = ['self', ObjSpace, W_Root]
         descr__cmp.func_name = name
         return descr__cmp
@@ -114,14 +124,8 @@ class W_MemoryView(Wrappable):
     def w_get_strides(space, self):
         return space.newtuple([space.wrap(1)])
     def w_get_suboffsets(space, self):
-        buf = self.buf
-        if isinstance(buf, buffer.SubBuffer):
-            offset = buf.offset
-        elif isinstance(buf, buffer.RWSubBuffer):
-            offset = buf.offset
-        else:
-            offset = 0
-        return space.newtuple([space.wrap(offset)])
+        # I've never seen anyone filling this field
+        return space.w_None
 
 
 @unwrap_spec(ObjSpace, W_Root, W_Root)

@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
 from pypy.module.cpyext.api import cpython_struct, \
     PyVarObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, \
     Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE, \
-    PyTypeObject, PyTypeObjectPtr, PyBufferProcs
+    PyTypeObject, PyTypeObjectPtr, PyBufferProcs, FILEP
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
 
@@ -13,7 +13,7 @@ PyOPtr = Ptr(lltype.Array(PyO, hints={'nolength': True}))
 
 freefunc = P(FT([rffi.VOIDP_real], Void))
 destructor = P(FT([PyO], Void))
-printfunc = P(FT([PyO, rffi.VOIDP_real, rffi.INT_real], rffi.INT))
+printfunc = P(FT([PyO, FILEP, rffi.INT_real], rffi.INT))
 getattrfunc = P(FT([PyO, rffi.CCHARP], PyO))
 getattrofunc = P(FT([PyO, PyO], PyO))
 setattrfunc = P(FT([PyO, rffi.CCHARP, PyO], rffi.INT_real))

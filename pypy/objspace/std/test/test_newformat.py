@@ -307,3 +307,11 @@ class AppTestFloatFormatting:
     def test_dont_switch_to_g(self):
         skip("must fix when float formatting is figured out")
         assert len(format(1.1234e90, "f")) == 98
+
+    def test_infinite(self):
+        inf = 1e400
+        nan = inf/inf
+        assert format(inf, "f") == "inf"
+        assert format(inf, "F") == "INF"
+        assert format(nan, "f") == "nan"
+        assert format(nan, "F") == "NAN"

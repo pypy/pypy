@@ -370,6 +370,23 @@ class Test_rbigint(object):
         assert rbigint.fromlong(-4).bit_length() == 3
         assert rbigint.fromlong(1<<40).bit_length() == 41
 
+    def test_hash(self):
+        for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                  sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
+                  ] + [randint(0, sys.maxint) for _ in range(100)]:
+            # hash of machine-sized integers
+            assert rbigint.fromint(i).hash() == i
+            # hash of negative machine-sized integers
+            assert rbigint.fromint(-i-1).hash() == -i-1
+        #
+        for i in range(200):
+            # hash of large integers: should be equal to the hash of the
+            # integer reduced modulo 2**64-1, to make decimal.py happy
+            x = randint(0, sys.maxint**5)
+            y = x % (2**64-1)
+            assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
+            assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
+
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!

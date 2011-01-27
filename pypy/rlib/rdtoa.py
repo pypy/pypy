@@ -58,17 +58,20 @@ def strtod(input):
     finally:
         lltype.free(end_ptr, flavor='raw')
 
-def format_nonfinite(digits, sign, flags):
+lower_special_strings = ['inf', '+inf', '-inf', 'nan']
+upper_special_strings = ['INF', '+INF', '-INF', 'NAN']
+
+def format_nonfinite(digits, sign, flags, special_strings):
     "Format dtoa's output for nonfinite numbers"
     if digits[0] == 'i' or digits[0] == 'I':
         if sign == 1:
-            return '-inf'
+            return special_strings[2]
         elif flags & rarithmetic.DTSF_SIGN:
-            return '+inf'
+            return special_strings[1]
         else:
-            return 'inf'
+            return special_strings[0]
     elif digits[0] == 'n' or digits[0] == 'N':
-        return 'nan'
+        return special_strings[3]
     else:
         # shouldn't get here
         raise ValueError
@@ -210,7 +213,8 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags):
 
     return s
 
-def dtoa(value, code='r', mode=0, precision=0, flags=0):
+def dtoa(value, code='r', mode=0, precision=0, flags=0,
+         special_strings=lower_special_strings):
     decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:
         sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -229,7 +233,8 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0):
 
                     # Handle nan and inf
                     if buflen and not digits[0].isdigit():
-                        return format_nonfinite(digits, sign, flags)
+                        return format_nonfinite(digits, sign, flags,
+                                                special_strings)
 
                     decpt = rffi.cast(lltype.Signed, decpt_ptr[0])
 
@@ -248,6 +253,9 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0):
 def dtoa_formatd(value, code, precision, flags):
     if code in 'EFG':
         code = code.lower()
+        special_strings = upper_special_strings
+    else:
+        special_strings = lower_special_strings
 
     if code == 'e':
         mode = 2
@@ -266,4 +274,5 @@ def dtoa_formatd(value, code, precision, flags):
     else:
         raise ValueError('Invalid mode')
 
-    return dtoa(value, code, mode=mode, precision=precision, flags=flags)
+    return dtoa(value, code, mode=mode, precision=precision, flags=flags,
+                special_strings=special_strings)
