@@ -80,6 +80,18 @@ class AppTestNestedScope:
         g = f()
         raises(ValueError, "g.func_closure[0].cell_contents")
 
+    def test_compare_cells(self):
+        def f(n):
+            if n:
+                x = 42
+            def f(y):
+                  return x + y
+            return f
+
+        g0 = f(0).func_closure[0]
+        g1 = f(1).func_closure[0]
+        assert cmp(g0, g1) == -1
+
     def test_leaking_class_locals(self):
         def f(x):
             class X:
