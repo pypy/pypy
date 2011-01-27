@@ -1633,15 +1633,23 @@ _AsUInt_mask = make_unsigned_mask_conversion(r_uint)
 def _hash(v):
     # This is designed so that Python ints and longs with the
     # same value hash to the same value, otherwise comparisons
-    # of mapping keys will turn out weird
+    # of mapping keys will turn out weird.  Moreover, purely
+    # to please decimal.py, we return a hash that satisfies
+    # hash(x) == hash(x % ULONG_MAX).  In particular, this
+    # implies that hash(x) == hash(x % (2**64-1)).
     i = v._numdigits() - 1
     sign = v.sign
-    x = 0
+    x = r_uint(0)
     LONG_BIT_SHIFT = LONG_BIT - SHIFT
     while i >= 0:
         # Force a native long #-bits (32 or 64) circular shift
-        x = ((x << SHIFT) & ~MASK) | ((x >> LONG_BIT_SHIFT) & MASK)
-        x += v.digits[i]
+        x = (x << SHIFT) | (x >> LONG_BIT_SHIFT)
+        x += r_uint(v.digits[i])
+        # If the addition above overflowed we compensate by
+        # incrementing.  This preserves the value modulo
+        # ULONG_MAX.
+        if x < r_uint(v.digits[i]):
+            x += 1
         i -= 1
     x = intmask(x * sign)
     return x
