@@ -147,7 +147,7 @@ def PySequence_SetItem(space, w_o, i, w_v):
     changes in your code for properly supporting 64-bit systems."""
     if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
         raise operationerrfmt(space.w_TypeError, "'%s' object does not support item assignment",
-                             space.str_w(space.repr(space.type(w_o)))) # FIXME: looks like lisp...
+                             space.type(w_o).getname(space))
     space.setitem(w_o, space.wrap(i), w_v)
     return 0
 
