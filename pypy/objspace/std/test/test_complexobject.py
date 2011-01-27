@@ -137,7 +137,6 @@ class AppTestAppComplexTest:
 
     def test_richcompare(self):
         h = self.helper
-        h.raises(OverflowError, complex.__eq__, 1+1j, 1L<<10000)
         h.assertEqual(complex.__lt__(1+1j, None), NotImplemented)
         h.assertIs(complex.__eq__(1+1j, 1+1j), True)
         h.assertIs(complex.__eq__(1+1j, 2+2j), False)
@@ -147,6 +146,11 @@ class AppTestAppComplexTest:
         h.raises(TypeError, complex.__le__, 1+1j, 2+2j)
         h.raises(TypeError, complex.__gt__, 1+1j, 2+2j)
         h.raises(TypeError, complex.__ge__, 1+1j, 2+2j)
+        large = 1 << 10000
+        assert not (5+0j) == large
+        assert not large == (5+0j)
+        assert (5+0j) != large
+        assert large != (5+0j)
 
     def test_mod(self):
         h = self.helper
