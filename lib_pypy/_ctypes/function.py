@@ -70,7 +70,7 @@ class CFuncPtr(_CData):
                             i + 1,))
             #
             # XXX tentative hack to make it jit-friendly
-            if len(argtypes) == 1:
+            if all([hasattr(argtype, '_ffiargshape') for argtype in argtypes]):
                 self.__class__ = make_specialized_subclass(self.__class__)
             self._argtypes_ = list(argtypes)
     argtypes = property(_getargtypes, _setargtypes)
@@ -269,7 +269,7 @@ class CFuncPtr(_CData):
         return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
-        if self._ptr is not None and argtypes == self._argtypes_:
+        if self._ptr is not None and (argtypes is self._argtypes_ or argtypes == self._argtypes_):
             return self._ptr
         if restype is None or not isinstance(restype, _CDataMeta):
             import ctypes
@@ -519,45 +519,32 @@ class CFuncPtr(_CData):
 def make_specialized_subclass(CFuncPtr):
     # XXX: we should probably cache the results
 
-    class CFuncPtr_1(CFuncPtr):
-
-        _num_args = 1
+    class CFuncPtrFast(CFuncPtr):
 
         def _are_assumptions_met(self, args):
             return (self._argtypes_ is not None and
-                    len(args) == len(self._argtypes_) == self._num_args and
                     self.callable is None and
                     not self._com_index and
                     self._errcheck_ is None)
 
         def __call__(self, *args):
             if not self._are_assumptions_met(args):
-                # our assumptions are not met, rollback to the general, slow case
                 self.__class__ = CFuncPtr
                 return self(*args)
-
+            #
             assert self.callable is None
             assert not self._com_index
             assert self._argtypes_ is not None
             argtypes = self._argtypes_
             thisarg = None
-            newargs, argtypes = self._convert_args(argtypes, args)
+            argtypes = self._argtypes_
             restype = self._restype_
             funcptr = self._getfuncptr(argtypes, restype, thisarg)
-            result = self._call_funcptr(funcptr, *newargs)
+            try:
+                result = self._call_funcptr(funcptr, *args)
+            except TypeError: # XXX, should be FFITypeError
+                return CFuncPtr.__call__(self, *args) # XXX
             assert self._errcheck_ is None
             return result
 
-        def _convert_args(self, argtypes, args):
-            """
-            jit-friendly version assuming that len(argtypes) == len(args)
-            """
-            assert self._paramflags is None
-            try:
-                wrapped_args = [self._conv_param(argtypes[0], args[0])[0]]
-            except (UnicodeError, TypeError, ValueError), e:
-                raise ArgumentError(str(e))
-            assert len(wrapped_args) == len(args)
-            return wrapped_args, argtypes
-
-    return CFuncPtr_1
+    return CFuncPtrFast
