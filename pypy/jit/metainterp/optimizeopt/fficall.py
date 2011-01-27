@@ -15,7 +15,6 @@ class FuncInfo(object):
     restype = None
     descr = None
     prepare_op = None
-    force_token_op = None
 
     def __init__(self, funcval, cpu, prepare_op):
         self.funcval = funcval
@@ -27,6 +26,7 @@ class FuncInfo(object):
             # e.g., I or U for long longs
             self.descr = None
         self.prepare_op = prepare_op
+        self.delayed_ops = []
 
     def _get_signature(self, funcval):
         """
@@ -107,8 +107,8 @@ class OptFfiCall(Optimization):
         self.emit_operation(funcinfo.prepare_op)
         for op in funcinfo.opargs:
             self.emit_operation(op)
-        if funcinfo.force_token_op:
-            self.emit_operation(funcinfo.force_token_op)
+        for delayed_op in funcinfo.delayed_ops:
+            self.emit_operation(delayed_op)
 
     def emit_operation(self, op):
         # we cannot emit any operation during the optimization
@@ -153,10 +153,15 @@ class OptFfiCall(Optimization):
         # call_may_force and the setfield_gc, so the final result we get is
         # again force_token/setfield_gc/call_may_force.
         #
+        # However, note that nowadays we also allow to have any setfield_gc
+        # between libffi_prepare and libffi_call, so while the comment above
+        # it's a bit superfluous, it has been left there for future reference.
         if self.funcinfo is None:
             self.emit_operation(op)
         else:
-            self.funcinfo.force_token_op = op
+            self.funcinfo.delayed_ops.append(op)
+
+    optimize_SETFIELD_GC = optimize_FORCE_TOKEN
 
     def do_prepare_call(self, op):
         self.rollback_maybe('prepare call', op)
@@ -187,8 +192,8 @@ class OptFfiCall(Optimization):
                              descr=funcinfo.descr)
         self.commit_optimization()
         ops = []
-        if funcinfo.force_token_op:
-            ops.append(funcinfo.force_token_op)
+        for delayed_op in funcinfo.delayed_ops:
+            ops.append(delayed_op)
         ops.append(newop)
         return ops
 

@@ -38,6 +38,8 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         cpu = LLtypeMixin.cpu
         FUNC = LLtypeMixin.FUNC
         vable_token_descr = LLtypeMixin.valuedescr
+        valuedescr = LLtypeMixin.valuedescr
+
         int_float__int = MyCallDescr('if', 'i')
         funcptr = FakeLLObject()
         func = FakeLLObject(_fake_class=Func,
@@ -241,4 +243,26 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         jump(i3, f1, p2)
         """
         expected = ops
+        loop = self.optimize_loop(ops, expected)
+
+    def test_allow_setfields_in_between(self):
+        ops = """
+        [i0, f1, p2]
+        call(0, ConstPtr(func),                       descr=libffi_prepare)
+        call(0, ConstPtr(func), i0,                   descr=libffi_push_arg)
+        call(0, ConstPtr(func), f1,                   descr=libffi_push_arg)
+        setfield_gc(p2, i0,                           descr=valuedescr)
+        i3 = call_may_force(0, ConstPtr(func), 12345, descr=libffi_call)
+        guard_not_forced() []
+        guard_no_exception() []
+        jump(i3, f1, p2)
+        """
+        expected = """
+        [i0, f1, p2]
+        setfield_gc(p2, i0, descr=valuedescr)
+        i3 = call_may_force(12345, i0, f1, descr=int_float__int)
+        guard_not_forced() []
+        guard_no_exception() []
+        jump(i3, f1, p2)
+        """
         loop = self.optimize_loop(ops, expected)
