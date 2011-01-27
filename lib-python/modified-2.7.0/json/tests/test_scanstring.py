@@ -1,6 +1,7 @@
 import sys
 import decimal
 from unittest import TestCase
+from test import test_support
 
 import json
 import json.decoder
@@ -9,6 +10,7 @@ class TestScanString(TestCase):
     def test_py_scanstring(self):
         self._test_scanstring(json.decoder.py_scanstring)
 
+    @test_support.impl_detail()
     def test_c_scanstring(self):
         self._test_scanstring(json.decoder.c_scanstring)
 
