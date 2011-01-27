@@ -45,10 +45,13 @@ def strtod(input):
         ll_input = rffi.str2charp(input)
         try:
             result = dg_strtod(ll_input, end_ptr)
-            if end_ptr[0] and (end_ptr[0] == ll_input or ord(end_ptr[0][0])):
-                offset = (rffi.cast(rffi.LONG, end_ptr[0]) -
-                          rffi.cast(rffi.LONG, ll_input))
-                raise ValueError("invalid input at position %d" % (offset,))
+
+            endpos = (rffi.cast(rffi.LONG, end_ptr[0]) -
+                      rffi.cast(rffi.LONG, ll_input))
+
+            if endpos == 0 or endpos < len(input):
+                raise ValueError("invalid input at position %d" % (endpos,))
+
             return result
         finally:
             rffi.free_charp(ll_input)

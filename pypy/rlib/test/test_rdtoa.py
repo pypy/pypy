@@ -10,6 +10,7 @@ def test_strtod():
     raises(ValueError, strtod, "")
     raises(ValueError, strtod, " ")
     raises(ValueError, strtod, "\0")
+    raises(ValueError, strtod, "3\09")
 
 def test_dtoa():
     assert dtoa(3.47) == "3.47"
