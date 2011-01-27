@@ -16,7 +16,7 @@ from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.tupleobject import W_TupleObject
 
-PyCFunction_typedef = rffi.COpaquePtr('PyCFunction')
+PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
 PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject], PyObject))
 
