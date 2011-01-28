@@ -33,3 +33,18 @@ class AppTestStringIO:
         assert buf[5:] == sio.read(900)
         assert u"" == sio.read()
 
+    def test_seek(self):
+        import io
+
+        s = u"1234567890"
+        sio = io.StringIO(s)
+
+        sio.read(5)
+        sio.seek(0)
+        r = sio.read()
+        assert r == s
+
+        sio.seek(3)
+        r = sio.read()
+        assert r == s[3:]
+        raises(TypeError, sio.seek, 0.0)
