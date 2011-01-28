@@ -50,11 +50,6 @@ class W_LongObject(W_Object):
 
 registerimplementation(W_LongObject)
 
-def newbigint(space, w_longtype, bigint):
-    w_obj = space.allocate_instance(W_LongObject, w_longtype)
-    W_LongObject.__init__(w_obj, bigint)
-    return w_obj
-
 def newlong(space, bigint):
     """Turn the bigint into a W_LongObject.  If withsmalllong is enabled,
     check if the bigint would fit in a smalllong, and return a

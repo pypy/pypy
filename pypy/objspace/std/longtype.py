@@ -27,7 +27,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             and space.is_w(w_longtype, space.w_long)):
             return w_value
         elif type(w_value) is W_LongObject:
-            return _newbigint(space, w_longtype, w_value.num)
+            return newbigint(space, w_longtype, w_value.num)
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             return string_to_w_long(space, w_longtype, space.str_w(w_value))
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
@@ -51,7 +51,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 else:
                     w_obj = space.int(w_obj)
             bigint = space.bigint_w(w_obj)
-            return _newbigint(space, w_longtype, bigint)
+            return newbigint(space, w_longtype, bigint)
     else:
         base = space.int_w(w_base)
 
@@ -74,19 +74,28 @@ def string_to_w_long(space, w_longtype, s, base=10):
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
-    return _newbigint(space, w_longtype, bigint)
+    return newbigint(space, w_longtype, bigint)
 string_to_w_long._dont_inline_ = True
 
-def _newbigint(space, w_longtype, bigint):
+def newbigint(space, w_longtype, bigint):
+    """Turn the bigint into a W_LongObject.  If withsmalllong is enabled,
+    check if the bigint would fit in a smalllong, and return a
+    W_SmallLongObject instead if it does.  Similar to newlong() in
+    longobject.py, but takes an explicit w_longtype argument.
+    """
     if (space.config.objspace.std.withsmalllong
         and space.is_w(w_longtype, space.w_long)):
-        from pypy.objspace.std.smalllongobject import W_SmallLongObject
         try:
-            return W_SmallLongObject.frombigint(bigint)
+            z = bigint.tolonglong()
         except OverflowError:
             pass
-    from pypy.objspace.std.longobject import newbigint
-    return newbigint(space, w_longtype, bigint)
+        else:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject(z)
+    from pypy.objspace.std.longobject import W_LongObject
+    w_obj = space.allocate_instance(W_LongObject, w_longtype)
+    W_LongObject.__init__(w_obj, bigint)
+    return w_obj
 
 def descr_get_numerator(space, w_obj):
     return space.long(w_obj)
