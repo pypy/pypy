@@ -376,9 +376,11 @@ class MiniMarkGC(MovingGCBase):
         # the nursery than really needed, to simplify pointer arithmetic
         # in malloc_fixedsize_clear().  The few extra pages are never used
         # anyway so it doesn't even count.
-        nursery = self.ac.allocate_big_chunk(self._nursery_memory_size())
+        fullsize = self._nursery_memory_size()
+        nursery = self.ac.allocate_big_chunk(fullsize)
         if not nursery:
             raise MemoryError("cannot allocate nursery")
+        llarena.arena_reset(nursery, fullsize, 2)
         return nursery
 
     def allocate_nursery(self):
