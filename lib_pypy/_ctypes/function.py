@@ -517,7 +517,10 @@ class CFuncPtr(_CData):
 
 
 def make_specialized_subclass(CFuncPtr):
-    # XXX: we should probably cache the results
+    try:
+        return make_specialized_subclass.memo[CFuncPtr]
+    except KeyError:
+        pass
 
     class CFuncPtrFast(CFuncPtr):
 
@@ -547,4 +550,6 @@ def make_specialized_subclass(CFuncPtr):
             assert self._errcheck_ is None
             return result
 
+    make_specialized_subclass.memo[CFuncPtr] = CFuncPtrFast
     return CFuncPtrFast
+make_specialized_subclass.memo = {}
