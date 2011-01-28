@@ -89,11 +89,14 @@ class ArenaCollection2(object):
         # allocation of the given size.
         length = small_request_threshold / WORD + 1
         self.page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                           flavor='raw', zero=True)
+                                           flavor='raw', zero=True,
+                                           immortal=True)
         self.full_page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                                flavor='raw', zero=True)
+                                                flavor='raw', zero=True,
+                                                immortal=True)
         self.nblocks_for_size = lltype.malloc(rffi.CArray(lltype.Signed),
-                                              length, flavor='raw')
+                                              length, flavor='raw',
+                                              immortal=True)
         self.hdrsize = llmemory.raw_malloc_usage(llmemory.sizeof(PAGE_HEADER))
         assert page_size > self.hdrsize
         self.nblocks_for_size[0] = 0    # unused
