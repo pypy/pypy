@@ -158,6 +158,35 @@ class AppTestFfi:
         assert get_dummy() == 123
         set_val_to_ptr(ptr, 0)
 
+    def test_convert_pointer_args(self):
+        """
+            extern int dummy; // defined in test_void_result 
+            DLLEXPORT int* get_dummy_ptr(); // defined in test_pointer_args
+            DLLEXPORT void set_val_to_ptr(int* ptr, int val); // ditto
+        """
+        from _ffi import CDLL, types
+
+        class MyPointerWrapper(object):
+            def __init__(self, value):
+                self.value = value
+            def _as_ffi_pointer_(self):
+                return self.value
+        
+        libfoo = CDLL(self.libfoo_name)
+        get_dummy = libfoo.getfunc('get_dummy', [], types.sint)
+        get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.pointer)
+        set_val_to_ptr = libfoo.getfunc('set_val_to_ptr',
+                                        [types.pointer, types.sint],
+                                        types.void)
+        assert get_dummy() == 0
+        ptr = get_dummy_ptr()
+        assert type(ptr) in (int, long)
+        ptr2 = MyPointerWrapper(ptr)
+        set_val_to_ptr(ptr2, 123)
+        assert get_dummy() == 123
+        set_val_to_ptr(ptr2, 0)
+
+
     def test_huge_pointer_args(self):
         """
             #include <stdlib.h>

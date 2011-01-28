@@ -41,8 +41,10 @@ class W_FFIType(Wrappable):
                 self is app_types.uint or
                 self is app_types.ushort or
                 self is app_types.ubyte or
-                self is app_types.ulonglong or
-                self is app_types.pointer)
+                self is app_types.ulonglong)
+
+    def is_pointer(self):
+        return self is app_types.pointer
 
     def is_char(self):
         return self is app_types.char
@@ -163,6 +165,9 @@ class W_FuncPtr(Wrappable):
                 self.arg_longlong(space, argchain, kind, w_arg)
             elif w_argtype.is_signed():
                 argchain.arg(space.int_w(w_arg))
+            elif w_argtype.is_pointer():
+                w_arg = self.convert_pointer_arg_maybe(space, w_arg)
+                argchain.arg(intmask(space.uint_w(w_arg)))
             elif w_argtype.is_unsigned():
                 argchain.arg(intmask(space.uint_w(w_arg)))
             elif w_argtype.is_char():
@@ -183,6 +188,16 @@ class W_FuncPtr(Wrappable):
             else:
                 assert False, "Argument shape '%s' not supported" % w_argtype
         return argchain
+
+    def convert_pointer_arg_maybe(self, space, w_arg):
+        """
+        Try to convert the argument by calling _as_ffi_pointer_()
+        """
+        meth = space.lookup(w_arg, '_as_ffi_pointer_') # this also promotes the type
+        if meth:
+            return space.call_function(meth, w_arg)
+        else:
+            return w_arg
 
     @jit.dont_look_inside
     def arg_longlong(self, space, argchain, kind, w_arg):
@@ -212,7 +227,7 @@ class W_FuncPtr(Wrappable):
             return self._call_longlong(space, argchain, reskind)
         elif w_restype.is_signed():
             return self._call_int(space, argchain)
-        elif w_restype.is_unsigned():
+        elif w_restype.is_unsigned() or w_restype.is_pointer():
             return self._call_uint(space, argchain)
         elif w_restype.is_char():
             intres = self.func.call(argchain, rffi.UCHAR)
