@@ -192,10 +192,9 @@ class HeapDumper(object):
 
     def unwriteobj(self, obj):
         gc = self.gc
-        gc.trace(obj, self._unwriteref, None)
+        gc.do_trace(obj, self._unwriteref, None)
 
-    def _unwriteref(self, pointer, _):
-        obj = pointer.address[0]
+    def _unwriteref(self, obj, _):
         self.unadd(obj)
 
     def unadd(self, obj):
