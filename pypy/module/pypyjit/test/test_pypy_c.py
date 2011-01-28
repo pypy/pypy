@@ -145,12 +145,12 @@ class PyPyCJITTests(object):
         self.rawloops = [part for part in parts
                          if not from_entry_bridge(part, parts)]
         self.loops, self.all_bytecodes, self.bytecode_by_loop, self.total_ops = \
-                                   self.parse_rawloops(self.rawloops, filter_loops)
+                                   self.parse_rawloops(self.rawloops, filepath, filter_loops)
         self.check_0_op_bytecodes()
         self.rawentrybridges = [part for part in parts
                                 if from_entry_bridge(part, parts)]
         _, self.all_bytecodes_entrybridges, _, _ = \
-                                    self.parse_rawloops(self.rawentrybridges, filter_loops)
+                                    self.parse_rawloops(self.rawentrybridges, filepath, filter_loops)
         #
         from pypy.jit.tool.jitoutput import parse_prof
         summaries  = logparser.extract_category(log, 'jit-summary')
@@ -159,11 +159,11 @@ class PyPyCJITTests(object):
         else:
             self.jit_summary = None
         
-    def parse_rawloops(self, rawloops, filter_loops):
+    def parse_rawloops(self, rawloops, filepath, filter_loops):
         from pypy.jit.tool.oparser import parse
         loops = [parse(part, no_namespace=True) for part in rawloops]
         if filter_loops:
-            self.loops = self.filter_loops(filepath, self.loops)
+            loops = self.filter_loops(filepath, loops)
         all_bytecodes = []    # contains all bytecodes of all loops
         bytecode_by_loop = {} # contains all bytecodes divided by loops
         total_ops = 0
@@ -1533,7 +1533,6 @@ class PyPyCJITTests(object):
         assert "call" not in compare.get_opnames()
 
     def test_ctypes_call(self):
-        py.test.skip('fixme')
         from pypy.rlib.test.test_libffi import get_libm_name
         libm_name = get_libm_name(sys.platform)
         out = self.run_source('''
@@ -1545,7 +1544,6 @@ class PyPyCJITTests(object):
             fabs.restype = ctypes.c_double
             x = -4
             for i in range(2000):
-                x = x + 0      # convince the perfect spec. to make x virtual
                 x = fabs(x)
                 x = x - 100
             print fabs._ptr.getaddr()
@@ -1555,25 +1553,24 @@ class PyPyCJITTests(object):
                               threshold=1000,
                               filter_loops=True)
         fabs_addr = int(out.splitlines()[0])
-        assert len(self.loops) == 2 # the first is the loop, the second is a bridge
+        assert len(self.loops) == 1
         loop = self.loops[0]
-        call_functions = self.get_by_bytecode('CALL_FUNCTION', loop=loop)
-        assert len(call_functions) == 2
         #
         # this is the call "fabs(x)"
-        call_main = call_functions[0]
-        assert 'code object main' in str(call_main.debug_merge_point)
-        assert call_main.get_opnames('call') == ['call'] # this is call(getexecutioncontext)
+        call_functions = self.get_by_bytecode('CALL_FUNCTION_VAR', loop=loop)
+        assert len(call_functions) == 2
+        call_funcptr = call_functions[0] # this is the _call_funcptr inside CFuncPtrFast.__call__
+        assert 'code object __call__' in str(call_funcptr.debug_merge_point)
+        assert call_funcptr.get_opnames() == ['force_token']
         #
         # this is the ffi call inside ctypes
         call_ffi = call_functions[1]
-        last_ops = [op.getopname() for op in call_ffi[-6:]]
-        assert last_ops == ['force_token',
-                            'setfield_gc',         # framestackdepth
-                            'setfield_gc',         # vable_token
-                            'call_may_force',
-                            'guard_not_forced',
-                            'guard_no_exception']
+        ops = [op.getopname() for op in call_ffi]
+        assert ops == ['force_token',
+                       'setfield_gc',         # vable_token
+                       'call_may_force',
+                       'guard_not_forced',
+                       'guard_no_exception']
         call = call_ffi[-3]
         assert call.getarg(0).value == fabs_addr
         #
