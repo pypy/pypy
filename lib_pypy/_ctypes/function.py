@@ -55,6 +55,7 @@ class CFuncPtr(_CData):
     _paramflags = None
     _com_index = None
     _com_iid = None
+    _is_fastpath = False
 
     def _getargtypes(self):
         return self._argtypes_
@@ -517,12 +518,18 @@ class CFuncPtr(_CData):
 
 
 def make_specialized_subclass(CFuncPtr):
+    if CFuncPtr._is_fastpath:
+        return CFuncPtr
+    #
     try:
         return make_specialized_subclass.memo[CFuncPtr]
     except KeyError:
         pass
 
     class CFuncPtrFast(CFuncPtr):
+
+        _is_fastpath = True
+        _slowpath_allowed = True # set to False by tests
 
         def _are_assumptions_met(self, args):
             return (self._argtypes_ is not None and
@@ -532,8 +539,11 @@ def make_specialized_subclass(CFuncPtr):
 
         def __call__(self, *args):
             if not self._are_assumptions_met(args):
+                assert self._slowpath_allowed
                 self.__class__ = CFuncPtr
                 return self(*args)
+
+                return self._rollback_to_slow_version(*args)
             #
             assert self.callable is None
             assert not self._com_index
@@ -546,7 +556,8 @@ def make_specialized_subclass(CFuncPtr):
             try:
                 result = self._call_funcptr(funcptr, *args)
             except TypeError: # XXX, should be FFITypeError
-                return CFuncPtr.__call__(self, *args) # XXX
+                assert self._slowpath_allowed
+                return CFuncPtr.__call__(self, *args)
             assert self._errcheck_ is None
             return result
 
