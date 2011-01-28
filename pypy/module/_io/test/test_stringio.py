@@ -48,3 +48,13 @@ class AppTestStringIO:
         r = sio.read()
         assert r == s[3:]
         raises(TypeError, sio.seek, 0.0)
+
+    def test_write_error(self):
+        import io
+
+        exc_info = raises(TypeError, io.StringIO, 3)
+        assert "int" in exc_info.value.args[0]
+
+        sio = io.StringIO(u"")
+        exc_info = raises(TypeError, sio.write, 3)
+        assert "int" in exc_info.value.args[0]
