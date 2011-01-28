@@ -23,14 +23,14 @@ class W_BytesIO(W_BufferedIOBase):
         self.buf = None
 
     @unwrap_spec('self', ObjSpace, W_Root)
-    def descr_init(self, space, w_initvalue=None):
+    def descr_init(self, space, w_initial_bytes=None):
         # In case __init__ is called multiple times
         self.buf = []
         self.string_size = 0
         self.pos = 0
 
-        if not space.is_w(w_initvalue, space.w_None):
-            self.write_w(space, w_initvalue)
+        if not space.is_w(w_initial_bytes, space.w_None):
+            self.write_w(space, w_initial_bytes)
             self.pos = 0
 
     def _check_closed(self, space, message=None):
@@ -228,4 +228,3 @@ W_BytesIO.typedef = TypeDef(
     __getstate__ = interp2app(W_BytesIO.getstate_w),
     __setstate__ = interp2app(W_BytesIO.setstate_w),
     )
-
