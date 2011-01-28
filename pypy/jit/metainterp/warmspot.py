@@ -155,6 +155,7 @@ class WarmRunnerDesc(object):
         if policy is None:
             policy = JitPolicy()
         policy.set_supports_floats(self.cpu.supports_floats)
+        policy.set_supports_longlong(self.cpu.supports_longlong)
         graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)

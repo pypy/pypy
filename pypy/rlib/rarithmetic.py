@@ -51,6 +51,9 @@ while _itest == _Ltest and type(_itest) is int:
 LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
 LONG_TEST = _Ltest
+LONGLONG_BIT  = 64
+LONGLONG_MASK = (2**LONGLONG_BIT)-1
+LONGLONG_TEST = 2**(LONGLONG_BIT-1)
 
 LONG_BIT_SHIFT = 0
 while (1 << LONG_BIT_SHIFT) != LONG_BIT:
@@ -180,6 +183,15 @@ def intmask(n):
         n -= 2*LONG_TEST
     return int(n)
 
+def longlongmask(n):
+    if isinstance(n, int):
+        n = long(n)
+    assert isinstance(n, long)
+    n &= LONGLONG_MASK
+    if n >= LONGLONG_TEST:
+        n -= 2*LONGLONG_TEST
+    return r_longlong(n)
+
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
     if _should_widen_type(lltype.typeOf(n)):
@@ -207,6 +219,8 @@ def ovfcheck(r):
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
+    assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
+    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
     if type(r) is long:
         raise OverflowError, "signed integer expression did overflow"
     return r
@@ -274,6 +288,23 @@ def normalizedinttype(t):
         assert t.BITS <= r_longlong.BITS
         return build_int(None, t.SIGNED, r_longlong.BITS)
 
+def most_neg_value_of_same_type(x):
+    from pypy.rpython.lltypesystem import lltype
+    return most_neg_value_of(lltype.typeOf(x))
+most_neg_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
+
+def most_neg_value_of(tp):
+    from pypy.rpython.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return -sys.maxint-1
+    r_class = rffi.platform.numbertype_to_rclass[tp]
+    assert issubclass(r_class, base_int)
+    if r_class.SIGNED:
+        return r_class(-(r_class.MASK >> 1) - 1)
+    else:
+        return r_class(0)
+most_neg_value_of._annspecialcase_ = 'specialize:memo'
+
 def highest_bit(n):
     """
     Calculates the highest set bit in n.  This function assumes that n is a
@@ -285,6 +316,7 @@ def highest_bit(n):
         i += 1
         n >>= 1
     return i
+
 
 class base_int(long):
     """ fake unsigned integer implementation """
@@ -445,7 +477,7 @@ class signed_int(base_int):
 class unsigned_int(base_int):
     SIGNED = False
     def __new__(klass, val=0):
-        if type(val) is float:
+        if isinstance(val, (float, long)):
             val = long(val)
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
@@ -510,6 +542,8 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
+
+longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
     r_int64 = r_longlong
