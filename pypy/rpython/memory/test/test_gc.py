@@ -99,11 +99,8 @@ class GCTest(object):
         def append_to_list(i, j):
             lst.append([i] * 50)
             return lst[j][0]
-        res = self.interpret(append_to_list, [0, 0])
-        assert res == 0
-        for i in range(1, 15):
-            res = self.interpret(append_to_list, [i, i - 1])
-            assert res == i - 1 # crashes if constants are not considered roots
+        res = self.interpret(append_to_list, [42, 0])
+        assert res == 42
             
     def test_string_concatenation(self):
         #curr = simulator.current_size
