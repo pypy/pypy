@@ -158,7 +158,5 @@ def PySequence_DelItem(space, w_o, i):
     
     This function used an int type for i. This might require
     changes in your code for properly supporting 64-bit systems."""
-
-    # FIXME: May be too lenient
     space.delitem(w_o, space.wrap(i))
     return 0
