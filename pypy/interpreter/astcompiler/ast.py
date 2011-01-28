@@ -211,18 +211,18 @@ class stmt(AST):
 
 class FunctionDef(stmt):
 
-    __slots__ = ('name', 'args', 'body', 'w_body', 'decorators', 'w_decorators')
+    __slots__ = ('name', 'args', 'body', 'w_body', 'decorator_list', 'w_decorator_list')
 
     _lineno_mask = 16
     _col_offset_mask = 32
 
-    def __init__(self, name, args, body, decorators, lineno, col_offset):
+    def __init__(self, name, args, body, decorator_list, lineno, col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.w_body = None
-        self.decorators = decorators
-        self.w_decorators = None
+        self.decorator_list = decorator_list
+        self.w_decorator_list = None
         stmt.__init__(self, lineno, col_offset)
         self.initialization_state = 63
 
@@ -233,13 +233,13 @@ class FunctionDef(stmt):
         self.args = self.args.mutate_over(visitor)
         if self.body:
             visitor._mutate_sequence(self.body)
-        if self.decorators:
-            visitor._mutate_sequence(self.decorators)
+        if self.decorator_list:
+            visitor._mutate_sequence(self.decorator_list)
         return visitor.visit_FunctionDef(self)
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['name', 'args', 'body', 'decorators', 'lineno', 'col_offset'], 'FunctionDef')
+            missing_field(space, self.initialization_state, ['name', 'args', 'body', 'decorator_list', 'lineno', 'col_offset'], 'FunctionDef')
         else:
             pass
         self.args.sync_app_attrs(space)
@@ -253,33 +253,35 @@ class FunctionDef(stmt):
         if self.body is not None:
             for node in self.body:
                 node.sync_app_attrs(space)
-        w_list = self.w_decorators
+        w_list = self.w_decorator_list
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.decorators = [space.interp_w(expr, w_obj) for w_obj in list_w]
+                self.decorator_list = [space.interp_w(expr, w_obj) for w_obj in list_w]
             else:
-                self.decorators = None
-        if self.decorators is not None:
-            for node in self.decorators:
+                self.decorator_list = None
+        if self.decorator_list is not None:
+            for node in self.decorator_list:
                 node.sync_app_attrs(space)
 
 
 class ClassDef(stmt):
 
-    __slots__ = ('name', 'bases', 'w_bases', 'body', 'w_body')
+    __slots__ = ('name', 'bases', 'w_bases', 'body', 'w_body', 'decorator_list', 'w_decorator_list')
 
-    _lineno_mask = 8
-    _col_offset_mask = 16
+    _lineno_mask = 16
+    _col_offset_mask = 32
 
-    def __init__(self, name, bases, body, lineno, col_offset):
+    def __init__(self, name, bases, body, decorator_list, lineno, col_offset):
         self.name = name
         self.bases = bases
         self.w_bases = None
         self.body = body
         self.w_body = None
+        self.decorator_list = decorator_list
+        self.w_decorator_list = None
         stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 31
+        self.initialization_state = 63
 
     def walkabout(self, visitor):
         visitor.visit_ClassDef(self)
@@ -289,11 +291,13 @@ class ClassDef(stmt):
             visitor._mutate_sequence(self.bases)
         if self.body:
             visitor._mutate_sequence(self.body)
+        if self.decorator_list:
+            visitor._mutate_sequence(self.decorator_list)
         return visitor.visit_ClassDef(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['name', 'bases', 'body', 'lineno', 'col_offset'], 'ClassDef')
+        if (self.initialization_state & ~0) ^ 63:
+            missing_field(space, self.initialization_state, ['name', 'bases', 'body', 'decorator_list', 'lineno', 'col_offset'], 'ClassDef')
         else:
             pass
         w_list = self.w_bases
@@ -315,6 +319,16 @@ class ClassDef(stmt):
                 self.body = None
         if self.body is not None:
             for node in self.body:
+                node.sync_app_attrs(space)
+        w_list = self.w_decorator_list
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.decorator_list = [space.interp_w(expr, w_obj) for w_obj in list_w]
+            else:
+                self.decorator_list = None
+        if self.decorator_list is not None:
+            for node in self.decorator_list:
                 node.sync_app_attrs(space)
 
 
@@ -1387,6 +1401,44 @@ class Dict(expr):
                 node.sync_app_attrs(space)
 
 
+class Set(expr):
+
+    __slots__ = ('elts', 'w_elts')
+
+    _lineno_mask = 2
+    _col_offset_mask = 4
+
+    def __init__(self, elts, lineno, col_offset):
+        self.elts = elts
+        self.w_elts = None
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 7
+
+    def walkabout(self, visitor):
+        visitor.visit_Set(self)
+
+    def mutate_over(self, visitor):
+        if self.elts:
+            visitor._mutate_sequence(self.elts)
+        return visitor.visit_Set(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 7:
+            missing_field(space, self.initialization_state, ['elts', 'lineno', 'col_offset'], 'Set')
+        else:
+            pass
+        w_list = self.w_elts
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.elts = [space.interp_w(expr, w_obj) for w_obj in list_w]
+            else:
+                self.elts = None
+        if self.elts is not None:
+            for node in self.elts:
+                node.sync_app_attrs(space)
+
+
 class ListComp(expr):
 
     __slots__ = ('elt', 'generators', 'w_generators')
@@ -1416,6 +1468,91 @@ class ListComp(expr):
         else:
             pass
         self.elt.sync_app_attrs(space)
+        w_list = self.w_generators
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.generators = [space.interp_w(comprehension, w_obj) for w_obj in list_w]
+            else:
+                self.generators = None
+        if self.generators is not None:
+            for node in self.generators:
+                node.sync_app_attrs(space)
+
+
+class SetComp(expr):
+
+    __slots__ = ('elt', 'generators', 'w_generators')
+
+    _lineno_mask = 4
+    _col_offset_mask = 8
+
+    def __init__(self, elt, generators, lineno, col_offset):
+        self.elt = elt
+        self.generators = generators
+        self.w_generators = None
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 15
+
+    def walkabout(self, visitor):
+        visitor.visit_SetComp(self)
+
+    def mutate_over(self, visitor):
+        self.elt = self.elt.mutate_over(visitor)
+        if self.generators:
+            visitor._mutate_sequence(self.generators)
+        return visitor.visit_SetComp(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 15:
+            missing_field(space, self.initialization_state, ['elt', 'generators', 'lineno', 'col_offset'], 'SetComp')
+        else:
+            pass
+        self.elt.sync_app_attrs(space)
+        w_list = self.w_generators
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.generators = [space.interp_w(comprehension, w_obj) for w_obj in list_w]
+            else:
+                self.generators = None
+        if self.generators is not None:
+            for node in self.generators:
+                node.sync_app_attrs(space)
+
+
+class DictComp(expr):
+
+    __slots__ = ('key', 'value', 'generators', 'w_generators')
+
+    _lineno_mask = 8
+    _col_offset_mask = 16
+
+    def __init__(self, key, value, generators, lineno, col_offset):
+        self.key = key
+        self.value = value
+        self.generators = generators
+        self.w_generators = None
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 31
+
+    def walkabout(self, visitor):
+        visitor.visit_DictComp(self)
+
+    def mutate_over(self, visitor):
+        self.key = self.key.mutate_over(visitor)
+        self.value = self.value.mutate_over(visitor)
+        if self.generators:
+            visitor._mutate_sequence(self.generators)
+        return visitor.visit_DictComp(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 31:
+            missing_field(space, self.initialization_state, ['key', 'value', 'generators', 'lineno', 'col_offset'], 'DictComp')
+        else:
+            pass
+        self.key.sync_app_attrs(space)
+        self.value.sync_app_attrs(space)
         w_list = self.w_generators
         if w_list is not None:
             list_w = space.listview(w_list)
@@ -2337,16 +2474,29 @@ class comprehension(AST):
 
 class excepthandler(AST):
 
-    __slots__ = ('type', 'name', 'body', 'w_body', 'lineno', 'col_offset')
+    __slots__ = ('lineno', 'col_offset')
+
+    def __init__(self, lineno, col_offset):
+        self.lineno = lineno
+        self.col_offset = col_offset
+
+class ExceptHandler(excepthandler):
+
+    __slots__ = ('type', 'name', 'body', 'w_body')
+
+    _lineno_mask = 8
+    _col_offset_mask = 16
 
     def __init__(self, type, name, body, lineno, col_offset):
         self.type = type
         self.name = name
         self.body = body
         self.w_body = None
-        self.lineno = lineno
-        self.col_offset = col_offset
+        excepthandler.__init__(self, lineno, col_offset)
         self.initialization_state = 31
+
+    def walkabout(self, visitor):
+        visitor.visit_ExceptHandler(self)
 
     def mutate_over(self, visitor):
         if self.type:
@@ -2355,14 +2505,11 @@ class excepthandler(AST):
             self.name = self.name.mutate_over(visitor)
         if self.body:
             visitor._mutate_sequence(self.body)
-        return visitor.visit_excepthandler(self)
-
-    def walkabout(self, visitor):
-        visitor.visit_excepthandler(self)
+        return visitor.visit_ExceptHandler(self)
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~3) ^ 28:
-            missing_field(space, self.initialization_state, [None, None, 'body', 'lineno', 'col_offset'], 'excepthandler')
+            missing_field(space, self.initialization_state, [None, None, 'body', 'lineno', 'col_offset'], 'ExceptHandler')
         else:
             if not self.initialization_state & 1:
                 self.type = None
@@ -2382,6 +2529,7 @@ class excepthandler(AST):
         if self.body is not None:
             for node in self.body:
                 node.sync_app_attrs(space)
+
 
 class arguments(AST):
 
@@ -2559,7 +2707,13 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Dict(self, node):
         return self.default_visitor(node)
+    def visit_Set(self, node):
+        return self.default_visitor(node)
     def visit_ListComp(self, node):
+        return self.default_visitor(node)
+    def visit_SetComp(self, node):
+        return self.default_visitor(node)
+    def visit_DictComp(self, node):
         return self.default_visitor(node)
     def visit_GeneratorExp(self, node):
         return self.default_visitor(node)
@@ -2597,7 +2751,7 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_comprehension(self, node):
         return self.default_visitor(node)
-    def visit_excepthandler(self, node):
+    def visit_ExceptHandler(self, node):
         return self.default_visitor(node)
     def visit_arguments(self, node):
         return self.default_visitor(node)
@@ -2627,14 +2781,16 @@ class GenericASTVisitor(ASTVisitor):
         node.args.walkabout(self)
         if node.body:
             self.visit_sequence(node.body)
-        if node.decorators:
-            self.visit_sequence(node.decorators)
+        if node.decorator_list:
+            self.visit_sequence(node.decorator_list)
 
     def visit_ClassDef(self, node):
         if node.bases:
             self.visit_sequence(node.bases)
         if node.body:
             self.visit_sequence(node.body)
+        if node.decorator_list:
+            self.visit_sequence(node.decorator_list)
 
     def visit_Return(self, node):
         if node.value:
@@ -2771,8 +2927,23 @@ class GenericASTVisitor(ASTVisitor):
         if node.values:
             self.visit_sequence(node.values)
 
+    def visit_Set(self, node):
+        if node.elts:
+            self.visit_sequence(node.elts)
+
     def visit_ListComp(self, node):
         node.elt.walkabout(self)
+        if node.generators:
+            self.visit_sequence(node.generators)
+
+    def visit_SetComp(self, node):
+        node.elt.walkabout(self)
+        if node.generators:
+            self.visit_sequence(node.generators)
+
+    def visit_DictComp(self, node):
+        node.key.walkabout(self)
+        node.value.walkabout(self)
         if node.generators:
             self.visit_sequence(node.generators)
 
@@ -2855,7 +3026,7 @@ class GenericASTVisitor(ASTVisitor):
         if node.ifs:
             self.visit_sequence(node.ifs)
 
-    def visit_excepthandler(self, node):
+    def visit_ExceptHandler(self, node):
         if node.type:
             node.type.walkabout(self)
         if node.name:
@@ -3111,28 +3282,28 @@ def FunctionDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
-def FunctionDef_get_decorators(space, w_self):
+def FunctionDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'decorators' has not been set")
+        w_err = space.wrap("attribute 'decorator_list' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
-    if w_self.w_decorators is None:
-        if w_self.decorators is None:
+    if w_self.w_decorator_list is None:
+        if w_self.decorator_list is None:
             w_list = space.newlist([])
         else:
-            list_w = [space.wrap(node) for node in w_self.decorators]
+            list_w = [space.wrap(node) for node in w_self.decorator_list]
             w_list = space.newlist(list_w)
-        w_self.w_decorators = w_list
-    return w_self.w_decorators
+        w_self.w_decorator_list = w_list
+    return w_self.w_decorator_list
 
-def FunctionDef_set_decorators(space, w_self, w_new_value):
-    w_self.w_decorators = w_new_value
+def FunctionDef_set_decorator_list(space, w_self, w_new_value):
+    w_self.w_decorator_list = w_new_value
     w_self.initialization_state |= 8
 
-_FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorators', 'lineno', 'col_offset'])
+_FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorator_list', 'lineno', 'col_offset'])
 def FunctionDef_init(space, w_self, args):
     w_self = space.descr_self_interp_w(FunctionDef, w_self)
     w_self.w_body = None
-    w_self.w_decorators = None
+    w_self.w_decorator_list = None
     args_w, kwargs_w = args.unpack()
     if args_w:
         if len(args_w) != 6:
@@ -3148,11 +3319,11 @@ FunctionDef_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
 FunctionDef.typedef = typedef.TypeDef("FunctionDef",
     stmt.typedef,
-    _fields=_FieldsWrapper(['name', 'args', 'body', 'decorators']),
+    _fields=_FieldsWrapper(['name', 'args', 'body', 'decorator_list']),
     name=typedef.GetSetProperty(FunctionDef_get_name, FunctionDef_set_name, cls=FunctionDef),
     args=typedef.GetSetProperty(FunctionDef_get_args, FunctionDef_set_args, cls=FunctionDef),
     body=typedef.GetSetProperty(FunctionDef_get_body, FunctionDef_set_body, cls=FunctionDef),
-    decorators=typedef.GetSetProperty(FunctionDef_get_decorators, FunctionDef_set_decorators, cls=FunctionDef),
+    decorator_list=typedef.GetSetProperty(FunctionDef_get_decorator_list, FunctionDef_set_decorator_list, cls=FunctionDef),
     __new__=interp2app(get_AST_new(FunctionDef)),
     __init__=interp2app(FunctionDef_init),
 )
@@ -3202,15 +3373,33 @@ def ClassDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
-_ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'body', 'lineno', 'col_offset'])
+def ClassDef_get_decorator_list(space, w_self):
+    if not w_self.initialization_state & 8:
+        w_err = space.wrap("attribute 'decorator_list' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_decorator_list is None:
+        if w_self.decorator_list is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.decorator_list]
+            w_list = space.newlist(list_w)
+        w_self.w_decorator_list = w_list
+    return w_self.w_decorator_list
+
+def ClassDef_set_decorator_list(space, w_self, w_new_value):
+    w_self.w_decorator_list = w_new_value
+    w_self.initialization_state |= 8
+
+_ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'body', 'decorator_list', 'lineno', 'col_offset'])
 def ClassDef_init(space, w_self, args):
     w_self = space.descr_self_interp_w(ClassDef, w_self)
     w_self.w_bases = None
     w_self.w_body = None
+    w_self.w_decorator_list = None
     args_w, kwargs_w = args.unpack()
     if args_w:
-        if len(args_w) != 5:
-            w_err = space.wrap("ClassDef constructor takes 0 or 5 positional arguments")
+        if len(args_w) != 6:
+            w_err = space.wrap("ClassDef constructor takes 0 or 6 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ClassDef_field_unroller:
@@ -3222,10 +3411,11 @@ ClassDef_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
 ClassDef.typedef = typedef.TypeDef("ClassDef",
     stmt.typedef,
-    _fields=_FieldsWrapper(['name', 'bases', 'body']),
+    _fields=_FieldsWrapper(['name', 'bases', 'body', 'decorator_list']),
     name=typedef.GetSetProperty(ClassDef_get_name, ClassDef_set_name, cls=ClassDef),
     bases=typedef.GetSetProperty(ClassDef_get_bases, ClassDef_set_bases, cls=ClassDef),
     body=typedef.GetSetProperty(ClassDef_get_body, ClassDef_set_body, cls=ClassDef),
+    decorator_list=typedef.GetSetProperty(ClassDef_get_decorator_list, ClassDef_set_decorator_list, cls=ClassDef),
     __new__=interp2app(get_AST_new(ClassDef)),
     __init__=interp2app(ClassDef_init),
 )
@@ -4698,6 +4888,49 @@ Dict.typedef = typedef.TypeDef("Dict",
 )
 Dict.typedef.acceptable_as_base_class = False
 
+def Set_get_elts(space, w_self):
+    if not w_self.initialization_state & 1:
+        w_err = space.wrap("attribute 'elts' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_elts is None:
+        if w_self.elts is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.elts]
+            w_list = space.newlist(list_w)
+        w_self.w_elts = w_list
+    return w_self.w_elts
+
+def Set_set_elts(space, w_self, w_new_value):
+    w_self.w_elts = w_new_value
+    w_self.initialization_state |= 1
+
+_Set_field_unroller = unrolling_iterable(['elts', 'lineno', 'col_offset'])
+def Set_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(Set, w_self)
+    w_self.w_elts = None
+    args_w, kwargs_w = args.unpack()
+    if args_w:
+        if len(args_w) != 3:
+            w_err = space.wrap("Set constructor takes 0 or 3 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _Set_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+Set_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+
+Set.typedef = typedef.TypeDef("Set",
+    expr.typedef,
+    _fields=_FieldsWrapper(['elts']),
+    elts=typedef.GetSetProperty(Set_get_elts, Set_set_elts, cls=Set),
+    __new__=interp2app(get_AST_new(Set)),
+    __init__=interp2app(Set_init),
+)
+Set.typedef.acceptable_as_base_class = False
+
 def ListComp_get_elt(space, w_self):
     if not w_self.initialization_state & 1:
         w_err = space.wrap("attribute 'elt' has not been set")
@@ -4751,6 +4984,125 @@ ListComp.typedef = typedef.TypeDef("ListComp",
     __init__=interp2app(ListComp_init),
 )
 ListComp.typedef.acceptable_as_base_class = False
+
+def SetComp_get_elt(space, w_self):
+    if not w_self.initialization_state & 1:
+        w_err = space.wrap("attribute 'elt' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.elt)
+
+def SetComp_set_elt(space, w_self, w_new_value):
+    w_self.elt = space.interp_w(expr, w_new_value, False)
+    w_self.initialization_state |= 1
+
+def SetComp_get_generators(space, w_self):
+    if not w_self.initialization_state & 2:
+        w_err = space.wrap("attribute 'generators' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_generators is None:
+        if w_self.generators is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.generators]
+            w_list = space.newlist(list_w)
+        w_self.w_generators = w_list
+    return w_self.w_generators
+
+def SetComp_set_generators(space, w_self, w_new_value):
+    w_self.w_generators = w_new_value
+    w_self.initialization_state |= 2
+
+_SetComp_field_unroller = unrolling_iterable(['elt', 'generators', 'lineno', 'col_offset'])
+def SetComp_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(SetComp, w_self)
+    w_self.w_generators = None
+    args_w, kwargs_w = args.unpack()
+    if args_w:
+        if len(args_w) != 4:
+            w_err = space.wrap("SetComp constructor takes 0 or 4 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _SetComp_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+SetComp_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+
+SetComp.typedef = typedef.TypeDef("SetComp",
+    expr.typedef,
+    _fields=_FieldsWrapper(['elt', 'generators']),
+    elt=typedef.GetSetProperty(SetComp_get_elt, SetComp_set_elt, cls=SetComp),
+    generators=typedef.GetSetProperty(SetComp_get_generators, SetComp_set_generators, cls=SetComp),
+    __new__=interp2app(get_AST_new(SetComp)),
+    __init__=interp2app(SetComp_init),
+)
+SetComp.typedef.acceptable_as_base_class = False
+
+def DictComp_get_key(space, w_self):
+    if not w_self.initialization_state & 1:
+        w_err = space.wrap("attribute 'key' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.key)
+
+def DictComp_set_key(space, w_self, w_new_value):
+    w_self.key = space.interp_w(expr, w_new_value, False)
+    w_self.initialization_state |= 1
+
+def DictComp_get_value(space, w_self):
+    if not w_self.initialization_state & 2:
+        w_err = space.wrap("attribute 'value' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.value)
+
+def DictComp_set_value(space, w_self, w_new_value):
+    w_self.value = space.interp_w(expr, w_new_value, False)
+    w_self.initialization_state |= 2
+
+def DictComp_get_generators(space, w_self):
+    if not w_self.initialization_state & 4:
+        w_err = space.wrap("attribute 'generators' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_generators is None:
+        if w_self.generators is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.generators]
+            w_list = space.newlist(list_w)
+        w_self.w_generators = w_list
+    return w_self.w_generators
+
+def DictComp_set_generators(space, w_self, w_new_value):
+    w_self.w_generators = w_new_value
+    w_self.initialization_state |= 4
+
+_DictComp_field_unroller = unrolling_iterable(['key', 'value', 'generators', 'lineno', 'col_offset'])
+def DictComp_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(DictComp, w_self)
+    w_self.w_generators = None
+    args_w, kwargs_w = args.unpack()
+    if args_w:
+        if len(args_w) != 5:
+            w_err = space.wrap("DictComp constructor takes 0 or 5 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _DictComp_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+DictComp_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+
+DictComp.typedef = typedef.TypeDef("DictComp",
+    expr.typedef,
+    _fields=_FieldsWrapper(['key', 'value', 'generators']),
+    key=typedef.GetSetProperty(DictComp_get_key, DictComp_set_key, cls=DictComp),
+    value=typedef.GetSetProperty(DictComp_get_value, DictComp_set_value, cls=DictComp),
+    generators=typedef.GetSetProperty(DictComp_get_generators, DictComp_set_generators, cls=DictComp),
+    __new__=interp2app(get_AST_new(DictComp)),
+    __init__=interp2app(DictComp_init),
+)
+DictComp.typedef.acceptable_as_base_class = False
 
 def GeneratorExp_get_elt(space, w_self):
     if not w_self.initialization_state & 1:
@@ -5918,27 +6270,55 @@ comprehension.typedef = typedef.TypeDef("comprehension",
 )
 comprehension.typedef.acceptable_as_base_class = False
 
-def excepthandler_get_type(space, w_self):
+def excepthandler_get_lineno(space, w_self):
+    if not w_self.initialization_state & w_self._lineno_mask:
+        w_err = space.wrap("attribute 'lineno' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.lineno)
+
+def excepthandler_set_lineno(space, w_self, w_new_value):
+    w_self.lineno = space.int_w(w_new_value)
+    w_self.initialization_state |= w_self._lineno_mask
+
+def excepthandler_get_col_offset(space, w_self):
+    if not w_self.initialization_state & w_self._col_offset_mask:
+        w_err = space.wrap("attribute 'col_offset' has not been set")
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.col_offset)
+
+def excepthandler_set_col_offset(space, w_self, w_new_value):
+    w_self.col_offset = space.int_w(w_new_value)
+    w_self.initialization_state |= w_self._col_offset_mask
+
+excepthandler.typedef = typedef.TypeDef("excepthandler",
+    AST.typedef,
+    _attributes=_FieldsWrapper(['lineno', 'col_offset']),
+    lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, cls=excepthandler),
+    col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, cls=excepthandler),
+)
+excepthandler.typedef.acceptable_as_base_class = False
+
+def ExceptHandler_get_type(space, w_self):
     if not w_self.initialization_state & 1:
         w_err = space.wrap("attribute 'type' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.type)
 
-def excepthandler_set_type(space, w_self, w_new_value):
+def ExceptHandler_set_type(space, w_self, w_new_value):
     w_self.type = space.interp_w(expr, w_new_value, True)
     w_self.initialization_state |= 1
 
-def excepthandler_get_name(space, w_self):
+def ExceptHandler_get_name(space, w_self):
     if not w_self.initialization_state & 2:
         w_err = space.wrap("attribute 'name' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.name)
 
-def excepthandler_set_name(space, w_self, w_new_value):
+def ExceptHandler_set_name(space, w_self, w_new_value):
     w_self.name = space.interp_w(expr, w_new_value, True)
     w_self.initialization_state |= 2
 
-def excepthandler_get_body(space, w_self):
+def ExceptHandler_get_body(space, w_self):
     if not w_self.initialization_state & 4:
         w_err = space.wrap("attribute 'body' has not been set")
         raise OperationError(space.w_AttributeError, w_err)
@@ -5951,59 +6331,37 @@ def excepthandler_get_body(space, w_self):
         w_self.w_body = w_list
     return w_self.w_body
 
-def excepthandler_set_body(space, w_self, w_new_value):
+def ExceptHandler_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
     w_self.initialization_state |= 4
 
-def excepthandler_get_lineno(space, w_self):
-    if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'lineno' has not been set")
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.lineno)
-
-def excepthandler_set_lineno(space, w_self, w_new_value):
-    w_self.lineno = space.int_w(w_new_value)
-    w_self.initialization_state |= 8
-
-def excepthandler_get_col_offset(space, w_self):
-    if not w_self.initialization_state & 16:
-        w_err = space.wrap("attribute 'col_offset' has not been set")
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.col_offset)
-
-def excepthandler_set_col_offset(space, w_self, w_new_value):
-    w_self.col_offset = space.int_w(w_new_value)
-    w_self.initialization_state |= 16
-
-_excepthandler_field_unroller = unrolling_iterable(['type', 'name', 'body', 'lineno', 'col_offset'])
-def excepthandler_init(space, w_self, args):
-    w_self = space.descr_self_interp_w(excepthandler, w_self)
+_ExceptHandler_field_unroller = unrolling_iterable(['type', 'name', 'body', 'lineno', 'col_offset'])
+def ExceptHandler_init(space, w_self, args):
+    w_self = space.descr_self_interp_w(ExceptHandler, w_self)
     w_self.w_body = None
     args_w, kwargs_w = args.unpack()
     if args_w:
         if len(args_w) != 5:
-            w_err = space.wrap("excepthandler constructor takes 0 or 5 positional arguments")
+            w_err = space.wrap("ExceptHandler constructor takes 0 or 5 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
-        for field in _excepthandler_field_unroller:
+        for field in _ExceptHandler_field_unroller:
             space.setattr(w_self, space.wrap(field), args_w[i])
             i += 1
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
-excepthandler_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
+ExceptHandler_init.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
-excepthandler.typedef = typedef.TypeDef("excepthandler",
-    AST.typedef,
-    _fields=_FieldsWrapper(['type', 'name', 'body', 'lineno', 'col_offset']),
-    type=typedef.GetSetProperty(excepthandler_get_type, excepthandler_set_type, cls=excepthandler),
-    name=typedef.GetSetProperty(excepthandler_get_name, excepthandler_set_name, cls=excepthandler),
-    body=typedef.GetSetProperty(excepthandler_get_body, excepthandler_set_body, cls=excepthandler),
-    lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, cls=excepthandler),
-    col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, cls=excepthandler),
-    __new__=interp2app(get_AST_new(excepthandler)),
-    __init__=interp2app(excepthandler_init),
+ExceptHandler.typedef = typedef.TypeDef("ExceptHandler",
+    excepthandler.typedef,
+    _fields=_FieldsWrapper(['type', 'name', 'body']),
+    type=typedef.GetSetProperty(ExceptHandler_get_type, ExceptHandler_set_type, cls=ExceptHandler),
+    name=typedef.GetSetProperty(ExceptHandler_get_name, ExceptHandler_set_name, cls=ExceptHandler),
+    body=typedef.GetSetProperty(ExceptHandler_get_body, ExceptHandler_set_body, cls=ExceptHandler),
+    __new__=interp2app(get_AST_new(ExceptHandler)),
+    __init__=interp2app(ExceptHandler_init),
 )
-excepthandler.typedef.acceptable_as_base_class = False
+ExceptHandler.typedef.acceptable_as_base_class = False
 
 def arguments_get_args(space, w_self):
     if not w_self.initialization_state & 1:

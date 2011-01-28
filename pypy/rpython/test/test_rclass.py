@@ -319,6 +319,17 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 42
 
+    def test_staticmethod2(self):
+        class A(object):
+            f = staticmethod(lambda x, y: x*y)
+        class B(A):
+            f = staticmethod(lambda x, y: x+y)
+        def f():
+            b = B()
+            return b.f(6, 7)
+        res = self.interpret(f, [])
+        assert res == 13
+
     def test_is(self):
         class A: pass
         class B(A): pass
@@ -906,6 +917,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         assert destrptr is not None
     
     def test_del_inheritance(self):
+        from pypy.rlib import rgc
         class State:
             pass
         s = State()
@@ -926,6 +938,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
             A()
             B()
             C()
+            rgc.collect()
             return s.a_dels * 10 + s.b_dels
         res = f()
         assert res == 42
@@ -1056,6 +1069,7 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
         assert meth.finalizer
 
     def test_del_inheritance(self):
+        from pypy.rlib import rgc
         class State:
             pass
         s = State()
@@ -1076,6 +1090,7 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
             A()
             B()
             C()
+            rgc.collect()
             return s.a_dels * 10 + s.b_dels
         res = f()
         assert res == 42

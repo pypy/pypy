@@ -112,6 +112,23 @@ class Test_rbigint(object):
         assert rbigint.fromrarith_int(r_uint(2*sys.maxint+1)).eq(
             rbigint.fromlong(2*sys.maxint+1))
 
+    def test_fromdecimalstr(self):
+        x = rbigint.fromdecimalstr("12345678901234567890523897987")
+        assert x.tolong() == 12345678901234567890523897987L
+        assert x.tobool() is True
+        x = rbigint.fromdecimalstr("+12345678901234567890523897987")
+        assert x.tolong() == 12345678901234567890523897987L
+        assert x.tobool() is True
+        x = rbigint.fromdecimalstr("-12345678901234567890523897987")
+        assert x.tolong() == -12345678901234567890523897987L
+        assert x.tobool() is True
+        x = rbigint.fromdecimalstr("+0")
+        assert x.tolong() == 0
+        assert x.tobool() is False
+        x = rbigint.fromdecimalstr("-0")
+        assert x.tolong() == 0
+        assert x.tobool() is False
+
     def test_add(self):
         x = 123456789123456789000000L
         y = 123858582373821923936744221L
@@ -158,6 +175,24 @@ class Test_rbigint(object):
         f2 = rbigint([0, 2097152], 1)
         d = f2.tofloat()
         assert d == float(2097152 << SHIFT)
+
+    def test_tofloat_precision(self):
+        assert rbigint.fromlong(0).tofloat() == 0.0
+        for sign in [1, -1]:
+            for p in xrange(100):
+                x = long(2**p * (2**53 + 1) + 1) * sign
+                y = long(2**p * (2**53+ 2)) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
+                #
+                x = long(2**p * (2**53 + 1)) * sign
+                y = long(2**p * 2**53) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
 
     def test_fromfloat(self):
         x = 1234567890.1234567890
@@ -325,6 +360,33 @@ class Test_rbigint(object):
         b = rbigint.fromlong(-1<<3000)
         assert a.mul(b).tolong() == (-1<<10000)*(-1<<3000)
 
+    def test_bit_length(self):
+        assert rbigint.fromlong(0).bit_length() == 0
+        assert rbigint.fromlong(1).bit_length() == 1
+        assert rbigint.fromlong(2).bit_length() == 2
+        assert rbigint.fromlong(3).bit_length() == 2
+        assert rbigint.fromlong(4).bit_length() == 3
+        assert rbigint.fromlong(-3).bit_length() == 2
+        assert rbigint.fromlong(-4).bit_length() == 3
+        assert rbigint.fromlong(1<<40).bit_length() == 41
+
+    def test_hash(self):
+        for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                  sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
+                  ] + [randint(0, sys.maxint) for _ in range(100)]:
+            # hash of machine-sized integers
+            assert rbigint.fromint(i).hash() == i
+            # hash of negative machine-sized integers
+            assert rbigint.fromint(-i-1).hash() == -i-1
+        #
+        for i in range(200):
+            # hash of large integers: should be equal to the hash of the
+            # integer reduced modulo 2**64-1, to make decimal.py happy
+            x = randint(0, sys.maxint**5)
+            y = x % (2**64-1)
+            assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
+            assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
+
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
@@ -447,6 +509,35 @@ class TestInternalFunctions(object):
                 r_ulonglong(9**50))
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
                 r_ulonglong(-9**50))
+
+    def test_parse_digit_string(self):
+        from pypy.rlib.rbigint import parse_digit_string
+        class Parser:
+            def __init__(self, base, sign, digits):
+                self.base = base
+                self.sign = sign
+                self.next_digit = iter(digits + [-1]).next
+        x = parse_digit_string(Parser(10, 1, [6]))
+        assert x.eq(rbigint.fromint(6))
+        x = parse_digit_string(Parser(10, 1, [6, 2, 3]))
+        assert x.eq(rbigint.fromint(623))
+        x = parse_digit_string(Parser(10, -1, [6, 2, 3]))
+        assert x.eq(rbigint.fromint(-623))
+        x = parse_digit_string(Parser(16, 1, [0xA, 0x4, 0xF]))
+        assert x.eq(rbigint.fromint(0xA4F))
+        num = 0
+        for i in range(36):
+            x = parse_digit_string(Parser(36, 1, range(i)))
+            assert x.eq(rbigint.fromlong(num))
+            num = num * 36 + i
+        x = parse_digit_string(Parser(16, -1, range(15,-1,-1)*99))
+        assert x.eq(rbigint.fromlong(long('-0x' + 'FEDCBA9876543210'*99, 16)))
+        assert x.tobool() is True
+        x = parse_digit_string(Parser(7, 1, [0, 0, 0]))
+        assert x.tobool() is False
+        x = parse_digit_string(Parser(7, -1, [0, 0, 0]))
+        assert x.tobool() is False
+
 
 BASE = 2 ** SHIFT
 

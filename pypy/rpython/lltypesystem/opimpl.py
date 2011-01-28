@@ -19,6 +19,7 @@ ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 # global synonyms for some types
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
+from pypy.rpython.lltypesystem.llmemory import AddressAsInt
 
 if r_longlong is r_int:
     r_longlong_arg = (r_longlong, int)
@@ -76,11 +77,13 @@ def get_primitive_op_src(fullopname):
         else:
             def op_function(x, y):
                 if not isinstance(x, argtype):
-                    raise TypeError("%r arg 1 must be %s, got %r instead" % (
-                        fullopname, typname, type(x).__name__))
+                    if not (isinstance(x, AddressAsInt) and argtype is int):
+                        raise TypeError("%r arg 1 must be %s, got %r instead"% (
+                            fullopname, typname, type(x).__name__))
                 if not isinstance(y, argtype):
-                    raise TypeError("%r arg 2 must be %s, got %r instead" % (
-                        fullopname, typname, type(y).__name__))
+                    if not (isinstance(y, AddressAsInt) and argtype is int):
+                        raise TypeError("%r arg 2 must be %s, got %r instead"% (
+                            fullopname, typname, type(y).__name__))
                 return adjust_result(func(x, y))
 
     return func_with_new_name(op_function, 'op_' + fullopname)
@@ -291,6 +294,13 @@ def op_cast_longlong_to_float(i):
     ui = float(int(i >> 31)) * float(0x80000000)
     return ui + li
 
+def op_cast_ulonglong_to_float(i):
+    assert isinstance(i, r_ulonglong)
+    # take first 32 bits
+    li = float(int(i & r_ulonglong(0xffffffff)))
+    ui = float(int(i >> 32)) * float(0x100000000)
+    return ui + li
+
 def op_cast_int_to_char(b):
     assert type(b) is int
     return chr(b)
@@ -318,6 +328,10 @@ def op_cast_float_to_longlong(f):
     high = int(small)
     truncated = int((small - high) * r)
     return r_longlong_result(high) * 0x100000000 + truncated
+
+def op_cast_float_to_ulonglong(f):
+    assert type(f) is float
+    return r_ulonglong(r_longlong(f))
 
 def op_cast_char_to_int(b):
     assert type(b) is str and len(b) == 1

@@ -625,14 +625,14 @@ class TestUsingFramework(object):
         assert open(self.filename, 'r').read() == "hello world\n"
         os.unlink(self.filename)
 
-    def XXXXXXXXXdefine_callback_with_collect(cls):
-        from pypy.rlib.libffi import ffi_type_pointer, cast_type_to_ffitype,\
+    def define_callback_with_collect(cls):
+        from pypy.rlib.clibffi import ffi_type_pointer, cast_type_to_ffitype,\
              CDLL, ffi_type_void, CallbackFuncPtr, ffi_type_sint
         from pypy.rpython.lltypesystem import rffi, ll2ctypes
         import gc
         ffi_size_t = cast_type_to_ffitype(rffi.SIZE_T)
 
-        from pypy.rlib.libffi import get_libc_name
+        from pypy.rlib.clibffi import get_libc_name
 
         def callback(ll_args, ll_res, stuff):
             gc.collect()
@@ -1066,31 +1066,86 @@ class TestUsingFramework(object):
     def test_get_rpy_type_index(self):
         self.run("get_rpy_type_index")
 
-    filename_dump = str(udir.join('test_dump_rpy_heap'))
+    filename1_dump = str(udir.join('test_dump_rpy_heap.1'))
+    filename2_dump = str(udir.join('test_dump_rpy_heap.2'))
     def define_dump_rpy_heap(self):
-        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        U = lltype.GcForwardReference()
+        U.become(lltype.GcStruct('U', ('next', lltype.Ptr(U)),
+                                 ('x', lltype.Signed)))
         S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
         A = lltype.GcArray(lltype.Ptr(S))
-        filename = self.filename_dump
+        filename1 = self.filename1_dump
+        filename2 = self.filename2_dump
 
         def fn():
             s = lltype.malloc(S)
             s.u = lltype.malloc(U)
+            s.u.next = lltype.malloc(U)
+            s.u.next.next = lltype.malloc(U)
             a = lltype.malloc(A, 1000)
             s2 = lltype.malloc(S)
             #
-            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
-            rgc.dump_rpy_heap(fd)
-            os.close(fd)
+            fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0666)
+            fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0666)
+            rgc.dump_rpy_heap(fd1)
+            rgc.dump_rpy_heap(fd2)      # try twice in a row
+            keepalive_until_here(s2)
+            keepalive_until_here(s)
+            keepalive_until_here(a)
+            os.close(fd1)
+            os.close(fd2)
             return 0
 
         return fn
 
     def test_dump_rpy_heap(self):
         self.run("dump_rpy_heap")
-        assert os.path.exists(self.filename_dump)
-        assert os.path.getsize(self.filename_dump) > 0       # minimal test
+        for fn in [self.filename1_dump, self.filename2_dump]:
+            assert os.path.exists(fn)
+            assert os.path.getsize(fn) > 64
+        f = open(self.filename1_dump)
+        data1 = f.read()
+        f.close()
+        f = open(self.filename2_dump)
+        data2 = f.read()
+        f.close()
+        assert data1 == data2
 
+    filename_dump_typeids_z = str(udir.join('test_typeids_z'))
+    def define_write_typeids_z(self):
+        U = lltype.GcForwardReference()
+        U.become(lltype.GcStruct('U', ('next', lltype.Ptr(U)),
+                                 ('x', lltype.Signed)))
+        S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
+        A = lltype.GcArray(lltype.Ptr(S))
+        filename = self.filename_dump_typeids_z
+
+        def fn():
+            s = lltype.malloc(S)
+            s.u = lltype.malloc(U)
+            s.u.next = lltype.malloc(U)
+            s.u.next.next = lltype.malloc(U)
+            a = lltype.malloc(A, 1000)
+            s2 = lltype.malloc(S)
+            #
+            p = rgc.get_typeids_z()
+            s = ''.join([p[i] for i in range(len(p))])
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
+            os.write(fd, s)
+            os.close(fd)
+            return 0
+
+        return fn
+
+    def test_write_typeids_z(self):
+        self.run("write_typeids_z")
+        f = open(self.filename_dump_typeids_z)
+        data_z = f.read()
+        f.close()
+        import zlib
+        data = zlib.decompress(data_z)
+        assert data.startswith('member0')
+        assert 'GcArray of * GcStruct S {' in data
 
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
@@ -1175,21 +1230,22 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
             b = 0
             c = 0
             for i in range(len(tb)):
-                if tb[i].count == 10:
+                if tb[i].count == 10:      # the type of S
                     a += 1
                     nr = i
             for i in range(len(tb)):
-                if tb[i].count == 3:
+                if tb[i].count == 3:       # the type GcArray(Ptr(S))
                     b += 1
                     c += tb[i].links[nr]
-            # we don't count b here since there can be more singletons,
+            # b can be 1 or 2 here since _heap_stats() is free to return or
+            # ignore the three GcStructs that point to the GcArray(Ptr(S)).
             # important one is c, a is for check
             return c * 100 + b * 10 + a
         return f
 
     def test_gc_heap_stats(self):
         res = self.run("gc_heap_stats")
-        assert res == 3011
+        assert res == 3011 or res == 3021
 
     def definestr_string_builder(cls):
         def fn(_):

@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (CANNOT_FAIL, cpython_api, PyObject,
-                                    build_type_checkers)
+from pypy.module.cpyext.api import (
+    CANNOT_FAIL, cpython_api, PyObject, build_type_checkers, CONST_STRING)
 from pypy.interpreter.error import OperationError
 
 PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")
@@ -24,4 +24,12 @@ def PyNumber_Float(space, w_obj):
     """
     Returns the o converted to a float object on success, or NULL on failure.
     This is the equivalent of the Python expression float(o)."""
-    return space.float(w_obj)
+    return space.call_function(space.w_float, w_obj)
+
+@cpython_api([PyObject, rffi.CCHARPP], PyObject)
+def PyFloat_FromString(space, w_obj, _):
+    """Create a PyFloatObject object based on the string value in str, or
+    NULL on failure.  The pend argument is ignored.  It remains only for
+    backward compatibility."""
+    return space.call_function(space.w_float, w_obj)
+

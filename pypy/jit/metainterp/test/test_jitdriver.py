@@ -42,7 +42,7 @@ class MultipleJitDriversTests:
         # at the generated machine code
         self.check_loop_count(5)
         self.check_tree_loop_count(4)    # 2 x loop, 2 x enter bridge
-        self.check_enter_count(7)
+        self.check_enter_count(5)
 
     def test_inline(self):
         # this is not an example of reasonable code: loop1() is unrolled
@@ -71,6 +71,33 @@ class MultipleJitDriversTests:
         assert res == loop2(4, 40)
         # we expect no loop at all for 'loop1': it should always be inlined
         self.check_tree_loop_count(2)    # 1 x loop, 1 x enter bridge
+
+    def test_inactive_jitdriver(self):
+        myjitdriver1 = JitDriver(greens=[], reds=['n', 'm'],
+                                 get_printable_location = getloc1)
+        myjitdriver2 = JitDriver(greens=['g'], reds=['r'],
+                                 get_printable_location = getloc2)
+        #
+        myjitdriver1.active = False    # <===
+        #
+        def loop1(n, m):
+            while n > 0:
+                myjitdriver1.can_enter_jit(n=n, m=m)
+                myjitdriver1.jit_merge_point(n=n, m=m)
+                n -= m
+            return n
+        #
+        def loop2(g, r):
+            while r > 0:
+                myjitdriver2.can_enter_jit(g=g, r=r)
+                myjitdriver2.jit_merge_point(g=g, r=r)
+                r += loop1(r, g) + (-1)
+            return r
+        #
+        res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
+        assert res == loop2(4, 40)
+        # we expect no int_sub, but a residual call
+        self.check_loops(int_sub=0, call=1)
 
 
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):

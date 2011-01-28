@@ -44,16 +44,22 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def setup_once(self):
         self.profile_agent.startup()
+        self.assembler.setup_once()
 
     def finish_once(self):
         self.assembler.finish_once()
         self.profile_agent.shutdown()
 
-    def compile_loop(self, inputargs, operations, looptoken):
-        self.assembler.assemble_loop(inputargs, operations, looptoken)
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
+        self.assembler.assemble_loop(inputargs, operations, looptoken,
+                                     log=log)
 
-    def compile_bridge(self, faildescr, inputargs, operations):
-        self.assembler.assemble_bridge(faildescr, inputargs, operations)
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True):
+        clt = original_loop_token.compiled_loop_token
+        clt.compiling_a_bridge()
+        self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                       original_loop_token, log=log)
 
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)
@@ -113,7 +119,8 @@ class AbstractX86CPU(AbstractLLCPU):
         return CPU386.cast_adr_to_int(adr)
 
     all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
-                                       flavor='raw', zero=True)
+                                       flavor='raw', zero=True,
+                                       immortal=True)
 
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)
@@ -121,8 +128,8 @@ class AbstractX86CPU(AbstractLLCPU):
         assert fail_index >= 0, "already forced!"
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = -1
-        bytecode = rffi.cast(rffi.UCHARP,
-                             faildescr._x86_failure_recovery_bytecode)
+        frb = self.assembler._find_failure_recovery_bytecode(faildescr)
+        bytecode = rffi.cast(rffi.UCHARP, frb)
         # start of "no gc operation!" block
         fail_index_2 = self.assembler.grab_frame_values(
             bytecode,
@@ -162,17 +169,12 @@ class CPU_X86_64(AbstractX86CPU):
 CPU = CPU386
 
 # silence warnings
-
-history.LoopToken._x86_param_depth = 0
-history.LoopToken._x86_arglocs = (None, None)
-history.LoopToken._x86_frame_depth = 0
-history.LoopToken._x86_bootstrap_code = 0
-history.LoopToken._x86_direct_bootstrap_code = 0
-history.LoopToken._x86_failure_recovery_bytecode = 0
-history.LoopToken._x86_loop_code = 0
-history.LoopToken._x86_current_depths = (0, 0)
-
-compile._DoneWithThisFrameDescr._x86_current_depths = (0, 0)
-compile._DoneWithThisFrameDescr._x86_failure_recovery_bytecode = 0
-compile._DoneWithThisFrameDescr._x86_adr_jump_offset = 0
-
+##history.LoopToken._x86_param_depth = 0
+##history.LoopToken._x86_arglocs = (None, None)
+##history.LoopToken._x86_frame_depth = 0
+##history.LoopToken._x86_bootstrap_code = 0
+##history.LoopToken._x86_direct_bootstrap_code = 0
+##history.LoopToken._x86_loop_code = 0
+##history.LoopToken._x86_debug_checksum = 0
+##compile.AbstractFailDescr._x86_current_depths = (0, 0)
+##compile.AbstractFailDescr._x86_adr_jump_offset = 0

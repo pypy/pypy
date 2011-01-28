@@ -3,7 +3,7 @@ from pypy.jit.backend.x86 import rx86
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.history import FLOAT
 
@@ -175,29 +175,73 @@ class AddressLoc(AssemblerLocation):
                 return edx
         return eax
 
+    def add_offset(self, ofs):
+        result = instantiate(AddressLoc)
+        result._location_code = self._location_code
+        if self._location_code == 'm':
+            result.loc_m = (self.loc_m[0], self.loc_m[1] + ofs)
+        elif self._location_code == 'a':
+            result.loc_a = self.loc_a[:3] + (self.loc_a[3] + ofs,)
+        elif self._location_code == 'j':
+            result.value = self.value + ofs
+        else:
+            raise AssertionError(self._location_code)
+        return result
+
 class ConstFloatLoc(AssemblerLocation):
     # XXX: We have to use this class instead of just AddressLoc because
-    # AddressLoc is "untyped" and also we to have need some sort of unique
-    # identifier that we can use in _getregkey (for jump.py)
-
+    # we want a width of 8  (... I think.  Check this!)
     _immutable_ = True
-
     width = 8
 
-    def __init__(self, address, const_id):
+    def __init__(self, address):
         self.value = address
-        self.const_id = const_id
 
     def __repr__(self):
-        return '<ConstFloatLoc(%s, %s)>' % (self.value, self.const_id)
-
-    def _getregkey(self):
-        # XXX: 1000 is kind of magic: We just don't want to be confused
-        # with any registers
-        return 1000 + self.const_id
+        return '<ConstFloatLoc @%s>' % (self.value,)
 
     def location_code(self):
         return 'j'
+
+if IS_X86_32:
+    class FloatImmedLoc(AssemblerLocation):
+        # This stands for an immediate float.  It cannot be directly used in
+        # any assembler instruction.  Instead, it is meant to be decomposed
+        # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
+        # instead; see below.
+        _immutable_ = True
+        width = 8
+
+        def __init__(self, floatvalue):
+            from pypy.rlib.longlong2float import float2longlong
+            self.aslonglong = float2longlong(floatvalue)
+
+        def low_part(self):
+            return intmask(self.aslonglong)
+
+        def high_part(self):
+            return intmask(self.aslonglong >> 32)
+
+        def low_part_loc(self):
+            return ImmedLoc(self.low_part())
+
+        def high_part_loc(self):
+            return ImmedLoc(self.high_part())
+
+        def __repr__(self):
+            from pypy.rlib.longlong2float import longlong2float
+            floatvalue = longlong2float(self.aslonglong)
+            return '<FloatImmedLoc(%s)>' % (floatvalue,)
+
+        def location_code(self):
+            raise NotImplementedError
+
+if IS_X86_64:
+    def FloatImmedLoc(floatvalue):
+        from pypy.rlib.longlong2float import float2longlong
+        value = intmask(float2longlong(floatvalue))
+        return ImmedLoc(value)
+
 
 REGLOCS = [RegLoc(i, is_xmm=False) for i in range(16)]
 XMMREGLOCS = [RegLoc(i, is_xmm=True) for i in range(16)]
@@ -334,9 +378,9 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if possible_code == 'i':
-                        offset = intmask(val - (self.tell() + 5))
-                        if rx86.fits_in_32bits(offset):
+                        if self.WORD == 4:
                             _rx86_getattr(self, name + "_l")(val)
+                            self.add_pending_relocation()
                         else:
                             assert self.WORD == 8
                             self._load_scratch(val)
@@ -430,6 +474,7 @@ class LocationCodeBuilder(object):
     SHR = _binaryop('SHR')
     SAR = _binaryop('SAR')
     TEST = _binaryop('TEST')
+    TEST8 = _binaryop('TEST8')
 
     ADD = _binaryop('ADD')
     SUB = _binaryop('SUB')
@@ -442,8 +487,11 @@ class LocationCodeBuilder(object):
     MOV8 = _binaryop('MOV8')
     MOV16 = _16_bit_binaryop('MOV')
     MOVZX8 = _binaryop('MOVZX8')
+    MOVSX8 = _binaryop('MOVSX8')
     MOVZX16 = _binaryop('MOVZX16')
+    MOVSX16 = _binaryop('MOVSX16')
     MOV32 = _binaryop('MOV32')
+    MOVSX32 = _binaryop('MOVSX32')
     XCHG = _binaryop('XCHG')
 
     PUSH = _unaryop('PUSH')
@@ -472,6 +520,9 @@ def imm(x):
         return ImmedLoc(x.getint())
     else:
         return ImmedLoc(x)
+
+imm0 = imm(0)
+imm1 = imm(1)
 
 all_extra_instructions = [name for name in LocationCodeBuilder.__dict__
                           if name[0].isupper()]

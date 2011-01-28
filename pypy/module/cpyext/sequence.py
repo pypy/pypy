@@ -1,10 +1,15 @@
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
+
+from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem
+from pypy.module.cpyext.object import Py_IncRef, Py_DecRef
+
+from pypy.module.cpyext.dictobject import PyDict_Check
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_Repeat(space, w_obj, count):
@@ -116,6 +121,14 @@ def PySequence_Concat(space, w_o1, w_o2):
     This is the equivalent of the Python expression o1 + o2."""
     return space.add(w_o1, w_o2)
 
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PySequence_Contains(space, w_obj, w_value):
+    """Determine if o contains value.  If an item in o is equal to value,
+    return 1, otherwise return 0. On error, return -1.  This is
+    equivalent to the Python expression value in o."""
+    w_res = space.contains(w_obj, w_value)
+    return space.int_w(w_res)
+
 @cpython_api([PyObject], PyObject)
 def PySeqIter_New(space, w_seq):
     """Return an iterator that works with a general sequence object, seq.  The
@@ -124,3 +137,26 @@ def PySeqIter_New(space, w_seq):
     """
     return space.iter(w_seq)
 
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+def PySequence_SetItem(space, w_o, i, w_v):
+    """Assign object v to the ith element of o.  Returns -1 on failure.  This
+    is the equivalent of the Python statement o[i] = v.  This function does
+    not steal a reference to v.
+    
+    This function used an int type for i. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
+        raise operationerrfmt(space.w_TypeError, "'%s' object does not support item assignment",
+                             space.type(w_o).getname(space))
+    space.setitem(w_o, space.wrap(i), w_v)
+    return 0
+
+@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
+def PySequence_DelItem(space, w_o, i):
+    """Delete the ith element of object o.  Returns -1 on failure.  This is the
+    equivalent of the Python statement del o[i].
+    
+    This function used an int type for i. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    space.delitem(w_o, space.wrap(i))
+    return 0

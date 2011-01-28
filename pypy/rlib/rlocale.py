@@ -22,7 +22,7 @@ if HAVE_LIBINTL:
         HAVE_LIBINTL = False
 
 class CConfig:
-    includes = ['locale.h', 'limits.h']
+    includes = ['locale.h', 'limits.h', 'ctype.h']
 
     if HAVE_LANGINFO:
         includes += ['langinfo.h']
@@ -154,6 +154,17 @@ def external(name, args, result, calling_conv='c'):
                            compilation_info=CConfig._compilation_info_,
                            calling_conv=calling_conv,
                            sandboxsafe=True)
+
+_lconv = lltype.Ptr(cConfig.lconv)
+localeconv = external('localeconv', [], _lconv)
+
+def numeric_formatting():
+    """Specialized function to get formatting for numbers"""
+    conv = localeconv()
+    decimal_point = rffi.charp2str(conv.c_decimal_point)
+    thousands_sep = rffi.charp2str(conv.c_thousands_sep)
+    grouping = rffi.charp2str(conv.c_grouping)
+    return decimal_point, thousands_sep, grouping
 
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 

@@ -2,7 +2,7 @@ import _rawffi
 import weakref
 import sys
 
-SIMPLE_TYPE_CHARS = "cbBhHiIlLdfuzZqQPXOv"
+SIMPLE_TYPE_CHARS = "cbBhHiIlLdfguzZqQPXOv?"
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
      CArgObject
@@ -29,11 +29,13 @@ TP_TO_DEFAULT = {
         'Q': 0,
         'f': 0.0,
         'd': 0.0,
+        'g': 0.0,
         'P': None,
         # not part of struct
         'O': NULL,
         'z': None,
         'Z': None,
+        '?': False,
 }
 
 if sys.platform == 'win32':
@@ -132,21 +134,20 @@ class SimpleType(_CDataMeta):
                                              ConvMode.errors)
                     #self._objects = value
                     array = _rawffi.Array('c')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
         elif tp == 'Z':
             # c_wchar_p
-            from _ctypes import _wstring_at
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
-                    return _wstring_at(addr, -1)
+                    return _rawffi.wcharp2unicode(addr)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):
@@ -155,8 +156,8 @@ class SimpleType(_CDataMeta):
                                              ConvMode.errors)
                     #self._objects = value
                     array = _rawffi.Array('u')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -174,8 +175,8 @@ class SimpleType(_CDataMeta):
             def _setvalue(self, value):
                 if isinstance(value, str):
                     array = _rawffi.Array('c')(len(value)+1, value)
+                    self._objects = CArgObject(value, array)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -215,14 +216,13 @@ class SimpleType(_CDataMeta):
             SysAllocStringLen = windll.oleaut32.SysAllocStringLen
             SysStringLen = windll.oleaut32.SysStringLen
             SysFreeString = windll.oleaut32.SysFreeString
-            from _ctypes import _wstring_at
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
                     size = SysStringLen(addr)
-                    return _wstring_at(addr, size)
+                    return _rawffi.wcharp2rawunicode(addr, size)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):
@@ -271,7 +271,9 @@ class SimpleType(_CDataMeta):
 
     def _CData_output(self, resbuffer, base=None, index=-1):
         output = super(SimpleType, self)._CData_output(resbuffer, base, index)
-        return output.value
+        if self.__bases__[0] is _SimpleCData:
+            return output.value
+        return output
     
     def _sizeofinstances(self):
         return _rawffi.sizeof(self._type_)
@@ -287,14 +289,15 @@ class _SimpleCData(_CData):
     _type_ = 'i'
 
     def __init__(self, value=DEFAULT_VALUE):
-        self._buffer = self._ffiarray(1, autofree=True)
+        if not hasattr(self, '_buffer'):
+            self._buffer = self._ffiarray(1, autofree=True)
         if value is not DEFAULT_VALUE:
             self.value = value
 
     def _ensure_objects(self):
-        if self._type_ in 'zZ':
-            return self._objects
-        return None
+        if self._type_ not in 'zZP':
+            assert self._objects is None
+        return self._objects
 
     def _getvalue(self):
         return self._buffer[0]
@@ -312,7 +315,11 @@ class _SimpleCData(_CData):
         return self.value
 
     def __repr__(self):
-        return "%s(%r)" % (type(self).__name__, self.value)
+        if type(self).__bases__[0] is _SimpleCData:
+            return "%s(%r)" % (type(self).__name__, self.value)
+        else:
+            return "<%s object at 0x%x>" % (type(self).__name__,
+                                            id(self))
 
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')

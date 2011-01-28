@@ -4,7 +4,6 @@ from pypy.objspace.std.dictmultiobject import \
      StrDictImplementation
 
 from pypy.objspace.std.celldict import ModuleDictImplementation
-from pypy.objspace.std.sharingdict import SharedDictImplementation
 from pypy.conftest import gettestobjspace
 
 
@@ -17,6 +16,7 @@ class TestW_DictObject:
         space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
+        assert d.r_dict_content is None
 
     def test_nonempty(self):
         space = self.space
@@ -238,7 +238,17 @@ class AppTest_DictObject:
         it1 = d.popitem()
         assert len(d) == 0
         assert (it!=it1) and (it1==(1,2) or it1==(3,4))
-    
+        raises(KeyError, d.popitem)
+
+    def test_popitem_2(self):
+        class A(object):
+            pass
+        d = A().__dict__
+        d['x'] = 5
+        it1 = d.popitem()
+        assert it1 == ('x', 5)
+        raises(KeyError, d.popitem)
+
     def test_setdefault(self):
         d = {1:2, 3:4}
         dd = d.copy()
@@ -446,7 +456,9 @@ class AppTest_DictObject:
         d1 = {}
         d2 = D(a='foo')
         d1.update(d2)
-        assert d1['a'] == 42 # fails on CPython, d1['a'] == 'foo'
+        assert d1['a'] == 'foo'
+        # a bit of an obscure case: now (from r78295) we get the same result
+        # as CPython does
 
     def test_index_keyerror_unpacking(self):
         d = {}
@@ -489,11 +501,11 @@ class AppTest_DictObject:
         iterable = {}
         raises(TypeError, len, iter(iterable))
 
-
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
         raises(TypeError, "{}[['x']]")
+        raises(TypeError, "del {}[['x']]")
 
     def test_string_subclass_via_setattr(self):
         class A(object):
@@ -509,43 +521,156 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         assert type(key) is str
         assert getattr(a, s) == 42
 
+class AppTestDictViews:
+    def test_dictview(self):
+        d = {1: 2, 3: 4}
+        assert len(d.viewkeys()) == 2
+        assert len(d.viewitems()) == 2
+        assert len(d.viewvalues()) == 2
 
-class TestW_DictSharing(TestW_DictObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
+    def test_constructors_not_callable(self):
+        kt = type({}.viewkeys())
+        raises(TypeError, kt, {})
+        raises(TypeError, kt)
+        it = type({}.viewitems())
+        raises(TypeError, it, {})
+        raises(TypeError, it)
+        vt = type({}.viewvalues())
+        raises(TypeError, vt, {})
+        raises(TypeError, vt)
 
-class AppTest_DictSharing(AppTest_DictObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
+    def test_dict_keys(self):
+        d = {1: 10, "a": "ABC"}
+        keys = d.viewkeys()
+        assert len(keys) == 2
+        assert set(keys) == set([1, "a"])
+        assert keys == set([1, "a"])
+        assert keys != set([1, "a", "b"])
+        assert keys != set([1, "b"])
+        assert keys != set([1])
+        assert keys != 42
+        assert 1 in keys
+        assert "a" in keys
+        assert 10 not in keys
+        assert "Z" not in keys
+        assert d.viewkeys() == d.viewkeys()
+        e = {1: 11, "a": "def"}
+        assert d.viewkeys() == e.viewkeys()
+        del e["a"]
+        assert d.viewkeys() != e.viewkeys()
 
-    def test_values_does_not_share(self):
-        class A(object):
-            pass
-        a = A()
-        a.abc = 12
-        l = a.__dict__.values()
-        assert l == [12]
-        l[0] = 24
-        assert a.abc == 12
+    def test_dict_items(self):
+        d = {1: 10, "a": "ABC"}
+        items = d.viewitems()
+        assert len(items) == 2
+        assert set(items) == set([(1, 10), ("a", "ABC")])
+        assert items == set([(1, 10), ("a", "ABC")])
+        assert items != set([(1, 10), ("a", "ABC"), "junk"])
+        assert items != set([(1, 10), ("a", "def")])
+        assert items != set([(1, 10)])
+        assert items != 42
+        assert (1, 10) in items
+        assert ("a", "ABC") in items
+        assert (1, 11) not in items
+        assert 1 not in items
+        assert () not in items
+        assert (1,) not in items
+        assert (1, 2, 3) not in items
+        assert d.viewitems() == d.viewitems()
+        e = d.copy()
+        assert d.viewitems() == e.viewitems()
+        e["a"] = "def"
+        assert d.viewitems() != e.viewitems()
 
-    def test_items(self):
-        class A(object):
-            pass
-        a = A()
-        a.abc = 12
-        a.__dict__.items() == [("abc", 12)]
+    def test_dict_mixed_keys_items(self):
+        d = {(1, 1): 11, (2, 2): 22}
+        e = {1: 1, 2: 2}
+        assert d.viewkeys() == e.viewitems()
+        assert d.viewitems() != e.viewkeys()
+
+    def test_dict_values(self):
+        d = {1: 10, "a": "ABC"}
+        values = d.viewvalues()
+        assert set(values) == set([10, "ABC"])
+        assert len(values) == 2
+
+    def test_dict_repr(self):
+        d = {1: 10, "a": "ABC"}
+        assert isinstance(repr(d), str)
+        r = repr(d.viewitems())
+        assert isinstance(r, str)
+        assert (r == "dict_items([('a', 'ABC'), (1, 10)])" or
+                r == "dict_items([(1, 10), ('a', 'ABC')])")
+        r = repr(d.viewkeys())
+        assert isinstance(r, str)
+        assert (r == "dict_keys(['a', 1])" or
+                r == "dict_keys([1, 'a'])")
+        r = repr(d.viewvalues())
+        assert isinstance(r, str)
+        assert (r == "dict_values(['ABC', 10])" or
+                r == "dict_values([10, 'ABC'])")
+
+    def test_keys_set_operations(self):
+        d1 = {'a': 1, 'b': 2}
+        d2 = {'b': 3, 'c': 2}
+        d3 = {'d': 4, 'e': 5}
+        assert d1.viewkeys() & d1.viewkeys() == set('ab')
+        assert d1.viewkeys() & d2.viewkeys() == set('b')
+        assert d1.viewkeys() & d3.viewkeys() == set()
+        assert d1.viewkeys() & set(d1.viewkeys()) == set('ab')
+        assert d1.viewkeys() & set(d2.viewkeys()) == set('b')
+        assert d1.viewkeys() & set(d3.viewkeys()) == set()
+
+        assert d1.viewkeys() | d1.viewkeys() == set('ab')
+        assert d1.viewkeys() | d2.viewkeys() == set('abc')
+        assert d1.viewkeys() | d3.viewkeys() == set('abde')
+        assert d1.viewkeys() | set(d1.viewkeys()) == set('ab')
+        assert d1.viewkeys() | set(d2.viewkeys()) == set('abc')
+        assert d1.viewkeys() | set(d3.viewkeys()) == set('abde')
+
+        assert d1.viewkeys() ^ d1.viewkeys() == set()
+        assert d1.viewkeys() ^ d2.viewkeys() == set('ac')
+        assert d1.viewkeys() ^ d3.viewkeys() == set('abde')
+        assert d1.viewkeys() ^ set(d1.viewkeys()) == set()
+        assert d1.viewkeys() ^ set(d2.viewkeys()) == set('ac')
+        assert d1.viewkeys() ^ set(d3.viewkeys()) == set('abde')
+
+    def test_items_set_operations(self):
+        d1 = {'a': 1, 'b': 2}
+        d2 = {'a': 2, 'b': 2}
+        d3 = {'d': 4, 'e': 5}
+        assert d1.viewitems() & d1.viewitems() == set([('a', 1), ('b', 2)])
+        assert d1.viewitems() & d2.viewitems() == set([('b', 2)])
+        assert d1.viewitems() & d3.viewitems() == set()
+        assert d1.viewitems() & set(d1.viewitems()) == set([('a', 1), ('b', 2)])
+        assert d1.viewitems() & set(d2.viewitems()) == set([('b', 2)])
+        assert d1.viewitems() & set(d3.viewitems()) == set()
+
+        assert d1.viewitems() | d1.viewitems() == set([('a', 1), ('b', 2)])
+        assert (d1.viewitems() | d2.viewitems() ==
+                set([('a', 1), ('a', 2), ('b', 2)]))
+        assert (d1.viewitems() | d3.viewitems() ==
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
+        assert (d1.viewitems() | set(d1.viewitems()) ==
+                set([('a', 1), ('b', 2)]))
+        assert (d1.viewitems() | set(d2.viewitems()) ==
+                set([('a', 1), ('a', 2), ('b', 2)]))
+        assert (d1.viewitems() | set(d3.viewitems()) ==
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
+
+        assert d1.viewitems() ^ d1.viewitems() == set()
+        assert d1.viewitems() ^ d2.viewitems() == set([('a', 1), ('a', 2)])
+        assert (d1.viewitems() ^ d3.viewitems() ==
+                set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
 
 class AppTestModuleDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
-        cls.w_impl_used = cls.space.appexec([], """():
-            import __pypy__
-            def impl_used(obj):
-                assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
-            return impl_used
-        """)
 
+    def w_impl_used(self, obj):
+        import __pypy__
+        assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
         m = type(__builtins__)("abc")
@@ -629,10 +754,9 @@ class Config:
     class objspace:
         class std:
             withdictmeasurement = False
-            withsharingdict = False
             withsmalldicts = False
             withcelldict = False
-            withshadowtracking = False
+            withmethodcache = False
         class opcodes:
             CALL_LIKELY_BUILTIN = False
 
@@ -767,9 +891,6 @@ class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
     string = "int"
     string2 = "isinstance"
 
-class TestSharedDictImplementation(BaseTestRDictImplementation):
-    ImplementionClass = SharedDictImplementation
-
 
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def fill_impl(self):
@@ -791,8 +912,6 @@ class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictI
     string = "int"
     string2 = "isinstance"
 
-class TestDevolvedSharedDictImplementation(BaseTestDevolvedDictImplementation):
-    ImplementionClass = SharedDictImplementation
 
 def test_module_uses_strdict():
     fakespace = FakeSpace()

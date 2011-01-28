@@ -36,7 +36,7 @@ class RegAllocator(object):
                             if isinstance(v1, Variable):
                                 die_at[v1] = i
                 if op.result is not None:
-                    die_at[op.result] = i
+                    die_at[op.result] = i + 1
             if isinstance(block.exitswitch, tuple):
                 for x in block.exitswitch:
                     die_at.pop(x, None)

@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.interpreter.astcompiler import consts
 from pypy.rlib import jit
 from pypy.tool.uid import uid
 
@@ -30,12 +31,20 @@ class Cell(Wrappable):
             raise ValueError, "delete() on an empty cell"
         self.w_value = None
   
-    def descr__eq__(self, space, w_other):
+    def descr__cmp__(self, space, w_other):
         other = space.interpclass_w(w_other)
         if not isinstance(other, Cell):
-            return space.w_False
-        return space.eq(self.w_value, other.w_value)    
-        
+            return space.w_NotImplemented
+
+        if self.w_value is None:
+            if other.w_value is None:
+                return space.newint(0)
+            return space.newint(-1)
+        elif other.w_value is None:
+            return space.newint(1)
+
+        return space.cmp(self.w_value, other.w_value)
+
     def descr__reduce__(self, space):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
@@ -122,7 +131,9 @@ class __extend__(pyframe.PyFrame):
         super_fast2locals(self)
         # cellvars are values exported to inner scopes
         # freevars are values coming from outer scopes 
-        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        freevarnames = list(self.pycode.co_cellvars)
+        if self.pycode.co_flags & consts.CO_OPTIMIZED:
+            freevarnames.extend(self.pycode.co_freevars)
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]

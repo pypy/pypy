@@ -132,91 +132,6 @@ class WarmspotTests(object):
         assert state.optimize_loop is optimize.optimize_loop
         assert state.optimize_bridge is optimize.optimize_bridge
 
-    def test_static_debug_level(self, capfd):
-        py.test.skip("debug_level is being deprecated")
-        from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
-        from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
-        
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
-        def f(n):
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n)
-                myjitdriver.jit_merge_point(n=n)
-                n -= 1
-            return n
-
-        capfd.readouterr()
-        self.meta_interp(f, [10], debug_level=DEBUG_OFF,
-                                  ProfilerClass=Profiler)
-        out, err = capfd.readouterr()
-        assert not 'ENTER' in err
-        assert not 'LEAVE' in err
-        assert not "Running asm" in err
-        self.meta_interp(f, [10], debug_level=DEBUG_PROFILE,
-                                  ProfilerClass=Profiler)
-        out, err = capfd.readouterr()
-        assert not 'ENTER' in err
-        assert not 'LEAVE' in err
-        assert not 'compiled new' in err
-        assert "Running asm" in err
-
-        self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
-                                  ProfilerClass=Profiler)
-        out, err = capfd.readouterr()
-        assert 'ENTER' in err
-        assert 'LEAVE' in err
-        assert "Running asm" in err
-
-        self.meta_interp(f, [10], debug_level=DEBUG_STEPS,
-                                  ProfilerClass=EmptyProfiler)
-        out, err = capfd.readouterr()
-        assert 'ENTER' in err
-        assert 'LEAVE' in err
-        assert not "Running asm" in err
-
-    def test_set_param_debug(self):
-        py.test.skip("debug_level is being deprecated")
-        from pypy.rlib.jit import DEBUG_PROFILE, DEBUG_OFF, DEBUG_STEPS
-        from pypy.jit.metainterp.jitprof import EmptyProfiler, Profiler
-        
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
-        def f(n):
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n)
-                myjitdriver.jit_merge_point(n=n)
-                n -= 1
-            return n
-
-        def main(n, debug):
-            myjitdriver.set_param("debug", debug)
-            print f(n)
-
-        outerr = py.io.StdCaptureFD()
-        self.meta_interp(main, [10, DEBUG_OFF], debug_level=DEBUG_STEPS,
-                                                ProfilerClass=Profiler)
-        out, errf = outerr.done()
-        err = errf.read()
-        assert not 'ENTER' in err
-        assert not 'LEAVE' in err
-        assert not "Running asm" in err
-        outerr = py.io.StdCaptureFD()
-        self.meta_interp(main, [10, DEBUG_PROFILE], debug_level=DEBUG_STEPS,
-                                                    ProfilerClass=Profiler)
-        out, errf = outerr.done()
-        err = errf.read()
-        assert not 'ENTER' in err
-        assert not 'LEAVE' in err
-        assert not 'compiled new' in err
-        assert "Running asm" in err
-        outerr = py.io.StdCaptureFD()
-        self.meta_interp(main, [10, DEBUG_STEPS], debug_level=DEBUG_OFF,
-                                                  ProfilerClass=Profiler)
-        out, errf = outerr.done()
-        err = errf.read()
-        assert 'ENTER' in err
-        assert 'LEAVE' in err
-        assert "Running asm" in err
-
     def test_unwanted_loops(self):
         mydriver = JitDriver(reds = ['n', 'total', 'm'], greens = [])
 
@@ -296,6 +211,69 @@ class WarmspotTests(object):
         assert res == 1
         self.check_loops(int_add=1)   # I get 13 without the loop_header()
 
+    def test_omit_can_enter_jit(self):
+        # Simple test comparing the effects of always giving a can_enter_jit(),
+        # or not giving any.  Mostly equivalent, except that if given, it is
+        # ignored the first time, and so it ends up taking one extra loop to
+        # start JITting.
+        mydriver = JitDriver(greens=[], reds=['m'])
+        #
+        for i2 in range(10):
+            def f2(m):
+                while m > 0:
+                    mydriver.jit_merge_point(m=m)
+                    m -= 1
+            self.meta_interp(f2, [i2])
+            try:
+                self.check_tree_loop_count(1)
+                break
+            except AssertionError:
+                print "f2: no loop generated for i2==%d" % i2
+        else:
+            raise     # re-raise the AssertionError: check_loop_count never 1
+        #
+        for i1 in range(10):
+            def f1(m):
+                while m > 0:
+                    mydriver.can_enter_jit(m=m)
+                    mydriver.jit_merge_point(m=m)
+                    m -= 1
+            self.meta_interp(f1, [i1])
+            try:
+                self.check_tree_loop_count(1)
+                break
+            except AssertionError:
+                print "f1: no loop generated for i1==%d" % i1
+        else:
+            raise     # re-raise the AssertionError: check_loop_count never 1
+        #
+        assert i1 - 1 == i2
+
+    def test_no_loop_at_all(self):
+        mydriver = JitDriver(greens=[], reds=['m'])
+        def f2(m):
+            mydriver.jit_merge_point(m=m)
+            return m - 1
+        def f1(m):
+            while m > 0:
+                m = f2(m)
+        self.meta_interp(f1, [8])
+        # it should generate one "loop" only, which ends in a FINISH
+        # corresponding to the return from f2.
+        self.check_tree_loop_count(1)
+        self.check_loop_count(0)
+
+    def test_simple_loop(self):
+        mydriver = JitDriver(greens=[], reds=['m'])
+        def f1(m):
+            while m > 0:
+                mydriver.jit_merge_point(m=m)
+                m = m - 1
+        self.meta_interp(f1, [8])
+        self.check_loop_count(1)
+        self.check_loops({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
+                          'jump': 1})
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
@@ -315,23 +293,30 @@ class TestWarmspotDirect(object):
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable
 
-        class FakeFailDescr(object):
+        class FakeLoopToken:
             def __init__(self, no):
                 self.no = no
+                self.generation = 0
+
+        class FakeFailDescr(object):
+            def __init__(self, looptoken):
+                assert isinstance(looptoken, FakeLoopToken)
+                self.looptoken = looptoken
             
             def handle_fail(self, metainterp_sd, jitdrivers_sd):
-                if self.no == 0:
+                no = self.looptoken.no
+                if no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
-                if self.no == 1:
+                if no == 1:
                     raise metainterp_sd.warmrunnerdesc.ContinueRunningNormally(
                         [0], [], [], [1], [], [])
-                if self.no == 3:
+                if no == 3:
                     exc = lltype.malloc(OBJECT)
                     exc.typeptr = exc_vtable
                     raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
                         metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
-                return self.no
+                return self.looptoken
 
         class FakeDescr:
             def as_vtable_size_descr(self):
@@ -356,11 +341,11 @@ class TestWarmspotDirect(object):
             sizeof       = nodescr
 
             def get_fail_descr_from_number(self, no):
-                return FakeFailDescr(no)
+                return FakeFailDescr(FakeLoopToken(no))
 
             def execute_token(self, token):
-                assert token == 2
-                return FakeFailDescr(1)
+                assert token.no == 2
+                return FakeFailDescr(FakeLoopToken(1))
 
         driver = JitDriver(reds = ['red'], greens = ['green'])
         

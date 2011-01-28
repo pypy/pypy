@@ -48,6 +48,7 @@ unicode_count      = SMM('count', 4, defaults=(0, maxint),
                              ' arguments start and end are\ninterpreted as in'
                              ' slice notation.')
 unicode_encode     = SMM('encode', 3, defaults=(None, None),
+                         argnames=['encoding', 'errors'],
                          doc='S.encode([encoding[,errors]]) -> string or'
                              ' unicode\n\nEncodes S using the codec registered'
                              ' for encoding. encoding defaults\nto the default'
@@ -64,6 +65,8 @@ unicode_expandtabs = SMM('expandtabs', 2, defaults=(8,),
                              ' copy of S where all tab characters are expanded'
                              ' using spaces.\nIf tabsize is not given, a tab'
                              ' size of 8 characters is assumed.')
+unicode_format     = SMM('format', 1, general__args__=True,
+                         doc='S.format() -> new style formating')
 unicode_isalnum    = SMM('isalnum', 1,
                          doc='S.isalnum() -> bool\n\nReturn True if all'
                              ' characters in S are alphanumeric\nand there is'
@@ -238,7 +241,7 @@ def encode_object(space, w_object, encoding, errors):
     if not space.is_true(space.isinstance(w_retval, space.w_str)):
         raise operationerrfmt(space.w_TypeError,
             "encoder did not return an string object (type '%s')",
-            space.type(w_retval).getname(space, '?'))
+            space.type(w_retval).getname(space))
     return w_retval
 
 def decode_object(space, w_obj, encoding, errors):
@@ -271,7 +274,7 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     if not space.is_true(space.isinstance(w_retval, space.w_unicode)):
         raise operationerrfmt(space.w_TypeError,
             "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space, '?'))
+            space.type(w_retval).getname(space))
     return w_retval
 
 def unicode_from_object(space, w_obj):

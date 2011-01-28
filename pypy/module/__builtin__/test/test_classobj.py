@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
@@ -767,6 +768,25 @@ class AppTestOldstyle(object):
         finally:
             warnings.simplefilter('default', RuntimeWarning)
 
+    def test_context_manager(self):
+        class Context:
+            def __enter__(self):
+                self.got_enter = True
+                return 23
+            def __exit__(self, exc, value, tp):
+                self.got_exit = True
+        c = Context()
+        with c as a:
+            assert c.got_enter
+            assert a == 23
+        assert c.got_exit
+
+    def test_reverse(self):
+        class X:
+            def __reversed__(self):
+                return [1, 2]
+        assert reversed(X()) == [1, 2]
+
     def test_special_method_via_getattr(self):
         class A:
             def __getattr__(self, attr):
@@ -879,9 +899,17 @@ class AppTestOldstyle(object):
                       "long": long}
         for opname, opfunc in op_by_name.items():
             assert opfunc(b) == 42
-            assert b.called == ("__" + opname + "__", ())
+            called = b.called
+            assert called == ("__" + opname + "__", ())
         assert oct(a) == '__oct__()'
         assert hex(a) == '__hex__()'
+        #
+        class JustTrunc:
+            def __trunc__(self):
+                return 42
+        assert int(JustTrunc()) == 42
+        assert long(JustTrunc()) == 42
+        #
         #
         class C:
             def __getattr__(self, name):
@@ -954,28 +982,7 @@ class AppTestOldstyle(object):
         raises(TypeError, descr.__delete__, a)
 
 
-class AppTestOldStyleSharing(AppTestOldstyle):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
-        if option.runappdirect:
-            py.test.skip("can only be run on py.py")
-        def is_sharing(space, w_inst):
-            from pypy.objspace.std.sharingdict import SharedDictImplementation
-            w_d = w_inst.getdict()
-            return space.wrap(isinstance(w_d, SharedDictImplementation) and w_d.r_dict_content is None)
-        cls.w_is_sharing = cls.space.wrap(gateway.interp2app(is_sharing))
-
-
-    def test_real_sharing(self):
-        class A:
-            def __init__(self):
-                self.x = 42
-        A1, A2, A3 = A(), A(), A()
-        assert self.is_sharing(A3)
-        assert self.is_sharing(A2)
-        assert self.is_sharing(A1)
-
-class AppTestOldStyleModDict(object):
+class AppTestOldStyleClassStrDict(object):
     def setup_class(cls):
         if option.runappdirect:
             py.test.skip("can only be run on py.py")

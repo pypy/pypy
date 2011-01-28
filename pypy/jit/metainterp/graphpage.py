@@ -31,8 +31,10 @@ class ResOpGraphPage(GraphPage):
     def compute(self, graphs, errmsg=None):
         resopgen = ResOpGen()
         for graph, highlight in graphs:
-            if hasattr(graph, 'token'):
+            if getattr(graph, 'token', None) is not None:
                 resopgen.jumps_to_graphs[graph.token] = graph
+            if getattr(graph, '_looptoken_number', None) is not None:
+                resopgen.jumps_to_graphs[graph._looptoken_number] = graph
         
         for graph, highlight in graphs:
             resopgen.add_graph(graph, highlight)
@@ -153,7 +155,7 @@ class ResOpGen(object):
         opindex = opstartindex
         while True:
             op = operations[opindex]
-            lines.append(repr(op))
+            lines.append(op.repr(graytext=True))
             if is_interesting_guard(op):
                 tgt = op.getdescr()._debug_suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
@@ -168,14 +170,21 @@ class ResOpGen(object):
                              (graphindex, opindex))
                 break
         if op.getopnum() == rop.JUMP:
-            tgt = op.getdescr()
             tgt_g = -1
-            if tgt is None:
-                tgt_g = graphindex
+            tgt = None
+            tgt_number = getattr(op, '_jumptarget_number', None)
+            if tgt_number is not None:
+                tgt = self.jumps_to_graphs.get(tgt_number)
             else:
-                tgt = self.jumps_to_graphs.get(tgt)
-                if tgt is not None:
-                    tgt_g = self.graphs.index(tgt)
+                tgt_descr = op.getdescr()
+                if tgt_descr is None:
+                    tgt_g = graphindex
+                else:
+                    tgt = self.jumps_to_graphs.get(tgt_descr.number)
+                    if tgt is None:
+                        tgt = self.jumps_to_graphs.get(tgt_descr)
+            if tgt is not None:
+                tgt_g = self.graphs.index(tgt)
             if tgt_g != -1:
                 self.genedge((graphindex, opstartindex),
                              (tgt_g, 0),

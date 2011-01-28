@@ -1,6 +1,7 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, isinf, isnan
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.objectmodel import we_are_translated
 
 import math, sys
 
@@ -109,7 +110,7 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         neg = 0
-        if isinf(dval):
+        if isinf(dval) or isnan(dval):
             raise OverflowError
         if dval < 0.0:
             neg = 1
@@ -294,7 +295,6 @@ class rbigint(object):
         else:
             result = _x_sub(other, self)
         result.sign *= other.sign
-        result._normalize()
         return result
 
     def sub(self, other):
@@ -554,10 +554,28 @@ class rbigint(object):
         while i > 1 and self.digits[i - 1] == 0:
             i -= 1
         assert i >= 1
-        self.digits = self.digits[:i]
+        if i != self._numdigits():
+            self.digits = self.digits[:i]
         if self._numdigits() == 1 and self.digits[0] == 0:
             self.sign = 0
 
+    def bit_length(self):
+        i = self._numdigits()
+        if i == 1 and self.digits[0] == 0:
+            return 0
+        msd = self.digits[i - 1]
+        msd_bits = 0
+        while msd >= 32:
+            msd_bits += 6
+            msd >>= 6
+        msd_bits += [
+            0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
+            ][msd]
+        # yes, this can overflow: a huge number which fits 3 gigabytes of
+        # memory has around 24 gigabits!
+        bits = ovfcheck((i-1) * SHIFT + msd_bits)
+        return bits
 
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, %s>" % (self.digits, self.sign, self.str())
@@ -1259,9 +1277,6 @@ def _AsScaledDouble(v):
     assert x > 0.0
     return x * sign, exponent
 
-def isinf(x):
-    return x != 0.0 and x / 2 == x
-
 ##def ldexp(x, exp):
 ##    assert type(x) is float
 ##    lb1 = LONG_BIT - 1
@@ -1278,15 +1293,54 @@ def isinf(x):
 # XXX make sure that we don't ignore this!
 # YYY no, we decided to do ignore this!
 
-def _AsDouble(v):
+def _AsDouble(n):
     """ Get a C double from a bigint object. """
-    x, e = _AsScaledDouble(v)
-    if e <= sys.maxint / SHIFT:
-        x = math.ldexp(x, e * SHIFT)
-        #if not isinf(x):
-        # this is checked by math.ldexp
-        return x
-    raise OverflowError # can't say "long int too large to convert to float"
+    # This is a "correctly-rounded" version from Python 2.7.
+    #
+    from pypy.rlib import rfloat
+    DBL_MANT_DIG = rfloat.DBL_MANT_DIG  # 53 for IEEE 754 binary64
+    DBL_MAX_EXP = rfloat.DBL_MAX_EXP    # 1024 for IEEE 754 binary64
+    assert DBL_MANT_DIG < r_ulonglong.BITS
+
+    # Reduce to case n positive.
+    sign = n.sign
+    if sign == 0:
+        return 0.0
+    elif sign < 0:
+        n = n.neg()
+
+    # Find exponent: 2**(exp - 1) <= n < 2**exp
+    exp = n.bit_length()
+
+    # Get top DBL_MANT_DIG + 2 significant bits of n, with a 'sticky'
+    # last bit: that is, the least significant bit of the result is 1
+    # iff any of the shifted-out bits is set.
+    shift = DBL_MANT_DIG + 2 - exp
+    if shift >= 0:
+        q = _AsULonglong_mask(n) << shift
+        if not we_are_translated():
+            assert q == n.tolong() << shift   # no masking actually done
+    else:
+        shift = -shift
+        n2 = n.rshift(shift)
+        q = _AsULonglong_mask(n2)
+        if not we_are_translated():
+            assert q == n2.tolong()           # no masking actually done
+        if not n.eq(n2.lshift(shift)):
+            q |= 1
+
+    # Now remove the excess 2 bits, rounding to nearest integer (with
+    # ties rounded to even).
+    q = (q >> 2) + (bool(q & 2) and bool(q & 5))
+
+    if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
+                             q == r_ulonglong(1) << DBL_MANT_DIG):
+        raise OverflowError("integer too large to convert to float")
+
+    ad = math.ldexp(float(q), exp - DBL_MANT_DIG)
+    if sign < 0:
+        ad = -ad
+    return ad
 
 def _loghelper(func, arg):
     """
@@ -1579,15 +1633,23 @@ _AsUInt_mask = make_unsigned_mask_conversion(r_uint)
 def _hash(v):
     # This is designed so that Python ints and longs with the
     # same value hash to the same value, otherwise comparisons
-    # of mapping keys will turn out weird
+    # of mapping keys will turn out weird.  Moreover, purely
+    # to please decimal.py, we return a hash that satisfies
+    # hash(x) == hash(x % ULONG_MAX).  In particular, this
+    # implies that hash(x) == hash(x % (2**64-1)).
     i = v._numdigits() - 1
     sign = v.sign
-    x = 0
+    x = r_uint(0)
     LONG_BIT_SHIFT = LONG_BIT - SHIFT
     while i >= 0:
         # Force a native long #-bits (32 or 64) circular shift
-        x = ((x << SHIFT) & ~MASK) | ((x >> LONG_BIT_SHIFT) & MASK)
-        x += v.digits[i]
+        x = (x << SHIFT) | (x >> LONG_BIT_SHIFT)
+        x += r_uint(v.digits[i])
+        # If the addition above overflowed we compensate by
+        # incrementing.  This preserves the value modulo
+        # ULONG_MAX.
+        if x < r_uint(v.digits[i]):
+            x += 1
         i -= 1
     x = intmask(x * sign)
     return x
@@ -1596,11 +1658,16 @@ def _hash(v):
 
 # a few internal helpers
 
-DEC_PER_DIGIT = 1
-while int('9' * DEC_PER_DIGIT) < MASK:
-    DEC_PER_DIGIT += 1
-DEC_PER_DIGIT -= 1
-DEC_MAX = 10 ** DEC_PER_DIGIT
+def digits_max_for_base(base):
+    dec_per_digit = 1
+    while base ** dec_per_digit < MASK:
+        dec_per_digit += 1
+    dec_per_digit -= 1
+    return base ** dec_per_digit
+
+BASE_MAX = [0, 0] + [digits_max_for_base(_base) for _base in range(2, 37)]
+DEC_MAX = digits_max_for_base(10)
+assert DEC_MAX == BASE_MAX[10]
 
 def _decimalstr_to_bigint(s):
     # a string that has been already parsed to be decimal and valid,
@@ -1615,7 +1682,6 @@ def _decimalstr_to_bigint(s):
         p += 1
 
     a = rbigint.fromint(0)
-    cnt = DEC_PER_DIGIT
     tens = 1
     dig = 0
     ord0 = ord('0')
@@ -1627,8 +1693,26 @@ def _decimalstr_to_bigint(s):
             a = _muladd1(a, tens, dig)
             tens = 1
             dig = 0
-    if sign:
+    if sign and a.sign == 1:
         a.sign = -1
     return a
 
-
+def parse_digit_string(parser):
+    # helper for objspace.std.strutil
+    a = rbigint.fromint(0)
+    base = parser.base
+    digitmax = BASE_MAX[base]
+    tens, dig = 1, 0
+    while True:
+        digit = parser.next_digit()
+        if tens == digitmax or digit < 0:
+            a = _muladd1(a, tens, dig)
+            if digit < 0:
+                break
+            dig = digit
+            tens = base
+        else:
+            dig = dig * base + digit
+            tens *= base
+    a.sign *= parser.sign
+    return a

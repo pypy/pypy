@@ -67,7 +67,7 @@ elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
                       'DUPLICATE_SAME_ACCESS', 'MEM_COMMIT', 'MEM_RESERVE',
-                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE']
+                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
 
@@ -100,8 +100,11 @@ def external(name, args, result):
                            sandboxsafe=True, threadsafe=False)
     return unsafe, safe
 
-def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_, calling_conv='win')
+def winexternal(name, args, result, **kwargs):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv='win',
+                           **kwargs)
 
 PTR = rffi.CCHARP
 
@@ -123,6 +126,7 @@ if _POSIX:
 
     # this one is always safe
     _, _get_page_size = external('getpagesize', [], rffi.INT)
+    _get_allocation_granularity = _get_page_size
 
     def _get_error_no():
         return rposix.get_errno()
@@ -193,13 +197,21 @@ elif _MS_WINDOWS:
     VirtualAlloc = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
-    VirtualProtect = winexternal('VirtualProtect',
-                                 [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
-                                 BOOL)
+    # VirtualProtect is used in llarena and should not release the GIL
+    _VirtualProtect = winexternal('VirtualProtect',
+                                  [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
+                                  BOOL,
+                                  _nowrapper=True)
+    def VirtualProtect(addr, size, mode, oldmode_ptr):
+        return _VirtualProtect(addr,
+                               rffi.cast(rffi.SIZE_T, size),
+                               rffi.cast(DWORD, mode),
+                               oldmode_ptr)
+    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
-    
+
     def _get_page_size():
         try:
             si = rffi.make(SYSTEM_INFO)
@@ -207,7 +219,15 @@ elif _MS_WINDOWS:
             return int(si.c_dwPageSize)
         finally:
             lltype.free(si, flavor="raw")
-    
+
+    def _get_allocation_granularity():
+        try:
+            si = rffi.make(SYSTEM_INFO)
+            GetSystemInfo(si)
+            return int(si.c_dwAllocationGranularity)
+        finally:
+            lltype.free(si, flavor="raw")
+
     def _get_file_size(handle):
         # XXX use native Windows types like WORD
         high_ref = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
@@ -236,6 +256,7 @@ elif _MS_WINDOWS:
     INVALID_HANDLE = INVALID_HANDLE_VALUE
 
 PAGESIZE = _get_page_size()
+ALLOCATIONGRANULARITY = _get_allocation_granularity()
 NULL = lltype.nullptr(PTR.TO)
 NODATA = lltype.nullptr(PTR.TO)
 
@@ -425,8 +446,11 @@ class MMap(object):
         
         if len(byte) != 1:
             raise RTypeError("write_byte() argument must be char")
-        
+
         self.check_writeable()
+        if self.pos >= self.size:
+            raise RValueError("write byte out of range")
+
         self.data[self.pos] = byte[0]
         self.pos += 1
 
@@ -594,6 +618,9 @@ if _POSIX:
             pass
         else:
             raise RValueError("mmap invalid access parameter.")
+
+        if prot == PROT_READ:
+            access = ACCESS_READ
 
         # check file size
         try:

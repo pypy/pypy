@@ -38,8 +38,9 @@ def _main_with_alarm(finished):
     sys.path.insert(0, os.path.dirname(sys.argv[0]))
     return sys.argv[0]
 
-finished = []
-try:
-    execfile(_main_with_alarm(finished))
-finally:
-    finished.append(True)
+if __name__ == '__main__':
+    finished = []
+    try:
+        execfile(_main_with_alarm(finished))
+    finally:
+        finished.append(True)

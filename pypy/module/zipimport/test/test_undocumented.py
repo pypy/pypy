@@ -17,62 +17,58 @@ created_paths = dict.fromkeys(['_top_level',
                      os.path.join('_pkg', '_subpkg', 'submodule')
                                ])
 
-def temp_zipfile(created_paths, source=True, bytecode=True):
-    """Create a temporary zip file for testing.
-
-    Clears zipimport._zip_directory_cache.
-
-    """
-    import zipimport, os, shutil, zipfile, py_compile
-    example_code = 'attr = None'
-    TESTFN = '@test'
-    zipimport._zip_directory_cache.clear()
-    zip_path = TESTFN + '.zip'
-    bytecode_suffix = 'c'# if __debug__ else 'o'
-    zip_file = zipfile.ZipFile(zip_path, 'w')
-    for path in created_paths:
-        if os.sep in path:
-            directory = os.path.split(path)[0]
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-        code_path = path + '.py'
-        try:
-            temp_file = open(code_path, 'w')
-            temp_file.write(example_code)
-        finally:
-            temp_file.close()
-        if source:
-            zip_file.write(code_path)
-        if bytecode:
-            py_compile.compile(code_path, doraise=True)
-            zip_file.write(code_path + bytecode_suffix)
-    zip_file.close()
-    return os.path.abspath(zip_path)
-
-def cleanup_zipfile(created_paths):
-    import os, shutil
-    bytecode_suffix = 'c'# if __debug__ else 'o'
-    zip_path = '@test.zip'
-    for path in created_paths:
-        if os.sep in path:
-            directory = os.path.split(path)[0]
-            if os.path.exists(directory):
-                shutil.rmtree(directory)
-        else:
-            for suffix in ('.py', '.py' + bytecode_suffix):
-                if os.path.exists(path + suffix):
-                    os.unlink(path + suffix)
-    os.unlink(zip_path)
-
 class AppTestZipImport:
     def setup_class(cls):
         space = gettestobjspace(usemodules=['zipimport', 'rctime'])
         cls.space = space
-        source = "():\n" + str(py.code.Source(temp_zipfile).indent()) + "\n    return temp_zipfile"
-        cls.w_temp_zipfile = space.appexec([], source)
-        source = "():\n" + str(py.code.Source(cleanup_zipfile).indent())+ "\n    return cleanup_zipfile"
-        cls.w_cleanup_zipfile = space.appexec([], source)
         cls.w_created_paths = space.wrap(created_paths)
+    
+    def w_temp_zipfile(self, created_paths, source=True, bytecode=True):
+        """Create a temporary zip file for testing.
+
+        Clears zipimport._zip_directory_cache.
+
+        """
+        import zipimport, os, shutil, zipfile, py_compile
+        example_code = 'attr = None'
+        TESTFN = '@test'
+        zipimport._zip_directory_cache.clear()
+        zip_path = TESTFN + '.zip'
+        bytecode_suffix = 'c'# if __debug__ else 'o'
+        zip_file = zipfile.ZipFile(zip_path, 'w')
+        for path in created_paths:
+            if os.sep in path:
+                directory = os.path.split(path)[0]
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+            code_path = path + '.py'
+            try:
+                temp_file = open(code_path, 'w')
+                temp_file.write(example_code)
+            finally:
+                temp_file.close()
+            if source:
+                zip_file.write(code_path)
+            if bytecode:
+                py_compile.compile(code_path, doraise=True)
+                zip_file.write(code_path + bytecode_suffix)
+        zip_file.close()
+        return os.path.abspath(zip_path)
+
+    def w_cleanup_zipfile(self, created_paths):
+        import os, shutil
+        bytecode_suffix = 'c'# if __debug__ else 'o'
+        zip_path = '@test.zip'
+        for path in created_paths:
+            if os.sep in path:
+                directory = os.path.split(path)[0]
+                if os.path.exists(directory):
+                    shutil.rmtree(directory)
+            else:
+                for suffix in ('.py', '.py' + bytecode_suffix):
+                    if os.path.exists(path + suffix):
+                        os.unlink(path + suffix)
+        os.unlink(zip_path)
 
     def test_inheritance(self):
         # Should inherit from ImportError.

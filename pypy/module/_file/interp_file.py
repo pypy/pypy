@@ -31,6 +31,8 @@ class W_File(W_AbstractStream):
     encoding = None  # This is not used internally by file objects
     fd       = -1
 
+    newlines = 0     # Updated when the stream is closed
+
     def __init__(self, space):
         self.space = space
 
@@ -113,6 +115,7 @@ class W_File(W_AbstractStream):
         space = self.space
         stream = self.stream
         if stream is not None:
+            self.newlines = self.stream.getnewlines()
             self.stream = None
             self.fd = -1
             openstreams = getopenstreams(self.space)
@@ -210,12 +213,14 @@ class W_File(W_AbstractStream):
         stream.truncate(size)
 
     def direct_write(self, data):
+        self.softspace = 0
         self.getstream().write(data)
 
     def direct_writelines(self, w_lines):    # note: a wrapped list!
         stream = self.getstream()
         space = self.space
         w_iterator = space.iter(w_lines)
+        self.softspace = 0
         while True:
             try:
                 w_line = space.next(w_iterator)
@@ -439,7 +444,10 @@ def descr_file_closed(space, file):
     return space.wrap(file.stream is None)
 
 def descr_file_newlines(space, file):
-    newlines = file.getstream().getnewlines()
+    if file.stream:
+        newlines = file.stream.getnewlines()
+    else:
+        newlines = file.newlines
     if newlines == 0:
         return space.w_None
     elif newlines == 1:

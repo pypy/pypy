@@ -1,11 +1,13 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
 import os
+import signal as cpy_signal
 
 class Module(MixedModule):
     interpleveldefs = {
         'signal':              'interp_signal.signal',
         'getsignal':           'interp_signal.getsignal',
+        'set_wakeup_fd':       'interp_signal.set_wakeup_fd',
         'NSIG':                'space.wrap(interp_signal.NSIG)',
         'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
@@ -14,6 +16,13 @@ class Module(MixedModule):
     if os.name == 'posix':
         interpleveldefs['alarm'] = 'interp_signal.alarm'
         interpleveldefs['pause'] = 'interp_signal.pause'
+        interpleveldefs['siginterrupt'] = 'interp_signal.siginterrupt'
+
+    if hasattr(cpy_signal, 'setitimer'):
+        interpleveldefs['setitimer'] = 'interp_signal.setitimer'
+        interpleveldefs['getitimer'] = 'interp_signal.getitimer'
+        for name in ['ITIMER_REAL', 'ITIMER_VIRTUAL', 'ITIMER_PROF']:
+            interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
 
     appleveldefs = {
         'default_int_handler': 'app_signal.default_int_handler',
@@ -34,9 +43,7 @@ class Module(MixedModule):
         MixedModule.__init__(self, space, *args)
         # add the signal-checking callback as an action on the space
         space.check_signal_action = interp_signal.CheckSignalAction(space)
-        space.actionflag.register_action(space.check_signal_action)
-        # use the C-level pypysig_occurred variable as the action flag
-        # (the result is that the C-level signal handler will directly
-        # set the flag for the CheckSignalAction)
+        space.actionflag.register_periodic_action(space.check_signal_action,
+                                                  use_bytecode_counter=False)
         space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack

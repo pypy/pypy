@@ -98,11 +98,15 @@ class LLTransformerOpEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
 
-def ll_call_destructor(destrptr, destr_v):
+def ll_call_destructor(destrptr, destr_v, typename):
     try:
         destrptr(destr_v)
-    except:
+    except Exception, e:
         try:
-            os.write(2, "a destructor raised an exception, ignoring it\n")
+            os.write(2, "a destructor of type ")
+            os.write(2, typename)
+            os.write(2, " raised an exception ")
+            os.write(2, str(e))
+            os.write(2, " ignoring it\n")
         except:
             pass

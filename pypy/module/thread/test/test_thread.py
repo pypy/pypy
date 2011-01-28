@@ -39,6 +39,20 @@ class AppTestThread(GenericTestThread):
         self.waitfor(lambda: feedback)
         assert feedback == [42]
 
+    def test_thread_count(self):
+        import thread, time
+        feedback = []
+        please_start = []
+        def f():
+            feedback.append(42)
+            self.waitfor(lambda: please_start)
+        assert thread._count() == 0
+        thread.start_new_thread(f, ())
+        self.waitfor(lambda: feedback)
+        assert thread._count() == 1
+        please_start.append(1)  # trigger
+        # XXX joining a thread seems difficult at applevel.
+
     def test_start_new_thread_args(self):
         import thread
         def f():

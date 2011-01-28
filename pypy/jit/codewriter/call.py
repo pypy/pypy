@@ -7,7 +7,7 @@ from pypy.jit.codewriter import support
 from pypy.jit.codewriter.jitcode import JitCode
 from pypy.jit.codewriter.effectinfo import VirtualizableAnalyzer
 from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
-from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.codewriter.effectinfo import EffectInfo, CallInfoCollection
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
@@ -23,6 +23,7 @@ class CallControl(object):
         self.jitdrivers_sd = jitdrivers_sd
         self.jitcodes = {}             # map {graph: jitcode}
         self.unfinished_graphs = []    # list of graphs with pending jitcodes
+        self.callinfocollection = CallInfoCollection()
         if hasattr(cpu, 'rtyper'):     # for tests
             self.rtyper = cpu.rtyper
             translator = self.rtyper.annotator.translator
@@ -94,15 +95,8 @@ class CallControl(object):
             else:
                 v_obj = op.args[1].concretetype
                 graphs = v_obj._lookup_graphs(op.args[0].value)
-            if graphs is not None:
-                result = []
-                for graph in graphs:
-                    if is_candidate(graph):
-                        result.append(graph)
-                if result:
-                    return result  # common case: look inside these graphs,
-                                   # and ignore the others if there are any
-            else:
+            #
+            if graphs is None:
                 # special case: handle the indirect call that goes to
                 # the 'instantiate' methods.  This check is a bit imprecise
                 # but it's not too bad if we mistake a random indirect call
@@ -111,7 +105,16 @@ class CallControl(object):
                 CALLTYPE = op.args[0].concretetype
                 if (op.opname == 'indirect_call' and len(op.args) == 2 and
                     CALLTYPE == rclass.OBJECT_VTABLE.instantiate):
-                    return list(self._graphs_of_all_instantiate())
+                    graphs = list(self._graphs_of_all_instantiate())
+            #
+            if graphs is not None:
+                result = []
+                for graph in graphs:
+                    if is_candidate(graph):
+                        result.append(graph)
+                if result:
+                    return result  # common case: look inside these graphs,
+                                   # and ignore the others if there are any
         # residual call case: we don't need to look into any graph
         return None
 
@@ -185,7 +188,8 @@ class CallControl(object):
                                          FUNC.RESULT)
         return (fnaddr, calldescr)
 
-    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE):
+    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
+                     extraeffect=None):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -213,17 +217,18 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
         # build the extraeffect
-        if self.virtualizable_analyzer.analyze(op):
-            extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
-        elif loopinvariant:
-            extraeffect = EffectInfo.EF_LOOPINVARIANT
-        elif pure:
-            # XXX check what to do about exceptions (also MemoryError?)
-            extraeffect = EffectInfo.EF_PURE
-        elif self._canraise(op):
-            extraeffect = EffectInfo.EF_CAN_RAISE
-        else:
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        if extraeffect is None:
+            if self.virtualizable_analyzer.analyze(op):
+                extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            elif loopinvariant:
+                extraeffect = EffectInfo.EF_LOOPINVARIANT
+            elif pure:
+                # XXX check what to do about exceptions (also MemoryError?)
+                extraeffect = EffectInfo.EF_PURE
+            elif self._canraise(op):
+                extraeffect = EffectInfo.EF_CAN_RAISE
+            else:
+                extraeffect = EffectInfo.EF_CANNOT_RAISE
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
@@ -237,6 +242,8 @@ class CallControl(object):
                                     effectinfo)
 
     def _canraise(self, op):
+        if op.opname == 'pseudo_call_cannot_raise':
+            return False
         try:
             return self.raise_analyzer.can_raise(op)
         except lltype.DelayedPointer:
@@ -277,3 +284,11 @@ class CallControl(object):
             return seen.pop()
         else:
             return None
+
+    def could_be_green_field(self, GTYPE, fieldname):
+        GTYPE_fieldname = (GTYPE, fieldname)
+        for jd in self.jitdrivers_sd:
+            if jd.greenfield_info is not None:
+                if GTYPE_fieldname in jd.greenfield_info.green_fields:
+                    return True
+        return False

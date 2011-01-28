@@ -12,14 +12,14 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "__builtin__", "posix"]
+    ["exceptions", "_file", "sys", "__builtin__", "posix", "signal"]
 )
 
 default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
     ["_codecs", "gc", "_weakref", "marshal", "errno", "imp",
-     "math", "_sre", "_pickle_support", "operator",
-     "parser", "symbol", "token", "_ast", "_random", "__pypy__",
+     "math", "cmath", "_sre", "_pickle_support", "operator",
+     "parser", "symbol", "token", "_ast",  "_io", "_random", "__pypy__",
      "_testing"]))
 
 
@@ -27,15 +27,21 @@ default_modules.update(dict.fromkeys(
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl",
-      "rctime" , "select", "zipimport", "_lsprof",
-     "crypt", "signal", "_rawffi", "termios", "zlib",
-     "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
-     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array"]
+     "rctime" , "select", "zipimport", "_lsprof",
+     "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
+     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
+     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+     "_bisect", "binascii", "_multiprocessing", '_warnings']
 ))
+
+translation_modules = default_modules.copy()
+translation_modules.update(dict.fromkeys(
+    ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
+     "struct", "md5", "cStringIO", "array"]))
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
-    ["md5", "sha", "cStringIO", "itertools"]
+    ["_md5", "_sha", "cStringIO", "itertools"]
 ))
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
@@ -48,9 +54,8 @@ if sys.platform == "win32":
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
-    # The _locale module is probably incomplete,
-    # but enough for the tests to pass on Windows
-    working_modules["_locale"] = None
+    # The _locale module is needed by site.py on Windows
+    default_modules["_locale"] = None
 
 if sys.platform == "sunos5":
     del working_modules['mmap']   # depend on ctypes, can't get at c-level 'errono'
@@ -62,7 +67,10 @@ if sys.platform == "sunos5":
 
 
 
-module_dependencies = {}
+module_dependencies = {
+    '_multiprocessing': [('objspace.usemodules.rctime', True),
+                         ('objspace.usemodules.thread', True)],
+    }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
     # itself needs the interp-level struct module
@@ -70,12 +78,14 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
+    "_ffi": [("translation.jit_ffi", True)],
     }
 
 module_import_dependencies = {
-    # no _rawffi if importing pypy.rlib.libffi raises ImportError
+    # no _rawffi if importing pypy.rlib.clibffi raises ImportError
     # or CompilationError
-    "_rawffi"   : ["pypy.rlib.libffi"],
+    "_rawffi"   : ["pypy.rlib.clibffi"],
+    "_ffi"      : ["pypy.rlib.clibffi"],
 
     "zlib"      : ["pypy.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
@@ -147,8 +157,13 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--allworkingmodules",
                negation=True),
 
+    BoolOption("translationmodules",
+          "use only those modules that are needed to run translate.py on pypy",
+               default=False,
+               cmdline="--translationmodules",
+               suggests=[("objspace.allworkingmodules", False)]),
+
     BoolOption("geninterp", "specify whether geninterp should be used",
-               cmdline=None,
                default=True),
 
     BoolOption("logbytecodes",
@@ -161,6 +176,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     BoolOption("lonepycfiles", "Import pyc files with no matching py file",
                default=False,
                requires=[("objspace.usepycfiles", True)]),
+
+    StrOption("soabi",
+              "Tag to differentiate extension modules built for different Python interpreters",
+              cmdline="--soabi",
+              default=None),
 
     BoolOption("honor__builtins__",
                "Honor the __builtins__ key of a module dictionary",
@@ -228,27 +248,15 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.opcodes.CALL_LIKELY_BUILTIN", False),
                              ("objspace.honor__builtins__", False)]),
 
-        BoolOption("withsharingdict",
-                   "use dictionaries that share the keys part",
-                   default=False),
-
         BoolOption("withdictmeasurement",
                    "create huge files with masses of information "
                    "about dictionaries",
                    default=False),
 
-        BoolOption("withinlineddict",
-                   "make instances more compact by revoming a level of indirection",
-                   default=False,
-                   requires=[("objspace.std.withshadowtracking", False)]),
-
         BoolOption("withmapdict",
                    "make instances really small but slow without the JIT",
                    default=False,
-                   requires=[("objspace.std.withshadowtracking", False),
-                             ("objspace.std.withinlineddict", False),
-                             ("objspace.std.withsharingdict", False),
-                             ("objspace.std.getattributeshortcut", True),
+                   requires=[("objspace.std.getattributeshortcut", True),
                              ("objspace.std.withtypeversion", True),
                        ]),
 
@@ -265,12 +273,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
 
-        BoolOption("withshadowtracking",
-                   "track whether an instance attribute shadows a type"
-                   " attribute",
-                   default=False,
-                   requires=[("objspace.std.withtypeversion", True),
-                             ("translation.rweakref", True)]),
         BoolOption("withmethodcache",
                    "try to cache method lookups",
                    default=False,
@@ -301,7 +303,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False),        
+                   default=False),
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
@@ -310,8 +312,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         ChoiceOption("multimethods", "the multimethod implementation to use",
                      ["doubledispatch", "mrd"],
                      default="mrd"),
-        BoolOption("immutable_builtintypes",
-                   "Forbid the changing of builtin types", default=True),
+        BoolOption("mutable_builtintypes",
+                   "Allow the changing of builtin types", default=False,
+                   requires=[("objspace.std.builtinshortcut", True)]),
      ]),
 ])
 
@@ -342,9 +345,6 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)        
-        if type_system != 'ootype':
-            config.objspace.std.suggest(withsharingdict=True)
-        config.objspace.std.suggest(withinlineddict=True)
 
     # extra costly optimizations only go in level 3
     if level == '3':
@@ -373,7 +373,7 @@ def set_pypy_opt_level(config, level):
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        #config.objspace.std.suggest(withmapdict=True)
+        config.objspace.std.suggest(withmapdict=True)
 
 
 def enable_allworkingmodules(config):
@@ -385,6 +385,11 @@ def enable_allworkingmodules(config):
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
+    modules = [name for name in modules if name not in essential_modules]
+    config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
+
+def enable_translationmodules(config):
+    modules = translation_modules
     modules = [name for name in modules if name not in essential_modules]
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
 

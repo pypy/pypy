@@ -12,7 +12,7 @@ class AppTestSSL:
     
     def test_sslerror(self):
         import _ssl
-        assert issubclass(_ssl.sslerror, Exception)
+        assert issubclass(_ssl.SSLError, Exception)
 
     def test_constants(self):
         import _ssl
@@ -26,6 +26,12 @@ class AppTestSSL:
         assert isinstance(_ssl.SSL_ERROR_WANT_CONNECT, int)
         assert isinstance(_ssl.SSL_ERROR_EOF, int)
         assert isinstance(_ssl.SSL_ERROR_INVALID_ERROR_CODE, int)
+
+        assert isinstance(_ssl.OPENSSL_VERSION_NUMBER, int)
+        assert isinstance(_ssl.OPENSSL_VERSION_INFO, tuple)
+        assert len(_ssl.OPENSSL_VERSION_INFO) == 5
+        assert isinstance(_ssl.OPENSSL_VERSION, str)
+        assert 'openssl' in _ssl.OPENSSL_VERSION.lower()
     
     def test_RAND_add(self):
         import _ssl
@@ -53,6 +59,26 @@ class AppTestSSL:
             not stat.S_ISSOCK(os.stat("entropy").st_mode)):
             skip("This test needs a running entropy gathering daemon")
         _ssl.RAND_egd("entropy")
+
+    def test_sslwrap(self):
+        import _ssl, _socket, sys
+        s = _socket.socket()
+        ss = _ssl.sslwrap(s, 0)
+        exc = raises(_socket.error, ss.do_handshake)
+        if sys.platform == 'win32':
+            assert exc.value.errno == 2 # Cannot find file (=not a socket)
+        else:
+            assert exc.value.errno == 32 # Broken pipe
+
+    def test_async_closed(self):
+        import _ssl, _socket
+        s = _socket.socket()
+        s.settimeout(3)
+        ss = _ssl.sslwrap(s, 0)
+        s.close()
+        exc = raises(_ssl.SSLError, ss.write, "data")
+        assert exc.value.message == "Underlying socket has been closed."
+
 
 class AppTestConnectedSSL:
     def setup_class(cls):
@@ -117,6 +143,13 @@ class AppTestConnectedSSL:
         assert isinstance(data, str)
         assert len(data) == 10
         self.s.close()
+
+    def test_shutdown(self):
+        import socket, ssl
+        ss = socket.ssl(self.s)
+        ss.write("hello\n")
+        assert ss.shutdown() is self.s._sock
+        raises(ssl.SSLError, ss.write, "hello\n")
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout

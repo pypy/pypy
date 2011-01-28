@@ -190,8 +190,11 @@ class __extend__(AbstractStringRepr):
         if hop.args_s[0].is_constant() and hop.args_s[0].const == '':
             if r_lst.item_repr == rstr.repr:
                 llfn = self.ll.ll_join_strs
-            elif r_lst.item_repr == rstr.char_repr:
-                llfn = self.ll.ll_join_chars
+            elif (r_lst.item_repr == hop.rtyper.type_system.rstr.char_repr or
+                  r_lst.item_repr == hop.rtyper.type_system.rstr.unichar_repr):
+                v_tp = hop.inputconst(Void, self.lowleveltype)
+                return hop.gendirectcall(self.ll.ll_join_chars, v_length,
+                                         v_items, v_tp)
             else:
                 raise TyperError("''.join() of non-string list: %r" % r_lst)
             return hop.gendirectcall(llfn, v_length, v_items)
@@ -281,7 +284,10 @@ class __extend__(AbstractStringRepr):
         return hop.gendirectcall(self.ll.ll_float, v_str)
 
     def ll_str(self, s):
-        return s
+        if s:
+            return s
+        else:
+            return self.ll.ll_constant('None')
 
 class __extend__(AbstractUnicodeRepr):
     def rtype_method_encode(self, hop):
@@ -706,7 +712,7 @@ class AbstractLLHelpers:
 
     def ll_float(ll_str):
         from pypy.rpython.annlowlevel import hlstr
-        from pypy.rlib.rarithmetic import break_up_float, parts_to_float
+        from pypy.rlib.rarithmetic import rstring_to_float
         s = hlstr(ll_str)
         assert s is not None
 
@@ -726,12 +732,7 @@ class AbstractLLHelpers:
             else:
                 break
         assert end >= 0
-        sign, before_point, after_point, exponent = break_up_float(s[beg:end+1])
-    
-        if not before_point and not after_point:
-            raise ValueError
-
-        return parts_to_float(sign, before_point, after_point, exponent)
+        return rstring_to_float(s[beg:end+1])
 
     def ll_splitlines(cls, LIST, ll_str, keep_newlines):
         from pypy.rpython.annlowlevel import hlstr

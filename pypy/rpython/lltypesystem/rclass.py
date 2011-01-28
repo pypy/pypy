@@ -398,7 +398,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 source_classdef = source_desc.getclassdef(None)
                 source_repr = getinstancerepr(self.rtyper, source_classdef)
                 assert len(s_func.descriptions) == 1
-                funcdesc = s_func.descriptions.keys()[0]
+                funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
@@ -426,7 +426,7 @@ class InstanceRepr(AbstractInstanceRepr):
         return cast_pointer(self.lowleveltype, result)
 
     def create_instance(self):
-        return malloc(self.object_type, flavor=self.gcflavor)
+        return malloc(self.object_type, flavor=self.gcflavor, immortal=True)
 
     def initialize_prebuilt_data(self, value, classdef, result):
         if self.classdef is not None:

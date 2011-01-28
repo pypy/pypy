@@ -148,3 +148,7 @@ class TestCFuncPtr:
         # but it segfaults for some reason.
         if sys.platform == 'win32':
             assert f() == 0x12345678
+
+    def test_restype(self):
+        foo = lib.my_unused_function
+        assert foo.restype is c_int     # by default

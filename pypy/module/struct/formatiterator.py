@@ -1,10 +1,11 @@
 
 from pypy.interpreter.error import OperationError
 
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rstruct.error import StructError
 from pypy.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
-from pypy.rlib.rstruct.formatiterator import FormatIterator, \
-     CalcSizeFormatIterator
+from pypy.rlib.rstruct.formatiterator import (FormatIterator,
+                                              CalcSizeFormatIterator)
 
 class PackFormatIterator(FormatIterator):
 
@@ -44,39 +45,46 @@ class PackFormatIterator(FormatIterator):
         # permissive version - accepts float arguments too
 
         def accept_int_arg(self):
-            w_obj = self.accept_obj_arg()
-            try:
-                return self.space.int_w(w_obj)
-            except OperationError, e:
-                return self.space.int_w(self._maybe_float(e, w_obj))
+            return self._accept_integral("int_w")
 
         def accept_uint_arg(self):
-            w_obj = self.accept_obj_arg()
-            try:
-                return self.space.uint_w(w_obj)
-            except OperationError, e:
-                return self.space.uint_w(self._maybe_float(e, w_obj))
+            return self._accept_integral("uint_w")
 
         def accept_longlong_arg(self):
-            w_obj = self.accept_obj_arg()
-            try:
-                return self.space.r_longlong_w(w_obj)
-            except OperationError, e:
-                return self.space.r_longlong_w(self._maybe_float(e, w_obj))
+            return self._accept_integral("r_longlong_w")
 
         def accept_ulonglong_arg(self):
-            w_obj = self.accept_obj_arg()
-            try:
-                return self.space.r_ulonglong_w(w_obj)
-            except OperationError, e:
-                return self.space.r_ulonglong_w(self._maybe_float(e, w_obj))
+            return self._accept_integral("r_ulonglong_w")
 
-        def _maybe_float(self, e, w_obj):
+        @specialize.arg(1)
+        def _accept_integral(self, meth):
             space = self.space
-            if not e.match(space, space.w_TypeError):
-                raise e
-            if not space.is_true(space.isinstance(w_obj, space.w_float)):
-                raise e
+            w_obj = self.accept_obj_arg()
+            if (space.isinstance_w(w_obj, space.w_int) or
+                space.isinstance_w(w_obj, space.w_long)):
+                w_index = w_obj
+            else:
+                w_index = None
+                w_index_method = space.lookup(w_obj, "__index__")
+                if w_index_method is not None:
+                    try:
+                        w_index = space.index(w_obj)
+                    except OperationError, e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                        pass
+                if w_index is None:
+                    w_index = self._maybe_float(w_obj)
+            return getattr(space, meth)(w_index)
+
+        def _maybe_float(self, w_obj):
+            space = self.space
+            if space.is_true(space.isinstance(w_obj, space.w_float)):
+                space.warn("struct: integer argument expected, got float",
+                           space.w_DeprecationWarning)
+            else:
+                space.warn("integer argument expected, got non-integer",
+                           space.w_DeprecationWarning)
             return space.int(w_obj)   # wrapped float -> wrapped int or long
 
     else:
@@ -97,6 +105,10 @@ class PackFormatIterator(FormatIterator):
         def accept_ulonglong_arg(self):
             w_obj = self.accept_obj_arg()
             return self.space.r_ulonglong_w(w_obj)
+
+    def accept_bool_arg(self):
+        w_obj = self.accept_obj_arg()
+        return self.space.is_true(w_obj)
 
     def accept_str_arg(self):
         w_obj = self.accept_obj_arg()

@@ -458,7 +458,9 @@ class WriteStreamTest(WriteTest):
             f.close()
         elif self.comp == "bz2":
             f = bz2.BZ2Decompressor()
-            s = file(self.dstname).read()
+            g = file(self.dstname)
+            s = g.read()
+            g.close()
             s = f.decompress(s)
             self.assertEqual(len(f.unused_data), 0, "trailing data")
         else:
@@ -531,6 +533,7 @@ class WriteGNULongTest(unittest.TestCase):
         self.assert_(tarinfo.name == member.name and \
                      tarinfo.linkname == member.linkname, \
                      "unable to read longname member")
+        tar.close()
 
     def test_longname_1023(self):
         self._test(("longnam/" * 127) + "longnam")

@@ -3,6 +3,7 @@ import py, os, sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 from pypy.config.config import ConfigError
+from pypy.config.support import detect_number_of_processors
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -113,13 +114,10 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_backend", "choose the backend for the JIT",
                  ["auto", "x86", "x86-without-sse2", "llvm"],
                  default="auto", cmdline="--jit-backend"),
-    ChoiceOption("jit_debug", "the amount of debugging dumps made by the JIT",
-                 ["off", "profile", "steps", "detailed"],
-                 default="profile",      # XXX for now
-                 cmdline="--jit-debug"),
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    BoolOption("jit_ffi", "optimize libffi calls", default=False),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
@@ -171,7 +169,7 @@ translation_optiondescription = OptionDescription(
                default=False, negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
-              cmdline="--make-jobs", default=1),
+              cmdline="--make-jobs", default=detect_number_of_processors()),
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),
@@ -399,8 +397,9 @@ def set_opt_level(config, level):
         else:
             raise ValueError(word)
 
-    hasbackendopts = 'nobackendopt' not in words
-    config.translation.suggest(list_comprehension_operations=hasbackendopts)
+    # list_comprehension_operations is needed for translation, because
+    # make_sure_not_resized often relies on it, so we always enable them
+    config.translation.suggest(list_comprehension_operations=True)
 
 # ----------------------------------------------------------------
 

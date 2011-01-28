@@ -9,7 +9,7 @@ from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
-
+from pypy.jit.metainterp.compile import ResumeAtPositionDescr
 
 def arguments(*argtypes, **kwds):
     resulttype = kwds.pop('returns', None)
@@ -760,6 +760,24 @@ class BlackholeInterpreter(object):
     def bhimpl_debug_fatalerror(msg):
         llop.debug_fatalerror(lltype.Void, msg)
 
+    @arguments("r", "i", "i", "i", "i")
+    def bhimpl_jit_debug(string, arg1=0, arg2=0, arg3=0, arg4=0):
+        pass
+
+    @arguments("i")
+    def bhimpl_int_assert_green(x):
+        pass
+    @arguments("r")
+    def bhimpl_ref_assert_green(x):
+        pass
+    @arguments("f")
+    def bhimpl_float_assert_green(x):
+        pass
+
+    @arguments(returns="i")
+    def bhimpl_current_trace_length():
+        return -1
+
     # ----------
     # the main hints and recursive calls
 
@@ -1073,6 +1091,10 @@ class BlackholeInterpreter(object):
     bhimpl_getfield_vable_r = bhimpl_getfield_gc_r
     bhimpl_getfield_vable_f = bhimpl_getfield_gc_f
 
+    bhimpl_getfield_gc_i_greenfield = bhimpl_getfield_gc_i
+    bhimpl_getfield_gc_r_greenfield = bhimpl_getfield_gc_r
+    bhimpl_getfield_gc_f_greenfield = bhimpl_getfield_gc_f
+
     @arguments("cpu", "i", "d", returns="i")
     def bhimpl_getfield_raw_i(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_i(struct, fielddescr)
@@ -1188,13 +1210,14 @@ class BlackholeInterpreter(object):
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    def _prepare_resume_from_failure(self, opnum):
+    def _prepare_resume_from_failure(self, opnum, dont_change_position=False):
         from pypy.jit.metainterp.resoperation import rop
         #
         if opnum == rop.GUARD_TRUE:
             # Produced directly by some goto_if_not_xxx() opcode that did not
             # jump, but which must now jump.  The pc is just after the opcode.
-            self.position = self.jitcode.follow_jump(self.position)
+            if not dont_change_position:
+                self.position = self.jitcode.follow_jump(self.position)
         #
         elif opnum == rop.GUARD_FALSE:
             # Produced directly by some goto_if_not_xxx() opcode that jumped,
@@ -1350,8 +1373,14 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
         jitdriver_sd,
         resumedescr,
         all_virtuals)
+    if isinstance(resumedescr, ResumeAtPositionDescr):
+        dont_change_position = True
+    else:
+        dont_change_position = False
+
     current_exc = blackholeinterp._prepare_resume_from_failure(
-        resumedescr.guard_opnum)
+        resumedescr.guard_opnum, dont_change_position)
+        
     try:
         _run_forever(blackholeinterp, current_exc)
     finally:

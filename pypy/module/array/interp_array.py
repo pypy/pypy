@@ -1,11 +1,14 @@
+from __future__ import with_statement
+
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root, \
      ApplevelClass
 from pypy.rlib.jit import dont_look_inside
 from pypy.rlib import rgc
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.interpreter.argument import Arguments, Signature
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
@@ -27,7 +30,7 @@ def w_array(space, w_cls, typecode, w_args=None):
     typecode = typecode[0]
 
     if space.is_w(w_cls, space.gettypeobject(W_ArrayBase.typedef)):
-        if len(w_args.keywords_w) > 0:
+        if w_args.keywords: # XXX this might be forbidden fishing
             msg = 'array.array() does not take keyword arguments'
             raise OperationError(space.w_TypeError, space.wrap(msg))
         
@@ -87,22 +90,21 @@ def descr_typecode(space, self):
     return space.wrap(self.typecode)
 
 
-type_typedef = StdTypeDef(
+class W_ArrayBase(W_Object):
+    @staticmethod
+    def register(typeorder):
+        typeorder[W_ArrayBase] = []
+
+W_ArrayBase.typedef = StdTypeDef(
     'array',
     __new__ = interp2app(w_array),
     __module__   = 'array',
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
+    __weakref__ = make_weakref_descr(W_ArrayBase),
     )
-type_typedef.registermethods(globals())
+W_ArrayBase.typedef.registermethods(globals())
 
-
-class W_ArrayBase(W_Object):
-    typedef = type_typedef
-
-    @staticmethod
-    def register(typeorder):
-        typeorder[W_ArrayBase] = []
 
 class TypeCode(object):
     def __init__(self, itemtype, unwrap, canoverflow=False, signed=False):
@@ -192,34 +194,33 @@ def make_array(mytype):
                           mytype.bytes
                     raise OperationError(space.w_OverflowError,
                                          space.wrap(msg))
-            elif mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+                return rffi.cast(mytype.itemtype, item)
+            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
                 if len(item) != 1:
                     msg = 'array item must be char'
                     raise OperationError(space.w_TypeError, space.wrap(msg))
                 item = item[0]
-
+                return rffi.cast(mytype.itemtype, item)
+            #
+            # "regular" case: it fits in an rpython integer (lltype.Signed)
+            result = rffi.cast(mytype.itemtype, item)
             if mytype.canoverflow:
-                msg = None
-                if mytype.signed:
-                    if item < -1 << (mytype.bytes * 8 - 1):
+                if rffi.cast(lltype.Signed, result) != item:
+                    # overflow.  build the correct message
+                    if item < 0:
                         msg = ('signed %d-byte integer is less than minimum' %
                                mytype.bytes)
-                    elif item > (1 << (mytype.bytes * 8 - 1)) - 1:
+                    else:
                         msg = ('signed %d-byte integer is greater than maximum'
                                % mytype.bytes)
-                else:
-                    if item < 0:
-                        msg = ('unsigned %d-byte integer is less than minimum'
-                               % mytype.bytes)
-                    elif item > (1 << (mytype.bytes * 8)) - 1:
-                        msg = ('unsigned %d-byte integer is greater'
-                               ' than maximum' % mytype.bytes)
-                if msg is not None:
+                    if not mytype.signed:
+                        msg = 'un' + msg      # 'signed' => 'unsigned'
                     raise OperationError(space.w_OverflowError,
                                          space.wrap(msg))
-            return rffi.cast(mytype.itemtype, item)
+            return result
 
         def __del__(self):
+            self.clear_all_weakrefs()
             self.setlen(0)
 
         def setlen(self, size):
@@ -332,24 +333,14 @@ def make_array(mytype):
         return self.space.wrap(item)
 
     def getitem__Array_Slice(space, self, w_slice):
-        start, stop, step = space.decode_index(w_slice, self.len)
-        if step < 0:
-            w_lst = array_tolist__Array(space, self)
-            w_lst = space.getitem(w_lst, w_slice)
-            w_a = mytype.w_class(self.space)
-            w_a.fromsequence(w_lst)
-        elif step == 0:
-            raise ValueError('getitem__Array_Slice with step zero')
-        else:
-            size = (stop - start) / step
-            if (stop - start) % step > 0:
-                size += 1
-            w_a = mytype.w_class(self.space)
-            w_a.setlen(size)
-            j = 0
-            for i in range(start, stop, step):
-                w_a.buffer[j] = self.buffer[i]
-                j += 1
+        start, stop, step, size = space.decode_index4(w_slice, self.len)
+        w_a = mytype.w_class(self.space)
+        w_a.setlen(size)
+        assert step != 0
+        j = 0
+        for i in range(start, stop, step):
+            w_a.buffer[j] = self.buffer[i]
+            j += 1
         return w_a
 
     def getslice__Array_ANY_ANY(space, self, w_i, w_j):
@@ -364,23 +355,28 @@ def make_array(mytype):
         self.buffer[idx] = item
 
     def setitem__Array_Slice_Array(space, self, w_idx, w_item):
-        start, stop, step = self.space.decode_index(w_idx, self.len)
-        size = (stop - start) / step
-        if (stop - start) % step > 0:
-            size += 1
-        if w_item.len != size or step < 0:
+        start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+        assert step != 0
+        if w_item.len != size:
             w_lst = array_tolist__Array(space, self)
             w_item = space.call_method(w_item, 'tolist')
             space.setitem(w_lst, w_idx, w_item)
             self.setlen(0)
             self.fromsequence(w_lst)
-        elif step == 0:
-            raise ValueError('setitem__Array_Slice with step zero')
         else:
-            j = 0
-            for i in range(start, stop, step):
-                self.buffer[i] = w_item.buffer[j]
-                j += 1
+            if self is w_item:
+                with lltype.scoped_alloc(mytype.arraytype, self.allocated) as new_buffer:
+                    for i in range(self.len):
+                        new_buffer[i] = w_item.buffer[i]
+                    j = 0
+                    for i in range(start, stop, step):
+                        self.buffer[i] = new_buffer[j]
+                        j += 1
+            else:
+                j = 0
+                for i in range(start, stop, step):
+                    self.buffer[i] = w_item.buffer[j]
+                    j += 1
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
@@ -488,7 +484,11 @@ def make_array(mytype):
             raise
         a = mytype.w_class(space)
         repeat = max(repeat, 0)
-        a.setlen(self.len * repeat)
+        try:
+            newlen = ovfcheck(self.len * repeat)
+        except OverflowError:
+            raise MemoryError
+        a.setlen(newlen)
         for r in range(repeat):
             for i in range(self.len):
                 a.buffer[r * self.len + i] = self.buffer[i]
@@ -506,7 +506,11 @@ def make_array(mytype):
             raise
         oldlen = self.len
         repeat = max(repeat, 0)
-        self.setlen(self.len * repeat)
+        try:
+            newlen = ovfcheck(self.len * repeat)
+        except OverflowError:
+            raise MemoryError
+        self.setlen(newlen)
         for r in range(1, repeat):
             for i in range(oldlen):
                 self.buffer[r * oldlen + i] = self.buffer[i]
@@ -544,7 +548,10 @@ def make_array(mytype):
             raise OperationError(space.w_TypeError, space.wrap(msg))
         n = space.int_w(w_n)
 
-        size = self.itemsize * n
+        try:
+            size = ovfcheck(self.itemsize * n)
+        except OverflowError:
+            raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
         item = space.str_w(w_item)
         if len(item) < size:

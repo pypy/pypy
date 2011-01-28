@@ -13,7 +13,7 @@ from pypy.interpreter.argument import Signature
 
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
-    
+
     def __init__(w_self, wrappeditems):
         w_self.wrappeditems = wrappeditems
 
@@ -93,12 +93,16 @@ def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
 def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
     length = len(w_list.wrappeditems)
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _setitem_slice_helper(space, w_list, start, 1, stop-start, w_sequence)
+
+    sequence2 = space.listview(w_sequence)
+    items = w_list.wrappeditems
+    _setitem_slice_helper(space, items, start, 1, stop-start, sequence2,
+                          empty_elem=None)
 
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = len(w_list.wrappeditems)
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _delitem_slice_helper(space, w_list, start, 1, stop-start)
+    _delitem_slice_helper(space, w_list.wrappeditems, start, 1, stop-start)
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
@@ -214,22 +218,21 @@ def delitem__List_ANY(space, w_list, w_idx):
 def delitem__List_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = w_slice.indices4(space,
                                                       len(w_list.wrappeditems))
-    _delitem_slice_helper(space, w_list, start, step, slicelength)
+    _delitem_slice_helper(space, w_list.wrappeditems, start, step, slicelength)
 
-def _delitem_slice_helper(space, w_list, start, step, slicelength):
+def _delitem_slice_helper(space, items, start, step, slicelength):
     if slicelength==0:
         return
 
     if step < 0:
         start = start + step * (slicelength-1)
         step = -step
-        
+
     if step == 1:
         assert start >= 0
         assert slicelength >= 0
-        del w_list.wrappeditems[start:start+slicelength]
+        del items[start:start+slicelength]
     else:
-        items = w_list.wrappeditems
         n = len(items)
         i = start
 
@@ -260,12 +263,15 @@ def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
     oldsize = len(w_list.wrappeditems)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable)
 
-def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
     sequence2 = space.listview(w_iterable)
-    assert slicelength >= 0
     items = w_list.wrappeditems
+    _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
+                          empty_elem=None)
+
+def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
+                          empty_elem):
+    assert slicelength >= 0
     oldsize = len(items)
     len2 = len(sequence2)
     if step == 1:  # Support list resizing for non-extended slices
@@ -274,7 +280,7 @@ def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
             delta = -delta
             newsize = oldsize + delta
             # XXX support this in rlist!
-            items += [None] * delta
+            items += [empty_elem] * delta
             lim = start+len2
             i = newsize - 1
             while i >= lim:
@@ -283,7 +289,7 @@ def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
         elif start >= 0:
             del items[start:start+delta]
         else:
-            assert delta==0
+            assert delta==0   # start<0 is only possible with slicelength==0
     elif len2 != slicelength:  # No resize for extended slices
         raise operationerrfmt(space.w_ValueError, "attempt to "
               "assign sequence of size %d to extended slice of size %d",
@@ -322,7 +328,7 @@ app = gateway.applevel("""
                 del currently_in_repr[list_id]
             except:
                 pass
-""", filename=__file__) 
+""", filename=__file__)
 
 listrepr = app.interphook("listrepr")
 
@@ -338,14 +344,18 @@ def repr__List(space, w_list):
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
     where = space.int_w(w_where)
     length = len(w_list.wrappeditems)
+    index = get_positive_index(where, length)
+    w_list.wrappeditems.insert(index, w_any)
+    return space.w_None
+
+def get_positive_index(where, length):
     if where < 0:
         where += length
         if where < 0:
             where = 0
     elif where > length:
         where = length
-    w_list.wrappeditems.insert(where, w_any)
-    return space.w_None
+    return where
 
 def list_append__List_ANY(space, w_list, w_any):
     w_list.wrappeditems.append(w_any)
@@ -466,15 +476,15 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
     has_reverse = space.is_true(w_reverse)
 
     # create and setup a TimSort instance
-    if has_cmp: 
-        if has_key: 
+    if has_cmp:
+        if has_key:
             sorterclass = CustomKeyCompareSort
-        else: 
+        else:
             sorterclass = CustomCompareSort
-    else: 
-        if has_key: 
+    else:
+        if has_key:
             sorterclass = CustomKeySort
-        else: 
+        else:
             sorterclass = SimpleSort
     items = w_list.wrappeditems
     sorter = sorterclass(items, len(items))

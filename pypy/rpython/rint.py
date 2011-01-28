@@ -222,7 +222,7 @@ def _rtype_template(hop, func, implicit_excs=[]):
             # return (x/y) - (((x^y)<0)&((x%y)!=0));
             v_xor = hop.genop(prefix + 'xor', vlist,
                             resulttype=repr)
-            v_xor_le = hop.genop(prefix + 'le', [v_xor, c_zero],
+            v_xor_le = hop.genop(prefix + 'lt', [v_xor, c_zero],
                                  resulttype=Bool)
             v_xor_le = hop.llops.convertvar(v_xor_le, bool_repr, repr)
             v_mod = hop.genop(prefix + 'mod', vlist,
@@ -238,7 +238,7 @@ def _rtype_template(hop, func, implicit_excs=[]):
             # return r + y*(((x^y)<0)&(r!=0));
             v_xor = hop.genop(prefix + 'xor', vlist,
                             resulttype=repr)
-            v_xor_le = hop.genop(prefix + 'le', [v_xor, c_zero],
+            v_xor_le = hop.genop(prefix + 'lt', [v_xor, c_zero],
                                resulttype=Bool)
             v_xor_le = hop.llops.convertvar(v_xor_le, bool_repr, repr)
             v_mod_ne = hop.genop(prefix + 'ne', [v_res, c_zero],
@@ -291,6 +291,9 @@ class __extend__(IntegerRepr):
         return None 
 
     def get_ll_hash_function(self):
+        if (sys.maxint == 2147483647 and
+            self.lowleveltype in (SignedLongLong, UnsignedLongLong)):
+            return ll_hash_long_long
         return ll_hash_int
 
     get_ll_fasthash_function = get_ll_hash_function
@@ -410,6 +413,9 @@ class __extend__(IntegerRepr):
 
 def ll_hash_int(n):
     return intmask(n)
+
+def ll_hash_long_long(n):
+    return intmask(intmask(n) + 9 * intmask(n >> 32))
 
 def ll_check_chr(n):
     if 0 <= n <= 255:

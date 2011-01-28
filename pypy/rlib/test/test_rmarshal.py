@@ -147,7 +147,7 @@ def test_llinterp_unmarshal():
     def f():
         result = ''
         for num, string, fval in unmarshaller(buf):
-            result += '%d=%s/%s;' % (num, string, formatd('%.17g', fval))
+            result += '%d=%s/%s;' % (num, string, formatd(fval, 'g', 17))
         return result
     res = interpret(f, [])
     res = ''.join(res.chars)

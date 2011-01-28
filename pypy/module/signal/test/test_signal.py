@@ -1,5 +1,37 @@
 import os, py
+import signal as cpy_signal
 from pypy.conftest import gettestobjspace
+
+
+class TestCheckSignals:
+
+    def setup_class(cls):
+        if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
+            py.test.skip("requires os.kill() and os.getpid()")
+        cls.space = gettestobjspace(usemodules=['signal'])
+
+    def test_checksignals(self):
+        space = self.space
+        w_received = space.appexec([], """():
+            import signal
+            received = []
+            def myhandler(signum, frame):
+                received.append(signum)
+            signal.signal(signal.SIGUSR1, myhandler)
+            return received""")
+        #
+        assert not space.is_true(w_received)
+        #
+        # send the signal now
+        os.kill(os.getpid(), cpy_signal.SIGUSR1)
+        #
+        # myhandler() should not be immediately called
+        assert not space.is_true(w_received)
+        #
+        # calling ec.checksignals() should call it
+        space.getexecutioncontext().checksignals()
+        assert space.is_true(w_received)
+
 
 class AppTestSignal:
 
@@ -24,18 +56,12 @@ class AppTestSignal:
         signal.signal(signal.SIGUSR1, myhandler)
 
         posix.kill(posix.getpid(), signal.SIGUSR1)
-        for i in range(10000):
-             # wait a bit for the signal to be delivered to the handler
-            if received:
-                break
+        # the signal should be delivered to the handler immediately
         assert received == [signal.SIGUSR1]
         del received[:]
 
         posix.kill(posix.getpid(), signal.SIGUSR1)
-        for i in range(10000):
-             # wait a bit for the signal to be delivered to the handler
-            if received:
-                break
+        # the signal should be delivered to the handler immediately
         assert received == [signal.SIGUSR1]
         del received[:]
 
@@ -136,6 +162,48 @@ class AppTestSignal:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+    def test_set_wakeup_fd(self):
+        import signal, posix, fcntl
+        def myhandler(signum, frame):
+            pass
+        signal.signal(signal.SIGUSR1, myhandler)
+        #
+        def cannot_read():
+            try:
+                posix.read(fd_read, 1)
+            except OSError:
+                pass
+            else:
+                raise AssertionError, "os.read(fd_read, 1) succeeded?"
+        #
+        fd_read, fd_write = posix.pipe()
+        flags = fcntl.fcntl(fd_write, fcntl.F_GETFL, 0)
+        flags = flags | posix.O_NONBLOCK
+        fcntl.fcntl(fd_write, fcntl.F_SETFL, flags)
+        flags = fcntl.fcntl(fd_read, fcntl.F_GETFL, 0)
+        flags = flags | posix.O_NONBLOCK
+        fcntl.fcntl(fd_read, fcntl.F_SETFL, flags)
+        #
+        old_wakeup = signal.set_wakeup_fd(fd_write)
+        try:
+            cannot_read()
+            posix.kill(posix.getpid(), signal.SIGUSR1)
+            res = posix.read(fd_read, 1)
+            assert res == '\x00'
+            cannot_read()
+        finally:
+            old_wakeup = signal.set_wakeup_fd(old_wakeup)
+        #
+        signal.signal(signal.SIGUSR1, signal.SIG_DFL)
+
+    def test_siginterrupt(self):
+        import signal
+        signum = signal.SIGUSR1
+        oldhandler = signal.signal(signum, lambda x,y: None)
+        try:
+            signal.siginterrupt(signum, 0)
+        finally:
+            signal.signal(signum, oldhandler)
 
 class AppTestSignalSocket:
 
@@ -168,4 +236,22 @@ class AppTestSignalSocket:
             alarm(0)
         finally:
             signal(SIGALRM, SIG_DFL)
+
+class AppTestItimer:
+    def test_itimer_real(self):
+        import signal
+
+        def sig_alrm(*args):
+            self.called = True
+
+        signal.signal(signal.SIGALRM, sig_alrm)
+        old = signal.setitimer(signal.ITIMER_REAL, 1.0)
+        assert old == (0, 0)
+
+        val, interval = signal.getitimer(signal.ITIMER_REAL)
+        assert val <= 1.0
+        assert interval == 0.0
+
+        signal.pause()
+        assert self.called
 

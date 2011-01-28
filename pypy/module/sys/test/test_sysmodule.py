@@ -26,7 +26,7 @@ class AppTestAppSysTests:
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
         cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
-    
+
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules
@@ -113,6 +113,27 @@ class AppTestAppSysTests:
     def test_getfilesystemencoding(self):
         import sys
         assert sys.getfilesystemencoding() == self.filesystemenc
+
+    def test_float_info(self):
+        import sys
+        fi = sys.float_info
+        assert isinstance(fi.epsilon, float)
+        assert isinstance(fi.dig, int)
+        assert isinstance(fi.mant_dig, int)
+        assert isinstance(fi.max, float)
+        assert isinstance(fi.max_exp, int)
+        assert isinstance(fi.max_10_exp, int)
+        assert isinstance(fi.min, float)
+        assert isinstance(fi.min_exp, int)
+        assert isinstance(fi.min_10_exp, int)
+        assert isinstance(fi.radix, int)
+        assert isinstance(fi.rounds, int)
+
+    def test_long_info(self):
+        import sys
+        li = sys.long_info
+        assert isinstance(li.bits_per_digit, int)
+        assert isinstance(li.sizeof_digit, int)
 
 class AppTestSysModulePortedFromCPython:
 
@@ -410,6 +431,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.executable, basestring)
         assert isinstance(sys.hexversion, int)
         assert isinstance(sys.maxint, int)
+        assert isinstance(sys.maxsize, int)
         assert isinstance(sys.maxunicode, int)
         assert isinstance(sys.platform, basestring)
         #assert isinstance(sys.prefix, basestring) -- not present!
@@ -440,9 +462,6 @@ class AppTestSysModulePortedFromCPython:
 
     def test_pypy_attributes(self):
         assert isinstance(sys.pypy_objspaceclass, str)
-        assert isinstance(sys.pypy_svn_url, tuple)
-        url = sys.pypy_svn_url
-        assert isinstance(url[0], str)
         vi = sys.pypy_version_info
         assert isinstance(vi, tuple)
         assert len(vi) == 5
@@ -451,16 +470,25 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
-        assert url[1] == vi[4]
 
     def test_allattributes(self):
         sys.__dict__   # check that we don't crash initializing any attribute
 
     def test_subversion(self):
-        project, svnbranch, revision = sys.subversion
+        assert sys.subversion == ('PyPy', '', '')
+
+    def test__mercurial(self):
+        import re
+        project, hgtag, hgid = sys._mercurial
         assert project == 'PyPy'
-        assert svnbranch == svnbranch.strip('/')
-        assert revision.isdigit()
+        # the tag or branch may be anything, including the empty string
+        assert isinstance(hgtag, str)
+        # the id is either nothing, or an id of 12 hash digits, with a possible
+        # suffix of '+' if there are local modifications
+        assert hgid == '' or re.match('[0-9a-f]{12}\+?', hgid)
+        # the id should also show up in sys.version
+        if hgid != '':
+            assert hgid in sys.version
 
     def test_trace_exec_execfile(self):
         found = []

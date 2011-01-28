@@ -13,7 +13,7 @@ import signal
 
 def setup_module(mod):
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix'])
+        mod.space = gettestobjspace(usemodules=['posix', 'fcntl'])
     else:
         # On windows, os.popen uses the subprocess module
         mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread'])
@@ -55,6 +55,8 @@ class AppTestPosix:
             cls.w_geteuid = space.wrap(os.geteuid())
         if hasattr(os, 'getgid'):
             cls.w_getgid = space.wrap(os.getgid())
+        if hasattr(os, 'getgroups'):
+            cls.w_getgroups = space.newlist([space.wrap(e) for e in os.getgroups()])
         if hasattr(os, 'getpgid'):
             cls.w_getpgid = space.wrap(os.getpgid(os.getpid()))
         if hasattr(os, 'getsid'):
@@ -65,6 +67,7 @@ class AppTestPosix:
             cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
+        cls.w_python = space.wrap(sys.executable)
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -246,11 +249,18 @@ class AppTestPosix:
         ex(self.posix.dup, UNUSEDFD)
 
     def test_fdopen(self):
+        import errno
         path = self.path
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY, 0777)
         f = posix.fdopen(fd, "r")
         f.close()
+
+        # Ensure that fcntl is not faked
+        import fcntl
+        assert fcntl.__file__.endswith('pypy/module/fcntl')
+        exc = raises(OSError, posix.fdopen, fd)
+        assert exc.value.errno == errno.EBADF
 
     def test_fdopen_hackedbuiltins(self):
         "Same test, with __builtins__.file removed"
@@ -331,6 +341,22 @@ class AppTestPosix:
             data = os.read(master_fd, 100)
             assert data.startswith('x')
 
+    if hasattr(__import__(os.name), "forkpty"):
+        def test_forkpty(self):
+            import sys
+            os = self.posix
+            childpid, master_fd = os.forkpty()
+            assert isinstance(childpid, int)
+            assert isinstance(master_fd, int)
+            if childpid == 0:
+                data = os.read(0, 100)
+                if data.startswith('abc'):
+                    os._exit(42)
+                else:
+                    os._exit(43)
+            os.write(master_fd, 'abc\n')
+            _, status = os.waitpid(childpid, 0)
+            assert status >> 8 == 42
 
     if hasattr(__import__(os.name), "execv"):
         def test_execv(self):
@@ -348,17 +374,19 @@ class AppTestPosix:
             os = self.posix
             raises(OSError, 'os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])')
 
+        def test_execv_no_args(self):
+            os = self.posix
+            raises(ValueError, os.execv, "notepad", [])
+
         def test_execv_raising2(self):
             os = self.posix
-            def t(n):
+            for n in 3, [3, "a"]:
                 try:
                     os.execv("xxx", n)
                 except TypeError,t:
-                    assert t.args[0] == "execv() arg 2 must be an iterable of strings"
+                    assert str(t) == "execv() arg 2 must be an iterable of strings"
                 else:
                     py.test.fail("didn't raise")
-            t(3)
-            t([3, "a"])
 
         def test_execve(self):
             os = self.posix
@@ -372,13 +400,22 @@ class AppTestPosix:
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 
+    if hasattr(__import__(os.name), "spawnv"):
+        def test_spawnv(self):
+            os = self.posix
+            import sys
+            print self.python
+            ret = os.spawnv(os.P_WAIT, self.python,
+                            ['python', '-c', 'raise(SystemExit(42))'])
+            assert ret == 42
+
     def test_popen(self):
         os = self.posix
         for i in range(5):
             stream = os.popen('echo 1')
             res = stream.read()
             assert res == '1\n'
-            stream.close()
+            assert stream.close() is None
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -454,6 +491,11 @@ class AppTestPosix:
         def test_os_getgid(self):
             os = self.posix
             assert os.getgid() == self.getgid
+            
+    if hasattr(os, 'getgroups'):
+        def test_os_getgroups(self):
+            os = self.posix
+            assert os.getgroups() == self.getgroups
 
     if hasattr(os, 'getpgid'):
         def test_os_getpgid(self):
@@ -482,7 +524,14 @@ class AppTestPosix:
         def test_os_sysconf_error(self):
             os = self.posix
             raises(ValueError, os.sysconf, "!@#$%!#$!@#")
-    
+
+    if hasattr(os, 'fpathconf'):
+        def test_os_fpathconf(self):
+            os = self.posix
+            assert os.fpathconf(1, "PC_PIPE_BUF") >= 128
+            raises(OSError, os.fpathconf, -1, "PC_PIPE_BUF")
+            raises(ValueError, os.fpathconf, 1, "##")
+
     if hasattr(os, 'wait'):
         def test_os_wait(self):
             os = self.posix
@@ -505,6 +554,14 @@ class AppTestPosix:
                 assert os.WIFEXITED(status)
                 assert os.WEXITSTATUS(status) == exit_status
 
+    if hasattr(os, 'getloadavg'):
+        def test_os_getloadavg(self):
+            os = self.posix
+            l0, l1, l2 = os.getloadavg()
+            assert type(l0) is float and l0 >= 0.0
+            assert type(l1) is float and l0 >= 0.0
+            assert type(l2) is float and l0 >= 0.0
+
     if hasattr(os, 'fsync'):
         def test_fsync(self):
             os = self.posix
@@ -512,30 +569,42 @@ class AppTestPosix:
             try:
                 fd = f.fileno()
                 os.fsync(fd)
-            finally:
+                os.fsync(long(fd))
+                os.fsync(f)     # <- should also work with a file, or anything
+            finally:            #    with a fileno() method
                 f.close()
-            try:
-                os.fsync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fsync didn't raise")
+            raises(OSError, os.fsync, fd)
+            raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
         def test_fdatasync(self):
             os = self.posix
-            f = open(self.path2)
+            f = open(self.path2, "w")
             try:
                 fd = f.fileno()
                 os.fdatasync(fd)
             finally:
                 f.close()
+            raises(OSError, os.fdatasync, fd)
+            raises(ValueError, os.fdatasync, -1)
+
+    if hasattr(os, 'fchdir'):
+        def test_fchdir(self):
+            os = self.posix
+            localdir = os.getcwd()
             try:
-                os.fdatasync(fd)
-            except OSError:
-                pass
-            else:
-                raise AssertionError("os.fdatasync didn't raise")
+                os.mkdir(self.path2 + 'dir')
+                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+                try:
+                    os.fchdir(fd)
+                    mypath = os.getcwd()
+                finally:
+                    os.close(fd)
+                assert mypath.endswith('test_posix2-dir')
+                raises(OSError, os.fchdir, fd)
+                raises(ValueError, os.fchdir, -1)
+            finally:
+                os.chdir(localdir)
 
     def test_largefile(self):
         os = self.posix
@@ -622,6 +691,71 @@ class AppTestPosix:
             f.write("this is a test")
             f.close()
             os.chown(self.path, os.getuid(), os.getgid())
+
+    if hasattr(os, 'lchown'):
+        def test_lchown(self):
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.lchown, self.path, os.getuid(), os.getgid())
+            os.symlink('foobar', self.path)
+            os.lchown(self.path, os.getuid(), os.getgid())
+
+    if hasattr(os, 'mkfifo'):
+        def test_mkfifo(self):
+            os = self.posix
+            os.mkfifo(self.path2 + 'test_mkfifo', 0666)
+            st = os.lstat(self.path2 + 'test_mkfifo')
+            import stat
+            assert stat.S_ISFIFO(st.st_mode)
+
+    if hasattr(os, 'mknod'):
+        def test_mknod(self):
+            import stat
+            os = self.posix
+            # os.mknod() may require root priviledges to work at all
+            try:
+                # not very useful: os.mknod() without specifying 'mode'
+                os.mknod(self.path2 + 'test_mknod-1')
+            except OSError, e:
+                skip("os.mknod(): got %r" % (e,))
+            st = os.lstat(self.path2 + 'test_mknod-1')
+            assert stat.S_ISREG(st.st_mode)
+            # os.mknod() with S_IFIFO
+            os.mknod(self.path2 + 'test_mknod-2', 0600 | stat.S_IFIFO)
+            st = os.lstat(self.path2 + 'test_mknod-2')
+            assert stat.S_ISFIFO(st.st_mode)
+
+        def test_mknod_with_ifchr(self):
+            # os.mknod() with S_IFCHR
+            # -- usually requires root priviledges --
+            os = self.posix
+            if hasattr(os.lstat('.'), 'st_rdev'):
+                import stat
+                try:
+                    os.mknod(self.path2 + 'test_mknod-3', 0600 | stat.S_IFCHR,
+                             0x105)
+                except OSError, e:
+                    skip("os.mknod() with S_IFCHR: got %r" % (e,))
+                else:
+                    st = os.lstat(self.path2 + 'test_mknod-3')
+                    assert stat.S_ISCHR(st.st_mode)
+                    assert st.st_rdev == 0x105
+
+    if hasattr(os, 'nice') and hasattr(os, 'fork') and hasattr(os, 'waitpid'):
+        def test_nice(self):
+            os = self.posix
+            myprio = os.nice(0)
+            #
+            pid = os.fork()
+            if pid == 0:    # in the child
+                res = os.nice(3)
+                os._exit(res)
+            #
+            pid1, status1 = os.waitpid(pid, 0)
+            assert pid1 == pid
+            assert os.WIFEXITED(status1)
+            assert os.WEXITSTATUS(status1) == myprio + 3
+
 
 class AppTestEnvironment(object):
     def setup_class(cls): 

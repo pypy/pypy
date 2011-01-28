@@ -1,3 +1,4 @@
+import sys
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
@@ -427,7 +428,7 @@ class FunctionCodeGenerator(object):
         r = self.expr(op.result)
         return 'OP_CALL_ARGS((%s), %s);' % (', '.join(args), r)
 
-    def generic_call(self, FUNC, fnexpr, args_v, v_result):
+    def generic_call(self, FUNC, fnexpr, args_v, v_result, targets=None):
         args = []
         assert len(args_v) == len(FUNC.TO.ARGS)
         for v, ARGTYPE in zip(args_v, FUNC.TO.ARGS):
@@ -444,17 +445,26 @@ class FunctionCodeGenerator(object):
             # skip assignment of 'void' return value
             r = self.expr(v_result)
             line = '%s = %s' % (r, line)
+        if targets:
+            for graph in targets:
+                if getattr(graph, 'inhibit_tail_call', False):
+                    line += '\nPYPY_INHIBIT_TAIL_CALL();'
+                    break
         return line
 
     def OP_DIRECT_CALL(self, op):
         fn = op.args[0]
+        try:
+            targets = [fn.value._obj.graph]
+        except AttributeError:
+            targets = None
         return self.generic_call(fn.concretetype, self.expr(fn),
-                                 op.args[1:], op.result)
+                                 op.args[1:], op.result, targets)
 
     def OP_INDIRECT_CALL(self, op):
         fn = op.args[0]
         return self.generic_call(fn.concretetype, self.expr(fn),
-                                 op.args[1:-1], op.result)
+                                 op.args[1:-1], op.result, op.args[-1].value)
 
     def OP_ADR_CALL(self, op):
         ARGTYPES = [v.concretetype for v in op.args[1:]]
@@ -767,6 +777,16 @@ class FunctionCodeGenerator(object):
                 format.append('%s')
                 argv.append('(%s) ? "True" : "False"' % self.expr(arg))
                 continue
+            elif T == SignedLongLong:
+                if sys.platform == 'win32':
+                    format.append('%I64d')
+                else:
+                    format.append('%lld')
+            elif T == UnsignedLongLong:
+                if sys.platform == 'win32':
+                    format.append('%I64u')
+                else:
+                    format.append('%llu')
             else:
                 raise Exception("don't know how to debug_print %r" % (T,))
             argv.append(self.expr(arg))
@@ -775,17 +795,20 @@ class FunctionCodeGenerator(object):
             "if (PYPY_HAVE_DEBUG_PRINTS) { fprintf(PYPY_DEBUG_FILE, %s); %s}"
             % (', '.join(argv), free_line))
 
+    def _op_debug(self, opname, arg):
+        if isinstance(arg, Constant):
+            string_literal = c_string_constant(''.join(arg.value.chars))
+            return "%s(%s);" % (opname, string_literal)
+        else:
+            x = "%s(RPyString_AsCharP(%s));\n" % (opname, self.expr(arg))
+            x += "RPyString_FreeCache();"
+            return x
+
     def OP_DEBUG_START(self, op):
-        arg = op.args[0]
-        assert isinstance(arg, Constant)
-        return "PYPY_DEBUG_START(%s);" % (
-            c_string_constant(''.join(arg.value.chars)),)
+        return self._op_debug('PYPY_DEBUG_START', op.args[0])
 
     def OP_DEBUG_STOP(self, op):
-        arg = op.args[0]
-        assert isinstance(arg, Constant)
-        return "PYPY_DEBUG_STOP(%s);" % (
-            c_string_constant(''.join(arg.value.chars)),)
+        return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
 
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),

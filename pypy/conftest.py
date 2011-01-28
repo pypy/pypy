@@ -1,20 +1,22 @@
-import py, sys, os
+import py, sys, os, textwrap, types
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.function import Method
 from pypy.tool.pytest import appsupport
 from pypy.tool.option import make_config, make_objspace
 from pypy.config.config import ConflictConfigError
 from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
+from pypy.tool import leakfinder
 
 # pytest settings
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
 
-# PyPy's command line extra options (these are added 
-# to py.test's standard options) 
+# PyPy's command line extra options (these are added
+# to py.test's standard options)
 #
 
 def _set_platform(opt, opt_str, value, parser):
@@ -53,8 +55,8 @@ def pytest_funcarg__space(request):
 
 _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
-    """ helper for instantiating and caching space's for testing. 
-    """ 
+    """ helper for instantiating and caching space's for testing.
+    """
     try:
         config = make_config(option, objspace=name, **kwds)
     except ConflictConfigError, e:
@@ -99,14 +101,6 @@ def maketestobjspace(config=None):
     space.eq_w = appsupport.eq_w.__get__(space)
     return space
 
-def pytest_runtest_setup(item):
-    if isinstance(item, PyPyTestFunction):
-        appclass = item.getparent(PyPyClassCollector)
-        if appclass is not None:
-            spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
-            if spaceconfig:
-                appclass.obj.space = gettestobjspace(**spaceconfig)
-
 class TinyObjSpace(object):
     def __init__(self, **kwds):
         import sys
@@ -131,6 +125,10 @@ class TinyObjSpace(object):
                 #print sys.pypy_translation_info
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
                     "while pypy-c was built with %s" % (key, value, has))
+
+        for name in ('int', 'long', 'str', 'unicode'):
+            setattr(self, 'w_' + name, eval(name))
+
 
     def appexec(self, args, body):
         body = body.lstrip()
@@ -176,6 +174,9 @@ class TinyObjSpace(object):
     def getbuiltinmodule(self, name):
         return __import__(name)
 
+    def delslice(self, obj, *args):
+        obj.__delslice__(*args)
+
 def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
@@ -194,35 +195,35 @@ def check_keyboard_interrupt(e):
     except AttributeError:
         pass
 
-# 
-# Interfacing/Integrating with py.test's collection process 
+#
+# Interfacing/Integrating with py.test's collection process
 #
 #
 
 def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
     """ hack (py.test.) raises and skip into builtins, needed
-        for applevel tests to run directly on cpython but 
+        for applevel tests to run directly on cpython but
         apparently earlier on "raises" was already added
-        to module's globals. 
-    """ 
+        to module's globals.
+    """
     import __builtin__
-    for helper in helpers: 
+    for helper in helpers:
         if not hasattr(__builtin__, helper):
             setattr(__builtin__, helper, getattr(py.test, helper))
+
+def pytest_sessionstart(session):
+    """ before session.main() is called. """
+    # stick py.test raise in module globals -- carefully
+    ensure_pytest_builtin_helpers()
 
 def pytest_pycollect_makemodule(path, parent):
     return PyPyModule(path, parent)
 
-class PyPyModule(py.test.collect.Module): 
-    """ we take care of collecting classes both at app level 
-        and at interp-level (because we need to stick a space 
-        at the class) ourselves. 
-    """    
-    def __init__(self, *args, **kwargs):
-        if hasattr(sys, 'pypy_objspaceclass'):
-            option.conf_iocapture = "sys" # pypy cannot do FD-based
-        super(PyPyModule, self).__init__(*args, **kwargs)
-
+class PyPyModule(py.test.collect.Module):
+    """ we take care of collecting classes both at app level
+        and at interp-level (because we need to stick a space
+        at the class) ourselves.
+    """
     def accept_regular_test(self):
         if option.runappdirect:
             # only collect regular tests if we are in an 'app_test' directory,
@@ -251,16 +252,9 @@ class PyPyModule(py.test.collect.Module):
         #    return True
         return False
 
-    def setup(self): 
-        # stick py.test raise in module globals -- carefully
-        ensure_pytest_builtin_helpers() 
-        super(PyPyModule, self).setup() 
-        #    if hasattr(mod, 'objspacename'): 
-        #        mod.space = getttestobjspace(mod.objspacename)
-
-    def makeitem(self, name, obj): 
-        if isclass(obj) and self.classnamefilter(name): 
-            if name.startswith('AppTest'): 
+    def makeitem(self, name, obj):
+        if isclass(obj) and self.classnamefilter(name):
+            if name.startswith('AppTest'):
                 return AppClassCollector(name, parent=self)
             elif name.startswith('ExpectTest'):
                 if option.rundirect:
@@ -273,18 +267,18 @@ class PyPyModule(py.test.collect.Module):
             #    return AppExpectClassCollector(name, parent=self)
             else:
                 return IntClassCollector(name, parent=self)
-            
-        elif hasattr(obj, 'func_code') and self.funcnamefilter(name): 
-            if name.startswith('app_test_'): 
-                assert not obj.func_code.co_flags & 32, \
-                    "generator app level functions? you must be joking" 
-                return AppTestFunction(name, parent=self) 
-            elif obj.func_code.co_flags & 32: # generator function 
-                return self.Generator(name, parent=self) 
-            else: 
-                return IntTestFunction(name, parent=self) 
 
-def skip_on_missing_buildoption(**ropts): 
+        elif hasattr(obj, 'func_code') and self.funcnamefilter(name):
+            if name.startswith('app_test_'):
+                assert not obj.func_code.co_flags & 32, \
+                    "generator app level functions? you must be joking"
+                return AppTestFunction(name, parent=self)
+            elif obj.func_code.co_flags & 32: # generator function
+                return self.Generator(name, parent=self)
+            else:
+                return IntTestFunction(name, parent=self)
+
+def skip_on_missing_buildoption(**ropts):
     __tracebackhide__ = True
     import sys
     options = getattr(sys, 'pypy_translation_info', None)
@@ -292,23 +286,13 @@ def skip_on_missing_buildoption(**ropts):
         py.test.skip("not running on translated pypy "
                      "(btw, i would need options: %s)" %
                      (ropts,))
-    for opt in ropts: 
-        if not options.has_key(opt) or options[opt] != ropts[opt]: 
+    for opt in ropts:
+        if not options.has_key(opt) or options[opt] != ropts[opt]:
             break
     else:
         return
-    py.test.skip("need translated pypy with: %s, got %s" 
+    py.test.skip("need translated pypy with: %s, got %s"
                  %(ropts,options))
-
-def getwithoutbinding(x, name):
-    try:
-        return x.__dict__[name]
-    except (AttributeError, KeyError):
-        for cls in getmro(x.__class__):
-            if name in cls.__dict__:
-                return cls.__dict__[name]
-        # uh? not found anywhere, fall back (which might raise AttributeError)
-        return getattr(x, name)
 
 class LazyObjSpaceGetter(object):
     def __get__(self, obj, cls=None):
@@ -323,29 +307,45 @@ class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo
 
-class PyPyTestFunction(py.test.collect.Function):
-    # All PyPy test items catch and display OperationErrors specially.
-    #
-    def execute_appex(self, space, target, *args):
-        try:
-            target(*args)
-        except OperationError, e:
-            tb = sys.exc_info()[2]
-            if e.match(space, space.w_KeyboardInterrupt):
-                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
-            appexcinfo = appsupport.AppExceptionInfo(space, e) 
-            if appexcinfo.traceback: 
-                raise AppError, AppError(appexcinfo), tb
-            raise
+def pytest_runtest_setup(__multicall__, item):
+    if isinstance(item, py.test.collect.Function):
+        appclass = item.getparent(PyPyClassCollector)
+        if appclass is not None:
+            spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
+            if spaceconfig:
+                appclass.obj.space = gettestobjspace(**spaceconfig)
 
-    def repr_failure(self, excinfo):
-        if excinfo.errisinstance(AppError):
-            excinfo = excinfo.value.excinfo
-        return super(PyPyTestFunction, self).repr_failure(excinfo)
+    __multicall__.execute()
+
+    if isinstance(item, py.test.collect.Function):
+        if not getattr(item.obj, 'dont_track_allocations', False):
+            leakfinder.start_tracking_allocations()
+
+def pytest_runtest_call(__multicall__, item):
+    __multicall__.execute()
+    item._success = True
+
+def pytest_runtest_teardown(__multicall__, item):
+    __multicall__.execute()
+
+    if isinstance(item, py.test.collect.Function):
+        if (not getattr(item.obj, 'dont_track_allocations', False)
+            and leakfinder.TRACK_ALLOCATIONS):
+            item._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
+        else:            # stop_tracking_allocations() already called
+            item._pypytest_leaks = None
+
+        # check for leaks, but only if the test passed so far
+        if getattr(item, '_success', False) and item._pypytest_leaks:
+            raise leakfinder.MallocMismatch(item._pypytest_leaks)
+
+    if 'pygame' in sys.modules:
+        assert option.view, ("should not invoke Pygame "
+                             "if conftest.option.view is False")
 
 _pygame_imported = False
 
-class IntTestFunction(PyPyTestFunction):
+class IntTestFunction(py.test.collect.Function):
     def _haskeyword(self, keyword):
         return keyword == 'interplevel' or \
                super(IntTestFunction, self)._haskeyword(keyword)
@@ -367,14 +367,8 @@ class IntTestFunction(PyPyTestFunction):
                         py.test.skip('%s: %s' % (e.__class__.__name__, e))
                 cls = cls.__bases__[0]
             raise
-        if 'pygame' in sys.modules:
-            global _pygame_imported
-            if not _pygame_imported:
-                _pygame_imported = True
-                assert option.view, ("should not invoke Pygame "
-                                     "if conftest.option.view is False")
 
-class AppTestFunction(PyPyTestFunction):
+class AppTestFunction(py.test.collect.Function):
     def _prunetraceback(self, traceback):
         return traceback
 
@@ -385,61 +379,84 @@ class AppTestFunction(PyPyTestFunction):
     def _keywords(self):
         return ['applevel'] + super(AppTestFunction, self)._keywords()
 
+    def execute_appex(self, space, target, *args):
+        try:
+            target(*args)
+        except OperationError, e:
+            tb = sys.exc_info()[2]
+            if e.match(space, space.w_KeyboardInterrupt):
+                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
+            appexcinfo = appsupport.AppExceptionInfo(space, e)
+            if appexcinfo.traceback:
+                raise AppError, AppError(appexcinfo), tb
+            raise
+
     def runtest(self):
         target = self.obj
         if option.runappdirect:
             return target()
-        space = gettestobjspace() 
+        space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(target, filename=filename)
         print "executing", func
         self.execute_appex(space, func, space)
 
+    def repr_failure(self, excinfo):
+        if excinfo.errisinstance(AppError):
+            excinfo = excinfo.value.excinfo
+        return super(AppTestFunction, self).repr_failure(excinfo)
+
     def _getdynfilename(self, func):
         code = getattr(func, 'im_func', func).func_code
         return "[%s:%s]" % (code.co_filename, code.co_firstlineno)
 
-class AppTestMethod(AppTestFunction): 
-
-    def setup(self): 
-        super(AppTestMethod, self).setup() 
-        instance = self.parent.obj 
-        w_instance = self.parent.w_instance 
-        space = instance.space  
-        for name in dir(instance): 
-            if name.startswith('w_'): 
+class AppTestMethod(AppTestFunction):
+    def setup(self):
+        super(AppTestMethod, self).setup()
+        instance = self.parent.obj
+        w_instance = self.parent.w_instance
+        space = instance.space
+        for name in dir(instance):
+            if name.startswith('w_'):
                 if option.runappdirect:
-                    # if the value is a function living on the class,
-                    # don't turn it into a bound method here
-                    obj = getwithoutbinding(instance, name)
-                    setattr(instance, name[2:], obj)
+                    setattr(instance, name[2:], getattr(instance, name))
                 else:
-                    space.setattr(w_instance, space.wrap(name[2:]), 
-                                  getattr(instance, name)) 
+                    obj = getattr(instance, name)
+                    if isinstance(obj, types.MethodType):
+                        source = py.std.inspect.getsource(obj).lstrip()
+                        w_func = space.appexec([], textwrap.dedent("""
+                        ():
+                            %s
+                            return %s
+                        """) % (source, name))
+                        w_obj = Method(space, w_func, w_instance, space.w_None)
+                    else:
+                        w_obj = obj
+                    space.setattr(w_instance, space.wrap(name[2:]), w_obj)
 
     def runtest(self):
         target = self.obj
         if option.runappdirect:
             return target()
-        space = target.im_self.space 
+        space = target.im_self.space
         filename = self._getdynfilename(target)
-        func = app2interp_temp(target.im_func, filename=filename) 
-        w_instance = self.parent.w_instance 
-        self.execute_appex(space, func, space, w_instance) 
+        func = app2interp_temp(target.im_func, filename=filename)
+        w_instance = self.parent.w_instance
+        self.execute_appex(space, func, space, w_instance)
 
 class PyPyClassCollector(py.test.collect.Class):
     def setup(self):
-        cls = self.obj 
+        cls = self.obj
         if not hasattr(cls, 'spaceconfig'):
-            cls.space = LazyObjSpaceGetter() 
+            cls.space = LazyObjSpaceGetter()
         else:
             assert hasattr(cls, 'space') # set by pytest_runtest_setup
-        super(PyPyClassCollector, self).setup() 
+        super(PyPyClassCollector, self).setup()
 
 class IntInstanceCollector(py.test.collect.Instance):
-    Function = IntTestFunction 
-    
-class IntClassCollector(PyPyClassCollector): 
+    Function = IntTestFunction
+
+class IntClassCollector(PyPyClassCollector):
     Instance = IntInstanceCollector
 
     def _haskeyword(self, keyword):
@@ -449,21 +466,21 @@ class IntClassCollector(PyPyClassCollector):
     def _keywords(self):
         return super(IntClassCollector, self)._keywords() + ['interplevel']
 
-class AppClassInstance(py.test.collect.Instance): 
-    Function = AppTestMethod 
+class AppClassInstance(py.test.collect.Instance):
+    Function = AppTestMethod
 
-    def setup(self): 
-        super(AppClassInstance, self).setup()         
-        instance = self.obj 
-        space = instance.space 
-        w_class = self.parent.w_class 
+    def setup(self):
+        super(AppClassInstance, self).setup()
+        instance = self.obj
+        space = instance.space
+        w_class = self.parent.w_class
         if option.runappdirect:
             self.w_instance = instance
         else:
             self.w_instance = space.call_function(w_class)
 
-class AppClassCollector(PyPyClassCollector): 
-    Instance = AppClassInstance 
+class AppClassCollector(PyPyClassCollector):
+    Instance = AppClassInstance
 
     def _haskeyword(self, keyword):
         return keyword == 'applevel' or \
@@ -472,11 +489,11 @@ class AppClassCollector(PyPyClassCollector):
     def _keywords(self):
         return super(AppClassCollector, self)._keywords() + ['applevel']
 
-    def setup(self): 
-        super(AppClassCollector, self).setup()        
-        cls = self.obj 
-        space = cls.space 
-        clsname = cls.__name__ 
+    def setup(self):
+        super(AppClassCollector, self).setup()
+        cls = self.obj
+        space = cls.space
+        clsname = cls.__name__
         if option.runappdirect:
             w_class = cls
         else:
@@ -484,7 +501,7 @@ class AppClassCollector(PyPyClassCollector):
                                           space.wrap(clsname),
                                           space.newtuple([]),
                                           space.newdict())
-        self.w_class = w_class 
+        self.w_class = w_class
 
 class ExpectTestMethod(py.test.collect.Function):
     def safe_name(target):

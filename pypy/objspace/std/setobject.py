@@ -21,11 +21,10 @@ class W_BaseSetObject(W_Object):
         return False
 
 
-    def __init__(w_self, space, setdata=None):
-        if setdata is None:
-            w_self.setdata = r_dict(space.eq_w, space.hash_w)
-        else:
-            w_self.setdata = setdata.copy()
+    def __init__(w_self, space, setdata):
+        """Initialize the set by taking ownership of 'setdata'."""
+        assert setdata is not None
+        w_self.setdata = setdata
 
     def __repr__(w_self):
         """representation for debugging purposes"""
@@ -33,6 +32,7 @@ class W_BaseSetObject(W_Object):
         return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
 
     def _newobj(w_self, space, rdict_w=None):
+        """Make a new set or frozenset by taking ownership of 'rdict_w'."""
         #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
         objtype = type(w_self)
         if objtype is W_SetObject:
@@ -55,10 +55,7 @@ class W_SetObject(W_BaseSetObject):
 
 class W_FrozensetObject(W_BaseSetObject):
     from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
-
-    def __init__(w_self, space, setdata):
-        W_BaseSetObject.__init__(w_self, space, setdata)
-        w_self.hash = -1
+    hash = 0
 
 registerimplementation(W_BaseSetObject)
 registerimplementation(W_SetObject)
@@ -109,8 +106,14 @@ def next__SetIterObject(space, w_setiter):
 
 # some helper functions
 
+def newset(space):
+    return r_dict(space.eq_w, space.hash_w)
+
 def make_setdata_from_w_iterable(space, w_iterable=None):
-    data = r_dict(space.eq_w, space.hash_w)
+    """Return a new r_dict with the content of w_iterable."""
+    if isinstance(w_iterable, W_BaseSetObject):
+        return w_iterable.setdata.copy()
+    data = newset(space)
     if w_iterable is not None:
         for w_item in space.listview(w_iterable):
             data[w_item] = None
@@ -119,7 +122,7 @@ def make_setdata_from_w_iterable(space, w_iterable=None):
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.setdata.clear()
     if w_iterable is not None:
-        w_obj.setdata.update(make_setdata_from_w_iterable(space, w_iterable))
+        w_obj.setdata = make_setdata_from_w_iterable(space, w_iterable)
 
 def _convert_set_to_frozenset(space, w_obj):
     if space.is_true(space.isinstance(w_obj, space.w_set)):
@@ -130,12 +133,6 @@ def _convert_set_to_frozenset(space, w_obj):
 
 # helper functions for set operation on dicts
 
-def _is_frozenset_exact(w_obj):
-    if (w_obj is not None) and (type(w_obj) is W_FrozensetObject):
-        return True
-    else:
-        return False
-
 def _is_eq(ld, rd):
     if len(ld) != len(rd):
         return False
@@ -144,66 +141,49 @@ def _is_eq(ld, rd):
             return False
     return True
 
-def _union_dict(ldict, rdict, isupdate):
-    if isupdate:
-        ld = ldict
-    else:
-        ld = ldict.copy()
-    ld.update(rdict)
-    return ld, rdict
-
-def _difference_dict(ldict, rdict, isupdate):
-    if isupdate:
-        ld = ldict
-    else:
-        ld = ldict.copy()
-    del_list_w = []
+def _difference_dict(space, ld, rd):
+    result = newset(space)
     for w_key in ld:
-        if w_key in rdict:
-            del_list_w.append(w_key)
-    for w_key in del_list_w:
-        del ld[w_key]
+        if w_key not in rd:
+            result[w_key] = None
+    return result
 
-    return ld, rdict
-
-def _intersection_dict(ldict, rdict, isupdate):
-    if isupdate:
-        ld = ldict
+def _difference_dict_update(space, ld, rd):
+    if ld is rd:
+        ld.clear()     # for the case 'a.difference_update(a)'
     else:
-        ld = ldict.copy()
-    del_list_w = []
+        for w_key in rd:
+            try:
+                del ld[w_key]
+            except KeyError:
+                pass
+
+def _intersection_dict(space, ld, rd):
+    result = newset(space)
+    if len(ld) > len(rd):
+        ld, rd = rd, ld     # loop over the smaller dict
     for w_key in ld:
-        if w_key not in rdict:
-            del_list_w.append(w_key)
+        if w_key in rd:
+            result[w_key] = None
+    return result
 
-    for w_key in del_list_w:
-        del ld[w_key]
-
-    return ld, rdict
-
-
-def _symmetric_difference_dict(ldict, rdict, isupdate):
-    if isupdate:
-        ld = ldict
-    else:
-        ld = ldict.copy()
-    del_list_w = []
-    add_list_w = []
+def _isdisjoint_dict(ld, rd):
+    if len(ld) > len(rd):
+        ld, rd = rd, ld     # loop over the smaller dict
     for w_key in ld:
-        if w_key in rdict:
-            del_list_w.append(w_key)
+        if w_key in rd:
+            return False
+    return True
 
-    for w_key in rdict:
+def _symmetric_difference_dict(space, ld, rd):
+    result = newset(space)
+    for w_key in ld:
+        if w_key not in rd:
+            result[w_key] = None
+    for w_key in rd:
         if w_key not in ld:
-            add_list_w.append(w_key)
-
-    for w_key in del_list_w:
-        del ld[w_key]
-
-    for w_key in add_list_w:
-        ld[w_key] = None
-
-    return ld, rdict
+            result[w_key] = None
+    return result
 
 def _issubset_dict(ldict, rdict):
     if len(ldict) > len(rdict):
@@ -217,20 +197,19 @@ def _issubset_dict(ldict, rdict):
 
 #end helper functions
 
-def set_update__Set_BaseSet(space, w_left, w_other):
-    # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _union_dict(ld, rd, True)
-    return space.w_None
-
-def set_update__Set_ANY(space, w_left, w_other):
+def set_update__Set(space, w_left, others_w):
     """Update a set with the union of itself and another."""
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _union_dict(ld, rd, True)
-    return space.w_None
+    ld = w_left.setdata
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            ld.update(w_other.setdata)     # optimization only
+        else:
+            for w_key in space.listview(w_other):
+                ld[w_key] = None
 
 def inplace_or__Set_Set(space, w_left, w_other):
-    set_update__Set_BaseSet(space, w_left, w_other)
+    ld, rd = w_left.setdata, w_other.setdata
+    ld.update(rd)
     return w_left
 
 inplace_or__Set_Frozenset = inplace_or__Set_Set
@@ -241,58 +220,59 @@ def set_add__Set_ANY(space, w_left, w_other):
     This has no effect if the element is already present.
     """
     w_left.setdata[w_other] = None
-    return space.w_None
 
 def set_copy__Set(space, w_set):
-    return w_set._newobj(space,w_set.setdata)
+    return w_set._newobj(space, w_set.setdata.copy())
 
 def frozenset_copy__Frozenset(space, w_left):
-    if _is_frozenset_exact(w_left):
+    if type(w_left) is W_FrozensetObject:
         return w_left
     else:
-        return set_copy__Set(space,w_left)
+        return set_copy__Set(space, w_left)
 
 def set_clear__Set(space, w_left):
     w_left.setdata.clear()
-    return space.w_None
 
-def set_difference__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
+def sub__Set_Set(space, w_left, w_other):
     ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _difference_dict(ld, rd, False)
+    new_ld = _difference_dict(space, ld, rd)
     return w_left._newobj(space, new_ld)
 
-set_difference__Set_Frozenset = set_difference__Set_Set
-frozenset_difference__Frozenset_Set = set_difference__Set_Set
-frozenset_difference__Frozenset_Frozenset = set_difference__Set_Set
-sub__Set_Set = set_difference__Set_Set
-sub__Set_Frozenset = set_difference__Set_Set
-sub__Frozenset_Set = set_difference__Set_Set
-sub__Frozenset_Frozenset = set_difference__Set_Set
+sub__Set_Frozenset = sub__Set_Set
+sub__Frozenset_Set = sub__Set_Set
+sub__Frozenset_Frozenset = sub__Set_Set
 
-def set_difference__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _difference_dict(ld, rd, False)
-    return w_left._newobj(space, new_ld)
+def set_difference__Set(space, w_left, others_w):
+    result = w_left.setdata
+    if len(others_w) == 0:
+        result = result.copy()
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            rd = w_other.setdata     # optimization only
+        else:
+            rd = make_setdata_from_w_iterable(space, w_other)
+        result = _difference_dict(space, result, rd)
+    return w_left._newobj(space, result)
 
-frozenset_difference__Frozenset_ANY = set_difference__Set_ANY
+frozenset_difference__Frozenset = set_difference__Set
 
 
-def set_difference_update__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _difference_dict(ld, rd, True)
-    return space.w_None
-
-set_difference_update__Set_Frozenset = set_difference_update__Set_Set
-
-def set_difference_update__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _difference_dict(ld, rd, True)
-    return space.w_None
+def set_difference_update__Set(space, w_left, others_w):
+    ld = w_left.setdata
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            # optimization only
+            _difference_dict_update(space, ld, w_other.setdata)
+        else:
+            for w_key in space.listview(w_other):
+                try:
+                    del ld[w_key]
+                except KeyError:
+                    pass
 
 def inplace_sub__Set_Set(space, w_left, w_other):
-    set_difference_update__Set_Set(space, w_left, w_other)
+    ld, rd = w_left.setdata, w_other.setdata
+    _difference_dict_update(space, ld, rd)
     return w_left
 
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set
@@ -408,7 +388,7 @@ ge__Frozenset_Frozenset = set_issuperset__Set_Set
 # automatic registration of "lt(x, y)" as "not ge(y, x)" would not give the
 # correct answer here!
 def lt__Set_Set(space, w_left, w_other):
-    if _is_eq(w_left.setdata, w_other.setdata):
+    if len(w_left.setdata) >= len(w_other.setdata):
         return space.w_False
     else:
         return le__Set_Set(space, w_left, w_other)
@@ -418,7 +398,7 @@ lt__Frozenset_Set = lt__Set_Set
 lt__Frozenset_Frozenset = lt__Set_Set
 
 def gt__Set_Set(space, w_left, w_other):
-    if _is_eq(w_left.setdata, w_other.setdata):
+    if len(w_left.setdata) <= len(w_other.setdata):
         return space.w_False
     else:
         return ge__Set_Set(space, w_left, w_other)
@@ -431,43 +411,40 @@ def _discard_from_set(space, w_left, w_item):
     """
     Discard an element from a set, with automatic conversion to
     frozenset if the argument is a set.
-
-    Returns None if successfully removed, otherwise the object that
-    wasn't there is returned.
+    Returns True if successfully removed.
     """
     try:
         del w_left.setdata[w_item]
-        return None
+        return True
     except KeyError:
-        return w_item
+        return False
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_f = _convert_set_to_frozenset(space, w_item)
         if w_f is None:
             raise
-        
+
     try:
         del w_left.setdata[w_f]
-        return None
+        return True
     except KeyError:
-        return w_f
+        return False
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        return w_f
-    
+        return False
+
 def set_discard__Set_ANY(space, w_left, w_item):
     _discard_from_set(space, w_left, w_item)
 
 def set_remove__Set_ANY(space, w_left, w_item):
-    w_f = _discard_from_set(space, w_left, w_item)
-    if w_f is not None:
-        space.raise_key_error(w_f)
+    if not _discard_from_set(space, w_left, w_item):
+        space.raise_key_error(w_item)
 
 def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
-    if w_set.hash != -1:
+    if w_set.hash != 0:
         return space.wrap(w_set.hash)
     hash = 1927868237
     hash *= (len(w_set.setdata) + 1)
@@ -476,7 +453,7 @@ def hash__Frozenset(space, w_set):
         value = ((h ^ (h << 16) ^ 89869747)  * multi)
         hash = intmask(hash ^ value)
     hash = hash * 69069 + 907133923
-    if hash == -1:
+    if hash == 0:
         hash = 590923713
     hash = intmask(hash)
     w_set.hash = hash
@@ -484,60 +461,81 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    if len(w_left.setdata) == 0:
+    for w_key in w_left.setdata:
+        break
+    else:
         raise OperationError(space.w_KeyError,
                                 space.wrap('pop from an empty set'))
-    w_keys = w_left.setdata.keys()
-    w_value = w_keys[0]
-    del w_left.setdata[w_value]
+    del w_left.setdata[w_key]
+    return w_key
 
-    return w_value
-
-def set_intersection__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
+def and__Set_Set(space, w_left, w_other):
     ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _intersection_dict(ld, rd, False)
-    return w_left._newobj(space,new_ld)
+    new_ld = _intersection_dict(space, ld, rd)
+    return w_left._newobj(space, new_ld)
 
-set_intersection__Set_Frozenset = set_intersection__Set_Set
-set_intersection__Frozenset_Frozenset = set_intersection__Set_Set
-set_intersection__Frozenset_Set = set_intersection__Set_Set
+and__Set_Frozenset = and__Set_Set
+and__Frozenset_Set = and__Set_Set
+and__Frozenset_Frozenset = and__Set_Set
 
-def set_intersection__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _intersection_dict(ld, rd, False)
-    return w_left._newobj(space,new_ld)
+def _intersection_multiple(space, w_left, others_w):
+    result = w_left.setdata
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            # optimization only
+            result = _intersection_dict(space, result, w_other.setdata)
+        else:
+            result2 = newset(space)
+            for w_key in space.listview(w_other):
+                if w_key in result:
+                    result2[w_key] = None
+            result = result2
+    return result
 
-frozenset_intersection__Frozenset_ANY = set_intersection__Set_ANY
+def set_intersection__Set(space, w_left, others_w):
+    if len(others_w) == 0:
+        result = w_left.setdata.copy()
+    else:
+        result = _intersection_multiple(space, w_left, others_w)
+    return w_left._newobj(space, result)
 
-and__Set_Set = set_intersection__Set_Set
-and__Set_Frozenset = set_intersection__Set_Set
-and__Frozenset_Set = set_intersection__Set_Set
-and__Frozenset_Frozenset = set_intersection__Set_Set
+frozenset_intersection__Frozenset = set_intersection__Set
 
-def set_intersection_update__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _intersection_dict(ld, rd, True)
-    return space.w_None
-
-set_intersection_update__Set_Frozenset = set_intersection_update__Set_Set
-
-def set_intersection_update__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _intersection_dict(ld, rd, True)
-    return space.w_None
+def set_intersection_update__Set(space, w_left, others_w):
+    result = _intersection_multiple(space, w_left, others_w)
+    w_left.setdata = result
 
 def inplace_and__Set_Set(space, w_left, w_other):
-    set_intersection_update__Set_Set(space, w_left, w_other)
+    ld, rd = w_left.setdata, w_other.setdata
+    new_ld = _intersection_dict(space, ld, rd)
+    w_left.setdata = new_ld
     return w_left
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set
 
+def set_isdisjoint__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
+    ld, rd = w_left.setdata, w_other.setdata
+    disjoint = _isdisjoint_dict(ld, rd)
+    return space.newbool(disjoint)
+
+set_isdisjoint__Set_Frozenset = set_isdisjoint__Set_Set
+set_isdisjoint__Frozenset_Frozenset = set_isdisjoint__Set_Set
+set_isdisjoint__Frozenset_Set = set_isdisjoint__Set_Set
+
+def set_isdisjoint__Set_ANY(space, w_left, w_other):
+    ld = w_left.setdata
+    for w_key in space.listview(w_other):
+        if w_key in ld:
+            return space.w_False
+    return space.w_True
+
+frozenset_isdisjoint__Frozenset_ANY = set_isdisjoint__Set_ANY
+
 def set_symmetric_difference__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _symmetric_difference_dict(ld, rd, False)
+    new_ld = _symmetric_difference_dict(space, ld, rd)
     return w_left._newobj(space, new_ld)
 
 set_symmetric_difference__Set_Frozenset = set_symmetric_difference__Set_Set
@@ -553,7 +551,7 @@ xor__Frozenset_Frozenset = set_symmetric_difference__Set_Set
 
 def set_symmetric_difference__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _symmetric_difference_dict(ld, rd, False)
+    new_ld = _symmetric_difference_dict(space, ld, rd)
     return w_left._newobj(space, new_ld)
 
 frozenset_symmetric_difference__Frozenset_ANY = \
@@ -562,16 +560,16 @@ frozenset_symmetric_difference__Frozenset_ANY = \
 def set_symmetric_difference_update__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _symmetric_difference_dict(ld, rd, True)
-    return space.w_None
+    new_ld = _symmetric_difference_dict(space, ld, rd)
+    w_left.setdata = new_ld
 
 set_symmetric_difference_update__Set_Frozenset = \
                                     set_symmetric_difference_update__Set_Set
 
 def set_symmetric_difference_update__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _symmetric_difference_dict(ld, rd, True)
-    return space.w_None
+    new_ld = _symmetric_difference_dict(space, ld, rd)
+    w_left.setdata = new_ld
 
 def inplace_xor__Set_Set(space, w_left, w_other):
     set_symmetric_difference_update__Set_Set(space, w_left, w_other)
@@ -579,27 +577,27 @@ def inplace_xor__Set_Set(space, w_left, w_other):
 
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 
-def set_union__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
+def or__Set_Set(space, w_left, w_other):
     ld, rd = w_left.setdata, w_other.setdata
-    new_ld, rd = _union_dict(ld, rd, False)
-    return w_left._newobj(space, new_ld)
+    result = ld.copy()
+    result.update(rd)
+    return w_left._newobj(space, result)
 
-set_union__Set_Frozenset = set_union__Set_Set
-set_union__Frozenset_Set = set_union__Set_Set
-set_union__Frozenset_Frozenset = set_union__Set_Set
-or__Set_Set = set_union__Set_Set
-or__Set_Frozenset = set_union__Set_Set
-or__Frozenset_Set = set_union__Set_Set
-or__Frozenset_Frozenset = set_union__Set_Set
+or__Set_Frozenset = or__Set_Set
+or__Frozenset_Set = or__Set_Set
+or__Frozenset_Frozenset = or__Set_Set
 
+def set_union__Set(space, w_left, others_w):
+    result = w_left.setdata.copy()
+    for w_other in others_w:
+        if isinstance(w_other, W_BaseSetObject):
+            result.update(w_other.setdata)     # optimization only
+        else:
+            for w_key in space.listview(w_other):
+                result[w_key] = None
+    return w_left._newobj(space, result)
 
-def set_union__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld, rd = _union_dict(ld, rd, False)
-    return w_left._newobj(space, new_ld)
-
-frozenset_union__Frozenset_ANY = set_union__Set_ANY
+frozenset_union__Frozenset = set_union__Set
 
 def len__Set(space, w_left):
     return space.newint(len(w_left.setdata))
@@ -628,15 +626,6 @@ def init__Set(space, w_set, __args__):
             init_signature,
             init_defaults)
     _initialize_set(space, w_set, w_iterable)
-
-def init__Frozenset(space, w_set, __args__):
-    w_iterable, = __args__.parse_obj(
-            None, 'set',
-            init_signature,
-            init_defaults)
-    if w_set.hash == -1:
-        _initialize_set(space, w_set, w_iterable)
-        hash__Frozenset(space, w_set)
 
 app = gateway.applevel("""
     def setrepr(currently_in_repr, s):

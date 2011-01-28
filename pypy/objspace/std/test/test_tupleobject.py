@@ -328,6 +328,21 @@ class AppTestW_TupleObject:
         assert repr((1,)) == '(1,)'
         assert repr(()) == '()'
         assert repr((1,2,3)) == '(1, 2, 3)'
-        
+
     def test_getslice(self):
         assert ('a', 'b', 'c').__getslice__(-17, 2) == ('a', 'b')
+
+    def test_count(self):
+        assert ().count(4) == 0
+        assert (1, 2, 3, 4).count(3) == 1
+        assert (1, 2, 3, 4).count(5) == 0
+        assert (1, 1, 1).count(1) == 3
+
+    def test_index(self):
+        raises(ValueError, ().index, 4)
+        (1, 2).index(1) == 0
+        (3, 4, 5).index(4) == 1
+        raises(ValueError, (1, 2, 3, 4).index, 5)
+        assert (4, 2, 3, 4).index(4, 1) == 3
+        assert (4, 4, 4).index(4, 1, 2) == 1
+        raises(ValueError, (1, 2, 3, 4).index, 4, 0, 2)

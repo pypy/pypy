@@ -9,9 +9,10 @@ from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.rlib.objectmodel import instantiate, r_dict, specialize
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int
+from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
+from pypy.rlib.rbigint import rbigint
 from pypy.tool.sourcetools import func_with_new_name
 
 # Object imports
@@ -176,9 +177,17 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
-            return W_LongObject.fromrarith_int(x)
+            x = widen(x)
+            if isinstance(x, int):
+                return self.newint(x)
+            else:
+                return W_LongObject.fromrarith_int(x)
+        return self._wrap_not_rpython(x)
+    wrap._annspecialcase_ = "specialize:wrap"
 
-        # _____ below here is where the annotator should not get _____
+    def _wrap_not_rpython(self, x):
+        "NOT_RPYTHON"
+        # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.
@@ -222,9 +231,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.w_Ellipsis
 
         if self.config.objspace.nofaking:
-            # annotation should actually not get here.  If it does, you get
-            # an error during rtyping because '%r' is not supported.  It tells
-            # you that there was a space.wrap() on a strange object.
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("nofaking enabled: refusing "
                                            "to wrap cpython value %r" %(x,)))
@@ -234,8 +240,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return w_result
         from fake import fake_object
         return fake_object(self, x)
-
-    wrap._annspecialcase_ = "specialize:wrap"
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
@@ -260,8 +264,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newcomplex(self, realval, imagval):
         return W_ComplexObject(realval, imagval)
 
+    def unpackcomplex(self, w_complex):
+        from pypy.objspace.std.complextype import unpackcomplex
+        return unpackcomplex(self, w_complex)
+
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)
+
+    def newlong_from_rbigint(self, val):
+        return W_LongObject(val)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)
@@ -318,6 +329,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_subtype = w_type.check_user_subclass(w_subtype)
             if cls.typedef.applevel_subclasses_base is not None:
                 cls = cls.typedef.applevel_subclasses_base
+            #
+            if not we_are_translated():
+                if issubclass(cls, model.W_Object):
+                    # If cls is missing from model.typeorder, then you
+                    # need to add it there (including the inheritance
+                    # relationship, if any)
+                    assert cls in self.model.typeorder, repr(cls)
+            #
             if (self.config.objspace.std.withmapdict and cls is W_ObjectObject
                     and not w_subtype.needsdel):
                 from pypy.objspace.std.mapdict import get_subclass_of_correct_size
@@ -332,7 +351,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             raise operationerrfmt(self.w_TypeError,
                 "%s.__new__(%s): only for the type %s",
-                w_type.name, w_subtype.getname(self, '?'), w_type.name)
+                w_type.name, w_subtype.getname(self), w_type.name)
         return instance
     allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
@@ -342,7 +361,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def _wrap_expected_length(self, expected, got):
         return OperationError(self.w_ValueError,
-                self.wrap("Expected length %d, got %d" % (expected, got)))
+                self.wrap("expected length %d, got %d" % (expected, got)))
 
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_TupleObject):
@@ -372,7 +391,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     self, w_obj, expected_length)[:])
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
-        return t
+        return make_sure_not_resized(t)
 
     def fixedview_unroll(self, w_obj, expected_length=-1):
         return self.fixedview(w_obj, expected_length, unroll=True)
@@ -437,7 +456,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             if is_data:
                 w_get = self.lookup(w_descr, "__get__")
             if w_get is None:
-                w_value = w_obj.getdictvalue_attr_is_in_class(self, name)
+                w_value = w_obj.getdictvalue(self, name)
                 if w_value is not None:
                     return w_value
                 if not is_data:
@@ -489,14 +508,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
-    def setitem_str(self, w_obj, key, w_value, shadows_type=True):
+    def setitem_str(self, w_obj, key, w_value):
         """ Same as setitem, but takes string instead of any wrapped object
-
-        XXX what shadows_type means???
         """
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):
-            w_obj.setitem_str(key, w_value, shadows_type)
+            w_obj.setitem_str(key, w_value)
         else:
             self.setitem(w_obj, self.wrap(key), w_value)
 
@@ -522,3 +539,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def raise_key_error(self, w_key):
         e = self.call_function(self.w_KeyError, w_key)
         raise OperationError(self.w_KeyError, e)
+
+    def _type_issubtype(self, w_sub, w_type):
+        if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
+            return self.wrap(w_sub.issubtype(w_type))
+        raise OperationError(self.w_TypeError, self.wrap("need type objects"))

@@ -325,22 +325,44 @@ def test_r_singlefloat():
     assert float(x) != 2.1
     assert abs(float(x) - 2.1) < 1E-6
 
+def test_r_singlefloat_eq():
+    x = r_singlefloat(2.5)       # exact number
+    y = r_singlefloat(2.5)
+    assert x == y
+    assert not x != y
+    assert not x == 2.5
+    assert x != 2.5
+    py.test.raises(TypeError, "x>y")
+
 class BaseTestRarithmetic(BaseRtypingTest):
     def test_formatd(self):
         from pypy.rlib.rarithmetic import formatd
         def f(x):
-            return formatd('%.2f', x)
+            return formatd(x, 'f', 2, 0)
         res = self.ll_to_string(self.interpret(f, [10/3.0]))
         assert res == '3.33'
 
-    def test_formatd_overflow(self):
+    def test_formatd_repr(self):
+        from pypy.rlib.rarithmetic import formatd
+        def f(x):
+            return formatd(x, 'r', 0, 0)
+        res = self.ll_to_string(self.interpret(f, [1.1]))
+        assert res == '1.1'
+
+    def test_formatd_huge(self):
+        def f(x):
+            return formatd(x, 'f', 1234, 0)
+        res = self.ll_to_string(self.interpret(f, [1.0]))
+        assert res == '1.' + 1234 * '0'
+
+    def test_formatd_F(self):
         from pypy.translator.c.test.test_genc import compile
-        from pypy.rlib.rarithmetic import formatd_overflow
+        from pypy.rlib.rarithmetic import formatd
 
         def func(x):
             # Test the %F format, which is not supported by
             # the Microsoft's msvcrt library.
-            return formatd_overflow(0, 4, 'F', x)
+            return formatd(x, 'F', 4)
 
         f = compile(func, [float])
         assert f(10/3.0) == '3.3333'
@@ -358,13 +380,45 @@ class BaseTestRarithmetic(BaseRtypingTest):
         assert res == 1.0
 
         res = self.interpret(f, [1])
-        assert res == 1e-100                 
+        assert res == 1e-100
+
+    def test_string_to_float(self):
+        from pypy.rlib.rarithmetic import rstring_to_float
+        def func(x):
+            if x == 0:
+                s = '1e23'
+            else:
+                s = '-1e23'
+            return rstring_to_float(s)
+
+        assert self.interpret(func, [0]) == 1e23
+        assert self.interpret(func, [1]) == -1e23
+
+    def test_compare_singlefloat_crashes(self):
+        from pypy.rlib.rarithmetic import r_singlefloat
+        from pypy.rpython.error import MissingRTypeOperation
+        def f(x):
+            a = r_singlefloat(x)
+            b = r_singlefloat(x+1)
+            return a == b
+        py.test.raises(MissingRTypeOperation, "self.interpret(f, [42.0])")
+
 
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
-    pass
+    def test_formatd(self):
+        skip('formatd is broken on ootype')
+
+    def test_formatd_repr(self):
+        skip('formatd is broken on ootype')
+
+    def test_formatd_huge(self):
+        skip('formatd is broken on ootype')
+
+    def test_string_to_float(self):
+        skip('string_to_float is broken on ootype')
 
 def test_isinf():
     assert isinf(INFINITY)
@@ -375,3 +429,27 @@ def test_isnan():
 def test_int_real_union():
     from pypy.rpython.lltypesystem.rffi import r_int_real
     assert compute_restype(r_int_real, r_int_real) is r_int_real
+
+def test_highest_bit():
+    py.test.raises(AssertionError, highest_bit, 0)
+    py.test.raises(AssertionError, highest_bit, 14)
+
+    for i in xrange(31):
+        assert highest_bit(2**i) == i
+
+def test_copysign():
+    assert copysign(1, 1) == 1
+    assert copysign(-1, 1) == 1
+    assert copysign(-1, -1) == -1
+    assert copysign(1, -1) == -1
+    assert copysign(1, -0.) == -1
+
+def test_round_away():
+    assert round_away(.1) == 0.
+    assert round_away(.5) == 1.
+    assert round_away(.7) == 1.
+    assert round_away(1.) == 1.
+    assert round_away(-.5) == -1.
+    assert round_away(-.1) == 0.
+    assert round_away(-.7) == -1.
+    assert round_away(0.) == 0.

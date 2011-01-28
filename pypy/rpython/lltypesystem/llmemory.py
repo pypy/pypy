@@ -95,8 +95,10 @@ class ItemOffset(AddressOffset):
                 return endmarker._as_ptr()
             else:
                 return parent.getitem(index)._as_ptr()
-        elif (isinstance(A, lltype.FixedSizeArray) and
-              array_item_type_match(A.OF, self.TYPE)):
+        elif ((isinstance(A, lltype.FixedSizeArray)
+               or (isinstance(A, lltype.Array) and A._hints.get('nolength',
+                                                                False)))
+              and array_item_type_match(A.OF, self.TYPE)):
             # for array of primitives or pointers
             return lltype.direct_ptradd(firstitemptr, self.repeat)
         else:
@@ -107,11 +109,13 @@ class ItemOffset(AddressOffset):
         if (isinstance(self.TYPE, lltype.ContainerType)
             and self.TYPE._gckind == 'gc'):
             assert self.repeat == 1
-            p = lltype.malloc(self.TYPE, flavor='raw', zero=zero)
+            p = lltype.malloc(self.TYPE, flavor='raw', zero=zero,
+                              track_allocation=False)
             return cast_ptr_to_adr(p)
         else:
             T = lltype.FixedSizeArray(self.TYPE, self.repeat)
-            p = lltype.malloc(T, flavor='raw', zero=zero)
+            p = lltype.malloc(T, flavor='raw', zero=zero,
+                              track_allocation=False)
             array_adr = cast_ptr_to_adr(p)
             return array_adr + ArrayItemsOffset(T)
 
@@ -290,7 +294,8 @@ class ArrayItemsOffset(AddressOffset):
             count = 0
         p = lltype.malloc(parenttype or self.TYPE, count,
                           immortal = self.TYPE._gckind == 'raw',
-                          zero = zero)
+                          zero = zero,
+                          track_allocation = False)
         return cast_ptr_to_adr(p)
 
     def raw_memcopy(self, srcadr, dstadr):
@@ -813,8 +818,10 @@ class _gctransformed_wref(lltype._container):
         return '<%s>' % (self,)
     def __str__(self):
         return 'gctransformed_wref(%s)' % (self._ptr,)
-    def _normalizedcontainer(self):
-        return self._ptr._obj
+    def _normalizedcontainer(self, check=True):
+        return self._ptr._getobj(check=check)._normalizedcontainer(check=check)
+    def _was_freed(self):
+        return self._ptr._was_freed()
 
 # ____________________________________________________________
 

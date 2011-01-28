@@ -43,6 +43,10 @@
 #  include "src/asm_gcc_x86.h"
 #endif
 
+#if defined(__GNUC__) && defined(__amd64__)
+#  include "src/asm_gcc_x86_64.h"
+#endif
+
 #if defined(__GNUC__) && defined(__ppc__)
 #  include "src/asm_ppc.h"
 #endif
@@ -53,6 +57,7 @@
 #  include "src/rtyper.h"
 #  include "src/debug_print.h"
 #  include "src/debug_traceback.h"
+#  include "src/debug_alloc.h"
 #ifndef AVR
 #  include "src/ll_os.h"
 #  include "src/ll_strtod.h"

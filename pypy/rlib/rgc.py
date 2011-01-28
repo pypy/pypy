@@ -170,7 +170,14 @@ class SetMaxHeapSizeEntry(ExtRegistryEntry):
         return hop.genop('gc_set_max_heap_size', [v_nbytes],
                          resulttype=lltype.Void)
 
-def can_move(p):    # NB. must not be called with NULL pointers
+def can_move(p):
+    """Check if the GC object 'p' is at an address that can move.
+    Must not be called with None.  With non-moving GCs, it is always False.
+    With some moving GCs like the SemiSpace GC, it is always True.
+    With other moving GCs like the MiniMark GC, it can be True for some
+    time, then False for the same object, when we are sure that it won't
+    move any more.
+    """
     return True
 
 class CanMoveEntry(ExtRegistryEntry):
@@ -372,6 +379,11 @@ def dump_rpy_heap(fd):
     "NOT_RPYTHON"
     raise NotImplementedError
 
+def get_typeids_z():
+    "NOT_RPYTHON"
+    raise NotImplementedError
+
+ARRAY_OF_CHAR = lltype.Array(lltype.Char)
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
 class _GcRef(object):
@@ -523,3 +535,12 @@ class Entry(ExtRegistryEntry):
         vlist = hop.inputargs(lltype.Signed)
         hop.exception_is_here()
         return hop.genop('gc_dump_rpy_heap', vlist, resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_typeids_z
+    def compute_result_annotation(self):
+        from pypy.annotation.model import SomePtr
+        return SomePtr(lltype.Ptr(ARRAY_OF_CHAR))
+    def specialize_call(self, hop):
+        hop.exception_is_here()
+        return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)

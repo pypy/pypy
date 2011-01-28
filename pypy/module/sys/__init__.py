@@ -3,6 +3,8 @@ from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import we_are_translated
 import sys
 
+_WIN = sys.platform == 'win32'
+
 class Module(MixedModule):
     """Sys Builtin Module. """
     def __init__(self, space, w_name):
@@ -10,7 +12,6 @@ class Module(MixedModule):
         if space.config.translating:
             del self.__class__.interpleveldefs['pypy_getudir']
         super(Module, self).__init__(space, w_name) 
-        self.checkinterval = 100
         self.recursionlimit = 100
         self.w_default_encoder = None
         self.defaultencoding = "ascii"
@@ -21,10 +22,10 @@ class Module(MixedModule):
         '__doc__'               : '(space.wrap("PyPy sys module"))', 
 
         'platform'              : 'space.wrap(sys.platform)', 
-        'maxint'                : 'space.wrap(sys.maxint)', 
+        'maxint'                : 'space.wrap(sys.maxint)',
+        'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)', 
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
-        'maxint'                : 'space.wrap(sys.maxint)',
         'stdin'                 : 'state.getio(space).w_stdin',
         '__stdin__'             : 'state.getio(space).w_stdin',
         'stdout'                : 'state.getio(space).w_stdout',
@@ -34,9 +35,10 @@ class Module(MixedModule):
         'pypy_objspaceclass'    : 'space.wrap(repr(space))',
         #'prefix'               : # added by pypy_initial_path() when it 
         #'exec_prefix'          : # succeeds, pointing to trunk or /usr
-        'path'                  : 'state.get(space).w_path', 
+        'path'                  : 'state.get(space).w_path',
         'modules'               : 'state.get(space).w_modules', 
-        'argv'                  : 'state.get(space).w_argv', 
+        'argv'                  : 'state.get(space).w_argv',
+        'py3kwarning'           : 'space.w_False',
         'warnoptions'           : 'state.get(space).w_warnoptions', 
         'builtin_module_names'  : 'state.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
@@ -51,28 +53,32 @@ class Module(MixedModule):
         'exc_clear'             : 'vm.exc_clear', 
         'settrace'              : 'vm.settrace',
         'setprofile'            : 'vm.setprofile',
+        'getprofile'            : 'vm.getprofile',
         'call_tracing'          : 'vm.call_tracing',
+        'getsizeof'             : 'vm.getsizeof',
         
         'executable'            : 'space.wrap("py.py")', 
         'api_version'           : 'version.get_api_version(space)',
         'version_info'          : 'version.get_version_info(space)',
         'version'               : 'version.get_version(space)',
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
-        'pypy_svn_url'          : 'version.get_svn_url(space)',
         'subversion'            : 'version.get_subversion_info(space)',
+        '_mercurial'            : 'version.wrap_mercurial_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
-        'ps1'                   : 'space.wrap(">>>> ")', 
-        'ps2'                   : 'space.wrap(".... ")', 
 
         'displayhook'           : 'hook.displayhook', 
         '__displayhook__'       : 'hook.__displayhook__', 
         'meta_path'             : 'space.wrap([])',
         'path_hooks'            : 'space.wrap([])',
         'path_importer_cache'   : 'space.wrap({})',
+        'dont_write_bytecode'   : 'space.w_False',
         
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
+
+        'float_info'            : 'system.get_float_info(space)',
+        'long_info'             : 'system.get_long_info(space)',
         }
 
     if sys.platform == 'win32':
@@ -85,7 +91,8 @@ class Module(MixedModule):
         'exit'                  : 'app.exit', 
         'exitfunc'              : 'app.exitfunc',
         'callstats'             : 'app.callstats',
-        'copyright'             : 'app.copyright_str', 
+        'copyright'             : 'app.copyright_str',
+        'flags'                 : 'app.null_sysflags',
     }
 
     def setbuiltinmodule(self, w_module, name): 
@@ -97,6 +104,12 @@ class Module(MixedModule):
         if space.config.translating and not we_are_translated():
             # don't get the filesystemencoding at translation time
             assert self.filesystemencoding is None
+
+        else:
+            if _WIN:
+                from pypy.module.sys import vm
+                w_handle = vm.get_dllhandle(space)
+                space.setattr(self, space.wrap("dllhandle"), w_handle)
 
     def getmodule(self, name):
         space = self.space
@@ -148,3 +161,7 @@ class Module(MixedModule):
         else:
             from pypy.module.sys.interp_encoding import get_w_default_encoder
             return get_w_default_encoder(self.space)
+
+    def get_flag(self, name):
+        space = self.space
+        return space.int_w(space.getattr(self.get('flags'), space.wrap(name)))

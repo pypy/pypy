@@ -145,6 +145,8 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     def ll_str(self, s):
         # XXX crazy that this is here, but I don't want to break
         #     rmodel logic
+        if not s:
+            return self.ll.ll_constant('None')
         lgt = len(s.chars)
         result = mallocstr(lgt)
         for i in range(lgt):
@@ -242,10 +244,7 @@ FAST_FIND = 1
 FAST_RFIND = 2
 
 
-# XXX: This should be set to the number of bits in a long.  Having a lower
-# value here doesn't break anything, it just decreases the accuracy of the
-# bloom filter heuristic, which results in a worse runtime (but correct results)
-BLOOM_WIDTH = 32
+from pypy.rlib.rarithmetic import LONG_BIT as BLOOM_WIDTH
 
 
 def bloom_add(mask, c):
@@ -490,6 +489,7 @@ class LLHelpers(AbstractLLHelpers):
                 return i
             i += 1
         return -1
+    ll_find_char._annenforceargs_ = [None, None, int, int]
 
     @purefunction
     def ll_rfind_char(s, ch, start, end):
@@ -678,19 +678,21 @@ class LLHelpers(AbstractLLHelpers):
         return result
     ll_join_strs._annenforceargs_ = [int, None]
 
-    def ll_join_chars(length, chars):
+    def ll_join_chars(length, chars, RES):
         # no need to optimize this, will be replaced by string builder
         # at some point soon
         num_chars = length
-        if typeOf(chars).TO.OF == Char:
+        if RES is StringRepr.lowleveltype:
+            target = Char
             malloc = mallocstr
         else:
+            target = UniChar
             malloc = mallocunicode
         result = malloc(num_chars)
         res_chars = result.chars
         i = 0
         while i < num_chars:
-            res_chars[i] = chars[i]
+            res_chars[i] = cast_primitive(target, chars[i])
             i += 1
         return result
 

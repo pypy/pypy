@@ -3,6 +3,9 @@ import sys
 try:
     import ctypes
     import ctypes.util
+
+    if not hasattr(ctypes, 'c_longdouble'):
+        ctypes.c_longdouble = ctypes.c_double
 except ImportError:
     ctypes = None
 
@@ -18,7 +21,7 @@ from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.tool.tls import tlsobject
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, intmask
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -91,6 +94,7 @@ def _setup_ctypes_cache():
         lltype.Char:     ctypes.c_ubyte,
         rffi.DOUBLE:     ctypes.c_double,
         rffi.FLOAT:      ctypes.c_float,
+        rffi.LONGDOUBLE: ctypes.c_longdouble,
         rffi.SIGNEDCHAR: ctypes.c_byte,
         rffi.UCHAR:      ctypes.c_ubyte,
         rffi.SHORT:      ctypes.c_short,
@@ -409,6 +413,7 @@ def add_storage(instance, mixin_cls, ctypes_storage):
     subcls = get_common_subclass(mixin_cls, instance.__class__)
     instance.__class__ = subcls
     instance._storage = ctypes_storage
+    assert ctypes_storage   # null pointer?
 
 class _parentable_mixin(object):
     """Mixin added to _parentable containers when they become ctypes-based.
@@ -441,6 +446,9 @@ class _parentable_mixin(object):
             raise Exception("invalid free() - data already freed or "
                             "not allocated from RPython at all")
         self._storage = None
+
+    def _getid(self):
+        return self._addressof_storage()
 
     def __eq__(self, other):
         if isinstance(other, _llgcopaque):
@@ -825,6 +833,8 @@ def ctypes2lltype(T, cobj):
         except (ValueError, OverflowError):
             for tc in 'HIL':
                 if array(tc).itemsize == array('u').itemsize:
+                    import struct
+                    cobj &= 256 ** struct.calcsize(tc) - 1
                     llobj = array('u', array(tc, (cobj,)).tostring())[0]
                     break
             else:
@@ -838,6 +848,10 @@ def ctypes2lltype(T, cobj):
         if isinstance(cobj, ctypes.c_float):
             cobj = cobj.value
         llobj = r_singlefloat(cobj)
+    elif T is lltype.LongFloat:
+        if isinstance(cobj, ctypes.c_longdouble):
+            cobj = cobj.value
+        llobj = r_longfloat(cobj)
     elif T is lltype.Void:
         llobj = cobj
     else:
@@ -1301,7 +1315,7 @@ else:
             def _where_is_errno():
                 return standard_c_lib.__errno_location()
 
-        elif sys.platform in ('darwin', 'freebsd7'):
+        elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
             standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__error()

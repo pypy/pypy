@@ -71,12 +71,16 @@ corresponding Unix manual entries for more information on calls."""
 
     if hasattr(os, 'chown'):
         interpleveldefs['chown'] = 'interp_posix.chown'
+    if hasattr(os, 'lchown'):
+        interpleveldefs['lchown'] = 'interp_posix.lchown'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
     if hasattr(os, 'fsync'):
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
         interpleveldefs['fdatasync'] = 'interp_posix.fdatasync'
+    if hasattr(os, 'fchdir'):
+        interpleveldefs['fchdir'] = 'interp_posix.fchdir'
     if hasattr(os, 'putenv'):
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os
@@ -84,6 +88,8 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(os, 'kill') and sys.platform != 'win32':
         interpleveldefs['kill'] = 'interp_posix.kill'
         interpleveldefs['abort'] = 'interp_posix.abort'
+    if hasattr(os, 'killpg'):
+        interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
     if hasattr(os, 'link'):
@@ -96,24 +102,39 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fork'] = 'interp_posix.fork'
     if hasattr(os, 'openpty'):
         interpleveldefs['openpty'] = 'interp_posix.openpty'
+    if hasattr(os, 'forkpty'):
+        interpleveldefs['forkpty'] = 'interp_posix.forkpty'
     if hasattr(os, 'waitpid'):
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
     if hasattr(os, 'execv'):
         interpleveldefs['execv'] = 'interp_posix.execv'
     if hasattr(os, 'execve'):
         interpleveldefs['execve'] = 'interp_posix.execve'
+    if hasattr(posix, 'spawnv'):
+        interpleveldefs['spawnv'] = 'interp_posix.spawnv'
     if hasattr(os, 'uname'):
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):
         interpleveldefs['sysconf'] = 'interp_posix.sysconf'
         interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
+    if hasattr(os, 'fpathconf'):
+        interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
+        interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
+    if hasattr(os, 'getloadavg'):
+        interpleveldefs['getloadavg'] = 'interp_posix.getloadavg'
+    if hasattr(os, 'mkfifo'):
+        interpleveldefs['mkfifo'] = 'interp_posix.mkfifo'
+    if hasattr(os, 'mknod'):
+        interpleveldefs['mknod'] = 'interp_posix.mknod'
+    if hasattr(os, 'nice'):
+        interpleveldefs['nice'] = 'interp_posix.nice'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
-                 'seteuid', 'setgid', 'setegid', 'getpgrp', 'setpgrp',
-                 'getppid', 'getpgid', 'setpgid', 'setreuid', 'setregid',
-                 'getsid', 'setsid']:
+                 'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp', 
+                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid', 
+                 'setregid', 'getsid', 'setsid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:

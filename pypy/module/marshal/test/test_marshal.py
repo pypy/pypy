@@ -1,28 +1,22 @@
 from pypy.tool.udir import udir
 
-def make_check(space):
-    return space.appexec([], """():
-        import sys
-        import marshal, StringIO
-        def marshal_check(case):
-            s = marshal.dumps(case)
-            print repr(s)
-            x = marshal.loads(s)
-            assert x == case and type(x) is type(case)
-            f = StringIO.StringIO()
-            marshal.dump(case, f)
-            f.seek(0)
-            x = marshal.load(f)
-            assert x == case and type(x) is type(case)
-        return marshal_check
-    """)
 
 class AppTestMarshal:
-
     def setup_class(cls):
         tmpfile = udir.join('AppTestMarshal.tmp')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        cls.w_marshal_check = make_check(cls.space)
+
+    def w_marshal_check(self, case):
+        import marshal, StringIO
+        s = marshal.dumps(case)
+        print repr(s)
+        x = marshal.loads(s)
+        assert x == case and type(x) is type(case)
+        f = StringIO.StringIO()
+        marshal.dump(case, f)
+        f.seek(0)
+        x = marshal.load(f)
+        assert x == case and type(x) is type(case)
 
     def test_None(self):
         case = None
@@ -170,6 +164,14 @@ class AppTestMarshal:
         self.marshal_check(u'\uFFFF')
 
         self.marshal_check(unichr(sys.maxunicode))
+
+    def test_reject_subtypes(self):
+        import marshal
+        types = (float, complex, int, long, tuple, list, dict, set, frozenset)
+        for cls in types:
+            class subtype(cls):
+                pass
+            raises(ValueError, marshal.dumps, subtype)
 
 
 class AppTestRope(AppTestMarshal):

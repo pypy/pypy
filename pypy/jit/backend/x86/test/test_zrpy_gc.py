@@ -191,6 +191,33 @@ class TestCompileFramework(object):
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
 
+    def define_libffi_workaround(cls):
+        # XXX: this is a workaround for a bug in database.py.  It seems that
+        # the problem is triggered by optimizeopt/fficall.py, and in
+        # particular by the ``cast_base_ptr_to_instance(Func, llfunc)``: in
+        # these tests, that line is the only place where libffi.Func is
+        # referenced.
+        #
+        # The problem occurs because the gctransformer tries to annotate a
+        # low-level helper to call the __del__ of libffi.Func when it's too
+        # late.
+        #
+        # This workaround works by forcing the annotator (and all the rest of
+        # the toolchain) to see libffi.Func in a "proper" context, not just as
+        # the target of cast_base_ptr_to_instance.  Note that the function
+        # below is *never* called by any actual test, it's just annotated.
+        #
+        from pypy.rlib.libffi import get_libc_name, CDLL, types, ArgChain
+        libc_name = get_libc_name()
+        def f(n, x, *args):
+            libc = CDLL(libc_name)
+            ptr = libc.getpointer('labs', [types.slong], types.slong)
+            chain = ArgChain()
+            chain.arg(n)
+            n = ptr.call(chain, lltype.Signed)
+            return (n, x) + args
+        return None, f, None
+
     def define_compile_framework_1(cls):
         # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
         # without write_barriers and root stack enumeration.
@@ -523,3 +550,29 @@ class TestCompileFramework(object):
 
     def test_compile_framework_float(self):
         self.run('compile_framework_float')
+
+    def define_compile_framework_minimal_size_in_nursery(self):
+        S = lltype.GcStruct('S')    # no fields!
+        T = lltype.GcStruct('T', ('i', lltype.Signed))
+        @unroll_safe
+        def f42(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            lst1 = []
+            lst2 = []
+            i = 0
+            while i < 42:
+                s1 = lltype.malloc(S)
+                t1 = lltype.malloc(T)
+                t1.i = 10000 + i + n
+                lst1.append(s1)
+                lst2.append(t1)
+                i += 1
+            i = 0
+            while i < 42:
+                check(lst2[i].i == 10000 + i + n)
+                i += 1
+            n -= 1
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        return None, f42, None
+
+    def test_compile_framework_minimal_size_in_nursery(self):
+        self.run('compile_framework_minimal_size_in_nursery')

@@ -4,8 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.objectmodel import compute_hash, compute_unique_id
-from pypy.rlib.rarithmetic import intmask
-from pypy.tool.uid import uid
+from pypy.rlib.rarithmetic import intmask, r_int64
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -30,7 +29,8 @@ def getkind(TYPE, supports_floats=True):
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...
-        if rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed):
+        if (TYPE != llmemory.Address and
+            rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
             raise NotImplementedError("type %s is too large" % TYPE)
         return "int"
     elif isinstance(TYPE, lltype.Ptr):
@@ -280,8 +280,9 @@ class ConstInt(Const):
         cpu.set_future_value_int(j, self.value)
 
     def same_constant(self, other):
-        assert isinstance(other, Const)
-        return self.value == other.getint()
+        if isinstance(other, Const):
+            return self.value == other.getint()
+        return False
 
     def nonnull(self):
         return self.value != 0
@@ -319,8 +320,9 @@ class ConstFloat(Const):
         cpu.set_future_value_float(j, self.getfloat())
 
     def same_constant(self, other):
-        assert isinstance(other, ConstFloat)
-        return self.value == other.value
+        if isinstance(other, ConstFloat):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return self.value != 0.0
@@ -367,8 +369,9 @@ class ConstPtr(Const):
         cpu.set_future_value_ref(j, self.value)
 
     def same_constant(self, other):
-        assert isinstance(other, ConstPtr)
-        return self.value == other.value
+        if isinstance(other, ConstPtr):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return bool(self.value)
@@ -426,8 +429,9 @@ class ConstObj(Const):
 ##        return self.value
 
     def same_constant(self, other):
-        assert isinstance(other, ConstObj)
-        return self.value == other.value
+        if isinstance(other, ConstObj):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return bool(self.value)
@@ -490,6 +494,9 @@ class Box(AbstractValue):
     def _get_str(self):    # for debugging only
         return self.constbox()._get_str()
 
+    def forget_value(self):
+        raise NotImplementedError
+
 class BoxInt(Box):
     type = INT
     _attrs_ = ('value',)
@@ -502,6 +509,9 @@ class BoxInt(Box):
                 assert isinstance(value, Symbolic)
         self.value = value
 
+    def forget_value(self):
+        self.value = 0
+        
     def clonebox(self):
         return BoxInt(self.value)
 
@@ -537,6 +547,9 @@ class BoxFloat(Box):
         assert isinstance(floatval, float)
         self.value = floatval
 
+    def forget_value(self):
+        self.value = 0.0
+
     def clonebox(self):
         return BoxFloat(self.value)
 
@@ -568,6 +581,9 @@ class BoxPtr(Box):
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
         assert lltype.typeOf(value) == llmemory.GCREF
         self.value = value
+
+    def forget_value(self):
+        self.value = lltype.nullptr(llmemory.GCREF.TO)
 
     def clonebox(self):
         return BoxPtr(self.value)
@@ -612,6 +628,9 @@ class BoxObj(Box):
     def __init__(self, value=ootype.NULL):
         assert ootype.typeOf(value) is ootype.Object
         self.value = value
+
+    def forget_value(self):
+        self.value = ootype.NULL
 
     def clonebox(self):
         return BoxObj(self.value)
@@ -726,17 +745,31 @@ class LoopToken(AbstractDescr):
     was compiled; but the LoopDescr remains alive and points to the
     generated assembler.
     """
+    short_preamble = None
     terminating = False # see TerminatingLoopToken in compile.py
     outermost_jitdriver_sd = None
-    # specnodes = ...
     # and more data specified by the backend when the loop is compiled
-    number = 0
+    number = -1
+    generation = r_int64(0)
+    # one purpose of LoopToken is to keep alive the CompiledLoopToken
+    # returned by the backend.  When the LoopToken goes away, the
+    # CompiledLoopToken has its __del__ called, which frees the assembler
+    # memory and the ResumeGuards.
+    compiled_loop_token = None
 
-    def __init__(self, number=0):
-        self.number = number
+    def __init__(self):
+        # For memory management of assembled loops
+        self._keepalive_target_looktokens = {}      # set of other LoopTokens
+
+    def record_jump_to(self, target_loop_token):
+        self._keepalive_target_looktokens[target_loop_token] = None
+
+    def __repr__(self):
+        return '<Loop %d, gen=%d>' % (self.number, self.generation)
 
     def repr_of_descr(self):
         return '<Loop%d>' % self.number
+
 
 class TreeLoop(object):
     inputargs = None

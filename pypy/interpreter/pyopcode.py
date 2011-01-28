@@ -164,6 +164,9 @@ class __extend__(pyframe.PyFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
+    def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
+        return self.space.call_function(w_func, w_typ, w_val, w_tb)
+
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         space = self.space
@@ -752,6 +755,16 @@ class __extend__(pyframe.PyFrame):
         return self.space.not_(self.space.is_(w_1, w_2))
 
     def cmp_exc_match(self, w_1, w_2):
+        if self.space.is_true(self.space.isinstance(w_2, self.space.w_tuple)):
+            for w_t in self.space.fixedview(w_2):
+                if self.space.is_true(self.space.isinstance(w_t,
+                                                            self.space.w_str)):
+                    self.space.warn("catching of string exceptions is "
+                                    "deprecated",
+                                    self.space.w_DeprecationWarning)
+        elif self.space.is_true(self.space.isinstance(w_2, self.space.w_str)):
+            self.space.warn("catching of string exceptions is deprecated",
+                            self.space.w_DeprecationWarning)
         return self.space.newbool(self.space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
@@ -772,11 +785,13 @@ class __extend__(pyframe.PyFrame):
         modulename = self.space.str_w(w_modulename)
         w_fromlist = self.popvalue()
 
-        # CPython 2.5 adds an extra argument consumed by this opcode
-        if self.pycode.magic >= 0xa0df294:
-            w_flag = self.popvalue()
-        else:
-            w_flag = None
+        w_flag = self.popvalue()
+        try:
+            if space.int_w(w_flag) == -1:
+                w_flag = None
+        except OperationError, e:
+            if e.async(space):
+                raise
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
@@ -825,16 +840,30 @@ class __extend__(pyframe.PyFrame):
         next_instr += jumpby
         return next_instr
 
-    def JUMP_IF_FALSE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if not self.space.is_true(w_cond):
-            next_instr += stepby
+    def POP_JUMP_IF_FALSE(self, target, next_instr):
+        w_value = self.popvalue()
+        if not self.space.is_true(w_value):
+            return target
         return next_instr
 
-    def JUMP_IF_TRUE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if self.space.is_true(w_cond):
-            next_instr += stepby
+    def POP_JUMP_IF_TRUE(self, target, next_instr):
+        w_value = self.popvalue()
+        if self.space.is_true(w_value):
+            return target
+        return next_instr
+
+    def JUMP_IF_FALSE_OR_POP(self, target, next_instr):
+        w_value = self.peekvalue()
+        if not self.space.is_true(w_value):
+            return target
+        self.popvalue()
+        return next_instr
+
+    def JUMP_IF_TRUE_OR_POP(self, target, next_instr):
+        w_value = self.peekvalue()
+        if self.space.is_true(w_value):
+            return target
+        self.popvalue()
         return next_instr
 
     def GET_ITER(self, oparg, next_instr):
@@ -871,25 +900,64 @@ class __extend__(pyframe.PyFrame):
         block = FinallyBlock(self, next_instr + offsettoend)
         self.append_block(block)
 
+    def SETUP_WITH(self, offsettoend, next_instr):
+        w_manager = self.peekvalue()
+        w_descr = self.space.lookup(w_manager, "__exit__")
+        if w_descr is None:
+            raise OperationError(self.space.w_AttributeError,
+                                 self.space.wrap("__exit__"))
+        w_exit = self.space.get(w_descr, w_manager)
+        self.settopvalue(w_exit)
+        w_enter = self.space.lookup(w_manager, "__enter__")
+        if w_enter is None:
+            raise OperationError(self.space.w_AttributeError,
+                                 self.space.wrap("__enter__"))
+        w_result = self.space.get_and_call_function(w_enter, w_manager)
+        block = WithBlock(self, next_instr + offsettoend)
+        self.append_block(block)
+        self.pushvalue(w_result)
+
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
-        w_exitfunc = self.popvalue()
-        w_unroller = self.peekvalue(2)
+        # This opcode changed a lot between CPython versions
+        if (self.pycode.magic >= 0xa0df2ef
+            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
+            or self.pycode.magic >= 0xa0df2d1):
+            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
+            self.popvalue()
+            self.popvalue()
+            w_unroller = self.popvalue()
+            w_exitfunc = self.popvalue()
+            self.pushvalue(w_unroller)
+            self.pushvalue(self.space.w_None)
+            self.pushvalue(self.space.w_None)
+        elif self.pycode.magic >= 0xa0df28c:
+            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
+            w_exitfunc = self.popvalue()
+            w_unroller = self.peekvalue(2)
+        else:
+            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
+
         unroller = self.space.interpclass_w(w_unroller)
-        if isinstance(unroller, SApplicationException):
+        is_app_exc = (unroller is not None and
+                      isinstance(unroller, SApplicationException))
+        if is_app_exc:
             operr = unroller.operr
-            w_result = self.space.call_function(w_exitfunc,
-                                                operr.w_type,
-                                                operr.get_w_value(self.space),
-                                                operr.application_traceback)
-            if self.space.is_true(w_result):
+            w_traceback = self.space.wrap(operr.application_traceback)
+            w_suppress = self.call_contextmanager_exit_function(
+                w_exitfunc,
+                operr.w_type,
+                operr.get_w_value(self.space),
+                w_traceback)
+            if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None, 2)
         else:
-            self.space.call_function(w_exitfunc,
-                                     self.space.w_None,
-                                     self.space.w_None,
-                                     self.space.w_None)
+            self.call_contextmanager_exit_function(
+                w_exitfunc,
+                self.space.w_None,
+                self.space.w_None,
+                self.space.w_None)
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):
@@ -975,8 +1043,19 @@ class __extend__(pyframe.PyFrame):
 
     def LIST_APPEND(self, oparg, next_instr):
         w = self.popvalue()
-        v = self.popvalue()
+        v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
+
+    def SET_ADD(self, oparg, next_instr):
+        w_value = self.popvalue()
+        w_set = self.peekvalue(oparg)
+        self.space.call_method(w_set, 'add', w_value)
+
+    def MAP_ADD(self, oparg, next_instr):
+        w_key = self.popvalue()
+        w_value = self.popvalue()
+        w_dict = self.peekvalue(oparg)
+        self.space.setitem(w_dict, w_key, w_value)
 
     def SET_LINENO(self, lineno, next_instr):
         pass
@@ -1007,13 +1086,67 @@ class __extend__(pyframe.PyFrame):
     STOP_CODE = MISSING_OPCODE
 
     def BUILD_MAP(self, itemcount, next_instr):
-        if itemcount != 0:
-            raise BytecodeCorruption
+        w_dict = self.space.newdict()
+        self.pushvalue(w_dict)
+
+    def BUILD_SET(self, itemcount, next_instr):
+        w_set = self.space.call_function(self.space.w_set)
+        if itemcount:
+            w_add = self.space.getattr(w_set, self.space.wrap("add"))
+            for i in range(itemcount):
+                w_item = self.popvalue()
+                self.space.call_function(w_add, w_item)
+        self.pushvalue(w_set)
+
+    def STORE_MAP(self, oparg, next_instr):
+        w_key = self.popvalue()
+        w_value = self.popvalue()
+        w_dict = self.peekvalue()
+        self.space.setitem(w_dict, w_key, w_value)
+
+
+class __extend__(pyframe.CPythonFrame):
+
+    def JUMP_IF_FALSE(self, stepby, next_instr):
+        w_cond = self.peekvalue()
+        if not self.space.is_true(w_cond):
+            next_instr += stepby
+        return next_instr
+
+    def JUMP_IF_TRUE(self, stepby, next_instr):
+        w_cond = self.peekvalue()
+        if self.space.is_true(w_cond):
+            next_instr += stepby
+        return next_instr
+
+    def BUILD_MAP(self, itemcount, next_instr):
+        if sys.version_info >= (2, 6):
+            # We could pre-allocate a dict here
+            # but for the moment this code is not translated.
+            pass
+        else:
+            if itemcount != 0:
+                raise BytecodeCorruption
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
 
     def STORE_MAP(self, zero, next_instr):
-        raise BytecodeCorruption
+        if sys.version_info >= (2, 6):
+            w_key = self.popvalue()
+            w_value = self.popvalue()
+            w_dict = self.peekvalue()
+            self.space.setitem(w_dict, w_key, w_value)
+        else:
+            raise BytecodeCorruption
+
+    def LIST_APPEND(self, oparg, next_instr):
+        w = self.popvalue()
+        if sys.version_info < (2, 7):
+            v = self.popvalue()
+        else:
+            v = self.peekvalue(oparg - 1)
+        self.space.call_method(v, 'append', w)
+
 
 ### ____________________________________________________________ ###
 
@@ -1117,7 +1250,7 @@ class SContinueLoop(SuspendedUnroller):
     state_pack_variables = staticmethod(state_pack_variables)
 
 
-class FrameBlock:
+class FrameBlock(object):
 
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
@@ -1231,9 +1364,19 @@ class FinallyBlock(FrameBlock):
         return self.handlerposition   # jump to the handler
 
 
+class WithBlock(FinallyBlock):
+
+    def really_handle(self, frame, unroller):
+        if (frame.space.full_exceptions and
+            isinstance(unroller, SApplicationException)):
+            unroller.operr.normalize_exception(frame.space)
+        return FinallyBlock.really_handle(self, frame, unroller)
+
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
-                 'SETUP_FINALLY': FinallyBlock}
+                 'SETUP_FINALLY': FinallyBlock,
+                 'SETUP_WITH': WithBlock,
+                 }
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other

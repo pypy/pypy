@@ -1,5 +1,5 @@
 import py, struct
-from pypy.jit.codewriter.assembler import Assembler
+from pypy.jit.codewriter.assembler import Assembler, AssemblerError
 from pypy.jit.codewriter.flatten import SSARepr, Label, TLabel, Register
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter.jitcode import MissingLiveness
@@ -206,3 +206,12 @@ def test_liveness():
             py.test.raises(MissingLiveness, jitcode._live_vars, i)
     assert jitcode._live_vars(4) == '%i0 %i1 %i2'
     assert jitcode._live_vars(8) == '%i2'
+
+def test_assemble_error_string_constant():
+    ssarepr = SSARepr("test")
+    c = Constant('foobar', lltype.Void)
+    ssarepr.insns = [
+        ('duh', c),
+        ]
+    assembler = Assembler()
+    py.test.raises(AssemblerError, assembler.assemble, ssarepr)

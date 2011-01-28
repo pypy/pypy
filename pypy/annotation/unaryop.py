@@ -434,6 +434,9 @@ class __extend__(SomeDict):
     def method_clear(dct):
         pass
 
+    def method_popitem(dct):
+        return dct.getanyitem('items')
+
     def _can_only_throw(dic, *ignore):
         if dic1.dictdef.dictkey.custom_eq_hash:
             return None    # r_dict: can throw anything
@@ -612,6 +615,9 @@ class __extend__(SomeInstance):
                     if basedef.classdesc.all_enforced_attrs is not None:
                         if attr in basedef.classdesc.all_enforced_attrs:
                             raise HarmlesslyBlocked("get enforced attr")
+            elif isinstance(s_result, SomeList):
+                s_result = ins.classdef.classdesc.maybe_return_immutable_list(
+                    attr, s_result)
             return s_result
         return SomeObject()
     getattr.can_only_throw = []
@@ -664,7 +670,8 @@ class __extend__(SomePBC):
     getattr.can_only_throw = []
 
     def setattr(pbc, s_attr, s_value):
-        getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
+        if not pbc.isNone():
+            raise AnnotatorError("setattr on %r" % pbc)
 
     def call(pbc, args):
         bookkeeper = getbookkeeper()

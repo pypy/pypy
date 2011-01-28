@@ -6,15 +6,12 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
 frozenset_copy                  = SMM('copy', 1,
                                       doc='Return a shallow copy of a set.')
-frozenset_difference            = SMM('difference', 2,
-                                      doc='Return the difference of two sets'
-                                          ' as a new set.\n\n(i.e. all'
-                                          ' elements that are in this set but'
-                                          ' not the other.)')
-frozenset_intersection          = SMM('intersection', 2,
-                                      doc='Return the intersection of two sets'
-                                          ' as a new set.\n\n(i.e. all'
-                                          ' elements that are in both sets.)')
+frozenset_difference            = SMM('difference', 1, varargs_w=True,
+                                      doc='Return a new set with elements in'
+                                          ' the set that are not in the others.')
+frozenset_intersection          = SMM('intersection', 1, varargs_w=True,
+                                      doc='Return a new set with elements common'
+                                          ' to the set and all others.')
 frozenset_issubset              = SMM('issubset', 2,
                                       doc='Report whether another set contains'
                                           ' this set.')
@@ -26,26 +23,29 @@ frozenset_symmetric_difference  = SMM('symmetric_difference', 2,
                                           ' two sets as a new set.\n\n(i.e.'
                                           ' all elements that are in exactly'
                                           ' one of the sets.)')
-frozenset_union                 = SMM('union', 2,
-                                      doc='Return the union of two sets as a'
-                                          ' new set.\n\n(i.e. all elements'
-                                          ' that are in either set.)')
+frozenset_union                 = SMM('union', 1, varargs_w=True,
+                                      doc='Return a new set with elements'
+                                          ' from the set and all others.')
 frozenset_reduce                = SMM('__reduce__',1,
                                       doc='Return state information for'
                                           ' pickling.')
+# 2.6 methods
+frozenset_isdisjoint            = SMM('isdisjoint', 2,
+                                      doc='Return True if two sets have a'
+                                          ' null intersection.')
 
 register_all(vars(), globals())
 
 def descr__frozenset__new__(space, w_frozensettype,
                             w_iterable=gateway.NoneNotWrapped):
     from pypy.objspace.std.setobject import W_FrozensetObject
-    from pypy.objspace.std.setobject import _is_frozenset_exact
+    from pypy.objspace.std.setobject import make_setdata_from_w_iterable
     if (space.is_w(w_frozensettype, space.w_frozenset) and
-        _is_frozenset_exact(w_iterable)):
+        w_iterable is not None and type(w_iterable) is W_FrozensetObject):
         return w_iterable
     w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
-    W_FrozensetObject.__init__(w_obj, space, None)
-
+    data = make_setdata_from_w_iterable(space, w_iterable)
+    W_FrozensetObject.__init__(w_obj, space, data)
     return w_obj
 
 frozenset_typedef = StdTypeDef("frozenset",

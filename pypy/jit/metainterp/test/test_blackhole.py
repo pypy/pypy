@@ -145,22 +145,32 @@ def test_convert_and_run_from_pyjitpl():
 
 class TestBlackhole(LLJitMixin):
 
-    def test_blackholeinterp_cache(self):
+    def test_blackholeinterp_cache_basic(self):
+        class FakeJitcode:
+            def num_regs_r(self):
+                return 0
+        interp1 = getblackholeinterp({})
+        interp1.jitcode = FakeJitcode()
+        builder = interp1.builder
+        interp2 = builder.acquire_interp()
+        builder.release_interp(interp1)
+        interp3 = builder.acquire_interp()
+        assert builder.num_interpreters == 2
+
+    def test_blackholeinterp_cache_normal(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
         def choices(x):
-            if x == 2: return 10
-            if x == 3: return 199
-            if x == 4: return 124
-            if x == 5: return -521
-            if x == 6: return 8917
-            if x == 7: return -387
-            return 34871
+            if x == 0:       # <- this is the test that eventually succeeds,
+                return 0     #    requiring a blackhole interp in a call stack
+            return 34871     #    of two functions (hence num_interpreters==2)
         def f(x):
             y = 0
-            while x > 0:
+            cont = 1
+            while cont:
                 myjitdriver.can_enter_jit(x=x, y=y)
                 myjitdriver.jit_merge_point(x=x, y=y)
-                y += choices(x)
+                cont = choices(x)
+                y += cont
                 x -= 1
             return y
         #
@@ -186,21 +196,19 @@ class TestBlackhole(LLJitMixin):
             def __init__(self, num):
                 self.num = num
         def choices(x):
-            if x == 2: raise FooError(10)
-            if x == 3: raise FooError(199)
-            if x == 4: raise FooError(124)
-            if x == 5: raise FooError(-521)
-            if x == 6: raise FooError(8917)
-            if x == 7: raise FooError(-387)
+            if x == 0:
+                raise FooError(0)
             raise FooError(34871)
         def f(x):
             y = 0
-            while x > 0:
+            while True:
                 myjitdriver.can_enter_jit(x=x, y=y)
                 myjitdriver.jit_merge_point(x=x, y=y)
                 try:
                     choices(x)
                 except FooError, e:
+                    if e.num == 0:
+                        break
                     y += e.num
                 x -= 1
             return y

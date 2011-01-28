@@ -1,7 +1,8 @@
-import py, os
+import py, os, sys
 from pypy.tool.udir import udir
 from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
+from pypy.rlib.jit import hint
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.support import CCompiledMixin
@@ -9,6 +10,7 @@ from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.translator.translator import TranslationContext
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from pypy.config.translationoption import DEFL_GC
+from pypy.rlib import rgc
 
 class TestTranslationX86(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -63,10 +65,37 @@ class TestTranslationX86(CCompiledMixin):
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
             return total * 10
-        res = self.meta_interp(f, [40, -49])
-        assert res == f(40, -49)
+        #
+        from pypy.rpython.lltypesystem import lltype, rffi
+        from pypy.rlib.libffi import types, CDLL, ArgChain
+        from pypy.rlib.test.test_libffi import get_libm_name
+        libm_name = get_libm_name(sys.platform)
+        jitdriver2 = JitDriver(greens=[], reds = ['i', 'func', 'res', 'x'])
+        def libffi_stuff(i, j):
+            lib = CDLL(libm_name)
+            func = lib.getpointer('fabs', [types.double], types.double)
+            res = 0.0
+            x = float(j)
+            while i > 0:
+                jitdriver2.jit_merge_point(i=i, res=res, func=func, x=x)
+                jitdriver2.can_enter_jit(i=i, res=res, func=func, x=x)
+                func = hint(func, promote=True)
+                argchain = ArgChain()
+                argchain.arg(x)
+                res = func.call(argchain, rffi.DOUBLE)
+                i -= 1
+            return int(res)
+        #
+        def main(i, j):
+            return f(i, j) + libffi_stuff(i, j)
+        expected = main(40, -49)
+        res = self.meta_interp(main, [40, -49])
+        assert res == expected
 
     def test_direct_assembler_call_translates(self):
+        """Test CALL_ASSEMBLER and the recursion limit"""
+        from pypy.rlib.rstackovf import StackOverflow
+
         class Thing(object):
             def __init__(self, val):
                 self.val = val
@@ -109,9 +138,35 @@ class TestTranslationX86(CCompiledMixin):
                 i += 1
             return frame.thing.val
 
-        res = self.meta_interp(main, [0], inline=True,
+        driver2 = JitDriver(greens = [], reds = ['n'])
+
+        def main2(bound):
+            try:
+                while portal2(bound) == -bound+1:
+                    bound *= 2
+            except StackOverflow:
+                pass
+            return bound
+
+        def portal2(n):
+            while True:
+                driver2.jit_merge_point(n=n)
+                n -= 1
+                if n <= 0:
+                    return n
+                n = portal2(n)
+        assert portal2(10) == -9
+
+        def mainall(codeno, bound):
+            return main(codeno) + main2(bound)
+
+        res = self.meta_interp(mainall, [0, 1], inline=True,
                                policy=StopAtXPolicy(change))
-        assert res == main(0)
+        print hex(res)
+        assert res & 255 == main(0)
+        bound = res & ~255
+        assert 1024 <= bound <= 131072
+        assert bound & (bound-1) == 0       # a power of two
 
 
 class TestTranslationRemoveTypePtrX86(CCompiledMixin):
@@ -134,14 +189,14 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
 
         @dont_look_inside
         def f(x, total):
-            if x <= 3:
+            if x <= 30:
                 raise ImDone(total * 10)
-            if x > 20:
+            if x > 200:
                 return 2
             raise ValueError
         @dont_look_inside
         def g(x):
-            if x > 15:
+            if x > 150:
                 raise ValueError
             return 2
         class Base:
@@ -152,7 +207,7 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
                 return 1
         @dont_look_inside
         def h(x):
-            if x < 2000:
+            if x < 20000:
                 return Sub()
             else:
                 return Base()
@@ -183,8 +238,8 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
         logfile = udir.join('test_ztranslation.log')
         os.environ['PYPYLOG'] = 'jit-log-opt:%s' % (logfile,)
         try:
-            res = self.meta_interp(main, [40])
-            assert res == main(40)
+            res = self.meta_interp(main, [400])
+            assert res == main(400)
         finally:
             del os.environ['PYPYLOG']
 
@@ -193,5 +248,7 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
             if 'guard_class' in line:
                 guard_class += 1
         # if we get many more guard_classes, it means that we generate
-        # guards that always fail
-        assert 0 < guard_class <= 4
+        # guards that always fail (the following assert's original purpose
+        # is to catch the following case: each GUARD_CLASS is misgenerated
+        # and always fails with "gcremovetypeptr")
+        assert 0 < guard_class < 10

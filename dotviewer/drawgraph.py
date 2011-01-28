@@ -423,20 +423,43 @@ class GraphRenderer:
         else:
             for line in lines:
                 raw_line = line.replace('\\l','').replace('\r','') or ' '
-                img = TextSnippet(self, raw_line, (0, 0, 0), bgcolor)
-                w, h = img.get_size()
-                if w>wmax: wmax = w
-                if raw_line.strip():
-                    if line.endswith('\\l'):
-                        def cmd(img=img, y=hmax):
-                            img.draw(xleft, ytop+y)
-                    elif line.endswith('\r'):
-                        def cmd(img=img, y=hmax, w=w):
-                            img.draw(xright-w, ytop+y)
-                    else:
-                        def cmd(img=img, y=hmax, w=w):
-                            img.draw(xcenter-w//2, ytop+y)
+                if '\f' in raw_line:   # grayed out parts of the line
+                    imgs = []
+                    graytext = True
+                    h = 16
+                    w_total = 0
+                    for linepart in raw_line.split('\f'):
+                        graytext = not graytext
+                        if not linepart.strip():
+                            continue
+                        if graytext:
+                            fgcolor = (128, 160, 160)
+                        else:
+                            fgcolor = (0, 0, 0)
+                        img = TextSnippet(self, linepart, fgcolor, bgcolor)
+                        imgs.append((w_total, img))
+                        w, h = img.get_size()
+                        w_total += w
+                    if w_total > wmax: wmax = w_total
+                    def cmd(imgs=imgs, y=hmax):
+                        for x, img in imgs:
+                            img.draw(xleft+x, ytop+y)
                     commands.append(cmd)
+                else:
+                    img = TextSnippet(self, raw_line, (0, 0, 0), bgcolor)
+                    w, h = img.get_size()
+                    if w>wmax: wmax = w
+                    if raw_line.strip():
+                        if line.endswith('\\l'):
+                            def cmd(img=img, y=hmax):
+                                img.draw(xleft, ytop+y)
+                        elif line.endswith('\r'):
+                            def cmd(img=img, y=hmax, w=w):
+                                img.draw(xright-w, ytop+y)
+                        else:
+                            def cmd(img=img, y=hmax, w=w):
+                                img.draw(xcenter-w//2, ytop+y)
+                        commands.append(cmd)
                 hmax += h
                 #hmax += 8
 

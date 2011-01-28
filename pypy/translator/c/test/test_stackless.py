@@ -3,7 +3,7 @@ from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
 from pypy.annotation.listdef import s_list_of_strings
-from pypy.rlib.rstack import stack_unwind, stack_frames_depth, stack_too_big
+from pypy.rlib.rstack import stack_unwind, stack_frames_depth
 from pypy.rlib.rstack import yield_current_frame_to_caller, set_stack_depth_limit
 from pypy.config.config import Config
 import os

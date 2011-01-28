@@ -10,16 +10,16 @@ class EffectInfo(object):
 
     # the 'extraeffect' field is one of the following values:
     EF_PURE                            = 0 #pure function (and cannot raise)
-    EF_CANNOT_RAISE                    = 1 #a function which cannot raise
-    EF_CAN_RAISE                       = 2 #normal function (can raise)
-    EF_LOOPINVARIANT                   = 3 #special: call it only once per loop
+    EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
+    EF_CANNOT_RAISE                    = 2 #a function which cannot raise
+    EF_CAN_RAISE                       = 3 #normal function (can raise)
     EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
 
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
     OS_ARRAYCOPY                = 1    # "list.ll_arraycopy"
     OS_STR2UNICODE              = 2    # "str.str2unicode"
-
+    #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
     OS_STR_EQUAL                = 24   # "stroruni.equal"
@@ -30,7 +30,7 @@ class EffectInfo(object):
     OS_STREQ_NONNULL_CHAR       = 29   # s1 == char  (assert s1!=NULL)
     OS_STREQ_CHECKNULL_CHAR     = 30   # s1!=NULL and s1==char
     OS_STREQ_LENGTHOK           = 31   # s1 == s2    (assert len(s1)==len(s2))
-
+    #
     OS_UNI_CONCAT               = 42   #
     OS_UNI_SLICE                = 43   #
     OS_UNI_EQUAL                = 44   #
@@ -42,6 +42,10 @@ class EffectInfo(object):
     OS_UNIEQ_CHECKNULL_CHAR     = 50   #   STR, in the same order)
     OS_UNIEQ_LENGTHOK           = 51   #
     _OS_offset_uni              = OS_UNI_CONCAT - OS_STR_CONCAT
+    #
+    OS_LIBFFI_PREPARE           = 60
+    OS_LIBFFI_PUSH_ARG          = 61
+    OS_LIBFFI_CALL              = 62
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,
@@ -56,8 +60,13 @@ class EffectInfo(object):
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
-        result.write_descrs_fields = write_descrs_fields
-        result.write_descrs_arrays = write_descrs_arrays
+        if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
+           extraeffect == EffectInfo.EF_PURE:            
+            result.write_descrs_fields = []
+            result.write_descrs_arrays = []
+        else:
+            result.write_descrs_fields = write_descrs_fields
+            result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
         result.oopspecindex = oopspecindex
         cls._cache[key] = result
@@ -140,30 +149,44 @@ class VirtualizableAnalyzer(BoolGraphAnalyzer):
 
 # ____________________________________________________________
 
-_callinfo_for_oopspec = {} # {oopspecindex: (calldescr, func_as_int)}
+class CallInfoCollection(object):
+    def __init__(self):
+        # {oopspecindex: (calldescr, func_as_int)}
+        self._callinfo_for_oopspec = {}
 
-def callinfo_for_oopspec(oopspecindex):
-    """A function that returns the calldescr and the function
-    address (as an int) of one of the OS_XYZ functions defined above.
-    Don't use this if there might be several implementations of the same
-    OS_XYZ specialized by type, e.g. OS_ARRAYCOPY."""
-    try:
-        return _callinfo_for_oopspec[oopspecindex]
-    except KeyError:
-        return (None, 0)
+    def _freeze_(self):
+        return True
 
+    def add(self, oopspecindex, calldescr, func_as_int):
+        self._callinfo_for_oopspec[oopspecindex] = calldescr, func_as_int
 
-def _funcptr_for_oopspec_memo(oopspecindex):
-    from pypy.jit.codewriter import heaptracker
-    _, func_as_int = callinfo_for_oopspec(oopspecindex)
-    funcadr = heaptracker.int2adr(func_as_int)
-    return funcadr.ptr
-_funcptr_for_oopspec_memo._annspecialcase_ = 'specialize:memo'
+    def has_oopspec(self, oopspecindex):
+        return oopspecindex in self._callinfo_for_oopspec
 
-def funcptr_for_oopspec(oopspecindex):
-    """A memo function that returns a pointer to the function described
-    by OS_XYZ (as a real low-level function pointer)."""
-    funcptr = _funcptr_for_oopspec_memo(oopspecindex)
-    assert funcptr
-    return funcptr
-funcptr_for_oopspec._annspecialcase_ = 'specialize:arg(0)'
+    def all_function_addresses_as_int(self):
+        return [func for (_, func) in self._callinfo_for_oopspec.values()]
+
+    def callinfo_for_oopspec(self, oopspecindex):
+        """A function that returns the calldescr and the function
+        address (as an int) of one of the OS_XYZ functions defined above.
+        Don't use this if there might be several implementations of the same
+        OS_XYZ specialized by type, e.g. OS_ARRAYCOPY."""
+        try:
+            return self._callinfo_for_oopspec[oopspecindex]
+        except KeyError:
+            return (None, 0)
+
+    def _funcptr_for_oopspec_memo(self, oopspecindex):
+        from pypy.jit.codewriter import heaptracker
+        _, func_as_int = self.callinfo_for_oopspec(oopspecindex)
+        funcadr = heaptracker.int2adr(func_as_int)
+        return funcadr.ptr
+    _funcptr_for_oopspec_memo._annspecialcase_ = 'specialize:memo'
+
+    def funcptr_for_oopspec(self, oopspecindex):
+        """A memo function that returns a pointer to the function described
+        by OS_XYZ (as a real low-level function pointer)."""
+        funcptr = self._funcptr_for_oopspec_memo(oopspecindex)
+        assert funcptr
+        return funcptr
+    funcptr_for_oopspec._annspecialcase_ = 'specialize:arg(1)'

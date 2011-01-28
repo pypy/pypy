@@ -77,10 +77,10 @@ Test running gen when defining function is out of scope
 Verify that parenthesis are required in a statement
 
     >>> def f(n):
-    ...     return i*i for i in xrange(n)
+    ...     return i*i for i in xrange(n) #doctest: +ELLIPSIS
     Traceback (most recent call last):
        ...
-    SyntaxError: invalid syntax
+    SyntaxError: invalid syntax...
 
 Verify that parenthesis are required when used as a keyword argument value
 

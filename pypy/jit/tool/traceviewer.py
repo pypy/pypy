@@ -74,7 +74,7 @@ class BasicBlock(object):
 
     def generate(self, dotgen, counts):
         val = counts.get(self.key, 0)
-        if val > counts.threshold:
+        if False: #val > counts.threshold:
             fillcolor = get_gradient_color(self.ratio)
         else:
             fillcolor = "white"
@@ -253,10 +253,10 @@ class Counts(dict):
 def main(loopfile, use_threshold, view=True):
     countname = py.path.local(loopfile + '.count')
     if countname.check():
-        counts = [re.split('(<code)|(<loop)', line, maxsplit=1)
-                  for line in countname.readlines()]
-        counts = Counts([('<code' + k.strip("\n"), int(v.strip('\n').strip()))
-                         for v, _, _, k in counts])
+        #counts = [line.split(':', 1) for line in countname.readlines()]
+        #counts = Counts([('<code' + k.strip("\n"), int(v.strip('\n').strip()))
+        #                 for v, k in counts])
+        counts = Counts([])
         l = list(sorted(counts.values()))
         if len(l) > 20 and use_threshold:
             counts.threshold = l[-20]

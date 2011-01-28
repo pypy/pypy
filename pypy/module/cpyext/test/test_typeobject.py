@@ -91,6 +91,22 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.char_member == "a"
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
+        #
+        import sys
+        bignum = sys.maxint - 42
+        obj.short_member = -12345;     assert obj.short_member == -12345
+        obj.long_member = -bignum;     assert obj.long_member == -bignum
+        obj.ushort_member = 45678;     assert obj.ushort_member == 45678
+        obj.uint_member = 3000000000;  assert obj.uint_member == 3000000000
+        obj.ulong_member = 2*bignum;   assert obj.ulong_member == 2*bignum
+        obj.byte_member = -99;         assert obj.byte_member == -99
+        obj.ubyte_member = 199;        assert obj.ubyte_member == 199
+        obj.bool_member = True;        assert obj.bool_member is True
+        obj.float_member = 9.25;       assert obj.float_member == 9.25
+        obj.double_member = 9.25;      assert obj.double_member == 9.25
+        obj.longlong_member = -2**59;  assert obj.longlong_member == -2**59
+        obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
+        #
 
     def test_staticmethod(self):
         module = self.import_module(name="foo")
@@ -118,7 +134,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 return self
         assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
-    
+
     def test_init(self):
         module = self.import_module(name="foo")
         newobj = module.FuuType()
@@ -153,7 +169,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(module.fooType).__mro__ == (type, object)
         y = module.MetaType('other', (module.fooType,), {})
         assert isinstance(y, module.MetaType)
-        y()
+        x = y()
+        del x, y
 
     def test_sre(self):
         module = self.import_module(name='_sre')
@@ -172,17 +189,18 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert "groupdict" in dir(m)
         re._cache.clear()
         re._cache_repl.clear()
+        del prog, m
 
     def test_init_error(self):
         module = self.import_module("foo")
         raises(ValueError, module.InitErrType)
-    
+
     def test_cmps(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
         assert cmpr == 3
         assert cmpr != 42
-    
+
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()

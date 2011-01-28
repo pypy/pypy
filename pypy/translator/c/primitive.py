@@ -102,6 +102,7 @@ def name_float(value, db):
         x = repr(value)
         assert not x.startswith('n')
         return x
+name_longfloat = name_float
 
 def name_singlefloat(value, db):
     value = float(value)
@@ -181,6 +182,7 @@ PrimitiveName = {
     Unsigned: name_unsigned,
     Float:    name_float,
     SingleFloat: name_singlefloat,
+    LongFloat: name_longfloat,
     Char:     name_char,
     UniChar:  name_unichar,
     Bool:     name_bool,
@@ -197,6 +199,7 @@ PrimitiveType = {
     Unsigned: 'unsigned long @',
     Float:    'double @',
     SingleFloat: 'float @',
+    LongFloat: 'long double @',
     Char:     'char @',
     UniChar:  'wchar_t @',
     Bool:     'bool_t @',

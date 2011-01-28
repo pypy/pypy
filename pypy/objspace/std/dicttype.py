@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter import gateway
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 
 dict_copy       = SMM('copy',          1,
@@ -44,116 +44,67 @@ dict_iterkeys   = SMM('iterkeys',      1,
                       doc='D.iterkeys() -> an iterator over the keys of D')
 dict_itervalues = SMM('itervalues',    1,
                       doc='D.itervalues() -> an iterator over the values of D')
+dict_viewkeys   = SMM('viewkeys',      1,
+                      doc="D.viewkeys() -> a set-like object providing a view on D's keys")
+dict_viewitems  = SMM('viewitems',     1,
+                      doc="D.viewitems() -> a set-like object providing a view on D's items")
+dict_viewvalues = SMM('viewvalues',    1,
+                      doc="D.viewvalues() -> an object providing a view on D's values")
 dict_reversed   = SMM('__reversed__',      1)
 
 def dict_reversed__ANY(space, w_dict):
     raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
 
-#dict_fromkeys   = MultiMethod('fromkeys',      2, varargs=True)
-# This can return when multimethods have been fixed
-#dict_str        = StdObjSpace.str
-
-# default application-level implementations for some operations
-# most of these (notably not popitem and update*) are overwritten
-# in dictmultiobject
-# gateway is imported in the stdtypedef module
-app = gateway.applevel('''
-
-    # in the following functions we use dict.__setitem__ instead of
-    # d[k]=...  because when a subclass of dict override __setitem__,
-    # CPython does not call it when doing builtin operations.  The
-    # same for other operations.
-
-    def update1(d, o):
-        if hasattr(o, 'keys'):
-            for k in o.keys():
-                dict.__setitem__(d, k, o[k])
-        else:
-            for k,v in o:
-                dict.__setitem__(d, k, v)
-
-    def update(d, *args, **kwargs):
-        len_args = len(args)
-        if len_args == 1:
-            update1(d, args[0])
-        elif len_args > 1:
-            raise TypeError("update takes at most 1 (non-keyword) argument")
-        if kwargs:
-            update1(d, kwargs)
-
-    def popitem(d):
-        for k in dict.iterkeys(d):
-            break
-        else:
-            raise KeyError("popitem(): dictionary is empty")
-        v = dict.__getitem__(d, k)
-        dict.__delitem__(d, k)
-        return k, v
-
-    def get(d, k, v=None):
-        if k in d:
-            return dict.__getitem__(d, k)
-        else:
-            return v
-
-    def setdefault(d, k, v=None):
-        if k in d:
-            return dict.__getitem__(d, k)
-        else:
-            dict.__setitem__(d, k, v)
-            return v
-
-    def pop(d, k, defaults):     # XXX defaults is actually *defaults
-        if len(defaults) > 1:
-            raise TypeError, "pop expected at most 2 arguments, got %d" % (
-                1 + len(defaults))
-        try:
-            v = dict.__getitem__(d, k)
-            dict.__delitem__(d, k)
-        except KeyError, e:
-            if defaults:
-                return defaults[0]
-            else:
-                raise e
-        return v
-
-    def iteritems(d):
-        return iter(dict.items(d))
-
-    def iterkeys(d):
-        return iter(dict.keys(d))
-
-    def itervalues(d):
-        return iter(dict.values(d))
-''', filename=__file__)
-
-dict_update__ANY             = app.interphook("update")
-dict_popitem__ANY            = app.interphook("popitem")
-dict_get__ANY_ANY_ANY        = app.interphook("get")
-dict_setdefault__ANY_ANY_ANY = app.interphook("setdefault")
-dict_pop__ANY_ANY            = app.interphook("pop")
-dict_iteritems__ANY          = app.interphook("iteritems")
-dict_iterkeys__ANY           = app.interphook("iterkeys")
-dict_itervalues__ANY         = app.interphook("itervalues")
-update1                      = app.interphook("update1")
-
 register_all(vars(), globals())
 
 @gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def descr_fromkeys(space, w_type, w_keys, w_fill=None):
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
         w_fill = space.w_None
-    w_dict = space.call_function(w_type)
-    w_iter = space.iter(w_keys)
-    while True:
-        try:
-            w_key = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        space.setitem(w_dict, w_key, w_fill)
+    if space.is_w(w_type, space.w_dict):
+        w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
+        for w_key in space.listview(w_keys):
+            w_dict.setitem(w_key, w_fill)
+    else:
+        w_dict = space.call_function(w_type)
+        for w_key in space.listview(w_keys):
+            space.setitem(w_dict, w_key, w_fill)
     return w_dict
+
+
+app = gateway.applevel('''
+    def dictrepr(currently_in_repr, d):
+        if len(d) == 0:
+            return "{}"
+        dict_id = id(d)
+        if dict_id in currently_in_repr:
+            return '{...}'
+        currently_in_repr[dict_id] = 1
+        try:
+            items = []
+            # XXX for now, we cannot use iteritems() at app-level because
+            #     we want a reasonable result instead of a RuntimeError
+            #     even if the dict is mutated by the repr() in the loop.
+            for k, v in dict.items(d):
+                items.append(repr(k) + ": " + repr(v))
+            return "{" +  ', '.join(items) + "}"
+        finally:
+            try:
+                del currently_in_repr[dict_id]
+            except:
+                pass
+''', filename=__file__)
+
+dictrepr = app.interphook("dictrepr")
+
+
+def descr_repr(space, w_dict):
+    ec = space.getexecutioncontext()
+    w_currently_in_repr = ec._py_repr
+    if w_currently_in_repr is None:
+        w_currently_in_repr = ec._py_repr = space.newdict()
+    return dictrepr(space, w_currently_in_repr, w_dict)
 
 
 # ____________________________________________________________
@@ -179,7 +130,8 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
                                  unwrap_spec=
                                  [gateway.ObjSpace,
                                   gateway.W_Root,gateway.Arguments]),
-    __hash__ = no_hash_descr,
+    __hash__ = None,
+    __repr__ = gateway.interp2app(descr_repr),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     )
 dict_typedef.registermethods(globals())
@@ -244,4 +196,19 @@ def descr_dictiter__reduce__(w_self, space):
 dictiter_typedef = StdTypeDef("dictionaryiterator",
     __reduce__ = gateway.interp2app(descr_dictiter__reduce__,
                            unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
+    )
+
+# ____________________________________________________________
+# Dict views
+
+dict_keys_typedef = StdTypeDef(
+    "dict_keys",
+    )
+
+dict_items_typedef = StdTypeDef(
+    "dict_items",
+    )
+
+dict_values_typedef = StdTypeDef(
+    "dict_values",
     )

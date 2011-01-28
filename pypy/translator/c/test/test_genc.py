@@ -269,25 +269,40 @@ def test_infinite_float():
     res = f1(3)
     assert res == 1.5
 
-def test_nan():
+def test_nan_and_special_values():
     from pypy.translator.c.primitive import isnan, isinf
+    from pypy.rlib.rarithmetic import copysign
     inf = 1e300 * 1e300
     assert isinf(inf)
     nan = inf/inf
     assert isnan(nan)
 
-    l = [nan]
-    def f():
-        return nan
-    f1 = compile(f, [])
-    res = f1()
-    assert isnan(res)
+    for value, checker in [
+            (inf,   lambda x: isinf(x) and x > 0.0),
+            (-inf,  lambda x: isinf(x) and x < 0.0),
+            (nan,   isnan),
+            (0.0,   lambda x: not x and copysign(1., x) == 1.),
+            (-0.0,  lambda x: not x and copysign(1., x) == -1.),
+            ]:
+        def f():
+            return value
+        f1 = compile(f, [])
+        res = f1()
+        assert checker(res)
 
-    def g(x):
-        return l[x]
-    g2 = compile(g, [int])
-    res = g2(0)
-    assert isnan(res)
+        l = [value]
+        def g(x):
+            return l[x]
+        g2 = compile(g, [int])
+        res = g2(0)
+        assert checker(res)
+
+        l2 = [(-value, -value), (value, value)]
+        def h(x):
+            return l2[x][1]
+        h3 = compile(h, [int])
+        res = h3(1)
+        assert checker(res)
 
 def test_prebuilt_instance_with_dict():
     class A:
@@ -426,6 +441,7 @@ def test_exportstruct():
     if py.test.config.option.view:
         t.view()
     assert ' BarStruct ' in t.driver.cbuilder.c_source_filename.read()
+    free(foo, flavor="raw")
 
 def test_recursive_llhelper():
     from pypy.rpython.annlowlevel import llhelper
@@ -473,7 +489,27 @@ def test_recursive_llhelper():
         return f(s)
     a_f = A(f, "f")
     a_g = A(g, "g")
-    t = lltype.malloc(STRUCT, flavor="raw")
+    t = lltype.malloc(STRUCT, flavor="raw", immortal=True)
     t.bar = llhelper(FTPTR, a_f.make_func())
     fn = compile(chooser, [bool])
     assert fn(True)
+
+def test_inhibit_tail_call():
+    from pypy.rpython.lltypesystem import lltype
+    def foobar_fn(n):
+        return 42
+    foobar_fn._dont_inline_ = True
+    def main(n):
+        return foobar_fn(n)
+    #
+    t = Translation(main, [int], backend="c")
+    t.rtype()
+    t.context._graphof(foobar_fn).inhibit_tail_call = True
+    t.source_c()
+    lines = t.driver.cbuilder.c_source_filename.readlines()
+    for i, line in enumerate(lines):
+        if '= pypy_g_foobar_fn' in line:
+            break
+    else:
+        assert 0, "the call was not found in the C source"
+    assert 'PYPY_INHIBIT_TAIL_CALL();' in lines[i+1]

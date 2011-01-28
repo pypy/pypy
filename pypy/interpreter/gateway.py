@@ -28,7 +28,7 @@ from pypy.rlib.objectmodel import we_are_translated
 # internal non-translatable parts: 
 import py
 
-class SignatureBuilder:
+class SignatureBuilder(object):
     "NOT_RPYTHON"
     def __init__(self, func=None, argnames=None, varargname=None,
                  kwargname=None, name = None):
@@ -51,7 +51,7 @@ class SignatureBuilder:
 
 #________________________________________________________________
 
-class UnwrapSpecRecipe:
+class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
     bases_order = [Wrappable, W_Root, ObjSpace, Arguments, object]
@@ -123,6 +123,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.checked_space_method(index, app_sig)
 
     def visit_bufferstr(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_str_or_None(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_nonnegint(self, el, app_sig):
@@ -238,8 +241,12 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
 
+    def visit_str_or_None(self, typ):
+        self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
+
     def visit_nonnegint(self, typ):
-        self.run_args.append("space.nonnegint_w(%s)" % (self.scopenext(),))
+        self.run_args.append("space.gateway_nonnegint_w(%s)" % (
+            self.scopenext(),))
 
     def visit_c_int(self, typ):
         self.run_args.append("space.c_int_w(%s)" % (self.scopenext(),))
@@ -365,8 +372,11 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
 
+    def visit_str_or_None(self, typ):
+        self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))
+
     def visit_nonnegint(self, typ):
-        self.unwrap.append("space.nonnegint_w(%s)" % (self.nextarg(),))
+        self.unwrap.append("space.gateway_nonnegint_w(%s)" % (self.nextarg(),))
 
     def visit_c_int(self, typ):
         self.unwrap.append("space.c_int_w(%s)" % (self.nextarg(),))
@@ -409,11 +419,11 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 def int_unwrapping_space_method(typ):
     assert typ in (int, str, float, unicode, r_longlong, r_uint, r_ulonglong, bool)
     if typ is r_int is r_longlong:
-        return 'r_longlong_w'
-    elif typ is r_uint:
-        return 'uint_w'
-    else:
+        return 'gateway_r_longlong_w'
+    elif typ in (str, unicode, bool):
         return typ.__name__ + '_w'
+    else:
+        return 'gateway_' + typ.__name__ + '_w'
 
 
 def unwrap_spec(*spec):
@@ -1083,7 +1093,7 @@ def appdef(source, applevel=ApplevelClass, filename=None):
             # these decorators are known to return the same function
             # object, we may ignore them
             assert '\n' in source
-            source = source[source.find('\n') + 1:]
+            source = source[source.find('\n') + 1:].lstrip()
         assert source.startswith("def "), "can only transform functions" 
         source = source[4:]
     p = source.find('(')

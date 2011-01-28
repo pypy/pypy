@@ -82,11 +82,21 @@ class TestArray(BaseCTypesTestChecker):
 
         na = numarray(1, 2, 3, 4, 5)
         values = [i for i in na]
-        assert values, [1, 2, 3, 4 == 5]
+        assert values == [1, 2, 3, 4, 5]
 
         na = numarray(*map(c_int, (1, 2, 3, 4, 5)))
         values = [i for i in na]
-        assert values, [1, 2, 3, 4 == 5]
+        assert values == [1, 2, 3, 4, 5]
+
+    def test_slice(self):
+        values = range(5)
+        numarray = c_int * 5
+
+        na = numarray(*(c_int(x) for x in values))
+
+        assert list(na[0:0]) == []
+        assert list(na[:])   == values
+        assert list(na[:10]) == values
 
     def test_classcache(self):
         assert not ARRAY(c_int, 3) is ARRAY(c_int, 4)
@@ -98,6 +108,13 @@ class TestArray(BaseCTypesTestChecker):
         sz = (c_char * 3).from_address(addressof(p))
         assert sz[:] == "foo"
         assert sz.value == "foo"
+
+    def test_init_again(self):
+        sz = (c_char * 3)()
+        addr1 = addressof(sz)
+        sz.__init__(*"foo")
+        addr2 = addressof(sz)
+        assert addr1 == addr2
 
     try:
         create_unicode_buffer

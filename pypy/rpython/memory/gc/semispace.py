@@ -42,6 +42,7 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc_varsize = True
     malloc_zero_filled = True
     first_unused_gcflag = first_gcflag << 5
+    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
@@ -229,6 +230,10 @@ class SemiSpaceGC(MovingGCBase):
         self.max_space_size = sys.maxint//2+1
         while self.max_space_size > size:
             self.max_space_size >>= 1
+
+    @classmethod
+    def JIT_minimal_size_in_nursery(cls):
+        return cls.object_minimal_size
 
     def collect(self, gen=0):
         self.debug_check_consistency()
@@ -688,15 +693,10 @@ class SemiSpaceGC(MovingGCBase):
         self._ll_typeid_map[idx].size += llmemory.raw_malloc_usage(totsize)
         self.do_trace(adr, self.track_heap_parent, adr)
 
-    def _track_heap_root(self, root):
-        self.track_heap(root.address[0])
+    @staticmethod
+    def _track_heap_root(obj, self):
+        self.track_heap(obj)
 
-    def heap_stats_walk_roots(self):
-        self.root_walker.walk_roots(
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root,
-            SemiSpaceGC._track_heap_root)
-        
     def heap_stats(self):
         self._tracked_dict = self.AddressDict()
         max_tid = self.root_walker.gcdata.max_type_id
@@ -709,7 +709,7 @@ class SemiSpaceGC(MovingGCBase):
         while i < max_tid:
             self._tracked_dict.add(llmemory.cast_ptr_to_adr(ll_typeid_map[i]))
             i += 1
-        self.heap_stats_walk_roots()
+        self.enumerate_all_roots(SemiSpaceGC._track_heap_root, self)
         self._ll_typeid_map = lltype.nullptr(ARRAY_TYPEID_MAP)
         self._tracked_dict.delete()
         return ll_typeid_map

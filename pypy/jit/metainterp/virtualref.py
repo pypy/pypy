@@ -16,7 +16,8 @@ class VirtualRefInfo:
             ('virtualref_index', lltype.Signed),
             ('forced', rclass.OBJECTPTR))
         self.jit_virtual_ref_vtable = lltype.malloc(rclass.OBJECT_VTABLE,
-                                                    zero=True, flavor='raw')
+                                                    zero=True, flavor='raw',
+                                                    immortal=True)
         self.jit_virtual_ref_vtable.name = rclass.alloc_array_name(
             'jit_virtual_ref')
         # build some constants

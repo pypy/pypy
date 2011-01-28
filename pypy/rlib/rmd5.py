@@ -29,20 +29,30 @@ from pypy.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 
 
 if r_uint.BITS == 32:
-    def _mask(x):
-        "No-op on 32-bit platforms."
-        return x
+    def _rotateLeft(x, n):
+        "Rotate x (32 bit) left n bits circularly."
+        return (x << n) | (x >> (32-n))
+
 else:
-    def _mask(x):
-        "Masks the r_uint value x to keep only the lowest 32 bits."
-        return x & r_uint(0xffffffff)
+    def _rotateLeft_emulator(x, n):
+        x &= 0xFFFFFFFF
+        return (x << n) | (x >> (32-n))
 
-
-def _rotateLeft(x, n):
-    "Rotate x (32 bit) left n bits circularly."
-
-    x = _mask(x)
-    return (x << n) | (x >> (32-n))
+    # ----- start of custom code, think about something better... -----
+    from pypy.rpython.lltypesystem import lltype, rffi
+    from pypy.translator.tool.cbuild import ExternalCompilationInfo
+    eci = ExternalCompilationInfo(post_include_bits=["""
+static unsigned long pypy__rotateLeft(unsigned long x, long n) {
+    unsigned int x1 = x;    /* arithmetic directly on int */
+    int n1 = n;
+    return (x1 << n1) | (x1 >> (32-n1));
+}
+"""])
+    _rotateLeft = rffi.llexternal(
+        "pypy__rotateLeft", [lltype.Unsigned, lltype.Signed], lltype.Unsigned,
+        _callable=_rotateLeft_emulator, compilation_info=eci,
+        _nowrapper=True, pure_function=True)
+    # we expect the function _rotateLeft to be actually inlined
 
 
 def _state2string(a, b, c, d):

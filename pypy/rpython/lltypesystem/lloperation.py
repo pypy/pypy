@@ -347,10 +347,12 @@ LL_OPERATIONS = {
     'cast_int_to_longlong': LLOp(canfold=True),
     'cast_uint_to_int':     LLOp(canfold=True),
     'cast_uint_to_float':   LLOp(canfold=True),
-    'cast_longlong_to_float':LLOp(canfold=True),
+    'cast_longlong_to_float' :LLOp(canfold=True),
+    'cast_ulonglong_to_float':LLOp(canfold=True),
     'cast_float_to_int':    LLOp(canraise=(OverflowError,), tryfold=True),
     'cast_float_to_uint':   LLOp(canfold=True),    # XXX need OverflowError?
-    'cast_float_to_longlong':LLOp(canfold=True),
+    'cast_float_to_longlong' :LLOp(canfold=True),
+    'cast_float_to_ulonglong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
     'force_cast':           LLOp(sideeffects=False),    # only for rffi.cast()
 
@@ -403,6 +405,8 @@ LL_OPERATIONS = {
     'raw_load':             LLOp(sideeffects=False),
     'raw_store':            LLOp(),
     'stack_malloc':         LLOp(), # mmh
+    'track_alloc_start':    LLOp(),
+    'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),
     'adr_sub':              LLOp(canfold=True),
     'adr_delta':            LLOp(canfold=True),
@@ -477,6 +481,7 @@ LL_OPERATIONS = {
     'gc_get_rpy_type_index': LLOp(),
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
+    'gc_typeids_z'        : LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
     
@@ -525,6 +530,8 @@ LL_OPERATIONS = {
     'stack_capture':        LLOp(canraise=(StackException, RuntimeError)),
     'get_stack_depth_limit':LLOp(sideeffects=False),
     'set_stack_depth_limit':LLOp(),
+
+    'stack_current':        LLOp(sideeffects=False),
 
     # __________ misc operations __________
 

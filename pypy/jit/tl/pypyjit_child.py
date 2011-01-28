@@ -2,7 +2,7 @@ from pypy.conftest import option
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
 from pypy.module.pypyjit.policy import PyPyJitPolicy
-from pypy.rlib.jit import OPTIMIZER_FULL
+from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_NO_UNROLL
 
 
 def run_child(glob, loc):
@@ -16,7 +16,7 @@ def run_child(glob, loc):
     interp.heap.malloc_nonmovable = returns_null     # XXX
 
     from pypy.jit.backend.llgraph.runner import LLtypeCPU
-    LLtypeCPU.supports_floats = False    # for now
+    #LLtypeCPU.supports_floats = False    # for now
     apply_jit(interp, graph, LLtypeCPU)
 
 

@@ -5,6 +5,7 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp import history
+import struct
 
 def test_get_size_descr():
     c0 = GcCache(False)
@@ -83,6 +84,18 @@ def test_get_field_descr():
         assert     descr_f.is_float_field()
 
 
+def test_get_field_descr_sign():
+    for RESTYPE, signed in [(rffi.SIGNEDCHAR, True), (rffi.UCHAR,  False),
+                            (rffi.SHORT,      True), (rffi.USHORT, False),
+                            (rffi.INT,        True), (rffi.UINT,   False),
+                            (rffi.LONG,       True), (rffi.ULONG,  False)]:
+        S = lltype.GcStruct('S', ('x', RESTYPE))
+        for tsc in [False, True]:
+            c2 = GcCache(tsc)
+            descr_x = get_field_descr(c2, S, 'x')
+            assert descr_x.is_field_signed() == signed
+
+
 def test_get_array_descr():
     U = lltype.Struct('U')
     T = lltype.GcStruct('T')
@@ -118,11 +131,13 @@ def test_get_array_descr():
     assert not descr3.is_array_of_floats()
     assert     descr4.is_array_of_floats()
     #
-    WORD = rffi.sizeof(lltype.Signed)
-    assert descr1.get_base_size(False) == WORD
-    assert descr2.get_base_size(False) == WORD
-    assert descr3.get_base_size(False) == WORD
-    assert descr4.get_base_size(False) == WORD
+    def get_alignment(code):
+        # Retrieve default alignment for the compiler/platform
+        return struct.calcsize('l' + code) - struct.calcsize(code)
+    assert descr1.get_base_size(False) == get_alignment('c')
+    assert descr2.get_base_size(False) == get_alignment('p')
+    assert descr3.get_base_size(False) == get_alignment('p')
+    assert descr4.get_base_size(False) == get_alignment('d')
     assert descr1.get_ofs_length(False) == 0
     assert descr2.get_ofs_length(False) == 0
     assert descr3.get_ofs_length(False) == 0
@@ -163,6 +178,25 @@ def test_get_array_descr():
     assert descr.is_array_of_floats()
     assert descr.get_base_size(False) == 0
     assert descr.get_ofs_length(False) == -1
+
+
+def test_get_array_descr_sign():
+    for RESTYPE, signed in [(rffi.SIGNEDCHAR, True), (rffi.UCHAR,  False),
+                            (rffi.SHORT,      True), (rffi.USHORT, False),
+                            (rffi.INT,        True), (rffi.UINT,   False),
+                            (rffi.LONG,       True), (rffi.ULONG,  False)]:
+        A = lltype.GcArray(RESTYPE)
+        for tsc in [False, True]:
+            c2 = GcCache(tsc)
+            arraydescr = get_array_descr(c2, A)
+            assert arraydescr.is_item_signed() == signed
+        #
+        RA = rffi.CArray(RESTYPE)
+        for tsc in [False, True]:
+            c2 = GcCache(tsc)
+            arraydescr = get_array_descr(c2, RA)
+            assert arraydescr.is_item_signed() == signed
+
 
 def test_get_call_descr_not_translated():
     c0 = GcCache(False)
@@ -218,6 +252,17 @@ def test_call_descr_extra_info():
     descr3 = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U))
     extrainfo = descr3.get_extra_info()
     assert extrainfo is None
+
+def test_get_call_descr_sign():
+    for RESTYPE, signed in [(rffi.SIGNEDCHAR, True), (rffi.UCHAR,  False),
+                            (rffi.SHORT,      True), (rffi.USHORT, False),
+                            (rffi.INT,        True), (rffi.UINT,   False),
+                            (rffi.LONG,       True), (rffi.ULONG,  False)]:
+        A = lltype.GcArray(RESTYPE)
+        for tsc in [False, True]:
+            c2 = GcCache(tsc)
+            descr1 = get_call_descr(c2, [], RESTYPE)
+            assert descr1.is_result_signed() == signed
 
 
 def test_repr_of_descr():

@@ -318,3 +318,4 @@ class FutureFlags(object):
 
 futureFlags_2_4 = FutureFlags((2, 4, 4, 'final', 0))
 futureFlags_2_5 = FutureFlags((2, 5, 0, 'final', 0))
+futureFlags_2_7 = FutureFlags((2, 7, 0, 'final', 0))

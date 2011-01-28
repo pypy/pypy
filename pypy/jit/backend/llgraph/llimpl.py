@@ -4,13 +4,14 @@ This contains all the code that is directly run
 when executing on top of the llinterpreter.
 """
 
+import weakref
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import (ConstInt, ConstPtr,
                                          BoxInt, BoxPtr, BoxObj, BoxFloat,
                                          REF, INT, FLOAT)
 from pypy.jit.codewriter import heaptracker
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.module.support import LLSupport, OOSupport
 from pypy.rpython.llinterp import LLException
@@ -152,7 +153,7 @@ TYPES = {
     'unicodegetitem'  : (('ref', 'int'), 'int'),
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
-    'debug_merge_point': (('ref',), None),
+    'debug_merge_point': (('ref', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
     'guard_not_forced': ((), None),
@@ -161,6 +162,8 @@ TYPES = {
 # ____________________________________________________________
 
 class CompiledLoop(object):
+    has_been_freed = False
+
     def __init__(self):
         self.inputargs = []
         self.operations = []
@@ -285,6 +288,11 @@ def compile_start():
     del _variables[:]
     return _to_opaque(CompiledLoop())
 
+def mark_as_free(loop):
+    loop = _from_opaque(loop)
+    assert not loop.has_been_freed
+    loop.has_been_freed = True
+
 def compile_start_int_var(loop):
     return compile_start_ref_var(loop, lltype.Signed)
 
@@ -305,19 +313,19 @@ def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
 
-def compile_add_descr(loop, ofs, type):
+def compile_add_descr(loop, ofs, type, arg_types):
     from pypy.jit.backend.llgraph.runner import Descr
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     assert isinstance(type, str) and len(type) == 1
-    op.descr = Descr(ofs, type)
+    op.descr = Descr(ofs, type, arg_types=arg_types)
 
 def compile_add_loop_token(loop, descr):
     if we_are_translated():
         raise ValueError("CALL_ASSEMBLER not supported")
     loop = _from_opaque(loop)
     op = loop.operations[-1]
-    op.descr = descr
+    op.descr = weakref.ref(descr)
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -364,6 +372,13 @@ def compile_add_jump_target(loop, loop_target):
         log.info("compiling new loop")
     else:
         log.info("compiling new bridge")
+
+def compile_add_guard_jump_target(loop, loop_target):
+    loop = _from_opaque(loop)
+    loop_target = _from_opaque(loop_target)
+    op = loop.operations[-1]
+    assert op.is_guard()
+    op.jump_target = loop_target
 
 def compile_add_fail(loop, fail_index):
     loop = _from_opaque(loop)
@@ -429,6 +444,7 @@ class Frame(object):
         verbose = True
         self.opindex = 0
         while True:
+            assert not self.loop.has_been_freed
             op = self.loop.operations[self.opindex]
             args = [self.getenv(v) for v in op.args]
             if not op.is_final():
@@ -440,7 +456,10 @@ class Frame(object):
                     _stats.exec_conditional_jumps += 1
                     if op.jump_target is not None:
                         # a patched guard, pointing to further code
-                        args = [self.getenv(v) for v in op.fail_args if v]
+                        if op.fail_args:
+                            args = [self.getenv(v) for v in op.fail_args if v]
+                        else:
+                            args = []
                         assert len(op.jump_target.inputargs) == len(args)
                         self.env = dict(zip(op.jump_target.inputargs, args))
                         self.loop = op.jump_target
@@ -568,10 +587,15 @@ class Frame(object):
         #
         return _op_default_implementation
 
-    def op_debug_merge_point(self, _, value):
+    def op_debug_merge_point(self, _, value, recdepth):
         from pypy.jit.metainterp.warmspot import get_stats
         loc = ConstPtr(value)._get_str()
-        get_stats().add_merge_point_location(loc)
+        try:
+            stats = get_stats()
+        except AttributeError:
+            pass
+        else:
+            stats.add_merge_point_location(loc)
 
     def op_guard_true(self, _, value):
         if not value:
@@ -801,7 +825,7 @@ class Frame(object):
             else:
                 raise TypeError(x)
         try:
-            return _do_call_common(func, args_in_order)
+            return _do_call_common(func, args_in_order, calldescr)
         except LLException, lle:
             _last_exception = lle
             d = {'v': None,
@@ -839,14 +863,22 @@ class Frame(object):
         finally:
             self._may_force = -1
 
-    def op_call_assembler(self, loop_token, *args):
+    def op_call_assembler(self, wref_loop_token, *args):
+        if we_are_translated():
+            raise ValueError("CALL_ASSEMBLER not supported")
+        return self._do_call_assembler(wref_loop_token, *args)
+
+    def _do_call_assembler(self, wref_loop_token, *args):
         global _last_exception
+        loop_token = wref_loop_token()
+        assert loop_token, "CALL_ASSEMBLER to a target that already died"
+        ctl = loop_token.compiled_loop_token
+        if hasattr(ctl, 'redirected'):
+            return self._do_call_assembler(ctl.redirected, *args)
         assert not self._forced
-        loop_token = self.cpu._redirected_call_assembler.get(loop_token,
-                                                             loop_token)
         self._may_force = self.opindex
         try:
-            inpargs = _from_opaque(loop_token._llgraph_compiled_version).inputargs
+            inpargs = _from_opaque(ctl.compiled_version).inputargs
             for i, inparg in enumerate(inpargs):
                 TYPE = inparg.concretetype
                 if TYPE is lltype.Signed:
@@ -1018,6 +1050,9 @@ def cast_from_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
         if isinstance(x, (int, long, llmemory.AddressAsInt)):
             x = llmemory.cast_int_to_adr(x)
+        if TYPE is rffi.VOIDP:
+            # assume that we want a "C-style" cast, without typechecking the value
+            return rffi.cast(TYPE, x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
     elif TYPE == llmemory.Address:
         if isinstance(x, (int, long, llmemory.AddressAsInt)):
@@ -1411,10 +1446,26 @@ def do_call_pushptr(x):
 def do_call_pushfloat(x):
     _call_args_f.append(x)
 
-def _do_call_common(f, args_in_order=None):
+kind2TYPE = {
+    'i': lltype.Signed,
+    'f': lltype.Float,
+    'v': lltype.Void,
+    }
+
+def _do_call_common(f, args_in_order=None, calldescr=None):
     ptr = llmemory.cast_int_to_adr(f).ptr
-    FUNC = lltype.typeOf(ptr).TO
-    ARGS = FUNC.ARGS
+    PTR = lltype.typeOf(ptr)
+    if PTR == rffi.VOIDP:
+        # it's a pointer to a C function, so we don't have a precise
+        # signature: create one from the descr
+        ARGS = map(kind2TYPE.get, calldescr.arg_types)
+        RESULT = kind2TYPE[calldescr.typeinfo]
+        FUNC = lltype.FuncType(ARGS, RESULT)
+        func_to_call = rffi.cast(lltype.Ptr(FUNC), ptr)
+    else:
+        FUNC = PTR.TO
+        ARGS = FUNC.ARGS
+        func_to_call = ptr._obj._callable
     args = cast_call_args(ARGS, _call_args_i, _call_args_r, _call_args_f,
                           args_in_order)
     del _call_args_i[:]
@@ -1426,7 +1477,7 @@ def _do_call_common(f, args_in_order=None):
         result = llinterp.eval_graph(ptr._obj.graph, args)
         # ^^^ may raise, in which case we get an LLException
     else:
-        result = ptr._obj._callable(*args)
+        result = func_to_call(*args)
     return result
 
 def do_call_void(f):
@@ -1520,10 +1571,13 @@ def reset_vable(jd, vable):
         do_setfield_gc_int(vable, fielddescr.ofs, 0)
 
 def redirect_call_assembler(cpu, oldlooptoken, newlooptoken):
-    OLD = _from_opaque(oldlooptoken._llgraph_compiled_version).getargtypes()
-    NEW = _from_opaque(newlooptoken._llgraph_compiled_version).getargtypes()
+    oldclt = oldlooptoken.compiled_loop_token
+    newclt = newlooptoken.compiled_loop_token
+    OLD = _from_opaque(oldclt.compiled_version).getargtypes()
+    NEW = _from_opaque(newclt.compiled_version).getargtypes()
     assert OLD == NEW
-    cpu._redirected_call_assembler[oldlooptoken] = newlooptoken
+    assert not hasattr(oldclt, 'redirected')
+    oldclt.redirected = weakref.ref(newlooptoken)
 
 # ____________________________________________________________
 
@@ -1587,9 +1641,11 @@ setannotation(compile_add_int_result, annmodel.SomeInteger())
 setannotation(compile_add_ref_result, annmodel.SomeInteger())
 setannotation(compile_add_float_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
+setannotation(compile_add_guard_jump_target, annmodel.s_None)
 setannotation(compile_add_fail, annmodel.SomeInteger())
 setannotation(compile_add_fail_arg, annmodel.s_None)
 setannotation(compile_redirect_fail, annmodel.s_None)
+setannotation(mark_as_free, annmodel.s_None)
 
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)

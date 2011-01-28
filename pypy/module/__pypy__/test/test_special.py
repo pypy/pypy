@@ -17,3 +17,22 @@ class AppTest(object):
         from __pypy__ import isfake
         import select
         assert isfake(select)
+
+    def test_cpumodel(self):
+        import __pypy__
+        assert hasattr(__pypy__, 'cpumodel')
+
+    def test_builtinify(self):
+        import __pypy__
+        class A(object):
+            a = lambda *args: args
+            b = __pypy__.builtinify(a)
+        my = A()
+        assert my.a() == (my,)
+        assert my.b() == ()
+        assert A.a(my) == (my,)
+        assert A.b(my) == (my,)
+        assert A.a.im_func(my) == (my,)
+        assert not hasattr(A.b, 'im_func')
+        assert A.a is not A.__dict__['a']
+        assert A.b is A.__dict__['b']

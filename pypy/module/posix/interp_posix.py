@@ -1,9 +1,10 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.rlib import rposix
+from pypy.rlib import rposix, objectmodel
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -147,23 +148,46 @@ def ftruncate(space, fd, length):
     """Truncate a file to a specified length."""
     try:
         os.ftruncate(fd, length)
+    except IOError, e:
+        if not objectmodel.we_are_translated():
+            # Python 2.6 raises an IOError here. Let's not repeat that mistake.
+            w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
+                                          space.wrap(e.strerror),
+                                          space.wrap(e.filename))
+            raise OperationError(space.w_OSError, w_error)
+        raise AssertionError
     except OSError, e: 
         raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
 
-def fsync(space, fd):
+def fsync(space, w_fd):
+    """Force write of file with filedescriptor to disk."""
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fsync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fsync.unwrap_spec = [ObjSpace, "c_int"]
+fsync.unwrap_spec = [ObjSpace, W_Root]
 
-def fdatasync(space, fd):
+def fdatasync(space, w_fd):
+    """Force write of file with filedescriptor to disk.
+Does not force update of metadata."""
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fdatasync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fdatasync.unwrap_spec = [ObjSpace, "c_int"]
+fdatasync.unwrap_spec = [ObjSpace, W_Root]
+
+def fchdir(space, w_fd):
+    """Change to the directory of the given file descriptor.  fildes must be
+opened on a directory, not a file."""
+    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        os.fchdir(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fchdir.unwrap_spec = [ObjSpace, W_Root]
 
 # ____________________________________________________________
 
@@ -454,7 +478,8 @@ class State:
         self.w_environ = space.newdict()
         if _WIN:
             self.cryptProviderPtr = lltype.malloc(
-                rffi.CArray(HCRYPTPROV), 1, zero=True, flavor='raw')
+                rffi.CArray(HCRYPTPROV), 1, zero=True,
+                flavor='raw', immortal=True)
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
@@ -465,7 +490,7 @@ class State:
         return True
 
 def get(space): 
-    return space.fromcache(State) 
+    return space.fromcache(State)
 
 def _convertenviron(space, w_env):
     space.call_method(w_env, 'clear')
@@ -537,6 +562,27 @@ def rename(space, w_old, w_new):
         raise wrap_oserror(space, e) 
 rename.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+def mkfifo(space, w_filename, mode=0666):
+    """Create a FIFO (a POSIX named pipe)."""
+    try:
+        dispatch_filename(rposix.mkfifo)(space, w_filename, mode)
+    except OSError, e: 
+        raise wrap_oserror2(space, e, w_filename)
+mkfifo.unwrap_spec = [ObjSpace, W_Root, "c_int"]
+
+def mknod(space, w_filename, mode=0600, device=0):
+    """Create a filesystem node (file, device special file or named pipe)
+named filename. mode specifies both the permissions to use and the
+type of node to be created, being combined (bitwise OR) with one of
+S_IFREG, S_IFCHR, S_IFBLK, and S_IFIFO. For S_IFCHR and S_IFBLK,
+device defines the newly created device special file (probably using
+os.makedev()), otherwise it is ignored."""
+    try:
+        dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
+    except OSError, e: 
+        raise wrap_oserror2(space, e, w_filename)
+mknod.unwrap_spec = [ObjSpace, W_Root, "c_int", "c_int"]
+
 def umask(space, mask):
     "Set the current numeric umask and return the previous umask."
     prevmask = os.umask(mask)
@@ -559,6 +605,14 @@ def kill(space, pid, sig):
     except OSError, e:
         raise wrap_oserror(space, e)
 kill.unwrap_spec = [ObjSpace, "c_int", "c_int"]
+
+def killpg(space, pgid, sig):
+    "Kill a process group with a signal."
+    try:
+        os.killpg(pgid, sig)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+killpg.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
 def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
@@ -592,11 +646,48 @@ def readlink(space, path):
     return space.wrap(result)
 readlink.unwrap_spec = [ObjSpace, str]
 
+before_fork_hooks = []
+after_fork_child_hooks = []
+after_fork_parent_hooks = []
+
+@specialize.memo()
+def get_fork_hooks(where):
+    if where == 'before':
+        return before_fork_hooks
+    elif where == 'child':
+        return after_fork_child_hooks
+    elif where == 'parent':
+        return after_fork_parent_hooks
+    else:
+        assert False, "Unknown fork hook"
+
+def add_fork_hook(where, hook):
+    "NOT_RPYTHON"
+    get_fork_hooks(where).append(hook)
+
+@specialize.arg(0)
+def run_fork_hooks(where, space):
+    for hook in get_fork_hooks(where):
+        hook(space)
+
 def fork(space):
+    run_fork_hooks('before', space)
+
     try:
         pid = os.fork()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        try:
+            run_fork_hooks('parent', space)
+        except:
+            # Don't clobber the OSError if the fork failed
+            pass
+        raise wrap_oserror(space, e)
+
+    if pid == 0:
+        run_fork_hooks('child', space)
+    else:
+        run_fork_hooks('parent', space)
+
     return space.wrap(pid)
 
 def openpty(space):
@@ -606,6 +697,14 @@ def openpty(space):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
+
+def forkpty(space):
+    try:
+        pid, master_fd = os.forkpty()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(pid),
+                           space.wrap(master_fd)])
 
 def waitpid(space, pid, options):
     """ waitpid(pid, options) -> (pid, status)
@@ -632,14 +731,20 @@ Execute an executable path with arguments, replacing current process.
         args: iterable of strings
     """
     try:
-        os.execv(command, [space.str_w(i) for i in space.unpackiterable(w_args)])
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            w_msg = space.wrap("execv() must have at least one argument")
+            raise OperationError(space.w_ValueError, w_msg)
+        args = [space.str_w(w_arg) for w_arg in args_w]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         msg = "execv() arg 2 must be an iterable of strings"
         raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    try:
+        os.execv(command, args)
     except OSError, e:
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror(space, e)
 execv.unwrap_spec = [ObjSpace, str, W_Root]
 
 def execve(space, command, w_args, w_env):
@@ -662,6 +767,15 @@ Execute a path with arguments and environment, replacing current process.
     except OSError, e:
         raise wrap_oserror(space, e)
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
+
+def spawnv(space, mode, path, w_args):
+    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    try:
+        ret = os.spawnv(mode, path, args)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(ret)
+spawnv.unwrap_spec = [ObjSpace, int, str, W_Root]
 
 def utime(space, w_path, w_tuple):
     """ utime(path, (atime, mtime))
@@ -809,6 +923,14 @@ def geteuid(space):
     return space.wrap(os.geteuid())
 geteuid.unwrap_spec = [ObjSpace]
 
+def getgroups(space):
+    """ getgroups() -> list of group IDs
+
+    Return list of supplemental group IDs for the process.
+    """
+    return space.newlist([space.wrap(e) for e in os.getgroups()])
+getgroups.unwrap_spec = [ObjSpace]
+
 def getpgrp(space):
     """ getpgrp() -> pgrp
 
@@ -871,7 +993,7 @@ def setreuid(space, ruid, euid):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None                
-setreuid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
+setreuid.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
 def setregid(space, rgid, egid):
     """ setregid(rgid, egid)
@@ -882,8 +1004,8 @@ def setregid(space, rgid, egid):
         os.setregid(rgid, egid)
     except OSError, e:
         raise wrap_oserror(space, e)
-    return space.w_None                
-setregid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
+    return space.w_None
+setregid.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
 def getsid(space, pid):
     """ getsid(pid) -> sid
@@ -933,18 +1055,30 @@ def ttyname(space, fd):
         raise wrap_oserror(space, e)
 ttyname.unwrap_spec = [ObjSpace, "c_int"]
 
-def sysconf(space, w_num_or_name):
+def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
-    if space.is_true(space.isinstance(w_num_or_name, space.w_basestring)):
+    if space.is_true(space.isinstance(w_name, space.w_basestring)):
         try:
-            num = os.sysconf_names[space.str_w(w_num_or_name)]
+            num = namespace[space.str_w(w_name)]
         except KeyError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("unrecognized configuration name"))
     else:
-        num = space.int_w(w_num_or_name)
+        num = space.int_w(w_name)
+    return num
+
+def sysconf(space, w_name):
+    num = confname_w(space, w_name, os.sysconf_names)
     return space.wrap(os.sysconf(num))
 sysconf.unwrap_spec = [ObjSpace, W_Root]
+
+def fpathconf(space, fd, w_name):
+    num = confname_w(space, w_name, os.pathconf_names)
+    try:
+        return space.wrap(os.fpathconf(fd, num))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fpathconf.unwrap_spec = [ObjSpace, 'c_int', W_Root]
 
 def chown(space, path, uid, gid):
     try:
@@ -952,7 +1086,35 @@ def chown(space, path, uid, gid):
     except OSError, e:
         raise wrap_oserror(space, e, path)
     return space.w_None
-chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
+chown.unwrap_spec = [ObjSpace, str, "c_int", "c_int"]
+
+def lchown(space, path, uid, gid):
+    try:
+        os.lchown(path, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e, path)
+    return space.w_None
+lchown.unwrap_spec = [ObjSpace, str, "c_int", "c_int"]
+
+def getloadavg(space):
+    try:
+        load = os.getloadavg()
+    except OSError, e:
+        raise OperationError(space.w_OSError,
+                             space.wrap("Load averages are unobtainable"))
+    return space.newtuple([space.wrap(load[0]),
+                           space.wrap(load[1]),
+                           space.wrap(load[2])])
+getloadavg.unwrap_spec = [ObjSpace]
+
+def nice(space, inc):
+    "Decrease the priority of process by inc and return the new priority."
+    try:
+        res = os.nice(inc)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
+nice.unwrap_spec = [ObjSpace, "c_int"]
 
 if _WIN:
     from pypy.rlib import rwin32

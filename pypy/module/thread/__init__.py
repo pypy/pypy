@@ -14,6 +14,7 @@ class Module(MixedModule):
         'start_new':              'os_thread.start_new_thread', # obsolete syn.
         'get_ident':              'os_thread.get_ident',
         'stack_size':             'os_thread.stack_size',
+        '_count':                 'os_thread._count',
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.getlocktype(space)',
@@ -28,3 +29,8 @@ class Module(MixedModule):
         space.threadlocals = gil.GILThreadLocals()
         space.threadlocals.initialize(space)
         space.threadlocals.setvalue(prev)
+
+        from pypy.module.posix.interp_posix import add_fork_hook
+        from pypy.module.thread.os_thread import reinit_threads
+        add_fork_hook('child', reinit_threads)
+

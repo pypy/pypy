@@ -33,6 +33,8 @@ def checkdir(path):
         raise OSError(errno.ENOTDIR, path)
 
 
+platform = sys.platform
+
 def getinitialpath(prefix):
     from pypy.module.sys.version import CPYTHON_VERSION
     dirname = '%d.%d.%d' % (CPYTHON_VERSION[0],
@@ -51,6 +53,15 @@ def getinitialpath(prefix):
     importlist.append(lib_pypy)
     importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
+    #
+    # List here the extra platform-specific paths.
+    if platform != 'win32':
+        importlist.append(os.path.join(python_std_lib, 'plat-'+platform))
+    if platform == 'darwin':
+        platmac = os.path.join(python_std_lib, 'plat-mac')
+        importlist.append(platmac)
+        importlist.append(os.path.join(platmac, 'lib-scriptpackages'))
+    #
     return importlist
 
 def pypy_initial_path(space, srcdir):

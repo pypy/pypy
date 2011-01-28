@@ -49,6 +49,7 @@ def setup_directory_structure(space):
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
+             relative_f = "from .os import sep",
              )
     setuppkg("pkg.pkg1", 
              a          = '',
@@ -186,6 +187,16 @@ class AppTestImport:
         assert pkg == sys.modules.get('pkg')
         assert pkg.a == sys.modules.get('pkg.a')
 
+    def test_import_keywords(self):
+        __import__(name='sys', level=0)
+
+    def test_import_by_filename(self):
+        import pkg.a
+        filename = pkg.a.__file__
+        assert filename.endswith('.py')
+        exc = raises(ImportError, __import__, filename[:-3])
+        assert exc.value.message == "Import by filename is not supported."
+
     def test_import_badcase(self):
         def missing(name):
             try:
@@ -266,7 +277,7 @@ class AppTestImport:
     def test_import_relative_partial_success(self):
         def imp():
             import pkg_r.inpkg
-        raises(ImportError,imp)
+        raises(ImportError, imp)
 
     def test_import_builtin_inpackage(self):
         def imp():
@@ -285,6 +296,8 @@ class AppTestImport:
         assert sys == m
         n = __import__('sys', None, None, [''])
         assert sys == n
+        o = __import__('sys', [], [], ['']) # CPython accepts this
+        assert sys == o
 
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
@@ -341,6 +354,12 @@ class AppTestImport:
     def test_future_relative_import_without_from_name(self):
         from pkg import relative_b
         assert relative_b.string.inpackage == 1
+
+    def test_no_relative_import(self):
+        def imp():
+            from pkg import relative_f
+        exc = raises(ImportError, imp)
+        assert exc.value.message == "No module named pkg.os"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
@@ -472,6 +491,17 @@ class AppTestImport:
                 foobarbazmod,)
         except ImportError:
             pass
+
+class TestAbi:
+    def test_abi_tag(self):
+        space1 = gettestobjspace(soabi='TEST')
+        space2 = gettestobjspace(soabi='')
+        if sys.platform == 'win32':
+            assert importing.get_so_extension(space1) == '.TESTi.pyd'
+            assert importing.get_so_extension(space2) == '.pyd'
+        else:
+            assert importing.get_so_extension(space1) == '.TESTi.so'
+            assert importing.get_so_extension(space2) == '.so'
 
 def _getlong(data):
     x = marshal.dumps(data)
@@ -706,6 +736,7 @@ class TestPycStuff:
     def test_write_compiled_module(self):
         space = self.space
         pathname = _testfilesource()
+        os.chmod(pathname, 0777)
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
             w_ret = importing.parse_source_module(space,
@@ -717,10 +748,12 @@ class TestPycStuff:
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
+        mode = 0777
         mtime = 12345
         importing.write_compiled_module(space,
                                         pycode,
                                         cpathname,
+                                        mode,
                                         mtime)
 
         # check
@@ -729,6 +762,9 @@ class TestPycStuff:
                                               mtime)
         assert ret is not None
         ret.close()
+
+        # Check that the executable bit was removed
+        assert os.stat(cpathname).st_mode & 0111 == 0
 
         # read compiled module
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -790,6 +826,7 @@ def test_PYTHONPATH_takes_precedence(space):
     extrapath = udir.ensure("pythonpath", dir=1) 
     extrapath.join("urllib.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
+    oldlang = os.environ.pop('LANG', None)
     try: 
         os.environ['PYTHONPATH'] = str(extrapath)
         output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' % 
@@ -798,6 +835,8 @@ def test_PYTHONPATH_takes_precedence(space):
     finally: 
         if old: 
             os.environ['PYTHONPATH'] = old 
+        if oldlang:
+            os.environ['LANG'] = oldlang
 
 class AppTestImportHooks(object):
     def test_meta_path(self):
@@ -864,7 +903,7 @@ class AppTestImportHooks(object):
             if path == "xxx":
                 return Importer()
             raise ImportError()
-        import sys
+        import sys, imp
         try:
             sys.path_hooks.append(importer_for_path)
             sys.path.insert(0, "yyy")
@@ -874,7 +913,8 @@ class AppTestImportHooks(object):
                 import b
             except ImportError:
                 pass
-            assert sys.path_importer_cache['yyy'] is None
+            assert isinstance(sys.path_importer_cache['yyy'],
+                              imp.NullImporter)
         finally:
             sys.path.pop(0)
             sys.path.pop(0)

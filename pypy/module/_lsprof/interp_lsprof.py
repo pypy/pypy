@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.function import Method, Function
+from pypy.interpreter.error import OperationError
 import time, sys
 
 class W_StatsEntry(Wrappable):
@@ -163,8 +164,11 @@ def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function
         class_name = w_arg.w_class.getname(space, '?')
-        assert isinstance(w_function, Function)
-        return "{method '%s' of '%s' objects}" % (w_function.name, class_name)
+        if isinstance(w_function, Function):
+            name = w_function.name
+        else:
+            name = '?'
+        return "{method '%s' of '%s' objects}" % (name, class_name)
     elif isinstance(w_arg, Function):
         if w_arg.w_module is None:
             module = ''
@@ -176,7 +180,8 @@ def create_spec(space, w_arg):
                 module += '.'
         return '{%s%s}' % (module, w_arg.name)
     else:
-        return '{!!!unknown!!!}'
+        class_name = space.type(w_arg).getname(space, '?')
+        return "{'%s' object}" % (class_name,)
     
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
@@ -212,7 +217,12 @@ class W_Profiler(Wrappable):
     def timer(self):
         if self.w_callable:
             space = self.space
-            return space.float_w(space.call_function(self.w_callable))
+            try:
+                return space.float_w(space.call_function(self.w_callable))
+            except OperationError, e:
+                e.write_unraisable(space, "timer function ",
+                                   self.w_callable)
+                return 0.0
         return time.time()
 
     def enable(self, space, w_subcalls=NoneNotWrapped,

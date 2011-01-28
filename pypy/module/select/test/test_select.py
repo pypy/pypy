@@ -112,6 +112,7 @@ class _AppTestSelect:
                 # more data is available
                 if sys.platform != 'win32':
                     writeend.close()
+                    import gc; gc.collect()
             assert 1 <= total_out <= 512
             total_in = 0
             while True:
@@ -140,6 +141,7 @@ class _AppTestSelect:
         readend, writeend = self.getpair()
         try:
             readend.close()
+            import gc; gc.collect()
             iwtd, owtd, ewtd = select.select([writeend], [], [], 0)
             assert iwtd == [writeend]
             assert owtd == ewtd == []
@@ -226,8 +228,8 @@ class AppTestSelectWithPipes(_AppTestSelect):
         space = gettestobjspace(usemodules=('select',))
         cls.space = space
 
+    def w_getpair(self):
         # Wraps a file descriptor in an socket-like object
-        cls.w_getpair = space.appexec([], '''():
         import os
         class FileAsSocket:
             def __init__(self, fd):
@@ -240,10 +242,8 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 return os.read(self.fd, length)
             def close(self):
                 return os.close(self.fd)
-        def getpair():
-            s1, s2 = os.pipe()
-            return FileAsSocket(s1), FileAsSocket(s2)
-        return getpair''')
+        s1, s2 = os.pipe()
+        return FileAsSocket(s1), FileAsSocket(s2)
 
 class AppTestSelectWithSockets(_AppTestSelect):
     """Same tests with connected sockets.

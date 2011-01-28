@@ -4,9 +4,8 @@ from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
-from pypy.rpython.memory.support import AddressDict
+from pypy.rpython.memory.support import AddressDict, null_address_dict
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
-from pypy.rlib.rarithmetic import r_uint
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
                              ('size', lltype.Signed),
@@ -22,6 +21,7 @@ class GCBase(object):
     malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True
     object_minimal_size = 0
+    gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
                  translated_to_c=True):
@@ -29,6 +29,7 @@ class GCBase(object):
         self.AddressStack = get_address_stack(chunk_size)
         self.AddressDeque = get_address_deque(chunk_size)
         self.AddressDict = AddressDict
+        self.null_address_dict = null_address_dict
         self.config = config
         assert isinstance(translated_to_c, bool)
         self.translated_to_c = translated_to_c
@@ -38,6 +39,12 @@ class GCBase(object):
         # and in its overriden versions! for the benefit of test_transformed_gc
         self.finalizer_lock_count = 0
         self.run_finalizers = self.AddressDeque()
+
+    def post_setup(self):
+        # More stuff that needs to be initialized when the GC is already
+        # fully working.  (Only called by gctransform/framework for now.)
+        from pypy.rpython.memory.gc import env
+        self.DEBUG = env.read_from_env('PYPY_GC_DEBUG')
 
     def _teardown(self):
         pass
@@ -51,7 +58,8 @@ class GCBase(object):
     # The following flag enables costly consistency checks after each
     # collection.  It is automatically set to True by test_gc.py.  The
     # checking logic is translatable, so the flag can be set to True
-    # here before translation.
+    # here before translation.  At run-time, if PYPY_GC_DEBUG is set,
+    # then it is also set to True.
     DEBUG = False
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
@@ -273,6 +281,21 @@ class GCBase(object):
                 (not self.config.taggedpointers or
                  llmemory.cast_adr_to_int(addr) & 1 == 0))
 
+    def enumerate_all_roots(self, callback, arg):
+        """For each root object, invoke callback(obj, arg).
+        'callback' should not be a bound method.
+        Note that this method is not suitable for actually doing the
+        collection in a moving GC, because you cannot write back a
+        modified address.  It is there only for inspection.
+        """
+        # overridden in some subclasses, for GCs which have an additional
+        # list of last generation roots
+        callback2, attrname = _convert_callback_formats(callback)    # :-/
+        setattr(self, attrname, arg)
+        self.root_walker.walk_roots(callback2, callback2, callback2)
+        self.run_finalizers.foreach(callback, arg)
+    enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
     def debug_check_consistency(self):
         """To use after a collection.  If self.DEBUG is set, this
         enumerates all roots and traces all objects to check if we didn't
@@ -286,8 +309,7 @@ class GCBase(object):
             self._debug_pending = self.AddressStack()
             if not we_are_translated():
                 self.root_walker._walk_prebuilt_gc(self._debug_record)
-            callback = GCBase._debug_callback
-            self.root_walker.walk_roots(callback, callback, callback)
+            self.enumerate_all_roots(GCBase._debug_callback, self)
             pending = self._debug_pending
             while pending.non_empty():
                 obj = pending.pop()
@@ -301,9 +323,8 @@ class GCBase(object):
             seen.add(obj)
             self.debug_check_object(obj)
             self._debug_pending.append(obj)
-    def _debug_callback(self, root):
-        obj = root.address[0]
-        ll_assert(bool(obj), "NULL address from walk_roots()")
+    @staticmethod
+    def _debug_callback(obj, self):
         self._debug_record(obj)
     def _debug_callback2(self, obj, ignored):
         ll_assert(bool(obj), "NULL address from self.do_trace()")
@@ -423,38 +444,16 @@ def choose_gc_from_config(config):
     GCClass = getattr(module, classname)
     return GCClass, GCClass.TRANSLATION_PARAMS
 
-def _read_float_and_factor_from_env(varname):
-    import os
-    value = os.environ.get(varname)
-    if value:
-        if len(value) > 1 and value[-1] in 'bB':
-            value = value[:-1]
-        realvalue = value[:-1]
-        if value[-1] in 'kK':
-            factor = 1024
-        elif value[-1] in 'mM':
-            factor = 1024*1024
-        elif value[-1] in 'gG':
-            factor = 1024*1024*1024
-        else:
-            factor = 1
-            realvalue = value
-        try:
-            return (float(realvalue), factor)
-        except ValueError:
-            pass
-    return (0.0, 0)
+def _convert_callback_formats(callback):
+    callback = getattr(callback, 'im_func', callback)
+    if callback not in _converted_callback_formats:
+        def callback2(gc, root):
+            obj = root.address[0]
+            ll_assert(bool(obj), "NULL address from walk_roots()")
+            callback(obj, getattr(gc, attrname))
+        attrname = '_callback2_arg%d' % len(_converted_callback_formats)
+        _converted_callback_formats[callback] = callback2, attrname
+    return _converted_callback_formats[callback]
 
-def read_from_env(varname):
-    value, factor = _read_float_and_factor_from_env(varname)
-    return int(value * factor)
-
-def read_uint_from_env(varname):
-    value, factor = _read_float_and_factor_from_env(varname)
-    return r_uint(value * factor)
-
-def read_float_from_env(varname):
-    value, factor = _read_float_and_factor_from_env(varname)
-    if factor != 1:
-        return 0.0
-    return value
+_convert_callback_formats._annspecialcase_ = 'specialize:memo'
+_converted_callback_formats = {}

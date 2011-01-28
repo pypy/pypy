@@ -423,7 +423,7 @@ BUILTIN_ANALYZERS[__import__] = import_func
 from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
-def malloc(s_T, s_n=None, s_flavor=None, s_zero=None):
+def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, pypy.rlib.rarithmetic.base_int))
     assert s_T.is_constant()
@@ -438,18 +438,23 @@ def malloc(s_T, s_n=None, s_flavor=None, s_zero=None):
         r = SomePtr(lltype.typeOf(p))
     else:
         assert s_flavor.is_constant()
+        assert s_track_allocation is None or s_track_allocation.is_constant()
         # not sure how to call malloc() for the example 'p' in the
         # presence of s_extraargs
         r = SomePtr(lltype.Ptr(s_T.const))
     return r
 
-def free(s_p, s_flavor):
+def free(s_p, s_flavor, s_track_allocation=None):
     assert s_flavor.is_constant()
+    assert s_track_allocation is None or s_track_allocation.is_constant()
     # same problem as in malloc(): some flavors are not easy to
     # malloc-by-example
     #T = s_p.ll_ptrtype.TO
     #p = lltype.malloc(T, flavor=s_flavor.const)
     #lltype.free(p, flavor=s_flavor.const)
+
+def render_immortal(s_p, s_track_allocation=None):
+    assert s_track_allocation is None or s_track_allocation.is_constant()
 
 def typeOf(s_val):
     lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
@@ -518,6 +523,7 @@ def constPtr(T):
 
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.free] = free
+BUILTIN_ANALYZERS[lltype.render_immortal] = render_immortal
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.cast_primitive] = cast_primitive
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr

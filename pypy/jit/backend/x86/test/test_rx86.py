@@ -5,7 +5,6 @@ globals().update(R.__dict__)
 class CodeBuilderMixin(object):
     def __init__(self):
         self.buffer = []
-        self.base_address = 0x76543210
 
     def writechar(self, c):
         assert isinstance(c, str) and len(c) == 1
@@ -13,9 +12,6 @@ class CodeBuilderMixin(object):
 
     def getvalue(self):
         return ''.join(self.buffer)
-
-    def tell(self):
-        return self.base_address + len(self.buffer)
 
 def assert_encodes_as(code_builder_cls, insn_name, args, expected_encoding):
     s = code_builder_cls()
@@ -104,21 +100,18 @@ def test_lea32_rb():
 
 def test_call_l(s=None):
     s = s or CodeBuilder32()
-    s.CALL_l(0x01234567)
-    ofs = 0x01234567 - (0x76543210+5)
-    assert s.getvalue() == '\xE8' + struct.pack("<i", ofs)
+    s.CALL_l(0x01234567)   # relative offset
+    assert s.getvalue() == '\xE8' + struct.pack("<i", 0x01234567)
 
 def test_jmp_l():
     s = CodeBuilder32()
-    s.JMP_l(0x01234567)
-    ofs = 0x01234567 - (0x76543210+5)
-    assert s.getvalue() == '\xE9' + struct.pack("<i", ofs)
+    s.JMP_l(0x01234567)   # relative offset
+    assert s.getvalue() == '\xE9' + struct.pack("<i", 0x01234567)
 
 def test_j_il():
     s = CodeBuilder32()
-    s.J_il(5, 0x01234567)
-    ofs = 0x01234567 - (0x76543210+6)
-    assert s.getvalue() == '\x0F\x85' + struct.pack("<i", ofs)
+    s.J_il(5, 0x01234567)   # relative offset
+    assert s.getvalue() == '\x0F\x85' + struct.pack("<i", 0x01234567)
 
 def test_set_ir():
     s = CodeBuilder32()
@@ -181,7 +174,12 @@ def test_or8_rr():
     assert_encodes_as(CodeBuilder32, 'OR8_rr', (bl, bh), '\x08\xFB')
 
 def test_test8_mi():
-    assert_encodes_as(CodeBuilder32, 'TEST8_mi', ((edx, 16), 99), '\xF6\x42\x10\x63')
+    assert_encodes_as(CodeBuilder32, 'TEST8_mi', ((edx, 16), 99),
+                      '\xF6\x42\x10\x63')
+
+def test_test8_ji():
+    assert_encodes_as(CodeBuilder32, 'TEST8_ji', (0x12345678, 99),
+                      '\xF6\x05\x78\x56\x34\x12\x63')
 
 def test_mov8():
     cb = CodeBuilder32

@@ -17,6 +17,7 @@ from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
 from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
+from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
 
@@ -51,6 +52,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self._setup_exception_handling_untranslated()
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
+        self.asmmemmgr = AsmMemoryManager()
         self.setup()
         if translate_support_code:
             self._setup_on_leave_jitted_translated()
@@ -82,7 +84,8 @@ class AbstractLLCPU(AbstractCPU):
         # read back by the machine code reading at the address given by
         # pos_exception() and pos_exc_value().
         _exception_emulator = lltype.malloc(rffi.CArray(lltype.Signed), 2,
-                                            zero=True, flavor='raw')
+                                            zero=True, flavor='raw',
+                                            immortal=True)
         self._exception_emulator = _exception_emulator
 
         def _store_exception(lle):
@@ -112,6 +115,7 @@ class AbstractLLCPU(AbstractCPU):
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.insert_stack_check = lambda: (0, 0, 0)
 
 
     def _setup_exception_handling_translated(self):
@@ -135,9 +139,20 @@ class AbstractLLCPU(AbstractCPU):
             # in the assignment to self.saved_exc_value, as needed.
             self.saved_exc_value = exc_value
 
+        from pypy.rlib import rstack
+        STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
+                                                          lltype.Void))
+        def insert_stack_check():
+            startaddr = rstack._stack_get_start_adr()
+            length = rstack._stack_get_length()
+            f = llhelper(STACK_CHECK_SLOWPATH, rstack.stack_check_slowpath)
+            slowpathaddr = rffi.cast(lltype.Signed, f)
+            return startaddr, length, slowpathaddr
+
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.insert_stack_check = insert_stack_check
 
     def _setup_on_leave_jitted_untranslated(self):
         # assume we don't need a backend leave in this case
@@ -175,6 +190,15 @@ class AbstractLLCPU(AbstractCPU):
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
         return exc
 
+    def free_loop_and_bridges(self, compiled_loop_token):
+        AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
+        blocks = compiled_loop_token.asmmemmgr_blocks
+        if blocks is not None:
+            compiled_loop_token.asmmemmgr_blocks = None
+            for rawstart, rawstop in blocks:
+                self.gc_ll_descr.freeing_block(rawstart, rawstop)
+                self.asmmemmgr.free(rawstart, rawstop)
+
     # ------------------- helpers and descriptions --------------------
 
     @staticmethod
@@ -210,7 +234,8 @@ class AbstractLLCPU(AbstractCPU):
         assert isinstance(fielddescr, BaseFieldDescr)
         ofs = fielddescr.offset
         size = fielddescr.get_field_size(self.translate_support_code)
-        return ofs, size
+        sign = fielddescr.is_field_signed()
+        return ofs, size, sign
     unpack_fielddescr_size._always_inline_ = True
 
     def arraydescrof(self, A):
@@ -225,11 +250,17 @@ class AbstractLLCPU(AbstractCPU):
         assert isinstance(arraydescr, BaseArrayDescr)
         ofs = arraydescr.get_base_size(self.translate_support_code)
         size = arraydescr.get_item_size(self.translate_support_code)
-        return ofs, size
+        sign = arraydescr.is_item_signed()
+        return ofs, size, sign
     unpack_arraydescr_size._always_inline_ = True
 
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
         return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
+
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
+        from pypy.jit.backend.llsupport import ffisupport
+        return ffisupport.get_call_descr_dynamic(ffi_args, ffi_result,
+                                                 extrainfo)
 
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)
@@ -252,15 +283,21 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(2)
     def bh_getarrayitem_gc_i(self, arraydescr, gcref, itemindex):
-        ofs, size = self.unpack_arraydescr_size(arraydescr)
+        ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        for TYPE, itemsize in unroll_basic_sizes:
+        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items) 
-                val = items[itemindex]
+                if sign:
+                    items = rffi.cast(rffi.CArrayPtr(STYPE), items)
+                    val = items[itemindex]
+                    val = rffi.cast(lltype.Signed, val)
+                else:
+                    items = rffi.cast(rffi.CArrayPtr(UTYPE), items)
+                    val = items[itemindex]
+                    val = rffi.cast(lltype.Signed, val)
                 # --- end of GC unsafe code ---
-                return rffi.cast(lltype.Signed, val)
+                return val
         else:
             raise NotImplementedError("size = %d" % size)
 
@@ -285,10 +322,10 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(2)
     def bh_setarrayitem_gc_i(self, arraydescr, gcref, itemindex, newvalue):
-        ofs, size = self.unpack_arraydescr_size(arraydescr)
+        ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        for TYPE, itemsize in unroll_basic_sizes:
+        for TYPE, _, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 items = rffi.cast(rffi.CArrayPtr(TYPE), items)
                 items[itemindex] = rffi.cast(TYPE, newvalue)
@@ -339,14 +376,22 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_getfield_i(self, struct, fielddescr):
-        ofs, size = self.unpack_fielddescr_size(fielddescr)
+        ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        for TYPE, itemsize in unroll_basic_sizes:
+        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
-                val = rffi.cast(rffi.CArrayPtr(TYPE), fieldptr)[0]
+                # Note that in the common case where size==sizeof(Signed),
+                # both cases of what follows are doing the same thing.
+                # But gcc is clever enough to figure this out :-)
+                if sign:
+                    val = rffi.cast(rffi.CArrayPtr(STYPE), fieldptr)[0]
+                    val = rffi.cast(lltype.Signed, val)
+                else:
+                    val = rffi.cast(rffi.CArrayPtr(UTYPE), fieldptr)[0]
+                    val = rffi.cast(lltype.Signed, val)
                 # --- end of GC unsafe code ---
-                return rffi.cast(lltype.Signed, val)
+                return val
         else:
             raise NotImplementedError("size = %d" % size)
 
@@ -378,10 +423,10 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_setfield_i(self, struct, fielddescr, newvalue):
-        ofs, size = self.unpack_fielddescr_size(fielddescr)
+        ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        for TYPE, itemsize in unroll_basic_sizes:
+        for TYPE, _, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 fieldptr = rffi.cast(rffi.CArrayPtr(TYPE), fieldptr)
                 fieldptr[0] = rffi.cast(TYPE, newvalue)

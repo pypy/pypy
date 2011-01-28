@@ -33,12 +33,12 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of py.py", [
                default=False, cmdline="-O"),
     BoolOption("no_site_import", "do not 'import site' on initialization",
                default=False, cmdline="-S"),
-    StrOption("runmodule",
-              "library module to be run as a script (terminates option list)",
-              default=None, cmdline="-m"),
-    StrOption("runcommand",
-              "program passed in as CMD (terminates option list)",
-              default=None, cmdline="-c"),
+    BoolOption("runmodule",
+               "library module to be run as a script (terminates option list)",
+               default=False, cmdline="-m"),
+    BoolOption("runcommand",
+               "program passed in as CMD (terminates option list)",
+               default=False, cmdline="-c"),
     StrOption("warn",
               "warning control (arg is action:message:category:module:lineno)",
               default=None, cmdline="-W"),
@@ -116,19 +116,22 @@ def main_(argv=None):
     go_interactive = interactiveconfig.interactive
     banner = ''
     exit_status = 0
-    if interactiveconfig.runcommand is not None:
-        args = ['-c'] + args
+    command = None
+    if interactiveconfig.runcommand:
+        command = args[0]
+        args[0] = '-c'
+    if interactiveconfig.runmodule:
+        command = args.pop(0)
     for arg in args:
         space.call_method(space.sys.get('argv'), 'append', space.wrap(arg))
 
     # load the source of the program given as command-line argument
-    if interactiveconfig.runcommand is not None:
+    if interactiveconfig.runcommand:
         def doit():
-            main.run_string(interactiveconfig.runcommand, space=space)
+            main.run_string(command, space=space)
     elif interactiveconfig.runmodule:
         def doit():
-            main.run_module(interactiveconfig.runmodule,
-                            args, space=space)
+            main.run_module(command, args, space=space)
     elif args:
         scriptdir = os.path.dirname(os.path.abspath(args[0]))
         space.call_method(space.sys.get('path'), 'insert',

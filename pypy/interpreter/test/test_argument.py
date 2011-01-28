@@ -52,12 +52,17 @@ class TestSignature(object):
         assert y == "d"
         assert z == "e"
 
+class dummy_wrapped_dict(dict):
+    def __nonzero__(self):
+        raise NotImplementedError
 
 class DummySpace(object):
     def newtuple(self, items):
         return tuple(items)
 
     def is_true(self, obj):
+        if isinstance(obj, dummy_wrapped_dict):
+            return bool(dict(obj))
         return bool(obj)
 
     def fixedview(self, it):
@@ -98,12 +103,27 @@ class DummySpace(object):
 
     def isinstance(self, obj, cls):
         return isinstance(obj, cls)
+    isinstance_w = isinstance
 
     def exception_match(self, w_type1, w_type2):
         return issubclass(w_type1, w_type2)
 
+    def call_method(self, obj, name, *args):
+        try:
+            method = getattr(obj, name)
+        except AttributeError:
+            raise OperationError(AttributeError, name)
+        return method(*args)
+
+    def type(self, obj):
+        class Type:
+            def getname(self, space, default):
+                return type(obj).__name__
+        return Type()
+
 
     w_TypeError = TypeError
+    w_AttributeError = AttributeError
     w_dict = dict
 
 class TestArgumentsNormal(object):
@@ -229,7 +249,7 @@ class TestArgumentsNormal(object):
             kwds_w = dict(kwds[:i])
             keywords = kwds_w.keys()
             keywords_w = kwds_w.values()
-            w_kwds = dict(kwds[i:])
+            w_kwds = dummy_wrapped_dict(kwds[i:])
             if i == 2:
                 w_kwds = None
             assert len(keywords) == len(keywords_w)
@@ -265,7 +285,7 @@ class TestArgumentsNormal(object):
             kwds_w = dict(kwds[:i])
             keywords = kwds_w.keys()
             keywords_w = kwds_w.values()
-            w_kwds = dict(kwds[i:])
+            w_kwds = dummy_wrapped_dict(kwds[i:])
             if i == 3:
                 w_kwds = None
             args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
@@ -448,7 +468,11 @@ class TestArgumentsNormal(object):
         assert set(args.keywords) == set(['a', 'b'])
         assert args.keywords_w[args.keywords.index('a')] == 2
         assert args.keywords_w[args.keywords.index('b')] == 3        
-                                 
+
+        args = Arguments(space, [1])
+        w_args, w_kwds = args.topacked()
+        assert w_args == (1, )
+        assert not w_kwds
 
 class TestErrorHandling(object):
     def test_missing_args(self):
@@ -471,10 +495,10 @@ class TestErrorHandling(object):
         assert s == "foo() takes at most 2 arguments (3 given)"
         err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
         s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
+        assert s == "foo() takes at least 1 argument (1 given)"
         err = ArgErrCount(2, 1, 1, False, True, [], 0)
         s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 non-keyword argument (2 given)"
+        assert s == "foo() takes exactly 1 argument (3 given)"
 
 
     def test_unknown_keywords(self):
@@ -489,6 +513,19 @@ class TestErrorHandling(object):
         err = ArgErrMultipleValues('bla')
         s = err.getmsg('foo')
         assert s == "foo() got multiple values for keyword argument 'bla'"
+
+class AppTestArgument:
+    def test_error_message(self):
+        exc = raises(TypeError, (lambda a, b=2: 0), b=3)
+        assert exc.value.message == "<lambda>() takes at least 1 argument (1 given)"
+        exc = raises(TypeError, (lambda: 0), b=3)
+        assert exc.value.message == "<lambda>() takes no argument (1 given)"
+        exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
+        assert exc.value.message == "<lambda>() takes exactly 2 arguments (4 given)"
+        exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
+        assert exc.value.message == "<lambda>() takes at most 2 arguments (4 given)"
+        exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
+        assert exc.value.message == "<lambda>() takes at most 2 arguments (3 given)"
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
                                    w_stararg=None, w_starstararg=None):

@@ -1,15 +1,17 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
 from pypy.interpreter import gateway
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.descroperation import Object
-from pypy.objspace.std.stdtypedef import StdTypeDef, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.register_all import register_all
 
 
 def descr__repr__(space, w_obj):
     w = space.wrap
     w_type = space.type(w_obj)
-    classname = w_type.getname(space, '?')
+    classname = w_type.getname(space)
     w_module = w_type.lookup("__module__")
     if w_module is not None:
         try:
@@ -32,7 +34,7 @@ def descr_set___class__(space, w_obj, w_newcls):
     if not isinstance(w_newcls, W_TypeObject):
         raise operationerrfmt(space.w_TypeError,
                               "__class__ must be set to new-style class, not '%s' object",
-                              space.type(w_newcls).getname(space, '?'))
+                              space.type(w_newcls).getname(space))
     if not w_newcls.is_heaptype():
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ assignment: only for heap types"))
@@ -44,8 +46,17 @@ def descr_set___class__(space, w_obj, w_newcls):
     else:
         raise operationerrfmt(space.w_TypeError,
                               "__class__ assignment: '%s' object layout differs from '%s'",
-                              w_oldcls.getname(space, '?'), w_newcls.getname(space, '?'))
-    
+                              w_oldcls.getname(space), w_newcls.getname(space))
+
+
+app = gateway.applevel("""
+def _abstract_method_error(typ):
+    methods = ", ".join(sorted(typ.__abstractmethods__))
+    err = "Can't instantiate abstract class %s with abstract methods %s"
+    raise TypeError(err % (methods, typ.__name__))
+""")
+_abstract_method_error = app.interphook("_abstract_method_error")
+
 
 def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.objectobject import W_ObjectObject
@@ -61,6 +72,8 @@ def descr__new__(space, w_type, __args__):
             raise OperationError(space.w_TypeError,
                                  space.wrap("default __new__ takes "
                                             "no parameters"))
+    if w_type.is_abstract():
+        _abstract_method_error(space, w_type)
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
     return w_obj
 
@@ -88,6 +101,26 @@ def descr__reduce_ex__(space, w_obj, proto=0):
         if override:
             return space.call(w_reduce, space.newtuple([]))
     return descr__reduce__(space, w_obj, proto)
+
+def descr___format__(space, w_obj, w_format_spec):
+    if space.isinstance_w(w_format_spec, space.w_unicode):
+        w_as_str = space.call_function(space.w_unicode, w_obj)
+    elif space.isinstance_w(w_format_spec, space.w_str):
+        w_as_str = space.str(w_obj)
+    else:
+        msg = "format_spec must be a string"
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    if space.int_w(space.len(w_format_spec)) > 0:
+        space.warn(
+            ("object.__format__ with a non-empty format string is "
+                "deprecated"),
+            space.w_PendingDeprecationWarning
+        )
+    return space.format(w_as_str, w_format_spec)
+
+def descr___subclasshook__(space, __args__):
+    return space.w_NotImplemented
+
 
 app = gateway.applevel(r'''
 def reduce_1(obj, proto):
@@ -157,7 +190,7 @@ def slotnames(cls):
     return slotnames
 ''', filename=__file__)
 
-reduce_1 = app.interphook('reduce_1') 
+reduce_1 = app.interphook('reduce_1')
 reduce_2 = app.interphook('reduce_2')
 
 # ____________________________________________________________
@@ -177,6 +210,10 @@ object_typedef = StdTypeDef("object",
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),
     __reduce__ = gateway.interp2app(descr__reduce__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),
+    __format__ = gateway.interp2app(descr___format__, unwrap_spec=[ObjSpace,
+                                   gateway.W_Root, gateway.W_Root]),
+    __subclasshook__ = gateway.interp2app(descr___subclasshook__, unwrap_spec=
+    [ObjSpace, Arguments], as_classmethod=True),
     __init__ = gateway.interp2app(descr__init__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )

@@ -1,0 +1,103 @@
+TODO list for 2.7.0
+===================
+
+You can find the results of the most recent buildbot run at:
+http://buildbot.pypy.org/summary?branch=fast-forward
+
+
+Probably easy tasks
+-------------------
+
+- New complex syntax (see test_complex.py)::
+
+      assert complex("(1+2j)") == (1+2j)
+      assert complex("(1-2j)") == (1-2j)
+      assert complex("1e500") == complex(INF, 0.0)
+
+- (unicode|bytearray).(index|find) should accept None as indices (see
+  test_unicode.py)
+
+- Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
+
+- missing functions in itertools: combinations, product...
+
+- in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
+  proably requires to use the git_t typedef instead of rffi.INT.
+
+- missing posix.(confstr|pathconf|fpathconf)(_names)? (see 
+
+- remove code duplication: bit_length() and _count_bits() in rlib/rbigint.py,
+  objspace/std/longobject.py and objspace/std/longtype.py.
+
+- Add missing methods to bytearray (see test_bytes.py).  Also ideally refactor
+  stringobject.py and unicodeobject.py to allow more code reuse between these
+  (now) three types.
+
+
+Medium tasks
+------------
+
+- Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
+  test_pickle()
+
+- add 'unicode' in ObjSpace.MethodTable + probably a default implementation that
+  falls back to space.str(). (WHY?)
+
+- socket module has a couple of changes (including AF_TIPC packet range)
+
+- implement _io.open() (currently it delegates to _pyio.open)
+
+- module/unicodedata/generate_unicodedb.py should parse LineBreaks.txt
+  see http://svn.python.org/view?view=rev&revision=79494
+
+
+Longer tasks
+------------
+
+- many features are missing from the _ssl module
+
+- "Shorter float representation" (see pypy/translator/c/test/test_dtoa.py) to
+  format/parse floats.  Enable this with a translation option.
+
+- Fix usage of __cmp__ in subclasses::
+
+    class badint(int):
+        def __cmp__(self, other):
+            raise RuntimeError
+    raises(RuntimeError, cmp, 0, badint(1))
+
+- Fix comparison of objects layout: if two classes have the same __slots__, it
+  should be possible to change the instances __class__::
+
+      class A(object): __slots__ = ('a', 'b')
+      class B(object): __slots__ = ('b', 'a')
+      a = A()
+      a.__class__ = B
+
+- Remove "unbound builtin methods": some code in pprint.py, _threading_local.py
+  relies on comparisons like "str.__init__ is object.__init__", or
+  "type(x).__repr__ is dict.__repr__"
+
+- Show a ResourceWarning when a file/socket is not explicitely closed, like
+  CPython did for 3.2: http://svn.python.org/view?view=rev&revision=85920
+  in PyPy this should be enabled by default
+
+Won't do for this release
+-------------------------
+
+Note: when you give up with a missing feature, please mention it here, as well
+as the various skips added to the test suite.
+
+- py3k warnings
+
+  * the -3 flag is accepted on the command line, but displays a warning (see
+    `translator/goal/app_main.py`)
+
+- CJK codecs.
+
+  * In `./conftest.py`, skipped all `test_codecencodings_*.py` and
+    `test_codecmaps_*.py`.
+
+  * In test_codecs, commented out various items in `all_unicode_encodings`.
+
+

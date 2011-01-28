@@ -123,7 +123,9 @@ class Platform(object):
             errorfile.write(stderr, 'wb')
             stderrlines = stderr.splitlines()
             for line in stderrlines:
-                log.ERROR(line)
+                log.Error(line)
+            # ^^^ don't use ERROR, because it might actually be fine.
+            # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
             for line in stderr.splitlines():
@@ -174,8 +176,11 @@ class Platform(object):
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:
             outputfilename = ofiles[0].purebasename
-        exe_name = py.path.local(os.path.join(str(ofiles[0].dirpath()),
-                                              outputfilename))
+        if ofiles:
+            dirname = ofiles[0].dirpath()
+        else:
+            dirname = udir.join('module_cache')
+        exe_name = dirname.join(outputfilename, abs=True)
         if standalone:
             if self.exe_ext:
                 exe_name += '.' + self.exe_ext
@@ -215,13 +220,13 @@ elif sys.platform == 'darwin':
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
-elif sys.platform == 'freebsd7':
-    from pypy.translator.platform.freebsd7 import Freebsd7, Freebsd7_64
+elif "freebsd" in sys.platform:
+    from pypy.translator.platform.freebsd import Freebsd, Freebsd_64
     import platform
     if platform.architecture()[0] == '32bit':
-        host_factory = Freebsd7
+        host_factory = Freebsd
     else:
-        host_factory = Freebsd7_64
+        host_factory = Freebsd_64
 elif os.name == 'nt':
     from pypy.translator.platform.windows import Windows
     host_factory = Windows
