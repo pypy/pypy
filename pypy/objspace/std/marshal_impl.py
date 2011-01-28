@@ -144,8 +144,8 @@ def unmarshal_Int(space, u, tc):
 register(TYPE_INT, unmarshal_Int)
 
 def unmarshal_Int64(space, u, tc):
-    lo = u.get_int()
-    hi = u.get_int()
+    lo = u.get_int()    # get the first 32 bits
+    hi = u.get_int()    # get the next 32 bits
     if LONG_BIT >= 64:
         x = (hi << 32) | (lo & (2**32-1))    # result fits in an int
     else:
