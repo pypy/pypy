@@ -140,6 +140,7 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+
         elif tp == 'Z':
             # c_wchar_p
             def _getvalue(self):
@@ -247,6 +248,12 @@ class SimpleType(_CDataMeta):
                 else:
                     self._buffer[0] = 0  # VARIANT_FALSE
             result.value = property(_getvalue, _setvalue)
+
+        # make pointer-types compatible with the _ffi fast path
+        if result._is_pointer_like():
+            def _as_ffi_pointer_(self):
+                return self._get_buffer_value()
+            result._as_ffi_pointer_ = _as_ffi_pointer_
             
         return result
 

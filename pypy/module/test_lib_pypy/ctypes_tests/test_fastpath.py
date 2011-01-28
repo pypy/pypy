@@ -1,4 +1,4 @@
-from ctypes import CDLL, POINTER, pointer, c_byte, c_int
+from ctypes import CDLL, POINTER, pointer, c_byte, c_int, c_char_p
 import sys
 import py
 from support import BaseCTypesTestChecker
@@ -44,3 +44,21 @@ class TestFastpath(BaseCTypesTestChecker):
         result = f(pointer(v))
         assert type(result) == POINTER(c_int)
         assert result.contents.value == 42
+
+    def test_simple_pointer_args(self):
+        f = dll.my_strchr
+        f.argtypes = [c_char_p, c_int]
+        f.restype = c_char_p
+        mystr = c_char_p("abcd")
+        result = f(mystr, ord("b"))
+        assert result == "bcd"
+
+    @py.test.mark.xfail
+    def test_strings(self):
+        f = dll.my_strchr
+        f.argtypes = [c_char_p, c_int]
+        f.restype = c_char_p
+        # python strings need to be converted to c_char_p, but this is
+        # supported only in the slow path so far
+        result = f("abcd", ord("b"))
+        assert result == "bcd"
