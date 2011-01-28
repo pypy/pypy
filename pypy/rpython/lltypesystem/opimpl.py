@@ -271,6 +271,36 @@ def op_llong_mod(x, y):
         r -= y
     return r
 
+def op_uint_lshift(x, y):
+    assert isinstance(x, r_uint)
+    assert isinstance(y, int)
+    return r_uint(x << y)
+
+def op_uint_rshift(x, y):
+    assert isinstance(x, r_uint)
+    assert isinstance(y, int)
+    return r_uint(x >> y)
+
+def op_llong_lshift(x, y):
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, int)
+    return r_longlong_result(x << y)
+
+def op_llong_rshift(x, y):
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, int)
+    return r_longlong_result(x >> y)
+
+def op_ullong_lshift(x, y):
+    assert isinstance(x, r_ulonglong)
+    assert isinstance(y, int)
+    return r_ulonglong(x << y)
+
+def op_ullong_rshift(x, y):
+    assert isinstance(x, r_ulonglong)
+    assert isinstance(y, int)
+    return r_ulonglong(x >> y)
+
 def op_same_as(x):
     return x
 
