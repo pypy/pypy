@@ -114,6 +114,9 @@ class _Pointer(_CData):
 
     contents = property(getcontents, setcontents)
 
+    def _as_ffi_pointer_(self):
+        return self._get_buffer_value()
+
 def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"

@@ -1,4 +1,4 @@
-from ctypes import CDLL, c_byte
+from ctypes import CDLL, POINTER, pointer, c_byte, c_int
 import sys
 import py
 from support import BaseCTypesTestChecker
@@ -35,3 +35,12 @@ class TestFastpath(BaseCTypesTestChecker):
         tf_b.restype = c_byte
         tf_b.argtypes = (c_byte,)
         assert tf_b(-126) == -42
+
+    def test_pointer_args(self):
+        f = dll._testfunc_p_p
+        f.restype = POINTER(c_int)
+        f.argtypes = [POINTER(c_int)]
+        v = c_int(42)
+        result = f(pointer(v))
+        assert type(result) == POINTER(c_int)
+        assert result.contents.value == 42
