@@ -795,6 +795,14 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], (float, float, float),
                       "ll_os.ll_getloadavg", llimpl=getloadavg_llimpl)
 
+    @registering_if(os, 'makedev')
+    def register_os_makedev(self):
+        c_makedev = self.llexternal('makedev', [rffi.INT, rffi.INT], rffi.INT)
+        def makedev_llimpl(maj, min):
+            return c_makedev(maj, min)
+        return extdef([int, int], int,
+                      "ll_os.ll_makedev", llimpl=makedev_llimpl)
+
     @registering_if(os, 'major')
     def register_os_major(self):
         c_major = self.llexternal('major', [rffi.INT], rffi.INT)
@@ -802,6 +810,7 @@ class RegisterOs(BaseLazyRegistering):
             return c_major(dev)
         return extdef([int], int,
                       "ll_os.ll_major", llimpl=major_llimpl)
+
 
     @registering_if(os, 'minor')
     def register_os_minor(self):

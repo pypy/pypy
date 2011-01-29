@@ -850,10 +850,11 @@ if hasattr(os, 'major'):
         def does_stuff(n):
             a = os.major(n)
             b = os.minor(n)
-            return '%d,%d' % (a, b)
+            x = os.makedev(a, b)
+            return '%d,%d,%d' % (a, b, x)
         f = compile(does_stuff, [int])
         res = f(12345)
-        assert res == '%d,%d' % (os.major(12345), os.minor(12345))
+        assert res == '%d,%d,12345' % (os.major(12345), os.minor(12345))
 
 if hasattr(os, 'fchdir'):
     def test_os_fchdir():
