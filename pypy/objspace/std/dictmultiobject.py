@@ -90,7 +90,7 @@ class W_DictMultiObject(W_Object):
             w_missing = space.lookup(w_dict, "__missing__")
             if w_missing is None:
                 return None
-            return space.call_function(w_missing, w_dict, w_key)
+            return space.get_and_call_function(w_missing, w_dict, w_key)
         else:
             return None
 
