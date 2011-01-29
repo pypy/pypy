@@ -76,6 +76,10 @@ class W_StringIO(W_TextIOBase):
 
     @unwrap_spec('self', ObjSpace, int)
     def seek_w(self, space, pos):
+        if pos < 0:
+            raise operationerrfmt(space.w_ValueError,
+                "negative seek position: %d", pos
+            )
         self.pos = pos
 
     @unwrap_spec('self', ObjSpace)
@@ -116,4 +120,3 @@ W_StringIO.typedef = TypeDef(
     close = interp2app(W_StringIO.close_w),
     closed = GetSetProperty(W_StringIO.closed_get_w),
 )
-

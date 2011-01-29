@@ -49,6 +49,9 @@ class AppTestStringIO:
         assert r == s[3:]
         raises(TypeError, sio.seek, 0.0)
 
+        exc_info = raises(ValueError, sio.seek, -3)
+        assert exc_info.value.args[0] == "negative seek position: -3"
+
     def test_write_error(self):
         import io
 
