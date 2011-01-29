@@ -101,6 +101,20 @@ def tmpfile():
     return f
 
 
+def tmpnam():
+    """Return an absolute pathname of a file that did not exist at the
+    time the call is made."""
+    import tempfile
+    return tempfile.mktemp()
+
+def tempnam(dir=None, prefix=None):
+    """Return an absolute pathname of a file that did not exist at the
+    time the call is made.  The directory and a prefix may be specified
+    as strings; they may be omitted or None if not needed."""
+    import tempfile
+    return tempfile.mktemp('', prefix or 'tmp', dir)
+
+
 # Implement popen() for platforms which have os.fork()
 if osname == 'posix':
 

@@ -71,6 +71,7 @@ class AppTestPosix:
         if hasattr(os, 'major'):
             cls.w_expected_major_12345 = space.wrap(os.major(12345))
             cls.w_expected_minor_12345 = space.wrap(os.minor(12345))
+        cls.w_udir = space.wrap(str(udir))
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -767,6 +768,52 @@ class AppTestPosix:
             assert os.WIFEXITED(status1)
             assert os.WEXITSTATUS(status1) == myprio + 3
 
+    def test_tmpfile(self):
+        os = self.posix
+        f = os.tmpfile()
+        f.write("xxx")
+        f.flush()
+        f.seek(0, 0)
+        assert isinstance(f, file)
+        assert f.read() == 'xxx'
+
+    def test_tmpnam(self):
+        import stat, os
+        s1 = os.tmpnam()
+        s2 = os.tmpnam()
+        assert s1 != s2
+        def isdir(s):
+            try:
+                return stat.S_ISDIR(os.stat(s).st_mode)
+            except OSError:
+                return -1
+        assert isdir(s1) == -1
+        assert isdir(s2) == -1
+        assert isdir(os.path.dirname(s1)) == 1
+        assert isdir(os.path.dirname(s2)) == 1
+
+    def test_tempnam(self):
+        import stat, os
+        for dir in [None, self.udir]:
+            for prefix in [None, 'foobar']:
+                s1 = os.tempnam(dir, prefix)
+                s2 = os.tempnam(dir, prefix)
+                assert s1 != s2
+                def isdir(s):
+                    try:
+                        return stat.S_ISDIR(os.stat(s).st_mode)
+                    except OSError:
+                        return -1
+                assert isdir(s1) == -1
+                assert isdir(s2) == -1
+                assert isdir(os.path.dirname(s1)) == 1
+                assert isdir(os.path.dirname(s2)) == 1
+                if dir:
+                    assert os.path.dirname(s1) == dir
+                    assert os.path.dirname(s2) == dir
+                assert os.path.basename(s1).startswith(prefix or 'tmp')
+                assert os.path.basename(s2).startswith(prefix or 'tmp')
+
 
 class AppTestEnvironment(object):
     def setup_class(cls): 
@@ -799,15 +846,6 @@ class AppTestEnvironment(object):
             cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
             res = os.system(cmd)
             assert res == 0
-
-    def test_tmpfile(self):
-        os = self.os
-        f = os.tmpfile()
-        f.write("xxx")
-        f.flush()
-        f.seek(0, 0)
-        assert isinstance(f, file)
-        assert f.read() == 'xxx'
 
 class AppTestPosixUnicode:
 

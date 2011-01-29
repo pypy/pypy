@@ -19,6 +19,8 @@ corresponding Unix manual entries for more information on calls."""
     'fdopen'     : 'app_posix.fdopen',
     'tmpfile'    : 'app_posix.tmpfile',
     'popen'      : 'app_posix.popen',
+    'tmpnam'     : 'app_posix.tmpnam',
+    'tempnam'    : 'app_posix.tempnam',
     }
     if os.name == 'nt':
         appleveldefs.update({
