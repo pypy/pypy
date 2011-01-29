@@ -100,6 +100,24 @@ class W_StringIO(W_TextIOBase):
         self.pos = pos
         return space.wrap(pos)
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def truncate_w(self, space, w_size=None):
+        self._check_closed(space)
+        if space.is_w(w_size, space.w_None):
+            size = self.pos
+        else:
+            size = space.int_w(w_size)
+
+        if size < 0:
+            raise operationerrfmt(space.w_ValueError,
+                "Negative size value %d", size
+            )
+
+        if size < len(self.buf):
+            self.resize_buffer(size)
+
+        return space.wrap(size)
+
     @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
         self._check_closed(space)
@@ -131,6 +149,7 @@ W_StringIO.typedef = TypeDef(
     write = interp2app(W_StringIO.write_w),
     read = interp2app(W_StringIO.read_w),
     seek = interp2app(W_StringIO.seek_w),
+    truncate = interp2app(W_StringIO.truncate_w),
     getvalue = interp2app(W_StringIO.getvalue_w),
     readable = interp2app(W_StringIO.readable_w),
     writable = interp2app(W_StringIO.writable_w),

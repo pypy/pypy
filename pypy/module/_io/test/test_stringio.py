@@ -73,6 +73,36 @@ class AppTestStringIO:
         sio.close()
         raises(ValueError, sio.tell)
 
+    def test_truncate(self):
+        import io
+
+        s = u"1234567890"
+        sio = io.StringIO(s)
+
+        raises(ValueError, sio.truncate, -1)
+        sio.seek(6)
+        res = sio.truncate()
+        assert res == 6
+        assert sio.getvalue() == s[:6]
+        res = sio.truncate(4)
+        assert res == 4
+        assert sio.getvalue() == s[:4]
+        # truncate() accepts long objects
+        res = sio.truncate(4L)
+        assert res == 4
+        assert sio.getvalue() == s[:4]
+        assert sio.tell() == 6
+        sio.seek(0, 2)
+        sio.write(s)
+        assert sio.getvalue() == s[:4] + s
+        pos = sio.tell()
+        res = sio.truncate(None)
+        assert res == pos
+        assert sio.tell() == pos
+        raises(TypeError, sio.truncate, '0')
+        sio.close()
+        raises(ValueError, sio.truncate, 0)
+
     def test_write_error(self):
         import io
 
