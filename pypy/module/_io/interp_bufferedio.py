@@ -70,7 +70,7 @@ W_BufferedIOBase.typedef = TypeDef(
     write = interp2app(W_BufferedIOBase.write_w),
     detach = interp2app(W_BufferedIOBase.detach_w),
     readinto = interp2app(W_BufferedIOBase.readinto_w),
-    )
+)
 
 class RawBuffer(RWBuffer):
     def __init__(self, buf, start, length):
@@ -752,6 +752,7 @@ W_BufferedReader.typedef = TypeDef(
     '_io.BufferedReader', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedReader),
     __init__  = interp2app(W_BufferedReader.descr_init),
+    __module__ = "_io",
 
     read = interp2app(W_BufferedReader.read_w),
     peek = interp2app(W_BufferedReader.peek_w),
@@ -773,7 +774,7 @@ W_BufferedReader.typedef = TypeDef(
     closed = GetSetProperty(W_BufferedReader.closed_get_w),
     name = GetSetProperty(W_BufferedReader.name_get_w),
     mode = GetSetProperty(W_BufferedReader.mode_get_w),
-    )
+)
 
 class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
     @unwrap_spec('self', ObjSpace, W_Root, int, int)
@@ -797,6 +798,7 @@ W_BufferedWriter.typedef = TypeDef(
     '_io.BufferedWriter', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedWriter),
     __init__  = interp2app(W_BufferedWriter.descr_init),
+    __module__ = "_io",
 
     write = interp2app(W_BufferedWriter.write_w),
     flush = interp2app(W_BufferedWriter.flush_w),
@@ -816,7 +818,7 @@ W_BufferedWriter.typedef = TypeDef(
     closed = GetSetProperty(W_BufferedWriter.closed_get_w),
     name = GetSetProperty(W_BufferedWriter.name_get_w),
     mode = GetSetProperty(W_BufferedWriter.mode_get_w),
-    )
+)
 
 def _forward_call(space, w_obj, method, __args__):
     w_meth = self.getattr(w_obj, self.wrap(method))
@@ -924,6 +926,7 @@ W_BufferedRandom.typedef = TypeDef(
     '_io.BufferedRandom', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRandom),
     __init__ = interp2app(W_BufferedRandom.descr_init),
+    __module__ = "_io",
 
     read = interp2app(W_BufferedRandom.read_w),
     peek = interp2app(W_BufferedRandom.peek_w),
@@ -947,5 +950,4 @@ W_BufferedRandom.typedef = TypeDef(
     closed = GetSetProperty(W_BufferedRandom.closed_get_w),
     name = GetSetProperty(W_BufferedRandom.name_get_w),
     mode = GetSetProperty(W_BufferedRandom.mode_get_w),
-    )
-
+)
