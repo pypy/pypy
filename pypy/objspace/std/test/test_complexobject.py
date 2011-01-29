@@ -382,6 +382,7 @@ class AppTestAppComplexTest:
         assert repr(complex(-0.0, -0.0)) == '(-0-0j)'
         assert repr(complex(1e45)) == "(" + repr(1e45) + "+0j)"
         assert repr(complex(1e200*1e200)) == '(inf+0j)'
+        assert repr(complex(1,-float("nan"))) == '(1+nanj)'
 
     def test_neg(self):
         h = self.helper
