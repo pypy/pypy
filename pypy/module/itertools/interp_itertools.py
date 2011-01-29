@@ -20,17 +20,29 @@ class W_Count(Wrappable):
         self.w_c = self.space.add(w_c, self.w_step)
         return w_c
 
+    def single_argument(self):
+        space = self.space
+        return (space.isinstance_w(self.w_step, space.w_int) and
+                space.eq_w(self.w_step, space.wrap(1)))
+
     def repr_w(self):
         space = self.space
         c = space.str_w(space.repr(self.w_c))
-        if (space.isinstance_w(self.w_step, space.w_int) and
-            space.eq_w(self.w_step, space.wrap(1))):
+        if self.single_argument():
             s = 'count(%s)' % (c,)
         else:
             step = space.str_w(space.repr(self.w_step))
             s = 'count(%s, %s)' % (c, step)
         return self.space.wrap(s)
 
+    def reduce_w(self):
+        space = self.space
+        if self.single_argument():
+            args_w = [self.w_c]
+        else:
+            args_w = [self.w_c, self.w_step]
+        return space.newtuple([space.gettypefor(W_Count),
+                               space.newtuple(args_w)])
 
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__add__') is None or
@@ -49,9 +61,11 @@ def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
 
 W_Count.typedef = TypeDef(
         'count',
+        __module__ = 'itertools',
         __new__ = interp2app(W_Count___new__),
         __iter__ = interp2app(W_Count.iter_w, unwrap_spec=['self']),
         next = interp2app(W_Count.next_w, unwrap_spec=['self']),
+        __reduce__ = interp2app(W_Count.reduce_w, unwrap_spec=['self']),
         __repr__ = interp2app(W_Count.repr_w, unwrap_spec=['self']),
         __doc__ = """Make an iterator that returns consecutive integers starting
     with n.  If not specified n defaults to zero. Does not currently
@@ -108,6 +122,7 @@ def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
 
 W_Repeat.typedef = TypeDef(
         'repeat',
+        __module__ = 'itertools',
         __new__  = interp2app(W_Repeat___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
         __iter__ = interp2app(W_Repeat.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_Repeat.next_w, unwrap_spec=['self']),
@@ -160,6 +175,7 @@ def W_TakeWhile___new__(space, w_subtype, w_predicate, w_iterable):
 
 W_TakeWhile.typedef = TypeDef(
         'takewhile',
+        __module__ = 'itertools',
         __new__  = interp2app(W_TakeWhile___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
         __iter__ = interp2app(W_TakeWhile.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_TakeWhile.next_w, unwrap_spec=['self']),
@@ -208,6 +224,7 @@ def W_DropWhile___new__(space, w_subtype, w_predicate, w_iterable):
 
 W_DropWhile.typedef = TypeDef(
         'dropwhile',
+        __module__ = 'itertools',
         __new__  = interp2app(W_DropWhile___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
         __iter__ = interp2app(W_DropWhile.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_DropWhile.next_w, unwrap_spec=['self']),
@@ -264,6 +281,7 @@ def W_IFilter___new__(space, w_subtype, w_predicate, w_iterable):
 
 W_IFilter.typedef = TypeDef(
         'ifilter',
+        __module__ = 'itertools',
         __new__  = interp2app(W_IFilter___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
         __iter__ = interp2app(W_IFilter.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_IFilter.next_w, unwrap_spec=['self']),
@@ -291,6 +309,7 @@ def W_IFilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
 
 W_IFilterFalse.typedef = TypeDef(
         'ifilterfalse',
+        __module__ = 'itertools',
         __new__  = interp2app(W_IFilterFalse___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
         __iter__ = interp2app(W_IFilterFalse.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_IFilterFalse.next_w, unwrap_spec=['self']),
@@ -381,6 +400,7 @@ def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
 
 W_ISlice.typedef = TypeDef(
         'islice',
+        __module__ = 'itertools',
         __new__  = interp2app(W_ISlice___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, 'args_w']),
         __iter__ = interp2app(W_ISlice.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_ISlice.next_w, unwrap_spec=['self']),
@@ -448,6 +468,7 @@ def chain_from_iterable(space, w_cls, w_arg):
 
 W_Chain.typedef = TypeDef(
         'chain',
+        __module__ = 'itertools',
         __new__  = interp2app(W_Chain___new__, unwrap_spec=[ObjSpace, W_Root, 'args_w']),
         __iter__ = interp2app(W_Chain.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_Chain.next_w, unwrap_spec=['self']),
@@ -528,6 +549,7 @@ def W_IMap___new__(space, w_subtype, w_fun, args_w):
 
 W_IMap.typedef = TypeDef(
         'imap',
+        __module__ = 'itertools',
         __new__  = interp2app(W_IMap___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, 'args_w']),
         __iter__ = interp2app(W_IMap.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_IMap.next_w, unwrap_spec=['self']),
@@ -572,6 +594,7 @@ def W_IZip___new__(space, w_subtype, args_w):
 
 W_IZip.typedef = TypeDef(
         'izip',
+        __module__ = 'itertools',
         __new__  = interp2app(W_IZip___new__, unwrap_spec=[ObjSpace, W_Root, 'args_w']),
         __iter__ = interp2app(W_IZip.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_IZip.next_w, unwrap_spec=['self']),
@@ -641,6 +664,7 @@ def W_IZipLongest___new__(space, w_subtype, __args__):
 
 W_IZipLongest.typedef = TypeDef(
         'izip_longest',
+        __module__ = 'itertools',
         __new__  = interp2app(W_IZipLongest___new__),
         __iter__ = interp2app(W_IZipLongest.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_IZipLongest.next_w, unwrap_spec=['self']),
@@ -700,6 +724,7 @@ def W_Cycle___new__(space, w_subtype, w_iterable):
 
 W_Cycle.typedef = TypeDef(
         'cycle',
+        __module__ = 'itertools',
         __new__  = interp2app(W_Cycle___new__, unwrap_spec=[ObjSpace, W_Root, W_Root]),
         __iter__ = interp2app(W_Cycle.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_Cycle.next_w, unwrap_spec=['self']),
@@ -740,6 +765,7 @@ def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
 
 W_StarMap.typedef = TypeDef(
         'starmap',
+        __module__ = 'itertools',
         __new__  = interp2app(W_StarMap___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
 
         __iter__ = interp2app(W_StarMap.iter_w, unwrap_spec=['self']),
@@ -845,6 +871,7 @@ def W_TeeIterable___new__(space, w_subtype, w_iterable):
 
 W_TeeIterable.typedef = TypeDef(
         '_tee',
+        __module__ = 'itertools',
         __new__ = interp2app(W_TeeIterable___new__, unwrap_spec=[ObjSpace,
                                                                  W_Root,
                                                                  W_Root]),
@@ -949,6 +976,7 @@ def W_GroupBy___new__(space, w_subtype, w_iterable, w_key=None):
 
 W_GroupBy.typedef = TypeDef(
         'groupby',
+        __module__ = 'itertools',
         __new__  = interp2app(W_GroupBy___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
         __iter__ = interp2app(W_GroupBy.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_GroupBy.next_w, unwrap_spec=['self']),
@@ -995,6 +1023,7 @@ class W_GroupByIterator(Wrappable):
 
 W_GroupByIterator.typedef = TypeDef(
         '_groupby',
+        __module__ = 'itertools',
         __iter__ = interp2app(W_GroupByIterator.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_GroupByIterator.next_w, unwrap_spec=['self']))
 W_GroupByIterator.typedef.acceptable_as_base_class = False
@@ -1026,6 +1055,7 @@ def W_Compress__new__(space, w_subtype, w_data, w_selectors):
 
 W_Compress.typedef = TypeDef(
     'compress',
+    __module__ = 'itertools',
     __new__ = interp2app(W_Compress__new__,
                          unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
     __iter__ = interp2app(W_Compress.iter_w, unwrap_spec=['self']),
@@ -1119,6 +1149,7 @@ def W_Product__new__(space, w_subtype, __args__):
 
 W_Product.typedef = TypeDef(
     'product',
+    __module__ = 'itertools',
     __new__ = interp2app(W_Product__new__),
     __iter__ = interp2app(W_Product.iter_w),
     next = interp2app(W_Product.next_w),
@@ -1224,6 +1255,7 @@ def W_Combinations__new__(space, w_subtype, w_iterable, r):
     return space.wrap(res)
 
 W_Combinations.typedef = TypeDef("combinations",
+    __module__ = 'itertools',
     __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
     next = interp2app(W_Combinations.descr_next),
@@ -1258,6 +1290,7 @@ def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     return space.wrap(res)
 
 W_CombinationsWithReplacement.typedef = TypeDef("combinations_with_replacement",
+    __module__ = 'itertools',
     __new__ = interp2app(W_CombinationsWithReplacement__new__),
     __iter__ = interp2app(W_CombinationsWithReplacement.descr__iter__),
     next = interp2app(W_CombinationsWithReplacement.descr_next),
@@ -1326,6 +1359,7 @@ def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
     return space.wrap(res)
 
 W_Permutations.typedef = TypeDef("permutations",
+    __module__ = 'itertools',
     __new__ = interp2app(W_Permutations__new__),
     __iter__ = interp2app(W_Permutations.descr__iter__),
     next = interp2app(W_Permutations.descr_next),
