@@ -811,7 +811,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int,
                       "ll_os.ll_major", llimpl=major_llimpl)
 
-
     @registering_if(os, 'minor')
     def register_os_minor(self):
         c_minor = self.llexternal('minor', [rffi.INT], rffi.INT)
