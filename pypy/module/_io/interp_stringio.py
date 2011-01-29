@@ -144,6 +144,7 @@ class W_StringIO(W_TextIOBase):
 
 W_StringIO.typedef = TypeDef(
     'StringIO', W_TextIOBase.typedef,
+    __module__ = "_io",
     __new__  = generic_new_descr(W_StringIO),
     __init__ = interp2app(W_StringIO.descr_init),
     write = interp2app(W_StringIO.write_w),
