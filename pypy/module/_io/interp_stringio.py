@@ -97,6 +97,8 @@ class W_StringIO(W_TextIOBase):
             pos = self.pos
         elif mode == 2:
             pos = len(self.buf)
+
+        assert pos >= 0
         self.pos = pos
         return space.wrap(pos)
 
