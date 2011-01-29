@@ -228,7 +228,7 @@ W_TextIOBase.typedef = TypeDef(
     readline = interp2app(W_TextIOBase.readline_w),
     detach = interp2app(W_TextIOBase.detach_w),
     encoding = interp_attrproperty_w("w_encoding", W_TextIOBase)
-    )
+)
 
 class PositionCookie:
     def __init__(self, bigint):

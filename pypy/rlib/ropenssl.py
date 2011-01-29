@@ -65,6 +65,8 @@ class CConfig:
         "SSL_ERROR_WANT_CONNECT")
     SSL_ERROR_SYSCALL = rffi_platform.ConstantInteger("SSL_ERROR_SYSCALL")
     SSL_ERROR_SSL = rffi_platform.ConstantInteger("SSL_ERROR_SSL")
+    SSL_RECEIVED_SHUTDOWN = rffi_platform.ConstantInteger(
+        "SSL_RECEIVED_SHUTDOWN")
     SSL_CTRL_OPTIONS = rffi_platform.ConstantInteger("SSL_CTRL_OPTIONS")
     SSL_CTRL_MODE = rffi_platform.ConstantInteger("SSL_CTRL_MODE")
     BIO_C_SET_NBIO = rffi_platform.ConstantInteger("BIO_C_SET_NBIO")
@@ -117,6 +119,7 @@ ssl_external('SSL_connect', [SSL], rffi.INT)
 ssl_external('SSL_do_handshake', [SSL], rffi.INT)
 ssl_external('SSL_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
+ssl_external('SSL_get_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_set_read_ahead', [SSL, rffi.INT], lltype.Void)
 
 ssl_external('ERR_get_error', [], rffi.INT)

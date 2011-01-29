@@ -216,6 +216,10 @@ class SSLObject(Wrappable):
                 raise ssl_error(self.space, "The read operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
                 raise ssl_error(self.space, "Underlying socket too large for select().")
+            elif sockstate == SOCKET_HAS_BEEN_CLOSED:
+                if libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN:
+                    return self.space.wrap('')
+                raise ssl_error(self.space, "Socket closed without SSL shutdown handshake")
 
         raw_buf, gc_buf = rffi.alloc_buffer(num_bytes)
         while True:
@@ -230,6 +234,9 @@ class SSLObject(Wrappable):
             elif err == SSL_ERROR_WANT_WRITE:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
                     self.w_socket, True)
+            elif (err == SSL_ERROR_ZERO_RETURN and
+                  libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
+                return self.space.wrap("")
             else:
                 sockstate = SOCKET_OPERATION_OK
         
