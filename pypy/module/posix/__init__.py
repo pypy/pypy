@@ -124,6 +124,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
         interpleveldefs['getloadavg'] = 'interp_posix.getloadavg'
+    if hasattr(os, 'makedev'):
+        interpleveldefs['makedev'] = 'interp_posix.makedev'
     if hasattr(os, 'major'):
         interpleveldefs['major'] = 'interp_posix.major'
     if hasattr(os, 'minor'):

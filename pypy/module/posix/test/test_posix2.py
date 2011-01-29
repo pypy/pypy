@@ -570,6 +570,8 @@ class AppTestPosix:
             os = self.posix
             assert os.major(12345) == self.expected_major_12345
             assert os.minor(12345) == self.expected_minor_12345
+            assert os.makedev(self.expected_major_12345,
+                              self.expected_minor_12345) == 12345
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):
