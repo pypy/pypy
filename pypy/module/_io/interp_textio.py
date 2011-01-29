@@ -191,7 +191,7 @@ W_IncrementalNewlineDecoder.typedef = TypeDef(
     setstate = interp2app(W_IncrementalNewlineDecoder.setstate_w),
 
     newlines = GetSetProperty(W_IncrementalNewlineDecoder.newlines_get_w),
-    )
+)
 
 class W_TextIOBase(W_IOBase):
     w_encoding = None

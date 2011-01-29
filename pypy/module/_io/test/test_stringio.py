@@ -52,6 +52,27 @@ class AppTestStringIO:
         exc_info = raises(ValueError, sio.seek, -3)
         assert exc_info.value.args[0] == "negative seek position: -3"
 
+        raises(ValueError, sio.seek, 3, -1)
+        raises(ValueError, sio.seek, 3, -3)
+
+        sio.close()
+        raises(ValueError, sio.seek, 0)
+
+    def test_tell(self):
+        import io
+
+        s = u"1234567890"
+        sio = io.StringIO(s)
+
+        assert sio.tell() == 0
+        sio.seek(5)
+        assert sio.tell() == 5
+        sio.seek(10000)
+        assert sio.tell() == 10000
+
+        sio.close()
+        raises(ValueError, sio.tell)
+
     def test_write_error(self):
         import io
 

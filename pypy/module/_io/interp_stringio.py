@@ -6,6 +6,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.module._io.interp_textio import W_TextIOBase
 from pypy.module._io.interp_iobase import convert_size
 
+
 class W_StringIO(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
@@ -74,13 +75,30 @@ class W_StringIO(W_TextIOBase):
         self.pos = end
         return space.wrap(u''.join(self.buf[start:end]))
 
-    @unwrap_spec('self', ObjSpace, int)
-    def seek_w(self, space, pos):
-        if pos < 0:
+    @unwrap_spec('self', ObjSpace, int, int)
+    def seek_w(self, space, pos, mode=0):
+        self._check_closed(space)
+
+        if not 0 <= mode <= 2:
+            raise operationerrfmt(space.w_ValueError,
+                "Invalid whence (%d, should be 0, 1 or 2)", mode
+            )
+        elif mode == 0 and pos < 0:
             raise operationerrfmt(space.w_ValueError,
                 "negative seek position: %d", pos
             )
+        elif mode != 0 and pos != 0:
+            raise OperationError(space.w_IOError,
+                space.wrap("Can't do nonzero cur-relative seeks")
+            )
+
+        # XXX: this makes almost no sense, but its how CPython does it.
+        if mode == 1:
+            pos = self.pos
+        elif mode == 2:
+            pos = len(self.buf)
         self.pos = pos
+        return space.wrap(pos)
 
     @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
