@@ -75,7 +75,7 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
 # important because this is often the biggest single consumer of memory
 # in a pypy-c-jit.
 #
-NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
+NUMBERINGP = lltype.Ptr(lltype.GcForwardReference(will_be_varsize=True))
 NUMBERING = lltype.GcStruct('Numbering',
                             ('prev', NUMBERINGP),
                             ('nums', lltype.Array(rffi.SHORT)))
