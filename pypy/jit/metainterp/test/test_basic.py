@@ -7,6 +7,7 @@ from pypy.rlib.jit import unroll_safe, current_trace_length
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import pyjitpl, history
+from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
@@ -14,7 +15,8 @@ from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
-def _get_jitcodes(testself, CPUClass, func, values, type_system):
+def _get_jitcodes(testself, CPUClass, func, values, type_system,
+                  supports_longlong=False, **kwds):
     from pypy.jit.codewriter import support, codewriter
     from pypy.jit.metainterp import simple_optimize
 
@@ -57,7 +59,9 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system):
     cpu = CPUClass(rtyper, stats, None, False)
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     testself.cw = cw
-    cw.find_all_graphs(JitPolicy())
+    policy = JitPolicy()
+    policy.set_supports_longlong(supports_longlong)
+    cw.find_all_graphs(policy)
     #
     testself.warmrunnerstate = FakeWarmRunnerState()
     testself.warmrunnerstate.cpu = cpu
@@ -119,6 +123,29 @@ def _run_with_pyjitpl(testself, args):
     else:
         raise Exception("FAILED")
 
+def _run_with_machine_code(testself, args):
+    metainterp = testself.metainterp
+    num_green_args = metainterp.jitdriver_sd.num_green_args
+    loop_tokens = metainterp.get_compiled_merge_points(args[:num_green_args])
+    if len(loop_tokens) != 1:
+        return NotImplemented
+    # a loop was successfully created by _run_with_pyjitpl(); call it
+    cpu = metainterp.cpu
+    for i in range(len(args) - num_green_args):
+        x = args[num_green_args + i]
+        typecode = history.getkind(lltype.typeOf(x))
+        set_future_value(cpu, i, x, typecode)
+    faildescr = cpu.execute_token(loop_tokens[0])
+    assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
+    if metainterp.jitdriver_sd.result_type == history.INT:
+        return cpu.get_latest_value_int(0)
+    elif metainterp.jitdriver_sd.result_type == history.REF:
+        return cpu.get_latest_value_ref(0)
+    elif metainterp.jitdriver_sd.result_type == history.FLOAT:
+        return cpu.get_latest_value_float(0)
+    else:
+        return None
+
 
 class JitMixin:
     basic = True
@@ -156,12 +183,15 @@ class JitMixin:
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
-        _get_jitcodes(self, self.CPUClass, f, args, self.type_system)
+        _get_jitcodes(self, self.CPUClass, f, args, self.type_system, **kwds)
         # try to run it with blackhole.py
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
         result2 = _run_with_pyjitpl(self, args)
         assert result1 == result2
+        # try to run it by running the code compiled just before
+        result3 = _run_with_machine_code(self, args)
+        assert result1 == result3 or result3 == NotImplemented
         return result1
 
     def check_history(self, expected=None, **isns):
@@ -1260,20 +1290,6 @@ class BasicTests:
                 return 99
         res = self.interp_operations(f, [5])
         assert res == f(5)
-
-    def test_long_long(self):
-        from pypy.rlib.rarithmetic import r_longlong, intmask
-        def g(n, m, o):
-            # This function should be completely marked as residual by
-            # codewriter.py on 32-bit platforms.  On 64-bit platforms,
-            # this function should be JITted and the test should pass too.
-            n = r_longlong(n)
-            m = r_longlong(m)
-            return intmask((n*m) // o)
-        def f(n, m, o):
-            return g(n, m, o) // 3
-        res = self.interp_operations(f, [1000000000, 90, 91])
-        assert res == (1000000000 * 90 // 91) // 3
 
     def test_free_object(self):
         import weakref

@@ -19,6 +19,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 
 def getargtypes(annotator, values):
     if values is None:    # for backend tests producing stand-alone exe's
@@ -220,6 +221,136 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
+
+
+# long long support
+# -----------------
+
+def u_to_longlong(x):
+    return rffi.cast(lltype.SignedLongLong, x)
+
+def _ll_1_llong_invert(xll):
+    y = ~r_ulonglong(xll)
+    return u_to_longlong(y)
+
+def _ll_2_llong_lt(xll, yll):
+    return xll < yll
+
+def _ll_2_llong_le(xll, yll):
+    return xll <= yll
+
+def _ll_2_llong_eq(xll, yll):
+    return xll == yll
+
+def _ll_2_llong_ne(xll, yll):
+    return xll != yll
+
+def _ll_2_llong_gt(xll, yll):
+    return xll > yll
+
+def _ll_2_llong_ge(xll, yll):
+    return xll >= yll
+
+def _ll_2_llong_ult(xull, yull):
+    return xull < yull
+
+def _ll_2_llong_ule(xull, yull):
+    return xull <= yull
+
+def _ll_2_llong_ugt(xull, yull):
+    return xull > yull
+
+def _ll_2_llong_uge(xull, yull):
+    return xull >= yull
+
+def _ll_2_llong_add(xll, yll):
+    z = r_ulonglong(xll) + r_ulonglong(yll)
+    return u_to_longlong(z)
+
+def _ll_2_llong_sub(xll, yll):
+    z = r_ulonglong(xll) - r_ulonglong(yll)
+    return u_to_longlong(z)
+
+def _ll_2_llong_mul(xll, yll):
+    z = r_ulonglong(xll) * r_ulonglong(yll)
+    return u_to_longlong(z)
+
+def _ll_2_llong_and(xll, yll):
+    z = r_ulonglong(xll) & r_ulonglong(yll)
+    return u_to_longlong(z)
+
+def _ll_2_llong_or(xll, yll):
+    z = r_ulonglong(xll) | r_ulonglong(yll)
+    return u_to_longlong(z)
+
+def _ll_2_llong_xor(xll, yll):
+    z = r_ulonglong(xll) ^ r_ulonglong(yll)
+    return u_to_longlong(z)
+
+def _ll_2_llong_lshift(xll, y):
+    z = r_ulonglong(xll) << y
+    return u_to_longlong(z)
+
+def _ll_2_llong_rshift(xll, y):
+    return xll >> y
+
+def _ll_2_llong_urshift(xull, y):
+    return xull >> y
+
+def _ll_1_llong_from_int(x):
+    return r_longlong(intmask(x))
+
+def _ll_2_llong_from_two_ints(x_lo, x_hi):
+    z = (r_ulonglong(r_uint(x_hi)) << 32) | r_ulonglong(r_uint(x_lo))
+    return u_to_longlong(z)
+
+def _ll_1_llong_to_int(xll):
+    return intmask(xll)
+
+def _ll_1_llong_from_float(xf):
+    return r_longlong(xf)
+
+def _ll_1_llong_to_float(xll):
+    return float(rffi.cast(lltype.SignedLongLong, xll))
+
+
+def _ll_1_llong_abs(xll):
+    if xll < 0:
+        return -xll
+    else:
+        return xll
+
+def _ll_2_llong_floordiv(xll, yll):
+    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_llong_floordiv_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_llong_mod(xll, yll):
+    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_llong_mod_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_floordiv(xll, yll):
+    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_floordiv_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_mod(xll, yll):
+    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+
+def _ll_2_ullong_mod_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
 
 
 # libffi support

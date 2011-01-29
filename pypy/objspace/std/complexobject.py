@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
+from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 
@@ -209,6 +210,22 @@ def ne__Complex_Complex(space, w_complex1, w_complex2):
     return space.newbool((w_complex1.realval != w_complex2.realval) or 
             (w_complex1.imagval != w_complex2.imagval))
 
+def eq__Complex_Long(space, w_complex1, w_long2):
+    if w_complex1.imagval:
+        return space.w_False
+    return space.eq(space.newfloat(w_complex1.realval), w_long2)
+
+def eq__Long_Complex(space, w_long1, w_complex2):
+    return eq__Complex_Long(space, w_complex2, w_long1)
+
+def ne__Complex_Long(space, w_complex1, w_long2):
+    if w_complex1.imagval:
+        return space.w_True
+    return space.ne(space.newfloat(w_complex1.realval), w_long2)
+
+def ne__Long_Complex(space, w_long1, w_complex2):
+    return ne__Complex_Long(space, w_complex2, w_long1)
+
 def lt__Complex_Complex(space, w_complex1, w_complex2):
     raise OperationError(space.w_TypeError, space.wrap('cannot compare complex numbers using <, <=, >, >='))
 
@@ -254,14 +271,16 @@ def str_format(x):
 def repr__Complex(space, w_complex):
     if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
         return space.wrap(repr_format(w_complex.imagval) + 'j')
-    sign = (copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    sign = (copysign(1., w_complex.imagval) == 1. or
+            isnan(w_complex.imagval)) and '+' or ''
     return space.wrap('(' + repr_format(w_complex.realval)
                       + sign + repr_format(w_complex.imagval) + 'j)')
 
 def str__Complex(space, w_complex):
     if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
         return space.wrap(str_format(w_complex.imagval) + 'j')
-    sign = (copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    sign = (copysign(1., w_complex.imagval) == 1. or
+            isnan(w_complex.imagval)) and '+' or ''
     return space.wrap('(' + str_format(w_complex.realval)
                       + sign + str_format(w_complex.imagval) + 'j)')
 

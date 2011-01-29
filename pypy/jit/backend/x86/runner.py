@@ -13,6 +13,7 @@ import sys
 class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
+    supports_longlong = True
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests

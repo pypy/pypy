@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp import history
-import struct
+import sys, struct, py
 
 def test_get_size_descr():
     c0 = GcCache(False)
@@ -94,6 +94,16 @@ def test_get_field_descr_sign():
             c2 = GcCache(tsc)
             descr_x = get_field_descr(c2, S, 'x')
             assert descr_x.is_field_signed() == signed
+
+def test_get_field_descr_longlong():
+    if sys.maxint > 2147483647:
+        py.test.skip("long long: for 32-bit only")
+    c0 = GcCache(False)
+    S = lltype.GcStruct('S', ('y', lltype.UnsignedLongLong))
+    descr = get_field_descr(c0, S, 'y')
+    assert not descr.is_pointer_field()
+    assert descr.is_float_field()
+    assert descr.get_field_size(False) == 8
 
 
 def test_get_array_descr():
@@ -225,6 +235,21 @@ def test_get_call_descr_not_translated():
     assert descr4.get_result_size(False) == rffi.sizeof(lltype.Float)
     assert descr4.get_return_type() == history.FLOAT
     assert descr4.arg_classes == "ff"
+
+def test_get_call_descr_not_translated_longlong():
+    if sys.maxint > 2147483647:
+        py.test.skip("long long: for 32-bit only")
+    c0 = GcCache(False)
+    #
+    descr5 = get_call_descr(c0, [lltype.SignedLongLong], lltype.Signed)
+    assert descr5.get_result_size(False) == 4
+    assert descr5.get_return_type() == history.INT
+    assert descr5.arg_classes == "L"
+    #
+    descr6 = get_call_descr(c0, [lltype.Signed], lltype.SignedLongLong)
+    assert descr6.get_result_size(False) == 8
+    assert descr6.get_return_type() == history.FLOAT
+    assert descr6.arg_classes == "i"
 
 def test_get_call_descr_translated():
     c1 = GcCache(True)

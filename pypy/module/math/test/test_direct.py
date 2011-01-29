@@ -75,6 +75,8 @@ class MathTests:
         ('asin', (-INFINITY,), ValueError),
         ('atan', (INFINITY,), math.pi / 2),
         ('atan', (-INFINITY,), -math.pi / 2),
+        ('atanh', (INFINITY,), ValueError),
+        ('atanh', (-INFINITY,), ValueError),
         ('ceil', (INFINITY,), positiveinf),
         ('ceil', (-INFINITY,), negativeinf),
         ('cos', (INFINITY,), ValueError),

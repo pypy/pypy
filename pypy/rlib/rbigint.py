@@ -1,5 +1,6 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, isinf, isnan
+from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -630,19 +631,12 @@ def args_from_rarith_int1(x):
         return digits_from_nonneg_long(x), 1
     elif x == 0:
         return [0], 0
+    elif x != most_neg_value_of_same_type(x):
+        # normal case
+        return digits_from_nonneg_long(-x), -1
     else:
-        try:
-            y = ovfcheck(-x)
-        except OverflowError:
-            y = -1
-        # be conservative and check again if the result is >= 0, even
-        # if no OverflowError was raised (e.g. broken CPython/GCC4.2)
-        if y >= 0:
-            # normal case
-            return digits_from_nonneg_long(y), -1
-        else:
-            # the most negative integer! hacks needed...
-            return digits_for_most_neg_long(x), -1
+        # the most negative integer! hacks needed...
+        return digits_for_most_neg_long(x), -1
 args_from_rarith_int1._annspecialcase_ = "specialize:argtype(0)"
 
 def args_from_rarith_int(x):
@@ -1633,15 +1627,23 @@ _AsUInt_mask = make_unsigned_mask_conversion(r_uint)
 def _hash(v):
     # This is designed so that Python ints and longs with the
     # same value hash to the same value, otherwise comparisons
-    # of mapping keys will turn out weird
+    # of mapping keys will turn out weird.  Moreover, purely
+    # to please decimal.py, we return a hash that satisfies
+    # hash(x) == hash(x % ULONG_MAX).  In particular, this
+    # implies that hash(x) == hash(x % (2**64-1)).
     i = v._numdigits() - 1
     sign = v.sign
-    x = 0
+    x = r_uint(0)
     LONG_BIT_SHIFT = LONG_BIT - SHIFT
     while i >= 0:
         # Force a native long #-bits (32 or 64) circular shift
-        x = ((x << SHIFT) & ~MASK) | ((x >> LONG_BIT_SHIFT) & MASK)
-        x += v.digits[i]
+        x = (x << SHIFT) | (x >> LONG_BIT_SHIFT)
+        x += r_uint(v.digits[i])
+        # If the addition above overflowed we compensate by
+        # incrementing.  This preserves the value modulo
+        # ULONG_MAX.
+        if x < r_uint(v.digits[i]):
+            x += 1
         i -= 1
     x = intmask(x * sign)
     return x

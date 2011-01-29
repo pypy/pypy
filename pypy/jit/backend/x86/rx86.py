@@ -448,6 +448,7 @@ class AbstractX86CodeBuilder(object):
     OR_ri,  OR_rr,  OR_rb,  _, _, OR_rm,  OR_rj  = common_modes(1)
     AND_ri, AND_rr, AND_rb, _, _, AND_rm, AND_rj = common_modes(4)
     SUB_ri, SUB_rr, SUB_rb, _, _, SUB_rm, SUB_rj = common_modes(5)
+    SBB_ri, SBB_rr, SBB_rb, _, _, SBB_rm, SBB_rj = common_modes(3)
     XOR_ri, XOR_rr, XOR_rb, _, _, XOR_rm, XOR_rj = common_modes(6)
     CMP_ri, CMP_rr, CMP_rb, CMP_bi, CMP_br, CMP_rm, CMP_rj = common_modes(7)
 
@@ -462,6 +463,8 @@ class AbstractX86CodeBuilder(object):
     CMP_ji = select_8_or_32_bit_immed(CMP_ji8, CMP_ji32)
 
     CMP32_mi = insn(rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
+
+    CMP8_ri = insn(rex_nw, '\x80', byte_register(1), '\xF8', immediate(2, 'b'))
 
     AND8_rr = insn(rex_w, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
@@ -545,6 +548,10 @@ class AbstractX86CodeBuilder(object):
 
     CVTTSD2SI_rx = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), register(2), '\xC0')
     CVTTSD2SI_rb = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), stack_bp(2))
+
+    MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
 
     # ------------------------------------------------------------
 
@@ -659,6 +666,26 @@ define_modrm_modes('DIVSD_x*', ['\xF2', rex_nw, '\x0F\x5E', register(1, 8)], reg
 define_modrm_modes('UCOMISD_x*', ['\x66', rex_nw, '\x0F\x2E', register(1, 8)], regtype='XMM')
 define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
+
+def define_pxmm_insn(insnname_template, insn_char):
+    def add_insn(char, *post):
+        methname = insnname_template.replace('*', char)
+        insn_func = xmminsn('\x66', rex_nw, '\x0F' + insn_char,
+                            register(1, 8), *post)
+        assert not hasattr(AbstractX86CodeBuilder, methname)
+        setattr(AbstractX86CodeBuilder, methname, insn_func)
+    #
+    assert insnname_template.count('*') == 1
+    add_insn('x', register(2), '\xC0')
+    add_insn('j', '\x05', immediate(2))
+
+define_pxmm_insn('PADDQ_x*',     '\xD4')
+define_pxmm_insn('PSUBQ_x*',     '\xFB')
+define_pxmm_insn('PAND_x*',      '\xDB')
+define_pxmm_insn('POR_x*',       '\xEB')
+define_pxmm_insn('PXOR_x*',      '\xEF')
+define_pxmm_insn('PUNPCKLDQ_x*', '\x62')
+define_pxmm_insn('PCMPEQD_x*',   '\x76')
 
 # ____________________________________________________________
 

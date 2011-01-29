@@ -20,7 +20,7 @@ VOID  = 'v'
 
 FAILARGS_LIMIT = 1000
 
-def getkind(TYPE, supports_floats=True):
+def getkind(TYPE, supports_floats=True, supports_longlong=True):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
@@ -31,6 +31,9 @@ def getkind(TYPE, supports_floats=True):
         # XXX fix this for oo...
         if (TYPE != llmemory.Address and
             rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
+            if supports_longlong:
+                assert rffi.sizeof(TYPE) == 8
+                return 'float'
             raise NotImplementedError("type %s is too large" % TYPE)
         return "int"
     elif isinstance(TYPE, lltype.Ptr):

@@ -8,6 +8,14 @@ class AppTestBytesIO:
         import _io
         raises(TypeError, _io.BytesIO, u"12345")
 
+    def test_init_kwargs(self):
+        import _io
+
+        buf = "1234567890"
+        b = _io.BytesIO(initial_bytes=buf)
+        assert b.read() == buf
+        raises(TypeError, _io.BytesIO, buf, foo=None)
+
     def test_capabilities(self):
         import _io
         f = _io.BytesIO()

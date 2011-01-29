@@ -52,7 +52,7 @@ class W_StringIO(W_TextIOBase):
         if not space.isinstance_w(w_obj, space.w_unicode):
             raise operationerrfmt(space.w_TypeError,
                                   "string argument expected, got '%s'",
-                                  space.type(self).getname(space, '?'))
+                                  space.type(w_obj).getname(space, '?'))
         self._check_closed(space)
         string = space.unicode_w(w_obj)
         size = len(string)
@@ -73,6 +73,14 @@ class W_StringIO(W_TextIOBase):
         assert 0 <= start <= end
         self.pos = end
         return space.wrap(u''.join(self.buf[start:end]))
+
+    @unwrap_spec('self', ObjSpace, int)
+    def seek_w(self, space, pos):
+        if pos < 0:
+            raise operationerrfmt(space.w_ValueError,
+                "negative seek position: %d", pos
+            )
+        self.pos = pos
 
     @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
@@ -104,11 +112,11 @@ W_StringIO.typedef = TypeDef(
     __init__ = interp2app(W_StringIO.descr_init),
     write=interp2app(W_StringIO.write_w),
     read=interp2app(W_StringIO.read_w),
+    seek=interp2app(W_StringIO.seek_w),
     getvalue=interp2app(W_StringIO.getvalue_w),
     readable = interp2app(W_StringIO.readable_w),
     writable = interp2app(W_StringIO.writable_w),
     seekable = interp2app(W_StringIO.seekable_w),
     close = interp2app(W_StringIO.close_w),
     closed = GetSetProperty(W_StringIO.closed_get_w),
-    )
-
+)

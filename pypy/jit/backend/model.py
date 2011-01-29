@@ -4,6 +4,11 @@ from pypy.jit.metainterp import history, compile
 
 class AbstractCPU(object):
     supports_floats = False
+    supports_longlong = False
+    # ^^^ This is only useful on 32-bit platforms.  If True,
+    # longlongs are supported by the JIT, but stored as doubles.
+    # Boxes and Consts are BoxFloats and ConstFloats.
+
     done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
     done_with_this_frame_ref_v = -1

@@ -14,28 +14,29 @@ register_all(vars(), globals())
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject
+    from pypy.rlib.rbigint import rbigint
+    if space.config.objspace.std.withsmalllong:
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+    else:
+        W_SmallLongObject = None
 
     w_value = w_x     # 'x' is the keyword argument name in CPython
     if w_base is None:
         # check for easy cases
-        if type(w_value) is W_LongObject:
-            bigint = w_value.num
+        if (W_SmallLongObject and type(w_value) is W_SmallLongObject
+            and space.is_w(w_longtype, space.w_long)):
+            return w_value
+        elif type(w_value) is W_LongObject:
+            return newbigint(space, w_longtype, w_value.num)
         elif space.is_true(space.isinstance(w_value, space.w_str)):
-            try:
-                bigint = string_to_bigint(space.str_w(w_value))
-            except ParseStringError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(e.msg))
+            return string_to_w_long(space, w_longtype, space.str_w(w_value))
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
-            try:
-                if space.config.objspace.std.withropeunicode:
-                    from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-                else:
-                    from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-                bigint = string_to_bigint(unicode_to_decimal_w(space, w_value))
-            except ParseStringError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(e.msg))
+            if space.config.objspace.std.withropeunicode:
+                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
+            else:
+                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            return string_to_w_long(space, w_longtype,
+                                    unicode_to_decimal_w(space, w_value))
         else:
             # otherwise, use the __long__() or the __trunc__ methods
             w_obj = w_value
@@ -50,6 +51,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 else:
                     w_obj = space.int(w_obj)
             bigint = space.bigint_w(w_obj)
+            return newbigint(space, w_longtype, bigint)
     else:
         base = space.int_w(w_base)
 
@@ -63,12 +65,34 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("long() can't convert non-string "
                                                 "with explicit base"))
-        try:
-            bigint = string_to_bigint(s, base)
-        except ParseStringError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.msg))
+        return string_to_w_long(space, w_longtype, s, base)
 
+
+def string_to_w_long(space, w_longtype, s, base=10):
+    try:
+        bigint = string_to_bigint(s, base)
+    except ParseStringError, e:
+        raise OperationError(space.w_ValueError,
+                             space.wrap(e.msg))
+    return newbigint(space, w_longtype, bigint)
+string_to_w_long._dont_inline_ = True
+
+def newbigint(space, w_longtype, bigint):
+    """Turn the bigint into a W_LongObject.  If withsmalllong is enabled,
+    check if the bigint would fit in a smalllong, and return a
+    W_SmallLongObject instead if it does.  Similar to newlong() in
+    longobject.py, but takes an explicit w_longtype argument.
+    """
+    if (space.config.objspace.std.withsmalllong
+        and space.is_w(w_longtype, space.w_long)):
+        try:
+            z = bigint.tolonglong()
+        except OverflowError:
+            pass
+        else:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject(z)
+    from pypy.objspace.std.longobject import W_LongObject
     w_obj = space.allocate_instance(W_LongObject, w_longtype)
     W_LongObject.__init__(w_obj, bigint)
     return w_obj

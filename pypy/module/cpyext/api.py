@@ -199,6 +199,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
             error = CANNOT_FAIL
     if type(error) is int:
         error = rffi.cast(restype, error)
+    expect_integer = (isinstance(restype, lltype.Primitive) and
+                      rffi.cast(restype, 0) == 0)
 
     def decorate(func):
         func_name = func.func_name
@@ -268,6 +270,9 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             return None
                         else:
                             return api_function.error_value
+                    if not we_are_translated():
+                        got_integer = isinstance(res, (int, long, float))
+                        assert got_integer == expect_integer
                     if res is None:
                         return None
                     elif isinstance(res, Reference):

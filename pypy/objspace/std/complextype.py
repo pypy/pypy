@@ -215,7 +215,8 @@ def complexwprop(name):
 def descr___getnewargs__(space,  w_self):
     from pypy.objspace.std.complexobject import W_ComplexObject
     assert isinstance(w_self, W_ComplexObject)
-    return space.newtuple([space.newcomplex(w_self.realval,w_self.imagval)])
+    return space.newtuple([space.newfloat(w_self.realval),
+                           space.newfloat(w_self.imagval)])
 
 complex_typedef = StdTypeDef("complex",
     __doc__ = """complex(real[, imag]) -> complex number

@@ -1163,7 +1163,7 @@ class MIFrame(object):
                     src_r += 1
                     if box.type == history.REF:
                         break
-            elif kind == history.FLOAT:
+            elif kind == history.FLOAT or kind == 'L':    # long long
                 while True:
                     box = argboxes[src_f]
                     src_f += 1

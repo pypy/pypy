@@ -10,10 +10,10 @@ EPS = 1e-9
 
 class TestW_ComplexObject:
 
-    def _test_instantiation(self):
+    def test_instantiation(self):
         def _t_complex(r=0.0,i=0.0):
             c = W_ComplexObject(r, i)
-            assert c.real == float(r) and c.imag == float(i)
+            assert c.realval == float(r) and c.imagval == float(i)
         pairs = (
             (1, 1),
             (1.0, 2.0),
@@ -137,7 +137,6 @@ class AppTestAppComplexTest:
 
     def test_richcompare(self):
         h = self.helper
-        h.raises(OverflowError, complex.__eq__, 1+1j, 1L<<10000)
         h.assertEqual(complex.__lt__(1+1j, None), NotImplemented)
         h.assertIs(complex.__eq__(1+1j, 1+1j), True)
         h.assertIs(complex.__eq__(1+1j, 2+2j), False)
@@ -147,6 +146,11 @@ class AppTestAppComplexTest:
         h.raises(TypeError, complex.__le__, 1+1j, 2+2j)
         h.raises(TypeError, complex.__gt__, 1+1j, 2+2j)
         h.raises(TypeError, complex.__ge__, 1+1j, 2+2j)
+        large = 1 << 10000
+        assert not (5+0j) == large
+        assert not large == (5+0j)
+        assert (5+0j) != large
+        assert large != (5+0j)
 
     def test_mod(self):
         h = self.helper
@@ -378,6 +382,7 @@ class AppTestAppComplexTest:
         assert repr(complex(-0.0, -0.0)) == '(-0-0j)'
         assert repr(complex(1e45)) == "(" + repr(1e45) + "+0j)"
         assert repr(complex(1e200*1e200)) == '(inf+0j)'
+        assert repr(complex(1,-float("nan"))) == '(1+nanj)'
 
     def test_neg(self):
         h = self.helper
@@ -430,3 +435,6 @@ class AppTestAppComplexTest:
             def __complex__(self):
                 return None
         raises(TypeError, complex, complex2(1j))
+
+    def test_getnewargs(self):
+        assert (1+2j).__getnewargs__() == (1.0, 2.0)

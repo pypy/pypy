@@ -228,7 +228,7 @@ W_TextIOBase.typedef = TypeDef(
     readline = interp2app(W_TextIOBase.readline_w),
     detach = interp2app(W_TextIOBase.detach_w),
     encoding = interp_attrproperty_w("w_encoding", W_TextIOBase)
-    )
+)
 
 class PositionCookie:
     def __init__(self, bigint):
@@ -246,7 +246,7 @@ class PositionCookie:
         # chars_to_skip characters of the decoded result.  For most simple
         # decoders, tell() will often just give a byte offset in the file.
         return (self.start_pos |
-                (self.dec_flags<<64) |
+                (self.dec_flags<<64) |    # XXX fixme! does not work in RPython
                 (self.bytes_to_feed<<128) |
                 (self.chars_to_skip<<192) |
                 bool(self.need_eof)<<256)

@@ -29,10 +29,12 @@ def float2longlong_emulator(floatval):
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 eci = ExternalCompilationInfo(post_include_bits=["""
 static double pypy__longlong2float(long long x) {
-    return *((double*)&x);
+    char *p = (char*)&x;
+    return *((double*)p);
 }
 static long long pypy__float2longlong(double x) {
-    return *((long long*)&x);
+    char *p = (char*)&x;
+    return *((long long*)p);
 }
 """])
 
