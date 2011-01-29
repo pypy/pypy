@@ -68,6 +68,9 @@ class AppTestPosix:
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
         cls.w_python = space.wrap(sys.executable)
+        if hasattr(os, 'major'):
+            cls.w_expected_major_12345 = space.wrap(os.major(12345))
+            cls.w_expected_minor_12345 = space.wrap(os.minor(12345))
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -561,6 +564,12 @@ class AppTestPosix:
             assert type(l0) is float and l0 >= 0.0
             assert type(l1) is float and l0 >= 0.0
             assert type(l2) is float and l0 >= 0.0
+
+    if hasattr(os, 'major'):
+        def test_major_minor(self):
+            os = self.posix
+            assert os.major(12345) == self.expected_major_12345
+            assert os.minor(12345) == self.expected_minor_12345
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):

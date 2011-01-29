@@ -1107,6 +1107,16 @@ def getloadavg(space):
                            space.wrap(load[2])])
 getloadavg.unwrap_spec = [ObjSpace]
 
+def major(space, device):
+    result = os.major(device)
+    return space.wrap(result)
+major.unwrap_spec = [ObjSpace, 'c_int']
+
+def minor(space, device):
+    result = os.minor(device)
+    return space.wrap(result)
+minor.unwrap_spec = [ObjSpace, 'c_int']
+
 def nice(space, inc):
     "Decrease the priority of process by inc and return the new priority."
     try:
