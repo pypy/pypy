@@ -277,8 +277,8 @@ class W_TextIOWrapper(W_TextIOBase):
                                               # of the stream
         self.snapshot = None
 
-    @unwrap_spec('self', ObjSpace, W_Root, W_Root, W_Root, W_Root, int)
-    def descr_init(self, space, w_buffer, w_encoding=None,
+    @unwrap_spec('self', ObjSpace, W_Root, "str_or_None", W_Root, W_Root, int)
+    def descr_init(self, space, w_buffer, encoding=None,
                    w_errors=None, w_newline=None, line_buffering=0):
         self.state = STATE_ZERO
 
@@ -286,7 +286,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # Set encoding
         self.w_encoding = None
-        if space.is_w(w_encoding, space.w_None):
+        if encoding is None:
             try:
                 w_locale = space.call_method(space.builtin, '__import__',
                                              space.wrap("locale"))
@@ -302,8 +302,8 @@ class W_TextIOWrapper(W_TextIOBase):
                     self.w_encoding = None
         if self.w_encoding:
             pass
-        elif not space.is_w(w_encoding, space.w_None):
-            self.w_encoding = w_encoding
+        elif encoding is not None:
+            self.w_encoding = space.wrap(encoding)
         else:
             raise OperationError(space.w_IOError, space.wrap(
                 "could not determine default encoding"))
@@ -921,6 +921,7 @@ W_TextIOWrapper.typedef = TypeDef(
     __new__ = generic_new_descr(W_TextIOWrapper),
     __init__  = interp2app(W_TextIOWrapper.descr_init),
     __repr__ = interp2app(W_TextIOWrapper.descr_repr),
+    __module__ = "_io",
 
     read = interp2app(W_TextIOWrapper.read_w),
     readline = interp2app(W_TextIOWrapper.readline_w),

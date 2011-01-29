@@ -173,6 +173,8 @@ class AppTestTextIO:
         assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
         t = _io.TextIOWrapper(_io.BytesIO(""), encoding="ascii")
         assert repr(t) == "<_io.TextIOWrapper encoding='ascii'>"
+        t = _io.TextIOWrapper(_io.BytesIO(""), encoding=u"utf-8")
+        assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
 
 
 class AppTestIncrementalNewlineDecoder:
