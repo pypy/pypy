@@ -719,6 +719,17 @@ class ForceOpAssembler(object):
             regalloc.possibly_free_var(op.result)
         return fcond
 
+    # ../x86/assembler.py:668
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        # we overwrite the instructions at the old _x86_direct_bootstrap_code
+        # to start with a JMP to the new _x86_direct_bootstrap_code.
+        # Ideally we should rather patch all existing CALLs, but well.
+        oldadr = oldlooptoken._arm_direct_bootstrap_code
+        target = newlooptoken._arm_direct_bootstrap_code
+        mc = ARMv7Builder()
+        mc.B(target)
+        mc.copy_to_raw_memory(oldadr)
+
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc, fcond):
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)

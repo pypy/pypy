@@ -105,3 +105,6 @@ class ArmCPU(AbstractLLCPU):
         # end of "no gc operation!" block
         assert fail_index == fail_index_2
         return faildescr
+
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)

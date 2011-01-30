@@ -11,6 +11,9 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          BoxObj, Const,
                                          ConstObj, BoxFloat, ConstFloat)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.tool.oparser import parse
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.annlowlevel import llhelper
 
 skip_unless_arm()
 
@@ -55,3 +58,46 @@ class TestARM(LLtypeBackendTest):
 
     def test_cond_call_gc_wb(self, *args):
         py.test.skip('needs gc support')
+
+    def test_redirect_call_assember(self):
+        called = []
+        def assembler_helper(failindex, virtualizable):
+            return self.cpu.get_latest_value_int(0)
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        lt1, lt2, lt3 = [LoopToken() for x in range(3)]
+        lt2.outermost_jitdriver_sd = FakeJitDriverSD()
+        loop1 = parse('''
+        [i0]
+        i1 = call_assembler(i0, descr=lt2)
+        guard_not_forced()[]
+        finish(i1)
+        ''', namespace=locals())
+        loop2 = parse('''
+        [i0]
+        i1 = int_add(i0, 1)
+        finish(i1)
+        ''')
+        loop3 = parse('''
+        [i0]
+        i1 = int_sub(i0, 1)
+        finish(i1)
+        ''')
+        self.cpu.compile_loop(loop2.inputargs, loop2.operations, lt2)
+        self.cpu.compile_loop(loop3.inputargs, loop3.operations, lt3)
+        self.cpu.compile_loop(loop1.inputargs, loop1.operations, lt1)
+        self.cpu.set_future_value_int(0, 11)
+        res = self.cpu.execute_token(lt1)
+        assert self.cpu.get_latest_value_int(0) == 12
+
+        self.cpu.redirect_call_assembler(lt2, lt3)
+        self.cpu.set_future_value_int(0, 11)
+        res = self.cpu.execute_token(lt1)
+        assert self.cpu.get_latest_value_int(0) == 10
