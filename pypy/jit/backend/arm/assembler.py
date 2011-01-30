@@ -6,6 +6,7 @@ from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (ARMRegisterManager, ARMFrameManager,
                                                     _check_imm_arg, TempInt, TempPtr)
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
+from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
                                         BoxInt, BoxPtr, AbstractFailDescr,
@@ -226,9 +227,11 @@ class AssemblerARM(ResOpAssembler):
         # 1 byte for the location
         # 1 separator byte
         # 4 bytes for the faildescr
-        # XXX free this memory
-        mem = lltype.malloc(rffi.CArray(lltype.Char), (len(arglocs)-1)*6+5,
-                                    flavor='raw', track_allocation=False)
+        memsize = (len(arglocs)-1)*6+5
+        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
+        memaddr = datablockwrapper.malloc_aligned(memsize, alignment=WORD)
+        datablockwrapper.done()
+        mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
         i = 0
         j = 0
         while i < len(args):
@@ -262,7 +265,6 @@ class AssemblerARM(ResOpAssembler):
             i += 1
 
         mem[j] = chr(0xFF)
-        memaddr = rffi.cast(lltype.Signed, mem)
 
         n = self.cpu.get_fail_descr_number(descr)
         self.encode32(mem, j+1, n)
