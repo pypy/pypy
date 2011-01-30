@@ -31,6 +31,7 @@ class W_StringIO(W_TextIOBase):
 
     def resize_buffer(self, newlength):
         if len(self.buf) > newlength:
+            assert newlength >= 0
             self.buf = self.buf[:newlength]
         if len(self.buf) < newlength:
             self.buf.extend([u'\0'] * (newlength - len(self.buf)))
