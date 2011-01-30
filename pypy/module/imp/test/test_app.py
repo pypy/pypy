@@ -136,4 +136,5 @@ class AppTestImpModule:
         lib_pypy = os.path.abspath(
             os.path.join(self.file_module, "..", "..", "..", "..", "..", "lib_pypy")
         )
-        assert sys.path_importer_cache[lib_pypy] is None
+        # Doesn't end up in there when run with -A
+        assert sys.path_importer_cache.get(lib_pypy) is None
