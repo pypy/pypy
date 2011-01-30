@@ -132,6 +132,7 @@ class W_IOBase(Wrappable):
 
     @unwrap_spec('self', ObjSpace)
     def isatty_w(self, space):
+        self._check_closed(space)
         return space.w_False
 
     @unwrap_spec('self', ObjSpace)

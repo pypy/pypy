@@ -188,15 +188,16 @@ class BufferedMixin:
     @unwrap_spec('self', ObjSpace)
     def repr_w(self, space):
         typename = space.type(self).getname(space, '?')
+        module = space.str_w(space.type(self).get_module())
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            return space.wrap("<%s>" % (typename,))
+            return space.wrap("<%s.%s>" % (module, typename,))
         else:
-            w_repr = space.repr(w_name)
-            return space.wrap("<%s name=%s>" % (typename, space.str_w(w_repr)))
+            name_repr = space.str_w(space.repr(w_name))
+            return space.wrap("<%s.%s name=%s>" % (module, typename, name_repr))
 
     # ______________________________________________
 

@@ -14,7 +14,14 @@ class AppTestStringIO:
         assert sio.readable()
         assert sio.writable()
         assert sio.seekable()
+        assert not sio.isatty()
+        assert not sio.closed
         sio.close()
+        assert sio.readable()
+        assert sio.writable()
+        assert sio.seekable()
+        raises(ValueError, sio.isatty)
+        assert sio.closed
 
     def test_closed(self):
         import io
