@@ -58,6 +58,23 @@ class AppTestStringIO:
         sio.close()
         raises(ValueError, sio.seek, 0)
 
+    def test_overseek(self):
+        import io
+
+        s = u"1234567890"
+        sio = io.StringIO(s)
+
+        res = sio.seek(11)
+        assert res == 11
+        res = sio.read()
+        assert res == u""
+        assert sio.tell() == 11
+        assert sio.getvalue() == s
+        sio.write(u"")
+        assert sio.getvalue() == s
+        sio.write(s)
+        assert sio.getvalue() == s + u"\0" + s
+
     def test_tell(self):
         import io
 

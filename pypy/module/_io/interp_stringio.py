@@ -67,6 +67,8 @@ class W_StringIO(W_TextIOBase):
         size = convert_size(space, w_size)
         start = self.pos
         available = len(self.buf) - start
+        if available <= 0:
+            return space.wrap(u"")
         if size >= 0 and size <= available:
             end = start + size
         else:
