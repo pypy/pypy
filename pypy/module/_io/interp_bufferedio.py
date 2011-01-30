@@ -749,7 +749,7 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedReader.typedef = TypeDef(
-    '_io.BufferedReader', W_BufferedIOBase.typedef,
+    'BufferedReader', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedReader),
     __init__  = interp2app(W_BufferedReader.descr_init),
     __module__ = "_io",
@@ -795,7 +795,7 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedWriter.typedef = TypeDef(
-    '_io.BufferedWriter', W_BufferedIOBase.typedef,
+    'BufferedWriter', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedWriter),
     __init__  = interp2app(W_BufferedWriter.descr_init),
     __module__ = "_io",
@@ -897,7 +897,7 @@ W_BufferedRWPair.typedef = TypeDef(
     __init__  = interp2app(W_BufferedRWPair.descr_init),
     closed = GetSetProperty(W_BufferedRWPair.closed_get_w),
     **methods
-    )
+)
 
 class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
     @unwrap_spec('self', ObjSpace, W_Root, int, int)
@@ -923,7 +923,7 @@ class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedRandom.typedef = TypeDef(
-    '_io.BufferedRandom', W_BufferedIOBase.typedef,
+    'BufferedRandom', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRandom),
     __init__ = interp2app(W_BufferedRandom.descr_init),
     __module__ = "_io",

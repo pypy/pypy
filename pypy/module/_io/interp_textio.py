@@ -373,8 +373,14 @@ class W_TextIOWrapper(W_TextIOBase):
 
     @unwrap_spec('self', ObjSpace)
     def descr_repr(self, space):
+        w_name = space.findattr(self, space.wrap("name"))
+        if w_name is None:
+            w_name_str = space.wrap("")
+        else:
+            w_name_str = space.mod(space.wrap("name=%r "), w_name)
+        w_args = space.newtuple([w_name_str, self.w_encoding])
         return space.mod(
-            space.wrap("<_io.TextIOWrapper encoding=%r>"), self.w_encoding
+            space.wrap("<_io.TextIOWrapper %sencoding=%r>"), w_args
         )
 
     @unwrap_spec('self', ObjSpace)
