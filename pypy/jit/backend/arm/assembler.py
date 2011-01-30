@@ -128,7 +128,7 @@ class AssemblerARM(ResOpAssembler):
             i += 1
             res = enc[i]
             if res == self.IMM_LOC:
-                assert group == self.INT_TYPE
+                assert group == self.INT_TYPE or group == self.REF_TYPE
                 # imm value
                 value = self.decode32(enc, i+1)
                 i += 4
