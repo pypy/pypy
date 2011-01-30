@@ -61,6 +61,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def readinto_w(self, space, w_buffer):
+        self._check_closed(space)
         rwbuffer = space.rwbuffer_w(w_buffer)
         size = rwbuffer.getlength()
 
