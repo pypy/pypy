@@ -128,3 +128,12 @@ class AppTestImpModule:
         importer = self.imp.NullImporter("path")
         assert importer.find_module(1, 2, 3, 4) is None
         raises(ImportError, self.imp.NullImporter, os.getcwd())
+
+    def test_path_importer_cache(self):
+        import os
+        import sys
+
+        lib_pypy = os.path.abspath(
+            os.path.join(self.file_module, "..", "..", "..", "..", "..", "lib_pypy")
+        )
+        assert sys.path_importer_cache[lib_pypy] is None
