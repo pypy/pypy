@@ -1,5 +1,8 @@
+from __future__ import with_statement
+
 from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
+
 
 class AppTestIoModule:
     def setup_class(cls):
@@ -148,10 +151,20 @@ class AppTestOpen:
         assert f.mode == 'rb'
         f.close()
 
+        with io.open(self.tmpfile, "rt") as f:
+            assert f.mode == "rt"
+
     def test_open_writable(self):
         import io
         f = io.open(self.tmpfile, "w+b")
         f.close()
+
+    def test_valid_mode(self):
+        import io
+
+        raises(ValueError, io.open, self.tmpfile, "ww")
+        raises(ValueError, io.open, self.tmpfile, "rwa")
+        raises(ValueError, io.open, self.tmpfile, "b", newline="\n")
 
     def test_array_write(self):
         import _io, array
@@ -160,3 +173,26 @@ class AppTestOpen:
         with _io.open(self.tmpfile, "wb", 0) as f:
             assert f.write(a) == n
 
+
+    def test_seek_and_tell(self):
+        import _io
+
+        with _io.open(self.tmpfile, "wb") as f:
+            f.write("abcd")
+
+        with _io.open(self.tmpfile) as f:
+            decoded = f.read()
+
+        # seek positions
+        for i in xrange(len(decoded) + 1):
+            # read lenghts
+            for j in [1, 5, len(decoded) - i]:
+                with _io.open(self.tmpfile) as f:
+                    res = f.read(i)
+                    assert res == decoded[:i]
+                    cookie = f.tell()
+                    res = f.read(j)
+                    assert res == decoded[i:i + j]
+                    f.seek(cookie)
+                    res = f.read()
+                    assert res == decoded[i:]

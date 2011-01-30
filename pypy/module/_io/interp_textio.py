@@ -260,6 +260,7 @@ class W_TextIOWrapper(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
         self.state = STATE_ZERO
+        self.w_encoder = None
         self.w_decoder = None
 
         self.decoded_chars = None   # buffer for text returned from decoder
@@ -744,7 +745,7 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_decoder, "reset")
             self.encoding_start_of_stream = True
         else:
-            space.call_method(self.w_encoder, "setstate",
+            space.call_method(self.w_decoder, "setstate",
                               space.newtuple([space.wrap(""),
                                               space.wrap(cookie.dec_flags)]))
 
