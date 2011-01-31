@@ -496,6 +496,16 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return not eof
 
+    @unwrap_spec('self', ObjSpace)
+    def next_w(self, space):
+        self.telling = False
+        try:
+            return W_TextIOBase.next_w(self, space)
+        except OperationError, e:
+            if e.match(space, space.w_StopIteration):
+                self.telling = self.seekable
+            raise
+
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
@@ -927,6 +937,19 @@ class W_TextIOWrapper(W_TextIOBase):
         cookie.chars_to_skip = chars_to_skip
         return space.wrap(cookie.pack())
 
+    def chunk_size_get_w(space, self):
+        self._check_init(space)
+        return space.wrap(self.chunk_size)
+
+    def chunk_size_set_w(space, self, w_size):
+        self._check_init(space)
+        size = space.int_w(w_size)
+        if size <= 0:
+            raise OperationError(space.w_ValueError,
+                space.wrap("a strictly positive integer is required")
+            )
+        self.chunk_size = size
+
 W_TextIOWrapper.typedef = TypeDef(
     'TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
@@ -934,6 +957,7 @@ W_TextIOWrapper.typedef = TypeDef(
     __repr__ = interp2app(W_TextIOWrapper.descr_repr),
     __module__ = "_io",
 
+    next = interp2app(W_TextIOWrapper.next_w),
     read = interp2app(W_TextIOWrapper.read_w),
     readline = interp2app(W_TextIOWrapper.readline_w),
     write = interp2app(W_TextIOWrapper.write_w),
@@ -951,4 +975,7 @@ W_TextIOWrapper.typedef = TypeDef(
     name = GetSetProperty(W_TextIOWrapper.name_get_w),
     buffer = interp_attrproperty_w("w_buffer", cls=W_TextIOWrapper),
     closed = GetSetProperty(W_TextIOWrapper.closed_get_w),
+    _CHUNK_SIZE = GetSetProperty(
+        W_TextIOWrapper.chunk_size_get_w, W_TextIOWrapper.chunk_size_set_w
+    ),
 )

@@ -220,3 +220,37 @@ class AppTestOpen:
                     f.seek(cookie)
                     res = f.read()
                     assert res == decoded[i:]
+
+    def test_telling(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w+", encoding="utf8") as f:
+            p0 = f.tell()
+            f.write(u"\xff\n")
+            p1 = f.tell()
+            f.write(u"\xff\n")
+            p2 = f.tell()
+            f.seek(0)
+
+            assert f.tell() == p0
+            res = f.readline()
+            assert res == u"\xff\n"
+            assert f.tell() == p1
+            res = f.readline()
+            assert res == u"\xff\n"
+            assert f.tell() == p2
+            f.seek(0)
+
+            for line in f:
+                assert line == u"\xff\n"
+                raises(IOError, f.tell)
+            assert f.tell() == p2
+
+    def test_chunk_size(self):
+        import _io
+
+        with _io.open(self.tmpfile) as f:
+            assert f._CHUNK_SIZE >= 1
+            f._CHUNK_SIZE = 4096
+            assert f._CHUNK_SIZE == 4096
+            raises(ValueError, setattr, f, "_CHUNK_SIZE", 0)
