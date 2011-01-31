@@ -949,5 +949,6 @@ W_TextIOWrapper.typedef = TypeDef(
     seekable = interp2app(W_TextIOWrapper.seekable_w),
     fileno = interp2app(W_TextIOWrapper.fileno_w),
     name = GetSetProperty(W_TextIOWrapper.name_get_w),
+    buffer = interp_attrproperty_w("w_buffer", cls=W_TextIOWrapper),
     closed = GetSetProperty(W_TextIOWrapper.closed_get_w),
 )

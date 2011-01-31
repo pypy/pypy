@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from pypy.interpreter.typedef import (
-    TypeDef, GetSetProperty, generic_new_descr)
+    TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -758,6 +758,7 @@ W_BufferedReader.typedef = TypeDef(
     read = interp2app(W_BufferedReader.read_w),
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
+    raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedReader.repr_w),
@@ -803,6 +804,7 @@ W_BufferedWriter.typedef = TypeDef(
 
     write = interp2app(W_BufferedWriter.write_w),
     flush = interp2app(W_BufferedWriter.flush_w),
+    raw = interp_attrproperty_w("w_raw", cls=W_BufferedWriter),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedWriter.repr_w),
@@ -935,6 +937,7 @@ W_BufferedRandom.typedef = TypeDef(
 
     write = interp2app(W_BufferedRandom.write_w),
     flush = interp2app(W_BufferedRandom.flush_w),
+    raw = interp_attrproperty_w("w_raw", cls=W_BufferedRandom),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedRandom.repr_w),

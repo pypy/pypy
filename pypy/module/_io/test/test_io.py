@@ -173,6 +173,30 @@ class AppTestOpen:
         with _io.open(self.tmpfile, "wb", 0) as f:
             assert f.write(a) == n
 
+    def test_attributes(self):
+        import _io
+
+        with _io.open(self.tmpfile, "wb", buffering=0) as f:
+            assert f.mode == "wb"
+
+        with _io.open(self.tmpfile, "U") as f:
+            assert f.name == self.tmpfile
+            assert f.buffer.name == self.tmpfile
+            assert f.buffer.raw.name == self.tmpfile
+            assert f.mode == "U"
+            assert f.buffer.mode == "rb"
+            assert f.buffer.raw.mode == "rb"
+
+        with _io.open(self.tmpfile, "w+") as f:
+            assert f.mode == "w+"
+            assert f.buffer.mode == "rb+"
+            assert f.buffer.raw.mode == "rb+"
+
+            with _io.open(f.fileno(), "wb", closefd=False) as g:
+                assert g.mode == "wb"
+                assert g.raw.mode == "wb"
+                assert g.name == f.fileno()
+                assert g.raw.name == f.fileno()
 
     def test_seek_and_tell(self):
         import _io
