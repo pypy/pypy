@@ -267,3 +267,11 @@ class AppTestOpen:
         with _io.open(self.tmpfile, "r+") as f:
             res = f.read()
             assert res == ""
+
+    def test_errors_property(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w") as f:
+            assert f.errors == "strict"
+        with _io.open(self.tmpfile, "w", errors="replace") as f:
+            assert f.errors == "replace"

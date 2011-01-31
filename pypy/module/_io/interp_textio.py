@@ -311,6 +311,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         if space.is_w(w_errors, space.w_None):
             w_errors = space.wrap("strict")
+        self.w_errors = w_errors
 
         if space.is_w(w_newline, space.w_None):
             newline = None
@@ -983,6 +984,7 @@ W_TextIOWrapper.typedef = TypeDef(
     name = GetSetProperty(W_TextIOWrapper.name_get_w),
     buffer = interp_attrproperty_w("w_buffer", cls=W_TextIOWrapper),
     closed = GetSetProperty(W_TextIOWrapper.closed_get_w),
+    errors = interp_attrproperty_w("w_errors", cls=W_TextIOWrapper),
     _CHUNK_SIZE = GetSetProperty(
         W_TextIOWrapper.chunk_size_get_w, W_TextIOWrapper.chunk_size_set_w
     ),
