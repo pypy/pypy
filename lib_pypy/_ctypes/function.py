@@ -542,8 +542,6 @@ def make_specialized_subclass(CFuncPtr):
                 assert self._slowpath_allowed
                 self.__class__ = CFuncPtr
                 return self(*args)
-
-                return self._rollback_to_slow_version(*args)
             #
             assert self.callable is None
             assert not self._com_index
