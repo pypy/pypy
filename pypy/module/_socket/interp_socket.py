@@ -102,11 +102,7 @@ class W_RSocket(Wrappable, RSocket):
 
         Return the integer file descriptor of the socket.
         """
-        try:
-            fd = self.fileno()
-        except SocketError, e:
-            raise converted_error(space, e)
-        return space.wrap(intmask(fd))
+        return space.wrap(intmask(self.fd))
     fileno_w.unwrap_spec = ['self', ObjSpace]
 
     def getpeername_w(self, space):

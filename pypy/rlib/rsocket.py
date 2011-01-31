@@ -838,9 +838,6 @@ class RSocket(object):
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
         
-    def fileno(self):
-        return self.fd
-
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
