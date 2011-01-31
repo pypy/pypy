@@ -220,6 +220,9 @@ class W_TextIOBase(W_IOBase):
     def detach_w(self, space):
         self._unsupportedoperation(space, "detach")
 
+    def errors_get_w(space, self):
+        return space.w_None
+
 W_TextIOBase.typedef = TypeDef(
     '_TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
@@ -227,7 +230,8 @@ W_TextIOBase.typedef = TypeDef(
     read = interp2app(W_TextIOBase.read_w),
     readline = interp2app(W_TextIOBase.readline_w),
     detach = interp2app(W_TextIOBase.detach_w),
-    encoding = interp_attrproperty_w("w_encoding", W_TextIOBase)
+    encoding = interp_attrproperty_w("w_encoding", W_TextIOBase),
+    errors = GetSetProperty(W_TextIOBase.errors_get_w),
 )
 
 class PositionCookie:
