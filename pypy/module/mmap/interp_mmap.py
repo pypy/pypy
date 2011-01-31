@@ -246,4 +246,4 @@ ALLOCATIONGRANULARITY = rmmap.ALLOCATIONGRANULARITY
 def mmap_error(space, e):
     w_module = space.getbuiltinmodule('mmap')
     w_error = space.getattr(w_module, space.wrap('error'))
-    return wrap_oserror(space, e, exception_name=w_error)
+    return wrap_oserror(space, e, w_exception_class=w_error)

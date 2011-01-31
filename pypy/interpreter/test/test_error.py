@@ -68,7 +68,7 @@ def test_wrap_oserror():
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
                      filename = "test.py",
-                     exception_name = [SystemError])
+                     w_exception_class = [SystemError])
     assert isinstance(e, OperationError)
     assert e.w_type == [SystemError]
     assert e.get_w_value(space) == ([SystemError], [errno.EBADF],
