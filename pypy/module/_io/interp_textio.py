@@ -419,6 +419,13 @@ class W_TextIOWrapper(W_TextIOBase):
         self._writeflush(space)
         space.call_method(self.w_buffer, "flush")
 
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def truncate_w(self, space, w_pos=None):
+        self._check_init(space)
+
+        space.call_method(self, "flush")
+        return space.call_method(self.w_buffer, "truncate", w_pos)
+
     @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         self._check_init(space)
@@ -965,6 +972,7 @@ W_TextIOWrapper.typedef = TypeDef(
     tell = interp2app(W_TextIOWrapper.tell_w),
     detach = interp2app(W_TextIOWrapper.detach_w),
     flush = interp2app(W_TextIOWrapper.flush_w),
+    truncate = interp2app(W_TextIOWrapper.truncate_w),
     close = interp2app(W_TextIOWrapper.close_w),
 
     line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper),

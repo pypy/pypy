@@ -254,3 +254,16 @@ class AppTestOpen:
             f._CHUNK_SIZE = 4096
             assert f._CHUNK_SIZE == 4096
             raises(ValueError, setattr, f, "_CHUNK_SIZE", 0)
+
+    def test_multi_line(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w+") as f:
+            f.write("abc")
+
+        with _io.open(self.tmpfile, "w+") as f:
+            f.truncate()
+
+        with _io.open(self.tmpfile, "r+") as f:
+            res = f.read()
+            assert res == ""
