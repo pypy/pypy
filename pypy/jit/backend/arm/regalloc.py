@@ -379,8 +379,14 @@ class ARMRegisterManager(RegisterManager):
         boxes.append(base_box)
         value_loc, value_box = self._ensure_value_is_boxed(a1, boxes)
         boxes.append(value_box)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, boxes)
+            boxes.append(ofs_box)
         self.possibly_free_vars(boxes)
-        return [value_loc, base_loc, imm(ofs), imm(size)]
+        return [value_loc, base_loc, ofs_loc, imm(size)]
 
     prepare_op_setfield_raw = prepare_op_setfield_gc
 
@@ -388,11 +394,17 @@ class ARMRegisterManager(RegisterManager):
         a0 = op.getarg(0)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         base_loc, base_box = self._ensure_value_is_boxed(a0)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box])
+            self.possibly_free_var(ofs_box)
         self.possibly_free_var(a0)
         self.possibly_free_var(base_box)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
-        return [base_loc, imm(ofs), res, imm(size)]
+        return [base_loc, ofs_loc, res, imm(size)]
 
     prepare_op_getfield_raw = prepare_op_getfield_gc
     prepare_op_getfield_raw_pure = prepare_op_getfield_gc

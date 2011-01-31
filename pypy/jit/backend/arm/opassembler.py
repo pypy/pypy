@@ -347,11 +347,20 @@ class FieldOpAssembler(object):
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 4:
-            self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.STR_rr(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 2:
-            self.mc.STRH_ri(value_loc.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.STRH_ri(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.STRH_rr(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 1:
-            self.mc.STRB_ri(value_loc.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.STRB_ri(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.STRB_rr(value_loc.value, base_loc.value, ofs.value)
         else:
             assert 0
         return fcond
@@ -361,11 +370,20 @@ class FieldOpAssembler(object):
     def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
         base_loc, ofs, res, size = arglocs
         if size.value == 4:
-            self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.LDR_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 2:
-            self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.LDRH_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 1:
-            self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.LDRB_rr(res.value, base_loc.value, ofs.value)
         else:
             assert 0
 
