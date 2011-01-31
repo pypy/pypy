@@ -297,3 +297,43 @@ class AppTestOpen:
             with _io.open(self.tmpfile, "rb") as f:
                 res = f.read()
                 assert res == "aaaxxx".encode(charset)
+
+    def test_custom_decoder(self):
+        import codecs
+        import _io
+
+        class WeirdDecoder(codecs.IncrementalDecoder):
+            def decode(self, input, final=False):
+                return u".".join(input)
+
+        def weird_decoder(name):
+            if name == "test_decoder":
+                latin1 = codecs.lookup("latin-1")
+                return codecs.CodecInfo(
+                    name = "test_decoder",
+                    encode =latin1.encode,
+                    decode = None,
+                    incrementalencoder = None,
+                    streamreader = None,
+                    streamwriter = None,
+                    incrementaldecoder=WeirdDecoder
+                )
+
+        codecs.register(weird_decoder)
+
+        with _io.open(self.tmpfile, "wb") as f:
+            f.write("abcd")
+
+        with _io.open(self.tmpfile, encoding="test_decoder") as f:
+            decoded = f.read()
+
+        assert decoded == "a.b.c.d"
+        with _io.open(self.tmpfile, encoding="test_decoder") as f:
+            res = f.read(1)
+            assert res == "a"
+            cookie = f.tell()
+            res = f.read(1)
+            assert res == "."
+            f.seek(cookie)
+            res = f.read()
+            assert res == ".b.c.d"
