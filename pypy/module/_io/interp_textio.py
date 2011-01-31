@@ -416,6 +416,12 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         return space.getattr(self.w_buffer, space.wrap("closed"))
 
+    def newlines_get_w(space, self):
+        self._check_init(space)
+        if self.w_decoder is None:
+            return space.w_None
+        return space.findattr(self.w_decoder, space.wrap("newlines"))
+
     def name_get_w(space, self):
         self._check_init(space)
         return space.getattr(self.w_buffer, space.wrap("name"))
@@ -993,6 +999,7 @@ W_TextIOWrapper.typedef = TypeDef(
     buffer = interp_attrproperty_w("w_buffer", cls=W_TextIOWrapper),
     closed = GetSetProperty(W_TextIOWrapper.closed_get_w),
     errors = interp_attrproperty_w("w_errors", cls=W_TextIOWrapper),
+    newlines = GetSetProperty(W_TextIOWrapper.newlines_get_w),
     _CHUNK_SIZE = GetSetProperty(
         W_TextIOWrapper.chunk_size_get_w, W_TextIOWrapper.chunk_size_set_w
     ),

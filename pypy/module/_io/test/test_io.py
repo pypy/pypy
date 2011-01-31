@@ -298,6 +298,22 @@ class AppTestOpen:
                 res = f.read()
                 assert res == "aaaxxx".encode(charset)
 
+    def test_newlines_attr(self):
+        import _io
+
+        with _io.open(self.tmpfile, "r") as f:
+            assert f.newlines is None
+
+        with _io.open(self.tmpfile, "wb") as f:
+            f.write("hello\nworld\n")
+
+        with _io.open(self.tmpfile, "r") as f:
+            res = f.readline()
+            assert res == "hello\n"
+            res = f.readline()
+            assert res == "world\n"
+            assert f.newlines == "\n"
+
     def test_custom_decoder(self):
         import codecs
         import _io
