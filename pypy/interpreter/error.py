@@ -375,7 +375,10 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError'):
         msg = os.strerror(errno)
     except ValueError:
         msg = 'error %d' % errno
-    exc = getattr(space, exception_name)
+    if isinstance(exception_name, str):
+        exc = getattr(space, exception_name)
+    else:
+        exc = exception_name
     if w_filename is not None:
         w_error = space.call_function(exc, space.wrap(errno),
                                       space.wrap(msg), w_filename)

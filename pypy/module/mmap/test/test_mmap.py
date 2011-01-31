@@ -30,9 +30,11 @@ class AppTestMMap:
             assert isinstance(mmap.PROT_EXEC, int)
             assert isinstance(mmap.PROT_READ, int)
             assert isinstance(mmap.PROT_WRITE, int)
-        
-        assert mmap.error is EnvironmentError
-            
+
+        assert 'mmap.error' in str(mmap.error)
+        assert mmap.error is not EnvironmentError
+        assert issubclass(mmap.error, EnvironmentError)
+
     def test_args(self):
         from mmap import mmap
         import os

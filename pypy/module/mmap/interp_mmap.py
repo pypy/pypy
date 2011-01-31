@@ -57,8 +57,7 @@ class W_MMap(Wrappable):
         try:
             return self.space.wrap(self.mmap.file_size())
         except OSError, e:
-            raise wrap_oserror(self.space, e,
-                               exception_name='w_EnvironmentError')
+            raise mmap_error(self.space, e)
     descr_size.unwrap_spec = ['self']
     
     def write(self, data):
@@ -88,8 +87,7 @@ class W_MMap(Wrappable):
             raise OperationError(self.space.w_ValueError,
                                  self.space.wrap(v.message))
         except OSError, e:
-            raise wrap_oserror(self.space, e,
-                               exception_name='w_EnvironmentError')
+            raise mmap_error(self.space, e)
     flush.unwrap_spec = ['self', int, int]
     
     def move(self, dest, src, count):
@@ -106,8 +104,7 @@ class W_MMap(Wrappable):
         try:
             self.mmap.resize(newsize)
         except OSError, e:
-            raise wrap_oserror(self.space, e,
-                               exception_name='w_EnvironmentError')
+            raise mmap_error(self.space, e)
     resize.unwrap_spec = ['self', int]
     
     def __len__(self):
@@ -194,7 +191,7 @@ if rmmap._POSIX:
             W_MMap.__init__(self, space,
                             rmmap.mmap(fileno, length, flags, prot, access))
         except OSError, e:
-            raise wrap_oserror(space, e, exception_name='w_EnvironmentError')
+            raise mmap_error(space, e)
         except RValueError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
@@ -211,7 +208,7 @@ elif rmmap._MS_WINDOWS:
             W_MMap.__init__(self, space,
                             rmmap.mmap(fileno, length, tagname, access))
         except OSError, e:
-            raise wrap_oserror(space, e, exception_name='w_EnvironmentError')
+            raise mmap_error(space, e)
         except RValueError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
@@ -245,3 +242,8 @@ W_MMap.typedef = TypeDef("mmap",
 constants = rmmap.constants
 PAGESIZE = rmmap.PAGESIZE
 ALLOCATIONGRANULARITY = rmmap.ALLOCATIONGRANULARITY
+
+def mmap_error(space, e):
+    w_module = space.getbuiltinmodule('mmap')
+    w_error = space.getattr(w_module, space.wrap('error'))
+    return wrap_oserror(space, e, exception_name=w_error)
