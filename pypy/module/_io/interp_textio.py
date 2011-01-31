@@ -28,17 +28,17 @@ class W_IncrementalNewlineDecoder(Wrappable):
 
     def __init__(self, space):
         self.w_newlines_dict = {
-            SEEN_CR: space.wrap("\r"),
-            SEEN_LF: space.wrap("\n"),
-            SEEN_CRLF: space.wrap("\r\n"),
+            SEEN_CR: space.wrap(u"\r"),
+            SEEN_LF: space.wrap(u"\n"),
+            SEEN_CRLF: space.wrap(u"\r\n"),
             SEEN_CR | SEEN_LF: space.newtuple(
-                [space.wrap("\r"), space.wrap("\n")]),
+                [space.wrap(u"\r"), space.wrap(u"\n")]),
             SEEN_CR | SEEN_CRLF: space.newtuple(
-                [space.wrap("\r"), space.wrap("\r\n")]),
+                [space.wrap(u"\r"), space.wrap(u"\r\n")]),
             SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.wrap("\n"), space.wrap("\r\n")]),
+                [space.wrap(u"\n"), space.wrap(u"\r\n")]),
             SEEN_CR | SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.wrap("\r"), space.wrap("\n"), space.wrap("\r\n")]),
+                [space.wrap(u"\r"), space.wrap(u"\n"), space.wrap(u"\r\n")]),
             }
 
     @unwrap_spec('self', ObjSpace, W_Root, int, W_Root)

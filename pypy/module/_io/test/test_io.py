@@ -313,6 +313,7 @@ class AppTestOpen:
             res = f.readline()
             assert res == "world\n"
             assert f.newlines == "\n"
+            assert type(f.newlines) is unicode
 
     def test_custom_decoder(self):
         import codecs
