@@ -1,6 +1,7 @@
-import py
+import py, os, errno
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.error import decompose_valuefmt, get_operrcls2
+from pypy.interpreter.error import wrap_oserror
 
 
 def test_decompose_valuefmt():
@@ -39,3 +40,37 @@ def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"
     assert operr.errorstr(space, use_repr=True) == "ValueError: 'message'"
+
+def test_wrap_oserror():
+    class FakeSpace:
+        w_OSError = [OSError]
+        w_EnvironmentError = [EnvironmentError]
+        def wrap(self, obj):
+            return [obj]
+        def call_function(self, exc, w_errno, w_msg, w_filename=None):
+            return (exc, w_errno, w_msg, w_filename)
+    space = FakeSpace()
+    #
+    e = wrap_oserror(space, OSError(errno.EBADF, "foobar"))
+    assert isinstance(e, OperationError)
+    assert e.w_type == [OSError]
+    assert e.get_w_value(space) == ([OSError], [errno.EBADF],
+                                    [os.strerror(errno.EBADF)], None)
+    #
+    e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
+                     filename = "test.py",
+                     exception_name = "w_EnvironmentError")
+    assert isinstance(e, OperationError)
+    assert e.w_type == [EnvironmentError]
+    assert e.get_w_value(space) == ([EnvironmentError], [errno.EBADF],
+                                    [os.strerror(errno.EBADF)],
+                                    ["test.py"])
+    #
+    e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
+                     filename = "test.py",
+                     w_exception_class = [SystemError])
+    assert isinstance(e, OperationError)
+    assert e.w_type == [SystemError]
+    assert e.get_w_value(space) == ([SystemError], [errno.EBADF],
+                                    [os.strerror(errno.EBADF)],
+                                    ["test.py"])

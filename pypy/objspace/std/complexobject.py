@@ -62,7 +62,11 @@ class W_ComplexObject(W_Object):
             ir = (i1 * ratio - r1) / denom
         return W_ComplexObject(rr,ir)
 
-    def divmod(self, other):
+    def divmod(self, space, other):
+        space.warn(
+            "complex divmod(), // and % are deprecated",
+            space.w_DeprecationWarning
+        )
         w_div = self.div(other)
         div = math.floor(w_div.realval)
         w_mod = self.sub(
@@ -157,13 +161,13 @@ truediv__Complex_Complex = div__Complex_Complex
 
 def mod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        return w_complex1.divmod(w_complex2)[1]
+        return w_complex1.divmod(space, w_complex2)[1]
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
 def divmod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        div, mod = w_complex1.divmod(w_complex2)
+        div, mod = w_complex1.divmod(space, w_complex2)
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
     return space.newtuple([div, mod])
@@ -171,7 +175,7 @@ def divmod__Complex_Complex(space, w_complex1, w_complex2):
 def floordiv__Complex_Complex(space, w_complex1, w_complex2):
     # don't care about the slight slowdown you get from using divmod
     try:
-        return w_complex1.divmod(w_complex2)[0]
+        return w_complex1.divmod(space, w_complex2)[0]
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 

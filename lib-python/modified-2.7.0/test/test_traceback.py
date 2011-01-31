@@ -5,7 +5,8 @@ from StringIO import StringIO
 import sys
 import unittest
 from imp import reload
-from test.test_support import run_unittest, is_jython, Error
+from test.test_support import run_unittest, Error
+from test.test_support import impl_detail, check_impl_detail
 
 import traceback
 
@@ -49,10 +50,8 @@ class TracebackCases(unittest.TestCase):
         self.assertTrue(err[2].count('\n') == 1) # and no additional newline
         self.assertTrue(err[1].find("+") == err[2].find("^")) # in the right place
 
+    @impl_detail("other implementations may add a caret (why shouldn't they?)")
     def test_nocaret(self):
-        if is_jython:
-            # jython adds a caret in this case (why shouldn't it?)
-            return
         err = self.get_exception_format(self.syntax_error_without_caret,
                                         SyntaxError)
         self.assertTrue(len(err) == 3)
@@ -63,8 +62,11 @@ class TracebackCases(unittest.TestCase):
                                         IndentationError)
         self.assertTrue(len(err) == 4)
         self.assertTrue(err[1].strip() == "print 2")
-        self.assertIn("^", err[2])
-        self.assertTrue(err[1].find("2") == err[2].find("^"))
+        if check_impl_detail():
+            # on CPython, there is a "^" at the end of the line
+            # on PyPy, there is a "^" too, but at the start, more logically
+            self.assertIn("^", err[2])
+            self.assertTrue(err[1].find("2") == err[2].find("^"))
 
     def test_bug737473(self):
         import os, tempfile, time

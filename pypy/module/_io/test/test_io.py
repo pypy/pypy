@@ -141,6 +141,7 @@ class AppTestIoModule:
 
 class AppTestOpen:
     def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['_io', '_locale'])
         tmpfile = udir.join('tmpfile').ensure()
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 
@@ -171,7 +172,12 @@ class AppTestOpen:
         a = array.array(b'i', range(10))
         n = len(a.tostring())
         with _io.open(self.tmpfile, "wb", 0) as f:
-            assert f.write(a) == n
+            res = f.write(a)
+            assert res == n
+
+        with _io.open(self.tmpfile, "wb") as f:
+            res = f.write(a)
+            assert res == n
 
     def test_attributes(self):
         import _io
@@ -220,3 +226,132 @@ class AppTestOpen:
                     f.seek(cookie)
                     res = f.read()
                     assert res == decoded[i:]
+
+    def test_telling(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w+", encoding="utf8") as f:
+            p0 = f.tell()
+            f.write(u"\xff\n")
+            p1 = f.tell()
+            f.write(u"\xff\n")
+            p2 = f.tell()
+            f.seek(0)
+
+            assert f.tell() == p0
+            res = f.readline()
+            assert res == u"\xff\n"
+            assert f.tell() == p1
+            res = f.readline()
+            assert res == u"\xff\n"
+            assert f.tell() == p2
+            f.seek(0)
+
+            for line in f:
+                assert line == u"\xff\n"
+                raises(IOError, f.tell)
+            assert f.tell() == p2
+
+    def test_chunk_size(self):
+        import _io
+
+        with _io.open(self.tmpfile) as f:
+            assert f._CHUNK_SIZE >= 1
+            f._CHUNK_SIZE = 4096
+            assert f._CHUNK_SIZE == 4096
+            raises(ValueError, setattr, f, "_CHUNK_SIZE", 0)
+
+    def test_multi_line(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w+") as f:
+            f.write("abc")
+
+        with _io.open(self.tmpfile, "w+") as f:
+            f.truncate()
+
+        with _io.open(self.tmpfile, "r+") as f:
+            res = f.read()
+            assert res == ""
+
+    def test_errors_property(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w") as f:
+            assert f.errors == "strict"
+        with _io.open(self.tmpfile, "w", errors="replace") as f:
+            assert f.errors == "replace"
+
+    def test_append_bom(self):
+        import _io
+
+        # The BOM is not written again when appending to a non-empty file
+        for charset in ["utf-8-sig", "utf-16", "utf-32"]:
+            with _io.open(self.tmpfile, "w", encoding=charset) as f:
+                f.write("aaa")
+                pos = f.tell()
+            with _io.open(self.tmpfile, "rb") as f:
+                res = f.read()
+                assert res == "aaa".encode(charset)
+            with _io.open(self.tmpfile, "a", encoding=charset) as f:
+                f.write("xxx")
+            with _io.open(self.tmpfile, "rb") as f:
+                res = f.read()
+                assert res == "aaaxxx".encode(charset)
+
+    def test_newlines_attr(self):
+        import _io
+
+        with _io.open(self.tmpfile, "r") as f:
+            assert f.newlines is None
+
+        with _io.open(self.tmpfile, "wb") as f:
+            f.write("hello\nworld\n")
+
+        with _io.open(self.tmpfile, "r") as f:
+            res = f.readline()
+            assert res == "hello\n"
+            res = f.readline()
+            assert res == "world\n"
+            assert f.newlines == "\n"
+            assert type(f.newlines) is unicode
+
+    def test_custom_decoder(self):
+        import codecs
+        import _io
+
+        class WeirdDecoder(codecs.IncrementalDecoder):
+            def decode(self, input, final=False):
+                return u".".join(input)
+
+        def weird_decoder(name):
+            if name == "test_decoder":
+                latin1 = codecs.lookup("latin-1")
+                return codecs.CodecInfo(
+                    name = "test_decoder",
+                    encode =latin1.encode,
+                    decode = None,
+                    incrementalencoder = None,
+                    streamreader = None,
+                    streamwriter = None,
+                    incrementaldecoder=WeirdDecoder
+                )
+
+        codecs.register(weird_decoder)
+
+        with _io.open(self.tmpfile, "wb") as f:
+            f.write("abcd")
+
+        with _io.open(self.tmpfile, encoding="test_decoder") as f:
+            decoded = f.read()
+
+        assert decoded == "a.b.c.d"
+        with _io.open(self.tmpfile, encoding="test_decoder") as f:
+            res = f.read(1)
+            assert res == "a"
+            cookie = f.tell()
+            res = f.read(1)
+            assert res == "."
+            f.seek(cookie)
+            res = f.read()
+            assert res == ".b.c.d"

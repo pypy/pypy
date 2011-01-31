@@ -22,6 +22,7 @@ class AppTestStringIO:
         assert sio.seekable()
         raises(ValueError, sio.isatty)
         assert sio.closed
+        assert sio.errors is None
 
     def test_closed(self):
         import io

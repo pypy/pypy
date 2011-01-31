@@ -439,6 +439,15 @@ class AppTestAppComplexTest:
     def test_getnewargs(self):
         assert (1+2j).__getnewargs__() == (1.0, 2.0)
 
+    def test_method_not_found_on_newstyle_instance(self):
+        class A(object):
+            pass
+        a = A()
+        a.__complex__ = lambda: 5j     # ignored
+        raises(TypeError, complex, a)
+        A.__complex__ = lambda self: 42j
+        assert complex(a) == 42j
+
     def test_format(self):
         skip("FIXME")
         # empty format string is same as str()
