@@ -171,7 +171,12 @@ class AppTestOpen:
         a = array.array(b'i', range(10))
         n = len(a.tostring())
         with _io.open(self.tmpfile, "wb", 0) as f:
-            assert f.write(a) == n
+            res = f.write(a)
+            assert res == n
+
+        with _io.open(self.tmpfile, "wb") as f:
+            res = f.write(a)
+            assert res == n
 
     def test_attributes(self):
         import _io
