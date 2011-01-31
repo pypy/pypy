@@ -359,6 +359,13 @@ class W_TextIOWrapper(W_TextIOBase):
         self.seekable = space.is_true(space.call_method(w_buffer, "seekable"))
         self.telling = self.seekable
 
+        if self.seekable and self.w_encoder:
+            self.encoding_start_of_stream = True
+            w_cookie = space.call_method(self.w_buffer, "tell")
+            if not space.eq_w(w_cookie, space.wrap(0)):
+                self.encoding_start_of_stream = False
+                space.call_method(self.w_encoder, "setstate", space.wrap(0))
+
         self.state = STATE_OK
 
     def _check_init(self, space):
@@ -738,6 +745,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         pending_bytes = ''.join(self.pending_bytes)
         self.pending_bytes = None
+        self.pending_bytes_count = 0
 
         space.call_method(self.w_buffer, "write", space.wrap(pending_bytes))
 

@@ -280,3 +280,20 @@ class AppTestOpen:
             assert f.errors == "strict"
         with _io.open(self.tmpfile, "w", errors="replace") as f:
             assert f.errors == "replace"
+
+    def test_append_bom(self):
+        import _io
+
+        # The BOM is not written again when appending to a non-empty file
+        for charset in ["utf-8-sig", "utf-16", "utf-32"]:
+            with _io.open(self.tmpfile, "w", encoding=charset) as f:
+                f.write("aaa")
+                pos = f.tell()
+            with _io.open(self.tmpfile, "rb") as f:
+                res = f.read()
+                assert res == "aaa".encode(charset)
+            with _io.open(self.tmpfile, "a", encoding=charset) as f:
+                f.write("xxx")
+            with _io.open(self.tmpfile, "rb") as f:
+                res = f.read()
+                assert res == "aaaxxx".encode(charset)
