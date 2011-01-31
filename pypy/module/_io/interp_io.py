@@ -1,3 +1,5 @@
+import os
+
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
@@ -7,6 +9,7 @@ from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_iobase import W_IOBase
 from pypy.module._io.interp_textio import W_TextIOWrapper
+from pypy.rpython.module.ll_os_stat import STAT_FIELD_TYPES
 
 
 class W_BlockingIOError(W_IOError):
@@ -114,26 +117,17 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
 
     if buffering < 0:
         buffering = DEFAULT_BUFFER_SIZE
-        """
-        XXX: implement me!
-        #ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
-            {
-                struct stat st;
-                long fileno;
-                PyObject *res = PyObject_CallMethod(raw, "fileno", NULL);
-                if (res == NULL)
-                    goto error;
 
-                fileno = PyInt_AsLong(res);
-                Py_DECREF(res);
-                if (fileno == -1 && PyErr_Occurred())
-                    goto error;
+        if "st_blksize" in STAT_FIELD_TYPES:
+            fileno = space.int_w(space.call_method(w_raw, "fileno"))
+            try:
+                st = os.fstat(fileno)
+            except OSError:
+                # Errors should never pass silently, except this one time.
+                pass
+            else:
+                buffering = st.st_blksize
 
-                if (fstat(fileno, &st) >= 0)
-                    buffering = st.st_blksize;
-            }
-        #endif
-        """
     if buffering < 0:
         raise OperationError(space.w_ValueError,
             space.wrap("invalid buffering size")
