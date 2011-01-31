@@ -126,7 +126,8 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
                 # Errors should never pass silently, except this one time.
                 pass
             else:
-                buffering = st.st_blksize
+                if st.st_blksize > 1:
+                    buffering = st.st_blksize
 
     if buffering < 0:
         raise OperationError(space.w_ValueError,
