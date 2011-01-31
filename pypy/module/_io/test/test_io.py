@@ -265,7 +265,7 @@ class AppTestOpen:
         import _io
 
         with _io.open(self.tmpfile, "w+") as f:
-            f.write("abc")
+            f.write(u"abc")
 
         with _io.open(self.tmpfile, "w+") as f:
             f.truncate()
@@ -288,13 +288,13 @@ class AppTestOpen:
         # The BOM is not written again when appending to a non-empty file
         for charset in ["utf-8-sig", "utf-16", "utf-32"]:
             with _io.open(self.tmpfile, "w", encoding=charset) as f:
-                f.write("aaa")
+                f.write(u"aaa")
                 pos = f.tell()
             with _io.open(self.tmpfile, "rb") as f:
                 res = f.read()
                 assert res == "aaa".encode(charset)
             with _io.open(self.tmpfile, "a", encoding=charset) as f:
-                f.write("xxx")
+                f.write(u"xxx")
             with _io.open(self.tmpfile, "rb") as f:
                 res = f.read()
                 assert res == "aaaxxx".encode(charset)
@@ -315,43 +315,3 @@ class AppTestOpen:
             assert res == "world\n"
             assert f.newlines == "\n"
             assert type(f.newlines) is unicode
-
-    def test_custom_decoder(self):
-        import codecs
-        import _io
-
-        class WeirdDecoder(codecs.IncrementalDecoder):
-            def decode(self, input, final=False):
-                return u".".join(input)
-
-        def weird_decoder(name):
-            if name == "test_decoder":
-                latin1 = codecs.lookup("latin-1")
-                return codecs.CodecInfo(
-                    name = "test_decoder",
-                    encode =latin1.encode,
-                    decode = None,
-                    incrementalencoder = None,
-                    streamreader = None,
-                    streamwriter = None,
-                    incrementaldecoder=WeirdDecoder
-                )
-
-        codecs.register(weird_decoder)
-
-        with _io.open(self.tmpfile, "wb") as f:
-            f.write("abcd")
-
-        with _io.open(self.tmpfile, encoding="test_decoder") as f:
-            decoded = f.read()
-
-        assert decoded == "a.b.c.d"
-        with _io.open(self.tmpfile, encoding="test_decoder") as f:
-            res = f.read(1)
-            assert res == "a"
-            cookie = f.tell()
-            res = f.read(1)
-            assert res == "."
-            f.seek(cookie)
-            res = f.read()
-            assert res == ".b.c.d"
