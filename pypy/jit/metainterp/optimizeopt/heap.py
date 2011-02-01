@@ -24,33 +24,27 @@ class OptHeap(Optimization):
         self.lazy_setfields = {}
         self.lazy_setfields_descrs = []     # keys (at least) of previous dict
 
-    def clone_for_next_iteration(self, optimizer, valuemap):
+    def clone_for_next_iteration(self, surviving_boxes, optimizer, valuemap):
         new = OptHeap()
-        return new
-        # FIXME:
 
-        if True:
-            self.force_all_lazy_setfields()
-            assert not self.lazy_setfields_descrs
-            assert not self.lazy_setfields
-        else:
-            new.lazy_setfields_descrs = self.lazy_setfields_descrs
-            new.lazy_setfields = self.lazy_setfields
+        self.force_all_lazy_setfields()
+        assert not self.lazy_setfields_descrs
+        assert not self.lazy_setfields
         
         for descr, d in self.cached_fields.items():
             newd = {}
             new.cached_fields[descr] = newd
             for value, fieldvalue in d.items():
                 newd[value.get_reconstructed(optimizer, valuemap)] = \
-                                       fieldvalue.get_reconstructed(optimizer, valuemap)
+                             fieldvalue.get_reconstructed(optimizer, valuemap)
             
         for descr, d in self.known_heap_fields.items():
             newd = {}
             new.known_heap_fields[descr] = newd
             for value, fieldvalue in d.items():
                 newd[value.get_reconstructed(optimizer, valuemap)] = \
-                                       fieldvalue.get_reconstructed(optimizer, valuemap)
-            
+                             fieldvalue.get_reconstructed(optimizer, valuemap)
+
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():
             newd = {}
@@ -60,10 +54,12 @@ class OptHeap(Optimization):
                 newd[value.get_reconstructed(optimizer, valuemap)] = newcache
                 if cache.var_index_item:
                     newcache.var_index_item = \
-                          cache.var_index_item.get_reconstructed(optimizer, valuemap)
+                          cache.var_index_item.get_reconstructed(optimizer,
+                                                                 valuemap)
                 if cache.var_index_indexvalue:
                     newcache.var_index_indexvalue = \
-                          cache.var_index_indexvalue.get_reconstructed(optimizer, valuemap)
+                        cache.var_index_indexvalue.get_reconstructed(optimizer,
+                                                                     valuemap)
                 for index, fieldvalue in cache.fixed_index_items.items():
                     newcache.fixed_index_items[index] = \
                            fieldvalue.get_reconstructed(optimizer, valuemap)

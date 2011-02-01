@@ -159,7 +159,8 @@ class UnrollOptimizer(Optimization):
             jumpop.initarglist([])            
 
             preamble_optmizer = self.optimizer
-            self.optimizer = preamble_optmizer.clone_for_next_iteration()
+            self.optimizer = \
+                        preamble_optmizer.clone_for_next_iteration(jump_args)
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
 
@@ -187,7 +188,7 @@ class UnrollOptimizer(Optimization):
 
                 if True:
                     self.optimizer = \
-                            preamble_optmizer.clone_for_next_iteration()
+                          preamble_optmizer.clone_for_next_iteration(jump_args)
                     self.optimizer.extraargs = loop.inputargs
                     loop.inputargs = self.inline(self.cloned_operations,
                                              loop_inputargs, jump_args)
@@ -536,7 +537,7 @@ class BoxMap(object):
         return self.map[loopbox]
 
 class OptInlineShortPreamble(Optimization):
-    def clone_for_next_iteration(self, optimizer, valuemap):
+    def clone_for_next_iteration(self, surviving_boxes, optimizer, valuemap):
         return OptInlineShortPreamble()
     
     def propagate_forward(self, op):

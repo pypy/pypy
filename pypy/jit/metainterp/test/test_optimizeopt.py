@@ -694,9 +694,9 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i1 = ptr_eq(p0, NULL)
         guard_false(i1) []
         i2 = ptr_ne(NULL, p0)
-        guard_true(i0) []
+        guard_true(i2) []
         i3 = ptr_eq(NULL, p0)
-        guard_false(i1) []
+        guard_false(i3) []
         guard_nonnull(p0) []
         jump(p0)
         """

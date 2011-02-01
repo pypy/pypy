@@ -13,7 +13,7 @@ class OptRewrite(Optimization):
        This includes already executed operations and constants.
     """
 
-    def clone_for_next_iteration(self, optimizer, valuemap):
+    def clone_for_next_iteration(self, surviving_boxes, optimizer, valuemap):
         return OptRewrite()
     
     def propagate_forward(self, op):

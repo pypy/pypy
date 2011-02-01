@@ -13,7 +13,7 @@ class OptIntBounds(Optimization):
         self.posponedop = None
         self.nextop = None
 
-    def clone_for_next_iteration(self, optimizer, valuemap):
+    def clone_for_next_iteration(self, surviving_boxes, optimizer, valuemap):
         assert self.posponedop is None
         return OptIntBounds()
 

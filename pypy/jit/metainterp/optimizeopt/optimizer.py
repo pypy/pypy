@@ -232,7 +232,8 @@ class Optimization(object):
     def turned_constant(self, value):
         pass
 
-    def clone_for_next_iteration(self, optimizer=None, valuemap=None):
+    def clone_for_next_iteration(self, surviving_boxes=None,
+                                 optimizer=None, valuemap=None):
         raise NotImplementedError
     
 
@@ -311,14 +312,20 @@ class Optimizer(Optimization):
         for o in self.optimizations:
             o.force_at_end_of_preamble()
             
-    def clone_for_next_iteration(self, optimizer=None, valuemap=None):
+    def clone_for_next_iteration(self, surviving_boxes=None,
+                                 optimizer=None, valuemap=None):
         assert optimizer is None
         assert valuemap is None
+        if surviving_boxes is None:
+            surviving_boxes = []
+        else:
+            surviving_boxes = surviving_boxes[:]
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
         new.values = {}
-        optimizations = [o.clone_for_next_iteration(new, valuemap) for o in 
-                         self.optimizations]
+        optimizations = [o.clone_for_next_iteration(surviving_boxes, 
+                                                    new, valuemap)
+                         for o in self.optimizations]
         new.set_optimizations(optimizations)
 
         # FIXME: new.interned_refs = self.interned_refs
@@ -338,13 +345,17 @@ class Optimizer(Optimization):
             for i in range(len(newargs)):
                 if isinstance(newargs[i], OptValue):
                     newargs[i] = newargs[i].get_reconstructed(new, valuemap)
-            v = self.getvalue(op.result)
-            new.values[op.result] = v.get_reconstructed(new, valuemap)
+            surviving_boxes.append(op.result)
             new.pure_operations[newargs] = op
             # FIXME: This will not work for ops with mutable descr
             
         # FIXME: Any point in propagating these? new.producer = self.producer
+
         assert self.posponedop is None
+
+        for box in surviving_boxes:
+            v = self.getvalue(box)
+            new.values[box] = v.get_reconstructed(new, valuemap)
 
         return new
 
