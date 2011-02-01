@@ -960,6 +960,22 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(self.root_walker, 'thread_die_ptr'):
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
 
+    def gct_gc_thread_before_fork(self, hop):
+        assert self.translator.config.translation.thread
+        if hasattr(self.root_walker, 'thread_before_fork_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_before_fork_ptr],
+                      resultvar=hop.spaceop.result)
+        else:
+            c_null = rmodel.inputconst(llmemory.Address, llmemory.NULL)
+            hop.genop("same_as", [c_null],
+                      resultvar=hop.spaceop.result)
+
+    def gct_gc_thread_after_fork(self, hop):
+        assert self.translator.config.translation.thread
+        if hasattr(self.root_walker, 'thread_after_fork_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_after_fork_ptr]
+                                     + hop.spaceop.args)
+
     def gct_gc_get_type_info_group(self, hop):
         return hop.cast_result(self.c_type_info_group)
 
@@ -1435,7 +1451,7 @@ class ShadowStackRootWalker(BaseRootWalker):
             gcdata.active_thread = new_aid
 
         def collect_stack(aid, stacktop, callback):
-            if stacktop != llmemory.NULL and aid != get_aid():
+            if stacktop != llmemory.NULL and aid != gcdata.active_thread:
                 # collect all valid stacks from the dict (the entry
                 # corresponding to the current thread is not valid)
                 gc = self.gc
@@ -1447,11 +1463,41 @@ class ShadowStackRootWalker(BaseRootWalker):
                     addr += sizeofaddr
 
         def collect_more_stacks(callback):
+            ll_assert(get_aid() == gcdata.active_thread,
+                      "collect_more_stacks(): invalid active_thread")
             gcdata.thread_stacks.foreach(collect_stack, callback)
+
+        def _free_if_not_current(aid, stacktop, _):
+            if stacktop != llmemory.NULL and aid != gcdata.active_thread:
+                end = stacktop - sizeofaddr
+                base = end.address[0]
+                llmemory.raw_free(base)
+
+        def thread_after_fork(result_of_fork, opaqueaddr):
+            # we don't need a thread_before_fork in this case, so
+            # opaqueaddr == NULL.  This is called after fork().
+            if result_of_fork == 0:
+                # We are in the child process.  Assumes that only the
+                # current thread survived, so frees the shadow stacks
+                # of all the other ones.
+                gcdata.thread_stacks.foreach(_free_if_not_current, None)
+                # Clears the dict (including the current thread, which
+                # was an invalid entry anyway and will be recreated by
+                # the next call to save_away_current_stack()).
+                gcdata.thread_stacks.clear()
+                # Finally, reset the stored thread IDs, in case it
+                # changed because of fork().
+                aid = get_aid()
+                gcdata.main_thread = aid
+                gcdata.active_thread = aid
 
         self.thread_setup = thread_setup
         self.thread_prepare_ptr = getfn(thread_prepare, [], annmodel.s_None)
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
                                     inline=True)
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None)
+        self.thread_after_fork_ptr = getfn(thread_after_fork,
+                                           [annmodel.SomeInteger(),
+                                            annmodel.SomeAddress()],
+                                           annmodel.s_None)
         self.collect_stacks_from_other_threads = collect_more_stacks
