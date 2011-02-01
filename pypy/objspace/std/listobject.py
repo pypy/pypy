@@ -48,6 +48,9 @@ class W_ListObject(W_Object):
 
     def append(w_list, w_item):
         w_list.wrappeditems.append(w_item)
+        if isinstance(w_list.strategy, EmptyListStrategy):
+            w_list.strategy = ObjectListStrategy()
+            w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
 
     # ___________________________________________________
 
@@ -148,7 +151,8 @@ def init__List(space, w_list, __args__):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
-            items_w.append(w_item)
+            #items_w.append(w_item)
+            w_list.append(w_item)
 
 def len__List(space, w_list):
     result = w_list.length()
@@ -429,7 +433,8 @@ def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
     return space.w_None
 
 def list_append__List_ANY(space, w_list, w_any):
-    w_list.wrappeditems.append(w_any)
+    #w_list.wrappeditems.append(w_any)
+    w_list.append(w_any)
     return space.w_None
 
 def list_extend__List_List(space, w_list, w_other):
