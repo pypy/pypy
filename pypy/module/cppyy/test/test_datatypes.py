@@ -31,7 +31,7 @@ class AppTestDATATYPES:
         lib2 = cppyy.load_lib(self.shared_lib)
         assert self.datatypes is lib2
 
-    def test2WriteAccess( self ):
+    def test2WriteAccess(self):
         """Test write access to instance public data and verify values"""
 
         import cppyy, sys
@@ -109,5 +109,19 @@ class AppTestDATATYPES:
 #            b[i] = 28
 #            for i in range(self.N):
 #                assert eval('c.m_%s_array2[i]' % names[j]) == b[i]
+
+        c.destruct()
+
+    def test3RangeAccess(self):
+        """Test the ranges of integer types"""
+
+        import cppyy, sys
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        raises(ValueError, setattr, c, 'm_uint',  -1)
+        raises(ValueError, setattr, c, 'm_ulong', -1)
 
         c.destruct()

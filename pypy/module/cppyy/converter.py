@@ -133,13 +133,14 @@ class CharConverter(TypeConverter):
 
 class LongConverter(TypeConverter):
     libffitype = libffi.types.slong
+    rffiptrtype = rffi.LONGP
 
     def _unwrap_object(self, space, w_obj):
         return space.c_int_w(w_obj)
 
     def convert_argument(self, space, w_obj):
         arg = self._unwrap_object(space, w_obj)
-        x = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
+        x = lltype.malloc(self.rffiptrtype.TO, 1, flavor='raw')
         x[0] = arg
         return rffi.cast(rffi.VOIDP, x)
 
@@ -148,13 +149,20 @@ class LongConverter(TypeConverter):
 
     def from_memory(self, space, w_obj, offset):
         fieldptr = self._get_fieldptr(space, w_obj, offset)
-        longptr = rffi.cast(rffi.LONGP, fieldptr)
+        longptr = rffi.cast(self.rffiptrtype, fieldptr)
         return space.wrap(longptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
         fieldptr = self._get_fieldptr(space, w_obj, offset)
-        longptr = rffi.cast(rffi.LONGP, fieldptr)
-        longptr[0] = space.c_int_w(w_value)
+        longptr = rffi.cast(self.rffiptrtype, fieldptr)
+        longptr[0] = self._unwrap_object(space, w_value)
+
+class UnsignedLongConverter(LongConverter):
+    libffitype = libffi.types.ulong
+    rffiptrtype = rffi.ULONGP
+
+    def _unwrap_object(self, space, w_obj):
+        return space.c_uint_w(w_obj)
 
 class ShortConverter(LongConverter):
     libffitype = libffi.types.sshort
@@ -353,13 +361,13 @@ _converters["unsigned short int[]"]     = ShortArrayConverter
 _converters["int"]                      = LongConverter
 _converters["int*"]                     = LongPtrConverter
 _converters["int[]"]                    = LongArrayConverter
-_converters["unsigned int"]             = LongConverter
+_converters["unsigned int"]             = UnsignedLongConverter
 _converters["unsigned int*"]            = LongPtrConverter
 _converters["unsigned int[]"]           = LongArrayConverter
 _converters["long int"]                 = LongConverter
 _converters["long int*"]                = LongPtrConverter
 _converters["long int[]"]               = LongArrayConverter
-_converters["unsigned long int"]        = LongConverter
+_converters["unsigned long int"]        = UnsignedLongConverter
 _converters["unsigned long int*"]       = LongPtrConverter
 _converters["unsigned long int[]"]      = LongArrayConverter
 _converters["float"]                    = FloatConverter
