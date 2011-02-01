@@ -344,8 +344,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                                                        self.nextarg()))
 
     def visit__ObjSpace(self, el):
-        if self.finger != 0:
+        if self.finger not in [0, 1]:
             raise FastFuncNotSupported
+        self.args.append('space')
         self.unwrap.append("space")
 
     def visit__W_Root(self, el):
@@ -391,7 +392,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
         unwrap_info.apply_over(unwrap_spec)
         narg = unwrap_info.n
-        args = ['space'] + unwrap_info.args
+        args = unwrap_info.args
+        if 'space' not in args:
+            args = ['space'] + args
         if args == unwrap_info.unwrap:
             fastfunc = func
         else:
@@ -528,8 +531,12 @@ class BuiltinCode(eval.Code):
                     self.__class__ = BuiltinCodePassThroughArguments1
                     self.func__args__ = func
             else:
-                self.__class__ = globals()['BuiltinCode%d' % arity]
-                setattr(self, 'fastfunc_%d' % arity, fastfunc)
+                if len(unwrap_spec) >= 2 and unwrap_spec[1] is ObjSpace:
+                    self.__class__ = globals()['BuiltinCodeSpace%d' % arity]
+                    setattr(self, 'fastfunc_space_%d' % arity, fastfunc)
+                else:
+                    self.__class__ = globals()['BuiltinCode%d' % arity]
+                    setattr(self, 'fastfunc_%d' % arity, fastfunc)
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -717,6 +724,78 @@ class BuiltinCode4(BuiltinCode):
             w_result = space.w_None
         return w_result
 
+class BuiltinCodeSpace1(BuiltinCode1):
+    _immutable_ = True
+    fast_natural_arity = 1
+    
+    def fastcall_1(self, space, w_func, w1):
+        try:
+            w_result = self.fastfunc_space_1(w1, space)
+        except DescrMismatch:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space, [w1]))
+        except Exception, e:
+            raise self.handle_exception(space, e)
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
+class BuiltinCodeSpace2(BuiltinCode2):
+    _immutable_ = True
+    fast_natural_arity = 2
+    
+    def fastcall_2(self, space, w_func, w1, w2):
+        try:
+            w_result = self.fastfunc_space_2(w1, space, w2)
+        except DescrMismatch:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space, [w1, w2]))
+        except Exception, e:
+            raise self.handle_exception(space, e)
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
+class BuiltinCodeSpace3(BuiltinCode3):
+    _immutable_ = True
+    fast_natural_arity = 3
+    
+    def fastcall_3(self, space, func, w1, w2, w3):
+        try:
+            w_result = self.fastfunc_space_3(w1, space, w2, w3)
+        except DescrMismatch:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space, [w1, w2, w3]))
+        except Exception, e:
+            raise self.handle_exception(space, e)
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
+class BuiltinCodeSpace4(BuiltinCode4):
+    _immutable_ = True
+    fast_natural_arity = 4
+    
+    def fastcall_4(self, space, func, w1, w2, w3, w4):
+        try:
+            w_result = self.fastfunc_space_4(w1, space, w2, w3, w4)
+        except DescrMismatch:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space,
+                                                     [w1, w2, w3, w4]))
+        except Exception, e:
+            raise self.handle_exception(space, e)
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
 
 class interp2app(Wrappable):
     """Build a gateway that calls 'f' at interp-level."""
