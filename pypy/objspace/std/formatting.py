@@ -548,5 +548,3 @@ def format_num_helper_generator(fmt, digits):
 int_num_helper = format_num_helper_generator('%d', '0123456789')
 oct_num_helper = format_num_helper_generator('%o', '01234567')
 hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef')
-
-
