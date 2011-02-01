@@ -964,6 +964,8 @@ class TestThread(object):
             ident3 = new_thread()
             ident4 = new_thread()
             ident5 = new_thread()
+            # wait for 4 more seconds, which should be plenty of time
+            time.sleep(4)
             keepalive_until_here(s)
 
         def entry_point(argv):
@@ -977,8 +979,6 @@ class TestThread(object):
             after()
             invoke_around_extcall(before, after)
             start_all_threads()
-            # wait for 4 more seconds, which should be plenty of time
-            time.sleep(4)
             # force freeing
             gc.collect()
             gc.collect()
