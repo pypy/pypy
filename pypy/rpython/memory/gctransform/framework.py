@@ -1451,7 +1451,7 @@ class ShadowStackRootWalker(BaseRootWalker):
             gcdata.active_thread = new_aid
 
         def collect_stack(aid, stacktop, callback):
-            if stacktop != llmemory.NULL and aid != get_aid():
+            if stacktop != llmemory.NULL and aid != gcdata.active_thread:
                 # collect all valid stacks from the dict (the entry
                 # corresponding to the current thread is not valid)
                 gc = self.gc
@@ -1463,6 +1463,8 @@ class ShadowStackRootWalker(BaseRootWalker):
                     addr += sizeofaddr
 
         def collect_more_stacks(callback):
+            ll_assert(get_aid() == gcdata.active_thread,
+                      "collect_more_stacks(): invalid active_thread")
             gcdata.thread_stacks.foreach(collect_stack, callback)
 
         def _free_if_not_current(aid, stacktop, _):

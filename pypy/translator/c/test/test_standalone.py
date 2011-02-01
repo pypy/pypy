@@ -832,6 +832,7 @@ class TestThread(object):
             ll_thread.release_NOAUTO(state.ll_lock)
         def after():
             ll_thread.acquire_NOAUTO(state.ll_lock, True)
+            ll_thread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -841,6 +842,7 @@ class TestThread(object):
         def bootstrap():
             state.xlist.append(Cons(123, Cons(456, None)))
             gc.collect()
+            ll_thread.gc_thread_die()
 
         def entry_point(argv):
             os.write(1, "hello world\n")
@@ -850,13 +852,18 @@ class TestThread(object):
             state.ll_lock = ll_thread.allocate_ll_lock()
             after()
             invoke_around_extcall(before, after)
+            ll_thread.gc_thread_prepare()
             ident1 = ll_thread.start_new_thread(bootstrap, ())
+            ll_thread.gc_thread_prepare()
             ident2 = ll_thread.start_new_thread(bootstrap, ())
             #
             gc.collect()
             #
+            ll_thread.gc_thread_prepare()
             ident3 = ll_thread.start_new_thread(bootstrap, ())
+            ll_thread.gc_thread_prepare()
             ident4 = ll_thread.start_new_thread(bootstrap, ())
+            ll_thread.gc_thread_prepare()
             ident5 = ll_thread.start_new_thread(bootstrap, ())
             # wait for the 5 threads to finish
             while True:
