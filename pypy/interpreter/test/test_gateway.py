@@ -14,7 +14,7 @@ class FakeFunc(object):
         self.name = name
         self.defs_w = []
 
-class TestBuiltinCode(object): 
+class TestBuiltinCode: 
     def test_signature(self):
         def c(space, w_x, w_y, hello_w):
             pass
@@ -545,42 +545,7 @@ class TestGateway:
         """)
 
         assert space.is_true(w_res)
-        assert called == [w_app_f, w_app_f]
-
-    def test_interp2app_fastcall_method_space(self):
-        space = self.space
-        w = space.wrap
-        w_3 = w(3)
-
-        def f(w_self, space, w_x):
-            return w_x
-        app_f = gateway.interp2app_temp(f, unwrap_spec=[gateway.W_Root,
-                                                        gateway.ObjSpace,
-                                                        gateway.W_Root])
-        w_app_f = w(app_f)
-
-        # sanity
-        assert isinstance(w_app_f.code, gateway.BuiltinCode2)
-
-        called = []
-        fastcall_2 = w_app_f.code.fastcall_2
-        def witness_fastcall_2(space, w_func, w_a, w_b):
-            called.append(w_func)
-            return fastcall_2(space, w_func, w_a, w_b)
-
-        w_app_f.code.fastcall_2 = witness_fastcall_2    
-    
-        w_res = space.appexec([w_app_f, w_3], """(f, x):
-        class A(object):
-           m = f # not a builtin function, so works as method
-        y = A().m(x)
-        b = A().m
-        z = b(x)
-        return y is x and z is x
-        """)
-
-        assert space.is_true(w_res)
-        assert called == [w_app_f, w_app_f]        
+        assert called == [w_app_f, w_app_f]       
         
     def test_plain(self):
         space = self.space
