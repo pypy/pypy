@@ -367,9 +367,8 @@ class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
     enabled = True
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        self.enabled = True
-        return self
+    def clone_for_next_iteration(self, optimizer, valuemap):
+        return OptString()
     
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)

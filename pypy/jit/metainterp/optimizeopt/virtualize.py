@@ -252,8 +252,8 @@ class VArrayValue(AbstractVirtualValue):
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
+    def clone_for_next_iteration(self, optimizer, valuemap):
+        return OptVirtualize()
 
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer, known_class, box, source_op)

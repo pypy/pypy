@@ -27,15 +27,19 @@ class OptValue(object):
     __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound')
     last_guard_index = -1
-    #start_index = -1
 
     level = LEVEL_UNKNOWN
     known_class = None
     intbound = None
 
-    def __init__(self, box):
+    def __init__(self, box, level=None, known_class=None, intbound=None):
         self.box = box
-        self.intbound = IntBound(MININT, MAXINT) #IntUnbounded()
+        self.level = level
+        self.known_class = known_class
+        if intbound:
+            self.intbound = intbound
+        else:
+            self.intbound = IntBound(MININT, MAXINT) #IntUnbounded()
         if isinstance(box, Const):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
@@ -55,13 +59,17 @@ class OptValue(object):
     def get_reconstructed(self, optimizer, valuemap):
         if self in valuemap:
             return valuemap[self]
-        new = self.reconstruct_for_next_iteration(optimizer)
+        new = self.clone_for_next_iteration(optimizer)
+        assert new.__class__ == self.__class__
         valuemap[self] = new
         self.reconstruct_childs(new, valuemap)
         return new
 
-    def reconstruct_for_next_iteration(self, optimizer):
-        return self
+    def clone_for_next_iteration(self, optimizer):
+        # last_guard_index should not be propagated here as the list into
+        # which it is an index is cleared
+        return OptValue(self.box, self.level, self.known_class,
+                        self.intbound.clone())
 
     def reconstruct_childs(self, new, valuemap):
         pass
@@ -224,8 +232,7 @@ class Optimization(object):
     def turned_constant(self, value):
         pass
 
-    def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
-        #return self.__class__()
+    def clone_for_next_iteration(self, optimizer=None, valuemap=None):
         raise NotImplementedError
     
 
@@ -304,31 +311,39 @@ class Optimizer(Optimization):
         for o in self.optimizations:
             o.force_at_end_of_preamble()
             
-    def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
+    def clone_for_next_iteration(self, optimizer=None, valuemap=None):
         assert optimizer is None
         assert valuemap is None
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
-        optimizations = [o.reconstruct_for_next_iteration(new, valuemap) for o in 
+        new.values = {}
+        optimizations = [o.clone_for_next_iteration(new, valuemap) for o in 
                          self.optimizations]
         new.set_optimizations(optimizations)
 
-        new.values = {}
-        for box, value in self.values.items():
-            new.values[box] = value.get_reconstructed(new, valuemap)
-        new.interned_refs = self.interned_refs
-        new.bool_boxes = {}
-        for value in new.bool_boxes.keys():
-            new.bool_boxes[value.get_reconstructed(new, valuemap)] = None
+        # FIXME: new.interned_refs = self.interned_refs
+        # FIXME:
+        #new.bool_boxes = {}
+        #for value in new.bool_boxes.keys():
+        #    new.bool_boxes[value.get_reconstructed(new, valuemap)] = None
 
         # FIXME: Move to rewrite.py
         new.loop_invariant_results = {}
         for key, value in self.loop_invariant_results.items():
             new.loop_invariant_results[key] = \
                                  value.get_reconstructed(new, valuemap)
+
+        for args, op in self.pure_operations.items():
+            newargs = args[:]
+            for i in range(len(newargs)):
+                if isinstance(newargs[i], OptValue):
+                    newargs[i] = newargs[i].get_reconstructed(new, valuemap)
+            v = self.getvalue(op.result)
+            new.values[op.result] = v.get_reconstructed(new, valuemap)
+            new.pure_operations[newargs] = op
+            # FIXME: This will not work for ops with mutable descr
             
-        new.pure_operations = self.pure_operations
-        new.producer = self.producer
+        # FIXME: Any point in propagating these? new.producer = self.producer
         assert self.posponedop is None
 
         return new
@@ -539,14 +554,15 @@ class Optimizer(Optimization):
                 # all constant arguments: constant-fold away
                 argboxes = [self.get_constant_box(op.getarg(i))
                             for i in range(op.numargs())]
-                resbox = execute_nonspec(self.cpu, None,
-                                         op.getopnum(), argboxes, op.getdescr())
+                resbox = execute_nonspec(self.cpu, None, op.getopnum(),
+                                         argboxes, op.getdescr())
                 # FIXME: Don't we need to check for an overflow here?
                 self.make_constant(op.result, resbox.constbox())
                 return
 
             # did we do the exact same operation already?
             args = self.make_args_key(op)
+            
             oldop = self.pure_operations.get(args, None)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 assert oldop.getopnum() == op.getopnum()

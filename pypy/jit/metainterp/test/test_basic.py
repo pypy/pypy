@@ -403,6 +403,26 @@ class BasicTests:
                           'jump': 2,
                           'int_gt': 1, 'guard_true': 1})
 
+    def test_loop_invariant_mul_bridge_maintaining3(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                if y<16:
+                    res += 1
+                res += x * x
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32])
+        assert res == 1167
+        self.check_loop_count(3)
+        self.check_loops({'int_add': 3, 'int_lt': 1,
+                          'int_sub': 2, 'guard_false': 1,
+                          'jump': 2,
+                          'int_gt': 1, 'guard_true': 1})
+
     def test_loop_invariant_intbox(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         class I:

@@ -24,8 +24,10 @@ class OptHeap(Optimization):
         self.lazy_setfields = {}
         self.lazy_setfields_descrs = []     # keys (at least) of previous dict
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def clone_for_next_iteration(self, optimizer, valuemap):
         new = OptHeap()
+        return new
+        # FIXME:
 
         if True:
             self.force_all_lazy_setfields()
