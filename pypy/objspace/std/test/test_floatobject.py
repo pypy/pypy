@@ -170,21 +170,23 @@ class AppTestAppFloatTest:
 
     def test_special_float_method(self):
         class a(object):
-            def __float__(self): 
-                self.ar = True 
+            def __float__(self):
+                self.ar = True
                 return None
         inst = a()
-        raises(TypeError, float, inst) 
-        assert inst.ar 
+        raises(TypeError, float, inst)
+        assert inst.ar
 
-        class b(object): 
-            pass 
-        raises((AttributeError, TypeError), float, b()) 
+        class b(object):
+            pass
+        raises((AttributeError, TypeError), float, b())
 
     def test_getnewargs(self):
         assert  0.0 .__getnewargs__() == (0.0,)
 
     def test_pow(self):
+        import math
+
         def pw(x, y):
             return x ** y
         def espeq(x, y):
@@ -200,6 +202,8 @@ class AppTestAppFloatTest:
         assert pw(-1.0, 1e200) == 1.0
         if self.py26:
             assert pw(0.0, float("-inf")) == float("inf")
+            assert math.isnan(pw(-3, float("nan")))
+            assert math.isnan(pw(-3., float("nan")))
 
     def test_pow_neg_base(self):
         import math
