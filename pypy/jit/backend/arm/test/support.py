@@ -2,6 +2,16 @@ import os
 import py
 
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.jit.backend.detect_cpu import getcpuclass
+from pypy.jit.metainterp.test import test_basic
+from pypy.rlib.jit import JitDriver
+
+class JitARMMixin(test_basic.LLJitMixin):
+    type_system = 'lltype'
+    CPUClass = getcpuclass()
+
+    def check_jumps(self, maxcount):
+        pass
 
 if os.uname()[1] == 'llaima.local':
     AS = '~/Code/arm-jit/android/android-ndk-r4b//build/prebuilt/darwin-x86/arm-eabi-4.4.0/arm-eabi/bin/as'
