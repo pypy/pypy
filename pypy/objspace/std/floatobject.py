@@ -425,7 +425,7 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
-        if math.isnan(y):
+        if isnan(y):
             return W_FloatObject(NAN)
         if math.floor(y) != y:
             raise OperationError(space.w_ValueError,
