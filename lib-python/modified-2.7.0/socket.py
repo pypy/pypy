@@ -157,11 +157,6 @@ if os.name == "nt":
 if sys.platform == "riscos":
     _socketmethods = _socketmethods + ('sleeptaskw',)
 
-# All the method names that must be delegated to either the real socket
-# object or the _closedsocket object.
-_delegate_methods = ("recv", "recvfrom", "recv_into", "recvfrom_into",
-                     "send", "sendto")
-
 class _closedsocket(object):
     __slots__ = []
     def _dummy(*args):
@@ -178,25 +173,43 @@ class _socketobject(object):
 
     __doc__ = _realsocket.__doc__
 
-    __slots__ = ["_sock", "__weakref__", "_io_refs", "_closed"
-                 ] + list(_delegate_methods)
-
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, _sock=None):
         if _sock is None:
             _sock = _realsocket(family, type, proto)
         self._sock = _sock
         self._io_refs = 0
         self._closed = False
-        for method in _delegate_methods:
-            setattr(self, method, getattr(_sock, method))
 
-    def close(self, _closedsocket=_closedsocket,
-              _delegate_methods=_delegate_methods, setattr=setattr):
+    def send(self, data, flags=0):
+        return self._sock.send(data, flags=flags)
+    send.__doc__ = _realsocket.send.__doc__
+
+    def recv(self, buffersize, flags=0):
+        return self._sock.recv(buffersize, flags=flags)
+    recv.__doc__ = _realsocket.recv.__doc__
+
+    def recv_into(self, buffer, nbytes=0, flags=0):
+        return self._sock.recv_into(buffer, nbytes=nbytes, flags=flags)
+    recv_into.__doc__ = _realsocket.recv_into.__doc__
+
+    def recvfrom(self, buffersize, flags=0):
+        return self._sock.recvfrom(buffersize, flags=flags)
+    recvfrom.__doc__ = _realsocket.recvfrom.__doc__
+
+    def recvfrom_into(self, buffer, nbytes=0, flags=0):
+        return self._sock.recvfrom_into(buffer, nbytes=nbytes, flags=flags)
+    recvfrom_into.__doc__ = _realsocket.recvfrom_into.__doc__
+
+    def sendto(self, data, param2, param3=None):
+        if param3 is None:
+            return self._sock.sendto(data, param2)
+        else:
+            return self._sock.sendto(data, param2, param3)
+    sendto.__doc__ = _realsocket.sendto.__doc__
+
+    def close(self):
         # This function should not reference any globals. See issue #808164.
         self._sock = _closedsocket()
-        dummy = self._sock._dummy
-        for method in _delegate_methods:
-            setattr(self, method, dummy)
     close.__doc__ = _realsocket.close.__doc__
 
     def accept(self):
