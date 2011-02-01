@@ -1,6 +1,7 @@
 import py
 import sys, os, re
 
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.debug import ll_assert, have_debug_prints
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
@@ -896,10 +897,10 @@ class TestThread(object):
 
 
     def test_thread_and_gc_with_fork(self):
-        # Ideally, it should test that memory allocated for the shadow
-        # stacks of the other threads is really released when doing a
-        # fork(), but it's hard.  Instead it's a "does not crash" kind
-        # of test.
+        # This checks that memory allocated for the shadow stacks of the
+        # other threads is really released when doing a fork() -- or at
+        # least that the object referenced from stacks that are no longer
+        # alive are really freed.
         import time, gc, os
         from pypy.module.thread import ll_thread
         from pypy.rlib.objectmodel import invoke_around_extcall
@@ -923,12 +924,27 @@ class TestThread(object):
                 self.head = head
                 self.tail = tail
 
-        def bootstrap():
+        class Stuff:
+            def __del__(self):
+                os.write(state.write_end, 'd')
+
+        def allocate_stuff():
+            s = Stuff()
+            os.write(state.write_end, 'a')
+            return s
+
+        def run_in_thread():
             for i in range(10):
                 state.xlist.append(Cons(123, Cons(456, None)))
                 time.sleep(0.01)
             childpid = os.fork()
+            return childpid
+
+        def bootstrap():
+            childpid = run_in_thread()
             gc.collect()        # collect both in the child and in the parent
+            gc.collect()
+            gc.collect()
             if childpid == 0:
                 os.write(state.write_end, 'c')   # "I did not die!" from child
             else:
@@ -941,22 +957,32 @@ class TestThread(object):
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
 
+        def start_all_threads():
+            s = allocate_stuff()
+            ident1 = new_thread()
+            ident2 = new_thread()
+            ident3 = new_thread()
+            ident4 = new_thread()
+            ident5 = new_thread()
+            keepalive_until_here(s)
+
         def entry_point(argv):
             os.write(1, "hello world\n")
             state.xlist = []
+            state.deleted = 0
             state.read_end, state.write_end = os.pipe()
             x2 = Cons(51, Cons(62, Cons(74, None)))
             # start 5 new threads
             state.ll_lock = ll_thread.allocate_ll_lock()
             after()
             invoke_around_extcall(before, after)
-            ident1 = new_thread()
-            ident2 = new_thread()
-            ident3 = new_thread()
-            ident4 = new_thread()
-            ident5 = new_thread()
+            start_all_threads()
             # wait for 4 more seconds, which should be plenty of time
             time.sleep(4)
+            # force freeing
+            gc.collect()
+            gc.collect()
+            gc.collect()
             # return everything that was written to the pipe so far,
             # followed by the final dot.
             os.write(state.write_end, '.')
@@ -972,6 +998,10 @@ class TestThread(object):
         assert footer.startswith('got: ')
         result = footer[5:]
         # check that all 5 threads and 5 forked processes
-        # finished successfully
-        assert (len(result) == 11 and result[10] == '.'
-                and result.count('c') == result.count('p') == 5)
+        # finished successfully, that we did 1 allocation,
+        # and that it was freed 6 times -- once in the parent
+        # process and once in every child process.
+        assert (result[-1] == '.'
+                and result.count('c') == result.count('p') == 5
+                and result.count('a') == 1
+                and result.count('d') == 6)
