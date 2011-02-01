@@ -5,7 +5,6 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.listsort import TimSort
@@ -26,7 +25,28 @@ def cast_from_void_star(wrapper, from_where=""):
 def get_strategy_from_list_objects(list_w):
     if list_w == []:
         return EmptyListStrategy()
+
+    # check for ints
+    for e in list_w:
+        if not is_W_IntObject(e):
+            break
+        if e is list_w[-1]:
+            return IntegerListStrategy()
+
+    # check for ints
+    for e in list_w:
+        if not is_W_StringObject(e):
+            break
+        if e is list_w[-1]:
+            return StringListStrategy()
+
     return ObjectListStrategy()
+
+def is_W_IntObject(w_object):
+    return str(w_object.__class__) == "<class 'pypy.objspace.std.intobject.W_IntObject'>"
+
+def is_W_StringObject(w_object):
+    return str(w_object.__class__) == "<class 'pypy.objspace.std.stringobject.W_StringObject'>"
 
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
@@ -47,10 +67,7 @@ class W_ListObject(W_Object):
         return list(items)
 
     def append(w_list, w_item):
-        w_list.wrappeditems.append(w_item)
-        if isinstance(w_list.strategy, EmptyListStrategy):
-            w_list.strategy = ObjectListStrategy()
-            w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
+        w_list.strategy.append(w_list, w_item)
 
     # ___________________________________________________
 
@@ -85,6 +102,9 @@ class ListStrategy(object):
     def getitems(self, w_list):
         raise NotImplementedError
 
+    def append(self, w_list, w_item):
+        raise NotImplementedError
+
 class EmptyListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
@@ -101,6 +121,19 @@ class EmptyListStrategy(ListStrategy):
 
     def getitems(self, w_list):
         return []
+
+    def append(self, w_list, w_item):
+        if is_W_IntObject(w_item):
+            w_list.strategy = IntegerListStrategy()
+
+        elif is_W_StringObject(w_item):
+            w_list.strategy = StringListStrategy()
+
+        else:
+            w_list.strategy = ObjectListStrategy()
+
+        w_list.wrappeditems.append(w_item)
+        w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
 
 class ObjectListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
@@ -124,6 +157,66 @@ class ObjectListStrategy(ListStrategy):
 
     def getitems(self, w_list):
         return cast_from_void_star(w_list.storage, "object")
+
+    def append(self,  w_list, w_item):
+        w_list.wrappeditems.append(w_item)
+        #list_w = cast_from_void_star(w_list.storage, 'object')
+        #list_w.append(w_item)
+        #w_list.storage = cast_to_void_star(list_w, 'object')
+
+class IntegerListStrategy(ListStrategy):
+
+    def init_from_list_w(self, w_list, list_w):
+        w_list.storage = cast_to_void_star(list_w, "integer")
+
+    def length(self, w_list):
+        return len(cast_from_void_star(w_list.storage, "integer"))
+
+    def getitem(self, w_list, index):
+        return cast_from_void_star(w_list.storage, "integer")[index]
+
+    def getslice(self, w_list, start, stop, step, length):
+        if step == 1:
+            return W_ListObject(cast_from_void_star(w_list.storage, "integer")[start:stop])
+        else:
+            subitems_w = [None] * length
+            for i in range(length):
+                subitems_w[i] = w_list.getitem(start)
+                start += step
+            return W_ListObject(subitems_w)
+
+    def getitems(self, w_list):
+        return cast_from_void_star(w_list.storage, "integer")
+
+    def append(self,  w_list, w_item):
+        w_list.wrappeditems.append(w_item)
+
+class StringListStrategy(ListStrategy):
+
+    def init_from_list_w(self, w_list, list_w):
+        w_list.storage = cast_to_void_star(list_w, "string")
+
+    def length(self, w_list):
+        return len(cast_from_void_star(w_list.storage, "string"))
+
+    def getitem(self, w_list, index):
+        return cast_from_void_star(w_list.storage, "string")[index]
+
+    def getslice(self, w_list, start, stop, step, length):
+        if step == 1:
+            return W_ListObject(cast_from_void_star(w_list.storage, "string")[start:stop])
+        else:
+            subitems_w = [None] * length
+            for i in range(length):
+                subitems_w[i] = w_list.getitem(start)
+                start += step
+            return W_ListObject(subitems_w)
+
+    def getitems(self, w_list):
+        return cast_from_void_star(w_list.storage, "string")
+
+    def append(self, w_list, w_item):
+        w_list.wrappeditems.append(w_item)
 
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
