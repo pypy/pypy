@@ -22,12 +22,18 @@ def cast_from_void_star(wrapper, from_where=""):
     assert wrapper._from_where == from_where
     return wrapper._content
 
+# don't know where to put this function, so it is global for now
+def get_strategy_from_list_objects(list_w):
+    if list_w == []:
+        return EmptyListStrategy()
+    return ObjectListStrategy()
+
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
     def __init__(w_self, wrappeditems):
         assert isinstance(wrappeditems, list)
-        w_self.strategy = ObjectListStrategy()
+        w_self.strategy = get_strategy_from_list_objects(wrappeditems)
         w_self.strategy.init_from_list_w(w_self, wrappeditems)
         w_self.wrappeditems = wrappeditems
 
