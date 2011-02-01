@@ -105,6 +105,7 @@ class AppTestDATATYPES:
             for i in range(self.N):
                 assert eval('c.m_%s_array[i]' % names[j]) == b[i]
 
+# TODO: be able to dissect array.array for its pointers
 #            exec 'c.m_%s_array2 = b' % names[j]  # pointer copies
 #            b[i] = 28
 #            for i in range(self.N):
@@ -125,3 +126,20 @@ class AppTestDATATYPES:
         raises(ValueError, setattr, c, 'm_ulong', -1)
 
         c.destruct()
+
+    def test4TypeConversions(self):
+        """Test conversions between builtin types"""
+
+        import cppyy, sys
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+
+        c.m_double = -1
+        assert round(c.m_double + 1.0, 8) == 0
+
+        raises(TypeError, c.m_double,  'c')
+        raises(TypeError, c.m_int,     -1.)
+        raises(TypeError, c.m_int,      1.)
