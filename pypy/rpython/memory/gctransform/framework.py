@@ -1406,6 +1406,9 @@ class ShadowStackRootWalker(BaseRootWalker):
             occur in this thread.
             """
             aid = get_aid()
+            if aid == gcdata.main_thread:
+                return   # ignore calls to thread_die() in the main thread
+                         # (which can occur after a fork()).
             gcdata.thread_stacks.setitem(aid, llmemory.NULL)
             old = gcdata.root_stack_base
             if gcdata._fresh_rootstack == llmemory.NULL:
@@ -1486,7 +1489,9 @@ class ShadowStackRootWalker(BaseRootWalker):
                 # the next call to save_away_current_stack()).
                 gcdata.thread_stacks.clear()
                 # Finally, reset the stored thread IDs, in case it
-                # changed because of fork().
+                # changed because of fork().  Also change the main
+                # thread to the current one (because there is not any
+                # other left).
                 aid = get_aid()
                 gcdata.main_thread = aid
                 gcdata.active_thread = aid
