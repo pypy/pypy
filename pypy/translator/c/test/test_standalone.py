@@ -844,6 +844,12 @@ class TestThread(object):
             gc.collect()
             ll_thread.gc_thread_die()
 
+        def new_thread():
+            ll_thread.gc_thread_prepare()
+            ident = ll_thread.start_new_thread(bootstrap, ())
+            time.sleep(0.5)    # enough time to start, hopefully
+            return ident
+
         def entry_point(argv):
             os.write(1, "hello world\n")
             state.xlist = []
@@ -852,19 +858,14 @@ class TestThread(object):
             state.ll_lock = ll_thread.allocate_ll_lock()
             after()
             invoke_around_extcall(before, after)
-            ll_thread.gc_thread_prepare()
-            ident1 = ll_thread.start_new_thread(bootstrap, ())
-            ll_thread.gc_thread_prepare()
-            ident2 = ll_thread.start_new_thread(bootstrap, ())
+            ident1 = new_thread()
+            ident2 = new_thread()
             #
             gc.collect()
             #
-            ll_thread.gc_thread_prepare()
-            ident3 = ll_thread.start_new_thread(bootstrap, ())
-            ll_thread.gc_thread_prepare()
-            ident4 = ll_thread.start_new_thread(bootstrap, ())
-            ll_thread.gc_thread_prepare()
-            ident5 = ll_thread.start_new_thread(bootstrap, ())
+            ident3 = new_thread()
+            ident4 = new_thread()
+            ident5 = new_thread()
             # wait for the 5 threads to finish
             while True:
                 gc.collect()
@@ -892,3 +893,85 @@ class TestThread(object):
                                      '3 ok',
                                      '4 ok',
                                      '5 ok']
+
+
+    def test_thread_and_gc_with_fork(self):
+        # Ideally, it should test that memory allocated for the shadow
+        # stacks of the other threads is really released when doing a
+        # fork(), but it's hard.  Instead it's a "does not crash" kind
+        # of test.
+        import time, gc, os
+        from pypy.module.thread import ll_thread
+        from pypy.rlib.objectmodel import invoke_around_extcall
+        if not hasattr(os, 'fork'):
+            py.test.skip("requires fork()")
+
+        class State:
+            pass
+        state = State()
+
+        def before():
+            ll_assert(not ll_thread.acquire_NOAUTO(state.ll_lock, False),
+                      "lock not held!")
+            ll_thread.release_NOAUTO(state.ll_lock)
+        def after():
+            ll_thread.acquire_NOAUTO(state.ll_lock, True)
+            ll_thread.gc_thread_run()
+
+        class Cons:
+            def __init__(self, head, tail):
+                self.head = head
+                self.tail = tail
+
+        def bootstrap():
+            for i in range(10):
+                state.xlist.append(Cons(123, Cons(456, None)))
+                time.sleep(0.01)
+            childpid = os.fork()
+            gc.collect()        # collect both in the child and in the parent
+            if childpid == 0:
+                os.write(state.write_end, 'c')   # "I did not die!" from child
+            else:
+                os.write(state.write_end, 'p')   # "I did not die!" from parent
+            ll_thread.gc_thread_die()
+
+        def new_thread():
+            ll_thread.gc_thread_prepare()
+            ident = ll_thread.start_new_thread(bootstrap, ())
+            time.sleep(0.5)    # enough time to start, hopefully
+            return ident
+
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            state.xlist = []
+            state.read_end, state.write_end = os.pipe()
+            x2 = Cons(51, Cons(62, Cons(74, None)))
+            # start 5 new threads
+            state.ll_lock = ll_thread.allocate_ll_lock()
+            after()
+            invoke_around_extcall(before, after)
+            ident1 = new_thread()
+            ident2 = new_thread()
+            ident3 = new_thread()
+            ident4 = new_thread()
+            ident5 = new_thread()
+            # wait for 4 more seconds, which should be plenty of time
+            time.sleep(4)
+            # return everything that was written to the pipe so far,
+            # followed by the final dot.
+            os.write(state.write_end, '.')
+            result = os.read(state.read_end, 256)
+            os.write(1, "got: %s\n" % result)
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('')
+        print repr(data)
+        header, footer = data.splitlines()
+        assert header == 'hello world'
+        assert footer.startswith('got: ')
+        result = footer[5:]
+        # check that all 5 threads and 5 forked processes
+        # finished successfully
+        assert (len(result) == 11 and result[10] == '.'
+                and result.count('c') == result.count('p') == 5)
