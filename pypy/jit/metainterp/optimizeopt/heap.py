@@ -44,7 +44,7 @@ class OptHeap(Optimization):
             for value, fieldvalue in d.items():
                 newd[value.get_reconstructed(optimizer, valuemap)] = \
                              fieldvalue.get_reconstructed(optimizer, valuemap)
-
+        
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():
             newd = {}
