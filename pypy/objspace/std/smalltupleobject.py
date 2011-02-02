@@ -111,5 +111,18 @@ def eq__SmallTuple_SmallTuple(space, w_tuple1, w_tuple2):
             return space.w_False
     return space.w_True
 
+def hash__SmallTuple(space, w_tuple):
+    # this is the CPython 2.4 algorithm (changed from 2.3)
+    mult = 1000003
+    x = 0x345678
+    z = w_tuple.length()
+    for w_item in w_tuple.tolist():     #XXX: remove list and run through items directly, later
+        y = space.int_w(space.hash(w_item))
+        x = (x ^ y) * mult
+        z -= 1
+        mult += 82520 + z + z
+    x += 97531
+    return space.wrap(intmask(x))
+
 from pypy.objspace.std import tupletype
 register_all(vars(), tupletype)

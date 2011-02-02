@@ -43,6 +43,11 @@ class AppTestW_SmallTupleObject(AppTestW_TupleObject):
         b = (1,2,3)
         assert a == b
 
+    def test_hash(self):
+        a = (1,2,3)
+        b = (1,2,3)
+        assert hash(a) == hash(b)
+
 class TestW_SmallTupleObject():
 
     def setup_class(cls):
