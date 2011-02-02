@@ -353,8 +353,17 @@ class Optimizer(Optimization):
 
         assert self.posponedop is None
 
+        for value in valuemap.values():
+            box = value.get_key_box()
+            assert box is new.getinterned(box)
+            try:
+                assert new.values[box] == value
+            except KeyError:
+                new.values[box] = value
+            
         for box in surviving_boxes:
             v = self.getvalue(box)
+            box = new.getinterned(box)
             new.values[box] = v.get_reconstructed(new, valuemap)
 
         return new
