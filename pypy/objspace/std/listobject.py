@@ -160,9 +160,6 @@ class ObjectListStrategy(ListStrategy):
 
     def append(self,  w_list, w_item):
         w_list.wrappeditems.append(w_item)
-        #list_w = cast_from_void_star(w_list.storage, 'object')
-        #list_w.append(w_item)
-        #w_list.storage = cast_to_void_star(list_w, 'object')
 
 class IntegerListStrategy(ListStrategy):
 
@@ -191,6 +188,12 @@ class IntegerListStrategy(ListStrategy):
     def append(self,  w_list, w_item):
         w_list.wrappeditems.append(w_item)
 
+        if is_W_IntObject(w_item):
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
+
 class StringListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
@@ -217,6 +220,12 @@ class StringListStrategy(ListStrategy):
 
     def append(self, w_list, w_item):
         w_list.wrappeditems.append(w_item)
+
+        if is_W_StringObject(w_item):
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
 
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]

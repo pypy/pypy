@@ -24,3 +24,22 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, EmptyListStrategy)
         l.append(self.space.wrap('a'))
         assert isinstance(l.strategy, StringListStrategy)
+
+    def test_int_to_any(self):
+        l = W_ListObject([self.space.wrap(1),self.space.wrap(2),self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.append(self.space.wrap(4))
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.append(self.space.wrap('a'))
+        assert isinstance(l.strategy, ObjectListStrategy)
+
+    def test_string_to_any(self):
+        l = W_ListObject([self.space.wrap('a'),self.space.wrap('b'),self.space.wrap('c')])
+        assert isinstance(l.strategy, StringListStrategy)
+        l.append(self.space.wrap('d'))
+        assert isinstance(l.strategy, StringListStrategy)
+        l.append(self.space.wrap(3))
+        assert isinstance(l.strategy, ObjectListStrategy)
+
+
+
