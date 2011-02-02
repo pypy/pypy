@@ -239,13 +239,19 @@ class PositionCookie(object):
     def __init__(self, bigint):
         self.start_pos = bigint.ulonglongmask()
         bigint = bigint.rshift(r_ulonglong.BITS)
-        self.dec_flags = intmask(bigint.uintmask())
+        x = intmask(bigint.uintmask())
+        assert x >= 0
+        self.dec_flags = x
         bigint = bigint.rshift(r_uint.BITS)
-        self.bytes_to_feed = intmask(bigint.uintmask())
+        x = intmask(bigint.uintmask())
+        assert x >= 0
+        self.bytes_to_feed = x
         bigint = bigint.rshift(r_uint.BITS)
-        self.chars_to_skip = intmask(bigint.uintmask())
+        x = intmask(bigint.uintmask())
+        assert x >= 0
+        self.chars_to_skip = x
         bigint = bigint.rshift(r_uint.BITS)
-        self.need_eof = int(bigint.uintmask())
+        self.need_eof = bigint.tobool()
 
     def pack(self):
         # The meaning of a tell() cookie is: seek to position, set the
