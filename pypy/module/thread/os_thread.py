@@ -83,6 +83,7 @@ class Bootstrapper(object):
         # Note that when this runs, we already hold the GIL.  This is ensured
         # by rffi's callback mecanism: we are a callback for the
         # c_thread_start() external function.
+        thread.gc_thread_start()
         space = bootstrapper.space
         w_callable = bootstrapper.w_callable
         args = bootstrapper.args

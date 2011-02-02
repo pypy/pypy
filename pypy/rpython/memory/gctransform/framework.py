@@ -955,10 +955,31 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(self.root_walker, 'thread_run_ptr'):
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
 
+    def gct_gc_thread_start(self, hop):
+        assert self.translator.config.translation.thread
+        if hasattr(self.root_walker, 'thread_start_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_start_ptr])
+
     def gct_gc_thread_die(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_die_ptr'):
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
+
+    def gct_gc_thread_before_fork(self, hop):
+        assert self.translator.config.translation.thread
+        if hasattr(self.root_walker, 'thread_before_fork_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_before_fork_ptr],
+                      resultvar=hop.spaceop.result)
+        else:
+            c_null = rmodel.inputconst(llmemory.Address, llmemory.NULL)
+            hop.genop("same_as", [c_null],
+                      resultvar=hop.spaceop.result)
+
+    def gct_gc_thread_after_fork(self, hop):
+        assert self.translator.config.translation.thread
+        if hasattr(self.root_walker, 'thread_after_fork_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_after_fork_ptr]
+                                     + hop.spaceop.args)
 
     def gct_gc_get_type_info_group(self, hop):
         return hop.cast_result(self.c_type_info_group)
@@ -1242,6 +1263,7 @@ sizeofaddr = llmemory.sizeof(llmemory.Address)
 
 class BaseRootWalker(object):
     need_root_stack = False
+    thread_setup = None
 
     def __init__(self, gctransformer):
         self.gcdata = gctransformer.gcdata
@@ -1251,7 +1273,8 @@ class BaseRootWalker(object):
         return True
 
     def setup_root_walker(self):
-        pass
+        if self.thread_setup is not None:
+            self.thread_setup()
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
@@ -1284,7 +1307,6 @@ class BaseRootWalker(object):
 
 class ShadowStackRootWalker(BaseRootWalker):
     need_root_stack = True
-    thread_setup = None
     collect_stacks_from_other_threads = None
 
     def __init__(self, gctransformer):
@@ -1324,8 +1346,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         ll_assert(bool(stackbase), "could not allocate root stack")
         self.gcdata.root_stack_top  = stackbase
         self.gcdata.root_stack_base = stackbase
-        if self.thread_setup is not None:
-            self.thread_setup()
+        BaseRootWalker.setup_root_walker(self)
 
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
@@ -1390,6 +1411,9 @@ class ShadowStackRootWalker(BaseRootWalker):
             occur in this thread.
             """
             aid = get_aid()
+            if aid == gcdata.main_thread:
+                return   # ignore calls to thread_die() in the main thread
+                         # (which can occur after a fork()).
             gcdata.thread_stacks.setitem(aid, llmemory.NULL)
             old = gcdata.root_stack_base
             if gcdata._fresh_rootstack == llmemory.NULL:
@@ -1435,7 +1459,7 @@ class ShadowStackRootWalker(BaseRootWalker):
             gcdata.active_thread = new_aid
 
         def collect_stack(aid, stacktop, callback):
-            if stacktop != llmemory.NULL and aid != get_aid():
+            if stacktop != llmemory.NULL and aid != gcdata.active_thread:
                 # collect all valid stacks from the dict (the entry
                 # corresponding to the current thread is not valid)
                 gc = self.gc
@@ -1447,11 +1471,45 @@ class ShadowStackRootWalker(BaseRootWalker):
                     addr += sizeofaddr
 
         def collect_more_stacks(callback):
+            ll_assert(get_aid() == gcdata.active_thread,
+                      "collect_more_stacks(): invalid active_thread")
             gcdata.thread_stacks.foreach(collect_stack, callback)
+
+        def _free_if_not_current(aid, stacktop, _):
+            if stacktop != llmemory.NULL and aid != gcdata.active_thread:
+                end = stacktop - sizeofaddr
+                base = end.address[0]
+                llmemory.raw_free(base)
+
+        def thread_after_fork(result_of_fork, opaqueaddr):
+            # we don't need a thread_before_fork in this case, so
+            # opaqueaddr == NULL.  This is called after fork().
+            if result_of_fork == 0:
+                # We are in the child process.  Assumes that only the
+                # current thread survived, so frees the shadow stacks
+                # of all the other ones.
+                gcdata.thread_stacks.foreach(_free_if_not_current, None)
+                # Clears the dict (including the current thread, which
+                # was an invalid entry anyway and will be recreated by
+                # the next call to save_away_current_stack()).
+                gcdata.thread_stacks.clear()
+                # Finally, reset the stored thread IDs, in case it
+                # changed because of fork().  Also change the main
+                # thread to the current one (because there is not any
+                # other left).
+                aid = get_aid()
+                gcdata.main_thread = aid
+                gcdata.active_thread = aid
 
         self.thread_setup = thread_setup
         self.thread_prepare_ptr = getfn(thread_prepare, [], annmodel.s_None)
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
                                     inline=True)
+        # no thread_start_ptr here
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None)
+        # no thread_before_fork_ptr here
+        self.thread_after_fork_ptr = getfn(thread_after_fork,
+                                           [annmodel.SomeInteger(),
+                                            annmodel.SomeAddress()],
+                                           annmodel.s_None)
         self.collect_stacks_from_other_threads = collect_more_stacks
