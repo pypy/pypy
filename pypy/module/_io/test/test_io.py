@@ -261,7 +261,7 @@ class AppTestOpen:
             assert f._CHUNK_SIZE == 4096
             raises(ValueError, setattr, f, "_CHUNK_SIZE", 0)
 
-    def test_multi_line(self):
+    def test_truncate(self):
         import _io
 
         with _io.open(self.tmpfile, "w+") as f:
