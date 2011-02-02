@@ -146,6 +146,10 @@ class W_StringIO(W_TextIOBase):
     def closed_get_w(space, self):
         return space.wrap(self.buf is None)
 
+    def line_buffering_get_w(space, self):
+        self._check_closed(self)
+        return space.w_False
+
 W_StringIO.typedef = TypeDef(
     'StringIO', W_TextIOBase.typedef,
     __module__ = "_io",
@@ -161,4 +165,5 @@ W_StringIO.typedef = TypeDef(
     seekable = interp2app(W_StringIO.seekable_w),
     close = interp2app(W_StringIO.close_w),
     closed = GetSetProperty(W_StringIO.closed_get_w),
+    line_buffering = GetSetProperty(W_StringIO.line_buffering_get_w),
 )

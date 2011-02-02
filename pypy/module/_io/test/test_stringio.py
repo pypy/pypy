@@ -16,6 +16,7 @@ class AppTestStringIO:
         assert sio.seekable()
         assert not sio.isatty()
         assert not sio.closed
+        assert not sio.line_buffering
         sio.close()
         assert sio.readable()
         assert sio.writable()
