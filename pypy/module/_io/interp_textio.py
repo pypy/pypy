@@ -5,7 +5,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.rarithmetic import r_ulonglong
+from pypy.rlib.rarithmetic import intmask, r_ulonglong, r_uint
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rstring import UnicodeBuilder
 from pypy.module._codecs import interp_codecs
@@ -239,13 +239,13 @@ class PositionCookie(object):
     def __init__(self, bigint):
         self.start_pos = bigint.ulonglongmask()
         bigint = bigint.rshift(r_ulonglong.BITS)
-        self.dec_flags = bigint.ulonglongmask()
-        bigint = bigint.rshift(r_ulonglong.BITS)
-        self.bytes_to_feed = bigint.ulonglongmask()
-        bigint = bigint.rshift(r_ulonglong.BITS)
-        self.chars_to_skip = bigint.ulonglongmask()
-        bigint = bigint.rshift(r_ulonglong.BITS)
-        self.need_eof = bigint.ulonglongmask()
+        self.dec_flags = intmask(bigint.uintmask())
+        bigint = bigint.rshift(r_uint.BITS)
+        self.bytes_to_feed = intmask(bigint.uintmask())
+        bigint = bigint.rshift(r_uint.BITS)
+        self.chars_to_skip = intmask(bigint.uintmask())
+        bigint = bigint.rshift(r_uint.BITS)
+        self.need_eof = int(bigint.uintmask())
 
     def pack(self):
         # The meaning of a tell() cookie is: seek to position, set the
@@ -256,10 +256,14 @@ class PositionCookie(object):
         rb = rbigint.fromrarith_int
 
         res = rb(self.start_pos)
-        res = res.or_(rb(self.dec_flags).lshift(1 * r_ulonglong.BITS))
-        res = res.or_(rb(self.bytes_to_feed).lshift(2 * r_ulonglong.BITS))
-        res = res.or_(rb(self.chars_to_skip).lshift(3 * r_ulonglong.BITS))
-        return res.or_(rb(self.need_eof).lshift(4 * r_ulonglong.BITS))
+        bits = r_ulonglong.BITS
+        res = res.or_(rb(r_uint(self.dec_flags)).lshift(bits))
+        bits += r_uint.BITS
+        res = res.or_(rb(r_uint(self.bytes_to_feed)).lshift(bits))
+        bits += r_uint.BITS
+        res = res.or_(rb(r_uint(self.chars_to_skip)).lshift(bits))
+        bits += r_uint.BITS
+        return res.or_(rb(r_uint(self.need_eof)).lshift(bits))
 
 class PositionSnapshot:
     def __init__(self, flags, input):
