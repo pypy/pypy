@@ -253,7 +253,7 @@ class PositionCookie(object):
         # into the decoder with need_eof as the EOF flag, then skip
         # chars_to_skip characters of the decoded result.  For most simple
         # decoders, tell() will often just give a byte offset in the file.
-        rb = rbigint.fromint
+        rb = rbigint.fromrarith_int
 
         res = rb(self.start_pos)
         res = res.or_(rb(self.dec_flags).lshift(1 * r_ulonglong.BITS))
