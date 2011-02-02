@@ -394,6 +394,50 @@ class VirtualTests:
         #    ENTER             - compile the leaving path
         self.check_enter_count(2)
 
+    def test_constant_virtual1(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node'])
+        def f(n):
+            node = self._new()
+            node.value = 1
+            sa = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, sa=sa, node=node)
+                myjitdriver.jit_merge_point(n=n, sa=sa, node=node)
+                if n>20:
+                    next = self._new()
+                    next.value = 2
+                    node = next
+                elif n>10:
+                    next = self._new()
+                    next.value = 3
+                    node = next
+                sa += node.value
+                n -= 1
+            return sa
+        assert self.meta_interp(f, [30]) == f(30)
+        
+    def test_constant_virtual2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node'])
+        def f(n):
+            node = self._new()
+            node.value = 1
+            sa = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, sa=sa, node=node)
+                myjitdriver.jit_merge_point(n=n, sa=sa, node=node)
+                sa += node.value
+                if n&15 > 7:
+                    next = self._new()
+                    next.value = 2
+                    node = next
+                else:
+                    next = self._new()
+                    next.value = 3
+                    node = next
+                n -= 1
+            return sa
+        assert self.meta_interp(f, [31]) == f(31)
+        
     def test_stored_reference_with_bridge1(self):
         class RefNode(object):
             def __init__(self, ref):
