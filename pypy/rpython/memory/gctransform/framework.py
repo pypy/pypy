@@ -955,6 +955,11 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(self.root_walker, 'thread_run_ptr'):
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
 
+    def gct_gc_thread_start(self, hop):
+        assert self.translator.config.translation.thread
+        if hasattr(self.root_walker, 'thread_start_ptr'):
+            hop.genop("direct_call", [self.root_walker.thread_start_ptr])
+
     def gct_gc_thread_die(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_die_ptr'):
@@ -1258,6 +1263,7 @@ sizeofaddr = llmemory.sizeof(llmemory.Address)
 
 class BaseRootWalker(object):
     need_root_stack = False
+    thread_setup = None
 
     def __init__(self, gctransformer):
         self.gcdata = gctransformer.gcdata
@@ -1267,7 +1273,8 @@ class BaseRootWalker(object):
         return True
 
     def setup_root_walker(self):
-        pass
+        if self.thread_setup is not None:
+            self.thread_setup()
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
@@ -1300,7 +1307,6 @@ class BaseRootWalker(object):
 
 class ShadowStackRootWalker(BaseRootWalker):
     need_root_stack = True
-    thread_setup = None
     collect_stacks_from_other_threads = None
 
     def __init__(self, gctransformer):
@@ -1340,8 +1346,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         ll_assert(bool(stackbase), "could not allocate root stack")
         self.gcdata.root_stack_top  = stackbase
         self.gcdata.root_stack_base = stackbase
-        if self.thread_setup is not None:
-            self.thread_setup()
+        BaseRootWalker.setup_root_walker(self)
 
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
@@ -1500,7 +1505,9 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.thread_prepare_ptr = getfn(thread_prepare, [], annmodel.s_None)
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
                                     inline=True)
+        # no thread_start_ptr here
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None)
+        # no thread_before_fork_ptr here
         self.thread_after_fork_ptr = getfn(thread_after_fork,
                                            [annmodel.SomeInteger(),
                                             annmodel.SomeAddress()],

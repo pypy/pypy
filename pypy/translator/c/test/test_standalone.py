@@ -841,6 +841,7 @@ class TestThread(object):
                 self.tail = tail
 
         def bootstrap():
+            ll_thread.gc_thread_start()
             state.xlist.append(Cons(123, Cons(456, None)))
             gc.collect()
             ll_thread.gc_thread_die()
@@ -941,6 +942,7 @@ class TestThread(object):
             return childpid
 
         def bootstrap():
+            ll_thread.gc_thread_start()
             childpid = run_in_thread()
             gc.collect()        # collect both in the child and in the parent
             gc.collect()

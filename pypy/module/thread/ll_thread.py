@@ -152,7 +152,7 @@ def release_NOAUTO(ll_lock):
 # ____________________________________________________________
 #
 # Thread integration.
-# These are five completely ad-hoc operations at the moment.
+# These are six completely ad-hoc operations at the moment.
 
 def gc_thread_prepare():
     """To call just before thread.start_new_thread().  This
@@ -170,6 +170,12 @@ def gc_thread_run():
     if we_are_translated():
         llop.gc_thread_run(lltype.Void)
 gc_thread_run._always_inline_ = True
+
+def gc_thread_start():
+    """To call at the beginning of a new thread.
+    """
+    if we_are_translated():
+        llop.gc_thread_start(lltype.Void)
 
 def gc_thread_die():
     """To call just before the final GIL release done by a dying
