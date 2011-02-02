@@ -211,7 +211,7 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(externfn))
         assert res == f(20)
-        self.check_loop_count(2)
+        self.check_loop_count(3)
         self.check_loops(**{self._new_op: 1})
         self.check_loops(int_mul=0, call=1)
 
