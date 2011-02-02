@@ -6,6 +6,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.module._io.interp_textio import W_TextIOBase
 from pypy.module._io.interp_iobase import convert_size
 
+
 class W_StringIO(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
@@ -66,6 +67,8 @@ class W_StringIO(W_TextIOBase):
         size = convert_size(space, w_size)
         start = self.pos
         available = len(self.buf) - start
+        if available <= 0:
+            return space.wrap(u"")
         if size >= 0 and size <= available:
             end = start + size
         else:
@@ -74,13 +77,50 @@ class W_StringIO(W_TextIOBase):
         self.pos = end
         return space.wrap(u''.join(self.buf[start:end]))
 
-    @unwrap_spec('self', ObjSpace, int)
-    def seek_w(self, space, pos):
-        if pos < 0:
+    @unwrap_spec('self', ObjSpace, int, int)
+    def seek_w(self, space, pos, mode=0):
+        self._check_closed(space)
+
+        if not 0 <= mode <= 2:
+            raise operationerrfmt(space.w_ValueError,
+                "Invalid whence (%d, should be 0, 1 or 2)", mode
+            )
+        elif mode == 0 and pos < 0:
             raise operationerrfmt(space.w_ValueError,
                 "negative seek position: %d", pos
             )
+        elif mode != 0 and pos != 0:
+            raise OperationError(space.w_IOError,
+                space.wrap("Can't do nonzero cur-relative seeks")
+            )
+
+        # XXX: this makes almost no sense, but its how CPython does it.
+        if mode == 1:
+            pos = self.pos
+        elif mode == 2:
+            pos = len(self.buf)
+
+        assert pos >= 0
         self.pos = pos
+        return space.wrap(pos)
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def truncate_w(self, space, w_size=None):
+        self._check_closed(space)
+        if space.is_w(w_size, space.w_None):
+            size = self.pos
+        else:
+            size = space.int_w(w_size)
+
+        if size < 0:
+            raise operationerrfmt(space.w_ValueError,
+                "Negative size value %d", size
+            )
+
+        if size < len(self.buf):
+            self.resize_buffer(size)
+
+        return space.wrap(size)
 
     @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
@@ -108,12 +148,14 @@ class W_StringIO(W_TextIOBase):
 
 W_StringIO.typedef = TypeDef(
     'StringIO', W_TextIOBase.typedef,
+    __module__ = "_io",
     __new__  = generic_new_descr(W_StringIO),
     __init__ = interp2app(W_StringIO.descr_init),
-    write=interp2app(W_StringIO.write_w),
-    read=interp2app(W_StringIO.read_w),
-    seek=interp2app(W_StringIO.seek_w),
-    getvalue=interp2app(W_StringIO.getvalue_w),
+    write = interp2app(W_StringIO.write_w),
+    read = interp2app(W_StringIO.read_w),
+    seek = interp2app(W_StringIO.seek_w),
+    truncate = interp2app(W_StringIO.truncate_w),
+    getvalue = interp2app(W_StringIO.getvalue_w),
     readable = interp2app(W_StringIO.readable_w),
     writable = interp2app(W_StringIO.writable_w),
     seekable = interp2app(W_StringIO.seekable_w),

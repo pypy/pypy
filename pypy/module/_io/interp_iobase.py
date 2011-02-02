@@ -132,6 +132,7 @@ class W_IOBase(Wrappable):
 
     @unwrap_spec('self', ObjSpace)
     def isatty_w(self, space):
+        self._check_closed(space)
         return space.w_False
 
     @unwrap_spec('self', ObjSpace)
@@ -270,7 +271,7 @@ W_IOBase.typedef = TypeDef(
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),
     writelines = interp2app(W_IOBase.writelines_w),
-    )
+)
 
 class W_RawIOBase(W_IOBase):
     # ________________________________________________________________
@@ -311,5 +312,4 @@ W_RawIOBase.typedef = TypeDef(
 
     read = interp2app(W_RawIOBase.read_w),
     readall = interp2app(W_RawIOBase.readall_w),
-    )
-
+)

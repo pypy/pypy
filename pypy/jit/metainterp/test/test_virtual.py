@@ -394,6 +394,89 @@ class VirtualTests:
         #    ENTER             - compile the leaving path
         self.check_enter_count(2)
 
+    def test_stored_reference_with_bridge1(self):
+        class RefNode(object):
+            def __init__(self, ref):
+                self.ref = ref
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node1', 'node2'])
+        def f(n):
+            node1 = self._new()
+            node1.value = 1
+            node2 = RefNode(node1)
+            sa = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, sa=sa, node1=node1, node2=node2)
+                myjitdriver.jit_merge_point(n=n, sa=sa, node1=node1, node2=node2)
+                if n>10:
+                    next = self._new()
+                    next.value = 2
+                    node1 = next
+                else:
+                    node2.ref.value = 3
+                sa += node1.value
+                n -= 1
+            return sa
+        def g():
+            return  f(20) * 100 + f(10)
+        assert f(20) == 20 * 2
+        assert self.meta_interp(f, [20]) == 20 * 2
+        assert f(10) == 10 * 3
+        assert self.meta_interp(f, [10]) == 10 * 3
+        assert g() == 4030
+        assert self.meta_interp(g, []) == 4030
+
+    def test_stored_reference_with_bridge2(self):
+        class RefNode(object):
+            def __init__(self, ref):
+                self.ref = ref
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node1', 'node2'])
+        def f(n):
+            node1 = self._new()
+            node1.value = 1
+            node2 = RefNode(node1)
+            sa = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, sa=sa, node1=node1, node2=node2)
+                myjitdriver.jit_merge_point(n=n, sa=sa, node1=node1, node2=node2)
+                if n>10:
+                    next = self._new()
+                    next.value = node1.value + 2
+                    node1 = next
+                else:
+                    node2.ref.value += 3
+                sa += node1.value
+                n -= 1
+            return sa
+        def g():
+            return  f(20) * 100 + f(10)
+        assert self.meta_interp(g, []) == g()
+
+    def test_stored_reference_with_bridge3(self):
+        class RefNode(object):
+            def __init__(self, ref):
+                self.ref = ref
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node1', 'node2'])
+        def f(n):
+            node1 = self._new()
+            node1.value = 1
+            node2 = RefNode(node1)
+            sa = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, sa=sa, node1=node1, node2=node2)
+                myjitdriver.jit_merge_point(n=n, sa=sa, node1=node1, node2=node2)
+                node2.ref.value += n
+                sa += node1.value
+                if n>10:
+                    next = self._new()
+                    next.value = node1.value + 1
+                    node1 = next
+                else:
+                    node1 = node2.ref
+                n -= 1
+            return sa
+        assert self.meta_interp(f, [20]) == f(20)
+
+
 class VirtualMiscTests:
 
     def test_guards_around_forcing(self):

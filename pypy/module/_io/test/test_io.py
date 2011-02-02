@@ -1,5 +1,8 @@
+from __future__ import with_statement
+
 from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
+
 
 class AppTestIoModule:
     def setup_class(cls):
@@ -138,6 +141,7 @@ class AppTestIoModule:
 
 class AppTestOpen:
     def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['_io', '_locale'])
         tmpfile = udir.join('tmpfile').ensure()
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 
@@ -148,15 +152,166 @@ class AppTestOpen:
         assert f.mode == 'rb'
         f.close()
 
+        with io.open(self.tmpfile, "rt") as f:
+            assert f.mode == "rt"
+
     def test_open_writable(self):
         import io
         f = io.open(self.tmpfile, "w+b")
         f.close()
+
+    def test_valid_mode(self):
+        import io
+
+        raises(ValueError, io.open, self.tmpfile, "ww")
+        raises(ValueError, io.open, self.tmpfile, "rwa")
+        raises(ValueError, io.open, self.tmpfile, "b", newline="\n")
 
     def test_array_write(self):
         import _io, array
         a = array.array(b'i', range(10))
         n = len(a.tostring())
         with _io.open(self.tmpfile, "wb", 0) as f:
-            assert f.write(a) == n
+            res = f.write(a)
+            assert res == n
 
+        with _io.open(self.tmpfile, "wb") as f:
+            res = f.write(a)
+            assert res == n
+
+    def test_attributes(self):
+        import _io
+
+        with _io.open(self.tmpfile, "wb", buffering=0) as f:
+            assert f.mode == "wb"
+
+        with _io.open(self.tmpfile, "U") as f:
+            assert f.name == self.tmpfile
+            assert f.buffer.name == self.tmpfile
+            assert f.buffer.raw.name == self.tmpfile
+            assert f.mode == "U"
+            assert f.buffer.mode == "rb"
+            assert f.buffer.raw.mode == "rb"
+
+        with _io.open(self.tmpfile, "w+") as f:
+            assert f.mode == "w+"
+            assert f.buffer.mode == "rb+"
+            assert f.buffer.raw.mode == "rb+"
+
+            with _io.open(f.fileno(), "wb", closefd=False) as g:
+                assert g.mode == "wb"
+                assert g.raw.mode == "wb"
+                assert g.name == f.fileno()
+                assert g.raw.name == f.fileno()
+
+    def test_seek_and_tell(self):
+        import _io
+
+        with _io.open(self.tmpfile, "wb") as f:
+            f.write("abcd")
+
+        with _io.open(self.tmpfile) as f:
+            decoded = f.read()
+
+        # seek positions
+        for i in xrange(len(decoded) + 1):
+            # read lenghts
+            for j in [1, 5, len(decoded) - i]:
+                with _io.open(self.tmpfile) as f:
+                    res = f.read(i)
+                    assert res == decoded[:i]
+                    cookie = f.tell()
+                    res = f.read(j)
+                    assert res == decoded[i:i + j]
+                    f.seek(cookie)
+                    res = f.read()
+                    assert res == decoded[i:]
+
+    def test_telling(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w+", encoding="utf8") as f:
+            p0 = f.tell()
+            f.write(u"\xff\n")
+            p1 = f.tell()
+            f.write(u"\xff\n")
+            p2 = f.tell()
+            f.seek(0)
+
+            assert f.tell() == p0
+            res = f.readline()
+            assert res == u"\xff\n"
+            assert f.tell() == p1
+            res = f.readline()
+            assert res == u"\xff\n"
+            assert f.tell() == p2
+            f.seek(0)
+
+            for line in f:
+                assert line == u"\xff\n"
+                raises(IOError, f.tell)
+            assert f.tell() == p2
+
+    def test_chunk_size(self):
+        import _io
+
+        with _io.open(self.tmpfile) as f:
+            assert f._CHUNK_SIZE >= 1
+            f._CHUNK_SIZE = 4096
+            assert f._CHUNK_SIZE == 4096
+            raises(ValueError, setattr, f, "_CHUNK_SIZE", 0)
+
+    def test_multi_line(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w+") as f:
+            f.write(u"abc")
+
+        with _io.open(self.tmpfile, "w+") as f:
+            f.truncate()
+
+        with _io.open(self.tmpfile, "r+") as f:
+            res = f.read()
+            assert res == ""
+
+    def test_errors_property(self):
+        import _io
+
+        with _io.open(self.tmpfile, "w") as f:
+            assert f.errors == "strict"
+        with _io.open(self.tmpfile, "w", errors="replace") as f:
+            assert f.errors == "replace"
+
+    def test_append_bom(self):
+        import _io
+
+        # The BOM is not written again when appending to a non-empty file
+        for charset in ["utf-8-sig", "utf-16", "utf-32"]:
+            with _io.open(self.tmpfile, "w", encoding=charset) as f:
+                f.write(u"aaa")
+                pos = f.tell()
+            with _io.open(self.tmpfile, "rb") as f:
+                res = f.read()
+                assert res == "aaa".encode(charset)
+            with _io.open(self.tmpfile, "a", encoding=charset) as f:
+                f.write(u"xxx")
+            with _io.open(self.tmpfile, "rb") as f:
+                res = f.read()
+                assert res == "aaaxxx".encode(charset)
+
+    def test_newlines_attr(self):
+        import _io
+
+        with _io.open(self.tmpfile, "r") as f:
+            assert f.newlines is None
+
+        with _io.open(self.tmpfile, "wb") as f:
+            f.write("hello\nworld\n")
+
+        with _io.open(self.tmpfile, "r") as f:
+            res = f.readline()
+            assert res == "hello\n"
+            res = f.readline()
+            assert res == "world\n"
+            assert f.newlines == "\n"
+            assert type(f.newlines) is unicode

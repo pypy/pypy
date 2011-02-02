@@ -67,3 +67,10 @@ class AppTestBytesIO:
         assert f.read() == "ld"
         assert f.a == 1
         assert f.__getstate__() == ("world", 5, {"a": 1})
+
+    def test_readinto(self):
+        import _io
+
+        b = _io.BytesIO("hello")
+        b.close()
+        raises(ValueError, b.readinto, bytearray("hello"))

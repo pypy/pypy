@@ -166,6 +166,13 @@ class AppTestTextIO:
                         assert got_line == exp_line
                     assert len(got_lines) == len(exp_lines)
 
+    def test_name(self):
+        import _io
+
+        t = _io.TextIOWrapper(_io.BytesIO(""))
+        # CPython raises an AttributeError, we raise a TypeError.
+        raises((AttributeError, TypeError), setattr, t, "name", "anything")
+
     def test_repr(self):
         import _io
 
@@ -173,6 +180,12 @@ class AppTestTextIO:
         assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
         t = _io.TextIOWrapper(_io.BytesIO(""), encoding="ascii")
         assert repr(t) == "<_io.TextIOWrapper encoding='ascii'>"
+        t = _io.TextIOWrapper(_io.BytesIO(""), encoding=u"utf-8")
+        assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
+        b = _io.BytesIO("")
+        t = _io.TextIOWrapper(b, encoding="utf-8")
+        b.name = "dummy"
+        assert repr(t) == "<_io.TextIOWrapper name='dummy' encoding='utf-8'>"
 
 
 class AppTestIncrementalNewlineDecoder:
