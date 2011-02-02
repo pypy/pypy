@@ -101,5 +101,15 @@ def mul__SmallTuple_ANY(space, w_tuple, w_times):
 def mul__ANY_SmallTuple(space, w_times, w_tuple):
     return mul_smalltuple_times(space, w_tuple, w_times)
 
+def eq__SmallTuple_SmallTuple(space, w_tuple1, w_tuple2):
+    if w_tuple1.length() != w_tuple2.length():
+        return space.w_False
+    for i in range(w_tuple1.length()):
+        item1 = w_tuple1.getitem(i)
+        item2 = w_tuple2.getitem(i)
+        if not space.eq_w(item1, item2):
+            return space.w_False
+    return space.w_True
+
 from pypy.objspace.std import tupletype
 register_all(vars(), tupletype)

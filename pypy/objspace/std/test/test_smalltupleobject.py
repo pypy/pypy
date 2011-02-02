@@ -38,6 +38,11 @@ class AppTestW_SmallTupleObject(AppTestW_TupleObject):
         assert (1,2)[0:1:1] == (1,)
         assert (1,2,3)[0:2:1] == (1,2)
 
+    def test_eq(self):
+        a = (1,2,3)
+        b = (1,2,3)
+        assert a == b
+
 class TestW_SmallTupleObject():
 
     def setup_class(cls):
