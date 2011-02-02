@@ -155,6 +155,31 @@ def no_links_to_startblock(graph):
     if links_to_start_block:
         insert_empty_startblock(None, graph)
 
+def call_initial_function(translator, initial_func, annhelper=None):
+    """Before the program starts, call 'initial_func()'."""
+    from pypy.annotation import model as annmodel
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+
+    own_annhelper = (annhelper is None)
+    if own_annhelper:
+        annhelper = MixLevelHelperAnnotator(translator.rtyper)
+    c_initial_func = annhelper.constfunc(initial_func, [], annmodel.s_None)
+    if own_annhelper:
+        annhelper.finish()
+
+    entry_point = translator.entry_point_graph
+    args = [copyvar(translator.annotator, v) for v in entry_point.getargs()]
+    extrablock = Block(args)
+    v_none = varoftype(lltype.Void)
+    newop = SpaceOperation('direct_call', [c_initial_func], v_none)
+    extrablock.operations = [newop]
+    extrablock.closeblock(Link(args, entry_point.startblock))
+    entry_point.startblock.isstartblock = False
+    entry_point.startblock = extrablock
+    entry_point.startblock.isstartblock = True
+    checkgraph(entry_point)
+
 def call_final_function(translator, final_func, annhelper=None):
     """When the program finishes normally, call 'final_func()'."""
     from pypy.annotation import model as annmodel
