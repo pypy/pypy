@@ -166,6 +166,21 @@ class AppTestTextIO:
                         assert got_line == exp_line
                     assert len(got_lines) == len(exp_lines)
 
+    def test_readline(self):
+        import _io
+
+        s = "AAA\r\nBBB\rCCC\r\nDDD\nEEE\r\n"
+        r = "AAA\nBBB\nCCC\nDDD\nEEE\n".decode("ascii")
+        txt = _io.TextIOWrapper(_io.BytesIO(s), encoding="ascii")
+        txt._CHUNK_SIZE = 4
+
+        reads = txt.read(4)
+        reads += txt.read(4)
+        reads += txt.readline()
+        reads += txt.readline()
+        reads += txt.readline()
+        assert reads == r
+
     def test_name(self):
         import _io
 
