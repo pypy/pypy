@@ -440,7 +440,7 @@ class VirtualTests:
                 myjitdriver.jit_merge_point(n=n, sa=sa, node1=node1, node2=node2)
                 if n>10:
                     next = self._new()
-                    next.value += 2
+                    next.value = node1.value + 2
                     node1 = next
                 else:
                     node2.ref.value += 3
