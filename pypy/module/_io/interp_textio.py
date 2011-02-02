@@ -5,8 +5,9 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.rarithmetic import r_ulonglong
+from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rstring import UnicodeBuilder
 from pypy.module._codecs import interp_codecs
 from pypy.module._io.interp_iobase import convert_size
 import sys
@@ -234,14 +235,17 @@ W_TextIOBase.typedef = TypeDef(
     errors = GetSetProperty(W_TextIOBase.errors_get_w),
 )
 
-class PositionCookie:
+class PositionCookie(object):
     def __init__(self, bigint):
         self.start_pos = bigint.ulonglongmask()
         bigint = bigint.rshift(r_ulonglong.BITS)
-        self.dec_flags = 0
-        self.bytes_to_feed = 0
-        self.chars_to_skip = 0
-        self.need_eof = 0
+        self.dec_flags = bigint.ulonglongmask()
+        bigint = bigint.rshift(r_ulonglong.BITS)
+        self.bytes_to_feed = bigint.ulonglongmask()
+        bigint = bigint.rshift(r_ulonglong.BITS)
+        self.chars_to_skip = bigint.ulonglongmask()
+        bigint = bigint.rshift(r_ulonglong.BITS)
+        self.need_eof = bigint.ulonglongmask()
 
     def pack(self):
         # The meaning of a tell() cookie is: seek to position, set the
@@ -249,11 +253,13 @@ class PositionCookie:
         # into the decoder with need_eof as the EOF flag, then skip
         # chars_to_skip characters of the decoded result.  For most simple
         # decoders, tell() will often just give a byte offset in the file.
-        return (self.start_pos |
-                (self.dec_flags<<64) |    # XXX fixme! does not work in RPython
-                (self.bytes_to_feed<<128) |
-                (self.chars_to_skip<<192) |
-                bool(self.need_eof)<<256)
+        rb = rbigint.fromrarith_int
+
+        res = rb(self.start_pos)
+        res = res.or_(rb(self.dec_flags).lshift(1 * r_ulonglong.BITS))
+        res = res.or_(rb(self.bytes_to_feed).lshift(2 * r_ulonglong.BITS))
+        res = res.or_(rb(self.chars_to_skip).lshift(3 * r_ulonglong.BITS))
+        return res.or_(rb(self.need_eof).lshift(4 * r_ulonglong.BITS))
 
 class PositionSnapshot:
     def __init__(self, flags, input):
@@ -363,6 +369,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self.seekable = space.is_true(space.call_method(w_buffer, "seekable"))
         self.telling = self.seekable
 
+        self.encoding_start_of_stream = False
         if self.seekable and self.w_encoder:
             self.encoding_start_of_stream = True
             w_cookie = space.call_method(self.w_buffer, "tell")
@@ -538,10 +545,11 @@ class W_TextIOWrapper(W_TextIOBase):
             raise OperationError(space.w_IOError, space.wrap("not readable"))
 
         size = convert_size(space, w_size)
+        self._writeflush(space)
         if size < 0:
             # Read everything
             w_bytes = space.call_method(self.w_buffer, "read")
-            w_decoded = space.call_method(self.w_decoder, "decode", w_bytes)
+            w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
             w_result = space.wrap(self._get_decoded_chars(-1))
             w_final = space.add(w_result, w_decoded)
             self.snapshot = None
@@ -779,7 +787,6 @@ class W_TextIOWrapper(W_TextIOBase):
         # utf-16, that we are expecting a BOM).
         if cookie.start_pos == 0 and cookie.dec_flags == 0:
             space.call_method(self.w_decoder, "reset")
-            self.encoding_start_of_stream = True
         else:
             space.call_method(self.w_decoder, "setstate",
                               space.newtuple([space.wrap(""),
@@ -904,7 +911,7 @@ class W_TextIOWrapper(W_TextIOBase):
         # How many decoded characters have been used up since the snapshot?
         if not self.decoded_chars_used:
             # We haven't moved from the snapshot point.
-            return space.wrap(cookie.pack())
+            return space.newlong_from_rbigint(cookie.pack())
 
         chars_to_skip = self.decoded_chars_used
 
@@ -961,7 +968,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # The returned cookie corresponds to the last safe start point.
         cookie.chars_to_skip = chars_to_skip
-        return space.wrap(cookie.pack())
+        return space.newlong_from_rbigint(cookie.pack())
 
     def chunk_size_get_w(space, self):
         self._check_init(space)

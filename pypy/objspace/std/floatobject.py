@@ -10,11 +10,12 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
 from pypy.rlib.rarithmetic import (LONG_BIT, INFINITY, copysign,
-    formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
+    formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION, NAN)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
+
 
 import math
 from pypy.objspace.std.intobject import W_IntObject
@@ -340,7 +341,7 @@ def div__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))
     return W_FloatObject(x / y)
 
 truediv__Float_Float = div__Float_Float
@@ -424,6 +425,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
+        if isnan(y):
+            return W_FloatObject(NAN)
         if math.floor(y) != y:
             raise OperationError(space.w_ValueError,
                                  space.wrap("negative number cannot be "
