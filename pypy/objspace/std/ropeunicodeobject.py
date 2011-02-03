@@ -482,6 +482,8 @@ def unicode_swapcase__RopeUnicode(space, w_self):
 def _convert_idx_params(space, w_self, w_start, w_end):
     self = w_self._node
     length = w_self._node.length()
+    if space.is_w(w_end, space.w_None):
+        w_end = space.len(w_self)
     start = slicetype.adapt_bound(space, length, w_start)
     end = slicetype.adapt_bound(space, length, w_end)
 
