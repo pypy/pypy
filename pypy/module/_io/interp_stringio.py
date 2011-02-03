@@ -210,6 +210,11 @@ class W_StringIO(W_TextIOBase):
     def line_buffering_get_w(space, self):
         return space.w_False
 
+    def newlines_get_w(space, self):
+        if self.w_decoder is None:
+            return space.w_None
+        return space.getattr(self.w_decoder, space.wrap("newlines"))
+
 
 W_StringIO.typedef = TypeDef(
     'StringIO', W_TextIOBase.typedef,
@@ -228,4 +233,5 @@ W_StringIO.typedef = TypeDef(
     close = interp2app(W_StringIO.close_w),
     closed = GetSetProperty(W_StringIO.closed_get_w),
     line_buffering = GetSetProperty(W_StringIO.line_buffering_get_w),
+    newlines = GetSetProperty(W_StringIO.newlines_get_w),
 )

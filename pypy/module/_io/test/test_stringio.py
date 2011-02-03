@@ -227,3 +227,15 @@ class AppTestStringIO:
         sio.seek(0)
         res = list(sio)
         assert res == [u"a\r\n", u"b\r\r\n", u"c\rd"]
+
+    def test_newline_property(self):
+        import io
+
+        sio = io.StringIO(newline=None)
+        assert sio.newlines is None
+        sio.write(u"a\n")
+        assert sio.newlines == "\n"
+        sio.write(u"b\r\n")
+        assert sio.newlines == ("\n", "\r\n")
+        sio.write(u"c\rd")
+        assert sio.newlines == ("\r", "\n", "\r\n")
