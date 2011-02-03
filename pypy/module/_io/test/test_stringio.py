@@ -143,3 +143,87 @@ class AppTestStringIO:
         import io
 
         assert io.StringIO.__module__ == "_io"
+
+    def test_newline_none(self):
+        import io
+
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline=None)
+        res = list(sio)
+        assert res == [u"a\n", u"b\n", u"c\n", u"d"]
+        sio.seek(0)
+        res = sio.read(1)
+        assert res == u"a"
+        res = sio.read(2)
+        assert res == u"\nb"
+        res = sio.read(2)
+        assert res == u"\nc"
+        res = sio.read(1)
+        assert res == u"\n"
+
+        sio = io.StringIO(newline=None)
+        res = sio.write(u"a\n")
+        assert res == 2
+        res = sio.write(u"b\r\n")
+        assert res == 3
+        res = sio.write(u"c\rd")
+        assert res == 3
+        sio.seek(0)
+        res = sio.read()
+        assert res == u"a\nb\nc\nd"
+        sio = io.StringIO(u"a\r\nb", newline=None)
+        res = sio.read(3)
+        assert res == u"a\nb"
+
+    def test_newline_empty(self):
+        import io
+
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline="")
+        res = list(sio)
+        assert res == [u"a\n", u"b\r\n", u"c\r", u"d"]
+        sio.seek(0)
+        res = sio.read(4)
+        assert res == u"a\nb\r"
+        res = sio.read(2)
+        assert res == u"\nc"
+        res = sio.read(1)
+        assert res == u"\r"
+
+        sio = io.StringIO(newline="")
+        res = sio.write(u"a\n")
+        assert res == 2
+        res = sio.write(u"b\r")
+        assert res == 2
+        res = sio.write(u"\nc")
+        assert res == 2
+        res = sio.write(u"\rd")
+        assert res == 2
+        sio.seek(0)
+        res = list(sio)
+        assert res == [u"a\n", u"b\r\n", u"c\r", u"d"]
+
+    def test_newline_lf(self):
+        import io
+
+        sio = io.StringIO(u"a\nb\r\nc\rd")
+        res = list(sio)
+        assert res == [u"a\n", u"b\r\n", u"c\rd"]
+
+    def test_newline_cr(self):
+        import io
+
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline="\r")
+        res = sio.read()
+        assert res == u"a\rb\r\rc\rd"
+        sio.seek(0)
+        res = list(sio)
+        assert res == [u"a\r", u"b\r", u"\r", u"c\r", u"d"]
+
+    def test_newline_crlf(self):
+        import io
+
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline="\r\n")
+        res = sio.read()
+        assert res == u"a\r\nb\r\r\nc\rd"
+        sio.seek(0)
+        res = list(sio)
+        assert res == [u"a\r\n", u"b\r\r\n", u"c\rd"]

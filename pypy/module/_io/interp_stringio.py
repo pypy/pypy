@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.module._io.interp_textio import W_TextIOBase
+from pypy.module._io.interp_textio import W_TextIOBase, W_IncrementalNewlineDecoder
 from pypy.module._io.interp_iobase import convert_size
 
 
@@ -13,11 +13,32 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    @unwrap_spec('self', ObjSpace, W_Root)
-    def descr_init(self, space, w_initvalue=None):
+    @unwrap_spec('self', ObjSpace, W_Root, "str_or_None")
+    def descr_init(self, space, w_initvalue=None, newline="\n"):
         # In case __init__ is called multiple times
         self.buf = []
         self.pos = 0
+        self.w_decoder = None
+        self.readnl = None
+        self.writenl = None
+
+        if (newline is not None and newline != "" and newline != "\n" and
+            newline != "\r" and newline != "\r\n"):
+            raise operationerrfmt(space.w_ValueError,
+                "illegal newline value: %s", newline
+            )
+        if newline is not None:
+            self.readnl = newline
+        self.readuniversal = newline is None or newline == ""
+        self.readtranslate = newline is None
+        if newline and newline[0] == "\r":
+            self.writenl = newline
+        if self.readuniversal:
+            self.w_decoder = space.call_function(
+                space.gettypefor(W_IncrementalNewlineDecoder),
+                space.w_None,
+                space.wrap(int(self.readtranslate))
+            )
 
         if not space.is_w(w_initvalue, space.w_None):
             self.write_w(space, w_initvalue)
@@ -55,11 +76,27 @@ class W_StringIO(W_TextIOBase):
                                   "string argument expected, got '%s'",
                                   space.type(w_obj).getname(space, '?'))
         self._check_closed(space)
-        string = space.unicode_w(w_obj)
+
+        orig_size = space.int_w(space.len(w_obj))
+
+        if self.w_decoder is not None:
+            w_decoded = space.call_method(
+                self.w_decoder, "decode", w_obj, space.w_True
+            )
+        else:
+            w_decoded = w_obj
+
+        if self.writenl:
+            w_decoded = space.call_method(
+                w_decoded, "replace", space.wrap("\n"), space.wrap(self.writenl)
+            )
+
+        string = space.unicode_w(w_decoded)
         size = len(string)
+
         if size:
             self.write(string)
-        return space.wrap(size)
+        return space.wrap(orig_size)
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
@@ -76,6 +113,30 @@ class W_StringIO(W_TextIOBase):
         assert 0 <= start <= end
         self.pos = end
         return space.wrap(u''.join(self.buf[start:end]))
+
+    @unwrap_spec('self', ObjSpace, int)
+    def readline_w(self, space, limit=-1):
+        if self.pos >= len(self.buf):
+            return space.wrap(u"")
+
+        start = self.pos
+        if limit < 0 or limit > len(self.buf) - self.pos:
+            limit = len(self.buf) - self.pos
+
+        end = start + limit
+
+        endpos, consumed = self._find_line_ending(
+            # XXX: super inefficient, makes a copy of the entire contents.
+            "".join(self.buf),
+            start,
+            end
+        )
+        if endpos >= 0:
+            endpos += start
+        else:
+            endpos = end
+        self.pos = endpos
+        return space.wrap("".join(self.buf[start:endpos]))
 
     @unwrap_spec('self', ObjSpace, int, int)
     def seek_w(self, space, pos, mode=0):
@@ -149,6 +210,7 @@ class W_StringIO(W_TextIOBase):
     def line_buffering_get_w(space, self):
         return space.w_False
 
+
 W_StringIO.typedef = TypeDef(
     'StringIO', W_TextIOBase.typedef,
     __module__ = "_io",
@@ -156,6 +218,7 @@ W_StringIO.typedef = TypeDef(
     __init__ = interp2app(W_StringIO.descr_init),
     write = interp2app(W_StringIO.write_w),
     read = interp2app(W_StringIO.read_w),
+    readline = interp2app(W_StringIO.readline_w),
     seek = interp2app(W_StringIO.seek_w),
     truncate = interp2app(W_StringIO.truncate_w),
     getvalue = interp2app(W_StringIO.getvalue_w),
