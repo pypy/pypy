@@ -394,6 +394,27 @@ class VirtualTests:
         #    ENTER             - compile the leaving path
         self.check_enter_count(2)
 
+    def test_new_virtual_member_in_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node'])
+        def f(n):
+            node = self._new()
+            node.value = 1
+            node.extra = 2
+            sa = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, sa=sa, node=node)
+                myjitdriver.jit_merge_point(n=n, sa=sa, node=node)
+                if n&30 > 0:
+                    sa += node.value
+                    next = self._new()
+                    next.value = n
+                    node = next
+                    if n<10:
+                        node.extra = sa
+                n -= 1
+            return node.extra
+        assert self.meta_interp(f, [20]) == f(20)
+
     def test_constant_virtual1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node'])
         def f(n):
