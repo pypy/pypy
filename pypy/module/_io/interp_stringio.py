@@ -147,7 +147,6 @@ class W_StringIO(W_TextIOBase):
         return space.wrap(self.buf is None)
 
     def line_buffering_get_w(space, self):
-        self._check_closed(self)
         return space.w_False
 
 W_StringIO.typedef = TypeDef(
