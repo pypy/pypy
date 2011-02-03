@@ -77,7 +77,7 @@ def format_nonfinite(digits, sign, flags, special_strings):
         raise ValueError
 
 @jit.dont_look_inside
-def format_number(digits, buflen, sign, decpt, code, precision, flags):
+def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
     # We got digits back, format them.  We may need to pad 'digits'
     # either on the left or right (or both) with extra zeros, so in
     # general the resulting string has the form
@@ -198,23 +198,28 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags):
 
     # Now that we've done zero padding, add an exponent if needed.
     if use_exp:
+        if upper:
+            e = 'E'
+        else:
+            e = 'e'
+
         if exp >= 0:
             exp_str = str(exp)
             if len(exp_str) < 2:
-                s += 'e+0' + exp_str
+                s += e + '+0' + exp_str
             else:
-                s += 'e+' + exp_str
+                s += e + '+' + exp_str
         else:
             exp_str = str(-exp)
             if len(exp_str) < 2:
-                s += 'e-0' + exp_str
+                s += e + '-0' + exp_str
             else:
-                s += 'e-' + exp_str
+                s += e + '-' + exp_str
 
     return s
 
 def dtoa(value, code='r', mode=0, precision=0, flags=0,
-         special_strings=lower_special_strings):
+         special_strings=lower_special_strings, upper=False):
     decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:
         sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -239,7 +244,7 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0,
                     decpt = rffi.cast(lltype.Signed, decpt_ptr[0])
 
                     return format_number(digits, buflen, sign, decpt,
-                                         code, precision, flags)
+                                         code, precision, flags, upper)
 
                 finally:
                     dg_freedtoa(digits)
@@ -254,8 +259,10 @@ def dtoa_formatd(value, code, precision, flags):
     if code in 'EFG':
         code = code.lower()
         special_strings = upper_special_strings
+        upper = True
     else:
         special_strings = lower_special_strings
+        upper = False
 
     if code == 'e':
         mode = 2
@@ -275,4 +282,4 @@ def dtoa_formatd(value, code, precision, flags):
         raise ValueError('Invalid mode')
 
     return dtoa(value, code, mode=mode, precision=precision, flags=flags,
-                special_strings=special_strings)
+                special_strings=special_strings, upper=upper)

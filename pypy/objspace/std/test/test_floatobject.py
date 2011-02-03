@@ -398,6 +398,10 @@ class AppTestAppFloatTest:
     def test_from_string(self):
         raises(ValueError, float, "\0")
 
+    def test_format(self):
+        f = 1.1234e200
+        assert f.__format__("G") == "1.1234E+200"
+
 
 class AppTestFloatHex:
     def w_identical(self, x, y):
