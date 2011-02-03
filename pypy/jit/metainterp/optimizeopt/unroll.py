@@ -125,6 +125,64 @@ class Inliner(object):
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
 
+class VirtualStateAdder(resume.ResumeDataVirtualAdder):
+    def __init__(self, optimizer):
+        self.fieldboxes = {}
+        self.optimizer = optimizer
+        self.info = {}
+
+    def register_virtual_fields(self, keybox, fieldboxes):
+        self.fieldboxes[keybox] = fieldboxes
+        
+    def already_seen_virtual(self, keybox):
+        return keybox in self.fieldboxes
+
+    def getvalue(self, box):
+        return self.optimizer.getvalue(box)
+
+    def state(self, box):
+        try:
+            info = self.info[box]
+        except KeyError:
+            value = self.getvalue(box)
+            self.info[box] = info = value.make_virtual_info(self, [])
+            if box in self.fieldboxes:
+                info.fieldstate = [self.state(b) for b in self.fieldboxes[box]]
+                # FIXME: Do we realy want to add fields to the VirtualInfo's?
+        return info
+
+    def get_virtual_state(self, jump_args):
+        for box in jump_args:
+            value = self.getvalue(box)
+            value.get_args_for_fail(self)
+        return [self.state(box) for box in jump_args]
+
+
+    def make_not_virtual(self, value):
+        return NotVirtualInfo(value)
+
+class NotVirtualInfo(resume.AbstractVirtualInfo):
+    def __init__(self, value):
+        self.known_class = value.known_class
+        self.level = value.level
+        self.intbound = value.intbound.clone()
+        if value.is_constant():
+            self.constbox = value.box.clonebox()
+        else:
+            self.constbox = None
+
+    def more_general_than(self, other):
+        # XXX This will always retrace instead of forcing anything which
+        # might be what we want sometimes?
+        if not isinstance(other, NotVirtualInfo):
+            return False
+        if self.constbox:
+            if not self.constbox.same_const(other):
+                return False
+        return (self.known_class == other.known_class and
+                self.level == other.level and
+                self.intbound.contains_bound(other.intbound))
+            
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -139,7 +197,6 @@ class UnrollOptimizer(Optimization):
             self.cloned_operations.append(newop)
             
     def propagate_all_forward(self):
-        self.make_short_preamble = True
         loop = self.optimizer.loop
         jumpop = loop.operations[-1]
         if jumpop.getopnum() == rop.JUMP:
@@ -154,7 +211,9 @@ class UnrollOptimizer(Optimization):
             assert jumpop.getdescr() is loop.token
             jump_args = jumpop.getarglist()
             jumpop.initarglist([])
-            virtual_state = [self.getvalue(a).is_virtual() for a in jump_args]
+            #virtual_state = [self.getvalue(a).is_virtual() for a in jump_args]
+            modifier = VirtualStateAdder(self.optimizer)
+            virtual_state = modifier.get_virtual_state(jump_args)
 
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
@@ -221,7 +280,6 @@ class UnrollOptimizer(Optimization):
                     if op.result:
                         op.result.forget_value()
                 
-
     def inline(self, loop_operations, loop_args, jump_args):
         self.inliner = inliner = Inliner(loop_args, jump_args)
            
@@ -236,8 +294,6 @@ class UnrollOptimizer(Optimization):
             for a in boxes:
                 if not isinstance(a, Const):
                     inputargs.append(a)
-                else:
-                    self.make_short_preamble = False
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -304,8 +360,6 @@ class UnrollOptimizer(Optimization):
         return True
 
     def create_short_preamble(self, preamble, loop):
-        if not self.make_short_preamble:
-            return None
         #return None # Dissable
 
         preamble_ops = preamble.operations
@@ -532,20 +586,15 @@ class OptInlineShortPreamble(Optimization):
             short = descr.short_preamble
             if short:
                 args = op.getarglist()
-                virtual_state = [self.getvalue(a).is_virtual() for a in args]
+                modifier = VirtualStateAdder(self.optimizer)
+                virtual_state = modifier.get_virtual_state(args)
+                print 'len', len(short)
                 for sh in short:
                     assert len(virtual_state) == len(sh.virtual_state)
+                    
                     for i in range(len(virtual_state)):
-                        if sh.virtual_state[i] and not virtual_state[i]:
+                        if not sh.virtual_state[i].more_general_than(virtual_state[i]):
                             break
-                        elif not sh.virtual_state[i] and virtual_state[i]:
-                            # XXX Here, this bridge has made some box virtual
-                            # that is not virtual in the original loop. These
-                            # will be forced below. However we could choose
-                            # to raise RetraceLoop here to create a new 
-                            # specialized version of the loop where more
-                            # boxes will be virtual.
-                            pass
                     else:
                         if self.inline(sh.operations, sh.inputargs,
                                        op.getarglist(), dryrun=True):
