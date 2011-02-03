@@ -579,6 +579,9 @@ class AppTestUnicodeString:
                 assert u[j+2] == u'3'
             assert u'123' * i == i * u'123'
 
+    def test_index(self):
+        assert u"rrarrrrrrrrra".index(u'a', 4, None) == 12
+
     def test_rindex(self):
         from sys import maxint
         assert u'abcdefghiabc'.rindex(u'') == 12
@@ -586,6 +589,8 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rindex(u'abc') == 9
         assert u'abcdefghiabc'.rindex(u'abc', 0, -1) == 0
         assert u'abcdefghiabc'.rindex(u'abc', -4*maxint, 4*maxint) == 9
+        assert u'rrarrrrrrrrra'.rindex(u'a', 4, None) == 12
+
         raises(ValueError, u'abcdefghiabc'.rindex, u'hib')
         raises(ValueError, u'defghiabc'.rindex, u'def', 1)
         raises(ValueError, u'defghiabc'.rindex, u'abc', 0, -1)
