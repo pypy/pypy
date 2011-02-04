@@ -239,3 +239,28 @@ class AppTestStringIO:
         assert sio.newlines == ("\n", "\r\n")
         sio.write(u"c\rd")
         assert sio.newlines == ("\r", "\n", "\r\n")
+
+    def test_iterator(self):
+        import io
+
+        s = u"1234567890\n"
+        sio = io.StringIO(s * 10)
+
+        assert iter(sio) is sio
+        assert hasattr(sio, "__iter__")
+        assert hasattr(sio, "next")
+
+        i = 0
+        for line in sio:
+            assert line == s
+            i += 1
+        assert i == 10
+        sio.seek(0)
+        i = 0
+        for line in sio:
+            assert line == s
+            i += 1
+        assert i == 10
+        sio = io.StringIO(s * 2)
+        sio.close()
+        raises(ValueError, next, sio)

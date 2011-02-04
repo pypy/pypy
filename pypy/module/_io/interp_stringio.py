@@ -121,6 +121,8 @@ class W_StringIO(W_TextIOBase):
 
     @unwrap_spec('self', ObjSpace, int)
     def readline_w(self, space, limit=-1):
+        self._check_closed(space)
+
         if self.pos >= len(self.buf):
             return space.wrap(u"")
 
