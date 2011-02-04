@@ -73,7 +73,7 @@ class OptFfiCall(Optimization):
 
     def setup(self):
         self.funcinfo = None
-        self.logger = self.optimizer.metainterp_sd.logger_ops
+        self.logger = self.optimizer.metainterp_sd.logger_noopt
 
     def propagate_begin_forward(self):
         debug_start('jit-log-ffiopt')

@@ -33,6 +33,7 @@ class FakeMetaInterpStaticData(object):
         self.options = Fake()
         self.globaldata = Fake()
         self.logger_ops = FakeLogger()
+        self.logger_noopt = FakeLogger()
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
