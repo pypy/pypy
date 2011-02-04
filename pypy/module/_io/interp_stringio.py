@@ -135,6 +135,7 @@ class W_StringIO(W_TextIOBase):
             endpos += start
         else:
             endpos = end
+        assert endpos >= 0
         self.pos = endpos
         return space.wrap("".join(self.buf[start:endpos]))
 
