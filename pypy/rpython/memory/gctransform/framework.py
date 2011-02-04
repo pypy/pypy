@@ -966,8 +966,8 @@ class FrameworkGCTransformer(GCTransformer):
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
 
     def gct_gc_thread_before_fork(self, hop):
-        assert self.translator.config.translation.thread
-        if hasattr(self.root_walker, 'thread_before_fork_ptr'):
+        if (self.translator.config.translation.thread
+            and hasattr(self.root_walker, 'thread_before_fork_ptr')):
             hop.genop("direct_call", [self.root_walker.thread_before_fork_ptr],
                       resultvar=hop.spaceop.result)
         else:
@@ -976,8 +976,8 @@ class FrameworkGCTransformer(GCTransformer):
                       resultvar=hop.spaceop.result)
 
     def gct_gc_thread_after_fork(self, hop):
-        assert self.translator.config.translation.thread
-        if hasattr(self.root_walker, 'thread_after_fork_ptr'):
+        if (self.translator.config.translation.thread
+            and hasattr(self.root_walker, 'thread_after_fork_ptr')):
             hop.genop("direct_call", [self.root_walker.thread_after_fork_ptr]
                                      + hop.spaceop.args)
 
