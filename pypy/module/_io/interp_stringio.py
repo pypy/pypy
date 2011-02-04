@@ -66,11 +66,7 @@ class W_StringIO(W_TextIOBase):
             self.buf.extend([u'\0'] * (newlength - len(self.buf)))
 
     def write(self, string):
-        # XXX self.decoder
-        decoded = string
-        # XXX writenl
-
-        length = len(decoded)
+        length = len(string)
         if self.pos + length > len(self.buf):
             self.resize_buffer(self.pos + length)
 
