@@ -30,11 +30,11 @@ def PySequence_Size(space, w_obj):
     Returns the number of objects in sequence o on success, and -1 on failure.
     For objects that do not provide sequence protocol, this is equivalent to the
     Python expression len(o)."""
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PySequence_Length(space, w_obj):
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 
 @cpython_api([PyObject, CONST_STRING], PyObject)
@@ -142,7 +142,7 @@ def PySequence_SetItem(space, w_o, i, w_v):
     """Assign object v to the ith element of o.  Returns -1 on failure.  This
     is the equivalent of the Python statement o[i] = v.  This function does
     not steal a reference to v.
-    
+
     This function used an int type for i. This might require
     changes in your code for properly supporting 64-bit systems."""
     if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
@@ -155,7 +155,7 @@ def PySequence_SetItem(space, w_o, i, w_v):
 def PySequence_DelItem(space, w_o, i):
     """Delete the ith element of object o.  Returns -1 on failure.  This is the
     equivalent of the Python statement del o[i].
-    
+
     This function used an int type for i. This might require
     changes in your code for properly supporting 64-bit systems."""
     space.delitem(w_o, space.wrap(i))

@@ -65,7 +65,7 @@ def PyDict_Size(space, w_obj):
     """
     Return the number of items in the dictionary.  This is equivalent to
     len(p) on a dictionary."""
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_Contains(space, w_obj, w_value):
@@ -125,25 +125,25 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     them are borrowed.  ppos should not be altered during iteration. Its
     value represents offsets within the internal dictionary structure, and
     since the structure is sparse, the offsets are not consecutive.
-    
+
     For example:
-    
+
     PyObject *key, *value;
     Py_ssize_t pos = 0;
-    
+
     while (PyDict_Next(self->dict, &pos, &key, &value)) {
         /* do something interesting with the values... */
         ...
     }
-    
+
     The dictionary p should not be mutated during iteration.  It is safe
     (since Python 2.1) to modify the values of the keys as you iterate over the
     dictionary, but only so long as the set of keys does not change.  For
     example:
-    
+
     PyObject *key, *value;
     Py_ssize_t pos = 0;
-    
+
     while (PyDict_Next(self->dict, &pos, &key, &value)) {
         int i = PyInt_AS_LONG(value) + 1;
         PyObject *o = PyInt_FromLong(i);
@@ -180,5 +180,3 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
             raise
         return 0
     return 1
-
-

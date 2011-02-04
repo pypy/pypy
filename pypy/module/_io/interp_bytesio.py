@@ -200,7 +200,7 @@ class W_BytesIO(W_BufferedIOBase):
     def setstate_w(self, space, w_state):
         self._check_closed(space)
 
-        if space.int_w(space.len(w_state)) != 3:
+        if space.len_w(w_state) != 3:
             raise operationerrfmt(space.w_TypeError,
                 "%s.__setstate__ argument should be 3-tuple, got %s",
                 space.type(self).getname(space),

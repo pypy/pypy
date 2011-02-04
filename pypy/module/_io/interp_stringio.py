@@ -72,7 +72,7 @@ class W_StringIO(W_TextIOBase):
         # We allow the state tuple to be longer than 4, because we may need
         # someday to extend the object's state without breaking
         # backwards-compatibility
-        if not space.isinstance_w(w_state, space.w_tuple) or space.int_w(space.len(w_state)) < 4:
+        if not space.isinstance_w(w_state, space.w_tuple) or space.len_w(w_state) < 4:
             raise operationerrfmt(space.w_TypeError,
                 "%s.__setstate__ argument should be a 4-tuple, got %s",
                 space.type(self).getname(space),
@@ -137,7 +137,7 @@ class W_StringIO(W_TextIOBase):
                                   space.type(w_obj).getname(space, '?'))
         self._check_closed(space)
 
-        orig_size = space.int_w(space.len(w_obj))
+        orig_size = space.len_w(w_obj)
 
         if self.w_decoder is not None:
             w_decoded = space.call_method(

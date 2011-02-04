@@ -464,7 +464,7 @@ class W_InstanceObject(Wrappable):
                 w_as_str = self.descr_unicode(space)
             else:
                 w_as_str = self.descr_str(space)
-            if space.int_w(space.len(w_format_spec)) > 0:
+            if space.len_w(w_format_spec) > 0:
                 space.warn(
                     ("object.__format__ with a non-empty format string is "
                         "deprecated"),

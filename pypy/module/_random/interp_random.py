@@ -65,7 +65,7 @@ class W_Random(Wrappable):
         if not space.is_true(space.isinstance(w_state, space.w_tuple)):
             errstring = space.wrap("state vector must be tuple")
             raise OperationError(space.w_TypeError, errstring)
-        if space.int_w(space.len(w_state)) != rrandom.N + 1:
+        if space.len_w(w_state) != rrandom.N + 1:
             errstring = space.wrap("state vector is the wrong size")
             raise OperationError(space.w_ValueError, errstring)
         w_zero = space.newint(0)

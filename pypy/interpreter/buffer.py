@@ -254,7 +254,7 @@ class StringLikeBuffer(Buffer):
 
     def getlength(self):
         space = self.space
-        return space.int_w(space.len(self.w_obj))
+        return space.len_w(self.w_obj)
 
     def getitem(self, index):
         space = self.space

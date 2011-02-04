@@ -566,11 +566,11 @@ class W_TextIOWrapper(W_TextIOBase):
         # Read a chunk, decode it, and put the result in self._decoded_chars
         w_input = space.call_method(self.w_buffer, "read1",
                                     space.wrap(self.chunk_size))
-        eof = space.int_w(space.len(w_input)) == 0
+        eof = space.len_w(w_input) == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
                                       w_input, space.wrap(eof))
         self._set_decoded_chars(space.unicode_w(w_decoded))
-        if space.int_w(space.len(w_decoded)) > 0:
+        if space.len_w(w_decoded) > 0:
             eof = False
 
         if self.telling:
