@@ -1,5 +1,9 @@
+import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi
+
+from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
+from pypy.module._rawffi.array import W_Array
 
 from pypy.module.cppyy import helper, capi
 
@@ -19,6 +23,10 @@ class FunctionExecutor(object):
     def execute_libffi(self, space, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
+
+
+class ArrayExecutor(FunctionExecutor):
+    _immutable_ = True
 
 
 class VoidExecutor(FunctionExecutor):
@@ -82,6 +90,7 @@ class DoubleExecutor(FunctionExecutor):
     def execute_libffi(self, space, libffifunc, argchain):
         return space.wrap(libffifunc.call(argchain, rffi.DOUBLE))
 
+
 class CStringExecutor(FunctionExecutor):
     _immutable_ = True
     def execute(self, space, func, cppthis, num_args, args):
@@ -89,6 +98,15 @@ class CStringExecutor(FunctionExecutor):
         ccpresult = rffi.cast(rffi.CCHARP, lresult)
         result = capi.charp2str_free(ccpresult)
         return space.wrap(result)
+
+
+class ShortArrayExecutor(ArrayExecutor):
+    _immutable_ = True
+    def execute(self, space, func, cppthis, num_args, args):
+        lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        spresult = rffi.cast(rffi.SHORTP, lresult)
+        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('h')))
+        return arr.fromaddress(space, spresult, sys.maxint)
 
 
 class InstancePtrExecutor(FunctionExecutor):
@@ -128,6 +146,7 @@ _executors["bool"]                = BoolExecutor
 _executors["char"]                = CharExecutor
 _executors["unsigned char"]       = CharExecutor
 _executors["short int"]           = ShortExecutor
+_executors["short int*"]          = ShortArrayExecutor
 _executors["unsigned short int"]  = ShortExecutor
 _executors["int"]                 = LongExecutor
 _executors["unsigned int"]        = LongExecutor

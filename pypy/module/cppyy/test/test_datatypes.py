@@ -31,6 +31,84 @@ class AppTestDATATYPES:
         lib2 = cppyy.load_lib(self.shared_lib)
         assert self.datatypes is lib2
 
+    def test1ReadAccess( self ):
+        """Test read access to instance public data and verify values"""
+
+        import cppyy, sys
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        # reading boolean type
+        assert c.m_bool == False
+
+        # reading char types
+        assert c.m_char  == 'a'
+        assert c.m_uchar == 'c'
+
+        # reading integer types
+        assert c.m_short  == -11
+        assert c.m_ushort ==  11
+        assert c.m_int    == -22
+        assert c.m_uint   ==  22
+        assert c.m_long   == -33
+        assert c.m_ulong  ==  33
+
+        # reading floating point types
+        assert round(c.m_float  + 44., 5) == 0
+        assert round(c.m_double + 55., 8) == 0
+
+        # reding of array types
+        for i in range(self.N):
+            # reading of integer array types
+            assert c.m_short_array[i]       ==  -1*i
+            assert c.get_short_array()[i]   ==  -1*i
+            assert c.m_short_array2[i]      ==  -2*i
+            assert c.get_short_array2()[i]  ==  -2*i
+            """
+            assert c.m_ushort_array[i]      ==   3*i
+            assert c.get_ushort_array()[i]  ==   3*i
+            assert c.m_ushort_array2[i]     ==   4*i
+            assert c.get_ushort_array2()[i] ==   4*i
+            assert c.m_int_array[i]         ==  -5*i
+            assert c.get_int_array()[i]     ==  -5*i
+            assert c.m_int_array2[i]        ==  -6*i
+            assert c.get_int_array2()[i]    ==  -6*i
+            assert c.m_uint_array[i]        ==   7*i
+            assert c.get_uint_array()[i]    ==   7*i
+            assert c.m_uint_array2[i]       ==   8*i
+            assert c.get_uint_array2()[i]   ==   8*i
+
+            assert c.m_long_array[i]        ==  -9*i
+            assert c.get_long_array()[i]    ==  -9*i
+            assert c.m_long_array2[i]       == -10*i
+            assert c.get_long_array2()[i]   == -10*i
+            assert c.m_ulong_array[i]       ==  11*i
+            assert c.get_ulong_array()[i]   ==  11*i
+            assert c.m_ulong_array2[i]      ==  12*i
+            assert c.get_ulong_array2()[i]  ==  12*i
+
+            assert round(c.m_float_array[i]   + 13.*i, 5) == 0
+            assert round(c.m_float_array2[i]  + 14.*i, 5) == 0
+            assert round(c.m_double_array[i]  + 15.*i, 8) == 0
+            assert round(c.m_double_array2[i] + 16.*i, 8) == 0
+            """
+
+        """
+        # out-of-bounds checks
+        raises(IndexError, c.m_short_array.__getitem__,  self.N)
+        raises(IndexError, c.m_ushort_array.__getitem__, self.N)
+        raises(IndexError, c.m_int_array.__getitem__,    self.N)
+        raises(IndexError, c.m_uint_array.__getitem__,   self.N)
+        raises(IndexError, c.m_long_array.__getitem__,   self.N)
+        raises(IndexError, c.m_ulong_array.__getitem__,  self.N)
+        raises(IndexError, c.m_float_array.__getitem__,  self.N)
+        raises(IndexError, c.m_double_array.__getitem__, self.N)
+        """
+
+        c.destruct()
+
     def test2WriteAccess(self):
         """Test write access to instance public data and verify values"""
 
@@ -143,3 +221,5 @@ class AppTestDATATYPES:
         raises(TypeError, c.m_double,  'c')
         raises(TypeError, c.m_int,     -1.)
         raises(TypeError, c.m_int,      1.)
+
+        c.destruct()

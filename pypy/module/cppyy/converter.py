@@ -228,27 +228,15 @@ class CStringConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
 
-class ShortPtrConverter(ArrayTypeConverter):
+class ShortArrayConverter(ArrayTypeConverter):
     _immutable_ = True
-    def convert_argument(self, space, w_obj):
-        assert 0, "not yet implemented"
-
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
         fieldptr = self._get_fieldptr(space, w_obj, offset)
         ptrval = rffi.cast(rffi.UINT, fieldptr)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('h')))
-        return arr.fromaddress(space, ptrval, self.size)
+        return arr.fromaddress(space, fieldptr, self.size)
 
-    def to_memory(self, space, w_obj, w_value, offset):
-        # copy only the pointer value
-        rawobject = get_rawobject(space, w_obj)
-        byteptr = rffi.cast(rffi.LONGP, rawobject[offset])
-        # TODO: now what ... ?? AFAICS, w_value is a pure python list, not an array?
-#        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
-
-class ShortArrayConverter(ShortPtrConverter):
-    _immutable_ = True
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
         fieldptr = self._get_fieldptr(space, w_obj, offset)
@@ -257,11 +245,8 @@ class ShortArrayConverter(ShortPtrConverter):
         for i in range(min(self.size*2, buf.getlength())):
             fieldptr[i] = buf.getitem(i)
 
-class LongPtrConverter(ArrayTypeConverter):
+class LongArrayConverter(ArrayTypeConverter):
     _immutable_ = True
-    def convert_argument(self, space, w_obj):
-        assert 0, "not yet implemented"
-
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
         fieldptr = self._get_fieldptr(space, w_obj, offset)
@@ -270,21 +255,42 @@ class LongPtrConverter(ArrayTypeConverter):
         return arr.fromaddress(space, ptrval, self.size)
 
     def to_memory(self, space, w_obj, w_value, offset):
-        # copy only the pointer value
-        rawobject = get_rawobject(space, w_obj)
-        byteptr = rffi.cast(rffi.LONGP, rawobject[offset])
-        # TODO: now what ... ?? AFAICS, w_value is a pure python list, not an array?
-#        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
-
-class LongArrayConverter(LongPtrConverter):
-    _immutable_ = True
-    def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
         fieldptr = self._get_fieldptr(space, w_obj, offset)
         buf = space.interp_w(Buffer, w_value.getslotvalue(2))
         # TODO: get sizeof(long) from system
         for i in range(min(self.size*4, buf.getlength())):
             fieldptr[i] = buf.getitem(i)
+
+
+class ShortPtrConverter(ShortArrayConverter):
+    _immutable_ = True
+    def _get_fieldptr(self, space, w_obj, offset):
+        fieldptr = TypeConverter._get_fieldptr(self, space, w_obj, offset)
+        ptrptr = rffi.cast(rffi.LONGP, fieldptr)
+        return ptrptr[0]
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        # copy only the pointer value
+        rawobject = get_rawobject(space, w_obj)
+        byteptr = rffi.cast(rffi.LONGP, rawobject[offset])
+        # TODO: now what ... ?? AFAICS, w_value is a pure python list, not an array?
+#        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
+
+class LongPtrConverter(LongArrayConverter):
+    _immutable_ = True
+    def _get_fieldptr(self, space, w_obj, offset):
+        fieldptr = TypeConverter._get_fieldptr(self, space, w_obj, offset)
+        ptrptr = rffi.cast(rffi.LONGP, fieldptr)
+        return ptrptr[0]
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        # copy only the pointer value
+        rawobject = get_rawobject(space, w_obj)
+        byteptr = rffi.cast(rffi.LONGP, rawobject[offset])
+        # TODO: now what ... ?? AFAICS, w_value is a pure python list, not an array?
+#        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
+
 
 
 class InstancePtrConverter(TypeConverter):
