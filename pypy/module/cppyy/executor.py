@@ -25,8 +25,15 @@ class FunctionExecutor(object):
         raise FastCallNotPossible
 
 
-class ArrayExecutor(FunctionExecutor):
+class PtrTypeExecutor(FunctionExecutor):
     _immutable_ = True
+    typecode = ''
+
+    def execute(self, space, func, cppthis, num_args, args):
+        lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        spresult = rffi.cast(rffi.SHORTP, lresult)
+        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
+        return arr.fromaddress(space, spresult, sys.maxint)
 
 
 class VoidExecutor(FunctionExecutor):
@@ -39,6 +46,7 @@ class VoidExecutor(FunctionExecutor):
     def execute_libffi(self, space, libffifunc, argchain):
         libffifunc.call(argchain, lltype.Void)
         return space.w_None
+
 
 class BoolExecutor(FunctionExecutor):
     _immutable_ = True
@@ -100,13 +108,21 @@ class CStringExecutor(FunctionExecutor):
         return space.wrap(result)
 
 
-class ShortArrayExecutor(ArrayExecutor):
+class ShortPtrExecutor(PtrTypeExecutor):
     _immutable_ = True
-    def execute(self, space, func, cppthis, num_args, args):
-        lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
-        spresult = rffi.cast(rffi.SHORTP, lresult)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('h')))
-        return arr.fromaddress(space, spresult, sys.maxint)
+    typecode = 'h'
+
+class LongPtrExecutor(PtrTypeExecutor):
+    _immutable_ = True
+    typecode = 'l'
+
+class FloatPtrExecutor(PtrTypeExecutor):
+    _immutable_ = True
+    typecode = 'f'
+
+class DoublePtrExecutor(PtrTypeExecutor):
+    _immutable_ = True
+    typecode = 'd'
 
 
 class InstancePtrExecutor(FunctionExecutor):
@@ -146,12 +162,19 @@ _executors["bool"]                = BoolExecutor
 _executors["char"]                = CharExecutor
 _executors["unsigned char"]       = CharExecutor
 _executors["short int"]           = ShortExecutor
-_executors["short int*"]          = ShortArrayExecutor
+_executors["short int*"]          = ShortPtrExecutor
 _executors["unsigned short int"]  = ShortExecutor
+_executors["unsigned short int*"] = ShortPtrExecutor
 _executors["int"]                 = LongExecutor
+_executors["int*"]                = LongPtrExecutor
 _executors["unsigned int"]        = LongExecutor
+_executors["unsigned int*"]       = LongPtrExecutor
 _executors["long int"]            = LongExecutor
+_executors["long int*"]           = LongPtrExecutor
 _executors["unsigned long int"]   = LongExecutor
+_executors["unsigned long int*"]  = LongPtrExecutor
 _executors["float"]               = FloatExecutor
+_executors["float*"]              = FloatPtrExecutor
 _executors["double"]              = DoubleExecutor
+_executors["double*"]             = DoublePtrExecutor
 _executors["char*"]               = CStringExecutor

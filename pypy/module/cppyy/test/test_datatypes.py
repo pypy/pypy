@@ -66,7 +66,6 @@ class AppTestDATATYPES:
             assert c.get_short_array()[i]   ==  -1*i
             assert c.m_short_array2[i]      ==  -2*i
             assert c.get_short_array2()[i]  ==  -2*i
-            """
             assert c.m_ushort_array[i]      ==   3*i
             assert c.get_ushort_array()[i]  ==   3*i
             assert c.m_ushort_array2[i]     ==   4*i
@@ -93,9 +92,7 @@ class AppTestDATATYPES:
             assert round(c.m_float_array2[i]  + 14.*i, 5) == 0
             assert round(c.m_double_array[i]  + 15.*i, 8) == 0
             assert round(c.m_double_array2[i] + 16.*i, 8) == 0
-            """
 
-        """
         # out-of-bounds checks
         raises(IndexError, c.m_short_array.__getitem__,  self.N)
         raises(IndexError, c.m_ushort_array.__getitem__, self.N)
@@ -105,7 +102,6 @@ class AppTestDATATYPES:
         raises(IndexError, c.m_ulong_array.__getitem__,  self.N)
         raises(IndexError, c.m_float_array.__getitem__,  self.N)
         raises(IndexError, c.m_double_array.__getitem__, self.N)
-        """
 
         c.destruct()
 

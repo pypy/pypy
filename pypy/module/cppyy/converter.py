@@ -261,6 +261,16 @@ class LongArrayConverter(ArrayTypeConverter):
     typecode = 'l'
     typesize = 4
 
+class FloatArrayConverter(ArrayTypeConverter):
+    _immutable_ = True
+    typecode = 'f'
+    typesize = 4
+
+class DoubleArrayConverter(ArrayTypeConverter):
+    _immutable_ = True
+    typecode = 'd'
+    typesize = 8
+
 
 class ShortPtrConverter(PtrTypeConverter):
     _immutable_ = True
@@ -278,6 +288,16 @@ class LongPtrConverter(PtrTypeConverter):
     _immutable_ = True
     typecode = 'l'
     typesize = 4
+
+class FloatPtrConverter(PtrTypeConverter):
+    _immutable_ = True
+    typecode = 'f'
+    typesize = 4
+
+class DoublePtrConverter(PtrTypeConverter):
+    _immutable_ = True
+    typecode = 'd'
+    typesize = 8
 
 
 class InstancePtrConverter(TypeConverter):
@@ -364,5 +384,9 @@ _converters["unsigned long int"]        = UnsignedLongConverter
 _converters["unsigned long int*"]       = LongPtrConverter
 _converters["unsigned long int[]"]      = LongArrayConverter
 _converters["float"]                    = FloatConverter
+_converters["float*"]                   = FloatPtrConverter
+_converters["float[]"]                  = FloatArrayConverter
 _converters["double"]                   = DoubleConverter
+_converters["double*"]                  = DoublePtrConverter
+_converters["double[]"]                 = DoubleArrayConverter
 _converters["const char*"]              = CStringConverter
