@@ -52,12 +52,35 @@ class TypeConverter(object):
 
 
 class ArrayTypeConverter(TypeConverter):
-    _immutable_ = True
+    typecode = ''
+    typesize = 0         # TODO: get sizeof(type) from system
+
     def __init__(self, space, array_size):
         if array_size <= 0:
             self.size = sys.maxint
         else:
             self.size = array_size
+
+    def from_memory(self, space, w_obj, offset):
+        # read access, so no copy needed
+        fieldptr = self._get_fieldptr(space, w_obj, offset)
+        ptrval = rffi.cast(rffi.UINT, fieldptr)
+        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
+        return arr.fromaddress(space, fieldptr, self.size)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        # copy the full array (uses byte copy for now)
+        fieldptr = self._get_fieldptr(space, w_obj, offset)
+        buf = space.interp_w(Buffer, w_value.getslotvalue(2))
+        for i in range(min(self.size*self.typesize, buf.getlength())):
+            fieldptr[i] = buf.getitem(i)
+
+
+class PtrTypeConverter(ArrayTypeConverter):
+    def _get_fieldptr(self, space, w_obj, offset):
+        fieldptr = TypeConverter._get_fieldptr(self, space, w_obj, offset)
+        ptrptr = rffi.cast(rffi.LONGP, fieldptr)
+        return ptrptr[0]
 
 
 class VoidConverter(TypeConverter):
@@ -230,45 +253,19 @@ class CStringConverter(TypeConverter):
 
 class ShortArrayConverter(ArrayTypeConverter):
     _immutable_ = True
-    def from_memory(self, space, w_obj, offset):
-        # read access, so no copy needed
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        ptrval = rffi.cast(rffi.UINT, fieldptr)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('h')))
-        return arr.fromaddress(space, fieldptr, self.size)
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        # copy the full array (uses byte copy for now)
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        buf = space.interp_w(Buffer, w_value.getslotvalue(2))
-        # TODO: get sizeof(short) from system
-        for i in range(min(self.size*2, buf.getlength())):
-            fieldptr[i] = buf.getitem(i)
+    typecode = 'h'
+    typesize = 2
 
 class LongArrayConverter(ArrayTypeConverter):
     _immutable_ = True
-    def from_memory(self, space, w_obj, offset):
-        # read access, so no copy needed
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        ptrval = rffi.cast(rffi.UINT, fieldptr)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('l')))
-        return arr.fromaddress(space, ptrval, self.size)
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        # copy the full array (uses byte copy for now)
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        buf = space.interp_w(Buffer, w_value.getslotvalue(2))
-        # TODO: get sizeof(long) from system
-        for i in range(min(self.size*4, buf.getlength())):
-            fieldptr[i] = buf.getitem(i)
+    typecode = 'l'
+    typesize = 4
 
 
-class ShortPtrConverter(ShortArrayConverter):
+class ShortPtrConverter(PtrTypeConverter):
     _immutable_ = True
-    def _get_fieldptr(self, space, w_obj, offset):
-        fieldptr = TypeConverter._get_fieldptr(self, space, w_obj, offset)
-        ptrptr = rffi.cast(rffi.LONGP, fieldptr)
-        return ptrptr[0]
+    typecode = 'h'
+    typesize = 2
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
@@ -277,20 +274,10 @@ class ShortPtrConverter(ShortArrayConverter):
         # TODO: now what ... ?? AFAICS, w_value is a pure python list, not an array?
 #        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
 
-class LongPtrConverter(LongArrayConverter):
+class LongPtrConverter(PtrTypeConverter):
     _immutable_ = True
-    def _get_fieldptr(self, space, w_obj, offset):
-        fieldptr = TypeConverter._get_fieldptr(self, space, w_obj, offset)
-        ptrptr = rffi.cast(rffi.LONGP, fieldptr)
-        return ptrptr[0]
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        # copy only the pointer value
-        rawobject = get_rawobject(space, w_obj)
-        byteptr = rffi.cast(rffi.LONGP, rawobject[offset])
-        # TODO: now what ... ?? AFAICS, w_value is a pure python list, not an array?
-#        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
-
+    typecode = 'l'
+    typesize = 4
 
 
 class InstancePtrConverter(TypeConverter):
