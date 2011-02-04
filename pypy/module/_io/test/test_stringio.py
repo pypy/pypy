@@ -264,3 +264,33 @@ class AppTestStringIO:
         sio = io.StringIO(s * 2)
         sio.close()
         raises(ValueError, next, sio)
+
+    def test_getstate(self):
+        import io
+
+        sio = io.StringIO()
+        state = sio.__getstate__()
+        assert len(state) == 4
+        assert isinstance(state[0], unicode)
+        assert isinstance(state[1], str)
+        assert isinstance(state[2], int)
+        assert isinstance(state[3], dict)
+        sio.close()
+        raises(ValueError, sio.__getstate__)
+
+    def test_setstate(self):
+        import io
+
+        sio = io.StringIO()
+        sio.__setstate__((u"no error", u"\n", 0, None))
+        sio.__setstate__((u"no error", u"", 0, {"spam": 3}))
+        raises(ValueError, sio.__setstate__, (u"", u"f", 0, None))
+        raises(ValueError, sio.__setstate__, (u"", u"", -1, None))
+        raises(TypeError, sio.__setstate__, ("", u"", 0, None))
+        raises(TypeError, sio.__setstate__, (u"", u"", 0.0, None))
+        raises(TypeError, sio.__setstate__, (u"", u"", 0, 0))
+        raises(TypeError, sio.__setstate__, (u"len-test", 0))
+        raises(TypeError, sio.__setstate__)
+        raises(TypeError, sio.__setstate__, 0)
+        sio.close()
+        raises(ValueError, sio.__setstate__, (u"closed", u"", 0, None))

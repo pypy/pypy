@@ -53,6 +53,61 @@ class W_StringIO(W_TextIOBase):
             self.write_w(space, w_initvalue)
             self.pos = 0
 
+    @unwrap_spec('self', ObjSpace)
+    def descr_getstate(self, space):
+        w_initialval = self.getvalue_w(space)
+        w_dict = space.call_method(self.w_dict, "copy")
+        if self.readnl is None:
+            w_readnl = space.w_None
+        else:
+            w_readnl = space.str(space.wrap(self.readnl))
+        return space.newtuple([
+            w_initialval, w_readnl, space.wrap(self.pos), w_dict
+        ])
+
+    @unwrap_spec('self', ObjSpace, W_Root)
+    def descr_setstate(self, space, w_state):
+        self._check_closed(space)
+
+        # We allow the state tuple to be longer than 4, because we may need
+        # someday to extend the object's state without breaking
+        # backwards-compatibility
+        if not space.isinstance_w(w_state, space.w_tuple) or space.int_w(space.len(w_state)) < 4:
+            raise operationerrfmt(space.w_TypeError,
+                "%s.__setstate__ argument should be a 4-tuple, got %s",
+                space.type(self).getname(space),
+                space.type(w_state).getname(space)
+            )
+        w_initval, w_readnl, w_pos, w_dict = space.unpackiterable(w_state, 4)
+        # Initialize state
+        self.descr_init(space, w_initval, w_readnl)
+
+        # Restore the buffer state. Even if __init__ did initialize the buffer,
+        # we have to initialize it again since __init__ may translates the
+        # newlines in the inital_value string. We clearly do not want that
+        # because the string value in the state tuple has already been
+        # translated once by __init__. So we do not take any chance and replace
+        # object's buffer completely
+        initval = space.unicode_w(w_initval)
+        size = len(initval)
+        self.resize_buffer(size)
+        self.buf = list(initval)
+        pos = space.getindex_w(w_pos, space.w_TypeError)
+        if pos < 0:
+            raise OperationError(space.w_ValueError,
+                space.wrap("position value cannot be negative")
+            )
+        self.pos = pos
+        if not space.is_w(w_dict, space.w_None):
+            if not space.isinstance_w(w_dict, space.w_dict):
+                raise operationerrfmt(space.w_TypeError,
+                    "fourth item of state should be a dict, got a %s",
+                    space.type(w_dict).getname(space)
+                )
+            # Alternatively, we could replace the internal dictionary
+            # completely. However, it seems more practical to just update it.
+            space.call_method(self.w_dict, "update", w_dict)
+
     def _check_closed(self, space, message=None):
         if self.buf is None:
             if message is None:
@@ -230,6 +285,8 @@ W_StringIO.typedef = TypeDef(
     __module__ = "_io",
     __new__  = generic_new_descr(W_StringIO),
     __init__ = interp2app(W_StringIO.descr_init),
+    __getstate__ = interp2app(W_StringIO.descr_getstate),
+    __setstate__ = interp2app(W_StringIO.descr_setstate),
     write = interp2app(W_StringIO.write_w),
     read = interp2app(W_StringIO.read_w),
     readline = interp2app(W_StringIO.readline_w),
