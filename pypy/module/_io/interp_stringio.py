@@ -13,8 +13,8 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    @unwrap_spec('self', ObjSpace, W_Root, "str_or_None")
-    def descr_init(self, space, w_initvalue=None, newline="\n"):
+    @unwrap_spec('self', ObjSpace, W_Root, W_Root)
+    def descr_init(self, space, w_initvalue=None, w_newline="\n"):
         # In case __init__ is called multiple times
         self.buf = []
         self.pos = 0
@@ -22,16 +22,25 @@ class W_StringIO(W_TextIOBase):
         self.readnl = None
         self.writenl = None
 
-        if (newline is not None and newline != "" and newline != "\n" and
-            newline != "\r" and newline != "\r\n"):
-            raise operationerrfmt(space.w_ValueError,
-                "illegal newline value: %s", newline
+        if space.is_w(w_newline, space.w_None):
+            newline = None
+        else:
+            newline = space.unicode_w(w_newline)
+
+        if (newline is not None and newline != u"" and newline != u"\n" and
+            newline != u"\r" and newline != u"\r\n"):
+            # Not using operationerrfmt() because I don't know how to ues it
+            # with unicode
+            raise OperationError(space.w_ValueError,
+                space.mod(
+                    space.wrap("illegal newline value: %s"), space.wrap(newline)
+                )
             )
         if newline is not None:
             self.readnl = newline
-        self.readuniversal = newline is None or newline == ""
+        self.readuniversal = newline is None or newline == u""
         self.readtranslate = newline is None
-        if newline and newline[0] == "\r":
+        if newline and newline[0] == u"\r":
             self.writenl = newline
         if self.readuniversal:
             self.w_decoder = space.call_function(
@@ -123,11 +132,12 @@ class W_StringIO(W_TextIOBase):
         if limit < 0 or limit > len(self.buf) - self.pos:
             limit = len(self.buf) - self.pos
 
+        assert limit >= 0
         end = start + limit
 
         endpos, consumed = self._find_line_ending(
             # XXX: super inefficient, makes a copy of the entire contents.
-            "".join(self.buf),
+            u"".join(self.buf),
             start,
             end
         )
