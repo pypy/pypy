@@ -137,7 +137,7 @@ class W_StringIO(W_TextIOBase):
             endpos = end
         assert endpos >= 0
         self.pos = endpos
-        return space.wrap("".join(self.buf[start:endpos]))
+        return space.wrap(u"".join(self.buf[start:endpos]))
 
     @unwrap_spec('self', ObjSpace, int, int)
     def seek_w(self, space, pos, mode=0):
