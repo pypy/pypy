@@ -186,7 +186,7 @@ class VirtualTests:
         self.check_loop_count(2)
         self.check_loops(new=0, new_with_vtable=0,
                                 getfield_gc=0, setfield_gc=0)
-
+        
     def test_two_loops_with_escaping_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def externfn(node):

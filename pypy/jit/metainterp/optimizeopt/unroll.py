@@ -125,6 +125,17 @@ class Inliner(object):
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
 
+class VirtualState(object):
+    def __init__(self, state):
+        self.state = state
+
+    def more_general_than(self, other):
+        assert len(self.state) == len(other.state)
+        for i in range(len(self.state)):
+            if not self.state[i].more_general_than(other.state[i]):
+                return False
+        return True
+
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):
         self.fieldboxes = {}
@@ -155,7 +166,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
         for box in jump_args:
             value = self.getvalue(box)
             value.get_args_for_fail(self)
-        return [self.state(box) for box in jump_args]
+        return VirtualState([self.state(box) for box in jump_args])
 
 
     def make_not_virtual(self, value):
@@ -167,7 +178,7 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
         self.level = value.level
         self.intbound = value.intbound.clone()
         if value.is_constant():
-            self.constbox = value.box.clonebox()
+            self.constbox = value.box
         else:
             self.constbox = None
 
@@ -176,12 +187,15 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
         # might be what we want sometimes?
         if not isinstance(other, NotVirtualInfo):
             return False
-        if self.constbox:
-            if not self.constbox.same_const(other):
+        if other.level < self.level:
+            return False
+        if self.level == LEVEL_CONSTANT:
+            if not self.constbox.same_constant(other.constbox):
                 return False
-        return (self.known_class == other.known_class and
-                self.level == other.level and
-                self.intbound.contains_bound(other.intbound))
+        elif self.level == LEVEL_KNOWNCLASS:
+            if self.known_class != other.known_class: # FIXME: use issubclass?
+                return False
+        return self.intbound.contains_bound(other.intbound)
             
 
 class UnrollOptimizer(Optimization):
@@ -590,12 +604,8 @@ class OptInlineShortPreamble(Optimization):
                 virtual_state = modifier.get_virtual_state(args)
                 print 'len', len(short)
                 for sh in short:
-                    assert len(virtual_state) == len(sh.virtual_state)
-                    
-                    for i in range(len(virtual_state)):
-                        if not sh.virtual_state[i].more_general_than(virtual_state[i]):
-                            break
-                    else:
+                    if sh.virtual_state.more_general_than(virtual_state):
+                        # FIXME: Do we still need the dry run
                         if self.inline(sh.operations, sh.inputargs,
                                        op.getarglist(), dryrun=True):
                             try:
