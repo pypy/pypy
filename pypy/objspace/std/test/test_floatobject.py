@@ -204,6 +204,21 @@ class AppTestAppFloatTest:
             assert pw(0.0, float("-inf")) == float("inf")
             assert math.isnan(pw(-3, float("nan")))
             assert math.isnan(pw(-3., float("nan")))
+            assert pw(-1.0, -float('inf')) == 1.0
+            assert pw(-1.0, float('inf')) == 1.0
+            assert pw(float('inf'), 0) == 1.0
+            assert pw(float('nan'), 0) == 1.0
+
+            assert math.isinf(pw(-0.5, float('-inf')))
+            assert math.isinf(pw(+0.5, float('-inf')))
+            assert pw(-1.5, float('-inf')) == 0.0
+            assert pw(+1.5, float('-inf')) == 0.0
+
+            assert str(pw(float('-inf'), -0.5)) == '0.0'
+            assert str(pw(float('-inf'), -2.0)) == '0.0'
+            assert str(pw(float('-inf'), -1.0)) == '-0.0'
+            assert str(pw(float('-inf'), 1.0)) == '-inf'
+            assert str(pw(float('-inf'), 2.0)) == 'inf'
 
     def test_pow_neg_base(self):
         import math
