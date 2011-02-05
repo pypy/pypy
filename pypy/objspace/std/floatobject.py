@@ -295,7 +295,7 @@ def _hash_float(space, v):
                     return -271828
                 else:
                     return 314159
-            return space.int_w(hash__Long(space, w_lval))
+            return space.int_w(space.hash(w_lval))
 
     # The fractional part is non-zero, so we don't have to worry about
     # making this match the hash of some other type.
