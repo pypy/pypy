@@ -5,6 +5,8 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib import jit, libffi
 
+from pypy.objspace.std.noneobject import W_NoneObject
+
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array
 
@@ -29,6 +31,13 @@ class TypeConverter(object):
     def _get_fieldptr(self, space, w_obj, offset):
         rawobject = get_rawobject(space, w_obj)
         return lltype.direct_ptradd(rawobject, offset)
+
+    def _get_address(self, space, w_obj, offset):
+        if space.eq_w(w_obj, space.w_None): # meaning, static/global data
+            address = rffi.cast(rffi.CCHARP, offset)
+        else:
+            address = self._get_fieldptr(space, w_obj, offset)
+        return address
 
     def _is_abstract(self):
         raise NotImplementedError(
@@ -63,17 +72,16 @@ class ArrayTypeConverter(TypeConverter):
 
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        ptrval = rffi.cast(rffi.UINT, fieldptr)
+        address = self._get_address(space, w_obj, offset)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
-        return arr.fromaddress(space, fieldptr, self.size)
+        return arr.fromaddress(space, address, self.size)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
+        address = self._get_address(space, w_obj, offset)
         buf = space.interp_w(Buffer, w_value.getslotvalue(2))
         for i in range(min(self.size*self.typesize, buf.getlength())):
-            fieldptr[i] = buf.getitem(i)
+            address[i] = buf.getitem(i)
 
 
 class PtrTypeConverter(ArrayTypeConverter):
@@ -105,21 +113,21 @@ class BoolConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        if fieldptr[0] == '\x01':
+        address = self._get_address(space, w_obj, offset)
+        if address[0] == '\x01':
             return space.wrap(True)
         return space.wrap(False)
 
     def to_memory(self, space, w_obj, w_value, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
+        address = self._get_address(space, w_obj, offset)
         arg = space.c_int_w(w_value)
         if arg != False and arg != True:
             raise OperationError(space.w_TypeError,
                                  space.wrap("boolean value should be bool, or integer 1 or 0"))
         if arg:
-           fieldptr[0] = '\x01'
+           address[0] = '\x01'
         else:
-           fieldptr[0] = '\x00'
+           address[0] = '\x00'
 
 class CharConverter(TypeConverter):
     libffitype = libffi.types.schar
@@ -147,12 +155,12 @@ class CharConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        return space.wrap(fieldptr[0])
+        address = self._get_address(space, w_obj, offset)
+        return space.wrap(address[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        fieldptr[0] = self._from_space(space, w_value)
+        address = self._get_address(space, w_obj, offset)
+        address[0] = self._from_space(space, w_value)
 
 class LongConverter(TypeConverter):
     libffitype = libffi.types.slong
@@ -171,13 +179,13 @@ class LongConverter(TypeConverter):
         argchain.arg(self._unwrap_object(space, w_obj))
 
     def from_memory(self, space, w_obj, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        longptr = rffi.cast(self.rffiptrtype, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        longptr = rffi.cast(self.rffiptrtype, address)
         return space.wrap(longptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        longptr = rffi.cast(self.rffiptrtype, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        longptr = rffi.cast(self.rffiptrtype, address)
         longptr[0] = self._unwrap_object(space, w_value)
 
 class UnsignedLongConverter(LongConverter):
@@ -191,13 +199,13 @@ class ShortConverter(LongConverter):
     libffitype = libffi.types.sshort
 
     def from_memory(self, space, w_obj, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        shortptr = rffi.cast(rffi.SHORTP, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        shortptr = rffi.cast(rffi.SHORTP, address)
         return space.wrap(shortptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        shortptr = rffi.cast(rffi.SHORTP, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        shortptr = rffi.cast(rffi.SHORTP, address)
         shortptr[0] = rffi.cast(rffi.SHORT, space.c_int_w(w_value))
 
 class FloatConverter(TypeConverter):
@@ -210,13 +218,13 @@ class FloatConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        floatptr = rffi.cast(rffi.FLOATP, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        floatptr = rffi.cast(rffi.FLOATP, address)
         return space.wrap(float(floatptr[0]))
 
     def to_memory(self, space, w_obj, w_value, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        floatptr = rffi.cast(rffi.FLOATP, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        floatptr = rffi.cast(rffi.FLOATP, address)
         floatptr[0] = r_singlefloat(space.float_w(w_value))
 
 class DoubleConverter(TypeConverter):
@@ -234,13 +242,13 @@ class DoubleConverter(TypeConverter):
         argchain.arg(self._unwrap_object(space, w_obj))
 
     def from_memory(self, space, w_obj, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        doubleptr = rffi.cast(rffi.DOUBLEP, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        doubleptr = rffi.cast(rffi.DOUBLEP, address)
         return space.wrap(doubleptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        doubleptr = rffi.cast(rffi.DOUBLEP, fieldptr)
+        address = self._get_address(space, w_obj, offset)
+        doubleptr = rffi.cast(rffi.DOUBLEP, address)
         doubleptr[0] = space.float_w(w_value)
 
 

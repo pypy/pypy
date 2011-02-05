@@ -261,6 +261,21 @@ W_CPPDataMember.typedef = TypeDef(
 )
 
 
+class W_CPPStaticDataMember(W_CPPDataMember):
+    def __get__(self, args_w):
+        return self.converter.from_memory(self.space, self.space.w_None, self.offset)
+
+    def __set__(self, args_w):
+        self.converter.to_memory(self.space, self.space_w_None, args_w[1], self.offset)
+        return None
+
+W_CPPStaticDataMember.typedef = TypeDef(
+    'CPPStaticDataMember',
+    __get__ = interp2app(W_CPPStaticDataMember.__get__, unwrap_spec=['self', 'args_w']),
+    __set__ = interp2app(W_CPPStaticDataMember.__set__, unwrap_spec=['self', 'args_w']),
+)
+
+
 class W_CPPType(Wrappable):
     _immutable_fields_ = ["name", "handle"]
     def __init__(self, space, name, handle):
@@ -297,7 +312,7 @@ class W_CPPType(Wrappable):
             argtypes.append(argtype)
         if capi.c_is_constructor(self.handle, method_index):
             cls = CPPConstructor
-        elif capi.c_is_static(self.handle, method_index):
+        elif capi.c_is_staticmethod(self.handle, method_index):
             cls = CPPFunction
         else:
             cls = CPPMethod
@@ -309,7 +324,10 @@ class W_CPPType(Wrappable):
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
             cpptype = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
             offset = capi.c_data_member_offset(self.handle, i)
-            data_member = W_CPPDataMember(self.space, cpptype, offset)
+            if capi.c_is_staticdata(self.handle, i):
+                data_member = W_CPPStaticDataMember(self.space, cpptype, offset)
+            else:
+                data_member = W_CPPDataMember(self.space, cpptype, offset)
             self.data_members[data_member_name] = data_member
 
     def get_method_names(self):

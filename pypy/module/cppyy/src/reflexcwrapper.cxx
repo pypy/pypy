@@ -102,6 +102,16 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int me
 }
 
 
+/* type/class reflection information -------------------------------------- */
+int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2) {
+    if (h1 == h2)
+        return 1;
+    Reflex::Type t1((Reflex::TypeName*)h1);
+    Reflex::Type t2((Reflex::TypeName*)h2);
+    return (int)t2.HasBase(t1);
+}
+
+
 /* method/function reflection information --------------------------------- */
 int cppyy_num_methods(cppyy_typehandle_t handle) {
     Reflex::Type t((Reflex::TypeName*)handle);
@@ -154,6 +164,19 @@ char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg
 }
 
 
+int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index) {
+    Reflex::Type t((Reflex::TypeName*)handle);
+    Reflex::Member m = t.FunctionMemberAt(method_index);
+    return m.IsConstructor();
+}
+
+int cppyy_is_staticmethod(cppyy_typehandle_t handle, int method_index) {
+    Reflex::Type t((Reflex::TypeName*)handle);
+    Reflex::Member m = t.FunctionMemberAt(method_index);
+    return m.IsStatic();
+}
+
+
 /* data member reflection information ------------------------------------- */
 int cppyy_num_data_members(cppyy_typehandle_t handle) {
     Reflex::Type t((Reflex::TypeName*)handle);
@@ -185,26 +208,14 @@ size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index
 }
 
 
-int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index) {
+int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Type t((Reflex::TypeName*)handle);
-    Reflex::Member m = t.FunctionMemberAt(method_index);
-    return m.IsConstructor();
-}
-
-int cppyy_is_static(cppyy_typehandle_t handle, int method_index) {
-    Reflex::Type t((Reflex::TypeName*)handle);
-    Reflex::Member m = t.FunctionMemberAt(method_index);
+    Reflex::Member m = t.DataMemberAt(data_member_index);
     return m.IsStatic();
 }
 
-int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2) {
-    if (h1 == h2)
-        return 1;
-    Reflex::Type t1((Reflex::TypeName*)h1);
-    Reflex::Type t2((Reflex::TypeName*)h2);
-    return (int)t2.HasBase(t1);
-}
 
+/* misc helper ------------------------------------------------------------ */
 void cppyy_free(void* ptr) {
     free(ptr);
 }

@@ -26,6 +26,9 @@ extern "C" {
     void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self);
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index);
 
+    /* type properties */
+    int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2);
+
     /* method/function reflection information */
     int cppyy_num_methods(cppyy_typehandle_t handle);
     char* cppyy_method_name(cppyy_typehandle_t handle, int method_index);
@@ -33,16 +36,20 @@ extern "C" {
     int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index);
     char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int index);
 
+    /* method properties */
+    int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index);
+    int cppyy_is_staticmethod(cppyy_typehandle_t handle, int method_index);
+
     /* data member reflection information */
     int cppyy_num_data_members(cppyy_typehandle_t handle);
     char* cppyy_data_member_name(cppyy_typehandle_t handle, int data_member_index);
     char* cppyy_data_member_type(cppyy_typehandle_t handle, int data_member_index);
     size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index);
 
-    int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index);
-    int cppyy_is_static(cppyy_typehandle_t handle, int method_index);
-    int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2);
+    /* data member properties */
+    int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index);
 
+    /* misc helper */
     void cppyy_free(void* ptr);
 
 #ifdef __cplusplus

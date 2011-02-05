@@ -81,6 +81,11 @@ c_get_methptr_getter = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT], C_METHPTRGETTER_PTR,
     compilation_info=eci)
 
+c_is_subtype = rffi.llexternal(
+    "cppyy_is_subtype",
+    [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
+    compilation_info=eci)
+
 c_num_methods = rffi.llexternal(
     "cppyy_num_methods",
     [C_TYPEHANDLE], rffi.INT,
@@ -102,6 +107,15 @@ c_method_arg_type = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT, rffi.INT], rffi.CCHARP,
     compilation_info=eci)
 
+c_is_constructor = rffi.llexternal(
+    "cppyy_is_constructor",
+    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    compilation_info=eci)
+c_is_staticmethod = rffi.llexternal(
+    "cppyy_is_staticmethod",
+    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    compilation_info=eci)
+
 c_num_data_members = rffi.llexternal(
     "cppyy_num_data_members",
     [C_TYPEHANDLE], rffi.INT,
@@ -119,17 +133,9 @@ c_data_member_offset = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT], rffi.INT,
     compilation_info=eci)
 
-c_is_constructor = rffi.llexternal(
-    "cppyy_is_constructor",
+c_is_staticdata = rffi.llexternal(
+    "cppyy_is_staticdata",
     [C_TYPEHANDLE, rffi.INT], rffi.INT,
-    compilation_info=eci)
-c_is_static = rffi.llexternal(
-    "cppyy_is_static",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
-    compilation_info=eci)
-c_is_subtype = rffi.llexternal(
-    "cppyy_is_subtype",
-    [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
     compilation_info=eci)
 
 c_free = rffi.llexternal(

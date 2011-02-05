@@ -31,7 +31,7 @@ class AppTestDATATYPES:
         lib2 = cppyy.load_lib(self.shared_lib)
         assert self.datatypes is lib2
 
-    def test1ReadAccess( self ):
+    def test1InstanceDataReadAccess( self ):
         """Test read access to instance public data and verify values"""
 
         import cppyy, sys
@@ -105,7 +105,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test2WriteAccess(self):
+    def test2InstanceDataWriteAccess(self):
         """Test write access to instance public data and verify values"""
 
         import cppyy, sys
@@ -187,7 +187,49 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test3RangeAccess(self):
+    def test3ClassReadAccess(self):
+        """Test read access to class public data and verify values"""
+
+        import cppyy, sys
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        # char types
+        assert cppyy_test_data.s_char  == 's'
+        assert c.s_char                == 's'
+        assert c.s_uchar               == 'u'
+        assert cppyy_test_data.s_uchar == 'u'
+
+        # integer types
+        assert cppyy_test_data.s_short  == -101
+        assert c.s_short                == -101
+        assert c.s_ushort               ==  255
+        assert cppyy_test_data.s_ushort ==  255
+        assert cppyy_test_data.s_int    == -202
+        assert c.s_int                  == -202
+        assert c.s_uint                 ==  202
+        assert cppyy_test_data.s_uint   ==  202
+        assert cppyy_test_data.s_long   == -303
+        assert c.s_long                 == -303
+        assert c.s_ulong                ==  303
+        assert cppyy_test_data.s_ulong  ==  303
+
+        # floating point types
+        assert round(cppyy_test_data.s_float  + 404., 5) == 0
+        assert round(c.s_float                + 404., 5) == 0
+        assert round(cppyy_test_data.s_double + 505., 8) == 0
+        assert round(c.s_double               + 505., 8) == 0
+
+        c.destruct()
+
+    def test4ClassDataWriteAccess(self):
+        """Test write access to class public data and verify values"""
+
+        pass
+
+    def test5RangeAccess(self):
         """Test the ranges of integer types"""
 
         import cppyy, sys
@@ -201,7 +243,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test4TypeConversions(self):
+    def test6TypeConversions(self):
         """Test conversions between builtin types"""
 
         import cppyy, sys
@@ -209,7 +251,6 @@ class AppTestDATATYPES:
 
         c = cppyy_test_data()
         assert isinstance(c, cppyy_test_data)
-
 
         c.m_double = -1
         assert round(c.m_double + 1.0, 8) == 0
