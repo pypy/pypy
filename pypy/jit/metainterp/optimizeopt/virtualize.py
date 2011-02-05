@@ -99,7 +99,10 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             len(self._fields) == len(_cached_sorted_fields)):
             lst = self._cached_sorted_fields
         else:
-            lst = self._fields.keys()
+            if self._fields is None:
+                lst = []
+            else:
+                lst = self._fields.keys()
             sort_descrs(lst)
             cache = get_fielddescrlist_cache(self.optimizer.cpu)
             result = cache.get(lst, None)

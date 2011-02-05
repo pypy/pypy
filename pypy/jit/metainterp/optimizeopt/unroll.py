@@ -1,4 +1,5 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
+from pypy.jit.metainterp.optimizeopt.virtualize import AbstractVirtualValue
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
@@ -160,6 +161,8 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
             if box in self.fieldboxes:
                 info.fieldstate = [self.state(b) for b in self.fieldboxes[box]]
                 # FIXME: Do we realy want to add fields to the VirtualInfo's?
+            elif isinstance(value, AbstractVirtualValue):
+                info.fieldstate = []
         return info
 
     def get_virtual_state(self, jump_args):
