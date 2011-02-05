@@ -406,10 +406,10 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32])
         assert res == 1167
         self.check_loop_count(3)
-        self.check_loops({'int_add': 2, 'int_lt': 1,
+        self.check_loops({'int_add': 3, 'int_lt': 2,
                           'int_sub': 2, 'guard_false': 1,
                           'jump': 2,
-                          'int_gt': 1, 'guard_true': 1, 'int_mul': 1})
+                          'int_gt': 1, 'guard_true': 2})
 
 
     def test_loop_invariant_mul_bridge_maintaining2(self):
@@ -428,10 +428,31 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32])
         assert res == 1692
         self.check_loop_count(3)
-        self.check_loops({'int_add': 2, 'int_lt': 1,
+        self.check_loops({'int_add': 3, 'int_lt': 2,
                           'int_sub': 2, 'guard_false': 1,
                           'jump': 2,
-                          'int_gt': 1, 'guard_true': 1, 'int_mul': 1})
+                          'int_gt': 1, 'guard_true': 2})
+
+    def test_loop_invariant_mul_bridge_maintaining3(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'm'])
+        def f(x, y, m):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res, m=m)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res, m=m)
+                z = x * x
+                res += z
+                if y<m:
+                    res += z
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        assert res == 1692
+        self.check_loop_count(3)
+        self.check_loops({'int_add': 2, 'int_lt': 1,
+                          'int_sub': 2, 'guard_false': 1,
+                          'jump': 2, 'int_mul': 1,
+                          'int_gt': 2, 'guard_true': 2})
 
     def test_loop_invariant_intbox(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -1478,7 +1499,7 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
         self.check_loops(guard_class=0, guard_value=3)        
-        self.check_loops(guard_class=0, guard_value=6, everywhere=True)
+        self.check_loops(guard_class=0, guard_value=8, everywhere=True)
 
     def test_merge_guardnonnull_guardclass(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1509,7 +1530,7 @@ class BasicTests:
         self.check_loops(guard_class=0, guard_nonnull=0,
                          guard_nonnull_class=2, guard_isnull=1)
         self.check_loops(guard_class=0, guard_nonnull=0,
-                         guard_nonnull_class=4, guard_isnull=2,
+                         guard_nonnull_class=5, guard_isnull=3,
                          everywhere=True)
 
     def test_merge_guardnonnull_guardvalue(self):
@@ -1539,8 +1560,8 @@ class BasicTests:
         assert res == f(299)
         self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
                          guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=4,
-                         guard_nonnull_class=0, guard_isnull=2,
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=5,
+                         guard_nonnull_class=0, guard_isnull=3,
                          everywhere=True)
 
     def test_merge_guardnonnull_guardvalue_2(self):
@@ -1570,8 +1591,8 @@ class BasicTests:
         assert res == f(299)
         self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
                          guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=4,
-                         guard_nonnull_class=0, guard_isnull=2,
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=5,
+                         guard_nonnull_class=0, guard_isnull=3,
                          everywhere=True)
 
     def test_merge_guardnonnull_guardclass_guardvalue(self):
@@ -1604,8 +1625,8 @@ class BasicTests:
         assert res == f(399)
         self.check_loops(guard_class=0, guard_nonnull=0, guard_value=3,
                          guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=6,
-                         guard_nonnull_class=0, guard_isnull=2,
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=8,
+                         guard_nonnull_class=0, guard_isnull=3,
                          everywhere=True)
 
     def test_residual_call_doesnt_lose_info(self):
@@ -1897,8 +1918,8 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
-        self.check_loop_count(8)
-        self.check_loops(getarrayitem_gc=16, everywhere=True)
+        self.check_loop_count(11)
+        self.check_loops(getarrayitem_gc=17, everywhere=True)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
@@ -2107,7 +2128,7 @@ class BasicTests:
             return main(10, 20) + main(-10, -20)
         res = self.meta_interp(g, [])
         assert res == g()
-        self.check_enter_count(3)
+        self.check_enter_count(2)
 
     def test_current_trace_length(self):
         myjitdriver = JitDriver(greens = ['g'], reds = ['x'])
