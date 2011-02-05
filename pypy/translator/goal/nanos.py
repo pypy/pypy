@@ -174,11 +174,7 @@ elif os.name == 'nt':
             return (st.st_mode & 0170000) == 0100000      # S_ISREG
 
         def islink(path):
-            try:
-                st = lstat(path)
-            except error:
-                return False
-            return (st.st_mode & 0170000) == 0120000      # S_ISLNK
+            return False
 
     """, filename=__file__)
 
