@@ -32,8 +32,8 @@ class W_LongObject(W_Object):
     def toint(self):
         return self.num.toint()
 
-    def fromfloat(f):
-        return W_LongObject(rbigint.fromfloat(f))
+    def fromfloat(space, f):
+        return newlong(space, rbigint.fromfloat(f))
     fromfloat = staticmethod(fromfloat)
 
     def fromlong(l):
