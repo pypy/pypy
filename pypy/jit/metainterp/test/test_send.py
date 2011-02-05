@@ -334,6 +334,10 @@ class SendTests:
         class State:
             count = 0
             def externfn(self, n):
+                print
+                print
+                print n, 198 - self.count
+                print
                 assert n == 198 - self.count
                 self.count += 1
                 if n % 5:
@@ -439,7 +443,7 @@ class SendTests:
         if self.optimizer != OPTIMIZER_FULL:
             self.check_tree_loop_count(1)
         else:
-            self.check_tree_loop_count(2)
+            self.check_tree_loop_count(6)
 
     def test_three_classes(self):
         class Base:

@@ -199,7 +199,6 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
             if self.known_class != other.known_class: # FIXME: use issubclass?
                 return False
         return self.intbound.contains_bound(other.intbound)
-            
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -605,8 +604,7 @@ class OptInlineShortPreamble(Optimization):
                 args = op.getarglist()
                 modifier = VirtualStateAdder(self.optimizer)
                 virtual_state = modifier.get_virtual_state(args)
-                print 'len', len(short)
-                for sh in short:
+                for sh in short:                                        
                     if sh.virtual_state.more_general_than(virtual_state):
                         # FIXME: Do we still need the dry run
                         if self.inline(sh.operations, sh.inputargs,

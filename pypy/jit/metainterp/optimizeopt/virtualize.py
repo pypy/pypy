@@ -95,8 +95,12 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
+        if self._fields is None:
+            nfields = 0
+        else:
+            nfields = len(self._fields)
         if (_cached_sorted_fields is not None and
-            len(self._fields) == len(_cached_sorted_fields)):
+            nfields == len(_cached_sorted_fields)):
             lst = self._cached_sorted_fields
         else:
             if self._fields is None:
