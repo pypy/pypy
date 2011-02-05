@@ -211,6 +211,7 @@ def setup_nanos(space):
 path_module_for_testing = type(os)("os.path")
 os_module_for_testing = type(os)("os")
 os_module_for_testing.path = path_module_for_testing
+os_module_for_testing.getenv = os.getenv
 eval(py.code.Source(app_os_path.source).compile(), path_module_for_testing.__dict__)
 eval(py.code.Source(app_os.source).compile(), os_module_for_testing.__dict__)
 
