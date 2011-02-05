@@ -85,7 +85,7 @@ This object wraps a Windows HKEY object, automatically closing it when
 the object is destroyed.  To guarantee cleanup, you can call either
 the Close() method on the PyHKEY, or the CloseKey() method.
 
-All functions which accept a handle object also accept an integer - 
+All functions which accept a handle object also accept an integer -
 however, use of the handle object is encouraged.
 
 Functions:
@@ -294,7 +294,7 @@ def convert_to_regdata(space, w_value, typ):
                 w_value = space.call_method(w_value, 'encode',
                                             space.wrap('mbcs'))
             buf = rffi.str2charp(space.str_w(w_value))
-            buflen = space.int_w(space.len(w_value)) + 1
+            buflen = space.len_w(w_value) + 1
 
     elif typ == rwinreg.REG_MULTI_SZ:
         if space.is_w(w_value, space.w_None):

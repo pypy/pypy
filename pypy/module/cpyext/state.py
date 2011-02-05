@@ -93,7 +93,7 @@ class State:
         if not self.programname:
             space = self.space
             argv = space.sys.get('argv')
-            if space.int_w(space.len(argv)):
+            if space.len_w(argv):
                 argv0 = space.getitem(argv, space.wrap(0))
                 progname = space.str_w(argv0)
             else:

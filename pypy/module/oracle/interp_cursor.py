@@ -196,7 +196,7 @@ class W_Cursor(Wrappable):
     def _call(self, space, name, retvar, w_args):
         # determine the number of arguments passed
         if w_args:
-            numArguments = space.int_w(space.len(w_args))
+            numArguments = space.len_w(w_args)
         else:
             numArguments = 0
 
@@ -994,7 +994,7 @@ class W_Cursor(Wrappable):
 
         # determine the number of elements to create
         if space.is_true(space.isinstance(w_value, space.w_list)):
-            numElements = space.int_w(space.len(w_value))
+            numElements = space.len_w(w_value)
         elif space.is_true(space.isinstance(w_value, space.w_int)):
             numElements = space.int_w(w_value)
         else:

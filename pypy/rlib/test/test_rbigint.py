@@ -36,6 +36,12 @@ class TestRLong(object):
                 r2 = op1 / op2
                 assert r1 == r2
 
+    def test_truediv_precision(self):
+        op1 = rbigint.fromlong(12345*2**30)
+        op2 = rbigint.fromlong(98765*7**81)
+        f = op1.truediv(op2)
+        assert f == 4.7298422347492634e-61      # exactly
+
     def test_mod(self):
         for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
             for op2 in [-4, -2, -1, 1, 2, 8]:

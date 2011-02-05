@@ -22,7 +22,7 @@ class TestEval(BaseApiTest):
         w_t = space.newtuple([space.wrap(1), space.wrap(2)])
         w_res = api.PyEval_CallObjectWithKeywords(w_f, w_t, None)
         assert space.int_w(w_res) == 2
-        assert space.int_w(space.len(w_l)) == 2
+        assert space.len_w(w_l) == 2
         w_f = space.appexec([], """():
             def f(*args, **kwds):
                 assert isinstance(kwds, dict)
@@ -35,7 +35,7 @@ class TestEval(BaseApiTest):
         space.setitem(w_d, space.wrap("xyz"), space.wrap(3))
         w_res = api.PyEval_CallObjectWithKeywords(w_f, w_t, w_d)
         assert space.int_w(w_res) == 21
-    
+
     def test_call_object(self, space, api):
         w_l, w_f = space.fixedview(space.appexec([], """():
         l = []
@@ -49,8 +49,8 @@ class TestEval(BaseApiTest):
         w_t = space.newtuple([space.wrap(1), space.wrap(2)])
         w_res = api.PyObject_CallObject(w_f, w_t)
         assert space.int_w(w_res) == 2
-        assert space.int_w(space.len(w_l)) == 2
-        
+        assert space.len_w(w_l) == 2
+
         w_f = space.appexec([], """():
             def f(*args):
                 assert isinstance(args, tuple)
@@ -60,7 +60,7 @@ class TestEval(BaseApiTest):
 
         w_t = space.newtuple([space.wrap(1), space.wrap(2)])
         w_res = api.PyObject_CallObject(w_f, w_t)
-        
+
         assert space.int_w(w_res) == 10
 
     def test_run_string(self, space, api):
@@ -118,7 +118,7 @@ class TestEval(BaseApiTest):
             d = dict(__builtins__={'len':len}, cpybuiltins=cpybuiltins)
             return eval("cpybuiltins()", d, d)
         """)
-        assert space.int_w(space.len(w_result)) == 1
+        assert space.len_w(w_result) == 1
 
     def test_getglobals(self, space, api):
         assert api.PyEval_GetLocals() is None

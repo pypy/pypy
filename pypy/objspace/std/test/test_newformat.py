@@ -72,6 +72,13 @@ class BaseStringFormatTests:
         assert self.s("{!r}").format(x()) == self.s("32")
         assert self.s("{!s}").format(x()) == self.s("32")
 
+    def test_format_spec(self):
+        assert self.s('{0!s:}').format('Hello') == 'Hello'
+        assert self.s('{0!s:15}').format('Hello') == 'Hello          '
+        assert self.s('{0!s:15s}').format('Hello') == 'Hello          '
+        assert self.s('{0!r}').format('Hello') == "'Hello'"
+        assert self.s('{0!r:}').format('Hello') == "'Hello'"
+
     def test_invalid_conversion(self):
         raises(ValueError, self.s("{!x}").format, 3)
         raises(ValueError, self.s("{!}").format)

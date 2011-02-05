@@ -126,9 +126,12 @@ class TemplateFormatter(object):
                         w_msg = self.space.wrap("expected conversion")
                         raise OperationError(self.space.w_ValueError, w_msg)
                     conversion = s[i]
+                    i += 1
+                    c = s[i]
                 else:
                     conversion = self.empty
-                i += 1
+                if c == ':':
+                    i += 1
                 return s[start:end_name], conversion, i
             i += 1
         return s[start:end], self.empty, end
