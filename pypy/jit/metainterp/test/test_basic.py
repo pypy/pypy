@@ -2157,6 +2157,55 @@ class BasicTests:
         res = self.interp_operations(f, [])
         assert res
 
+    def test_wrap_around_add(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
+        class A:
+            pass
+        def f(x):
+            n = 0
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, n=n)
+                myjitdriver.jit_merge_point(x=x, n=n)
+                x += 1
+                n += 1
+            return n
+        res = self.meta_interp(f, [sys.maxint-10])
+        assert res == 11
+        self.check_tree_loop_count(2)
+
+    def test_wrap_around_mul(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
+        class A:
+            pass
+        def f(x):
+            n = 0
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, n=n)
+                myjitdriver.jit_merge_point(x=x, n=n)
+                x *= 2
+                n += 1
+            return n
+        res = self.meta_interp(f, [sys.maxint>>10])
+        assert res == 11
+        self.check_tree_loop_count(2)        
+
+    def test_wrap_around_sub(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
+        class A:
+            pass
+        def f(x):
+            n = 0
+            while x < 0:
+                myjitdriver.can_enter_jit(x=x, n=n)
+                myjitdriver.jit_merge_point(x=x, n=n)
+                x -= 1
+                n += 1
+            return n
+        res = self.meta_interp(f, [10-sys.maxint])
+        assert res == 12
+        self.check_tree_loop_count(2)        
+
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 
@@ -2237,9 +2286,6 @@ class TestOOtype(BasicTests, OOJitMixin):
                                policy=StopAtXPolicy(getcls),
                                optimizer=OPTIMIZER_SIMPLE)
         assert res
-
-
-
 
 class BaseLLtypeTests(BasicTests):
 
