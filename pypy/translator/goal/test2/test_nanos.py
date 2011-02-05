@@ -22,9 +22,6 @@ class TestNanos:
         assert os1.name == os.name
         assert os1.sep == os.sep
         assert os1.pathsep == os.pathsep
-        # check that the following attrs exist
-        os1.fdopen
-        os1.path.dirname
 
     def test_dirname(self):
         p1 = os.path
@@ -33,6 +30,7 @@ class TestNanos:
         assert p1.dirname(path) == p2.dirname(path)
         assert p1.dirname(path + os.sep) == p2.dirname(path + os.sep)
         assert p1.dirname(path + 2*os.sep) == p2.dirname(path + 2*os.sep)
+        assert p1.dirname(p1.dirname(path)) == p2.dirname(p2.dirname(path))
 
     def test_join(self):
         p1 = os.path
@@ -49,6 +47,14 @@ class TestNanos:
         base = str(udir)
         assert p2.abspath(base) == base
         assert p2.abspath('x') == os.path.join(os.getcwd(), 'x')
+
+    def test_isfile(self):
+        p2 = self.getnanos().path
+        udir.join('test_isfile').write('\n')
+        base = str(udir)
+        assert p2.isfile(p2.join(base, 'test_isfile'))
+        assert not p2.isfile(p2.join(base, 'test_isfile.DOES.NOT.EXIST'))
+        assert not p2.isfile(base)
 
 
 def test_nanos():

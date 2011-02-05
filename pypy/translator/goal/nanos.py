@@ -31,8 +31,6 @@ import os, py
 if os.name == 'posix':
     # code copied from posixpath.py
     app_os_path = applevel("""
-        from posix import getcwd, stat, lstat, error
-
         def dirname(p):
             i = p.rfind('/') + 1
             head = p[:i]
@@ -51,21 +49,24 @@ if os.name == 'posix':
 
         def abspath(path):
             if not path.startswith('/'):
-                cwd = getcwd()
+                import posix
+                cwd = posix.getcwd()
                 path = join(cwd, path)
             return path       # this version does not call normpath()!
 
         def isfile(path):
+            import posix
             try:
-                st = stat(path)
-            except error:
+                st = posix.stat(path)
+            except posix.error:
                 return False
             return (st.st_mode & 0170000) == 0100000      # S_ISREG
 
         def islink(path):
+            import posix
             try:
-                st = lstat(path)
-            except error:
+                st = posix.lstat(path)
+            except posix.error:
                 return False
             return (st.st_mode & 0170000) == 0120000      # S_ISLNK
 
@@ -75,14 +76,15 @@ if os.name == 'posix':
         sep = '/'
         pathsep = ':'
         name = 'posix'
-        from posix import fdopen, readlink
+
+        def readlink(fn):
+            import posix
+            return posix.readlink(fn)
     """, filename=__file__)
 
 elif os.name == 'nt':
     # code copied from ntpath.py
     app_os_path = applevel("""
-        from nt import _getfullpathname, getcwd, stat, lstat, error
-
         def splitdrive(p):
             if p[1:2] == ':':
                 return p[0:2], p[2:]
@@ -157,19 +159,21 @@ elif os.name == 'nt':
             return path
 
         def abspath(path):
+            import nt
             if path: # Empty path must return current working directory.
                 try:
-                    path = _getfullpathname(path)
+                    path = nt._getfullpathname(path)
                 except WindowsError:
                     pass # Bad path - return unchanged.
             else:
-                path = getcwd()
+                path = nt.getcwd()
             return path       # this version does not call normpath()!
 
         def isfile(path):
+            import nt
             try:
-                st = stat(path)
-            except error:
+                st = nt.stat(path)
+            except nt.error:
                 return False
             return (st.st_mode & 0170000) == 0100000      # S_ISREG
 
@@ -182,7 +186,6 @@ elif os.name == 'nt':
         sep = '\\'
         pathsep = ';'
         name = 'nt'
-        from posix import fdopen
     """, filename=__file__)
 
 else:
