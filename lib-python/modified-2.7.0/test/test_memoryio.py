@@ -612,7 +612,7 @@ class CBytesIOTest(PyBytesIOTest):
         state = memio.__getstate__()
         self.assertEqual(len(state), 3)
         bytearray(state[0]) # Check if state[0] supports the buffer interface.
-        self.assertIsInstance(state[1], int)
+        self.assertIsInstance(state[1], (int, long))
         self.assert_(isinstance(state[2], dict) or state[2] is None)
         memio.close()
         self.assertRaises(ValueError, memio.__getstate__)
