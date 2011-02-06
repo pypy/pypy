@@ -453,11 +453,6 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(untag(self.fieldnums[i])))
 
     def generalization_of(self, other):
-        if not isinstance(other, AbstractVirtualStructInfo):
-            return False
-        if not self.known_class.same_constant(other.known_class):
-            return False
-        
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
@@ -468,7 +463,11 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                 return False
             if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
                 return False
-        return True
+
+        return self._generalization_of(other)
+
+    def _generalization_of(self, other):
+        raise NotImplementedError
             
         
 
@@ -487,6 +486,14 @@ class VirtualInfo(AbstractVirtualStructInfo):
         debug_print("\tvirtualinfo", self.known_class.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
 
+    def _generalization_of(self, other):        
+        if not isinstance(other, VirtualInfo):
+            return False
+        if not self.known_class.same_constant(other.known_class):
+            return False
+        return True
+        
+
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -501,6 +508,14 @@ class VStructInfo(AbstractVirtualStructInfo):
     def debug_prints(self):
         debug_print("\tvstructinfo", self.typedescr.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
+
+    def _generalization_of(self, other):        
+        if not isinstance(other, VStructInfo):
+            return False
+        if self.typedescr is not other.typedescr:
+            return False
+        return True
+        
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
