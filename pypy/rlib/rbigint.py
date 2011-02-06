@@ -1409,8 +1409,8 @@ def _bigint_true_divide(a, b):
     if not a.tobool():
         return _truediv_result(0.0, negate)
 
-    a_size = a._numdigits()
-    b_size = b._numdigits()
+    a_size = a.numdigits()
+    b_size = b.numdigits()
 
     # Fast path for a and b small (exactly representable in a double).
     # Relies on floating-point division being correctly rounded; results
@@ -1418,24 +1418,24 @@ def _bigint_true_divide(a, b):
     # the x87 FPU set to 64-bit precision.
     a_is_small = (a_size <= MANT_DIG_DIGITS or
                   (a_size == MANT_DIG_DIGITS+1 and
-                   a.digits[MANT_DIG_DIGITS] >> MANT_DIG_BITS == 0))
+                   a.digit(MANT_DIG_DIGITS) >> MANT_DIG_BITS == 0))
     b_is_small = (b_size <= MANT_DIG_DIGITS or
                   (b_size == MANT_DIG_DIGITS+1 and
-                   b.digits[MANT_DIG_DIGITS] >> MANT_DIG_BITS == 0))
+                   b.digit(MANT_DIG_DIGITS) >> MANT_DIG_BITS == 0))
     if a_is_small and b_is_small:
         a_size -= 1
-        da = float(a.digits[a_size])
+        da = float(a.digit(a_size))
         while True:
             a_size -= 1
             if a_size < 0: break
-            da = da * BASE_AS_FLOAT + a.digits[a_size]
+            da = da * BASE_AS_FLOAT + a.digit(a_size)
 
         b_size -= 1
-        db = float(b.digits[b_size])
+        db = float(b.digit(b_size))
         while True:
             b_size -= 1
             if b_size < 0: break
-            db = db * BASE_AS_FLOAT + b.digits[b_size]
+            db = db * BASE_AS_FLOAT + b.digit(b_size)
 
         return _truediv_result(da / db, negate)
 
@@ -1446,8 +1446,8 @@ def _bigint_true_divide(a, b):
     elif diff < 1 - sys.maxint/SHIFT:
         return _truediv_result(0.0, negate)  # Extreme underflow
     # Next line is now safe from overflowing integers
-    diff = (diff * SHIFT + bits_in_digit(a.digits[a_size - 1]) -
-                           bits_in_digit(b.digits[b_size - 1]))
+    diff = (diff * SHIFT + bits_in_digit(a.digit(a_size - 1)) -
+                           bits_in_digit(b.digit(b_size - 1)))
     # Now diff = a_bits - b_bits.
     if diff > DBL_MAX_EXP:
         return _truediv_overflow()
@@ -1474,8 +1474,8 @@ def _bigint_true_divide(a, b):
         inexact = True
 
     assert x.tobool()    # result of division is never zero
-    x_size = x._numdigits()
-    x_bits = (x_size-1)*SHIFT + bits_in_digit(x.digits[x_size-1])
+    x_size = x.numdigits()
+    x_bits = (x_size-1)*SHIFT + bits_in_digit(x.digit(x_size-1))
 
     # The number of extra bits that have to be rounded away.
     extra_bits = max(x_bits, DBL_MIN_EXP - shift) - DBL_MANT_DIG
@@ -1483,7 +1483,7 @@ def _bigint_true_divide(a, b):
 
     # Round by remembering a modified copy of the low digit of x
     mask = 1 << (extra_bits - 1)
-    low = x.digits[0] | inexact
+    low = x.digit(0) | inexact
     if (low & mask) != 0 and (low & (3*mask-1)) != 0:
         low += mask
     x_digit_0 = low & ~(mask-1)
@@ -1492,7 +1492,7 @@ def _bigint_true_divide(a, b):
     x_size -= 1
     dx = 0.0
     while x_size > 0:
-        dx += x.digits[x_size]
+        dx += x.digit(x_size)
         dx *= BASE_AS_FLOAT
         x_size -= 1
     dx += x_digit_0
