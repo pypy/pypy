@@ -561,7 +561,11 @@ class VirtualTests:
                     node2 = next
                 n -= 1
             return node1.value + node2.value
-        assert self.meta_interp(f, [300, 3]) == f(300, 3)
+        assert self.meta_interp(f, [40, 3]) == f(40, 3)
+        
+        def g(n1, n2, s):
+            return f(n1, s) + f(n2, s)
+        # FIXME: Try the case where we need to call the second version from the interpreter
         
 
 class VirtualMiscTests:
