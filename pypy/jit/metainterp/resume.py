@@ -444,7 +444,7 @@ class AbstractVirtualInfo(object):
         self._generate_guards(other, box, cpu, extra_guards)
 
     def _generate_guards(self, other, box, cpu, extra_guards):
-        raise NotImplementedError
+        raise InvalidLoop
         
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
@@ -482,10 +482,6 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def _generalization_of(self, other):
         raise NotImplementedError
 
-    def _generate_guards(self, other, box, cpu, extra_guards):
-        raise InvalidLoop
-            
-        
 
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
