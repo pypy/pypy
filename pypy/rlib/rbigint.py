@@ -576,7 +576,7 @@ class rbigint(object):
             ][msd]
         # yes, this can overflow: a huge number which fits 3 gigabytes of
         # memory has around 24 gigabits!
-        bits = ovfcheck((i-1) * SHIFT + msd_bits)
+        bits = ovfcheck((i-1) * SHIFT) + msd_bits
         return bits
 
     def __repr__(self):
