@@ -361,6 +361,46 @@ class SendTests:
         else:
             self.check_tree_loop_count(2)
 
+    def test_indirect_call_unknown_object_3(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'z', 'state'])
+        def getvalue2():
+            return 2
+        def getvalue25():
+            return 25
+        def getvalue1001():
+            return -1001
+
+        class State:
+            count = 0
+            def externfn(self, n):
+                assert n == 198 - self.count
+                self.count += 1
+                if n % 5:
+                    return getvalue2
+                elif n % 7:
+                    return getvalue25
+                else:
+                    return getvalue1001
+        def f(y):
+            state = State()
+            x = z = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, z=z, state=state)
+                myjitdriver.jit_merge_point(x=x, y=y, z=z, state=state)
+                x += z
+                z = state.externfn(y)()
+                y -= 1
+            return x
+        res = self.meta_interp(f, [198],
+                               policy=StopAtXPolicy(State.externfn.im_func))
+        assert res == f(198)
+        # we get two TreeLoops: an initial one, and one entering from
+        # the interpreter
+        if self.optimizer != OPTIMIZER_FULL:
+            self.check_tree_loop_count(1)
+        else:
+            self.check_tree_loop_count(2)
+
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
