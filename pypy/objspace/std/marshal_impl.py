@@ -28,7 +28,7 @@ from pypy.objspace.std.dictmultiobject    import W_DictMultiObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.ropeobject    import W_RopeObject
 from pypy.objspace.std.typeobject    import W_TypeObject
-from pypy.objspace.std.longobject    import W_LongObject
+from pypy.objspace.std.longobject    import W_LongObject, newlong
 from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
@@ -265,7 +265,7 @@ def unmarshal_Long(space, u, tc):
         if digits[-1] == 0:
             raise_exception(space, 'bad marshal data')
         result = rbigint(digits, sign)
-    w_long = W_LongObject(result)
+    w_long = newlong(space, result)
     return w_long
 register(TYPE_LONG, unmarshal_Long)
 

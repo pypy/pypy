@@ -323,7 +323,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Turn the applevel constants dictionary into a list."""
         w_consts = self.w_consts
         space = self.space
-        consts_w = [space.w_None] * space.int_w(space.len(w_consts))
+        consts_w = [space.w_None] * space.len_w(w_consts)
         w_iter = space.iter(w_consts)
         first = space.wrap(0)
         while True:

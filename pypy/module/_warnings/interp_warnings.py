@@ -107,7 +107,7 @@ def setup_context(space, stacklevel):
             raise
         if space.str_w(w_module) == '__main__':
             w_argv = space.sys.getdictvalue(space, 'argv')
-            if w_argv and space.int_w(space.len(w_argv)) > 0:
+            if w_argv and space.len_w(w_argv) > 0:
                 w_filename = space.getitem(w_argv, space.wrap(0))
                 if not space.is_true(w_filename):
                     w_filename = space.wrap('__main__')

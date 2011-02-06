@@ -182,7 +182,7 @@ class W_IncrementalNewlineDecoder(Wrappable):
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
-    'TextIOWrapper',
+    'IncrementalNewlineDecoder',
     __new__ = generic_new_descr(W_IncrementalNewlineDecoder),
     __init__  = interp2app(W_IncrementalNewlineDecoder.descr_init),
 
@@ -223,6 +223,49 @@ class W_TextIOBase(W_IOBase):
 
     def errors_get_w(space, self):
         return space.w_None
+
+
+    def _find_line_ending(self, line, start, end):
+        size = end - start
+        if self.readtranslate:
+
+            # Newlines are already translated, only search for \n
+            pos = line.find(u'\n', start, end)
+            if pos >= 0:
+                return pos - start + 1, 0
+            else:
+                return -1, size
+        elif self.readuniversal:
+            # Universal newline search. Find any of \r, \r\n, \n
+            # The decoder ensures that \r\n are not split in two pieces
+            i = 0
+            while True:
+                # Fast path for non-control chars. The loop always ends
+                # since the Py_UNICODE storage is NUL-terminated.
+                while i < size and line[start + i] > '\r':
+                    i += 1
+                if i >= size:
+                    return -1, size
+                ch = line[start + i]
+                i += 1
+                if ch == '\n':
+                    return i, 0
+                if ch == '\r':
+                    if line[start + i] == '\n':
+                        return i + 1, 0
+                    else:
+                        return i, 0
+        else:
+            # Non-universal mode.
+            pos = line.find(self.readnl, start, end)
+            if pos >= 0:
+                return pos - start + len(self.readnl), 0
+            else:
+                pos = line.find(self.readnl[0], start, end)
+                if pos >= 0:
+                    return -1, pos - start
+                return -1, size
+
 
 W_TextIOBase.typedef = TypeDef(
     '_TextIOBase', W_IOBase.typedef,
@@ -523,11 +566,11 @@ class W_TextIOWrapper(W_TextIOBase):
         # Read a chunk, decode it, and put the result in self._decoded_chars
         w_input = space.call_method(self.w_buffer, "read1",
                                     space.wrap(self.chunk_size))
-        eof = space.int_w(space.len(w_input)) == 0
+        eof = space.len_w(w_input) == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
                                       w_input, space.wrap(eof))
         self._set_decoded_chars(space.unicode_w(w_decoded))
-        if space.int_w(space.len(w_decoded)) > 0:
+        if space.len_w(w_decoded) > 0:
             eof = False
 
         if self.telling:
@@ -583,48 +626,6 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return space.wrap(builder.build())
 
-    def _find_line_ending(self, line, start):
-        end = len(line)
-        size = end - start
-        if self.readtranslate:
-
-            # Newlines are already translated, only search for \n
-            pos = line.find(u'\n', start, end)
-            if pos >= 0:
-                return pos - start + 1, 0
-            else:
-                return -1, size
-        elif self.readuniversal:
-            # Universal newline search. Find any of \r, \r\n, \n
-            # The decoder ensures that \r\n are not split in two pieces
-            i = 0
-            while True:
-                # Fast path for non-control chars. The loop always ends
-                # since the Py_UNICODE storage is NUL-terminated.
-                while i < size and line[start + i] > '\r':
-                    i += 1
-                if i >= size:
-                    return -1, size
-                ch = line[start + i]
-                i += 1
-                if ch == '\n':
-                    return i, 0
-                if ch == '\r':
-                    if line[start + i] == '\n':
-                        return i + 1, 0
-                    else:
-                        return i, 0
-        else:
-            # Non-universal mode.
-            pos = line.find(self.readnl, start, end)
-            if pos >= 0:
-                return pos - start + len(self.readnl), 0
-            else:
-                pos = line.find(self.readnl[0], start, end)
-                if pos >= 0:
-                    return -1, pos - start
-                return -1, size
-
     @unwrap_spec('self', ObjSpace, W_Root)
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
@@ -663,7 +664,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 remaining = None
 
             line_len = len(line)
-            endpos, consumed = self._find_line_ending(line, start)
+            endpos, consumed = self._find_line_ending(line, start, line_len)
             if endpos >= 0:
                 endpos += start
                 if limit >= 0 and endpos >= start + limit - chunked:

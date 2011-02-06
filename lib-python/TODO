@@ -8,18 +8,10 @@ http://buildbot.pypy.org/summary?branch=fast-forward
 Probably easy tasks
 -------------------
 
-- New complex syntax (see test_complex.py)::
-
-      assert complex("(1+2j)") == (1+2j)
-      assert complex("(1-2j)") == (1-2j)
-      assert complex("1e500") == complex(INF, 0.0)
-
 - (unicode|bytearray).(index|find) should accept None as indices (see
   test_unicode.py)
 
 - Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
-
-- missing functions in itertools: combinations, product...
 
 - in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
   proably requires to use the git_t typedef instead of rffi.INT.
@@ -44,8 +36,6 @@ Medium tasks
   falls back to space.str(). (WHY?)
 
 - socket module has a couple of changes (including AF_TIPC packet range)
-
-- implement _io.open() (currently it delegates to _pyio.open)
 
 - module/unicodedata/generate_unicodedb.py should parse LineBreaks.txt
   see http://svn.python.org/view?view=rev&revision=79494

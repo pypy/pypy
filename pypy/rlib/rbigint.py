@@ -609,7 +609,7 @@ class rbigint(object):
             ][msd]
         # yes, this can overflow: a huge number which fits 3 gigabytes of
         # memory has around 24 gigabits!
-        bits = ovfcheck((i-1) * SHIFT + msd_bits)
+        bits = ovfcheck((i-1) * SHIFT) + msd_bits
         return bits
 
     def __repr__(self):
@@ -1390,25 +1390,155 @@ def _loghelper(func, arg):
     return func(x) + (e * float(SHIFT) * func(2.0))
 _loghelper._annspecialcase_ = 'specialize:arg(0)'
 
+# ____________________________________________________________
+
+BASE_AS_FLOAT = float(1 << SHIFT)     # note that it may not fit an int
+
+BitLengthTable = ''.join(map(chr, [
+    0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]))
+
+def bits_in_digit(d):
+    # returns the unique integer k such that 2**(k-1) <= d <
+    # 2**k if d is nonzero, else 0.
+    d_bits = 0
+    while d >= 32:
+        d_bits += 6
+        d >>= 6
+    d_bits += ord(BitLengthTable[d])
+    return d_bits
+
+def _truediv_result(result, negate):
+    if negate:
+        result = -result
+    return result
+
+def _truediv_overflow():
+    raise OverflowError("integer division result too large for a float")
+
 def _bigint_true_divide(a, b):
-    ad, aexp = _AsScaledDouble(a)
-    bd, bexp = _AsScaledDouble(b)
-    if bd == 0.0:
+    # A longish method to obtain the floating-point result with as much
+    # precision as theoretically possible.  The code is almost directly
+    # copied from CPython.  See there (Objects/longobject.c,
+    # long_true_divide) for detailled comments.  Method in a nutshell:
+    #
+    #    0. reduce to case a, b > 0; filter out obvious underflow/overflow
+    #    1. choose a suitable integer 'shift'
+    #    2. use integer arithmetic to compute x = floor(2**-shift*a/b)
+    #    3. adjust x for correct rounding
+    #    4. convert x to a double dx with the same value
+    #    5. return ldexp(dx, shift).
+
+    from pypy.rlib import rfloat
+    DBL_MANT_DIG = rfloat.DBL_MANT_DIG  # 53 for IEEE 754 binary64
+    DBL_MAX_EXP = rfloat.DBL_MAX_EXP    # 1024 for IEEE 754 binary64
+    DBL_MIN_EXP = rfloat.DBL_MIN_EXP
+    MANT_DIG_DIGITS = DBL_MANT_DIG // SHIFT
+    MANT_DIG_BITS = DBL_MANT_DIG % SHIFT
+
+    # Reduce to case where a and b are both positive.
+    negate = (a.sign < 0) ^ (b.sign < 0)
+    if not b.tobool():
         raise ZeroDivisionError("long division or modulo by zero")
+    if not a.tobool():
+        return _truediv_result(0.0, negate)
 
-    # True value is very close to ad/bd * 2**(SHIFT*(aexp-bexp))
-    ad /= bd   # overflow/underflow impossible here
-    aexp -= bexp
-    if aexp > sys.maxint / SHIFT:
-        raise OverflowError
-    elif aexp < -(sys.maxint / SHIFT):
-        return 0.0 # underflow to 0
-    ad = math.ldexp(ad, aexp * SHIFT)
-    ##if isinf(ad):   # ignore underflow to 0.0
-    ##    raise OverflowError
-    # math.ldexp checks and raises
-    return ad
+    a_size = a._numdigits()
+    b_size = b._numdigits()
 
+    # Fast path for a and b small (exactly representable in a double).
+    # Relies on floating-point division being correctly rounded; results
+    # may be subject to double rounding on x86 machines that operate with
+    # the x87 FPU set to 64-bit precision.
+    a_is_small = (a_size <= MANT_DIG_DIGITS or
+                  (a_size == MANT_DIG_DIGITS+1 and
+                   a.digits[MANT_DIG_DIGITS] >> MANT_DIG_BITS == 0))
+    b_is_small = (b_size <= MANT_DIG_DIGITS or
+                  (b_size == MANT_DIG_DIGITS+1 and
+                   b.digits[MANT_DIG_DIGITS] >> MANT_DIG_BITS == 0))
+    if a_is_small and b_is_small:
+        a_size -= 1
+        da = float(a.digits[a_size])
+        while True:
+            a_size -= 1
+            if a_size < 0: break
+            da = da * BASE_AS_FLOAT + a.digits[a_size]
+
+        b_size -= 1
+        db = float(b.digits[b_size])
+        while True:
+            b_size -= 1
+            if b_size < 0: break
+            db = db * BASE_AS_FLOAT + b.digits[b_size]
+
+        return _truediv_result(da / db, negate)
+
+    # Catch obvious cases of underflow and overflow
+    diff = a_size - b_size
+    if diff > sys.maxint/SHIFT - 1:
+        return _truediv_overflow()           # Extreme overflow
+    elif diff < 1 - sys.maxint/SHIFT:
+        return _truediv_result(0.0, negate)  # Extreme underflow
+    # Next line is now safe from overflowing integers
+    diff = (diff * SHIFT + bits_in_digit(a.digits[a_size - 1]) -
+                           bits_in_digit(b.digits[b_size - 1]))
+    # Now diff = a_bits - b_bits.
+    if diff > DBL_MAX_EXP:
+        return _truediv_overflow()
+    elif diff < DBL_MIN_EXP - DBL_MANT_DIG - 1:
+        return _truediv_result(0.0, negate)
+
+    # Choose value for shift; see comments for step 1 in CPython.
+    shift = max(diff, DBL_MIN_EXP) - DBL_MANT_DIG - 2
+
+    inexact = False
+
+    # x = abs(a * 2**-shift)
+    if shift <= 0:
+        x = a.lshift(-shift)
+    else:
+        x = a.rshift(shift)
+        # set inexact if any of the bits shifted out is nonzero
+        if not a.eq(x.lshift(shift)):
+            inexact = True
+
+    # x //= b. If the remainder is nonzero, set inexact.
+    x, rem = x.divmod(b)
+    if rem.tobool():
+        inexact = True
+
+    assert x.tobool()    # result of division is never zero
+    x_size = x._numdigits()
+    x_bits = (x_size-1)*SHIFT + bits_in_digit(x.digits[x_size-1])
+
+    # The number of extra bits that have to be rounded away.
+    extra_bits = max(x_bits, DBL_MIN_EXP - shift) - DBL_MANT_DIG
+    assert extra_bits == 2 or extra_bits == 3
+
+    # Round by remembering a modified copy of the low digit of x
+    mask = 1 << (extra_bits - 1)
+    low = x.digits[0] | inexact
+    if (low & mask) != 0 and (low & (3*mask-1)) != 0:
+        low += mask
+    x_digit_0 = low & ~(mask-1)
+
+    # Convert x to a double dx; the conversion is exact.
+    x_size -= 1
+    dx = 0.0
+    while x_size > 0:
+        dx += x.digits[x_size]
+        dx *= BASE_AS_FLOAT
+        x_size -= 1
+    dx += x_digit_0
+
+    # Check whether ldexp result will overflow a double.
+    if (shift + x_bits >= DBL_MAX_EXP and
+        (shift + x_bits > DBL_MAX_EXP or dx == math.ldexp(1.0, x_bits))):
+        return _truediv_overflow()
+
+    return _truediv_result(math.ldexp(dx, shift), negate)
+
+# ____________________________________________________________
 
 BASE8  = '01234567'
 BASE10 = '0123456789'

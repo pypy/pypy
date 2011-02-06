@@ -581,6 +581,7 @@ class AppTestUnicodeString:
 
     def test_index(self):
         assert u"rrarrrrrrrrra".index(u'a', 4, None) == 12
+        assert u"rrarrrrrrrrra".index(u'a', None, 6) == 2
 
     def test_rindex(self):
         from sys import maxint

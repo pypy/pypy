@@ -91,7 +91,7 @@ class W_BaseException(Wrappable):
     """Superclass representing the base of the exception hierarchy.
 
     The __getitem__ method is provided for backwards-compatibility
-    and will be deprecated at some point. 
+    and will be deprecated at some point.
     """
     w_dict = None
     args_w = []
@@ -291,7 +291,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
     start = None
     end = None
     reason = None
-    
+
     def descr_init(self, space, w_object, w_start, w_end, w_reason):
         # typechecking
         space.realunicode_w(w_object)
@@ -346,7 +346,7 @@ def key_error_str(self, space):
     else:
         return space.str(space.newtuple(self.args_w))
 key_error_str.unwrap_spec = ['self', ObjSpace]
-    
+
 W_KeyError = _new_exception('KeyError', W_LookupError,
                             """Mapping key not found.""",
                             __str__ = key_error_str)
@@ -367,7 +367,7 @@ class W_EnvironmentError(W_StandardError):
     def __init__(self, space):
         self.w_errno = space.w_None
         self.w_strerror = space.w_None
-        self.w_filename = space.w_None        
+        self.w_filename = space.w_None
         W_BaseException.__init__(self, space)
 
     def descr_init(self, space, args_w):
@@ -425,7 +425,7 @@ W_OSError = _new_exception('OSError', W_EnvironmentError,
 
 class W_WindowsError(W_OSError):
     """MS-Windows OS system call failed."""
-    
+
     def __init__(self, space):
         self.w_winerror = space.w_None
         W_OSError.__init__(self, space)
@@ -557,7 +557,7 @@ class W_SyntaxError(W_StandardError):
     def descr_repr(self, space):
         if (len(self.args_w) == 2
             and not space.is_w(self.w_lastlineno, space.w_None)
-            and space.int_w(space.len(self.args_w[1])) == 4):
+            and space.len_w(self.args_w[1]) == 4):
             # fake a 5-element tuple in the repr, suitable for calling
             # __init__ again
             values_w = space.fixedview(self.args_w[1])
@@ -594,7 +594,7 @@ W_FutureWarning = _new_exception('FutureWarning', W_Warning,
 
 class W_SystemExit(W_BaseException):
     """Request to exit from the interpreter."""
-    
+
     def __init__(self, space):
         self.w_code = space.w_None
         W_BaseException.__init__(self, space)

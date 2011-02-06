@@ -19,7 +19,7 @@ class CodecState(object):
     def make_errorhandler(self, space, decode):
         def unicode_call_errorhandler(errors,  encoding, reason, input,
                                       startpos, endpos):
-            
+
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
@@ -34,7 +34,7 @@ class CodecState(object):
                 space.wrap(reason))
             w_res = space.call_function(w_errorhandler, w_exc)
             if (not space.is_true(space.isinstance(w_res, space.w_tuple))
-                or space.int_w(space.len(w_res)) != 2):
+                or space.len_w(w_res) != 2):
                 raise operationerrfmt(
                     space.w_TypeError,
                     "encoding error handler must return "
@@ -77,7 +77,7 @@ class CodecState(object):
 
 def register_codec(space, w_search_function):
     """register(search_function)
-    
+
     Register a codec search function. Search functions are expected to take
     one argument, the encoding name in all lower case letters, and return
     a tuple of functions (encoder, decoder, stream_reader, stream_writer).
@@ -100,7 +100,7 @@ def lookup_codec(space, encoding):
     assert not (space.config.translating and not we_are_translated()), \
         "lookup_codec() should not be called during translation"
     state = space.fromcache(CodecState)
-    normalized_encoding = encoding.replace(" ", "-").lower()    
+    normalized_encoding = encoding.replace(" ", "-").lower()
     w_result = state.codec_search_cache.get(normalized_encoding, None)
     if w_result is not None:
         return w_result
@@ -118,14 +118,14 @@ def lookup_codec(space, encoding):
         w_result = space.call_function(w_search,
                                        space.wrap(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
-            if not (space.is_true(space.isinstance(w_result,  
+            if not (space.is_true(space.isinstance(w_result,
                                             space.w_tuple)) and
-                    space.int_w(space.len(w_result)) == 4):
+                    space.len_w(w_result) == 4):
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("codec search functions must return 4-tuples"))
             else:
-                state.codec_search_cache[normalized_encoding] = w_result 
+                state.codec_search_cache[normalized_encoding] = w_result
                 return w_result
     raise operationerrfmt(
         space.w_LookupError,
@@ -259,7 +259,7 @@ def lookup_error(space, errors):
     Return the error handler for the specified error handling name
     or raise a LookupError, if no handler exists under this name.
     """
-    
+
     state = space.fromcache(CodecState)
     try:
         w_err_handler = state.codec_error_registry[errors]
@@ -273,7 +273,7 @@ lookup_error.unwrap_spec = [ObjSpace, str]
 
 def encode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
     """encode(obj, [encoding[,errors]]) -> object
-    
+
     Encodes obj using the codec registered for encoding. encoding defaults
     to the default encoding. errors may be given to set a different error
     handling scheme. Default is 'strict' meaning that encoding errors raise
@@ -312,7 +312,7 @@ def decode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
         if (not space.is_true(space.isinstance(w_res, space.w_tuple))
-            or space.int_w(space.len(w_res)) != 2):
+            or space.len_w(w_res) != 2):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("encoder must return a tuple (object, integer)"))

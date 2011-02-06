@@ -655,6 +655,10 @@ class ObjSpace(object):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
 
+    def len_w(self, w_obj):
+        """shotcut for space.int_w(space.len(w_obj))"""
+        return self.int_w(self.len(w_obj))
+
     def setitem_str(self, w_obj, key, w_value):
         return self.setitem(w_obj, self.wrap(key), w_value)
 

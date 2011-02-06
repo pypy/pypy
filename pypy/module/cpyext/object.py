@@ -156,7 +156,7 @@ def PyObject_ClearWeakRefs(space, w_object):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyObject_Size(space, w_obj):
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCallable_Check(space, w_obj):
@@ -420,7 +420,7 @@ def PyObject_Print(space, w_obj, fp, flags):
     else:
         w_str = space.repr(w_obj)
 
-    count = space.int_w(space.len(w_str))
+    count = space.len_w(w_str)
     data = space.str_w(w_str)
     buf = rffi.get_nonmovingbuffer(data)
     try:
