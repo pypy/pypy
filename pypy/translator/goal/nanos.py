@@ -47,12 +47,37 @@ if os.name == 'posix':
                 path += '/' + b
             return path
 
+        def normpath(path):
+            if path == '':
+                return '.'
+            initial_slashes = path.startswith('/')
+            # POSIX allows one or two initial slashes, but treats three or more
+            # as single slash.
+            if (initial_slashes and
+                path.startswith('//') and not path.startswith('///')):
+                initial_slashes = 2
+            comps = path.split('/')
+            new_comps = []
+            for comp in comps:
+                if comp in ('', '.'):
+                    continue
+                if (comp != '..' or (not initial_slashes and not new_comps) or
+                     (new_comps and new_comps[-1] == '..')):
+                    new_comps.append(comp)
+                elif new_comps:
+                    new_comps.pop()
+            comps = new_comps
+            path = '/'.join(comps)
+            if initial_slashes:
+                path = '/'*initial_slashes + path
+            return path or '.'
+
         def abspath(path):
             if not path.startswith('/'):
                 import posix
                 cwd = posix.getcwd()
                 path = join(cwd, path)
-            return path       # this version does not call normpath()!
+            return normpath(path)
 
         def isfile(path):
             import posix
@@ -84,7 +109,7 @@ if os.name == 'posix':
 
 elif os.name == 'nt':
     # code copied from ntpath.py
-    app_os_path = applevel("""
+    app_os_path = applevel(r"""
         def splitdrive(p):
             if p[1:2] == ':':
                 return p[0:2], p[2:]
@@ -158,6 +183,55 @@ elif os.name == 'nt':
 
             return path
 
+        def normpath(path):
+            if path.startswith(('\\\\.\\', '\\\\?\\')):
+                # in the case of paths with these prefixes:
+                # \\.\ -> device names
+                # \\?\ -> literal paths
+                # do not do any normalization, but return the path unchanged
+                return path
+            path = path.replace('/', '\\')
+            prefix, path = splitdrive(path)
+            # We need to be careful here. If the prefix is empty, and
+            # the path starts with a backslash, it could either be an
+            # absolute path on the current drive (\dir1\dir2\file) or a
+            # UNC filename (\\server\mount\dir1\file). It is therefore
+            # imperative NOT to collapse multiple backslashes blindly in
+            # that case.  The code below preserves multiple backslashes
+            # when there is no drive letter. This means that the invalid
+            # filename \\\a\b is preserved unchanged, where a\\\b is
+            # normalised to a\b. It's not clear that there is any better
+            # behaviour for such edge cases.
+            if prefix == '':
+                # No drive letter - preserve initial backslashes
+                while path[:1] == "\\":
+                    prefix = prefix + '\\'
+                    path = path[1:]
+            else:
+                # We have a drive letter - collapse initial backslashes
+                if path.startswith("\\"):
+                    prefix = prefix + '\\'
+                    path = path.lstrip("\\")
+            comps = path.split("\\")
+            i = 0
+            while i < len(comps):
+                if comps[i] in ('.', ''):
+                    del comps[i]
+                elif comps[i] == '..':
+                    if i > 0 and comps[i-1] != '..':
+                        del comps[i-1:i+1]
+                        i -= 1
+                    elif i == 0 and prefix.endswith("\\"):
+                        del comps[i]
+                    else:
+                        i += 1
+                else:
+                    i += 1
+            # If the path is now empty, substitute '.'
+            if not prefix and not comps:
+                comps.append('.')
+            return prefix + '\\'.join(comps)
+
         def abspath(path):
             import nt
             if path: # Empty path must return current working directory.
@@ -167,7 +241,7 @@ elif os.name == 'nt':
                     pass # Bad path - return unchanged.
             else:
                 path = nt.getcwd()
-            return path       # this version does not call normpath()!
+            return normpath(path)
 
         def isfile(path):
             import nt
