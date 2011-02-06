@@ -10,6 +10,7 @@ from pypy.rlib import rarithmetic
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.debug import have_debug_prints, ll_assert
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.jit.metainterp.optimizeutil import InvalidLoop
 
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
@@ -427,12 +428,24 @@ class AbstractVirtualInfo(object):
     #    raise NotImplementedError
     def equals(self, fieldnums):
         return tagged_list_eq(self.fieldnums, fieldnums)
+
     def set_content(self, fieldnums):
         self.fieldnums = fieldnums
 
     def debug_prints(self):
         raise NotImplementedError
 
+    def generalization_of(self, other):
+        raise NotImplementedError
+
+    def generate_guards(self, other, box, cpu, extra_guards):
+        if self.generalization_of(other):
+            return
+        self._generate_guards(other, box, cpu, extra_guards)
+
+    def _generate_guards(self, other, box, cpu, extra_guards):
+        raise NotImplementedError
+        
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
@@ -468,6 +481,9 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
 
     def _generalization_of(self, other):
         raise NotImplementedError
+
+    def _generate_guards(self, other, box, cpu, extra_guards):
+        raise InvalidLoop
             
         
 
