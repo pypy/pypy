@@ -212,7 +212,7 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
         if not isinstance(other, NotVirtualInfo):
             raise InvalidLoop
         if self.level == LEVEL_KNOWNCLASS and \
-           box.value and \
+           box.nonnull() and \
            self.known_class.same_constant(cpu.ts.cls_of_box(box)):
             # Note: This is only a hint on what the class of box was
             # during the trace. There are actually no guarentees that this
