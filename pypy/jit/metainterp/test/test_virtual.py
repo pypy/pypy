@@ -541,6 +541,28 @@ class VirtualTests:
             return sa
         assert self.meta_interp(f, [20]) == f(20)
 
+    def test_dual_counter(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'node1', 'node2'])
+        def f(n, s):
+            node1 = self._new()
+            node1.value = 1
+            node2 = self._new()
+            node2.value = 2
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, s=s, node1=node1, node2=node2)
+                myjitdriver.jit_merge_point(n=n, s=s, node1=node1, node2=node2)
+                if (n>>s) & 1:
+                    next = self._new()
+                    next.value = node1.value + 1
+                    node1 = next
+                else:
+                    next = self._new()
+                    next.value = node2.value + 1
+                    node2 = next
+                n -= 1
+            return node1.value + node2.value
+        assert self.meta_interp(f, [300, 3]) == f(300, 3)
+        
 
 class VirtualMiscTests:
 

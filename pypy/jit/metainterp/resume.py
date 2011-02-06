@@ -466,6 +466,8 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(untag(self.fieldnums[i])))
 
     def generalization_of(self, other):
+        if not self._generalization_of(other):
+            return False
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
@@ -477,7 +479,7 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
             if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
                 return False
 
-        return self._generalization_of(other)
+        return True
 
     def _generalization_of(self, other):
         raise NotImplementedError

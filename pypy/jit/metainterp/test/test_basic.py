@@ -1499,7 +1499,7 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
         self.check_loops(guard_class=0, guard_value=3)        
-        self.check_loops(guard_class=0, guard_value=8, everywhere=True)
+        self.check_loops(guard_class=0, guard_value=6, everywhere=True)
 
     def test_merge_guardnonnull_guardclass(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1530,7 +1530,7 @@ class BasicTests:
         self.check_loops(guard_class=0, guard_nonnull=0,
                          guard_nonnull_class=2, guard_isnull=1)
         self.check_loops(guard_class=0, guard_nonnull=0,
-                         guard_nonnull_class=5, guard_isnull=3,
+                         guard_nonnull_class=4, guard_isnull=2,
                          everywhere=True)
 
     def test_merge_guardnonnull_guardvalue(self):
@@ -1560,8 +1560,8 @@ class BasicTests:
         assert res == f(299)
         self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
                          guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=5,
-                         guard_nonnull_class=0, guard_isnull=3,
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=4,
+                         guard_nonnull_class=0, guard_isnull=2,
                          everywhere=True)
 
     def test_merge_guardnonnull_guardvalue_2(self):
@@ -1591,8 +1591,8 @@ class BasicTests:
         assert res == f(299)
         self.check_loops(guard_class=0, guard_nonnull=0, guard_value=2,
                          guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=5,
-                         guard_nonnull_class=0, guard_isnull=3,
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=4,
+                         guard_nonnull_class=0, guard_isnull=2,
                          everywhere=True)
 
     def test_merge_guardnonnull_guardclass_guardvalue(self):
@@ -1625,8 +1625,8 @@ class BasicTests:
         assert res == f(399)
         self.check_loops(guard_class=0, guard_nonnull=0, guard_value=3,
                          guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=8,
-                         guard_nonnull_class=0, guard_isnull=3,
+        self.check_loops(guard_class=0, guard_nonnull=0, guard_value=6,
+                         guard_nonnull_class=0, guard_isnull=2,
                          everywhere=True)
 
     def test_residual_call_doesnt_lose_info(self):

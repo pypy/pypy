@@ -80,11 +80,11 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start, start_resumedescr):
+def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
+                     start_resumedescr, full_preamble_needed=True):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
-    full_preamble_needed=True
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.inputargs = history.inputargs

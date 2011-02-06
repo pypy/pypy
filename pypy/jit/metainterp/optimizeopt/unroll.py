@@ -640,6 +640,7 @@ class OptInlineShortPreamble(Optimization):
                 modifier = VirtualStateAdder(self.optimizer)
                 virtual_state = modifier.get_virtual_state(args)
                 for sh in short:
+                    #import pdb; pdb.set_trace()
                     ok = False
                     extra_guards = []
                     if sh.virtual_state.generalization_of(virtual_state):
