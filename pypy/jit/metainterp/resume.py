@@ -452,7 +452,7 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(self.fielddescrs[i]),
                         str(untag(self.fieldnums[i])))
 
-    def more_general_than(self, other):
+    def generalization_of(self, other):
         if not isinstance(other, AbstractVirtualStructInfo):
             return False
         assert len(self.fielddescrs) == len(self.fieldstate)
@@ -463,7 +463,7 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
                 return False
-            if not self.fieldstate[i].more_general_than(other.fieldstate[i]):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
                 return False
         return True
             

@@ -130,10 +130,10 @@ class VirtualState(object):
     def __init__(self, state):
         self.state = state
 
-    def more_general_than(self, other):
+    def generalization_of(self, other):
         assert len(self.state) == len(other.state)
         for i in range(len(self.state)):
-            if not self.state[i].more_general_than(other.state[i]):
+            if not self.state[i].generalization_of(other.state[i]):
                 return False
         return True
 
@@ -185,7 +185,7 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
         else:
             self.constbox = None
 
-    def more_general_than(self, other):
+    def generalization_of(self, other):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
         if not isinstance(other, NotVirtualInfo):
@@ -605,7 +605,7 @@ class OptInlineShortPreamble(Optimization):
                 modifier = VirtualStateAdder(self.optimizer)
                 virtual_state = modifier.get_virtual_state(args)
                 for sh in short:                                        
-                    if sh.virtual_state.more_general_than(virtual_state):
+                    if sh.virtual_state.generalization_of(virtual_state):
                         # FIXME: Do we still need the dry run
                         if self.inline(sh.operations, sh.inputargs,
                                        op.getarglist(), dryrun=True):
