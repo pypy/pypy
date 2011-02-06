@@ -607,16 +607,16 @@ class OptInlineShortPreamble(Optimization):
                 for sh in short:                                        
                     if sh.virtual_state.generalization_of(virtual_state):
                         # FIXME: Do we still need the dry run
-                        if self.inline(sh.operations, sh.inputargs,
-                                       op.getarglist(), dryrun=True):
-                            try:
-                                self.inline(sh.operations, sh.inputargs,
-                                            op.getarglist())
-                            except InvalidLoop:
-                                debug_print("Inlining failed unexpectedly",
-                                            "jumping to preamble instead")
-                                self.emit_operation(op)
-                            return
+                        #if self.inline(sh.operations, sh.inputargs,
+                        #               op.getarglist(), dryrun=True):
+                        try:
+                            self.inline(sh.operations, sh.inputargs,
+                                        op.getarglist())
+                        except InvalidLoop:
+                            debug_print("Inlining failed unexpectedly",
+                                        "jumping to preamble instead")
+                            self.emit_operation(op)
+                        return
                 if not self.retraced:    
                     raise RetraceLoop
         self.emit_operation(op)

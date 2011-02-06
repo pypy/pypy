@@ -455,6 +455,9 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def generalization_of(self, other):
         if not isinstance(other, AbstractVirtualStructInfo):
             return False
+        if not self.known_class.same_constant(other.known_class):
+            return False
+        
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
