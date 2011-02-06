@@ -44,6 +44,8 @@ class BaseStringFormatTests:
         class x:
             apple = 42
         assert self.s("{.apple}").format(x) == self.s("42")
+        #
+        raises(ValueError, self.s("{.}").format, x)
 
     def test_index(self):
         seq = (1, 42)

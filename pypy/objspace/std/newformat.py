@@ -203,6 +203,9 @@ class TemplateFormatter(object):
                     if c == "[" or c == ".":
                         break
                     i += 1
+                if start == i:
+                    w_msg = space.wrap("Empty attribute in format string")
+                    raise OperationError(space.w_ValueError, w_msg)
                 w_obj = space.getattr(w_obj, space.wrap(name[start:i]))
             elif c == "[":
                 got_bracket = False
