@@ -1913,7 +1913,8 @@ class MetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, [], greenkey, start, start_resumedescr)
+        loop_token = compile.compile_new_loop(self, [], greenkey, start,
+                                              start_resumedescr)
         self.history.operations.pop()     # remove the JUMP
         if loop_token is None:
             return
@@ -1923,9 +1924,8 @@ class MetaInterp(object):
 
         self.history.inputargs = original_inputargs
         self.history.operations = self.history.operations[:start]
-        live_arg_boxes = bridge_arg_boxes
         
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+        self.history.record(rop.JUMP, bridge_arg_boxes[num_green_args:], None)
         try:
             target_loop_token = compile.compile_new_bridge(self,
                                                            [loop_token],

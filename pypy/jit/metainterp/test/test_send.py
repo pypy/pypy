@@ -334,10 +334,6 @@ class SendTests:
         class State:
             count = 0
             def externfn(self, n):
-                print
-                print
-                print n, 198 - self.count
-                print
                 assert n == 198 - self.count
                 self.count += 1
                 if n % 5:
