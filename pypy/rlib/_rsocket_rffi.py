@@ -69,6 +69,10 @@ if _WIN32:
     else: # MINGW
         includes = ('stdint.h',)
         header_lines.extend([
+            '''\
+            #ifndef _WIN32_WINNT
+            #define _WIN32_WINNT 0x0501
+            #endif''',
             '#define SIO_RCVALL             _WSAIOW(IOC_VENDOR,1)',
             '#define SIO_KEEPALIVE_VALS     _WSAIOW(IOC_VENDOR,4)',
             '#define RCVALL_OFF             0',

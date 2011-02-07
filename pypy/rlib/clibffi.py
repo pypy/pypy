@@ -31,6 +31,7 @@ if _WIN32:
 if _WIN32:
     separate_module_sources = ['''
     #include <stdio.h>
+    #include <windows.h>
 
     /* Get the module where the "fopen" function resides in */
     HANDLE pypy_get_libc_handle() {
@@ -49,14 +50,11 @@ if _WIN32:
 else:
     separate_module_sources = []
 
-if not _MSVC:
+if not _WIN32:
     # On some platforms, we try to link statically libffi, which is small
     # anyway and avoids endless troubles for installing.  On other platforms
     # libffi.a is typically not there, so we link dynamically.
-    if _MINGW:
-        includes = ['windows.h', 'ffi.h']
-    else:
-        includes = ['ffi.h']
+    includes = ['ffi.h']
 
     if _MAC_OS:
         pre_include_bits = ['#define MACOSX']
@@ -90,6 +88,22 @@ if not _MSVC:
         link_files = link_files,
         testonly_libraries = ['ffi'],
     )
+elif _MINGW:
+    includes = ['ffi.h']
+    libraries = ['libffi-5']
+
+    eci = ExternalCompilationInfo(
+        libraries = libraries,
+        includes = includes,
+        export_symbols = [],
+        separate_module_sources = separate_module_sources,
+        )
+
+    eci = rffi_platform.configure_external_library(
+        'libffi', eci,
+        [dict(prefix='libffi-',
+              include_dir='include', library_dir='.libs'),
+         ])
 else:
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
     eci = ExternalCompilationInfo(
@@ -214,17 +228,10 @@ def winexternal(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
 
 
-if not _WIN32:
+if not _MSVC:
     def check_fficall_result(result, flags):
         pass # No check
-    
-    libc_name = ctypes.util.find_library('c')
-    assert libc_name is not None, "Cannot find C library, ctypes.util.find_library('c') returned None"
-
-    def get_libc_name():
-        return libc_name
-
-if _WIN32:
+else:
     def check_fficall_result(result, flags):
         if result == 0:
             return
@@ -245,8 +252,13 @@ if _WIN32:
                 "Procedure called with too many "
                 "arguments (%d bytes in excess) " % (result,))
 
-    LoadLibrary = rwin32.LoadLibrary
+if not _WIN32:
+    libc_name = ctypes.util.find_library('c')
+    assert libc_name is not None, "Cannot find C library, ctypes.util.find_library('c') returned None"
 
+    def get_libc_name():
+        return libc_name
+elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
     def get_libc_name():
@@ -254,7 +266,12 @@ if _WIN32:
 
     assert "msvcr" in get_libc_name().lower(), \
            "Suspect msvcrt library: %s" % (get_libc_name(),)
+elif _MINGW:
+    def get_libc_name():
+        return 'msvcrt.dll'
 
+if _WIN32:
+    LoadLibrary = rwin32.LoadLibrary
 
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
@@ -270,7 +287,7 @@ VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, ffi_abi, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
-if _WIN32:
+if _MSVC:
     c_ffi_call_return_type = rffi.INT
 else:
     c_ffi_call_return_type = lltype.Void
