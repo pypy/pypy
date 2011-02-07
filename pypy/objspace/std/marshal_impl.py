@@ -10,9 +10,8 @@ a callback and a state variable.
 
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
+from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
 from pypy.objspace.std import model
-from pypy.objspace.std.longobject import SHIFT as long_bits
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway, unicodehelper
@@ -209,62 +208,37 @@ register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 def marshal_w__Long(space, w_long, m):
     from pypy.rlib.rbigint import rbigint
     m.start(TYPE_LONG)
-    # XXX access internals
-    if long_bits != 15:
-        SHIFT = 15
-        MASK = (1 << SHIFT) - 1
-        BIGMASK = rbigint.fromint(MASK)
-        num = w_long.num
-        sign = num.sign
-        num = num.abs()
-        ints = []
-        while num.tobool():
-            next = num.and_(BIGMASK).toint()
-            ints.append(next)
-            num = num.rshift(SHIFT)
-        m.put_int(len(ints) * sign)
-        for i in ints:
-            m.put_short(i)
-        return
-    lng = len(w_long.num.digits)
-    if w_long.num.sign < 0:
-        m.put_int(-lng)
-    else:
-        m.put_int(lng)
-    for digit in w_long.num.digits:
-        m.put_short(digit)
+    SHIFT = 15
+    MASK = (1 << SHIFT) - 1
+    num = w_long.num
+    sign = num.sign
+    num = num.abs()
+    ints = []
+    while num.tobool():
+        next = intmask(num.uintmask() & MASK)
+        ints.append(next)
+        num = num.rshift(SHIFT)
+    m.put_int(len(ints) * sign)
+    for i in ints:
+        m.put_short(i)
 
 def unmarshal_Long(space, u, tc):
-    # XXX access internals
     from pypy.rlib.rbigint import rbigint
     lng = u.get_int()
     if lng < 0:
-        sign = -1
+        negative = True
         lng = -lng
-    elif lng > 0:
-        sign = 1
     else:
-        sign = 0
-    if long_bits != 15:
-        SHIFT = 15
-        result = rbigint([0], 0)
-        for i in range(lng):
-            shift = i * SHIFT
-            result = result.add(rbigint.fromint(u.get_short()).lshift(shift))
-        if lng and not result.tobool():
-            raise_exception(space, 'bad marshal data')
-        if sign == -1:
-            result = result.neg()
-    else:
-        digits = [0] * lng
-        for i in range(lng):
-            digit = u.get_int()
-            if digit < 0:
-                raise_exception(space, 'bad marshal data')
-            digits[i] = digit
-        if digits[-1] == 0:
-            raise_exception(space, 'bad marshal data')
-        result = rbigint(digits, sign)
+        negative = False
+    SHIFT = 15
+    result = rbigint.fromint(0)
+    for i in range(lng):
+        shift = i * SHIFT
+        result = result.or_(rbigint.fromint(u.get_short()).lshift(shift))
+    if lng and not result.tobool():
+        raise_exception(space, 'bad marshal data')
+    if negative:
+        result = result.neg()
     w_long = newlong(space, result)
     return w_long
 register(TYPE_LONG, unmarshal_Long)
