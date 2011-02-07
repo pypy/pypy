@@ -566,6 +566,38 @@ class VirtualTests:
         def g(n1, n2, s):
             return f(n1, s) + f(n2, s)
         # FIXME: Try the case where we need to call the second version from the interpreter
+
+    def test_virtual_array_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
+        def f(n):
+            node = [42, 42]
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                if (n>>3) & 1:
+                    node = [node[0], node[1] + n]
+                else:
+                    node = [node[0] + n, node[1]]
+                n -= 1
+            return node[0] + node[1]
+        assert self.meta_interp(f, [40]) == f(40)
+
+    def test_virtual_array_different_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
+        def f(n):
+            node = [42, 42]
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                if (n>>3) & 1:
+                    node = [node[0], node[1] + n]
+                else:
+                    node = [node[0] + n, node[-1], node[0] + node[1]]
+                n -= 1
+            return node[0] + node[1]
+        assert self.meta_interp(f, [40]) == f(40)
+
+        
         
 
 class VirtualMiscTests:

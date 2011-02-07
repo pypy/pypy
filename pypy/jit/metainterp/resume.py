@@ -562,6 +562,16 @@ class VArrayInfo(AbstractVirtualInfo):
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
+    def generalization_of(self, other):
+        if self.arraydescr is not other.arraydescr:
+            return False
+        if len(self.fieldstate) != len(other.fieldstate):
+            return False
+        for i in range(len(self.fieldstate)):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
+                return False
+        return True
+
 
 class VStrPlainInfo(AbstractVirtualInfo):
     """Stands for the string made out of the characters of all fieldnums."""
