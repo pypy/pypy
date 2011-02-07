@@ -273,12 +273,18 @@ str_encode     = SMM('encode', 3, defaults=(None, None),
                          ' with\ncodecs.register_error that is able to handle'
                          ' UnicodeEncodeErrors.')
 
-str_formatter_parser = SMM('_formatter_parser', 1)
+str_formatter_parser           = SMM('_formatter_parser', 1)
+str_formatter_field_name_split = SMM('_formatter_field_name_split', 1)
 
 def str_formatter_parser__ANY(space, w_str):
     from pypy.objspace.std.newformat import str_template_formatter
     tformat = str_template_formatter(space, space.str_w(w_str))
     return tformat.formatter_parser()
+
+def str_formatter_field_name_split__ANY(space, w_str):
+    from pypy.objspace.std.newformat import str_template_formatter
+    tformat = str_template_formatter(space, space.str_w(w_str))
+    return tformat.formatter_field_name_split()
 
 register_all(vars(), globals())
 

@@ -192,9 +192,12 @@ class TemplateFormatter(object):
             except IndexError:
                 w_msg = space.wrap("index out of range")
                 raise OperationError(space.w_IndexError, w_msg)
+        return self._resolve_lookups(w_arg, name, i, end)
+
+    def _resolve_lookups(self, w_obj, name, start, end):
         # Resolve attribute and item lookups.
-        w_obj = w_arg
-        is_attribute = False
+        space = self.space
+        i = start
         while i < end:
             c = name[i]
             if c == ".":
@@ -208,7 +211,12 @@ class TemplateFormatter(object):
                 if start == i:
                     w_msg = space.wrap("Empty attribute in format string")
                     raise OperationError(space.w_ValueError, w_msg)
-                w_obj = space.getattr(w_obj, space.wrap(name[start:i]))
+                w_attr = space.wrap(name[start:i])
+                if w_obj is not None:
+                    w_obj = space.getattr(w_obj, w_attr)
+                else:
+                    self.parser_list_w.append(space.newtuple([
+                        space.w_True, w_attr]))
             elif c == "[":
                 got_bracket = False
                 i += 1
@@ -228,11 +236,31 @@ class TemplateFormatter(object):
                 else:
                     w_item = space.wrap(name[start:i])
                 i += 1 # Skip "]"
-                w_obj = space.getitem(w_obj, w_item)
+                if w_obj is not None:
+                    w_obj = space.getitem(w_obj, w_item)
+                else:
+                    self.parser_list_w.append(space.newtuple([
+                        space.w_False, w_item]))
             else:
                 msg = "Only '[' and '.' may follow ']'"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
         return w_obj
+
+    def formatter_field_name_split(self):
+        name = self.template
+        i = 0
+        end = len(name)
+        while i < end:
+            c = name[i]
+            if c == "[" or c == ".":
+                break
+            i += 1
+        self.parser_list_w = []
+        self._resolve_lookups(None, name, i, end)
+        #
+        space = self.space
+        return space.newtuple([space.wrap(name[:i]),
+                               space.iter(space.newlist(self.parser_list_w))])
 
     def _convert(self, w_obj, conversion):
         space = self.space

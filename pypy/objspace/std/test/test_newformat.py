@@ -359,3 +359,33 @@ class AppTestInternalMethods:
         assert l == [(u'', u'0', u'12{sdd}3', u'x')]
         for x in l[0]:
             assert isinstance(x, unicode)
+
+    def test_formatter_field_name_split(self):
+        first, rest = 'foo'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == []
+        #
+        first, rest = 'foo.bar'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(True, 'bar')]
+        #
+        first, rest = 'foo[123]'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(False, 123)]
+        #
+        first, rest = 'foo.baz[123].bok'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(True, 'baz'), (False, 123), (True, 'bok')]
+        #
+        first, rest = 'foo.baz[hi].bok'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(True, 'baz'), (False, 'hi'), (True, 'bok')]
+
+    def test_u_formatter_field_name_split(self):
+        first, rest = u'foo.baz[hi].bok'._formatter_field_name_split()
+        l = list(rest)
+        assert first == u'foo'
+        assert l == [(True, u'baz'), (False, u'hi'), (True, u'bok')]
+        assert isinstance(first, unicode)
+        for x, y in l:
+            assert isinstance(y, unicode)
