@@ -45,21 +45,44 @@ class AppTestPyFrame:
     def test_f_lineno_set(self):
         def tracer(f, *args):
             def x(f, *args):
-                if f.f_lineno == origin + 1:
-                    f.f_lineno = origin + 2
+                f.f_lineno += 1
             return x
 
         def function():
             xyz
             return 3
         
+        import sys
+        sys.settrace(tracer)
+        function()
+        sys.settrace(None)
+        # assert did not crash
+
+    def test_f_lineno_set_firstline(self):
+        seen = []
+        def tracer(f, event, *args):
+            seen.append((event, f.f_lineno))
+            if len(seen) == 5:
+                f.f_lineno = 1       # bug shown only when setting lineno to 1
+            return tracer
+
         def g():
             import sys
             sys.settrace(tracer)
-            function()
+            exec "x=1\ny=x+1\nz=y+1\nt=z+1\ns=t+1\n" in {}
             sys.settrace(None)
-        origin = function.func_code.co_firstlineno
-        g() # assert did not crash
+
+        g()
+        assert seen == [('call', 1),
+                        ('line', 1),
+                        ('line', 2),
+                        ('line', 3),
+                        ('line', 4),
+                        ('line', 2),
+                        ('line', 3),
+                        ('line', 4),
+                        ('line', 5),
+                        ('return', 5)]
 
     def test_f_back(self):
         import sys
