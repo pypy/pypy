@@ -55,7 +55,7 @@ return next yielded value or raise StopIteration."""
         frame = self.frame
         if frame is None:
             # xxx a bit ad-hoc, but we don't want to go inside
-            # execute_generator_frame() if the frame is actually finished
+            # execute_frame() if the frame is actually finished
             if operr is None:
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
@@ -72,7 +72,7 @@ return next yielded value or raise StopIteration."""
         self.running = True
         try:
             try:
-                w_result = frame.execute_generator_frame(w_arg, operr)
+                w_result = frame.execute_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
                 self.frame = None

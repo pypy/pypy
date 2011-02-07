@@ -279,12 +279,13 @@ class AppTestPyFrame:
         
 
     def test_trace_generator_finalisation(self):
-        # XXX expand to check more aspects
         import sys
         l = []
+        got_exc = []
         def trace(frame, event, arg):
+            l.append((frame.f_lineno, event))
             if event == 'exception':
-                l.append(arg)
+                got_exc.append(arg)
             return trace
 
         d = {}
@@ -308,8 +309,22 @@ class AppTestPyFrame:
         sys.settrace(trace)
         f()
         sys.settrace(None)
-        assert len(l) == 1
-        assert issubclass(l[0][0], GeneratorExit)
+        assert len(got_exc) == 1
+        assert issubclass(got_exc[0][0], GeneratorExit)
+        assert l == [(8, 'call'),
+                     (9, 'line'),
+                     (10, 'line'),
+                     (11, 'line'),
+                     (2, 'call'),
+                     (3, 'line'),
+                     (4, 'line'),
+                     (4, 'return'),
+                     (12, 'line'),
+                     (4, 'call'),
+                     (4, 'exception'),
+                     (6, 'line'),
+                     (6, 'return'),
+                     (12, 'return')]
 
     def test_dont_trace_on_reraise(self):
         import sys
