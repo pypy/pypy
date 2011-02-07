@@ -596,7 +596,7 @@ class VirtualTests:
                 n -= 1
             return node[0] + node[1]
         assert self.meta_interp(f, [40]) == f(40)
-
+        # FIXME: Try the case where we need to call the second version from the interpreter
         
         
 
