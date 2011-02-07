@@ -1,5 +1,6 @@
 """Test unicode/str's format method"""
 from __future__ import with_statement
+from pypy.conftest import gettestobjspace
 
 
 class BaseStringFormatTests:
@@ -291,6 +292,8 @@ class AppTestLongFormatting(BaseIntegralFormattingTest):
 
 
 class AppTestFloatFormatting:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('_locale',))
 
     def test_alternate(self):
         raises(ValueError, format, 1.0, "#")
@@ -312,6 +315,16 @@ class AppTestFloatFormatting:
 
     def test_digit_separator(self):
         assert format(-1234., "012,f") == "-1,234.000000"
+
+    def test_locale(self):
+        import locale
+        locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF8')
+        x = 1234.567890
+        try:
+            assert locale.format('%g', x, grouping=True) == '1,234.57'
+            assert format(x, 'n') == '1,234.57'
+        finally:
+            locale.setlocale(locale.LC_NUMERIC, 'C')
 
     def test_dont_switch_to_g(self):
         skip("must fix when float formatting is figured out")

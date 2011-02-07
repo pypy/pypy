@@ -863,6 +863,7 @@ class Formatter(BaseFormatter):
             msg = "alternate form not allowed in float formats"
             raise OperationError(space.w_ValueError, space.wrap(msg))
         tp = self._type
+        self._get_locale(tp)
         if tp == "\0":
             tp = "g"
             default_precision = 12
@@ -892,7 +893,6 @@ class Formatter(BaseFormatter):
             to_number = 0
         have_dec_point, to_remainder = self._parse_number(result, to_number)
         n_remainder = len(result) - to_remainder
-        self._get_locale(tp)
         if self.is_unicode:
             digits = result.decode("ascii")
         else:
