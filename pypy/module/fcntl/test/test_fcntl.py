@@ -196,3 +196,8 @@ class AppTestFcntl:
         import fcntl
         f = open(self.tmp, "w")
         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_large_flag(self):
+        import fcntl
+        assert fcntl.DN_MULTISHOT < 0
+        fcntl.fcntl(0, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT)
