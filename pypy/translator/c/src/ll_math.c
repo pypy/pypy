@@ -5,18 +5,22 @@
 
 /* The following macros are copied from CPython header files */
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include <float.h>
 #include <math.h>
+#endif
+
+#ifdef _MSC_VER
 #define PyPy_IS_NAN _isnan
 #define PyPy_IS_INFINITY(X) (!_finite(X) && !_isnan(X))
 #define copysign _copysign
 #else
 #define PyPy_IS_NAN(X) ((X) != (X))
+#define Py_FORCE_DOUBLE(X) ((double)(X))
 #define PyPy_IS_INFINITY(X) ((X) &&                                   \
                              (Py_FORCE_DOUBLE(X)*0.5 == Py_FORCE_DOUBLE(X)))
 #endif
-#define PyPy_NAN (HUGE * 0.)
+#define PyPy_NAN (HUGE_VAL * 0.)
 
 int
 _pypy_math_isinf(double x)
