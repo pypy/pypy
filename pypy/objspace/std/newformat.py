@@ -39,6 +39,8 @@ class TemplateFormatter(object):
 
     _annspecialcase_ = "specialize:ctr_location"
 
+    parser_list_w = None
+
     def __init__(self, space, is_unicode, template):
         self.space = space
         self.is_unicode = is_unicode
@@ -129,12 +131,12 @@ class TemplateFormatter(object):
                     i += 1
                     c = s[i]
                 else:
-                    conversion = self.empty
+                    conversion = None
                 if c == ':':
                     i += 1
                 return s[start:end_name], conversion, i
             i += 1
-        return s[start:end], self.empty, end
+        return s[start:end], None, end
 
     def _get_argument(self, name):
         # First, find the argument.
@@ -248,8 +250,24 @@ class TemplateFormatter(object):
     def _render_field(self, start, end, recursive, level):
         name, conversion, spec_start = self._parse_field(start, end)
         spec = self.template[spec_start:end]
+        #
+        if self.parser_list_w is not None:
+            # used from formatter_parser()
+            if level == 1:    # ignore recursive calls
+                space = self.space
+                startm1 = start - 1
+                assert startm1 >= self.last_end
+                w_entry = space.newtuple([
+                    space.wrap(self.template[self.last_end:startm1]),
+                    space.wrap(name),
+                    space.wrap(spec),
+                    space.wrap(conversion)])
+                self.parser_list_w.append(w_entry)
+                self.last_end = end + 1
+            return self.empty
+        #
         w_obj = self._get_argument(name)
-        if conversion:
+        if conversion is not None:
             w_obj = self._convert(w_obj, conversion)
         if recursive:
             spec = self._build_string(spec_start, end, level)
@@ -258,13 +276,36 @@ class TemplateFormatter(object):
         to_interp = getattr(self.space, unwrapper)
         return to_interp(w_rendered)
 
+    def formatter_parser(self):
+        self.parser_list_w = []
+        self.last_end = 0
+        self._build_string(0, len(self.template), 2)
+        #
+        space = self.space
+        if self.last_end < len(self.template):
+            w_lastentry = space.newtuple([
+                space.wrap(self.template[self.last_end:]),
+                space.w_None,
+                space.w_None,
+                space.w_None])
+            self.parser_list_w.append(w_lastentry)
+        return space.iter(space.newlist(self.parser_list_w))
+
+
+def str_template_formatter(space, template):
+    return TemplateFormatter(space, False, template)
+
+def unicode_template_formatter(space, template):
+    return TemplateFormatter(space, True, template)
+
 
 def format_method(space, w_string, args, is_unicode):
     if is_unicode:
-        template = TemplateFormatter(space, True, space.unicode_w(w_string))
+        template = unicode_template_formatter(space,
+                                              space.unicode_w(w_string))
         return space.wrap(template.build(args))
     else:
-        template = TemplateFormatter(space, False, space.str_w(w_string))
+        template = str_template_formatter(space, space.str_w(w_string))
         return space.wrap(template.build(args))
 
 

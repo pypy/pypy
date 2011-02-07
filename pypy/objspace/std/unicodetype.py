@@ -152,6 +152,13 @@ unicode_zfill      = SMM('zfill', 2,
                              ' field\nof the specified width. The string x is'
                              ' never truncated.')
 
+unicode_formatter_parser = SMM('_formatter_parser', 1)
+
+def unicode_formatter_parser__ANY(space, w_unicode):
+    from pypy.objspace.std.newformat import unicode_template_formatter
+    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
+    return tformat.formatter_parser()
+
 # stuff imported from stringtype for interoperability
 
 from pypy.objspace.std.stringtype import str_endswith as unicode_endswith

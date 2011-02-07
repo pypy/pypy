@@ -324,3 +324,38 @@ class AppTestFloatFormatting:
         assert format(inf, "F") == "INF"
         assert format(nan, "f") == "nan"
         assert format(nan, "F") == "NAN"
+
+
+class AppTestInternalMethods:
+    # undocumented API on string and unicode object, but used by string.py
+
+    def test_formatter_parser(self):
+        l = list('abcd'._formatter_parser())
+        assert l == [('abcd', None, None, None)]
+        #
+        l = list('ab{0}cd'._formatter_parser())
+        assert l == [('ab', '0', '', None), ('cd', None, None, None)]
+        #
+        l = list('{0}cd'._formatter_parser())
+        assert l == [('', '0', '', None), ('cd', None, None, None)]
+        #
+        l = list('ab{0}'._formatter_parser())
+        assert l == [('ab', '0', '', None)]
+        #
+        l = list(''._formatter_parser())
+        assert l == []
+        #
+        l = list('{0:123}'._formatter_parser())
+        assert l == [('', '0', '123', None)]
+        #
+        l = list('{0!x:123}'._formatter_parser())
+        assert l == [('', '0', '123', 'x')]
+        #
+        l = list('{0!x:12{sdd}3}'._formatter_parser())
+        assert l == [('', '0', '12{sdd}3', 'x')]
+
+    def test_u_formatter_parser(self):
+        l = list(u'{0!x:12{sdd}3}'._formatter_parser())
+        assert l == [(u'', u'0', u'12{sdd}3', u'x')]
+        for x in l[0]:
+            assert isinstance(x, unicode)
