@@ -266,7 +266,7 @@ class W_CPPStaticDataMember(W_CPPDataMember):
         return self.converter.from_memory(self.space, self.space.w_None, self.offset)
 
     def __set__(self, args_w):
-        self.converter.to_memory(self.space, self.space_w_None, args_w[1], self.offset)
+        self.converter.to_memory(self.space, self.space.w_None, args_w[1], self.offset)
         return None
 
 W_CPPStaticDataMember.typedef = TypeDef(
