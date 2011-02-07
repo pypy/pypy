@@ -161,25 +161,25 @@ class rbigint(object):
 
     def fromfloat(dval):
         """ Create a new bigint object from a float """
-        neg = 0
+        sign = 1
         if isinf(dval) or isnan(dval):
             raise OverflowError
         if dval < 0.0:
-            neg = 1
+            sign = -1
             dval = -dval
         frac, expo = math.frexp(dval) # dval = frac*2**expo; 0.0 <= frac < 1.0
         if expo <= 0:
             return rbigint()
         ndig = (expo-1) // SHIFT + 1 # Number of 'digits' in result
-        v = rbigint([NULLDIGIT] * ndig, 1)
+        v = rbigint([NULLDIGIT] * ndig, sign)
         frac = math.ldexp(frac, (expo-1) % SHIFT + 1)
         for i in range(ndig-1, -1, -1):
-            bits = int(frac)
+            # use int(int(frac)) as a workaround for a CPython bug:
+            # with frac == 2147483647.0, int(frac) == 2147483647L
+            bits = int(int(frac))
             v.setdigit(i, bits)
             frac -= float(bits)
             frac = math.ldexp(frac, SHIFT)
-        if neg:
-            v.sign = -1
         return v
     fromfloat = staticmethod(fromfloat)
 
