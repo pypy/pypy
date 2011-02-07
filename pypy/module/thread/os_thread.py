@@ -76,8 +76,15 @@ class Bootstrapper(object):
                 raise wrap_thread_error(space, "can't allocate bootstrap lock")
 
     @staticmethod
-    def reinit(space):
+    def reinit():
         bootstrapper.lock = None
+        bootstrapper.nbthreads = 0
+        bootstrapper.w_callable = None
+        bootstrapper.args = None
+
+    def _freeze_(self):
+        self.reinit()
+        return False
 
     def bootstrap():
         # Note that when this runs, we already hold the GIL.  This is ensured
@@ -143,7 +150,7 @@ def setup_threads(space):
 def reinit_threads(space):
     "Called in the child process after a fork()"
     space.threadlocals.reinit_threads(space)
-    bootstrapper.reinit(space)
+    bootstrapper.reinit()
 
     # Clean the threading module after a fork()
     w_modules = space.sys.get('modules')
