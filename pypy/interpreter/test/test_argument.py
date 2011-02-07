@@ -117,7 +117,7 @@ class DummySpace(object):
 
     def type(self, obj):
         class Type:
-            def getname(self, space, default):
+            def getname(self, space, default='?'):
                 return type(obj).__name__
         return Type()
 
@@ -500,6 +500,22 @@ class TestErrorHandling(object):
         s = err.getmsg('foo')
         assert s == "foo() takes exactly 1 argument (3 given)"
 
+    def test_bad_type_for_star(self):
+        space = self.space
+        try:
+            Arguments(space, [], w_stararg=space.wrap(42))
+        except OperationError, e:
+            msg = space.str_w(space.str(e.get_w_value(space)))
+            assert msg == "argument after * must be a sequence, not int"
+        else:
+            assert 0, "did not raise"
+        try:
+            Arguments(space, [], w_starstararg=space.wrap(42))
+        except OperationError, e:
+            msg = space.str_w(space.str(e.get_w_value(space)))
+            assert msg == "argument after ** must be a mapping, not int"
+        else:
+            assert 0, "did not raise"
 
     def test_unknown_keywords(self):
         err = ArgErrUnknownKwds(1, ['a', 'b'], [True, False])
