@@ -247,6 +247,7 @@ class TemplateFormatter(object):
         return w_obj
 
     def formatter_field_name_split(self):
+        space = self.space
         name = self.template
         i = 0
         end = len(name)
@@ -255,11 +256,19 @@ class TemplateFormatter(object):
             if c == "[" or c == ".":
                 break
             i += 1
+        if i == 0:
+            index = -1
+        else:
+            index = _parse_int(self.space, name, 0, i)[0]
+        if index >= 0:
+            w_first = space.wrap(index)
+        else:
+            w_first = space.wrap(name[:i])
+        #
         self.parser_list_w = []
         self._resolve_lookups(None, name, i, end)
         #
-        space = self.space
-        return space.newtuple([space.wrap(name[:i]),
+        return space.newtuple([w_first,
                                space.iter(space.newlist(self.parser_list_w))])
 
     def _convert(self, w_obj, conversion):

@@ -361,6 +361,14 @@ class AppTestInternalMethods:
             assert isinstance(x, unicode)
 
     def test_formatter_field_name_split(self):
+        first, rest = ''._formatter_field_name_split()
+        assert first == ''
+        assert list(rest) == []
+        #
+        first, rest = '31'._formatter_field_name_split()
+        assert first == 31
+        assert list(rest) == []
+        #
         first, rest = 'foo'._formatter_field_name_split()
         assert first == 'foo'
         assert list(rest) == []
