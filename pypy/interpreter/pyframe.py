@@ -463,28 +463,30 @@ class PyFrame(eval.Frame):
             raise OperationError(space.w_ValueError,
                   space.wrap("f_lineno can only be set by a trace function."))
 
-        if new_lineno < self.pycode.co_firstlineno:
+        line = self.pycode.co_firstlineno
+        if new_lineno < line:
             raise operationerrfmt(space.w_ValueError,
                   "line %d comes before the current code.", new_lineno)
-        code = self.pycode.co_code
-        addr = 0
-        line = self.pycode.co_firstlineno
-        new_lasti = -1
-        offset = 0
-        lnotab = self.pycode.co_lnotab
-        for offset in xrange(0, len(lnotab), 2):
-            addr += ord(lnotab[offset])
-            line += ord(lnotab[offset + 1])
-            if line >= new_lineno:
-                new_lasti = addr
-                new_lineno = line
-                break
+        elif new_lineno == line:
+            new_lasti = 0
+        else:
+            new_lasti = -1
+            addr = 0
+            lnotab = self.pycode.co_lnotab
+            for offset in xrange(0, len(lnotab), 2):
+                addr += ord(lnotab[offset])
+                line += ord(lnotab[offset + 1])
+                if line >= new_lineno:
+                    new_lasti = addr
+                    new_lineno = line
+                    break
 
         if new_lasti == -1:
             raise operationerrfmt(space.w_ValueError,
                   "line %d comes after the current code.", new_lineno)
 
         # Don't jump to a line with an except in it.
+        code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise OperationError(space.w_ValueError,
                   space.wrap("can't jump to 'except' line as there's no exception"))
