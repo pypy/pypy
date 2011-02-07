@@ -55,19 +55,32 @@ if _WIN32:
     header_lines = [
         '#include <WinSock2.h>',
         '#include <WS2tcpip.h>',
-        '#include <Mstcpip.h>',
         # winsock2 defines AF_UNIX, but not sockaddr_un
         '#undef AF_UNIX',
         ]
     if _MSVC:
         header_lines.extend([
+            '#include <Mstcpip.h>',
             # these types do not exist on microsoft compilers
             'typedef int ssize_t;',
             'typedef unsigned __int16 uint16_t;',
             'typedef unsigned __int32 uint32_t;',
             ])
-    else:
+    else: # MINGW
         includes = ('stdint.h',)
+        header_lines.extend([
+            '#define SIO_RCVALL             _WSAIOW(IOC_VENDOR,1)',
+            '#define SIO_KEEPALIVE_VALS     _WSAIOW(IOC_VENDOR,4)',
+            '#define RCVALL_OFF             0',
+            '#define RCVALL_ON              1',
+            '#define RCVALL_SOCKETLEVELONLY 2',
+            '''\
+            struct tcp_keepalive {
+                u_long  onoff;
+                u_long  keepalivetime;
+                u_long  keepaliveinterval;
+            };'''
+            ])
     HEADER = '\n'.join(header_lines)
     COND_HEADER = ''
 constants = {}
@@ -208,7 +221,7 @@ for name in constant_names:
 
 if _WIN32:
     # some SDKs define these values with an enum, #ifdef won't work
-    for name in ('RCVALL_ON', 'RCVALL_OFF'):
+    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY'):
         setattr(CConfig, name, platform.ConstantInteger(name))
         constant_names.append(name)
 
@@ -418,7 +431,7 @@ linux = cConfig.linux
 WIN32 = cConfig.WIN32
 assert WIN32 == _WIN32
 
-if WIN32:
+if _MSVC:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
     INVALID_SOCKET = cConfig.INVALID_SOCKET
