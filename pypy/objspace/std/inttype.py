@@ -82,8 +82,8 @@ def retry_to_w_long(space, parser, base=0):
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
-    from pypy.objspace.std.longobject import W_LongObject
-    return W_LongObject(bigint)
+    from pypy.objspace.std.longobject import newlong
+    return newlong(space, bigint)
 
 def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject

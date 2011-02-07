@@ -22,7 +22,7 @@ from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject
-from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.ropeobject import W_RopeObject
@@ -292,7 +292,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_LongObject.fromint(self, val)
 
     def newlong_from_rbigint(self, val):
-        return W_LongObject(val)
+        return newlong(self, val)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)
