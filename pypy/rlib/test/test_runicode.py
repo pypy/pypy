@@ -133,20 +133,126 @@ class TestDecoding(UnicodeTests):
         for s in [# unexpected end of data
                   "\xd7", "\xd6", "\xeb\x96", "\xf0\x90\x91"]:
             self.checkdecodeerror(s, "utf-8", 0, len(s), addstuff=False)
-            
-        for s in [# unexpected code byte
-                  "\x81", "\xbf",
-                  # invalid data 2 byte
-                  "\xd7\x50", "\xd6\x06", "\xd6\xD6",
-                  # invalid data 3 byte
-                  "\xeb\x56\x95", "\xeb\x06\x95", "\xeb\xD6\x95",
-                  "\xeb\x96\x55", "\xeb\x96\x05", "\xeb\x96\xD5",
-                  # invalid data 4 byte
-                  "\xf0\x50\x91\x93", "\xf0\x00\x91\x93", "\xf0\xd0\x91\x93", 
-                  "\xf0\x90\x51\x93", "\xf0\x90\x01\x93", "\xf0\x90\xd1\x93", 
-                  "\xf0\x90\x91\x53", "\xf0\x90\x91\x03", "\xf0\x90\x91\xd3", 
-                  ]:
-            self.checkdecodeerror(s, "utf-8", 0, len(s), addstuff=True)
+
+        # unexpected code byte
+        for s in ["\x81", "\xbf"]:
+            self.checkdecodeerror(s, "utf-8", 0, 1, addstuff=True)
+
+        # invalid data 2 byte
+        for s in ["\xd7\x50", "\xd6\x06", "\xd6\xD6"]:
+            self.checkdecodeerror(s, "utf-8", 0, 1, addstuff=True)
+        # invalid data 3 byte
+        for s in ["\xeb\x56\x95", "\xeb\x06\x95", "\xeb\xD6\x95"]:
+            self.checkdecodeerror(s, "utf-8", 0, 1, addstuff=True)
+        for s in ["\xeb\x96\x55", "\xeb\x96\x05", "\xeb\x96\xD5"]:
+            self.checkdecodeerror(s, "utf-8", 0, 2, addstuff=True)
+        # invalid data 4 byte
+        for s in ["\xf0\x50\x91\x93", "\xf0\x00\x91\x93", "\xf0\xd0\x91\x93"]:
+            self.checkdecodeerror(s, "utf-8", 0, 1, addstuff=True)
+        for s in ["\xf0\x90\x51\x93", "\xf0\x90\x01\x93", "\xf0\x90\xd1\x93"]:
+            self.checkdecodeerror(s, "utf-8", 0, 2, addstuff=True)
+        for s in ["\xf0\x90\x91\x53", "\xf0\x90\x91\x03", "\xf0\x90\x91\xd3"]:
+            self.checkdecodeerror(s, "utf-8", 0, 3, addstuff=True)
+
+
+    def test_issue8271(self):
+        # From CPython
+        # Issue #8271: during the decoding of an invalid UTF-8 byte sequence,
+        # only the start byte and the continuation byte(s) are now considered
+        # invalid, instead of the number of bytes specified by the start byte.
+        # See http://www.unicode.org/versions/Unicode5.2.0/ch03.pdf (page 95,
+        # table 3-8, Row 2) for more information about the algorithm used.
+        FFFD = u'\ufffd'
+        sequences = [
+            # invalid start bytes
+            ('\x80', FFFD), # continuation byte
+            ('\x80\x80', FFFD*2), # 2 continuation bytes
+            ('\xc0', FFFD),
+            ('\xc0\xc0', FFFD*2),
+            ('\xc1', FFFD),
+            ('\xc1\xc0', FFFD*2),
+            ('\xc0\xc1', FFFD*2),
+            # with start byte of a 2-byte sequence
+            ('\xc2', FFFD), # only the start byte
+            ('\xc2\xc2', FFFD*2), # 2 start bytes
+            ('\xc2\xc2\xc2', FFFD*3), # 2 start bytes
+            ('\xc2\x41', FFFD+'A'), # invalid continuation byte
+            # with start byte of a 3-byte sequence
+            ('\xe1', FFFD), # only the start byte
+            ('\xe1\xe1', FFFD*2), # 2 start bytes
+            ('\xe1\xe1\xe1', FFFD*3), # 3 start bytes
+            ('\xe1\xe1\xe1\xe1', FFFD*4), # 4 start bytes
+            ('\xe1\x80', FFFD), # only 1 continuation byte
+            ('\xe1\x41', FFFD+'A'), # invalid continuation byte
+            ('\xe1\x41\x80', FFFD+'A'+FFFD), # invalid cb followed by valid cb
+            ('\xe1\x41\x41', FFFD+'AA'), # 2 invalid continuation bytes
+            ('\xe1\x80\x41', FFFD+'A'), # only 1 valid continuation byte
+            ('\xe1\x80\xe1\x41', FFFD*2+'A'), # 1 valid and the other invalid
+            ('\xe1\x41\xe1\x80', FFFD+'A'+FFFD), # 1 invalid and the other valid
+            # with start byte of a 4-byte sequence
+            ('\xf1', FFFD), # only the start byte
+            ('\xf1\xf1', FFFD*2), # 2 start bytes
+            ('\xf1\xf1\xf1', FFFD*3), # 3 start bytes
+            ('\xf1\xf1\xf1\xf1', FFFD*4), # 4 start bytes
+            ('\xf1\xf1\xf1\xf1\xf1', FFFD*5), # 5 start bytes
+            ('\xf1\x80', FFFD), # only 1 continuation bytes
+            ('\xf1\x80\x80', FFFD), # only 2 continuation bytes
+            ('\xf1\x80\x41', FFFD+'A'), # 1 valid cb and 1 invalid
+            ('\xf1\x80\x41\x41', FFFD+'AA'), # 1 valid cb and 1 invalid
+            ('\xf1\x80\x80\x41', FFFD+'A'), # 2 valid cb and 1 invalid
+            ('\xf1\x41\x80', FFFD+'A'+FFFD), # 1 invalid cv and 1 valid
+            ('\xf1\x41\x80\x80', FFFD+'A'+FFFD*2), # 1 invalid cb and 2 invalid
+            ('\xf1\x41\x80\x41', FFFD+'A'+FFFD+'A'), # 2 invalid cb and 1 invalid
+            ('\xf1\x41\x41\x80', FFFD+'AA'+FFFD), # 1 valid cb and 1 invalid
+            ('\xf1\x41\xf1\x80', FFFD+'A'+FFFD),
+            ('\xf1\x41\x80\xf1', FFFD+'A'+FFFD*2),
+            ('\xf1\xf1\x80\x41', FFFD*2+'A'),
+            ('\xf1\x41\xf1\xf1', FFFD+'A'+FFFD*2),
+            # with invalid start byte of a 4-byte sequence (rfc2279)
+            ('\xf5', FFFD), # only the start byte
+            ('\xf5\xf5', FFFD*2), # 2 start bytes
+            ('\xf5\x80', FFFD*2), # only 1 continuation byte
+            ('\xf5\x80\x80', FFFD*3), # only 2 continuation byte
+            ('\xf5\x80\x80\x80', FFFD*4), # 3 continuation bytes
+            ('\xf5\x80\x41', FFFD*2+'A'), #  1 valid cb and 1 invalid
+            ('\xf5\x80\x41\xf5', FFFD*2+'A'+FFFD),
+            ('\xf5\x41\x80\x80\x41', FFFD+'A'+FFFD*2+'A'),
+            # with invalid start byte of a 5-byte sequence (rfc2279)
+            ('\xf8', FFFD), # only the start byte
+            ('\xf8\xf8', FFFD*2), # 2 start bytes
+            ('\xf8\x80', FFFD*2), # only one continuation byte
+            ('\xf8\x80\x41', FFFD*2 + 'A'), # 1 valid cb and 1 invalid
+            ('\xf8\x80\x80\x80\x80', FFFD*5), # invalid 5 bytes seq with 5 bytes
+            # with invalid start byte of a 6-byte sequence (rfc2279)
+            ('\xfc', FFFD), # only the start byte
+            ('\xfc\xfc', FFFD*2), # 2 start bytes
+            ('\xfc\x80\x80', FFFD*3), # only 2 continuation bytes
+            ('\xfc\x80\x80\x80\x80\x80', FFFD*6), # 6 continuation bytes
+            # invalid start byte
+            ('\xfe', FFFD),
+            ('\xfe\x80\x80', FFFD*3),
+            # other sequences
+            ('\xf1\x80\x41\x42\x43', u'\ufffd\x41\x42\x43'),
+            ('\xf1\x80\xff\x42\x43', u'\ufffd\ufffd\x42\x43'),
+            ('\xf1\x80\xc2\x81\x43', u'\ufffd\x81\x43'),
+            ('\x61\xF1\x80\x80\xE1\x80\xC2\x62\x80\x63\x80\xBF\x64',
+             u'\x61\uFFFD\uFFFD\uFFFD\x62\uFFFD\x63\uFFFD\uFFFD\x64'),
+        ]
+        def replace_handler(errors, codec, message, input, start, end):
+            return FFFD, end
+        def ignore_handler(errors, codec, message, input, start, end):
+            return u'', end
+        for n, (seq, res) in enumerate(sequences):
+            decoder = self.getdecoder('utf-8')
+            raises(UnicodeDecodeError, decoder, seq, len(seq), None, final=True)
+            assert decoder(seq, len(seq), None, final=True,
+                           errorhandler=replace_handler) == (res, len(seq))
+            assert decoder(seq + 'b', len(seq) + 1, None, final=True,
+                           errorhandler=replace_handler) == (res + u'b',
+                                                             len(seq) + 1)
+            res = res.replace(FFFD, u'')
+            assert decoder(seq, len(seq), None, final=True,
+                           errorhandler=ignore_handler) == (res, len(seq))
 
     def test_ascii_error(self):
         self.checkdecodeerror("abc\xFF\xFF\xFFcde", "ascii", 3, 4)

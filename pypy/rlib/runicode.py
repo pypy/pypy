@@ -59,22 +59,22 @@ def raise_unicode_exception_encode(errors, encoding, msg, u,
 # utf-8
 
 utf8_code_length = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, # 00-0F
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, # 70-7F
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, # 80-8F
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-    4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 0, 0
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, # B0-BF
+    0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, # C0-C1 + C2-CF
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, # D0-DF
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, # E0-EF
+    4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  # F0-F4 - F5-FF
 ]
 
 def str_decode_utf_8(s, size, errors, final=False,
@@ -99,13 +99,18 @@ def str_decode_utf_8(s, size, errors, final=False,
             if not final:
                 break
             else:
+                endpos = pos + 1
+                while endpos < size and ord(s[endpos]) & 0xC0 == 0x80:
+                    endpos += 1
                 r, pos = errorhandler(errors, "utf-8",
-                                      "unexpected end of data", s,  pos, size)
+                                      "unexpected end of data",
+                                      s,  pos, endpos)
                 result.append(r)
-                if pos + n > size:
-                    break
+                continue
+
         if n == 0:
-            r, pos = errorhandler(errors, "utf-8", "unexpected code byte",
+            r, pos = errorhandler(errors, "utf-8",
+                                  "invalid start byte",
                                   s,  pos, pos + 1)
             result.append(r)
         elif n == 1:
@@ -118,18 +123,14 @@ def str_decode_utf_8(s, size, errors, final=False,
             y, six = splitter[5, 3](ordch1)
             assert six == 6
             if two != 2:
-                r, pos = errorhandler(errors, "utf-8", "invalid data",
-                                      s,  pos, pos + 2)
+                r, pos = errorhandler(errors, "utf-8",
+                                      "invalid continuation byte",
+                                      s,  pos, pos + 1)
                 result.append(r)
             else:
                 c = (y << 6) + z
-                if c < 0x80:
-                    r, pos = errorhandler(errors, "utf-8", "illegal encoding",
-                                          s,  pos, pos + 2)
-                    result.append(r)
-                else:
-                    result.append(unichr(c))
-                    pos += n
+                result.append(unichr(c))
+                pos += n
         elif n == 3:
             #  1110xxxx 10yyyyyy 10zzzzzz ====> 00000000 xxxxyyyy yyzzzzzz
             ordch2 = ord(s[pos+1])
@@ -138,24 +139,27 @@ def str_decode_utf_8(s, size, errors, final=False,
             y, two2 = splitter[6, 2](ordch2)
             x, fourteen = splitter[4, 4](ordch1)
             assert fourteen == 14
-            if two1 != 2 or two2 != 2:
-                r, pos = errorhandler(errors, "utf-8", "invalid data",
-                                      s,  pos, pos + 3)
+            if (two1 != 2 or two2 != 2 or
+                (ordch1 == 0xe0 and ordch2 < 0xa0)
+                # surrogates shouldn't be valid UTF-8!
+                # Uncomment the line below to make them invalid.
+                # or (ordch1 == 0xed and ordch2 > 0x9f)
+                ):
+
+                # if ordch2 first two bits are 1 and 0, then the invalid
+                # continuation byte is ordch3; else ordch2 is invalid.
+                if two2 == 2:
+                    endpos = pos + 2
+                else:
+                    endpos = pos + 1
+                r, pos = errorhandler(errors, "utf-8",
+                                      "invalid continuation byte",
+                                      s,  pos, endpos)
                 result.append(r)
             else:
                 c = (x << 12) + (y << 6) + z
-                # Note: UTF-8 encodings of surrogates are considered
-                # legal UTF-8 sequences;
-                # XXX For wide builds (UCS-4) we should probably try
-                #     to recombine the surrogates into a single code
-                #     unit.
-                if c < 0x0800:
-                    r, pos = errorhandler(errors, "utf-8", "illegal encoding",
-                                          s,  pos, pos + 3)
-                    result.append(r)
-                else:
-                    result.append(unichr(c))
-                    pos += n
+                result.append(unichr(c))
+                pos += n
         elif n == 4:
             # 11110www 10xxxxxx 10yyyyyy 10zzzzzz ====>
             # 000wwwxx xxxxyyyy yyzzzzzz
@@ -167,31 +171,32 @@ def str_decode_utf_8(s, size, errors, final=False,
             x, two3 = splitter[6, 2](ordch2)
             w, thirty = splitter[3, 5](ordch1)
             assert thirty == 30
-            if two1 != 2 or two2 != 2 or two3 != 2:
-                r, pos = errorhandler(errors, "utf-8", "invalid data",
-                                      s,  pos, pos + 4)
+            if (two1 != 2 or two2 != 2 or two3 != 2 or
+                (ordch1 == 0xf0 and ordch2 < 0x90) or
+                (ordch1 == 0xf4 and ordch2 > 0x8f)):
+                endpos = pos + 1
+                if ordch2 & 0xc0 == 0x80:
+                    endpos += 1
+                    if ordch3 & 0xc0 == 0x80:
+                        endpos += 1
+                r, pos = errorhandler(errors, "utf-8",
+                                      "invalid continuation byte",
+                                      s,  pos, endpos)
                 result.append(r)
             else:
                 c = (w << 18) + (x << 12) + (y << 6) + z
-                # minimum value allowed for 4 byte encoding
-                # maximum value allowed for UTF-16
-                if c < 0x10000 or c > 0x10ffff:
-                    r, pos = errorhandler(errors, "utf-8", "illegal encoding",
-                                          s,  pos, pos + 4)
-                    result.append(r)
+                # convert to UTF-16 if necessary
+                if c <= MAXUNICODE:
+                    result.append(UNICHR(c))
                 else:
-                    # convert to UTF-16 if necessary
-                    if c <= MAXUNICODE:
-                        result.append(UNICHR(c))
-                    else:
-                        # compute and append the two surrogates:
-                        # translate from 10000..10FFFF to 0..FFFF
-                        c -= 0x10000
-                        # high surrogate = top 10 bits added to D800
-                        result.append(unichr(0xD800 + (c >> 10)))
-                        # low surrogate = bottom 10 bits added to DC00
-                        result.append(unichr(0xDC00 + (c & 0x03FF)))
-                    pos += n
+                    # compute and append the two surrogates:
+                    # translate from 10000..10FFFF to 0..FFFF
+                    c -= 0x10000
+                    # high surrogate = top 10 bits added to D800
+                    result.append(unichr(0xD800 + (c >> 10)))
+                    # low surrogate = bottom 10 bits added to DC00
+                    result.append(unichr(0xDC00 + (c & 0x03FF)))
+                pos += n
         else:
             r, pos = errorhandler(errors, "utf-8",
                                   "unsupported Unicode code range",
