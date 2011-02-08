@@ -239,7 +239,7 @@ class QueryTestCase(unittest.TestCase):
         # to implementation-dependent choices (this test probably
         # fails horribly in CPython if we tweak the dict order too).
         got = pprint.pformat(cube)
-        if test.test_support.impl_detail(cpython=True):
+        if test.test_support.check_impl_detail(cpython=True):
             self.assertEqual(got, cube_repr_tgt)
         else:
             self.assertEqual(eval(got), cube)
@@ -403,7 +403,7 @@ class QueryTestCase(unittest.TestCase):
 
         cubo = test.test_set.linegraph(cube)
         got = pprint.pformat(cubo)
-        if test.test_support.impl_detail(cpython=True):
+        if test.test_support.check_impl_detail(cpython=True):
             self.assertEqual(got, cubo_repr_tgt)
         else:
             self.assertEqual(eval(got), cubo)
