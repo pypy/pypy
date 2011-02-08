@@ -562,10 +562,6 @@ class VirtualTests:
                 n -= 1
             return node1.value + node2.value
         assert self.meta_interp(f, [40, 3]) == f(40, 3)
-        
-        def g(n1, n2, s):
-            return f(n1, s) + f(n2, s)
-        # FIXME: Try the case where we need to call the second version from the interpreter
 
     def test_virtual_array_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -596,8 +592,6 @@ class VirtualTests:
                 n -= 1
             return node[0] + node[1]
         assert self.meta_interp(f, [40]) == f(40)
-        # FIXME: Try the case where we need to call the second version from the interpreter
-        
         
 
 class VirtualMiscTests:
