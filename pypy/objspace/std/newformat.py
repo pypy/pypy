@@ -129,10 +129,15 @@ class TemplateFormatter(object):
                         raise OperationError(self.space.w_ValueError, w_msg)
                     conversion = s[i]
                     i += 1
-                    c = s[i]
+                    if i < end:
+                        if s[i] != ':':
+                            w_msg = self.space.wrap("expected ':' after"
+                                                    " format specifier")
+                            raise OperationError(self.space.w_ValueError,
+                                                 w_msg)
+                        i += 1
                 else:
                     conversion = None
-                if c == ':':
                     i += 1
                 return s[start:end_name], conversion, i
             i += 1
