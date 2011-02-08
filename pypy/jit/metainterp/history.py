@@ -749,6 +749,7 @@ class LoopToken(AbstractDescr):
     generated assembler.
     """
     short_preamble = None
+    failed_states = None
     terminating = False # see TerminatingLoopToken in compile.py
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled

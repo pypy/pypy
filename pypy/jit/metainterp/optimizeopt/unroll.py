@@ -671,8 +671,20 @@ class OptInlineShortPreamble(Optimization):
                                         "jumping to preamble instead")
                             self.emit_operation(op)
                         return
-                if not self.retraced:    
-                    raise RetraceLoop
+                if not self.retraced:
+                    if not descr.failed_states:
+                        raise RetraceLoop
+                    for failed in descr.failed_states:
+                        if failed.generalization_of(virtual_state):
+                            # Retracing once more will most likely fail again
+                            break
+                    else:
+                        raise RetraceLoop
+                else:
+                    if not descr.failed_states:
+                        descr.failed_states=[virtual_state]
+                    else:
+                        descr.failed_states.append(virtual_state)
         self.emit_operation(op)
                 
         
