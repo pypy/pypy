@@ -164,6 +164,9 @@ class BaseStringFormatTests:
             assert type(log[2].message) is PendingDeprecationWarning
         assert len(log) == 3
 
+    def test_bogus_cases(self):
+        raises(KeyError, '{0]}'.format, 5)
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
 
