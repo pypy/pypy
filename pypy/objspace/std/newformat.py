@@ -129,10 +129,15 @@ class TemplateFormatter(object):
                         raise OperationError(self.space.w_ValueError, w_msg)
                     conversion = s[i]
                     i += 1
-                    c = s[i]
+                    if i < end:
+                        if s[i] != ':':
+                            w_msg = self.space.wrap("expected ':' after"
+                                                    " format specifier")
+                            raise OperationError(self.space.w_ValueError,
+                                                 w_msg)
+                        i += 1
                 else:
                     conversion = None
-                if c == ':':
                     i += 1
                 return s[start:end_name], conversion, i
             i += 1
@@ -152,7 +157,9 @@ class TemplateFormatter(object):
         if empty:
             index = -1
         else:
-            index = _parse_int(self.space, name, 0, i)[0]
+            index, stop = _parse_int(self.space, name, 0, i)
+            if stop != i:
+                index = -1
         use_numeric = empty or index != -1
         if self.auto_numbering_state == ANS_INIT and use_numeric:
             if empty:
@@ -259,7 +266,9 @@ class TemplateFormatter(object):
         if i == 0:
             index = -1
         else:
-            index = _parse_int(self.space, name, 0, i)[0]
+            index, stop = _parse_int(self.space, name, 0, i)
+            if stop != i:
+                index = -1
         if index >= 0:
             w_first = space.wrap(index)
         else:
@@ -426,10 +435,10 @@ class Formatter(BaseFormatter):
             i += 1
         start_i = i
         self._width, i = _parse_int(self.space, spec, i, length)
-        if length - i and spec[i] == ",":
+        if length != i and spec[i] == ",":
             self._thousands_sep = True
             i += 1
-        if length - i and spec[i] == ".":
+        if length != i and spec[i] == ".":
             i += 1
             self._precision, i = _parse_int(self.space, spec, i, length)
             if self._precision == -1:
