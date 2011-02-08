@@ -11,19 +11,10 @@ Probably easy tasks
 - (unicode|bytearray).(index|find) should accept None as indices (see
   test_unicode.py)
 
-- Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
-
-- in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
-  proably requires to use the git_t typedef instead of rffi.INT.
-
-- missing posix.(confstr|pathconf|fpathconf)(_names)? (see 
+- missing posix.confstr and posix.confstr_names
 
 - remove code duplication: bit_length() and _count_bits() in rlib/rbigint.py,
   objspace/std/longobject.py and objspace/std/longtype.py.
-
-- Add missing methods to bytearray (see test_bytes.py).  Also ideally refactor
-  stringobject.py and unicodeobject.py to allow more code reuse between these
-  (now) three types.
 
 
 Medium tasks
@@ -37,17 +28,9 @@ Medium tasks
 
 - socket module has a couple of changes (including AF_TIPC packet range)
 
-- module/unicodedata/generate_unicodedb.py should parse LineBreaks.txt
-  see http://svn.python.org/view?view=rev&revision=79494
-
 
 Longer tasks
 ------------
-
-- many features are missing from the _ssl module
-
-- "Shorter float representation" (see pypy/translator/c/test/test_dtoa.py) to
-  format/parse floats.  Enable this with a translation option.
 
 - Fix usage of __cmp__ in subclasses::
 
@@ -90,4 +73,7 @@ as the various skips added to the test suite.
 
   * In test_codecs, commented out various items in `all_unicode_encodings`.
 
+- Error messages about ill-formed calls (like "argument after ** must be a
+  mapping") don't show the function name.
 
+  * Some "..." were added to doctests in test_extcall.py
