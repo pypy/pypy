@@ -671,7 +671,10 @@ class OptInlineShortPreamble(Optimization):
                                         "jumping to preamble instead")
                             self.emit_operation(op)
                         return
-                if not self.retraced:
+                retraced_count = len(short)
+                if descr.failed_states:
+                    retraced_count += len(descr.failed_states)
+                if not self.retraced and retraced_count<5:
                     if not descr.failed_states:
                         raise RetraceLoop
                     for failed in descr.failed_states:
