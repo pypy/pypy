@@ -74,6 +74,8 @@ as the various skips added to the test suite.
   * In test_codecs, commented out various items in `all_unicode_encodings`.
 
 - Error messages about ill-formed calls (like "argument after ** must be a
-  mapping") don't show the function name.
+  mapping") don't always show the function name.  That's hard to fix for
+  the case of errors raised when the Argument object is created (as opposed
+  to when parsing for a given target function, which occurs later).
 
   * Some "..." were added to doctests in test_extcall.py
