@@ -196,10 +196,15 @@ class Arguments(object):
             try:
                 key = space.str_w(w_key)
             except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("keywords must be strings"))
+                if e.match(space, space.w_TypeError):
+                    raise OperationError(
+                        space.w_TypeError,
+                        space.wrap("keywords must be strings"))
+                if e.match(space, space.w_UnicodeEncodeError):
+                    raise OperationError(
+                        space.w_TypeError,
+                        space.wrap("keyword cannot be encoded to ascii"))
+                raise
             if self.keywords and key in self.keywords:
                 raise operationerrfmt(self.space.w_TypeError,
                                       "got multiple values "
