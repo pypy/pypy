@@ -99,13 +99,13 @@ class TestDecoding(UnicodeTests):
 
     def test_all_first_256(self):
         for i in range(256):
-            for encoding in ("utf-8 latin-1 utf-16 utf-16-be utf-16-le "
+            for encoding in ("utf-7 utf-8 latin-1 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkdecode(unichr(i), encoding)
 
     def test_first_10000(self):
         for i in range(10000):
-            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkdecode(unichr(i), encoding)
 
@@ -115,13 +115,13 @@ class TestDecoding(UnicodeTests):
             if 0xd800 <= v <= 0xdfff:
                 continue
             uni = unichr(v)
-            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkdecode(uni, encoding)
 
     def test_maxunicode(self):
         uni = unichr(sys.maxunicode)
-        for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+        for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                          "utf-32 utf-32-be utf-32-le").split():
             self.checkdecode(uni, encoding)
 
@@ -184,22 +184,27 @@ class TestDecoding(UnicodeTests):
         assert decode(s, 4, None) == (u'a+-', 4)
         assert decode(s, 5, None) == (u'a+-b', 5)
 
+    def test_utf7_surrogates(self):
+        assert u'\U000abcde'.encode('utf-7') == '+2m/c3g-'
+        raises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
+        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd\ufffd'
+
 
 class TestEncoding(UnicodeTests):
     def test_all_ascii(self):
         for i in range(128):
-            for encoding in "utf-8 latin-1 ascii".split():
+            for encoding in "utf-7 utf-8 latin-1 ascii".split():
                 self.checkencode(unichr(i), encoding)
 
     def test_all_first_256(self):
         for i in range(256):
-            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkencode(unichr(i), encoding)
 
     def test_first_10000(self):
         for i in range(10000):
-            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkencode(unichr(i), encoding)
 
@@ -209,13 +214,13 @@ class TestEncoding(UnicodeTests):
             if 0xd800 <= v <= 0xdfff:
                 continue
             uni = unichr(v)
-            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkencode(uni, encoding)                
 
     def test_maxunicode(self):
         uni = unichr(sys.maxunicode)
-        for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+        for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                          "utf-32 utf-32-be utf-32-le").split():
             self.checkencode(uni, encoding)        
 
