@@ -185,9 +185,16 @@ class TestDecoding(UnicodeTests):
         assert decode(s, 5, None) == (u'a+-b', 5)
 
     def test_utf7_surrogates(self):
-        assert u'\U000abcde'.encode('utf-7') == '+2m/c3g-'
-        raises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
-        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd\ufffd'
+        encode = self.getencoder('utf-7')
+        u = u'\U000abcde'
+        assert encode(u, len(u), None) == '+2m/c3g-'
+        decode = self.getdecoder('utf-7')
+        s = '+3ADYAA-'
+        raises(UnicodeError, decode, s, len(s), None)
+        def replace_handler(errors, codec, message, input, start, end):
+            return u'?', end
+        assert decode(s, len(s), None, final=True,
+                      errorhandler = replace_handler) == (u'??', len(s))
 
 
 class TestEncoding(UnicodeTests):
