@@ -479,7 +479,7 @@ class SendTests:
         if self.optimizer != OPTIMIZER_FULL:
             self.check_tree_loop_count(1)
         else:
-            self.check_tree_loop_count(6)
+            self.check_tree_loop_count(4)
 
     def test_three_classes(self):
         class Base:
