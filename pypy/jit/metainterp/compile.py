@@ -117,7 +117,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
         send_loop_to_backend(metainterp_sd, loop, "loop")
         record_loop_or_bridge(metainterp_sd, loop)
         token = loop.preamble.token
-        if full_preamble_needed or not loop.preamble.token.short_preamble:
+        if full_preamble_needed:
             send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
             insert_loop_token(old_loop_tokens, loop.preamble.token)
             jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(

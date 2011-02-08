@@ -1918,8 +1918,8 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
-        self.check_loop_count(11)
-        self.check_loops(getarrayitem_gc=17, everywhere=True)
+        self.check_loop_count(9)
+        self.check_loops(getarrayitem_gc=6, everywhere=True)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
