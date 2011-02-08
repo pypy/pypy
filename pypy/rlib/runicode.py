@@ -763,10 +763,9 @@ def str_decode_utf_7(s, size, errors, final=False,
                     # preserved
                     pass
                 else:
-                    result.append(ch)
+                    result.append(unichr(ord(ch)))
 
         elif ch == '+':
-            startinpos = pos
             pos += 1 # consume '+'
             if pos < size and s[pos] == '-': # '+-' encodes '+'
                 pos += 1
@@ -794,7 +793,7 @@ def str_decode_utf_7(s, size, errors, final=False,
             (base64bits > 0 and base64buffer != 0)):
             endinpos = size
             msg = "unterminated shift sequence"
-            res, pos = errorhandler(errors, 'utf-7', msg, s, startinpos, pos)
+            res, pos = errorhandler(errors, 'utf-7', msg, s, shiftOutStartPos, pos)
             result.append(res)
     elif inShift:
         pos = shiftOutStartPos # back off output
@@ -1249,7 +1248,6 @@ def str_decode_raw_unicode_escape(s, size, errors, final=False,
             pos += 1
             continue
 
-        startinpos = pos
         # \u-escapes are only interpreted iff the number of leading
         # backslashes is odd
         bs = pos
