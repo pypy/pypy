@@ -578,9 +578,8 @@ class Connection(object):
                     aggregate = self.aggregate_instances[aggregate_ptr[0]]
 
                 params = _convert_params(context, argc, c_params)
-                step = aggregate.step
                 try:
-                    step(*params)
+                    aggregate.step(*params)
                 except Exception, e:
                     msg = ("user-defined aggregate's 'step' "
                            "method raised error")
