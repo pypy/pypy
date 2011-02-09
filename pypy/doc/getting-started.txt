@@ -65,10 +65,6 @@ where XXXXX is the revision id.
 
 .. _`our nightly tests:`: http://buildbot.pypy.org/summary?branch=<trunk>
 
-If your mercurial installation did not automatically give you a libaprutil-1
-you will have to install this manually if you want to commit changes to
-bitbucket.  
-
 Where to go from here
 ----------------------
 
