@@ -8,7 +8,7 @@ a string lookup is done during instance attribute access,
 the dict lookup method will find the string always by identity,
 saving the need to do a string comparison.
 
-Interned Srings in CPython
+Interned Strings in CPython
 --------------------------
 
 CPython keeps an internal dictionary named ``interned`` for all of these
@@ -137,7 +137,7 @@ Here the results of the richards benchmark::
   D:\pypy\dist\pypy\translator\goal>
 
 
-This was just an exercize to get an idea. For sure this is not to be checked in.
+This was just an exercise to get an idea. For sure this is not to be checked in.
 Instead, I'm attaching the simple patch here for reference.
 ::
 

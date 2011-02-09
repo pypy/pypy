@@ -14,7 +14,7 @@ Mission statement
 We aim to provide:
 
  * a common translation and support framework for producing
-   implementations of dynamic languages, emphasising a clean
+   implementations of dynamic languages, emphasizing a clean
    separation between language specification and implementation
    aspects.
 

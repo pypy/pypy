@@ -64,8 +64,8 @@ Our standard interpreter is implemented at a very high level of
 abstraction.  This has a number of happy consequences, among which is
 enabling the encapsulation of language aspects as described in this
 document.  For example, the implementation code simply makes no
-reference to memory management, which clealy gives the translator
-complete freedom to decide about this aspect.  This constrasts with
+reference to memory management, which clearly gives the translator
+complete freedom to decide about this aspect.  This contrasts with
 CPython where the decision to use reference counting is reflected tens
 or even hundreds of times in each C source file in the codebase.
 
@@ -80,7 +80,7 @@ much easier than writing a complete implementation of Python!
 
 Other aspects affect different levels, as their needs require.  The
 remainder of this section describes a few aspects that we have
-successfully enscapsulated.
+successfully encapsulated.
 
 An advantage of our approach is that any combination of aspects can be
 freely selected, avoiding the problem of combinatorial explosion of
@@ -117,12 +117,12 @@ freely, without having to rewrite the whole code all the time but only
 modifying the C backend (in addition, of course, to being able to change
 at any time the high-level code that is the input of the translation
 process).  So far, this allowed us to find a style that does not hinder
-the optimisations performed by the C compiler and so has only a minor
+the optimizations performed by the C compiler and so has only a minor
 impact on performance in the normal case.
 
 Also note that the fact that the C stack can be fully saved into the
 heap can tremendously simplify the portable implementation of garbage
-collection: after the stack has been completely transfered to the heap,
+collection: after the stack has been completely transferred to the heap,
 there are no roots left on the stack.
 
 
@@ -220,7 +220,7 @@ whose values are only calculated when needed.  It also allows global and
 total replacement of one object with another.
 
 The thunk object space is mostly meant as an example of what our
-approach can acheive -- the combination of side-effects and lazy
+approach can achieve -- the combination of side-effects and lazy
 evaluation is not easy to understand.  This demonstration is important
 because this level of flexibility will be required to implement future
 features along the lines of Prolog-style logic variables, transparent
@@ -242,7 +242,7 @@ generated code is large (it produce a binary of 5.6MB on a Linux
 Pentium), there might be locality and code ordering issues that cause
 important cache effects.
 
-We have not particularly optimised any of these aspects yet.  Our goal
+We have not particularly optimized any of these aspects yet.  Our goal
 is primarily to prove that the whole approach is worthwhile, and rely on
 future work and push for external contributions to implement
 state-of-the-art techniques in each of these domains.
@@ -254,7 +254,7 @@ Stacklessness
     bookkeeping code (leaf functions, functions calling only leaves,
     etc. do not need to use this style).  The current performance impact
     is to make PyPy slower by about 8%.  A couple of minor pending
-    optimisations could reduce this figure a bit.  We expect the rest of
+    optimizations could reduce this figure a bit.  We expect the rest of
     the performance impact to be mainly caused by the increase of size
     of the generated executable (+28%).
 
@@ -269,7 +269,7 @@ Multiple Interpreters
 
 Memory Management
 
-    The [Boehm] GC is well-optimised and produces excellent results.  By
+    The [Boehm] GC is well-optimized and produces excellent results.  By
     comparison, using reference counting instead makes the interpreter
     twice as slow.  This is almost certainly due to the naive approach
     to reference counting used so far, which updates the counter far
@@ -305,7 +305,7 @@ Conclusion
 ==========
 
 Although still a work in progress, we believe that the successes we
-have had in enscapsulating implementation aspects justifies the
+have had in encapsulating implementation aspects justifies the
 approach we have taken.  In particular, the relative ease of
 implementing the translation aspects described in this paper -- as
 mentioned above, the stackless modifications took only a few days --

@@ -141,7 +141,7 @@ number generator. It contains one class ``Random`` which most importantly has a
 The rsocket_ module contains an RPython implementation of the functionality of
 the socket standard library with a slightly different interface.  The
 difficulty with the Python socket API is that addresses are not "well-typed"
-objects: dependending on the address family they are tuples, or strings, and
+objects: depending on the address family they are tuples, or strings, and
 so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
 a hierarchy of Address classes, in a typical static-OO-programming style.
 
@@ -151,7 +151,7 @@ a hierarchy of Address classes, in a typical static-OO-programming style.
 ``rstack``
 ==========
 
-The rstack_ module allows an RPython progam to control its own execution stack.
+The rstack_ module allows an RPython program to control its own execution stack.
 This is only useful if the program is translated using stackless. An old
 description of the exposed functions is below.
 
@@ -268,7 +268,7 @@ by the single regular expressions.
     ``R?`` matches 0 or 1 repetition of R.
 
 ``(...)``
-    Parenthesis can be used to group regular expressions (note that in constrast
+    Parenthesis can be used to group regular expressions (note that in contrast
     to Python's re module you cannot later match the content of this group).
 
 ``{m}``
@@ -346,7 +346,7 @@ the expression ``12 + 4 * 5`` is parsed into the following tree:
 Parse Trees
 -----------
 
-The parsing process builds up a tree consisting of intances of ``Symbol`` and
+The parsing process builds up a tree consisting of instances of ``Symbol`` and
 ``Nonterminal``, the former corresponding to tokens, the latter to nonterminal
 symbols. Both classes live in the `pypy.rlib.parsing.tree`_ module. You can use
 the ``view()`` method ``Nonterminal`` instances to get a pygame view of the

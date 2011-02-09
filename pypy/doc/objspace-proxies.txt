@@ -251,8 +251,8 @@ By checking if this raises ``ZeroDivisionError`` or not, we would know
 if ``x`` was equal to 6 or not.  The solution to this problem in the
 Taint Object Space is to introduce *Taint Bombs*.  They are a kind of
 tainted object that doesn't contain a real object, but a pending
-exception.  Taint Bombs are undistinguishable from normal tainted
-objects to unpriviledged code. See::
+exception.  Taint Bombs are indistinguishable from normal tainted
+objects to unprivileged code. See::
 
     >>>> x = taint(6)
     >>>> i = 5 / (x-6)     # no exception here
@@ -540,7 +540,7 @@ tputil help module
 The `tputil.py`_ module provides: 
 
 * ``make_proxy(controller, type, obj)``: function which 
-  creates a tranparent proxy controlled by the given 
+  creates a transparent proxy controlled by the given 
   'controller' callable.  The proxy will appear 
   as a completely regular instance of the given 
   type but all operations on it are send to the 
@@ -600,7 +600,7 @@ space`_, in `proxy_helpers.py`_, `proxyobject.py`_ and
 `--objspace-std-withtproxy`_ option to ``py.py`` or
 ``translate.py``.  This registers implementations named
 ``W_TransparentXxx`` - which usually correspond to an
-apropriate ``W_XxxObject`` - and includes some interpreter hacks
+appropriate ``W_XxxObject`` - and includes some interpreter hacks
 for objects that are too close to the interpreter to be
 implemented in the std objspace. The types of objects that can
 be proxied this way are user created classes & functions,

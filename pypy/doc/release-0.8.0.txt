@@ -17,10 +17,10 @@ The highlights of this third release of PyPy are:
 - Some Speed enhancements. Translated PyPy is now about 10 times
   faster than 0.7 but still 10-20 times slower than
   CPython on pystones and other benchmarks.  At the same time, 
-  language compliancy has been slightly increased compared to 0.7
-  which had already reached major CPython compliancy goals. 
+  language compliance has been slightly increased compared to 0.7
+  which had already reached major CPython compliance goals. 
 
-- Some experimental features are now translateable.  Since 0.6.0, PyPy
+- Some experimental features are now translatable.  Since 0.6.0, PyPy
   shipped with an experimental Object Space (the part of PyPy
   implementing Python object operations and manipulation) implementing
   lazily computed objects, the "Thunk" object space. With 0.8.0 this
@@ -69,7 +69,7 @@ Ongoing work and near term goals
 ---------------------------------
 
 At the last sprint in Paris we started exploring the new directions of
-our work, in terms of extending and optimising PyPy further. We
+our work, in terms of extending and optimizing PyPy further. We
 started to scratch the surface of Just-In-Time compiler related work,
 which we still expect will be the major source of our future speed
 improvements and some successful amount of work has been done on the

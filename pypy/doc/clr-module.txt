@@ -139,5 +139,5 @@ Form displaying the usual "Hello World" message::
     >>>> Application.Run(frm)
 
 Unfortunately at the moment you can't do much more than this with Windows
-Forms, because we still miss support for delegates and so it's not possibile
+Forms, because we still miss support for delegates and so it's not possible
 to handle events.

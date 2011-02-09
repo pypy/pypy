@@ -54,7 +54,7 @@ Implementation plans:
 
 We need:
 
-* app-level primitives for having 'remote proxy' accessable
+* app-level primitives for having 'remote proxy' accessible
 
 * some "serialiser" which is not truly serialising stuff, but making
   sure communication will go.

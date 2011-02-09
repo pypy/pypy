@@ -71,7 +71,7 @@ install subversion in addition to mercurial.
 Where to go from here
 ----------------------
 
-After you succesfully manage to get PyPy's source you can read more about:
+After you successfully manage to get PyPy's source you can read more about:
 
  - `Building and using PyPy's Python interpreter`_
  - `Learning more about the translation toolchain and how to develop (with) PyPy`_

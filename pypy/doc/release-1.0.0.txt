@@ -163,7 +163,7 @@ Python interpreter features, please see our extensive "D12" report:
 http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
 
-Funding partners and organisations
+Funding partners and organizations
 =====================================================
 
 PyPy development and activities happen as an open source project and

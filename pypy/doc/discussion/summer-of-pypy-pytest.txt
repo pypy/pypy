@@ -16,7 +16,7 @@ Method:
 Remote imports:
 ---------------
 
-On the beggining of communication, master server sends to client
+On the beginning of communication, master server sends to client
 import hook code, which then can import all needed libraries.
 
 Libraries are uploaded server -> client if they're needed (when
@@ -47,7 +47,7 @@ file which allows us to have top-level imports).
 Then we transfer output data to server as string, possibly tweaking
 file names (which is quite easy).
 
-Delivarables:
+Deliverables:
 =============
 
 - better use of testing machines

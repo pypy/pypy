@@ -20,7 +20,7 @@ Python itself.  The long term goals are an implementation that
 is flexible and easy to experiment with and retarget to
 different platforms (also non-C ones) and such that high
 performance can be achieved through high-level implementations
-of dynamic optimisation techniques.
+of dynamic optimization techniques.
 
 The interpreter and object model implementations shipped with 0.6 can
 be run on top of CPython and implement the core language features of
@@ -65,7 +65,7 @@ low-level translation and experimenting with unique features.
 
 * The 0.6 release also contains a snapshot of our translation-efforts 
   to lower level languages.  For that we have developed an
-  annotator which is capable of infering type information
+  annotator which is capable of inferring type information
   across our code base.  The annotator right now is already
   capable of successfully type annotating basically *all* of
   PyPy code-base, and is included with 0.6.  

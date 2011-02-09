@@ -195,7 +195,7 @@ links to more information.
 
 **translation-time**
    In the context of the JIT_, translation time is when the PyPy
-   source is being analysed and the JIT itself is being created.
+   source is being analyzed and the JIT itself is being created.
 
 .. _`translator`:
 
