@@ -124,6 +124,8 @@ class CFuncPtr(_CData):
             # A callback into python
             self.callable = argument
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
+            if self._restype_ is None:
+                ffires = None
             self._ptr = _rawffi.CallbackPtr(self._wrap_callable(argument,
                                                                 self.argtypes),
                                             ffiargs, ffires, self._flags_)
