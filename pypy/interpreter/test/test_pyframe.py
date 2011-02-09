@@ -1,5 +1,11 @@
+from pypy.tool import udir
+
 
 class AppTestPyFrame:
+
+    def setup_class(cls):
+        cls.w_udir = cls.space.wrap(str(udir.udir))
+        cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
 
     # test for the presence of the attributes, not functionality
 
@@ -201,6 +207,32 @@ class AppTestPyFrame:
         assert len(l) == 1
         assert l[0][1] == 'call'
         assert res == 'hidden' # sanity
+
+    def test_trace_hidden_prints(self):
+        import sys
+
+        l = []
+        def trace(a,b,c):
+            l.append((a,b,c))
+            return trace
+
+        outputf = open(self.tempfile1, 'w')
+        def f():
+            print >> outputf, 1
+            print >> outputf, 2
+            print >> outputf, 3
+            return "that's the return value"
+
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        outputf.close()
+        # should get 1 "call", 3 "line" and 1 "return" events, and no call
+        # or return for the internal app-level implementation of 'print'
+        assert len(l) == 6
+        assert [what for (frame, what, arg) in l] == [
+            'call', 'line', 'line', 'line', 'line', 'return']
+        assert l[-1][2] == "that's the return value"
 
     def test_trace_return_exc(self):
         import sys
