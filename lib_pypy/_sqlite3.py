@@ -258,6 +258,7 @@ class Connection(object):
 
         self.func_cache = {}
         self.aggregate_instances = {}
+        self._collations = {}
         self.thread_ident = thread_get_ident()
 
     def _get_exception(self, error_code = None):
@@ -440,7 +441,33 @@ class Connection(object):
             raise self._get_exception(ret)
 
     def create_collation(self, name, callback):
-        raise NotImplementedError
+        self._check_thread()
+        self._check_closed()
+        name = name.upper()
+        if not name.replace('_', '').isalnum():
+            raise ProgrammingError("invalid character in collation name")
+
+        if callback is None:
+            del self._collations[name]
+            c_collation_callback = cast(None, COLLATION)
+        else:
+            if not callable(callback):
+                raise TypeError("parameter must be callable")
+
+            def collation_callback(context, len1, str1, len2, str2):
+                text1 = string_at(str1, len1)
+                text2 = string_at(str2, len2)
+
+                return callback(text1, text2)
+
+            c_collation_callback = COLLATION(collation_callback)
+            self._collations[name] = collation_callback
+
+
+        ret = sqlite.sqlite3_create_collation(self.db, name,
+                                              SQLITE_UTF8,
+                                              None,
+                                              c_collation_callback)
 
     def set_progress_handler(self, callable, nsteps):
         raise NotImplementedError
@@ -1020,6 +1047,10 @@ sqlite.sqlite3_create_function.restype = c_int
 
 sqlite.sqlite3_aggregate_context.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_aggregate_context.restype = c_void_p
+
+COLLATION = CFUNCTYPE(c_int, c_void_p, c_int, c_void_p, c_int, c_void_p)
+sqlite.sqlite3_create_collation.argtypes = [c_void_p, c_char_p, c_int, c_void_p, COLLATION]
+sqlite.sqlite3_create_collation.restype = c_int
 
 converters = {}
 adapters = {}
