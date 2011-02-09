@@ -271,7 +271,7 @@ unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 
 # ____________________________________________________________
 
-class JitDriver:    
+class JitDriver:
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with

@@ -4,8 +4,14 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.rpython.lltypesystem import lltype
+from pypy.rlib import jit
 
 TP = lltype.GcArray(lltype.Float)
+
+numpy_driver = jit.JitDriver(greens = ['bytecode'],
+                             reds = ['result', 'result_size', 'i',
+                                     'valuestack', 'valuestackdepth',
+                                     'input', 'input_pos'])
 
 def compute(bytecode, input):
     result_size = input[0].size
@@ -16,7 +22,11 @@ def compute(bytecode, input):
     valuestackdepth = 0
     i = 0
     while i < result_size:
-        # merge point
+        numpy_driver.jit_merge_point(bytecode=bytecode, result=result,
+                                     result_size=result_size,
+                                     valuestackdepth=valuestackdepth,
+                                     valuestack=valuestack,
+                                     input=input, input_pos=input_pos, i=i)
         if bytecode_pos == -1:
             bytecode_pos = len(bytecode) - 1
             input_pos = len(input) - 1
@@ -24,7 +34,11 @@ def compute(bytecode, input):
             valuestack = [0.0] * len(input)
             valuestackdepth = 0
             i += 1
-            # can_enter_jit
+            numpy_driver.can_enter_jit(bytecode=bytecode, result=result,
+                                       result_size=result_size,
+                                       valuestackdepth=valuestackdepth,
+                                       valuestack=valuestack,
+                                       input=input, input_pos=input_pos, i=i)
         else:
             opcode = bytecode[bytecode_pos]
             if opcode == 'l':
