@@ -51,6 +51,15 @@ class TestRLong(object):
         f = op1.truediv(op2)
         assert f == 4.7298422347492634e-61      # exactly
 
+    def test_truediv_overflow(self):
+        overflowing = 2**1024 - 2**(1024-53-1)
+        op1 = rbigint.fromlong(overflowing-1)
+        op2 = rbigint.fromlong(1)
+        f = op1.truediv(op2)
+        assert f == 1.7976931348623157e+308     # exactly
+        op1 = rbigint.fromlong(overflowing)
+        py.test.raises(OverflowError, op1.truediv, op2)
+
     def test_mod(self):
         for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
             for op2 in [-4, -2, -1, 1, 2, 8]:
@@ -637,3 +646,16 @@ class TestTranslatable(object):
                 assert res == str(long(values[i]))
                 res = interpret(fn, [i])
                 assert ''.join(res.chars) == str(long(values[i]))
+
+    def test_truediv_overflow(self):
+        overflowing = 2**1024 - 2**(1024-53-1)
+        op1 = rbigint.fromlong(overflowing)
+
+        def fn():
+            try:
+                return op1.truediv(rbigint.fromint(1))
+            except OverflowError:
+                return -42.0
+
+        res = interpret(fn, [])
+        assert res == -42.0
