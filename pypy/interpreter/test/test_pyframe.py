@@ -407,3 +407,30 @@ class AppTestPyFrame:
         res = f(1)
         sys.settrace(None)
         assert res == 42
+
+    def test_set_unset_f_trace(self):
+        skip("in-progress, but not too important")
+        import sys
+        seen = []
+        def trace1(frame, what, arg):
+            seen.append((1, frame, frame.f_lineno, what, arg))
+            return trace1
+        def trace2(frame, what, arg):
+            seen.append((2, frame, frame.f_lineno, what, arg))
+            return trace2
+        def set_the_trace(f):
+            f.f_trace = trace1
+            sys.settrace(trace2)
+            len(seen)     # take one line: should not be traced
+        f = sys._getframe()
+        set_the_trace(f)
+        len(seen)     # take one line: should not be traced
+        len(seen)     # take one line: should not be traced
+        sys.settrace(None)   # and this line should be the last line traced
+        len(seen)     # take one line
+        del f.f_trace
+        len(seen)     # take one line
+        firstline = set_the_trace.func_code.co_firstlineno
+        assert seen == [(1, f, firstline + 6, 'line', None),
+                        (1, f, firstline + 7, 'line', None),
+                        (1, f, firstline + 8, 'line', None)]
