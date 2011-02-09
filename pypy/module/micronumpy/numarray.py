@@ -54,6 +54,7 @@ def compute(bytecode, input):
                 raise NotImplementedError
             bytecode_pos -= 1
     return result
+
     
 class BaseArray(Wrappable):
     def force(self):
@@ -61,11 +62,17 @@ class BaseArray(Wrappable):
         return compute(bytecode, stack)
     force.unwrap_spec = ['self']
 
+    def descr_add(self, space, w_other):
+        return space.wrap(Add(self, w_other))
+    descr_add.unwrap_spec = ['self', ObjSpace, W_Root]
+
     def compile(self):
         raise NotImplementedError("abstract base class")
 
 class Add(BaseArray):
     def __init__(self, left, right):
+        assert isinstance(left, BaseArray)
+        assert isinstance(right, BaseArray)
         self.left = left
         self.right = right
 
@@ -77,6 +84,7 @@ class Add(BaseArray):
 BaseArray.typedef = TypeDef(
     'Operation',
     force=interp2app(BaseArray.force),
+    __add__ = interp2app(BaseArray.descr_add),
 )
 
 class SingleDimArray(BaseArray):
@@ -107,10 +115,6 @@ class SingleDimArray(BaseArray):
         self.storage[item] = value
     descr_setitem.unwrap_spec = ['self', ObjSpace, int, float]
 
-    def descr_add(self, space, w_other):
-        return space.wrap(Add(self, w_other))
-    descr_add.unwrap_spec = ['self', ObjSpace, W_Root]
-
     def force(self):
         return self
 
@@ -132,7 +136,7 @@ SingleDimArray.typedef = TypeDef(
     __new__ = interp2app(descr_new_numarray),
     __getitem__ = interp2app(SingleDimArray.descr_getitem),
     __setitem__ = interp2app(SingleDimArray.descr_setitem),
-    __add__ = interp2app(SingleDimArray.descr_add),
+    __add__ = interp2app(BaseArray.descr_add),
     force = interp2app(SingleDimArray.force),
 )
 
