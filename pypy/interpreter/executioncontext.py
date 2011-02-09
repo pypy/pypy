@@ -209,7 +209,6 @@ class ExecutionContext(object):
         """Set the global trace function."""
         if self.space.is_w(w_func, self.space.w_None):
             self.w_tracefunc = None
-            self.space.frame_trace_action.unfire()
         else:
             self.force_all_frames()
             self.w_tracefunc = w_func
@@ -358,15 +357,6 @@ class AbstractActionFlag(object):
             # to run at the next possible bytecode
             self.reset_ticker(-1)
 
-    def unfire(self, action):
-        """Cancel the action, if scheduled."""
-        alist = self.fired_actions
-        if alist is not None:
-            for i in range(len(alist)-1, -1, -1):
-                if alist[i] is action:
-                    del alist[i]
-        action._fired = False
-
     def register_periodic_action(self, action, use_bytecode_counter):
         """NOT_RPYTHON:
         Register the PeriodicAsyncAction action to be called whenever the
@@ -449,10 +439,6 @@ class AsyncAction(object):
         The action must have been registered at space initalization time."""
         self.space.actionflag.fire(self)
 
-    def unfire(self):
-        """Cancel the action, if scheduled."""
-        self.space.actionflag.unfire(self)
-
     def fire_after_thread_switch(self):
         """Bit of a hack: fire() the action but only the next time the GIL
         is released and re-acquired (i.e. after a potential thread switch).
@@ -525,7 +511,8 @@ class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""
 
     def perform(self, executioncontext, frame):
-        if frame.w_f_trace is None or executioncontext.is_tracing:
+        if (frame.w_f_trace is None or executioncontext.is_tracing or
+            executioncontext.w_tracefunc is None):
             return
         code = frame.pycode
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
