@@ -165,7 +165,12 @@ class ExecutionContext(object):
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
         if self.w_tracefunc is not None:
-            self._trace(frame, 'return', w_retval)
+            return_from_hidden = self._trace(frame, 'return', w_retval)
+            # special case: if we are returning from a hidden function,
+            # then maybe we have to fire() the action again; otherwise
+            # it will not be called.  See test_trace_hidden_prints.
+            if return_from_hidden:
+                self.space.frame_trace_action.fire()
 
     def bytecode_trace(self, frame, decr_by=TICK_COUNTER_STEP):
         "Trace function called before each bytecode."
@@ -254,7 +259,7 @@ class ExecutionContext(object):
 
     def _trace(self, frame, event, w_arg, operr=None):
         if self.is_tracing or frame.hide():
-            return
+            return True
 
         space = self.space
         
@@ -292,7 +297,7 @@ class ExecutionContext(object):
         if self.profilefunc is not None:
             if event not in ['leaveframe', 'call', 'c_call',
                              'c_return', 'c_exception']:
-                return
+                return False
 
             last_exception = frame.last_exception
             if event == 'leaveframe':
@@ -312,6 +317,7 @@ class ExecutionContext(object):
             finally:
                 frame.last_exception = last_exception
                 self.is_tracing -= 1
+        return False
 
     def checksignals(self):
         """Similar to PyErr_CheckSignals().  If called in the main thread,
