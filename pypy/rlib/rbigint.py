@@ -1517,7 +1517,7 @@ def _bigint_true_divide(a, b):
 
     # Round by remembering a modified copy of the low digit of x
     mask = 1 << (extra_bits - 1)
-    low = x.digit(0) | inexact
+    low = x.udigit(0) | inexact
     if (low & mask) != 0 and (low & (3*mask-1)) != 0:
         low += mask
     x_digit_0 = low & ~(mask-1)
