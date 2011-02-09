@@ -499,7 +499,24 @@ class Connection(object):
     def set_authorizer(self, callback):
         self._check_thread()
         self._check_closed()
-        raise NotImplementedError
+
+        try:
+            c_authorizer, _ = self.func_cache[callable]
+        except KeyError:
+            def authorizer(userdata, action, arg1, arg2, dbname, source):
+                try:
+                    return int(callback(action, arg1, arg2, dbname, source))
+                except Exception, e:
+                    return SQLITE_DENY
+            c_authorizer = AUTHORIZER(authorizer)
+
+            self.func_cache[callable] = c_authorizer, authorizer
+
+        ret = sqlite.sqlite3_set_authorizer(self.db,
+                                            c_authorizer,
+                                            None)
+        if ret != SQLITE_OK:
+            raise self._get_exception(ret)
 
     def create_function(self, name, num_args, callback):
         self._check_thread()
@@ -1089,6 +1106,10 @@ sqlite.sqlite3_create_collation.restype = c_int
 PROGRESS = CFUNCTYPE(c_int, c_void_p)
 sqlite.sqlite3_progress_handler.argtypes = [c_void_p, c_int, PROGRESS, c_void_p]
 sqlite.sqlite3_progress_handler.restype = c_int
+
+AUTHORIZER = CFUNCTYPE(c_int, c_void_p, c_int, c_char_p, c_char_p, c_char_p, c_char_p)
+sqlite.sqlite3_set_authorizer.argtypes = [c_void_p, AUTHORIZER, c_void_p]
+sqlite.sqlite3_set_authorizer.restype = c_int
 
 converters = {}
 adapters = {}
