@@ -834,6 +834,8 @@ class Statement(object):
                 decltype = sqlite.sqlite3_column_decltype(self.statement, i)
                 if decltype is not None:
                     decltype = decltype.split()[0]      # if multiple words, use first, eg. "INTEGER NOT NULL" => "INTEGER"
+                    if '(' in decltype:
+                        decltype = decltype[:decltype.index('(')]
                     converter = converters.get(decltype.upper(), None)
 
             self.row_cast_map.append(converter)
