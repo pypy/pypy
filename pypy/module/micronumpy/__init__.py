@@ -6,8 +6,7 @@ class Module(MixedModule):
     applevel_name = 'numpy'
     
     interpleveldefs = {
-        'zeros'    : 'numarray.zeros',
-        'minimum'  : 'ufunc.minimum',
-        }
+        'array': 'numarray.SingleDimArray',
+    }
 
     appleveldefs = {}

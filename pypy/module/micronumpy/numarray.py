@@ -1,127 +1,67 @@
 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
-from pypy.rlib.debug import make_sure_not_resized
+from pypy.rpython.lltypesystem import lltype
 
-class BaseNumArray(Wrappable):
+TP = lltype.GcArray(lltype.Float)
+
+class BaseBytecode(Wrappable):
     pass
 
-class NumArray(BaseNumArray):
-    def __init__(self, space, dim, dtype):
-        self.dim = dim
-        self.space = space
-        # ignore dtype for now
-        self.storage = [0] * dim
-        make_sure_not_resized(self.storage)
+class Add(BaseBytecode):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
 
-    def descr_getitem(self, index):
-        space = self.space
-        try:
-            return space.wrap(self.storage[index])
-        except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("list index out of range"))
-    descr_getitem.unwrap_spec = ['self', int]
+class SingleDimArray(Wrappable):
+    def __init__(self, size):
+        self.size = size
+        self.storage = lltype.malloc(TP, size, zero=True)
 
-    def descr_setitem(self, index, value):
-        space = self.space
-        try:
-            self.storage[index] = value
-        except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("list index out of range"))
-        return space.w_None
-    descr_setitem.unwrap_spec = ['self', int, int]
+    def descr_getitem(self, space, item):
+        if item < 0:
+            raise operationerrfmt(space.w_TypeError,
+              '%d below zero', item)
+        if item > self.size:
+            raise operationerrfmt(space.w_TypeError,
+              '%d above array size', item)
+        return space.wrap(self.storage[item])
+    descr_getitem.unwrap_spec = ['self', ObjSpace, int]
 
-    def descr_len(self):
-        return self.space.wrap(len(self.storage))
-    descr_len.unwrap_spec = ['self']
+    def descr_setitem(self, space, item, value):
+        if item < 0:
+            raise operationerrfmt(space.w_TypeError,
+              '%d below zero', item)
+        if item > self.size:
+            raise operationerrfmt(space.w_TypeError,
+              '%d above array size', item)
+        self.storage[item] = value
+    descr_setitem.unwrap_spec = ['self', ObjSpace, int, float]
 
-NumArray.typedef = TypeDef(
-    'NumArray',
-    __getitem__ = interp2app(NumArray.descr_getitem),
-    __setitem__ = interp2app(NumArray.descr_setitem),
-    __len__     = interp2app(NumArray.descr_len),
+    def descr_add(self, space, w_other):
+        return space.wrap(Add(self, w_other))
+    descr_add.unwrap_spec = ['self', ObjSpace, W_Root]
+
+def descr_new_numarray(space, w_type, w_size_or_iterable):
+    if space.isinstance_w(w_size_or_iterable, space.w_int):
+        arr = SingleDimArray(space.int_w(w_size_or_iterable))
+    else:
+        l = space.listview(w_size_or_iterable)
+        arr = SingleDimArray(len(l))
+        i = 0
+        for w_elem in l:
+            arr.storage[i] = space.float_w(space.float(w_elem))
+            i += 1
+    return space.wrap(arr)
+descr_new_numarray.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+SingleDimArray.typedef = TypeDef(
+    'numarray',
+    __new__ = interp2app(descr_new_numarray),
+    __getitem__ = interp2app(SingleDimArray.descr_getitem),
+    __setitem__ = interp2app(SingleDimArray.descr_setitem),
+    __add__ = interp2app(SingleDimArray.descr_add),
 )
 
-def compute_pos(space, indexes, dim):
-    current = 1
-    pos = 0
-    for i in range(len(indexes)):
-        index = indexes[i]
-        d = dim[i]
-        if index >= d or index <= -d - 1:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("invalid index"))
-        if index < 0:
-            index = d + index
-        pos += index * current
-        current *= d
-    return pos
-
-class MultiDimArray(BaseNumArray):
-    def __init__(self, space, dim, dtype):
-        self.dim = dim
-        self.space = space
-        # ignore dtype for now
-        size = 1
-        for el in dim:
-            size *= el
-        self.storage = [0] * size
-        make_sure_not_resized(self.storage)
-
-    def _unpack_indexes(self, space, w_index):
-        indexes = [space.int_w(w_i) for w_i in space.fixedview(w_index)]
-        if len(indexes) != len(self.dim):
-            raise OperationError(space.w_IndexError, space.wrap(
-                'Wrong index'))
-        return indexes
-
-    def descr_getitem(self, w_index):
-        space = self.space
-        indexes = self._unpack_indexes(space, w_index)
-        pos = compute_pos(space, indexes, self.dim)
-        return space.wrap(self.storage[pos])
-    descr_getitem.unwrap_spec = ['self', W_Root]
-
-    def descr_setitem(self, w_index, value):
-        space = self.space
-        indexes = self._unpack_indexes(space, w_index)
-        pos = compute_pos(space, indexes, self.dim)
-        self.storage[pos] = value
-        return space.w_None
-    descr_setitem.unwrap_spec = ['self', W_Root, int]
-
-    def descr_len(self):
-        return self.space.wrap(self.dim[0])
-    descr_len.unwrap_spec = ['self']
-
-MultiDimArray.typedef = TypeDef(
-    'NumArray',
-    __getitem__ = interp2app(MultiDimArray.descr_getitem),
-    __setitem__ = interp2app(MultiDimArray.descr_setitem),
-    __len__     = interp2app(MultiDimArray.descr_len),
-)
-
-def unpack_dim(space, w_dim):
-    if space.is_true(space.isinstance(w_dim, space.w_int)):
-        return [space.int_w(w_dim)]
-    dim_w = space.fixedview(w_dim)
-    return [space.int_w(w_i) for w_i in dim_w]
-
-def unpack_dtype(space, w_dtype):
-    if space.is_w(w_dtype, space.w_int):
-        return 'i'
-    else:
-        raise NotImplementedError
-
-def zeros(space, w_dim, w_dtype):
-    dim = unpack_dim(space, w_dim)
-    dtype = unpack_dtype(space, w_dtype)
-    if len(dim) == 1:
-        return space.wrap(NumArray(space, dim[0], dtype))
-    else:
-        return space.wrap(MultiDimArray(space, dim, dtype))
-zeros.unwrap_spec = [ObjSpace, W_Root, W_Root]
