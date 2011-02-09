@@ -497,6 +497,8 @@ class Connection(object):
             raise self._get_exception(ret)
 
     def set_authorizer(self, callback):
+        self._check_thread()
+        self._check_closed()
         raise NotImplementedError
 
     def create_function(self, name, num_args, callback):
@@ -679,6 +681,7 @@ class Cursor(object):
         return self.statement
 
     def fetchone(self):
+        self._check_closed()
         if self.statement is None:
             return None
         try:
@@ -687,6 +690,7 @@ class Cursor(object):
             return None
 
     def fetchmany(self, size=None):
+        self._check_closed()
         if self.statement is None:
             return []
         if size is None:
@@ -699,6 +703,7 @@ class Cursor(object):
         return lst
 
     def fetchall(self):
+        self._check_closed()
         if self.statement is None:
             return []
         return list(self.statement)
@@ -712,8 +717,13 @@ class Cursor(object):
         return sqlite.sqlite3_last_insert_rowid(self.connection.db)
 
     def close(self):
+        if not self.connection:
+            return
         self._check_closed()
-        # XXX this should do reset and set statement to None it seems
+        if self.statement:
+            self.statement.reset()
+            self.statement = None
+        self.connection = None
 
     def setinputsizes(self, *args):
         pass
