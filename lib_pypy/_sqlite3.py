@@ -295,6 +295,8 @@ class Connection(object):
             self.statements = [ref for ref in self.statements if ref() is not None]
 
     def _check_thread(self):
+        if not hasattr(self, 'thread_ident'):
+            return
         if self.thread_ident != thread_get_ident():
             raise ProgrammingError(
                 "SQLite objects created in a thread can only be used in that same thread."
@@ -395,7 +397,7 @@ class Connection(object):
             sqlite.sqlite3_finalize(statement)
 
     def _check_closed(self):
-        if self.closed:
+        if getattr(self, 'closed', True):
             raise ProgrammingError("Cannot operate on a closed database.")
 
     def __enter__(self):
@@ -470,12 +472,17 @@ class Cursor(object):
         self.rowcount = -1
         self.statement = None
 
+    def _check_closed(self):
+        if not getattr(self, 'connection', None):
+            raise ProgrammingError("Cannot operate on a closed cursor.")
+        self.connection._check_thread()
+        self.connection._check_closed()
+
     def execute(self, sql, params=None):
         self._description = None
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
-        self.connection._check_thread()
-        self.connection._check_closed()
+        self._check_closed()
         self.statement = Statement(self, sql, self.row_factory)
 
         if self.connection._isolation_level is not None:
@@ -498,8 +505,7 @@ class Cursor(object):
         self._description = None
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
-        self.connection._check_closed()
-        self.connection._check_thread()
+        self._check_closed()
         self.statement = Statement(self, sql, self.row_factory)
         if self.statement.kind == "DML":
             self.connection._begin()
@@ -520,8 +526,7 @@ class Cursor(object):
         self._description = None
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
-        self.connection._check_closed()
-        self.connection._check_thread()
+        self._check_closed()
         statement = c_void_p()
         next_char = c_char_p(sql)
 
@@ -579,8 +584,7 @@ class Cursor(object):
         return sqlite.sqlite3_last_insert_rowid(self.connection.db)
 
     def close(self):
-        self.connection._check_thread()
-        self.connection._check_closed()
+        self._check_closed()
         # XXX this should do reset and set statement to None it seems
 
     def setinputsize(self, *args):
