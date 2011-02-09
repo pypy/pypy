@@ -339,6 +339,8 @@ class Connection(object):
     def _set_isolation_level(self, val):
         if val is None:
             self.commit()
+        if isinstance(val, unicode):
+            val = str(val)
         self._isolation_level = val
     isolation_level = property(_get_isolation_level, _set_isolation_level)
 
@@ -461,7 +463,7 @@ class Connection(object):
 class Cursor(object):
     def __init__(self, con):
         if not isinstance(con, Connection):
-            raise ValueError
+            raise TypeError
         con._check_thread()
         con._check_closed()
         self.connection = con
@@ -532,7 +534,7 @@ class Cursor(object):
 
         while True:
             if not sqlite.sqlite3_complete(next_char):
-                raise ProgrammingError, "Incomplete statement '%s'" % next_char.value
+                raise OperationalError, "Incomplete statement '%s'" % next_char.value
             ret = sqlite.sqlite3_prepare_v2(self.connection.db, next_char, -1, byref(statement), byref(next_char))
             if ret != SQLITE_OK:
                 raise self.connection._get_exception(ret)
@@ -587,7 +589,7 @@ class Cursor(object):
         self._check_closed()
         # XXX this should do reset and set statement to None it seems
 
-    def setinputsize(self, *args):
+    def setinputsizes(self, *args):
         pass
     def setoutputsize(self, *args):
         pass
@@ -818,6 +820,21 @@ class Row(object):
 
     def keys(self):
         return [desc[0] for desc in self.description]
+
+    def __eq__(self, other):
+        if not isinstance(other, Row):
+            return NotImplemented
+        if self.description != other.description:
+            return False
+        if self.values != other.values:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(tuple(self.description)) ^ hash(tuple(self.values))
 
 def _check_remaining_sql(s):
     state = "NORMAL"
