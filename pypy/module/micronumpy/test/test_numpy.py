@@ -18,6 +18,13 @@ class AppTestNumpyLike(object):
         a = array(range(5))
         assert a[3] == 3
 
+    def test_add(self):
+        from numpy import array
+        a = array(range(5))
+        b = a + a
+        b = b.force()
+        assert b[2] == 2 + 2
+
 class AppTestNumpy(object):
     def setup_class(cls):
         py.test.skip("skip")
