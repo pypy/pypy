@@ -674,7 +674,8 @@ class OptInlineShortPreamble(Optimization):
                 retraced_count = len(short)
                 if descr.failed_states:
                     retraced_count += len(descr.failed_states)
-                if not self.retraced and retraced_count<5:
+                limit = self.optimizer.metainterp_sd.warmrunnerdesc.retrace_limit
+                if not self.retraced and retraced_count<limit:
                     if not descr.failed_states:
                         raise RetraceLoop
                     for failed in descr.failed_states:
