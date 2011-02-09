@@ -456,7 +456,6 @@ class Connection(object):
         except KeyError:            
             def closure(context, nargs, c_params):
                 function_callback(callback, context, nargs, c_params)
-                return 0
             c_closure = FUNC(closure)
             self.func_cache[callback] = c_closure, closure
         ret = sqlite.sqlite3_create_function(self.db, name, num_args,
@@ -502,7 +501,6 @@ class Connection(object):
                     msg = ("user-defined aggregate's 'step' "
                            "method raised error")
                     sqlite.sqlite3_result_error(context, msg, len(msg))
-                return 0
 
             def final_callback(context):
 
@@ -523,7 +521,6 @@ class Connection(object):
                         _convert_result(context, val)
                     finally:
                         del self.aggregate_instances[aggregate_ptr[0]]
-                return 0
 
             c_step_callback = STEP(step_callback)
             c_final_callback = FINAL(final_callback)
