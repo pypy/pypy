@@ -65,6 +65,9 @@ where XXXXX is the revision id.
 
 .. _`our nightly tests:`: http://buildbot.pypy.org/summary?branch=<trunk>
 
+If you want to commit to our repository on bitbucket, you will have to
+install subversion in addition to mercurial.
+
 Where to go from here
 ----------------------
 
