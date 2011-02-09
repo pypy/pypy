@@ -519,8 +519,8 @@ testmap = [
     RegrTest('test_with.py'),
     RegrTest('test_wsgiref.py'),
     RegrTest('test_xdrlib.py'),
-    RegrTest('test_xml_etree.py', skip="unsupported ext module"),
-    RegrTest('test_xml_etree_c.py', skip="unsupported ext module"),
+    RegrTest('test_xml_etree.py'),
+    RegrTest('test_xml_etree_c.py'),
     RegrTest('test_zipfile64.py'),
 ]
 
