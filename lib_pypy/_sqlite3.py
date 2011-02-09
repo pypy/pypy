@@ -468,9 +468,33 @@ class Connection(object):
                                               SQLITE_UTF8,
                                               None,
                                               c_collation_callback)
+        if ret != SQLITE_OK:
+            raise self._get_exception(ret)
 
     def set_progress_handler(self, callable, nsteps):
-        raise NotImplementedError
+        self._check_thread()
+        self._check_closed()
+        if callable is None:
+            c_progress_handler = cast(None, PROGRESS)
+        else:
+            try:
+                c_progress_handler, _ = self.func_cache[callable]
+            except KeyError:
+                def progress_handler(userdata):
+                    try:
+                        ret = callable()
+                        return bool(ret)
+                    except Exception:
+                        # abort query if error occurred
+                        return 1
+                c_progress_handler = PROGRESS(progress_handler)
+
+                self.func_cache[callable] = c_progress_handler, progress_handler
+        ret = sqlite.sqlite3_progress_handler(self.db, nsteps,
+                                              c_progress_handler,
+                                              None)
+        if ret != SQLITE_OK:
+            raise self._get_exception(ret)
 
     def set_authorizer(self, callback):
         raise NotImplementedError
@@ -1051,6 +1075,10 @@ sqlite.sqlite3_aggregate_context.restype = c_void_p
 COLLATION = CFUNCTYPE(c_int, c_void_p, c_int, c_void_p, c_int, c_void_p)
 sqlite.sqlite3_create_collation.argtypes = [c_void_p, c_char_p, c_int, c_void_p, COLLATION]
 sqlite.sqlite3_create_collation.restype = c_int
+
+PROGRESS = CFUNCTYPE(c_int, c_void_p)
+sqlite.sqlite3_progress_handler.argtypes = [c_void_p, c_int, PROGRESS, c_void_p]
+sqlite.sqlite3_progress_handler.restype = c_int
 
 converters = {}
 adapters = {}
