@@ -219,7 +219,7 @@ Flow restrictions
 
   ``range`` and ``xrange`` are identical. ``range`` does not necessarily create an array,
   only if the result is modified. It is allowed everywhere and completely
-  implemented. The only visible difference to CPython is the inaccessability
+  implemented. The only visible difference to CPython is the inaccessibility
   of the ``xrange`` fields start, stop and step.
 
 **definitions**
@@ -306,7 +306,7 @@ We are using
   concerns mainly method calls, when the method is overridden or in any
   way given different definitions in different classes.  It also concerns
   the less common case of explicitly manipulated function objects.
-  Describing the exact compability rules is rather involved (but if you
+  Describing the exact compatibility rules is rather involved (but if you
   break them, you should get explicit errors from the rtyper and not
   obscure crashes.)
 
@@ -466,9 +466,9 @@ Pylint_ is a static code checker for Python. Recent versions
 (>=0.13.0) can be run with the ``--rpython-mode`` command line option. This option
 enables the RPython checker which will checks for some of the
 restrictions RPython adds on standard Python code (and uses a 
-more agressive type inference than the one used by default by
+more aggressive type inference than the one used by default by
 pylint). The full list of checks is available in the documentation of
-Pylin. 
+Pylint. 
 
 RPylint can be a nice tool to get some information about how much work
 will be needed to convert a piece of Python code to RPython, or to get
@@ -636,7 +636,7 @@ module.
 
 When we need access to interpreter-level objects we put the module into
 `pypy/module`_.  Such modules use a `mixed module mechanism`_
-which makes it convenient to use both interpreter- and applicationlevel parts
+which makes it convenient to use both interpreter- and application-level parts
 for the implementation.  Note that there is no extra facility for
 pure-interpreter level modules, you just write a mixed module and leave the
 application-level part empty.

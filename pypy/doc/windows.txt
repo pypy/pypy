@@ -7,7 +7,7 @@ The following text gives some hints about how to translate the PyPy
 interpreter.
 
 To build pypy-c you need a C compiler.  Microsoft Visual Studio is
-preferred, but can also use the minw32 port of gcc.
+preferred, but can also use the mingw32 port of gcc.
 
 
 Translating PyPy with Visual Studio

@@ -139,7 +139,7 @@ Core developer Holger Krekel and project manager Beatrice During are giving a ta
 PAL, 26 min, divx AVI
 
 Holger Krekel explains more about the goals and history of PyPy, and the
-structure and organisation behind it. Bea During describes the intricacies of
+structure and organization behind it. Bea During describes the intricacies of
 driving a distributed community in an agile way, and how to combine that with
 the formalities required for EU funding.
 
@@ -223,7 +223,7 @@ Bram Cohen is interviewed by Steve Holden at this years PyCon, Dallas, US.
 PAL, 60 min, DivX AVI
 
 
-Keynote speech by Guido van Rossum on the new Pyhton 2.5 features
+Keynote speech by Guido van Rossum on the new Python 2.5 features
 -----------------------------------------------------------------
 
 695mb: http://codespeak.net/download/pypy/video/keynote-speech_guido-van-rossum_v1.avi.torrent

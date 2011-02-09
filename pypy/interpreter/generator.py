@@ -15,7 +15,7 @@ class GeneratorIterator(Wrappable):
         self.running = False
 
     def descr__repr__(self, space):
-        code_name = self.frame.pycode.co_name
+        code_name = self.pycode.co_name
         addrstring = self.getaddrstring(space)
         return space.wrap("<generator object %s at 0x%s>" %
                           (code_name, addrstring))
@@ -137,7 +137,7 @@ return next yielded value or raise StopIteration."""
         return self.pycode
 
     def descr__name__(space, self):
-        code_name = self.frame.pycode.co_name
+        code_name = self.pycode.co_name
         return space.wrap(code_name)
 
     def descr__del__(self):        

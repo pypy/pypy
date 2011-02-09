@@ -167,7 +167,7 @@ also export any methods of the class::
             return self.x
 
 
-Note that the type of ``self`` must not be speficied: it will
+Note that the type of ``self`` must not be specified: it will
 automatically assumed to be ``MyClass``.
 
 The ``__init__`` method is not automatically mapped to the .NET
@@ -182,7 +182,7 @@ Note that this is needed only when calling RPython code from
 outside; the RPython compiler automatically calls ``__init__``
 whenever an RPython class is instantiated.
 
-In the future this discrepacy will be fixed and the ``__init__``
+In the future this discrepancy will be fixed and the ``__init__``
 method will be automatically mapped to the constructor.
 
 
@@ -208,7 +208,7 @@ To instantiate a .NET class, simply call it::
 
 At the moment there is no special syntax support for indexers and
 properties: for example, you can't access ArrayList's elements using
-the square bracked notation, but you have to call the call the
+the square bracket notation, but you have to call the call the
 ``get_Item`` and ``set_Item`` methods; similarly, to access a property
 ``XXX`` you need to call ``get_XXX`` and ``set_XXX``::
 

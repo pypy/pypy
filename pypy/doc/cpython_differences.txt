@@ -160,7 +160,7 @@ Subclasses of built-in types
 ----------------------------
 
 Officially, CPython has no rule at all for when exactly
-overriden method of subclasses of built-in types get
+overridden method of subclasses of built-in types get
 implicitly called or not.  As an approximation, these methods
 are never called by other built-in methods of the same object.
 For example, an overridden ``__getitem__()`` in a subclass of
@@ -211,7 +211,7 @@ Miscellaneous
   PyPy.  On CPython it would set the maximum number of nested
   calls that can occur before a RuntimeError is raised; on PyPy
   overflowing the stack also causes RuntimeErrors, but the limit
-  is checked at a lower level.  (The limit is currenty hard-coded
+  is checked at a lower level.  (The limit is currently hard-coded
   at 768 KB, corresponding to roughly 1480 Python calls on
   Linux.)
 

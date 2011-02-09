@@ -165,7 +165,7 @@ highly resembling bin/buildserver.py).
 Note that there is a test project in 'tool/build/testproject' that can serve
 as an example.
 
-Prerequisities
+Prerequisites
 --------------
 
 Your project can use the build tool if:

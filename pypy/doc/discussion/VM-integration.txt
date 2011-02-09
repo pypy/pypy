@@ -24,7 +24,7 @@ like to do includes but it's not limited to:
   - handle native .NET objects as transparently as possible
 
   - automatically apply obvious Python <--> .NET conversions when
-    crossing the borders (e.g. intgers, string, etc.)
+    crossing the borders (e.g. integers, string, etc.)
 
 One possible solution is the "proxy" approach, in which we manually
 (un)wrap/(un)box all the objects when they cross the border.
@@ -64,13 +64,13 @@ ootyped flowgraph and split the classes and objects we want into a
 stateful part and a behavioral part.
 
 We need to introduce the new ootypesystem type ``Pair``: it acts like
-a Record but it hasn't its own identiy: the id of the Pair is the id
+a Record but it hasn't its own identity: the id of the Pair is the id
 of its first member.
 
   XXX about ``Pair``: I'm not sure this is totally right. It means
   that an object can change identity simply by changing the value of a
   field???  Maybe we could add the constraint that the "id" field
-  can't be modifiend after initialization (but it's not easy to
+  can't be modified after initialization (but it's not easy to
   enforce).
 
   XXX-2 about ``Pair``: how to implement it in the backends? One
