@@ -228,6 +228,9 @@ class Test_rbigint(object):
         x = 12345.6789e200
         x *= x
         assert raises(OverflowError, rbigint.fromfloat, x)
+        #
+        f1 = rbigint.fromfloat(9007199254740991.0)
+        assert f1.tolong() == 9007199254740991
 
     def test_eq(self):
         x = 5858393919192332223L

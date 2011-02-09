@@ -1,5 +1,6 @@
 """Test unicode/str's format method"""
 from __future__ import with_statement
+from pypy.conftest import gettestobjspace
 
 
 class BaseStringFormatTests:
@@ -163,6 +164,11 @@ class BaseStringFormatTests:
             assert type(log[2].message) is PendingDeprecationWarning
         assert len(log) == 3
 
+    def test_bogus_cases(self):
+        raises(KeyError, '{0]}'.format, 5)
+        raises(ValueError, '{0!r'.format, 5)
+        raises(ValueError, '{0!rs}'.format, 5)
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
 
@@ -291,6 +297,8 @@ class AppTestLongFormatting(BaseIntegralFormattingTest):
 
 
 class AppTestFloatFormatting:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('_locale',))
 
     def test_alternate(self):
         raises(ValueError, format, 1.0, "#")
@@ -313,6 +321,16 @@ class AppTestFloatFormatting:
     def test_digit_separator(self):
         assert format(-1234., "012,f") == "-1,234.000000"
 
+    def test_locale(self):
+        import locale
+        locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF8')
+        x = 1234.567890
+        try:
+            assert locale.format('%g', x, grouping=True) == '1,234.57'
+            assert format(x, 'n') == '1,234.57'
+        finally:
+            locale.setlocale(locale.LC_NUMERIC, 'C')
+
     def test_dont_switch_to_g(self):
         skip("must fix when float formatting is figured out")
         assert len(format(1.1234e90, "f")) == 98
@@ -324,3 +342,76 @@ class AppTestFloatFormatting:
         assert format(inf, "F") == "INF"
         assert format(nan, "f") == "nan"
         assert format(nan, "F") == "NAN"
+
+
+class AppTestInternalMethods:
+    # undocumented API on string and unicode object, but used by string.py
+
+    def test_formatter_parser(self):
+        l = list('abcd'._formatter_parser())
+        assert l == [('abcd', None, None, None)]
+        #
+        l = list('ab{0}cd'._formatter_parser())
+        assert l == [('ab', '0', '', None), ('cd', None, None, None)]
+        #
+        l = list('{0}cd'._formatter_parser())
+        assert l == [('', '0', '', None), ('cd', None, None, None)]
+        #
+        l = list('ab{0}'._formatter_parser())
+        assert l == [('ab', '0', '', None)]
+        #
+        l = list(''._formatter_parser())
+        assert l == []
+        #
+        l = list('{0:123}'._formatter_parser())
+        assert l == [('', '0', '123', None)]
+        #
+        l = list('{0!x:123}'._formatter_parser())
+        assert l == [('', '0', '123', 'x')]
+        #
+        l = list('{0!x:12{sdd}3}'._formatter_parser())
+        assert l == [('', '0', '12{sdd}3', 'x')]
+
+    def test_u_formatter_parser(self):
+        l = list(u'{0!x:12{sdd}3}'._formatter_parser())
+        assert l == [(u'', u'0', u'12{sdd}3', u'x')]
+        for x in l[0]:
+            assert isinstance(x, unicode)
+
+    def test_formatter_field_name_split(self):
+        first, rest = ''._formatter_field_name_split()
+        assert first == ''
+        assert list(rest) == []
+        #
+        first, rest = '31'._formatter_field_name_split()
+        assert first == 31
+        assert list(rest) == []
+        #
+        first, rest = 'foo'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == []
+        #
+        first, rest = 'foo.bar'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(True, 'bar')]
+        #
+        first, rest = 'foo[123]'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(False, 123)]
+        #
+        first, rest = 'foo.baz[123].bok'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(True, 'baz'), (False, 123), (True, 'bok')]
+        #
+        first, rest = 'foo.baz[hi].bok'._formatter_field_name_split()
+        assert first == 'foo'
+        assert list(rest) == [(True, 'baz'), (False, 'hi'), (True, 'bok')]
+
+    def test_u_formatter_field_name_split(self):
+        first, rest = u'foo.baz[hi].bok'._formatter_field_name_split()
+        l = list(rest)
+        assert first == u'foo'
+        assert l == [(True, u'baz'), (False, u'hi'), (True, u'bok')]
+        assert isinstance(first, unicode)
+        for x, y in l:
+            assert isinstance(y, unicode)

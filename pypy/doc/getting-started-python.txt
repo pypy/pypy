@@ -42,6 +42,7 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    * ``python-dev``
    * ``python-ctypes`` if you are still using Python2.4
    * ``libffi-dev``
+   * ``libapr0-dev`  (to make apache happy, and run some tests)
    * ``pkg-config`` (to help us locate libffi files)
    * ``libz-dev`` (for the optional ``zlib`` module)
    * ``libbz2-dev`` (for the optional ``bz2`` module)

@@ -125,17 +125,12 @@ class PyFrame(eval.Frame):
         else:
             return self.execute_frame()
 
-    def execute_generator_frame(self, w_inputvalue, operr=None):
-        if operr is not None:
-            ec = self.space.getexecutioncontext()
-            next_instr = self.handle_operation_error(ec, operr)
-            self.last_instr = intmask(next_instr - 1)
-        elif self.last_instr != -1:
-            self.pushvalue(w_inputvalue)
-        return self.execute_frame()
-
-    def execute_frame(self):
-        """Execute this frame.  Main entry point to the interpreter."""
+    def execute_frame(self, w_inputvalue=None, operr=None):
+        """Execute this frame.  Main entry point to the interpreter.
+        The optional arguments are there to handle a generator's frame:
+        w_inputvalue is for generator.send()) and operr is for
+        generator.throw()).
+        """
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -145,10 +140,19 @@ class PyFrame(eval.Frame):
         executioncontext.enter(self)
         try:
             executioncontext.call_trace(self)
-            # Execution starts just after the last_instr.  Initially,
-            # last_instr is -1.  After a generator suspends it points to
-            # the YIELD_VALUE instruction.
-            next_instr = self.last_instr + 1
+            #
+            if operr is not None:
+                ec = self.space.getexecutioncontext()
+                next_instr = self.handle_operation_error(ec, operr)
+                self.last_instr = intmask(next_instr - 1)
+            else:
+                # Execution starts just after the last_instr.  Initially,
+                # last_instr is -1.  After a generator suspends it points to
+                # the YIELD_VALUE instruction.
+                next_instr = self.last_instr + 1
+                if next_instr != 0:
+                    self.pushvalue(w_inputvalue)
+            #
             try:
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
@@ -459,28 +463,30 @@ class PyFrame(eval.Frame):
             raise OperationError(space.w_ValueError,
                   space.wrap("f_lineno can only be set by a trace function."))
 
-        if new_lineno < self.pycode.co_firstlineno:
+        line = self.pycode.co_firstlineno
+        if new_lineno < line:
             raise operationerrfmt(space.w_ValueError,
                   "line %d comes before the current code.", new_lineno)
-        code = self.pycode.co_code
-        addr = 0
-        line = self.pycode.co_firstlineno
-        new_lasti = -1
-        offset = 0
-        lnotab = self.pycode.co_lnotab
-        for offset in xrange(0, len(lnotab), 2):
-            addr += ord(lnotab[offset])
-            line += ord(lnotab[offset + 1])
-            if line >= new_lineno:
-                new_lasti = addr
-                new_lineno = line
-                break
+        elif new_lineno == line:
+            new_lasti = 0
+        else:
+            new_lasti = -1
+            addr = 0
+            lnotab = self.pycode.co_lnotab
+            for offset in xrange(0, len(lnotab), 2):
+                addr += ord(lnotab[offset])
+                line += ord(lnotab[offset + 1])
+                if line >= new_lineno:
+                    new_lasti = addr
+                    new_lineno = line
+                    break
 
         if new_lasti == -1:
             raise operationerrfmt(space.w_ValueError,
                   "line %d comes after the current code.", new_lineno)
 
         # Don't jump to a line with an except in it.
+        code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise OperationError(space.w_ValueError,
                   space.wrap("can't jump to 'except' line as there's no exception"))

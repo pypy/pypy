@@ -256,7 +256,7 @@ elif os.name == 'nt':
 
     """, filename=__file__)
 
-    app_os = applevel("""
+    app_os = applevel(r"""
         sep = '\\'
         pathsep = ';'
         name = 'nt'

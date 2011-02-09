@@ -182,6 +182,9 @@ This always returns a floating point number.  Precision may be negative."""
         z = (z / pow2) / pow1
     else:
         z *= pow1
+    if isinf(z):
+        raise OperationError(space.w_OverflowError,
+                            space.wrap("rounded value too large to represent"))
     return space.wrap(z)
 #
 round.unwrap_spec = [ObjSpace, float, W_Root]

@@ -117,13 +117,14 @@ class DummySpace(object):
 
     def type(self, obj):
         class Type:
-            def getname(self, space, default):
+            def getname(self, space, default='?'):
                 return type(obj).__name__
         return Type()
 
 
     w_TypeError = TypeError
     w_AttributeError = AttributeError
+    w_UnicodeEncodeError = UnicodeEncodeError
     w_dict = dict
 
 class TestArgumentsNormal(object):
@@ -474,6 +475,35 @@ class TestArgumentsNormal(object):
         assert w_args == (1, )
         assert not w_kwds
 
+    def test_argument_unicode(self):
+        space = DummySpace()
+        w_starstar = space.wrap({u'abc': 5})
+        args = Arguments(space, [], w_starstararg=w_starstar)
+        l = [None]
+        args._match_signature(None, l, Signature(['abc']))
+        assert len(l) == 1
+        assert l[0] == space.wrap(5)
+        #
+        def str_w(w):
+            try:
+                return str(w)
+            except UnicodeEncodeError:
+                raise OperationError(space.w_UnicodeEncodeError,
+                                     space.wrap("oups"))
+        space.str_w = str_w
+        w_starstar = space.wrap({u'\u1234': 5})
+        err = py.test.raises(OperationError, Arguments,
+                             space, [], w_starstararg=w_starstar)
+        # Check that we get a TypeError.  On CPython it is because of
+        # "no argument called '?'".  On PyPy we get a TypeError too, but
+        # earlier: "keyword cannot be encoded to ascii".  The
+        # difference, besides the error message, is only apparent if the
+        # receiver also takes a **arg.  Then CPython passes the
+        # non-ascii unicode unmodified, whereas PyPy complains.  We will
+        # not care until someone has a use case for that.
+        assert not err.value.match(space, space.w_UnicodeEncodeError)
+        assert     err.value.match(space, space.w_TypeError)
+
 class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
@@ -500,6 +530,22 @@ class TestErrorHandling(object):
         s = err.getmsg('foo')
         assert s == "foo() takes exactly 1 argument (3 given)"
 
+    def test_bad_type_for_star(self):
+        space = self.space
+        try:
+            Arguments(space, [], w_stararg=space.wrap(42))
+        except OperationError, e:
+            msg = space.str_w(space.str(e.get_w_value(space)))
+            assert msg == "argument after * must be a sequence, not int"
+        else:
+            assert 0, "did not raise"
+        try:
+            Arguments(space, [], w_starstararg=space.wrap(42))
+        except OperationError, e:
+            msg = space.str_w(space.str(e.get_w_value(space)))
+            assert msg == "argument after ** must be a mapping, not int"
+        else:
+            assert 0, "did not raise"
 
     def test_unknown_keywords(self):
         err = ArgErrUnknownKwds(1, ['a', 'b'], [True, False])

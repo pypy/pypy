@@ -39,6 +39,8 @@ class TemplateFormatter(object):
 
     _annspecialcase_ = "specialize:ctr_location"
 
+    parser_list_w = None
+
     def __init__(self, space, is_unicode, template):
         self.space = space
         self.is_unicode = is_unicode
@@ -127,14 +129,19 @@ class TemplateFormatter(object):
                         raise OperationError(self.space.w_ValueError, w_msg)
                     conversion = s[i]
                     i += 1
-                    c = s[i]
+                    if i < end:
+                        if s[i] != ':':
+                            w_msg = self.space.wrap("expected ':' after"
+                                                    " format specifier")
+                            raise OperationError(self.space.w_ValueError,
+                                                 w_msg)
+                        i += 1
                 else:
-                    conversion = self.empty
-                if c == ':':
+                    conversion = None
                     i += 1
                 return s[start:end_name], conversion, i
             i += 1
-        return s[start:end], self.empty, end
+        return s[start:end], None, end
 
     def _get_argument(self, name):
         # First, find the argument.
@@ -150,7 +157,9 @@ class TemplateFormatter(object):
         if empty:
             index = -1
         else:
-            index = _parse_int(self.space, name, 0, i)[0]
+            index, stop = _parse_int(self.space, name, 0, i)
+            if stop != i:
+                index = -1
         use_numeric = empty or index != -1
         if self.auto_numbering_state == ANS_INIT and use_numeric:
             if empty:
@@ -190,9 +199,12 @@ class TemplateFormatter(object):
             except IndexError:
                 w_msg = space.wrap("index out of range")
                 raise OperationError(space.w_IndexError, w_msg)
+        return self._resolve_lookups(w_arg, name, i, end)
+
+    def _resolve_lookups(self, w_obj, name, start, end):
         # Resolve attribute and item lookups.
-        w_obj = w_arg
-        is_attribute = False
+        space = self.space
+        i = start
         while i < end:
             c = name[i]
             if c == ".":
@@ -206,7 +218,12 @@ class TemplateFormatter(object):
                 if start == i:
                     w_msg = space.wrap("Empty attribute in format string")
                     raise OperationError(space.w_ValueError, w_msg)
-                w_obj = space.getattr(w_obj, space.wrap(name[start:i]))
+                w_attr = space.wrap(name[start:i])
+                if w_obj is not None:
+                    w_obj = space.getattr(w_obj, w_attr)
+                else:
+                    self.parser_list_w.append(space.newtuple([
+                        space.w_True, w_attr]))
             elif c == "[":
                 got_bracket = False
                 i += 1
@@ -226,11 +243,42 @@ class TemplateFormatter(object):
                 else:
                     w_item = space.wrap(name[start:i])
                 i += 1 # Skip "]"
-                w_obj = space.getitem(w_obj, w_item)
+                if w_obj is not None:
+                    w_obj = space.getitem(w_obj, w_item)
+                else:
+                    self.parser_list_w.append(space.newtuple([
+                        space.w_False, w_item]))
             else:
                 msg = "Only '[' and '.' may follow ']'"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
         return w_obj
+
+    def formatter_field_name_split(self):
+        space = self.space
+        name = self.template
+        i = 0
+        end = len(name)
+        while i < end:
+            c = name[i]
+            if c == "[" or c == ".":
+                break
+            i += 1
+        if i == 0:
+            index = -1
+        else:
+            index, stop = _parse_int(self.space, name, 0, i)
+            if stop != i:
+                index = -1
+        if index >= 0:
+            w_first = space.wrap(index)
+        else:
+            w_first = space.wrap(name[:i])
+        #
+        self.parser_list_w = []
+        self._resolve_lookups(None, name, i, end)
+        #
+        return space.newtuple([w_first,
+                               space.iter(space.newlist(self.parser_list_w))])
 
     def _convert(self, w_obj, conversion):
         space = self.space
@@ -248,8 +296,24 @@ class TemplateFormatter(object):
     def _render_field(self, start, end, recursive, level):
         name, conversion, spec_start = self._parse_field(start, end)
         spec = self.template[spec_start:end]
+        #
+        if self.parser_list_w is not None:
+            # used from formatter_parser()
+            if level == 1:    # ignore recursive calls
+                space = self.space
+                startm1 = start - 1
+                assert startm1 >= self.last_end
+                w_entry = space.newtuple([
+                    space.wrap(self.template[self.last_end:startm1]),
+                    space.wrap(name),
+                    space.wrap(spec),
+                    space.wrap(conversion)])
+                self.parser_list_w.append(w_entry)
+                self.last_end = end + 1
+            return self.empty
+        #
         w_obj = self._get_argument(name)
-        if conversion:
+        if conversion is not None:
             w_obj = self._convert(w_obj, conversion)
         if recursive:
             spec = self._build_string(spec_start, end, level)
@@ -258,13 +322,36 @@ class TemplateFormatter(object):
         to_interp = getattr(self.space, unwrapper)
         return to_interp(w_rendered)
 
+    def formatter_parser(self):
+        self.parser_list_w = []
+        self.last_end = 0
+        self._build_string(0, len(self.template), 2)
+        #
+        space = self.space
+        if self.last_end < len(self.template):
+            w_lastentry = space.newtuple([
+                space.wrap(self.template[self.last_end:]),
+                space.w_None,
+                space.w_None,
+                space.w_None])
+            self.parser_list_w.append(w_lastentry)
+        return space.iter(space.newlist(self.parser_list_w))
+
+
+def str_template_formatter(space, template):
+    return TemplateFormatter(space, False, template)
+
+def unicode_template_formatter(space, template):
+    return TemplateFormatter(space, True, template)
+
 
 def format_method(space, w_string, args, is_unicode):
     if is_unicode:
-        template = TemplateFormatter(space, True, space.unicode_w(w_string))
+        template = unicode_template_formatter(space,
+                                              space.unicode_w(w_string))
         return space.wrap(template.build(args))
     else:
-        template = TemplateFormatter(space, False, space.str_w(w_string))
+        template = str_template_formatter(space, space.str_w(w_string))
         return space.wrap(template.build(args))
 
 
@@ -348,10 +435,10 @@ class Formatter(BaseFormatter):
             i += 1
         start_i = i
         self._width, i = _parse_int(self.space, spec, i, length)
-        if length - i and spec[i] == ",":
+        if length != i and spec[i] == ",":
             self._thousands_sep = True
             i += 1
-        if length - i and spec[i] == ".":
+        if length != i and spec[i] == ".":
             i += 1
             self._precision, i = _parse_int(self.space, spec, i, length)
             if self._precision == -1:
@@ -785,6 +872,7 @@ class Formatter(BaseFormatter):
             msg = "alternate form not allowed in float formats"
             raise OperationError(space.w_ValueError, space.wrap(msg))
         tp = self._type
+        self._get_locale(tp)
         if tp == "\0":
             tp = "g"
             default_precision = 12
@@ -814,7 +902,6 @@ class Formatter(BaseFormatter):
             to_number = 0
         have_dec_point, to_remainder = self._parse_number(result, to_number)
         n_remainder = len(result) - to_remainder
-        self._get_locale(tp)
         if self.is_unicode:
             digits = result.decode("ascii")
         else:

@@ -32,7 +32,8 @@ def autodetect_main_model():
                 'x86':   'x86',    # Apple
                 'Power Macintosh': 'ppc',
                 'x86_64': 'x86',
-                'amd64': 'x86'     # freebsd
+                'amd64': 'x86',    # freebsd
+                'AMD64': 'x86',    # win64
                 }[mach]
     except KeyError:
         return mach
