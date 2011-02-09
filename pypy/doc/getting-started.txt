@@ -25,10 +25,6 @@ language implementation itself. `more...`_
 Just the facts 
 ============== 
 
-.. _gettingpypy: 
-.. _`latest stable version via subversion`:   
-.. _`get via Subversion`:
-
 Clone the repository
 --------------------
 
@@ -69,11 +65,14 @@ where XXXXX is the revision id.
 
 .. _`our nightly tests:`: http://buildbot.pypy.org/summary?branch=<trunk>
 
+If your mercurial installation did not automatically give you a libaprutil-1
+you will have to install this manually if you want to commit changes to
+bitbucket.  
 
 Where to go from here
 ----------------------
 
-After you succesfully managed to get PyPy's source you can read more about:
+After you succesfully manage to get PyPy's source you can read more about:
 
  - `Building and using PyPy's Python interpreter`_
  - `Learning more about the translation toolchain and how to develop (with) PyPy`_
