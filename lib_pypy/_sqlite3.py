@@ -800,7 +800,7 @@ class Statement(object):
         if cvt is not None:
             cvt = param = cvt(param)
 
-        adapter = adapters.get(type(param), None)
+        adapter = adapters.get((type(param), PrepareProtocol), None)
         if adapter is not None:
             param = adapter(param)
 
@@ -1015,7 +1015,7 @@ def _check_remaining_sql(s):
     return 0
 
 def register_adapter(typ, callable):
-    adapters[typ] = callable
+    adapters[typ, PrepareProtocol] = callable
 
 def register_converter(name, callable):
     converters[name.upper()] = callable
