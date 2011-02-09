@@ -441,7 +441,6 @@ class AppTestPyFrame:
         assert res == 42
 
     def test_set_unset_f_trace(self):
-        skip("in-progress, but not too important")
         import sys
         seen = []
         def trace1(frame, what, arg):
