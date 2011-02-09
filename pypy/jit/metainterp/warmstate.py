@@ -242,7 +242,8 @@ class WarmEnterState(object):
             self.warmrunnerdesc.memory_manager.set_max_age(value)
 
     def set_param_retrace_limit(self, value):
-        self.warmrunnerdesc.retrace_limit = value
+        if self.warmrunnerdesc:
+            self.warmrunnerdesc.retrace_limit = value
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
