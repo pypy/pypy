@@ -181,8 +181,8 @@ for index, (name, params) in enumerate(HANDLERS.items()):
     if name in ['ExternalEntityRefHandler',
                 'NotStandaloneHandler']:
         result_type = rffi.INT
-        result_converter = "space.int_w(w_result)"
-        result_error = "0"
+        result_converter = "rffi.cast(rffi.INT, space.int_w(w_result))"
+        result_error = "rffi.cast(rffi.INT, 0)"
     else:
         result_type = lltype.Void
         result_converter = "None"
