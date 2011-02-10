@@ -14,7 +14,12 @@ class AppTestPyexpat:
         res = p.Parse("<xml></xml>")
         assert res == 1
 
-        raises(pyexpat.ExpatError, p.Parse, "3")
+        exc = raises(pyexpat.ExpatError, p.Parse, "3")
+        assert exc.value.lineno == 1
+        assert exc.value.offset == 11
+        assert exc.value.code == 9 # XML_ERROR_JUNK_AFTER_DOC_ELEMENT
+
+        pyexpat.ExpatError("error")
 
     def test_encoding(self):
         import pyexpat

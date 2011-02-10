@@ -583,10 +583,11 @@ information passed to the ExternalEntityRefHandler."""
         msg = "%s: line %d, column %d" % (err, lineno, colno)
         w_module = space.getbuiltinmodule('pyexpat')
         w_errorcls = space.getattr(w_module, space.wrap('error'))
-        w_error = space.call_function(
-            w_errorcls,
-            space.wrap(msg), space.wrap(code),
-            space.wrap(colno), space.wrap(lineno))
+        w_error = space.call_function(w_errorcls, space.wrap(msg))
+        space.setattr(w_error, space.wrap("code"), space.wrap(code))
+        space.setattr(w_error, space.wrap("offset"), space.wrap(colno))
+        space.setattr(w_error, space.wrap("lineno"), space.wrap(lineno))
+
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
 
