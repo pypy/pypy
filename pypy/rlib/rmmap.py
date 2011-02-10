@@ -43,8 +43,6 @@ class CConfig:
     )
     size_t = rffi_platform.SimpleType("size_t", rffi.LONG)
     off_t = rffi_platform.SimpleType("off_t", rffi.LONG)
-    if _MS_WINDOWS:
-        LPSECURITY_ATTRIBUTES = rffi_platform.SimpleType("LPSECURITY_ATTRIBUTES", rffi.CCHARP)
 
 constants = {}
 if _POSIX:
@@ -74,6 +72,8 @@ elif _MS_WINDOWS:
                       'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
+
+    from pypy.rlib import rwin32
 
     from pypy.rlib.rwin32 import HANDLE, LPHANDLE
     from pypy.rlib.rwin32 import NULL_HANDLE, INVALID_HANDLE_VALUE
@@ -128,9 +128,6 @@ if _POSIX:
     _, _get_page_size = external('getpagesize', [], rffi.INT)
     _get_allocation_granularity = _get_page_size
 
-    def _get_error_no():
-        return rposix.get_errno()
-
 elif _MS_WINDOWS:
 
     class ComplexCConfig:
@@ -167,13 +164,6 @@ elif _MS_WINDOWS:
                 ("wProcessorRevision", WORD),
             ])
 
-        SECURITY_ATTRIBUTES = rffi_platform.Struct(
-            'SECURITY_ATTRIBUTES', [
-                ("nLength", DWORD),
-                ("lpSecurityDescriptor", LPVOID),
-                ("bInheritHandle", BOOL),
-            ])
-
     config = rffi_platform.configure(ComplexCConfig)
     SYSTEM_INFO = config['SYSTEM_INFO']
     SYSTEM_INFO_P = lltype.Ptr(SYSTEM_INFO)
@@ -182,18 +172,12 @@ elif _MS_WINDOWS:
     GetFileSize = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
     GetCurrentProcess = winexternal('GetCurrentProcess', [], HANDLE)
     DuplicateHandle = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
-    CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
+    CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
     MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)
     UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCVOID], BOOL)
     FlushViewOfFile = winexternal('FlushViewOfFile', [LPCVOID, SIZE_T], BOOL)
     SetFilePointer = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
     SetEndOfFile = winexternal('SetEndOfFile', [HANDLE], BOOL)
-    ##_get_osfhandle = winexternal('_get_osfhandle', [INT], LONG)
-    # casting from int to handle did not work, so I changed this
-    # but it should not be so!
-    _get_osfhandle = winexternal('_get_osfhandle', [INT], rffi.INTPTR_T)
-    GetLastError = winexternal('GetLastError', [], DWORD)
     VirtualAlloc = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
@@ -240,18 +224,13 @@ elif _MS_WINDOWS:
             # low might just happen to have the value INVALID_FILE_SIZE
             # so we need to check the last error also
             INVALID_FILE_SIZE = -1
-            NO_ERROR = 0
-            dwErr = GetLastError()
-            err = rffi.cast(lltype.Signed, dwErr)
-            if low == INVALID_FILE_SIZE and err != NO_ERROR:
-                msg = os.strerror(err)
-                raise OSError(err, msg)
+            if low == INVALID_FILE_SIZE:
+                err = rwin32.GetLastError()
+                if err:
+                    raise WindowsError(err, "mmap")
             return low, high
         finally:
             lltype.free(high_ref, flavor='raw')
-
-    def _get_error_no():
-        return rffi.cast(lltype.Signed, GetLastError())
 
     INVALID_HANDLE = INVALID_HANDLE_VALUE
 
@@ -304,10 +283,10 @@ class MMap(object):
                 self.unmapview()
                 self.setdata(NODATA, 0)
             if self.map_handle != INVALID_HANDLE:
-                CloseHandle(self.map_handle)
+                rwin32.CloseHandle(self.map_handle)
                 self.map_handle = INVALID_HANDLE
             if self.file_handle != INVALID_HANDLE:
-                CloseHandle(self.file_handle)
+                rwin32.CloseHandle(self.file_handle)
                 self.file_handle = INVALID_HANDLE
         elif _POSIX:
             self.closed = True
@@ -506,7 +485,7 @@ class MMap(object):
 ##                    new_size = size + value & (PAGESIZE - 1)
                 res = c_msync(start, size, MS_SYNC)
                 if res == -1:
-                    errno = _get_error_no()
+                    errno = rposix.get_errno()
                     raise OSError(errno, os.strerror(errno))
         
         return 0
@@ -544,7 +523,7 @@ class MMap(object):
         elif _MS_WINDOWS:
             # disconnect the mapping
             self.unmapview()
-            CloseHandle(self.map_handle)
+            rwin32.CloseHandle(self.map_handle)
 
             # move to the desired EOF position
             if _64BIT:
@@ -582,13 +561,8 @@ class MMap(object):
                     charp = rffi.cast(LPCSTR, data)
                     self.setdata(charp, newsize)
                     return
-                else:
-                    dwErrCode = GetLastError()
-            else:
-                dwErrCode = GetLastError()
-            err = rffi.cast(lltype.Signed, dwErrCode)
-            raise OSError(err, os.strerror(err))
-    
+            raise rwin32.lastWindowsError()
+
     def len(self):
         self.check_valid()
         
@@ -688,7 +662,7 @@ if _POSIX:
         #     to be annotated with a non-constant pointer.
         res = c_mmap(NonConstant(NULL), map_size, prot, flags, fd, offset)
         if res == rffi.cast(PTR, -1):
-            errno = _get_error_no()
+            errno = rposix.get_errno()
             raise OSError(errno, os.strerror(errno))
         
         m.setdata(res, map_size)
@@ -749,11 +723,10 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            res = _get_osfhandle(fileno)
-            if res == rffi.cast(rffi.SSIZE_T, INVALID_HANDLE):
-                errno = _get_error_no()
+            fh = rwin32._get_osfhandle(fileno)
+            if fh == INVALID_HANDLE:
+                errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
-            fh = rffi.cast(HANDLE, res)
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
@@ -775,8 +748,7 @@ elif _MS_WINDOWS:
                                       False, # inherited by child procs?
                                       DUPLICATE_SAME_ACCESS) # options
                 if not res:
-                    errno = _get_error_no()
-                    raise OSError(errno, os.strerror(errno))
+                    raise rwin32.lastWindowsError()
                 m.file_handle = handle_ref[0]
             finally:
                 lltype.free(handle_ref, flavor='raw')
@@ -811,21 +783,15 @@ elif _MS_WINDOWS:
                                          size_hi, size_lo, m.tagname)
 
         if m.map_handle:
-            res = MapViewOfFile(m.map_handle, dwDesiredAccess,
+            data = MapViewOfFile(m.map_handle, dwDesiredAccess,
                                 offset_hi, offset_lo, 0)
-            if res:
+            if data:
                 # XXX we should have a real LPVOID which must always be casted
-                charp = rffi.cast(LPCSTR, res)
+                charp = rffi.cast(LPCSTR, data)
                 m.setdata(charp, map_size)
                 return m
-            else:
-                dwErr = GetLastError()
-        else:
-            dwErr = GetLastError()
-        err = rffi.cast(lltype.Signed, dwErr)
-        raise OSError(err, os.strerror(err))
+        raise rwin32.lastWindowsError()
 
-    
     def alloc(map_size):
         """Allocate memory.  This is intended to be used by the JIT,
         so the memory has the executable bit set.  
