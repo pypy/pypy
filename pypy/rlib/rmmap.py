@@ -261,10 +261,11 @@ NULL = lltype.nullptr(PTR.TO)
 NODATA = lltype.nullptr(PTR.TO)
 
 class MMap(object):
-    def __init__(self, access):
+    def __init__(self, access, offset):
         self.size = 0
         self.pos = 0
         self.access = access
+        self.offset = offset
 
         if _MS_WINDOWS:
             self.map_handle = NULL_HANDLE
@@ -534,7 +535,7 @@ class MMap(object):
                 raise OSError(-11111, "No mremap available")
             
             # resize the underlying file first
-            os.ftruncate(self.fd, newsize)
+            os.ftruncate(self.fd, self.offset + newsize)
                 
             # now resize the mmap
             newdata = c_mremap(self.getptr(0), self.size, newsize,
@@ -547,11 +548,15 @@ class MMap(object):
 
             # move to the desired EOF position
             if _64BIT:
-                newsize_high = newsize >> 32
-                newsize_low = newsize & 0xFFFFFFFF
+                newsize_high = (self.offset + newsize) >> 32
+                newsize_low = (self.offset + newsize) & 0xFFFFFFFF
+                offset_high = self.offset >> 32
+                offset_low = self.offset & 0xFFFFFFFF
             else:
                 newsize_high = 0
-                newsize_low = newsize
+                newsize_low = self.offset + newsize
+                offset_high = 0
+                offset_low = self.offset
 
             FILE_BEGIN = 0
             high_ref = lltype.malloc(PLONG.TO, 1, flavor='raw')
@@ -666,7 +671,7 @@ if _POSIX:
                 elif map_size > size:
                     raise RValueError("mmap length is greater than file size")
 
-        m = MMap(access)
+        m = MMap(access, offset)
         if fd == -1:
             # Assume the caller wants to map anonymous memory.
             # This is the same behaviour as Windows.  mmap.mmap(-1, size)
@@ -753,7 +758,7 @@ elif _MS_WINDOWS:
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
         
-        m = MMap(access)
+        m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE
         m.map_handle = INVALID_HANDLE
         if fh:

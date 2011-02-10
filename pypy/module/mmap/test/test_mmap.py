@@ -529,6 +529,35 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_offset_more(self):
+        from mmap import mmap, ALLOCATIONGRANULARITY
+
+        with open(self.tmpname, "w+b") as f:
+            halfsize = ALLOCATIONGRANULARITY
+            f.write("\0" * halfsize)
+            f.write("foo")
+            f.write("\0" * (halfsize - 3))
+            m = mmap(f.fileno(), 0)
+            m.close()
+
+        with open(self.tmpname, "r+b") as f:
+            m = mmap(f.fileno(), halfsize, offset=halfsize)
+            assert m[0:3] == "foo"
+
+        try:
+            m.resize(512)
+        except SystemError:
+            pass
+        else:
+            assert len(m) == 512
+            raises(ValueError, m.seek, 513, 0)
+            assert m[0:3] == "foo"
+            with open(self.tmpname) as f:
+                f.seek(0, 2)
+                assert f.tell() == halfsize + 512
+            assert m.size() == halfsize + 512
+        m.close()
+
     def test_all(self):
         # this is a global test, ported from test_mmap.py
         import mmap
@@ -710,4 +739,3 @@ class AppTestMMap:
         assert m.read(10) == "ABCDEABCDE"
         m.close()
         f.close()
-
