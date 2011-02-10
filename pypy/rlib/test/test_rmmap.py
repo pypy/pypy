@@ -137,21 +137,46 @@ class TestMMap:
         interpret(func, [f.fileno()])
         f.close()
 
+    def test_find_rfind(self):
+        f = open(self.tmpname + "g", "w+")
+        f.write("foobarfoobar\0")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 13)
+
+        for s1 in range(-20, 20):
+            for e1 in range(-20, 20):
+                expected = "foobarfoobar\0".find("ob", s1, e1)
+                assert m.find("ob", s1, e1, False) == expected
+                expected = "foobarfoobar\0".rfind("ob", s1, e1)
+                assert m.find("ob", s1, e1, True) == expected
+
+        m.close()
+        f.close()
+
     def test_find(self):
         f = open(self.tmpname + "g", "w+")
-
-        f.write("foobar\0")
+        f.write("foobarfoobar\0")
         f.flush()
 
         def func(no):
-            m = mmap.mmap(no, 7)
-            assert m.find("b") == 3
-            assert m.find("z") == -1
-            assert m.find("o", 5) == -1
-            assert m.find("ob") == 2
-            assert m.find("\0") == 6
+            m = mmap.mmap(no, 12)
+            assert m.find("\0", 0, 13) == -1    # no searching past the stop
+            assert m.find("\0", 0, 13, True) == -1
+            m.close()
+            #
+            m = mmap.mmap(no, 13)
+            assert m.find("b", 0, 7) == 3
+            assert m.find("z", 0, 7) == -1
+            assert m.find("o", 11, 13) == -1
+            assert m.find("ob", 0, 7) == 2
+            assert m.find("\0", 0, 13) == 12
+            assert m.find("o", 1, 4) == 1
+            assert m.find("o", 2, 4) == 2
+            assert m.find("o", 2, -4) == 2
+            assert m.find("o", 8, -5) == -1
             m.close()
 
+        func(f.fileno())
         interpret(func, [f.fileno()])
         f.close()
 

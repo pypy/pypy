@@ -133,7 +133,7 @@ def allocate_ll_lock():
     # lock objects, as well as from the GIL, which exists at shutdown.
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw', track_allocation=False)
     res = c_thread_lock_init(ll_lock)
-    if res == -1:
+    if res <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
     return ll_lock

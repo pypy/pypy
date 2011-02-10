@@ -21,7 +21,11 @@ class RValueError(Exception):
 
 class RTypeError(Exception):
     def __init__(self, message):
-        self.message = message    
+        self.message = message
+
+class ROverflowError(Exception):
+    def __init__(self, message):
+        self.message = message
 
 includes = ["sys/types.h"]
 if _POSIX:
@@ -361,7 +365,7 @@ class MMap(object):
         self.pos += len(res)
         return res
 
-    def find(self, tofind, start=0):
+    def find(self, tofind, start, end, reverse=False):
         self.check_valid()
 
         # XXX naive! how can we reuse the rstr algorithm?
@@ -369,16 +373,39 @@ class MMap(object):
             start += self.size
             if start < 0:
                 start = 0
+        if end < 0:
+            end += self.size
+            if end < 0:
+                end = 0
+        elif end > self.size:
+            end = self.size
+        #
+        upto = end - len(tofind)
+        if not reverse:
+            step = 1
+            p = start
+            if p > upto:
+                return -1      # failure (empty range to search)
+        else:
+            step = -1
+            p = upto
+            upto = start
+            if p < upto:
+                return -1      # failure (empty range to search)
+        #
         data = self.data
-        for p in xrange(start, self.size - len(tofind) + 1):
+        while True:
+            assert p >= 0
             for q in range(len(tofind)):
                 if data[p+q] != tofind[q]:
                     break     # position 'p' is not a match
             else:
                 # full match
                 return p
-        # failure
-        return -1
+            #
+            if p == upto:
+                return -1   # failure
+            p += step
 
     def seek(self, pos, whence=0):
         self.check_valid()
@@ -584,22 +611,24 @@ def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
     if rffi.cast(size_t, size) != size:
-        raise OverflowError("memory mapped size is too large (limited by C int)")
+        raise ROverflowError("memory mapped size is too large (limited by C int)")
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,
-        prot=PROT_WRITE | PROT_READ, access=_ACCESS_DEFAULT):
+        prot=PROT_WRITE | PROT_READ, access=_ACCESS_DEFAULT, offset=0):
 
         fd = fileno
-
-        # check size boundaries
-        _check_map_size(length)
-        map_size = length
 
         # check access is not there when flags and prot are there
         if access != _ACCESS_DEFAULT and ((flags != MAP_SHARED) or\
                                           (prot != (PROT_WRITE | PROT_READ))):
             raise RValueError("mmap can't specify both access and flags, prot.")
+
+        # check size boundaries
+        _check_map_size(length)
+        map_size = length
+        if offset < 0:
+            raise RValueError("negative offset")
 
         if access == ACCESS_READ:
             flags = MAP_SHARED
@@ -626,6 +655,7 @@ if _POSIX:
         else:
             mode = st[stat.ST_MODE]
             size = st[stat.ST_SIZE]
+            size -= offset
             if size > sys.maxint:
                 size = sys.maxint
             else:
@@ -651,7 +681,7 @@ if _POSIX:
         # XXX if we use hintp below in alloc, the NonConstant
         #     is necessary since we want a general version of c_mmap
         #     to be annotated with a non-constant pointer.
-        res = c_mmap(NonConstant(NULL), map_size, prot, flags, fd, 0)
+        res = c_mmap(NonConstant(NULL), map_size, prot, flags, fd, offset)
         if res == rffi.cast(PTR, -1):
             errno = _get_error_no()
             raise OSError(errno, os.strerror(errno))
@@ -688,10 +718,12 @@ if _POSIX:
     free = c_munmap_safe
     
 elif _MS_WINDOWS:
-    def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT):
+    def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
         # check size boundaries
         _check_map_size(length)
         map_size = length
+        if offset < 0:
+            raise RValueError("negative offset")
         
         flProtect = 0
         dwDesiredAccess = 0
@@ -762,16 +794,20 @@ elif _MS_WINDOWS:
         if _64BIT:
             size_hi = map_size >> 32
             size_lo = map_size & 0xFFFFFFFF
+            offset_hi = offset >> 32
+            offset_lo = offset & 0xFFFFFFFF
         else:
             size_hi = 0
             size_lo = map_size
+            offset_hi = 0
+            offset_lo = offset
 
         m.map_handle = CreateFileMapping(m.file_handle, NULL, flProtect,
                                          size_hi, size_lo, m.tagname)
 
         if m.map_handle:
             res = MapViewOfFile(m.map_handle, dwDesiredAccess,
-                                0, 0, 0)
+                                offset_hi, offset_lo, 0)
             if res:
                 # XXX we should have a real LPVOID which must always be casted
                 charp = rffi.cast(LPCSTR, res)
