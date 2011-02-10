@@ -518,6 +518,17 @@ class AppTestMMap:
         assert b[3] == "b"
         assert b[:] == "foobar"
 
+    def test_offset(self):
+        from mmap import mmap
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar" * 3000)
+        f.flush()
+        m = mmap(f.fileno(), 4, offset=8192)
+        assert m[:] == "obar"
+        assert len(m) == 4
+        m.close()
+        f.close()
+
     def test_all(self):
         # this is a global test, ported from test_mmap.py
         import mmap

@@ -21,7 +21,11 @@ class RValueError(Exception):
 
 class RTypeError(Exception):
     def __init__(self, message):
-        self.message = message    
+        self.message = message
+
+class ROverflowError(Exception):
+    def __init__(self, message):
+        self.message = message
 
 includes = ["sys/types.h"]
 if _POSIX:
@@ -607,11 +611,11 @@ def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
     if rffi.cast(size_t, size) != size:
-        raise OverflowError("memory mapped size is too large (limited by C int)")
+        raise ROverflowError("memory mapped size is too large (limited by C int)")
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,
-        prot=PROT_WRITE | PROT_READ, access=_ACCESS_DEFAULT):
+        prot=PROT_WRITE | PROT_READ, access=_ACCESS_DEFAULT, offset=0):
 
         fd = fileno
 
@@ -623,6 +627,8 @@ if _POSIX:
         # check size boundaries
         _check_map_size(length)
         map_size = length
+        if offset < 0:
+            raise RValueError("negative offset")
 
         if access == ACCESS_READ:
             flags = MAP_SHARED
@@ -649,6 +655,7 @@ if _POSIX:
         else:
             mode = st[stat.ST_MODE]
             size = st[stat.ST_SIZE]
+            size -= offset
             if size > sys.maxint:
                 size = sys.maxint
             else:
@@ -674,7 +681,7 @@ if _POSIX:
         # XXX if we use hintp below in alloc, the NonConstant
         #     is necessary since we want a general version of c_mmap
         #     to be annotated with a non-constant pointer.
-        res = c_mmap(NonConstant(NULL), map_size, prot, flags, fd, 0)
+        res = c_mmap(NonConstant(NULL), map_size, prot, flags, fd, offset)
         if res == rffi.cast(PTR, -1):
             errno = _get_error_no()
             raise OSError(errno, os.strerror(errno))
@@ -711,10 +718,12 @@ if _POSIX:
     free = c_munmap_safe
     
 elif _MS_WINDOWS:
-    def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT):
+    def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
         # check size boundaries
         _check_map_size(length)
         map_size = length
+        if offset < 0:
+            raise RValueError("negative offset")
         
         flProtect = 0
         dwDesiredAccess = 0
@@ -785,16 +794,20 @@ elif _MS_WINDOWS:
         if _64BIT:
             size_hi = map_size >> 32
             size_lo = map_size & 0xFFFFFFFF
+            offset_hi = offset >> 32
+            offset_lo = offset & 0xFFFFFFFF
         else:
             size_hi = 0
             size_lo = map_size
+            offset_hi = 0
+            offset_lo = offset
 
         m.map_handle = CreateFileMapping(m.file_handle, NULL, flProtect,
                                          size_hi, size_lo, m.tagname)
 
         if m.map_handle:
             res = MapViewOfFile(m.map_handle, dwDesiredAccess,
-                                0, 0, 0)
+                                offset_hi, offset_lo, 0)
             if res:
                 # XXX we should have a real LPVOID which must always be casted
                 charp = rffi.cast(LPCSTR, res)
