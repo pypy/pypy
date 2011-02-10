@@ -30,6 +30,8 @@ class AbstractVirtualValue(optimizer.OptValue):
         return self.box
 
     def make_virtual_info(self, modifier, fieldnums):
+        if fieldnums is None:
+            return self._make_virtual(modifier)
         vinfo = self._cached_vinfo
         if vinfo is not None and vinfo.equals(fieldnums):
             return vinfo

@@ -165,7 +165,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
             info = self.info[box]
         except KeyError:
             value = self.getvalue(box)
-            self.info[box] = info = value.make_virtual_info(self, [])
+            self.info[box] = info = value.make_virtual_info(self, None)
             if box in self.fieldboxes:
                 info.fieldstate = [self.state(b) for b in self.fieldboxes[box]]
                 # FIXME: Do we realy want to add fields to the VirtualInfo's?
