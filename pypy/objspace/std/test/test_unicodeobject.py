@@ -471,7 +471,7 @@ class AppTestUnicodeString:
         # surrogates not supported
         raises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
 
-        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd'
+        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd\ufffd'
 
     def test_codecs_utf8(self):
         assert u''.encode('utf-8') == ''
