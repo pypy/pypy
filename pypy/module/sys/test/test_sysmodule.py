@@ -5,14 +5,6 @@ from py.test import raises
 from pypy.interpreter.gateway import app2interp_temp
 import sys
 
-def init_globals_via_builtins_hack(space):
-    space.appexec([], """():
-    import __builtin__ as b
-    import cStringIO, sys
-    b.cStringIO = cStringIO
-    b.sys = sys
-    """)
-
 def test_stdin_exists(space):
     space.sys.get('stdin') 
     space.sys.get('__stdin__')
@@ -138,11 +130,10 @@ class AppTestAppSysTests:
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
-        init_globals_via_builtins_hack(cls.space)
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
 
     def test_original_displayhook(self):
-        import __builtin__
+        import sys, cStringIO, __builtin__
         savestdout = sys.stdout
         out = cStringIO.StringIO()
         sys.stdout = out
@@ -166,6 +157,7 @@ class AppTestSysModulePortedFromCPython:
         sys.stdout = savestdout
 
     def test_lost_displayhook(self):
+        import sys
         olddisplayhook = sys.displayhook
         del sys.displayhook
         code = compile("42", "<string>", "single")
@@ -173,6 +165,7 @@ class AppTestSysModulePortedFromCPython:
         sys.displayhook = olddisplayhook
 
     def test_custom_displayhook(self):
+        import sys
         olddisplayhook = sys.displayhook
         def baddisplayhook(obj):
             raise ValueError
@@ -182,7 +175,7 @@ class AppTestSysModulePortedFromCPython:
         sys.displayhook = olddisplayhook
 
     def test_original_excepthook(self):
-        import cStringIO
+        import sys, cStringIO
         savestderr = sys.stderr
         err = cStringIO.StringIO()
         sys.stderr = err
@@ -201,7 +194,7 @@ class AppTestSysModulePortedFromCPython:
     def test_excepthook_failsafe_path(self):
         import traceback
         original_print_exception = traceback.print_exception
-        import cStringIO
+        import sys, cStringIO
         savestderr = sys.stderr
         err = cStringIO.StringIO()
         sys.stderr = err
@@ -222,6 +215,7 @@ class AppTestSysModulePortedFromCPython:
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
 
     def test_exc_clear(self):
+        import sys
         raises(TypeError, sys.exc_clear, 42)
 
         # Verify that exc_info is present and matches exc, then clear it, and
@@ -266,6 +260,7 @@ class AppTestSysModulePortedFromCPython:
         clear_check(exc)
 
     def test_exit(self):
+        import sys
         raises(TypeError, sys.exit, 42, 42)
 
         # call without argument
@@ -320,11 +315,13 @@ class AppTestSysModulePortedFromCPython:
             raise AssertionError, "no exception"
 
     def test_getdefaultencoding(self):
+        import sys
         raises(TypeError, sys.getdefaultencoding, 42)
         # can't check more than the type, as the user might have changed it
         assert isinstance(sys.getdefaultencoding(), str)
 
     def test_setdefaultencoding(self):
+        import sys
         if self.appdirect:
             skip("not worth running appdirect")
             
@@ -346,6 +343,7 @@ class AppTestSysModulePortedFromCPython:
     # testing sys.setprofile() is done in test_profile.py
 
     def test_setcheckinterval(self):
+        import sys
         raises(TypeError, sys.setcheckinterval)
         orig = sys.getcheckinterval()
         for n in 0, 100, 120, orig: # orig last to restore starting state
@@ -353,6 +351,7 @@ class AppTestSysModulePortedFromCPython:
             assert sys.getcheckinterval() == n
 
     def test_recursionlimit(self):
+        import sys
         raises(TypeError, sys.getrecursionlimit, 42)
         oldlimit = sys.getrecursionlimit()
         raises(TypeError, sys.setrecursionlimit)
@@ -362,6 +361,7 @@ class AppTestSysModulePortedFromCPython:
         sys.setrecursionlimit(oldlimit)
 
     def test_getwindowsversion(self):
+        import sys
         if hasattr(sys, "getwindowsversion"):
             v = sys.getwindowsversion()
             assert isinstance(v, tuple)
@@ -373,10 +373,12 @@ class AppTestSysModulePortedFromCPython:
             assert isinstance(v[4], str)
 
     def test_winver(self):
+        import sys
         if hasattr(sys, "winver"):
             assert sys.winver == sys.version[:3]
 
     def test_dlopenflags(self):
+        import sys
         if hasattr(sys, "setdlopenflags"):
             assert hasattr(sys, "getdlopenflags")
             raises(TypeError, sys.getdlopenflags, 42)
@@ -387,6 +389,7 @@ class AppTestSysModulePortedFromCPython:
             sys.setdlopenflags(oldflags)
 
     def test_refcount(self):
+        import sys
         if not hasattr(sys, "getrefcount"):
             skip('Reference counting is not implemented.')
 
@@ -400,6 +403,7 @@ class AppTestSysModulePortedFromCPython:
             assert isinstance(sys.gettotalrefcount(), int)
 
     def test_getframe(self):
+        import sys
         raises(TypeError, sys._getframe, 42, 42)
         raises(ValueError, sys._getframe, 2000000000)
         assert sys._getframe().f_code.co_name == 'test_getframe'
@@ -409,6 +413,7 @@ class AppTestSysModulePortedFromCPython:
         #)
 
     def test_getframe_in_returned_func(self):
+        import sys
         def f():
             return g()
         def g():
@@ -419,6 +424,7 @@ class AppTestSysModulePortedFromCPython:
         assert frame.f_back.f_back.f_code.co_name == 'test_getframe_in_returned_func'
 
     def test_attributes(self):
+        import sys
         assert sys.__name__ == 'sys'
         assert isinstance(sys.modules, dict)
         assert isinstance(sys.path, list)
@@ -447,6 +453,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[4], int)
 
     def test_settrace(self):
+        import sys
         counts = []
         def trace(x, y, z):
             counts.append(None)
@@ -461,6 +468,7 @@ class AppTestSysModulePortedFromCPython:
         assert len(counts) == 1
 
     def test_pypy_attributes(self):
+        import sys
         assert isinstance(sys.pypy_objspaceclass, str)
         vi = sys.pypy_version_info
         assert isinstance(vi, tuple)
@@ -472,13 +480,15 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[4], int)
 
     def test_allattributes(self):
+        import sys
         sys.__dict__   # check that we don't crash initializing any attribute
 
     def test_subversion(self):
+        import sys
         assert sys.subversion == ('PyPy', '', '')
 
     def test__mercurial(self):
-        import re
+        import sys, re
         project, hgtag, hgid = sys._mercurial
         assert project == 'PyPy'
         # the tag or branch may be anything, including the empty string
@@ -491,6 +501,7 @@ class AppTestSysModulePortedFromCPython:
             assert hgid in sys.version
 
     def test_trace_exec_execfile(self):
+        import sys
         found = []
         def do_tracing(f, *args):
             print f.f_code.co_filename, f.f_lineno, args
