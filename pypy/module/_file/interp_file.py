@@ -216,20 +216,6 @@ class W_File(W_AbstractStream):
         self.softspace = 0
         self.getstream().write(data)
 
-    def direct_writelines(self, w_lines):    # note: a wrapped list!
-        stream = self.getstream()
-        space = self.space
-        w_iterator = space.iter(w_lines)
-        self.softspace = 0
-        while True:
-            try:
-                w_line = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
-            stream.write(space.str_w(w_line))
-
     def direct___iter__(self):
         self.getstream()
         return self
@@ -374,12 +360,6 @@ Size defaults to the current file position, as returned by tell().""")
 Note that due to buffering, flush() or close() may be needed before
 the file on disk reflects the data written.""")
 
-    _decl(locals(), "writelines", ['self', W_Root],
-        """writelines(sequence_of_strings) -> None.  Write the strings to the file.
-
-Note that newlines are not added.  The sequence can be any iterable object
-producing strings. This is equivalent to calling write() for each string.""")
-
     _decl(locals(), "__iter__", ['self'],
         """Iterating over files, as in 'for line in f:', returns each line of
 the file one by one.""")
@@ -411,6 +391,24 @@ optimizations previously implemented in the xreadlines module.""")
             return "'%s'" % self.space.str_w(w_name) 
         else:
             return self.space.str_w(self.space.repr(w_name))
+
+    def file_writelines(self, w_lines):
+        """writelines(sequence_of_strings) -> None.  Write the strings to the file.
+
+Note that newlines are not added.  The sequence can be any iterable object
+producing strings. This is equivalent to calling write() for each string."""
+
+        space = self.space
+        w_iterator = space.iter(w_lines)
+        while True:
+            try:
+                w_line = space.next(w_iterator)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break  # done
+            self.file_write(space.str_w(w_line))
+    file_writelines.unwrap_spec = ['self', W_Root]
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
@@ -509,6 +507,7 @@ Note:  open() is an alias for file().
                               doc="Support for 'print'."),
     __repr__ = interp2app(W_File.file__repr__),
     readinto = interp2app(W_File.file_readinto),
+    writelines = interp2app(W_File.file_writelines),
     __weakref__ = make_weakref_descr(W_File),
     **dict([(name, interp2app(getattr(W_File, 'file_' + name)))
                 for name in W_File._exposed_method_names])
