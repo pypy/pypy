@@ -74,7 +74,7 @@ utf8_code_length = [
     0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, # C0-C1 + C2-CF
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, # D0-DF
     3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, # E0-EF
-    4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  # F0-F4 - F5-FF
+    4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  # F0-F4 - F5-FF
 ]
 
 def str_decode_utf_8(s, size, errors, final=False,
@@ -710,6 +710,7 @@ def str_decode_utf_7(s, size, errors, final=False,
                                 result.append(
                                     UNICHR((((surrogate & 0x3FF)<<10) |
                                             (outCh & 0x3FF)) + 0x10000))
+                            surrogate = 0
                         else:
                             surrogate = 0
                             msg = "second surrogate missing"
