@@ -829,7 +829,7 @@ def unicode_encode_utf_7(s, size, errors, errorhandler=None):
             if _utf7_ENCODE_DIRECT(oc, not encodeSetO, not encodeWhiteSpace):
                 # shifting out
                 if base64bits: # output remaining bits
-                    result.append(_utf7_TO_BASE64(base64buffer >> (base64bits-6)))
+                    result.append(_utf7_TO_BASE64(base64buffer << (6-base64bits)))
                     base64buffer = 0
                     base64bits = 0
 

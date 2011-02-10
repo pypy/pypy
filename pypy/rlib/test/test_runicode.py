@@ -280,6 +280,10 @@ class TestDecoding(UnicodeTests):
         py.test.raises(UnicodeDecodeError, runicode.str_decode_utf_16_le,
                        s, len(s), True)
 
+    def test_utf7_bugs(self):
+        u = u'A\u2262\u0391.'
+        assert runicode.unicode_encode_utf_7(u, len(u), None) == 'A+ImIDkQ.'
+
     def test_utf7_partial(self):
         s = u"a+-b".encode('utf-7')
         assert s == "a+--b"
