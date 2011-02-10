@@ -769,13 +769,13 @@ elif _MS_WINDOWS:
         
         # DWORD is a 4-byte int. If int > 4-byte it must be divided
         if _64BIT:
-            size_hi = map_size >> 32
-            size_lo = map_size & 0xFFFFFFFF
+            size_hi = (map_size + offset) >> 32
+            size_lo = (map_size + offset) & 0xFFFFFFFF
             offset_hi = offset >> 32
             offset_lo = offset & 0xFFFFFFFF
         else:
             size_hi = 0
-            size_lo = map_size
+            size_lo = map_size + offset
             offset_hi = 0
             offset_lo = offset
 
@@ -784,7 +784,7 @@ elif _MS_WINDOWS:
 
         if m.map_handle:
             data = MapViewOfFile(m.map_handle, dwDesiredAccess,
-                                offset_hi, offset_lo, 0)
+                                 offset_hi, offset_lo, 0)
             if data:
                 # XXX we should have a real LPVOID which must always be casted
                 charp = rffi.cast(LPCSTR, data)
