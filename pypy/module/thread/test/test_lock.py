@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.module.thread.test.support import GenericTestThread
 from pypy.translator.c.test.test_genc import compile
 
@@ -40,13 +41,9 @@ class AppTestLock(GenericTestThread):
             lock.release()
         assert lock.locked() is True
         thread.start_new_thread(f, ())
-        exec """
-from __future__ import with_statement
-if 1:
         with lock:
             assert lock.locked() is True
             assert feedback == [42]
-""" in {"lock": lock, "feedback": feedback}
         assert lock.locked() is False
 
 def test_compile_lock():
