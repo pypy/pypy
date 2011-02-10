@@ -21,6 +21,13 @@ class AppTestPyexpat:
 
         pyexpat.ExpatError("error")
 
+    def test_version(self):
+        import pyexpat
+        assert isinstance(pyexpat.__version__, str)
+        assert pyexpat.EXPAT_VERSION.startswith('expat_')
+        assert isinstance(pyexpat.version_info, tuple)
+        assert isinstance(pyexpat.version_info[0], int)
+
     def test_encoding(self):
         import pyexpat
         for encoding_arg in (None, 'utf-8', 'iso-8859-1'):
