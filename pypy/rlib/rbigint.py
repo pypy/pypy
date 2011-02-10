@@ -1503,7 +1503,7 @@ def _bigint_true_divide(a, b):
             inexact = True
 
     # x //= b. If the remainder is nonzero, set inexact.
-    x, rem = x.divmod(b)
+    x, rem = _divrem(x, b)
     if rem.tobool():
         inexact = True
 

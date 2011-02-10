@@ -57,8 +57,24 @@ class TestRLong(object):
         op2 = rbigint.fromlong(1)
         f = op1.truediv(op2)
         assert f == 1.7976931348623157e+308     # exactly
+
+        op2 = rbigint.fromlong(-1)
+        f = op1.truediv(op2)
+        assert f == -1.7976931348623157e+308    # exactly
+
         op1 = rbigint.fromlong(overflowing)
+        op2 = rbigint.fromlong(1)
         py.test.raises(OverflowError, op1.truediv, op2)
+
+    def test_truediv_overflow2(self):
+        overflowing = 2**1024 - 2**(1024-53-1)
+        op1 = rbigint.fromlong(2*overflowing - 10)
+        op2 = rbigint.fromlong(2)
+        f = op1.truediv(op2)
+        assert f == 1.7976931348623157e+308    # exactly
+        op2 = rbigint.fromlong(-2)
+        f = op1.truediv(op2)
+        assert f == -1.7976931348623157e+308   # exactly
 
     def test_mod(self):
         for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
