@@ -620,6 +620,10 @@ class Connection(object):
         if ret != SQLITE_OK:
             raise self._get_exception(ret)
 
+    def iterdump(self):
+        from sqlite3.dump import _iterdump
+        return _iterdump(self)
+
 class Cursor(object):
     def __init__(self, con):
         if not isinstance(con, Connection):
