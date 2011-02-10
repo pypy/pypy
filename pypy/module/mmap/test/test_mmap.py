@@ -44,7 +44,7 @@ class AppTestMMap:
         raises(TypeError, mmap, 0, "foo")
              
         if os.name == "posix":
-            raises(TypeError, mmap, 0, 1, 2, 3, 4, 5)
+            raises(ValueError, mmap, 0, 1, 2, 3, 4)
             raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
             raises(TypeError, mmap, 0, 1, foo="foo")
             raises((TypeError, OverflowError), mmap, 0, -1)

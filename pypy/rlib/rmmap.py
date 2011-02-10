@@ -592,14 +592,14 @@ if _POSIX:
 
         fd = fileno
 
-        # check size boundaries
-        _check_map_size(length)
-        map_size = length
-
         # check access is not there when flags and prot are there
         if access != _ACCESS_DEFAULT and ((flags != MAP_SHARED) or\
                                           (prot != (PROT_WRITE | PROT_READ))):
             raise RValueError("mmap can't specify both access and flags, prot.")
+
+        # check size boundaries
+        _check_map_size(length)
+        map_size = length
 
         if access == ACCESS_READ:
             flags = MAP_SHARED
