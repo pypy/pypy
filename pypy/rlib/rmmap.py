@@ -361,7 +361,7 @@ class MMap(object):
         self.pos += len(res)
         return res
 
-    def find(self, tofind, start=0):
+    def find(self, tofind, start, end):
         self.check_valid()
 
         # XXX naive! how can we reuse the rstr algorithm?
@@ -369,8 +369,14 @@ class MMap(object):
             start += self.size
             if start < 0:
                 start = 0
+        if end < 0:
+            end += self.size
+            if end < 0:
+                end = 0
+        elif end > self.size:
+            end = self.size
         data = self.data
-        for p in xrange(start, self.size - len(tofind) + 1):
+        for p in xrange(start, end - len(tofind) + 1):
             for q in range(len(tofind)):
                 if data[p+q] != tofind[q]:
                     break     # position 'p' is not a match

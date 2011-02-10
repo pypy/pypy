@@ -155,6 +155,25 @@ class AppTestMMap:
         assert m.find("o", 5) == -1
         assert m.find("ob") == 2
         assert m.find("\0") == 6
+        assert m.find("ob", 1) == 2
+        assert m.find("ob", 2) == 2
+        assert m.find("ob", 3) == -1
+        assert m.find("ob", -4) == -1
+        assert m.find("ob", -5) == 2
+        assert m.find("ob", -999999999) == 2
+        assert m.find("ob", 1, 3) == -1
+        assert m.find("ob", 1, 4) == 2
+        assert m.find("ob", 1, 999999999) == 2
+        assert m.find("ob", 1, 0) == -1
+        assert m.find("ob", 1, -1) == 2
+        assert m.find("ob", 1, -3) == 2
+        assert m.find("ob", 1, -4) == -1
+        #
+        data = m.read(2)
+        assert data == "fo"
+        assert m.find("o") == 2
+        assert m.find("oo") == -1
+        assert m.find("o", 0) == 1
         m.close()
         f.close()
 

@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.rlib import rmmap
 from pypy.rlib.rmmap import RValueError, RTypeError
 import sys
@@ -37,9 +37,18 @@ class W_MMap(Wrappable):
         return self.space.wrap(self.mmap.read(num))
     read.unwrap_spec = ['self', int]
 
-    def find(self, tofind, start=0):
-        return self.space.wrap(self.mmap.find(tofind, start))
-    find.unwrap_spec = ['self', 'bufferstr', int]
+    def find(self, tofind, w_start=NoneNotWrapped, w_end=NoneNotWrapped):
+        space = self.space
+        if w_start is None:
+            start = self.mmap.pos
+        else:
+            start = space.getindex_w(w_start, None)
+        if w_end is None:
+            end = self.mmap.size
+        else:
+            end = space.getindex_w(w_end, None)
+        return space.wrap(self.mmap.find(tofind, start, end))
+    find.unwrap_spec = ['self', 'bufferstr', W_Root, W_Root]
 
     def seek(self, pos, whence=0):
         try:
