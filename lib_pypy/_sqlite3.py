@@ -578,9 +578,8 @@ class Connection(object):
                     aggregate = self.aggregate_instances[aggregate_ptr[0]]
 
                 params = _convert_params(context, argc, c_params)
-                step = aggregate.step
                 try:
-                    step(*params)
+                    aggregate.step(*params)
                 except Exception, e:
                     msg = ("user-defined aggregate's 'step' "
                            "method raised error")
@@ -839,6 +838,8 @@ class Statement(object):
                 decltype = sqlite.sqlite3_column_decltype(self.statement, i)
                 if decltype is not None:
                     decltype = decltype.split()[0]      # if multiple words, use first, eg. "INTEGER NOT NULL" => "INTEGER"
+                    if '(' in decltype:
+                        decltype = decltype[:decltype.index('(')]
                     converter = converters.get(decltype.upper(), None)
 
             self.row_cast_map.append(converter)
