@@ -49,7 +49,7 @@ c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
 
-c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
+c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   threadsafe=True)    # release the GIL
@@ -133,7 +133,7 @@ def allocate_ll_lock():
     # lock objects, as well as from the GIL, which exists at shutdown.
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw', track_allocation=False)
     res = c_thread_lock_init(ll_lock)
-    if res <= 0:
+    if rffi.cast(lltype.Signed, res) <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
     return ll_lock
