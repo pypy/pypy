@@ -9,7 +9,7 @@ GC operations
 =============
 
 This document tries to gather gc-related issues which are very recent
-or in-developement. Also, it tries to document needed gc refactorings
+or in-development. Also, it tries to document needed gc refactorings
 and expected performance of certain gc-related operations.
 
 Problem area

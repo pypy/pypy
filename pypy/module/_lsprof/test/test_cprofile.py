@@ -10,6 +10,10 @@ class AppTestCProfile(object):
         cls.space = space
         cls.w_file = space.wrap(__file__)
 
+    def test_repr(self):
+        import _lsprof
+        assert repr(_lsprof.Profiler) == "<type '_lsprof.Profiler'>"
+
     def test_direct(self):
         import _lsprof
         def getticks():

@@ -389,6 +389,7 @@ class OtherFileTests(unittest.TestCase):
             if lines != testlines:
                 self.fail("readlines() after next() with empty buffer "
                           "failed. Got %r, expected %r" % (line, testline))
+            f.close()
             # Reading after iteration hit EOF shouldn't hurt either
             f = open(TESTFN)
             try:
@@ -497,7 +498,6 @@ class FileThreadingTests(unittest.TestCase):
 
     def _test_close_open_io(self, io_func, nb_workers=5):
         def worker():
-            self._create_file()
             funcs = itertools.cycle((
                 lambda: io_func(),
                 lambda: self._close_and_reopen_file(),
@@ -509,6 +509,7 @@ class FileThreadingTests(unittest.TestCase):
                     f()
                 except (IOError, ValueError):
                     pass
+        self._create_file()
         self._run_workers(worker, nb_workers)
         if test_support.verbose:
             # Useful verbose statistics when tuning this test to take

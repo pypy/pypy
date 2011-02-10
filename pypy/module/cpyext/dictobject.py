@@ -60,6 +60,19 @@ def PyDict_GetItemString(space, w_dict, key):
         return None
     return borrow_from(w_dict, w_res)
 
+@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
+def PyDict_DelItemString(space, w_dict, key_ptr):
+    """Remove the entry in dictionary p which has a key specified by the string
+    key.  Return 0 on success or -1 on failure."""
+    if PyDict_Check(space, w_dict):
+        key = rffi.charp2str(key_ptr)
+        # our dicts dont have a standardized interface, so we need
+        # to go through the space
+        space.delitem(w_dict, space.wrap(key))
+        return 0
+    else:
+        PyErr_BadInternalCall(space)
+
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyDict_Size(space, w_obj):
     """

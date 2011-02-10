@@ -86,7 +86,7 @@ Symbol analysis
 
 Before writing bytecode, a symbol table is built in
 `pypy/interpreter/astcompiler/symtable.py`_.  It determines if every name in the
-source is local, implicitly global (no global declaration), explicity global
+source is local, implicitly global (no global declaration), explicitly global
 (there's a global declaration of the name in the scope), a cell (the name in
 used in nested scopes), or free (it's used in a nested function).
 

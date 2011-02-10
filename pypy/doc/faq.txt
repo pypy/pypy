@@ -147,7 +147,7 @@ work nicely`__ too.
 .. _`prolog and javascript`:
 
 ---------------------------------------------------------------
-Can PyPy support intepreters for other languages beyond Python?
+Can PyPy support interpreters for other languages beyond Python?
 ---------------------------------------------------------------
 
 The toolsuite that translates the PyPy interpreter is quite

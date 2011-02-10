@@ -309,6 +309,7 @@ descr_new_profile.unwrap_spec = [ObjSpace, W_Root, W_Root, float, bool, bool]
 
 W_Profiler.typedef = TypeDef(
     'Profiler',
+    __module__ = '_lsprof',
     __new__ = interp2app(descr_new_profile),
     enable = interp2app(W_Profiler.enable),
     disable = interp2app(W_Profiler.disable),

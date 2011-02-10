@@ -16,6 +16,8 @@ Probably easy tasks
 - remove code duplication: bit_length() and _count_bits() in rlib/rbigint.py,
   objspace/std/longobject.py and objspace/std/longtype.py.
 
+- missing module pyexpat.errors
+
 
 Medium tasks
 ------------

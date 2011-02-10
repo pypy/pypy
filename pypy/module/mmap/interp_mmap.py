@@ -3,9 +3,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.rlib import rmmap
-from pypy.rlib.rmmap import RValueError, RTypeError
+from pypy.rlib.rmmap import RValueError, RTypeError, ROverflowError
 import sys
 import os
 import platform
@@ -37,9 +37,31 @@ class W_MMap(Wrappable):
         return self.space.wrap(self.mmap.read(num))
     read.unwrap_spec = ['self', int]
 
-    def find(self, tofind, start=0):
-        return self.space.wrap(self.mmap.find(tofind, start))
-    find.unwrap_spec = ['self', 'bufferstr', int]
+    def find(self, tofind, w_start=NoneNotWrapped, w_end=NoneNotWrapped):
+        space = self.space
+        if w_start is None:
+            start = self.mmap.pos
+        else:
+            start = space.getindex_w(w_start, None)
+        if w_end is None:
+            end = self.mmap.size
+        else:
+            end = space.getindex_w(w_end, None)
+        return space.wrap(self.mmap.find(tofind, start, end))
+    find.unwrap_spec = ['self', 'bufferstr', W_Root, W_Root]
+
+    def rfind(self, tofind, w_start=NoneNotWrapped, w_end=NoneNotWrapped):
+        space = self.space
+        if w_start is None:
+            start = self.mmap.pos
+        else:
+            start = space.getindex_w(w_start, None)
+        if w_end is None:
+            end = self.mmap.size
+        else:
+            end = space.getindex_w(w_end, None)
+        return space.wrap(self.mmap.find(tofind, start, end, True))
+    rfind.unwrap_spec = ['self', 'bufferstr', W_Root, W_Root]
 
     def seek(self, pos, whence=0):
         try:
@@ -185,36 +207,42 @@ if rmmap._POSIX:
 
     def mmap(space, w_subtype, fileno, length, flags=rmmap.MAP_SHARED,
              prot=rmmap.PROT_WRITE | rmmap.PROT_READ,
-             access=rmmap._ACCESS_DEFAULT):
+             access=rmmap._ACCESS_DEFAULT, offset=0):
         self = space.allocate_instance(W_MMap, w_subtype)
         try:
             W_MMap.__init__(self, space,
-                            rmmap.mmap(fileno, length, flags, prot, access))
+                            rmmap.mmap(fileno, length, flags, prot, access,
+                                       offset))
         except OSError, e:
             raise mmap_error(space, e)
         except RValueError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
+        except ROverflowError, e:
+            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
-    mmap.unwrap_spec = [ObjSpace, W_Root, int, 'index', int, int, int]
+    mmap.unwrap_spec = [ObjSpace, W_Root, int, 'index', int, int, int, 'index']
 
 elif rmmap._MS_WINDOWS:
 
     def mmap(space, w_subtype, fileno, length, tagname="",
-             access=rmmap._ACCESS_DEFAULT):
+             access=rmmap._ACCESS_DEFAULT, offset=0):
         self = space.allocate_instance(W_MMap, w_subtype)
         try:
             W_MMap.__init__(self, space,
-                            rmmap.mmap(fileno, length, tagname, access))
+                            rmmap.mmap(fileno, length, tagname, access,
+                                       offset))
         except OSError, e:
             raise mmap_error(space, e)
         except RValueError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
+        except ROverflowError, e:
+            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
-    mmap.unwrap_spec = [ObjSpace, W_Root, int, 'index', str, int]
+    mmap.unwrap_spec = [ObjSpace, W_Root, int, 'index', str, int, 'index']
 
 W_MMap.typedef = TypeDef("mmap",
     __new__ = interp2app(mmap),
@@ -223,6 +251,7 @@ W_MMap.typedef = TypeDef("mmap",
     readline = interp2app(W_MMap.readline),
     read = interp2app(W_MMap.read),
     find = interp2app(W_MMap.find),
+    rfind = interp2app(W_MMap.rfind),
     seek = interp2app(W_MMap.seek),
     tell = interp2app(W_MMap.tell),
     size = interp2app(W_MMap.descr_size),

@@ -1,7 +1,7 @@
 
 
     The PyPy project is a worldwide collaborative effort and its
-    members are organising sprints and presenting results at conferences
+    members are organizing sprints and presenting results at conferences
     all year round.  **This page is no longer maintained!**  See `our blog`_
     for upcoming events. 
 
@@ -120,7 +120,7 @@ PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
 
 The Mallorca sprint that took place in Palma de Mallorca is over.
 Topics included progressing with the JIT work started in Göteborg
-and Paris, GC and optimisation work, stackless, and
+and Paris, GC and optimization work, stackless, and
 improving our way to write glue code for C libraries.
 
 Read more in `the announcement`_, there is a `sprint report`_

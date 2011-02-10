@@ -3,7 +3,7 @@ We've got huge swamp of compiled pypy-c's used for:
 
 * benchmarks
 * tests
-* compliancy tests
+* compliance tests
 * play1
 * downloads
 * ...

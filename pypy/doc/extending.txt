@@ -12,8 +12,8 @@ in pypy rapidly.
 Possibilities
 =============
 
-Right now, there are three posibilities of providing third-party modules
-for the PyPy python interpreter (in order of usefulnes):
+Right now, there are three possibilities of providing third-party modules
+for the PyPy python interpreter (in order of usefulness):
 
 * Write them in pure python and use ctypes, see ctypes_
   section
@@ -39,7 +39,7 @@ unlikely that direct object-manipulation trickery through this API will work).
 
 We also provide a `ctypes-configure`_ for overcoming the platform dependencies,
 not relying on the ctypes codegen. This tool works by querying gcc about
-platform-depenent details (compiling small snippets of C code and running
+platform-dependent details (compiling small snippets of C code and running
 them), so it'll benefit not pypy-related ctypes-based modules as well.
 
 .. _`ctypes-configure`: http://codespeak.net/~fijal/configure.html
@@ -91,9 +91,9 @@ It has some serious disadvantages:
   compilation-check requires to recompile whole PyPy python interpreter,
   which takes 0.5-1h. We plan to solve this at some point in near future.
 
-* although rpython is a garabage-collected language, the border between
+* although rpython is a garbage-collected language, the border between
   C and RPython needs to be managed by hand (each object that goes into the
-  C level must be explicitely freed) XXX we try to solve this
+  C level must be explicitly freed) XXX we try to solve this
 
 Some document is available `here`_
 

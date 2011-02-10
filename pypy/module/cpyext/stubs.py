@@ -564,12 +564,6 @@ def PyDictProxy_New(space, dict):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
-def PyDict_DelItemString(space, p, key):
-    """Remove the entry in dictionary p which has a key specified by the string
-    key.  Return 0 on success or -1 on failure."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
 def PyDict_Merge(space, a, b, override):
     """Iterate over mapping object b adding key-value pairs to dictionary a.

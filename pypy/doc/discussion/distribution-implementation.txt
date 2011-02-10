@@ -14,7 +14,7 @@ Basic implementation:
 
 First we do split objects into value-only primitives (like int) and other.
 Basically immutable builtin types which cannot contain user-level objects
-(int, float, long, str, None, etc.) will be always transfered as value-only
+(int, float, long, str, None, etc.) will be always transferred as value-only
 objects (having no states etc.). The every other object (user created classes,
 instances, modules, lists, tuples, etc. etc.) are always executed by reference.
 (Of course if somebody wants to ie. copy the instance, he can marshal/pickle
@@ -65,7 +65,7 @@ executed and local side is the one on which calls are run.
   but not needed yet.
 
 * From the remote point of view, every exported object which needs such
-  has got a local apropriate storage W_LocalXXX where XXX is a type 
+  has got a local appropriate storage W_LocalXXX where XXX is a type 
   by which it could be accessed from a wire.
 
 The real pain:
@@ -76,7 +76,7 @@ the download flag - which sucks a bit. (And we have to support it somehow
 in annotator, which sucks a lot). The (some) idea is to wrap all the methods
 with additional checks, but that's both unclear and probably not necessary.
 
-XXX If we can easily change underlaying implementation of an object, than
+XXX If we can easily change underlying implementation of an object, than
 this might become way easier. Right now I'll try to have it working and
 thing about RPython later.
 
