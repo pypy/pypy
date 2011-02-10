@@ -576,7 +576,7 @@ class MMap(object):
             dwErrCode = 0
             if self.map_handle:
                 data = MapViewOfFile(self.map_handle, FILE_MAP_WRITE,
-                                     0, 0, 0)
+                                     offset_high, offset_low, newsize)
                 if data:
                     # XXX we should have a real LPVOID which must always be casted
                     charp = rffi.cast(LPCSTR, data)
