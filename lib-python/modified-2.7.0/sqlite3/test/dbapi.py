@@ -829,7 +829,7 @@ class ClosedConTests(unittest.TestCase):
         con = sqlite.connect(":memory:")
         con.close()
         try:
-            con()
+            con("select 1")
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass

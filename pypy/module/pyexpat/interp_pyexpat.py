@@ -20,10 +20,6 @@ else:
 eci = ExternalCompilationInfo(
     libraries=[libname],
     includes=['expat.h'],
-    pre_include_bits=[
-    '#define XML_COMBINED_VERSION' +
-    ' (10000*XML_MAJOR_VERSION+100*XML_MINOR_VERSION+XML_MICRO_VERSION)',
-    ],
     )
 
 eci = rffi_platform.configure_external_library(
@@ -54,12 +50,16 @@ class CConfigure:
                  'XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE',
                  'XML_PARAM_ENTITY_PARSING_ALWAYS']:
         locals()[name] = rffi_platform.ConstantInteger(name)
-    XML_COMBINED_VERSION = rffi_platform.ConstantInteger('XML_COMBINED_VERSION')
+    XML_MAJOR_VERSION = rffi_platform.ConstantInteger('XML_MAJOR_VERSION')
+    XML_MINOR_VERSION = rffi_platform.ConstantInteger('XML_MINOR_VERSION')
+    XML_MICRO_VERSION = rffi_platform.ConstantInteger('XML_MICRO_VERSION')
     XML_FALSE = rffi_platform.ConstantInteger('XML_FALSE')
     XML_TRUE = rffi_platform.ConstantInteger('XML_TRUE')
 
 for k, v in rffi_platform.configure(CConfigure).items():
     globals()[k] = v
+
+XML_COMBINED_VERSION = 10000*XML_MAJOR_VERSION+100*XML_MINOR_VERSION+XML_MICRO_VERSION
 
 XML_Content_Ptr.TO.become(rffi.CArray(XML_Content))
 XML_Encoding_Ptr = lltype.Ptr(XML_Encoding)
@@ -181,8 +181,8 @@ for index, (name, params) in enumerate(HANDLERS.items()):
     if name in ['ExternalEntityRefHandler',
                 'NotStandaloneHandler']:
         result_type = rffi.INT
-        result_converter = "space.int_w(w_result)"
-        result_error = "0"
+        result_converter = "rffi.cast(rffi.INT, space.int_w(w_result))"
+        result_error = "rffi.cast(rffi.INT, 0)"
     else:
         result_type = lltype.Void
         result_converter = "None"
@@ -312,6 +312,18 @@ XML_FreeContentModel = expat_external(
 XML_ExternalEntityParserCreate = expat_external(
     'XML_ExternalEntityParserCreate', [XML_Parser, rffi.CCHARP, rffi.CCHARP],
     XML_Parser)
+
+XML_ExpatVersion = expat_external(
+    'XML_ExpatVersion', [], rffi.CCHARP)
+
+def get_expat_version(space):
+    return space.wrap(rffi.charp2str(XML_ExpatVersion()))
+
+def get_expat_version_info(space):
+    return space.newtuple([
+        space.wrap(XML_MAJOR_VERSION),
+        space.wrap(XML_MINOR_VERSION),
+        space.wrap(XML_MICRO_VERSION)])
 
 class W_XMLParserType(Wrappable):
 
@@ -583,10 +595,11 @@ information passed to the ExternalEntityRefHandler."""
         msg = "%s: line %d, column %d" % (err, lineno, colno)
         w_module = space.getbuiltinmodule('pyexpat')
         w_errorcls = space.getattr(w_module, space.wrap('error'))
-        w_error = space.call_function(
-            w_errorcls,
-            space.wrap(msg), space.wrap(code),
-            space.wrap(colno), space.wrap(lineno))
+        w_error = space.call_function(w_errorcls, space.wrap(msg))
+        space.setattr(w_error, space.wrap("code"), space.wrap(code))
+        space.setattr(w_error, space.wrap("offset"), space.wrap(colno))
+        space.setattr(w_error, space.wrap("lineno"), space.wrap(lineno))
+
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
 
