@@ -177,6 +177,42 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_rfind(self):
+        from mmap import mmap
+        f = open(self.tmpname + "g", "w+")
+
+        f.write("foobarfoobar\0")
+        f.flush()
+        m = mmap(f.fileno(), 13)
+        raises(TypeError, m.rfind, 123)
+        raises(TypeError, m.rfind, "foo", "baz")
+        assert m.rfind("b") == 9
+        assert m.rfind("z") == -1
+        assert m.rfind("o", 11) == -1
+        assert m.rfind("ob") == 8
+        assert m.rfind("\0") == 12
+        assert m.rfind("ob", 7) == 8
+        assert m.rfind("ob", 8) == 8
+        assert m.rfind("ob", 9) == -1
+        assert m.rfind("ob", -4) == -1
+        assert m.rfind("ob", -5) == 8
+        assert m.rfind("ob", -999999999) == 8
+        assert m.rfind("ob", 1, 3) == -1
+        assert m.rfind("ob", 1, 4) == 2
+        assert m.rfind("ob", 1, 999999999) == 8
+        assert m.rfind("ob", 1, 0) == -1
+        assert m.rfind("ob", 1, -1) == 8
+        assert m.rfind("ob", 1, -3) == 8
+        assert m.rfind("ob", 1, -4) == 2
+        #
+        data = m.read(8)
+        assert data == "foobarfo"
+        assert m.rfind("o") == 8
+        assert m.rfind("oo") == -1
+        assert m.rfind("o", 0) == 8
+        m.close()
+        f.close()
+
     def test_is_modifiable(self):
         import mmap
         f = open(self.tmpname + "h", "w+")

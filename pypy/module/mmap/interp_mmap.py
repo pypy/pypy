@@ -50,6 +50,19 @@ class W_MMap(Wrappable):
         return space.wrap(self.mmap.find(tofind, start, end))
     find.unwrap_spec = ['self', 'bufferstr', W_Root, W_Root]
 
+    def rfind(self, tofind, w_start=NoneNotWrapped, w_end=NoneNotWrapped):
+        space = self.space
+        if w_start is None:
+            start = self.mmap.pos
+        else:
+            start = space.getindex_w(w_start, None)
+        if w_end is None:
+            end = self.mmap.size
+        else:
+            end = space.getindex_w(w_end, None)
+        return space.wrap(self.mmap.find(tofind, start, end, True))
+    rfind.unwrap_spec = ['self', 'bufferstr', W_Root, W_Root]
+
     def seek(self, pos, whence=0):
         try:
             self.mmap.seek(pos, whence)
@@ -232,6 +245,7 @@ W_MMap.typedef = TypeDef("mmap",
     readline = interp2app(W_MMap.readline),
     read = interp2app(W_MMap.read),
     find = interp2app(W_MMap.find),
+    rfind = interp2app(W_MMap.rfind),
     seek = interp2app(W_MMap.seek),
     tell = interp2app(W_MMap.tell),
     size = interp2app(W_MMap.descr_size),
