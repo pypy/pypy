@@ -17,3 +17,7 @@ def test_compiled():
     fn2 = compile(fn, [r_longlong])
     res = fn2(maxint64)
     assert res == maxint64
+
+def test_roundtrip():
+    value = 0x7ff06af3307a3fef
+    assert float2longlong(longlong2float(value)) == value
