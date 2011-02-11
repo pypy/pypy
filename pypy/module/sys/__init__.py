@@ -79,6 +79,7 @@ class Module(MixedModule):
 
         'float_info'            : 'system.get_float_info(space)',
         'long_info'             : 'system.get_long_info(space)',
+        'float_repr_style'      : 'system.get_float_repr_style(space)'
         }
 
     if sys.platform == 'win32':
