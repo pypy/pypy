@@ -58,9 +58,15 @@ class TestRLong(object):
         f = op1.truediv(op2)
         assert f == 1.7976931348623157e+308     # exactly
 
+        op1 = rbigint.fromlong(overflowing-1)
         op2 = rbigint.fromlong(-1)
         f = op1.truediv(op2)
         assert f == -1.7976931348623157e+308    # exactly
+
+        op1 = rbigint.fromlong(-overflowing+1)
+        op2 = rbigint.fromlong(-1)
+        f = op1.truediv(op2)
+        assert f == +1.7976931348623157e+308    # exactly
 
         op1 = rbigint.fromlong(overflowing)
         op2 = rbigint.fromlong(1)
