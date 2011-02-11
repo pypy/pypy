@@ -310,18 +310,24 @@ class TestDecoding(UnicodeTests):
 class TestEncoding(UnicodeTests):
     def test_all_ascii(self):
         for i in range(128):
-            for encoding in "utf-7 utf-8 latin-1 ascii".split():
+            if sys.version >= "2.7":
+                self.checkencode(unichr(i), "utf-7")
+            for encoding in "utf-8 latin-1 ascii".split():
                 self.checkencode(unichr(i), encoding)
 
     def test_all_first_256(self):
         for i in range(256):
-            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
+            if sys.version >= "2.7":
+                self.checkencode(unichr(i), "utf-7")
+            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkencode(unichr(i), encoding)
 
     def test_first_10000(self):
         for i in range(10000):
-            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
+            if sys.version >= "2.7":
+                self.checkencode(unichr(i), "utf-7")
+            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkencode(unichr(i), encoding)
 
@@ -331,7 +337,9 @@ class TestEncoding(UnicodeTests):
             if 0xd800 <= v <= 0xdfff:
                 continue
             uni = unichr(v)
-            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
+            if sys.version >= "2.7":
+                self.checkencode(uni, "utf-7")
+            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkencode(uni, encoding)                
 
