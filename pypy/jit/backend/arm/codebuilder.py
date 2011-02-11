@@ -128,19 +128,29 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         raise NotImplementedError
 
-    size_of_gen_load_int = 4 * WORD
-    ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
-    def gen_load_int(self, r, value, cond=cond.AL):
+    size_of_gen_load_int = 3 * WORD
+    def gen_load_int(self, r, value, c=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
-        self.MOV_ri(r, (value & 0xFF), cond=cond)
+        if c != cond.AL or 0 <= value <= 0xFFFF:
+            self._load_by_shifting(r, value, c)
+        else:
+            self.LDR_ri(r, reg.pc.value)
+            self.MOV_rr(reg.pc.value, reg.pc.value)
+            self.write32(value)
+
+    #size_of_gen_load_int = 4 * WORD
+    ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
+    def _load_by_shifting(self, r, value, c=cond.AL):
+        # to be sure it is only called for the correct cases
+        assert c != cond.AL or 0 <= value <= 0xFFFF
+        self.MOV_ri(r, (value & 0xFF), cond=c)
         for offset, shift in self.ofs_shift:
             b = (value >> offset) & 0xFF
             if b == 0:
                 continue
             t = b | (shift << 8)
-            self.ORR_ri(r, r, imm=t, cond=cond)
-
+            self.ORR_ri(r, r, imm=t, cond=c)
 
 class OverwritingBuilder(AbstractARMv7Builder):
     def __init__(self, cb, start, size):
