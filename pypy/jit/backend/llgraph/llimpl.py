@@ -1085,7 +1085,7 @@ def cast_to_floatstorage(x):
     raise TypeError(type(x))
 
 def cast_from_floatstorage(TYPE, x):
-    assert isinstance(x, longlong.FloatStorage)
+    assert isinstance(x, longlong.r_float_storage)
     if TYPE is lltype.Float:
         return longlong.getrealfloat(x)
     if IS_32_BIT:
@@ -1122,7 +1122,7 @@ def set_future_value_int(index, value):
     set_future_value_ref(index, value)
 
 def set_future_value_float(index, value):
-    assert isinstance(value, longlong.FloatStorage)
+    assert isinstance(value, longlong.r_float_storage)
     set_future_value_ref(index, value)
 
 def set_future_value_ref(index, value):
@@ -1368,7 +1368,7 @@ def do_setarrayitem_gc_float(array, index, newvalue):
 def do_setarrayitem_raw_float(array, index, newvalue):
     array = array.adr.ptr
     ITEMTYPE = lltype.typeOf(array).TO.OF
-    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    newvalue = cast_from_floatstorage(ITEMTYPE, newvalue)
     array._obj.setitem(index, newvalue)
 
 def do_setarrayitem_gc_ptr(array, index, newvalue):

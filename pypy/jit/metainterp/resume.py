@@ -1158,7 +1158,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def decode_float(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            return self.consts[num].getfloat()
+            return self.consts[num].getfloatstorage()
         else:
             assert tag == TAGBOX
             if num < 0:

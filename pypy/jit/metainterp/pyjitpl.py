@@ -1473,7 +1473,7 @@ class MetaInterp(object):
             elif result_type == history.REF:
                 raise sd.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
             elif result_type == history.FLOAT:
-                raise sd.DoneWithThisFrameFloat(resultbox.getfloat())
+                raise sd.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
                 assert False
 

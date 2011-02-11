@@ -252,7 +252,7 @@ class BlackholeInterpreter(object):
         if we_are_translated():
             default_i = 0
             default_r = NULL
-            default_f = 0.0
+            default_f = longlong.getfloatstorage(0.0)
         else:
             default_i = MissingValue()
             default_r = MissingValue()
@@ -281,12 +281,15 @@ class BlackholeInterpreter(object):
         self.position = position
 
     def setarg_i(self, index, value):
+        assert lltype.typeOf(value) is lltype.Signed
         self.registers_i[index] = value
 
     def setarg_r(self, index, value):
+        assert lltype.typeOf(value) == llmemory.GCREF
         self.registers_r[index] = value
 
     def setarg_f(self, index, value):
+        assert lltype.typeOf(value) is longlong.FLOATSTORAGE
         self.registers_f[index] = value
 
     def run(self):
@@ -1292,10 +1295,13 @@ class BlackholeInterpreter(object):
     # connect the return of values from the called frame to the
     # 'xxx_call_yyy' instructions from the caller frame
     def _setup_return_value_i(self, result):
+        assert lltype.typeOf(result) is lltype.Signed
         self.registers_i[ord(self.jitcode.code[self.position-1])] = result
     def _setup_return_value_r(self, result):
+        assert lltype.typeOf(result) == llmemory.GCREF
         self.registers_r[ord(self.jitcode.code[self.position-1])] = result
     def _setup_return_value_f(self, result):
+        assert lltype.typeOf(result) is longlong.FLOATSTORAGE
         self.registers_f[ord(self.jitcode.code[self.position-1])] = result
 
     def _done_with_this_frame(self):
@@ -1359,7 +1365,7 @@ class BlackholeInterpreter(object):
         for i in range(self.jitcode.num_regs_f()):
             box = miframe.registers_f[i]
             if box is not None:
-                self.setarg_f(i, box.getfloat())
+                self.setarg_f(i, box.getfloatstorage())
 
 # ____________________________________________________________
 

@@ -316,7 +316,7 @@ class ConstFloat(Const):
         XXX      # temporary
 
     def __init__(self, valuestorage):
-        assert isinstance(valuestorage, longlong.FloatStorage)
+        assert isinstance(valuestorage, longlong.r_float_storage)
         self.valuestorage = valuestorage
 
     def clonebox(self):
@@ -562,7 +562,7 @@ class BoxFloat(Box):
         XXX      # temporary
 
     def __init__(self, valuestorage=longlong.getfloatstorage(0.0)):
-        assert isinstance(valuestorage, longlong.FloatStorage)
+        assert isinstance(valuestorage, longlong.r_float_storage)
         self.valuestorage = valuestorage
 
     def forget_value(self):
