@@ -5,7 +5,7 @@ from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import cast_instance_to_base_obj
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
-from pypy.rlib.objectmodel import r_dict
+from pypy.rlib.objectmodel import r_dict, specialize
 
 def deref(T):
     if isinstance(T, lltype.Ptr):
@@ -97,12 +97,15 @@ class LLTypeHelper(TypeSystemHelper):
     def cast_to_baseclass(self, value):
         return lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), value)
 
+    @specialize.ll()
     def getlength(self, array):
         return len(array)
 
+    @specialize.ll()
     def getarrayitem(self, array, i):
         return array[i]
 
+    @specialize.ll()
     def setarrayitem(self, array, i, newvalue):
         array[i] = newvalue
 
@@ -201,12 +204,15 @@ class OOTypeHelper(TypeSystemHelper):
     def cast_to_baseclass(self, value):
         return ootype.cast_from_object(ootype.ROOT, value)
 
+    @specialize.ll()
     def getlength(self, array):
         return array.ll_length()
 
+    @specialize.ll()
     def getarrayitem(self, array, i):
         return array.ll_getitem_fast(i)
 
+    @specialize.ll()
     def setarrayitem(self, array, i, newvalue):
         array.ll_setitem_fast(i, newvalue)
 
