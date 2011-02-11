@@ -18,6 +18,7 @@ class ComputationFrame(object):
                         'locals[*]']
     
     def __init__(self, input):
+        self = jit.hint(self, access_directly=True, fresh_virtualizable=True) 
         self.valuestackdepth = 0
         self.valuestack = [0.0] * len(input)
         self.locals = input[:]
