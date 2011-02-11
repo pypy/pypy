@@ -506,7 +506,7 @@ def run_command_line(interactive,
             # handle the "-m" command
             def run_it():
                 import runpy
-                runpy.run_module(sys.argv[0], None, '__main__', True)
+                runpy._run_module_as_main(sys.argv[0])
             success = run_toplevel(run_it)
         elif run_stdin:
             # handle the case where no command/filename/module is specified
