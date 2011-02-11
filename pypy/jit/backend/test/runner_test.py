@@ -2366,15 +2366,15 @@ class LLtypeBackendTest(BaseBackendTest):
             separate_module_sources=["""
             long long fn_test_result_of_call(long long x)
             {
-                return x * 17;
+                return x - 100000000000000;
             }
             """],
             export_symbols=['fn_test_result_of_call'])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
                             lltype.SignedLongLong,
                             compilation_info=eci, _nowrapper=True)
-        value = r_longlong(0x06778899aabbccdd)
-        expected = r_longlong(0x6df0123456789aad)
+        value = r_longlong(0x7ff05af3307a3fff)
+        expected = r_longlong(0x7ff000001fffffff)
         assert f(value) == expected
         #
         FUNC = self.FuncType([lltype.SignedLongLong], lltype.SignedLongLong)
@@ -2396,15 +2396,15 @@ class LLtypeBackendTest(BaseBackendTest):
             separate_module_sources=["""
             long long fn_test_result_of_call(long long x)
             {
-                return x * 17;
+                return x - 100000000000000;
             }
             """],
             export_symbols=['fn_test_result_of_call'])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
                             lltype.SignedLongLong,
                             compilation_info=eci, _nowrapper=True)
-        value = r_longlong(0x06778899aabbccdd)
-        expected = r_longlong(0x6df0123456789aad)
+        value = r_longlong(0x7ff05af3307a3fff)
+        expected = r_longlong(0x7ff000001fffffff)
         assert f(value) == expected
         #
         FUNC = self.FuncType([lltype.SignedLongLong], lltype.SignedLongLong)
