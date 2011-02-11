@@ -22,3 +22,6 @@ class TestNumpyJIt(LLJitMixin):
             return v.force().storage[3]
 
         self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({'getarrayitem_gc': 2, 'float_add': 1,
+                          'setarrayitem_gc': 1, 'int_add': 1,
+                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
