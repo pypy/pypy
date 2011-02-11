@@ -117,8 +117,12 @@ class AutoFileTests(unittest.TestCase):
 
         for methodname in methods:
             method = getattr(self.f, methodname)
+            args = {'readinto': (bytearray(''),),
+                    'seek':     (0,),
+                    'write':    ('',),
+                    }.get(methodname, ())
             # should raise on closed file
-            self.assertRaises(ValueError, method)
+            self.assertRaises(ValueError, method, *args)
         with test_support.check_py3k_warnings():
             for methodname in deprecated_methods:
                 method = getattr(self.f, methodname)
