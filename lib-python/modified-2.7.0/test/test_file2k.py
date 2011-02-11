@@ -337,8 +337,9 @@ class OtherFileTests(unittest.TestCase):
                 except ValueError:
                     pass
                 else:
-                    self.fail("%s%r after next() didn't raise ValueError" %
-                                     (methodname, args))
+                    if test_support.check_impl_detail():
+                        self.fail("%s%r after next() didn't raise ValueError" %
+                                  (methodname, args))
                 f.close()
 
             # Test to see if harmless (by accident) mixing of read* and
