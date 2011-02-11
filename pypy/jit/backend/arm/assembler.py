@@ -68,6 +68,7 @@ class AssemblerARM(ResOpAssembler):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.mc = ARMv7Builder()
         self.guard_descrs = []
+        self.blocks = []
 
     def setup_once(self):
         # Addresses of functions called by new_xxx operations
@@ -228,7 +229,8 @@ class AssemblerARM(ResOpAssembler):
         # 1 separator byte
         # 4 bytes for the faildescr
         memsize = (len(arglocs)-1)*6+5
-        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
+        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, 
+                                                    self.blocks)
         memaddr = datablockwrapper.malloc_aligned(memsize, alignment=WORD)
         datablockwrapper.done()
         mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
@@ -403,6 +405,8 @@ class AssemblerARM(ResOpAssembler):
 
     def materialize_loop(self, looptoken):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
+        for block in self.blocks:
+            allblocks.append(block)
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
