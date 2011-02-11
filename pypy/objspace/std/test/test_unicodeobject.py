@@ -524,6 +524,8 @@ class AppTestUnicodeString:
         # Error handling (truncated escape sequence)
         raises(UnicodeError, "\\".decode, "unicode-escape")
 
+        raises(UnicodeError, "\xc2".decode, "utf-8")
+
     def test_repr_bug(self):
         assert (repr(u'\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
                 "u'\\U00090418\\u027d\\U000582b9\\u54c3\\U000fcb6e'")
