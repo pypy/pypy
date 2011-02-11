@@ -2351,6 +2351,72 @@ class LLtypeBackendTest(BaseBackendTest):
             assert res.value == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
 
+    def test_supports_longlong(self):
+        if sys.maxint > 2147483647:
+            assert not self.cpu.supports_longlong, (
+                "supports_longlong should be False on 64-bit platforms")
+
+    def test_longlong_result_of_call_direct(self):
+        if not self.cpu.supports_longlong:
+            py.test.skip("longlong test")
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.rlib.rarithmetic import r_longlong
+        from pypy.rlib.longlong2float import longlong2float, float2longlong
+        eci = ExternalCompilationInfo(
+            separate_module_sources=["""
+            long long fn_test_result_of_call(long long x)
+            {
+                return x * 17;
+            }
+            """],
+            export_symbols=['fn_test_result_of_call'])
+        f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
+                            lltype.SignedLongLong,
+                            compilation_info=eci, _nowrapper=True)
+        value = r_longlong(0x06778899aabbccdd)
+        expected = r_longlong(0x6df0123456789aad)
+        assert f(value) == expected
+        #
+        FUNC = self.FuncType([lltype.SignedLongLong], lltype.SignedLongLong)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        valuef = longlong2float(value)
+        xf = self.cpu.bh_call_f(self.get_funcbox(self.cpu, f).value,
+                                calldescr, None, None, [valuef])
+        x = float2longlong(xf)
+        assert x == expected
+
+    def test_longlong_result_of_call_compiled(self):
+        if not self.cpu.supports_longlong:
+            py.test.skip("test of longlong result")
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.rlib.rarithmetic import r_longlong
+        from pypy.rlib.longlong2float import longlong2float, float2longlong
+        eci = ExternalCompilationInfo(
+            separate_module_sources=["""
+            long long fn_test_result_of_call(long long x)
+            {
+                return x * 17;
+            }
+            """],
+            export_symbols=['fn_test_result_of_call'])
+        f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
+                            lltype.SignedLongLong,
+                            compilation_info=eci, _nowrapper=True)
+        value = r_longlong(0x06778899aabbccdd)
+        expected = r_longlong(0x6df0123456789aad)
+        assert f(value) == expected
+        #
+        FUNC = self.FuncType([lltype.SignedLongLong], lltype.SignedLongLong)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        funcbox = self.get_funcbox(self.cpu, f)
+        valuef = longlong2float(value)
+        resf = self.execute_operation(rop.CALL, [funcbox, BoxFloat(valuef)],
+                                     'float', descr=calldescr)
+        x = float2longlong(resf.value)
+        assert x == expected
+
     def test_free_loop_and_bridges(self):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
