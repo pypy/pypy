@@ -2151,7 +2151,7 @@ class MetaInterp(object):
             # warmstate.py.
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            assert not virtualizable.vable_token
+            assert not vinfo.gettoken(virtualizable)
             # fill the virtualizable with the local boxes
             self.synchronize_virtualizable()
         #
