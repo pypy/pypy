@@ -32,7 +32,7 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect", "binascii", "_multiprocessing", '_warnings']
+     "_bisect", "binascii", "_multiprocessing", '_warnings', 'micronumpy']
 ))
 
 translation_modules = default_modules.copy()
