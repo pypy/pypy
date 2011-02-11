@@ -29,6 +29,12 @@ class TranslationTest:
             def __init__(self, i):
                 self.i = i
 
+        class OtherFrame(object):
+            _virtualizable2_ = ['i']
+
+            def __init__(self, i):
+                self.i = i
+
         class JitCellCache:
             entry = None
         jitcellcache = JitCellCache()
@@ -61,18 +67,20 @@ class TranslationTest:
                 frame.i -= 1
             return total * 10
         #
-        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 'x', 's'])
+        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 's', 'f'],
+                                 virtualizables = ['f'])
         def f2(g, m, x):
             s = ""
+            f = OtherFrame(x)
             while m > 0:
-                myjitdriver2.can_enter_jit(g=g, m=m, x=x, s=s)
-                myjitdriver2.jit_merge_point(g=g, m=m, x=x, s=s)
+                myjitdriver2.can_enter_jit(g=g, m=m, f=f, s=s)
+                myjitdriver2.jit_merge_point(g=g, m=m, f=f, s=s)
                 s += 'xy'
                 if s[:2] == 'yz':
                     return -666
                 m -= 1
-                x += 3
-            return x
+                f.i += 3
+            return f.i
         #
         def main(i, j):
             return f(i) - f2(i+j, i, j)
@@ -124,9 +132,7 @@ class TranslationTest:
                                      type_system=self.type_system,
                                      optimizer=OPTIMIZER_FULL,
                                      ProfilerClass=Profiler)
-        assert res == main(40)
-
-
+        assert res == main(40)        
 
 class TestTranslationLLtype(TranslationTest):
 
