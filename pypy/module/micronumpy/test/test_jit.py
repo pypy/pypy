@@ -21,4 +21,4 @@ class TestNumpyJIt(LLJitMixin):
                 v = ar
             return v.force().storage[3]
 
-        self.meta_interp(f, [5])
+        self.meta_interp(f, [5], listops=True, backendopt=True)

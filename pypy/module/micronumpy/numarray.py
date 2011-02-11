@@ -9,49 +9,69 @@ from pypy.rlib import jit
 TP = lltype.GcArray(lltype.Float)
 
 numpy_driver = jit.JitDriver(greens = ['bytecode_pos', 'bytecode'],
-                             reds = ['result_size', 'i', 'input_pos',
-                                     'valuestackdepth', 'valuestack',
-                                     'input', 'result'])
+                             reds = ['result_size', 'i', 'frame',
+                                     'result'],
+                             virtualizables = ['frame'])
+
+class ComputationFrame(object):
+    _virtualizable2_ = ['valuestackdepth', 'valuestack[*]', 'local_pos',
+                        'locals[*]']
+    
+    def __init__(self, input):
+        self.valuestackdepth = 0
+        self.valuestack = [0.0] * len(input)
+        self.locals = input[:]
+        self.local_pos = len(input)
+
+    def getlocal(self):
+        p = self.local_pos - 1
+        assert p >= 0
+        res = self.locals[p]
+        self.local_pos = p
+        return res
+
+    def popvalue(self):
+        v = self.valuestackdepth - 1
+        assert v >= 0
+        res = self.valuestack[v]
+        self.valuestackdepth = v
+        return res
+
+    def pushvalue(self, v):
+        self.valuestack[self.valuestackdepth] = v
+        self.valuestackdepth += 1
 
 def compute(bytecode, input):
     result_size = input[0].size
     result = SingleDimArray(result_size)
     bytecode_pos = len(bytecode) - 1
-    input_pos = len(input) - 1
-    valuestack = [0.0] * len(input)
-    valuestackdepth = 0
     i = 0
+    frame = ComputationFrame(input)
     while i < result_size:
         numpy_driver.jit_merge_point(bytecode=bytecode, result=result,
                                      result_size=result_size,
-                                     valuestackdepth=valuestackdepth,
-                                     valuestack=valuestack,
-                                     input=input, input_pos=input_pos, i=i,
+                                     i=i, frame=frame,
                                      bytecode_pos=bytecode_pos)
         if bytecode_pos == -1:
             bytecode_pos = len(bytecode) - 1
-            input_pos = len(input) - 1
-            result.storage[i] = valuestack[0]
-            valuestack = [0.0] * len(input)
-            valuestackdepth = 0
+            frame.local_pos = len(frame.locals)
+            result.storage[i] = frame.valuestack[0]
+            frame.valuestackdepth = 0
             i += 1
             numpy_driver.can_enter_jit(bytecode=bytecode, result=result,
                                        result_size=result_size,
-                                       valuestackdepth=valuestackdepth,
-                                       valuestack=valuestack,
-                                       input=input, input_pos=input_pos, i=i,
+                                       i=i, frame=frame,
                                        bytecode_pos=bytecode_pos)
         else:
             opcode = bytecode[bytecode_pos]
             if opcode == 'l':
-                valuestack[valuestackdepth] = input[input_pos].storage[i]
-                valuestackdepth += 1
-                input_pos -= 1
+                val = frame.getlocal().storage[i]
+                frame.valuestack[frame.valuestackdepth] = val
+                frame.valuestackdepth += 1
             elif opcode == 'a':
-                a = valuestack[valuestackdepth - 1]
-                b = valuestack[valuestackdepth - 2]
-                valuestack[valuestackdepth - 2] = a + b
-                valuestackdepth -= 1
+                b = frame.popvalue()
+                a = frame.popvalue()
+                frame.pushvalue(a + b)
             else:
                 raise NotImplementedError
             bytecode_pos -= 1
