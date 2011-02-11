@@ -612,7 +612,7 @@ class BlackholeInterpreter(object):
 
     @arguments("i", returns="f")
     def bhimpl_cast_int_to_float(a):
-        return float(a)
+        x = float(a)
         return longlong.getfloatstorage(x)
 
     # ----------
