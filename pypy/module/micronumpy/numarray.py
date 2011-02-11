@@ -8,10 +8,10 @@ from pypy.rlib import jit
 
 TP = lltype.GcArray(lltype.Float)
 
-numpy_driver = jit.JitDriver(greens = ['bytecode'],
-                             reds = ['result', 'result_size', 'i',
-                                     'valuestack', 'valuestackdepth',
-                                     'input', 'input_pos'])
+numpy_driver = jit.JitDriver(greens = ['bytecode_pos', 'bytecode'],
+                             reds = ['result_size', 'i', 'input_pos',
+                                     'valuestackdepth', 'valuestack',
+                                     'input', 'result'])
 
 def compute(bytecode, input):
     result_size = input[0].size
@@ -26,7 +26,8 @@ def compute(bytecode, input):
                                      result_size=result_size,
                                      valuestackdepth=valuestackdepth,
                                      valuestack=valuestack,
-                                     input=input, input_pos=input_pos, i=i)
+                                     input=input, input_pos=input_pos, i=i,
+                                     bytecode_pos=bytecode_pos)
         if bytecode_pos == -1:
             bytecode_pos = len(bytecode) - 1
             input_pos = len(input) - 1
@@ -38,7 +39,8 @@ def compute(bytecode, input):
                                        result_size=result_size,
                                        valuestackdepth=valuestackdepth,
                                        valuestack=valuestack,
-                                       input=input, input_pos=input_pos, i=i)
+                                       input=input, input_pos=input_pos, i=i,
+                                       bytecode_pos=bytecode_pos)
         else:
             opcode = bytecode[bytecode_pos]
             if opcode == 'l':
