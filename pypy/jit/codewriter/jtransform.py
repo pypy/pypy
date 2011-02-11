@@ -39,7 +39,6 @@ class Transformer(object):
     def optimize_block(self, block):
         if block.operations == ():
             return
-        self.remove_longlong_constants(block)
         self.vable_array_vars = {}
         self.vable_flags = {}
         renamings = {}
@@ -134,55 +133,6 @@ class Transformer(object):
         assert block.exits[0].exitcase is None
         block.exits = block.exits[:1]
         block.exitswitch = None
-
-    def remove_longlong_constants(self, block):
-        # remove all Constant({Un}signedLongLong), and replace them with
-        # cast_int_to_longlong(Constant(Signed)) or
-        # two_ints_to_longlong(Constant(Signed), Constant(Signed)).
-        operations = []
-        all_constants = {}
-        #
-        def _get_const_as_var(c):
-            v = all_constants.get(c)
-            if v is None:
-                from pypy.rlib.rarithmetic import intmask
-                v = varoftype(c.concretetype)
-                value = int(c.value)
-                c_hi = Constant(intmask(value >> 32), lltype.Signed)
-                c_lo = Constant(intmask(value), lltype.Signed)
-                if c_lo.value == value:
-                    # a long long constant, but it fits in 32 bits
-                    op1 = SpaceOperation('cast_int_to_longlong', [c_lo], v)
-                else:
-                    # a 64-bit long long constant, requires two ints
-                    op1 = SpaceOperation('two_ints_to_longlong', [c_lo, c_hi],
-                                         v)
-                operations.append(op1)
-                all_constants[c] = v
-            return v
-        #
-        for op in block.operations:
-            for i, v in enumerate(op.args):
-                if (isinstance(v, Constant) and
-                        self._is_longlong(v.concretetype)):
-                    args = op.args[:]
-                    args[i] = _get_const_as_var(v)
-                    op = SpaceOperation(op.opname, args, op.result)
-            operations.append(op)
-        #
-        last_op = None
-        if block.exitswitch == c_last_exception:
-            last_op = operations.pop()
-        for link in block.exits:
-            for i, v in enumerate(link.args):
-                if (isinstance(v, Constant) and
-                        self._is_longlong(v.concretetype)):
-                    args = link.args[:]
-                    args[i] = _get_const_as_var(v)
-                    link.args = args
-        if last_op is not None:
-            operations.append(last_op)
-        block.operations = operations
 
     # ----------
 

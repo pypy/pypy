@@ -12,6 +12,7 @@ from pypy.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.blackhole import BlackholeInterpreter, NULL
+from pypy.jit.codewriter import longlong
 
 # ____________________________________________________________
 
@@ -42,7 +43,7 @@ def do_call(cpu, metainterp, argboxes, descr):
             args_r[count_r] = box.getref_base()
             count_r += 1
         elif box.type == FLOAT:
-            args_f[count_f] = box.getfloat()
+            args_f[count_f] = box.getfloatstorage()
             count_f += 1
     # get the function address as an integer
     func = argboxes[0].getint()
@@ -109,7 +110,8 @@ def do_setarrayitem_gc(cpu, _, arraybox, indexbox, itembox, arraydescr):
         cpu.bh_setarrayitem_gc_r(arraydescr, array, index,
                                  itembox.getref_base())
     elif arraydescr.is_array_of_floats():
-        cpu.bh_setarrayitem_gc_f(arraydescr, array, index, itembox.getfloat())
+        cpu.bh_setarrayitem_gc_f(arraydescr, array, index,
+                                 itembox.getfloatstorage())
     else:
         cpu.bh_setarrayitem_gc_i(arraydescr, array, index, itembox.getint())
 
@@ -118,7 +120,8 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
     index = indexbox.getint()
     assert not arraydescr.is_array_of_pointers()
     if arraydescr.is_array_of_floats():
-        cpu.bh_setarrayitem_raw_f(arraydescr, array, index, itembox.getfloat())
+        cpu.bh_setarrayitem_raw_f(arraydescr, array, index,
+                                  itembox.getfloatstorage())
     else:
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, itembox.getint())
 
@@ -146,7 +149,7 @@ def do_setfield_gc(cpu, _, structbox, itembox, fielddescr):
     if fielddescr.is_pointer_field():
         cpu.bh_setfield_gc_r(struct, fielddescr, itembox.getref_base())
     elif fielddescr.is_float_field():
-        cpu.bh_setfield_gc_f(struct, fielddescr, itembox.getfloat())
+        cpu.bh_setfield_gc_f(struct, fielddescr, itembox.getfloatstorage())
     else:
         cpu.bh_setfield_gc_i(struct, fielddescr, itembox.getint())
 
@@ -155,7 +158,7 @@ def do_setfield_raw(cpu, _, structbox, itembox, fielddescr):
     if fielddescr.is_pointer_field():
         cpu.bh_setfield_raw_r(struct, fielddescr, itembox.getref_base())
     elif fielddescr.is_float_field():
-        cpu.bh_setfield_raw_f(struct, fielddescr, itembox.getfloat())
+        cpu.bh_setfield_raw_f(struct, fielddescr, itembox.getfloatstorage())
     else:
         cpu.bh_setfield_raw_i(struct, fielddescr, itembox.getint())
 
@@ -342,7 +345,7 @@ def make_execute_function_with_boxes(name, func):
                 argboxes = argboxes[1:]
                 if argtype == 'i':   value = argbox.getint()
                 elif argtype == 'r': value = argbox.getref_base()
-                elif argtype == 'f': value = argbox.getfloat()
+                elif argtype == 'f': value = argbox.getfloatstorage()
             newargs = newargs + (value,)
         assert not argboxes
         #

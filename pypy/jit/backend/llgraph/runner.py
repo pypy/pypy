@@ -181,7 +181,7 @@ class BaseCPU(model.AbstractCPU):
                 elif isinstance(x, self.ts.ConstRef):
                     llimpl.compile_add_ref_const(c, x.value, self.ts.BASETYPE)
                 elif isinstance(x, history.ConstFloat):
-                    llimpl.compile_add_float_const(c, x.value)
+                    llimpl.compile_add_float_const(c, x.valuestorage)
                 else:
                     raise Exception("'%s' args contain: %r" % (op.getopname(),
                                                                x))
