@@ -185,34 +185,6 @@ class AbstractCPU(object):
     def typedescrof(TYPE):
         raise NotImplementedError
 
-    # ---------- float-like storage ----------
-    # On 32-bit, we want to absure occasionally the storage in BoxFloat
-    # and ConstFloat to store a 64-bit integer instead of a float.
-    # This is done by using the following helpers.  A "floatish" is either
-    # a float or a longlong, suitable for storage.
-
-    def check_floatish(self, xish):
-        if self.supports_longlong:
-            assert isinstance(xish, r_longlong)
-        else:
-            assert isinstance(xish, float)
-
-    def getfloatish(self, x):
-        """Return the float 'x' as a floatish."""
-        assert isinstance(x, float)
-        if self.supports_longlong:
-            return float2longlong(x)
-        else:
-            return x
-
-    def getfloat(self, xish):
-        """Return the floatish 'x' as a float."""
-        self.check_floatish(xish)
-        if self.supports_longlong:
-            return longlong2float(xish)
-        else:
-            return xish
-
     # ---------- the backend-dependent operations ----------
 
     # lltype specific operations
