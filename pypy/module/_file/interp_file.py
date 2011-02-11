@@ -58,15 +58,17 @@ class W_File(W_AbstractStream):
             raise operationerrfmt(space.w_ValueError,
                                   "invalid mode: '%s'", mode)
 
+    def check_closed(self):
+        if self.stream is None:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("I/O operation on closed file")
+            )
+
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing
         (i.e. if the file is closed)."""
-        stream = self.stream
-        if stream is None:
-            space = self.space
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('I/O operation on closed file'))
-        return stream
+        self.check_closed()
+        return self.stream
 
     def _when_reading_first_flush(self, otherfile):
         """Flush otherfile before reading from self."""
@@ -399,6 +401,7 @@ Note that newlines are not added.  The sequence can be any iterable object
 producing strings. This is equivalent to calling write() for each string."""
 
         space = self.space
+        self.check_closed()
         w_iterator = space.iter(w_lines)
         while True:
             try:
