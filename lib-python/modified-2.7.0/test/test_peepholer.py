@@ -81,6 +81,8 @@ class TestTranforms(unittest.TestCase):
             self.assertNotIn('UNPACK_TUPLE', asm)
 
     def test_folding_of_tuples_of_constants(self):
+        # On CPython, "a,b,c=1,2,3" turns into "a,b,c=<constant (1,2,3)>"
+        # but on PyPy, it turns into "a=1;b=2;c=3".
         for line, elem in (
             ('a = 1,2,3', '((1, 2, 3))'),
             ('("a","b","c")', "(('a', 'b', 'c'))"),
@@ -89,7 +91,8 @@ class TestTranforms(unittest.TestCase):
             ('((1, 2), 3, 4)', '(((1, 2), 3, 4))'),
             ):
             asm = dis_single(line)
-            self.assertIn(elem, asm)
+            self.assert_(elem in asm or (
+                line == 'a,b,c = 1,2,3' and 'UNPACK_TUPLE' not in asm))
             self.assertNotIn('BUILD_TUPLE', asm)
 
         # Bug 1053819:  Tuple of constants misidentified when presented with:
