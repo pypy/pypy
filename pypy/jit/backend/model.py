@@ -1,5 +1,4 @@
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
-from pypy.rlib.longlong2float import longlong2float, float2longlong
 from pypy.jit.metainterp import history, compile
 
 

@@ -252,7 +252,7 @@ class BlackholeInterpreter(object):
         if we_are_translated():
             default_i = 0
             default_r = NULL
-            default_f = longlong.getfloatstorage(0.0)
+            default_f = longlong.ZEROF
         else:
             default_i = MissingValue()
             default_r = MissingValue()

@@ -325,7 +325,7 @@ class BaseCallDescr(AbstractDescr):
         self.call_stub = d['call_stub']
 
     def verify_types(self, args_i, args_r, args_f, return_type):
-        assert self._return_type == return_type
+        assert self._return_type in return_type
         assert self.arg_classes.count('i') == len(args_i or ())
         assert self.arg_classes.count('r') == len(args_r or ())
         assert (self.arg_classes.count('f') +

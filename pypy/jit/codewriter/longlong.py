@@ -43,3 +43,5 @@ else:
                                     TYPE == lltype.UnsignedLongLong)
 
     # -------------------------------------
+
+ZEROF = getfloatstorage(0.0)

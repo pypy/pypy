@@ -12,7 +12,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
@@ -71,15 +71,16 @@ class X86XMMRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
-        xxxxxxxxx
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        x = c.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         return ConstFloatLoc(adr)
 
     def convert_to_imm_16bytes_align(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
-        xxxxxxxxx
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[1] = 0.0
+        x = c.getfloatstorage()
+        y = longlong.ZEROF
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
     def after_call(self, v):
@@ -223,8 +224,7 @@ class RegAlloc(object):
                              selected_reg=None, need_lower_byte=False):
         if var.type == FLOAT:
             if isinstance(var, ConstFloat):
-                xxxxxxxxxxxxxx
-                return FloatImmedLoc(var.getfloat())
+                return FloatImmedLoc(var.getfloatstorage())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
                                                  selected_reg, need_lower_byte)
         else:
@@ -683,11 +683,10 @@ class RegAlloc(object):
 
     def _maybe_consider_llong_lt(self, op):
         # XXX just a special case for now
-        from pypy.rlib.longlong2float import longlong2float
         box = op.getarg(2)
         if not isinstance(box, ConstFloat):
             return False
-        if not (box.value == longlong2float(r_longlong(0))):
+        if not box.aslonglong():
             return False
         # "x < 0"
         box = op.getarg(1)

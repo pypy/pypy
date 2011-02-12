@@ -6,6 +6,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.history import FLOAT
+from pypy.jit.codewriter import longlong
 
 #
 # This module adds support for "locations", which can be either in a Const,
@@ -212,9 +213,8 @@ if IS_X86_32:
         _immutable_ = True
         width = 8
 
-        def __init__(self, floatvalue):
-            from pypy.rlib.longlong2float import float2longlong
-            self.aslonglong = float2longlong(floatvalue)
+        def __init__(self, floatstorage):
+            self.aslonglong = floatstorage
 
         def low_part(self):
             return intmask(self.aslonglong)
@@ -229,15 +229,14 @@ if IS_X86_32:
             return ImmedLoc(self.high_part())
 
         def __repr__(self):
-            from pypy.rlib.longlong2float import longlong2float
-            floatvalue = longlong2float(self.aslonglong)
+            floatvalue = longlong.getrealfloat(self.aslonglong)
             return '<FloatImmedLoc(%s)>' % (floatvalue,)
 
         def location_code(self):
             raise NotImplementedError
 
 if IS_X86_64:
-    def FloatImmedLoc(floatvalue):
+    def FloatImmedLoc(floatstorage):
         from pypy.rlib.longlong2float import float2longlong
         value = intmask(float2longlong(floatvalue))
         return ImmedLoc(value)

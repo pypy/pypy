@@ -30,7 +30,7 @@ def do_call(cpu, metainterp, argboxes, descr):
     else:       args_i = None
     if count_r: args_r = [NULL] * count_r
     else:       args_r = None
-    if count_f: args_f = [0.0] * count_f
+    if count_f: args_f = [longlong.ZEROF] * count_f
     else:       args_f = None
     # fill in the lists
     count_i = count_r = count_f = 0
@@ -68,7 +68,7 @@ def do_call(cpu, metainterp, argboxes, descr):
             result = cpu.bh_call_f(func, descr, args_i, args_r, args_f)
         except Exception, e:
             metainterp.execute_raised(e)
-            result = 0.0
+            result = longlong.ZEROF
         return BoxFloat(result)
     if rettype == VOID:
         try:

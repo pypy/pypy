@@ -309,11 +309,11 @@ CONST_TRUE  = ConstInt(1)
 
 class ConstFloat(Const):
     type = FLOAT
-    value = longlong.getfloatstorage(0.0)
+    value = longlong.ZEROF
     _attrs_ = ('value',)
 
     def __init__(self, valuestorage):
-        assert isinstance(valuestorage, longlong.r_float_storage)
+        assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
         self.value = valuestorage
 
     def clonebox(self):
@@ -336,7 +336,7 @@ class ConstFloat(Const):
         return False
 
     def nonnull(self):
-        return self.value != 0
+        return self.value != longlong.ZEROF
 
     def _getrepr_(self):
         return self.getfloat()
@@ -344,7 +344,7 @@ class ConstFloat(Const):
     def repr_rpython(self):
         return repr_rpython(self, 'cf')
 
-CONST_FZERO = ConstFloat(longlong.getfloatstorage(0.0))
+CONST_FZERO = ConstFloat(longlong.ZEROF)
 
 class ConstPtr(Const):
     type = REF
@@ -554,12 +554,12 @@ class BoxFloat(Box):
     type = FLOAT
     _attrs_ = ('value',)
 
-    def __init__(self, valuestorage=longlong.getfloatstorage(0.0)):
-        assert isinstance(valuestorage, longlong.r_float_storage)
+    def __init__(self, valuestorage=longlong.ZEROF):
+        assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
         self.value = valuestorage
 
     def forget_value(self):
-        self.value = longlong.getfloatstorage(0.0)
+        self.value = longlong.ZEROF
 
     def clonebox(self):
         return BoxFloat(self.value)
@@ -577,7 +577,7 @@ class BoxFloat(Box):
         cpu.set_future_value_float(j, self.value)
 
     def nonnull(self):
-        return self.value != 0
+        return self.value != longlong.ZEROF
 
     def _getrepr_(self):
         return self.getfloat()

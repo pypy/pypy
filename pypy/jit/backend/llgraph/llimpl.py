@@ -25,7 +25,6 @@ from pypy.jit.codewriter import longlong
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
-from pypy.rlib.longlong2float import longlong2float, float2longlong
 
 import py
 from pypy.tool.ansi_print import ansi_log

@@ -551,6 +551,20 @@ class BaseBackendTest(Runner):
                                      descr=calldescr)
         assert res.value == ord('a')
 
+    def test_call_with_const_floats(self):
+        def func(f1, f2):
+            return f1 + f2
+
+        FUNC = self.FuncType([lltype.Float, lltype.Float], lltype.Float)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        func_ptr = llhelper(FPTR, func)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        res = self.execute_operation(rop.CALL, [funcbox, constfloat(1.5),
+                                                constfloat(2.5)], 'float',
+                                     descr=calldescr)
+        assert res.getfloat() == 4.0
+
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
@@ -2026,10 +2040,10 @@ class LLtypeBackendTest(BaseBackendTest):
             x = self.cpu.get_latest_value_float(0)
             assert longlong.getrealfloat(x) == 1.2 + 3.2
             called.append(failindex)
-            return longlong.getfloatstorage(13.5)
+            return 13.5
 
         FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
-                                             longlong.FLOATSTORAGE))
+                                             lltype.Float))
         class FakeJitDriverSD:
             index_of_virtualizable = -1
             _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
@@ -2116,7 +2130,7 @@ class LLtypeBackendTest(BaseBackendTest):
             x = self.cpu.get_latest_value_float(0)
             assert longlong.getrealfloat(x) == 1.25 + 3.25
             called.append(failindex)
-            return longlong.getfloatstorage(13.5)
+            return 13.5
 
         FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
                                              lltype.Float))
@@ -2391,7 +2405,6 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("longlong test")
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
         from pypy.rlib.rarithmetic import r_longlong
-        from pypy.rlib.longlong2float import longlong2float, float2longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
             long long fn_test_result_of_call(long long x)
@@ -2419,7 +2432,6 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("test of longlong result")
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
         from pypy.rlib.rarithmetic import r_longlong
-        from pypy.rlib.longlong2float import longlong2float, float2longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
             long long fn_test_result_of_call(long long x)
