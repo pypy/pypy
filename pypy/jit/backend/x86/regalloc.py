@@ -686,7 +686,7 @@ class RegAlloc(object):
         box = op.getarg(2)
         if not isinstance(box, ConstFloat):
             return False
-        if not box.aslonglong():
+        if box.getlonglong() != 0:
             return False
         # "x < 0"
         box = op.getarg(1)

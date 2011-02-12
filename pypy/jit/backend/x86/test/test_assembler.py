@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from pypy.jit.backend.detect_cpu import getcpuclass 
 from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86_64_RegisterManager, X86XMMRegisterManager, X86_64_XMMRegisterManager
+from pypy.jit.codewriter import longlong
 
 ACTUAL_CPU = getcpuclass()
 
@@ -144,7 +145,7 @@ def do_failure_recovery_func(withfloats):
                           immortal=True)
     expected_ints = [0] * len(content)
     expected_ptrs = [lltype.nullptr(llmemory.GCREF.TO)] * len(content)
-    expected_floats = [0.0] * len(content)
+    expected_floats = [longlong.ZEROF] * len(content)
 
     def write_in_stack(loc, value):
         assert loc >= 0
@@ -160,7 +161,7 @@ def do_failure_recovery_func(withfloats):
         else:
             if kind == 'float':
                 value, lo, hi = get_random_float()
-                expected_floats[i] = value
+                expected_floats[i] = longlong.getfloatstorage(value)
                 kind = Assembler386.DESCR_FLOAT
                 if isinstance(loc, RegLoc):
                     if WORD == 4:

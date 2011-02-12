@@ -551,7 +551,7 @@ class AbstractX86CodeBuilder(object):
 
     MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
-    PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
+    PMOVMSKB_rx = xmminsn('\x66', rex_w, '\x0F\xD7', register(1, 8), register(2), '\xC0')
 
     # ------------------------------------------------------------
 
