@@ -221,7 +221,12 @@ class OtherFileTests(unittest.TestCase):
     def testStdin(self):
         # This causes the interpreter to exit on OSF1 v5.1.
         if sys.platform != 'osf1V5':
-            self.assertRaises(IOError, sys.stdin.seek, -1)
+            if sys.stdin.isatty():
+                self.assertRaises(IOError, sys.stdin.seek, -1)
+            else:
+                print >>sys.__stdout__, (
+                    '  Skipping sys.stdin.seek(-1): stdin is not a tty.'
+                    ' Test manualy.')
         else:
             print >>sys.__stdout__, (
                 '  Skipping sys.stdin.seek(-1), it may crash the interpreter.'
