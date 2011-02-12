@@ -13,7 +13,15 @@ def fn(x):
 def test_longlong_as_float():
     assert fn(maxint64) == maxint64
 
+def test_roundtrip():
+    value = 0x7ff06af3307a3fef
+    assert fn(value) == value
+
 def test_compiled():
     fn2 = compile(fn, [r_longlong])
     res = fn2(maxint64)
     assert res == maxint64
+    #
+    special_value = 0x7ff06af3307a3fef
+    res = fn2(special_value)
+    assert res == special_value
