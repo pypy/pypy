@@ -89,13 +89,9 @@ class Assembler(object):
         elif kind == 'float':
             if const.concretetype == lltype.Float:
                 value = longlong.getfloatstorage(value)
-            elif const.concretetype == lltype.SignedLongLong:
-                assert longlong.supports_longlong
-            elif const.concretetype == lltype.UnsignedLongLong:
-                assert longlong.supports_longlong
-                value = rffi.cast(lltype.SignedLongLong, value)
             else:
-                raise AssertionError(const.concretetype)
+                assert longlong.is_longlong(const.concretetype)
+                value = rffi.cast(lltype.SignedLongLong, value)
             constants = self.constants_f
         else:
             raise AssemblerError('unimplemented %r in %r' %

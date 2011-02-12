@@ -1088,12 +1088,8 @@ def cast_from_floatstorage(TYPE, x):
     assert isinstance(x, longlong.r_float_storage)
     if TYPE is lltype.Float:
         return longlong.getrealfloat(x)
-    if IS_32_BIT:
-        assert longlong.supports_longlong
-        if TYPE is lltype.SignedLongLong:
-            return x
-        if TYPE is lltype.UnsignedLongLong:
-            return r_ulonglong(x)
+    if longlong.is_longlong(TYPE):
+        return rffi.cast(TYPE, x)
     raise TypeError(TYPE)
 
 
@@ -1465,7 +1461,8 @@ def do_call_pushfloat(x):
 
 kind2TYPE = {
     'i': lltype.Signed,
-    'f': longlong.FLOATSTORAGE,
+    'f': lltype.Float,
+    'L': lltype.SignedLongLong,
     'v': lltype.Void,
     }
 
@@ -1535,9 +1532,7 @@ def cast_call_args(ARGS, args_i, args_r, args_f, args_in_order=None):
                     assert n == 'r'
                 x = argsiter_r.next()
                 x = cast_from_ptr(TYPE, x)
-            elif TYPE is lltype.Float or (
-                    IS_32_BIT and TYPE in (lltype.SignedLongLong,
-                                           lltype.UnsignedLongLong)):
+            elif TYPE is lltype.Float or longlong.is_longlong(TYPE):
                 if args_in_order is not None:
                     n = orderiter.next()
                     assert n == 'f'
@@ -1646,6 +1641,13 @@ _TO_OPAQUE[OOFrame] = OOFRAME.TO
 s_CompiledLoop = annmodel.SomePtr(COMPILEDLOOP)
 s_Frame = annmodel.SomePtr(FRAME)
 
+if longlong.FLOATSTORAGE is lltype.Float:
+    s_FloatStorage = annmodel.SomeFloat()
+elif longlong.FLOATSTORAGE is lltype.SignedLongLong:
+    s_FloatStorage = annmodel.SomeInteger(knowntype=longlong.r_float_storage)
+else:
+    assert 0
+
 setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ref_var, annmodel.SomeInteger())
@@ -1674,7 +1676,7 @@ setannotation(set_future_value_float, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))
-setannotation(frame_float_getvalue, annmodel.SomeFloat())
+setannotation(frame_float_getvalue, s_FloatStorage)
 setannotation(frame_get_value_count, annmodel.SomeInteger())
 setannotation(frame_clear_latest_values, annmodel.s_None)
 
@@ -1690,15 +1692,15 @@ setannotation(do_unicodelen, annmodel.SomeInteger())
 setannotation(do_unicodegetitem, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_int, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_getarrayitem_gc_float, annmodel.SomeFloat())
+setannotation(do_getarrayitem_gc_float, s_FloatStorage)
 setannotation(do_getarrayitem_raw_int, annmodel.SomeInteger())
-setannotation(do_getarrayitem_raw_float, annmodel.SomeFloat())
+setannotation(do_getarrayitem_raw_float, s_FloatStorage)
 setannotation(do_getfield_gc_int, annmodel.SomeInteger())
 setannotation(do_getfield_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_getfield_gc_float, annmodel.SomeFloat())
+setannotation(do_getfield_gc_float, s_FloatStorage)
 setannotation(do_getfield_raw_int, annmodel.SomeInteger())
 setannotation(do_getfield_raw_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_getfield_raw_float, annmodel.SomeFloat())
+setannotation(do_getfield_raw_float, s_FloatStorage)
 setannotation(do_new, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_new_array, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_setarrayitem_gc_int, annmodel.s_None)
@@ -1720,5 +1722,5 @@ setannotation(do_call_pushint, annmodel.s_None)
 setannotation(do_call_pushptr, annmodel.s_None)
 setannotation(do_call_int, annmodel.SomeInteger())
 setannotation(do_call_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_call_float, annmodel.SomeFloat())
+setannotation(do_call_float, s_FloatStorage)
 setannotation(do_call_void, annmodel.s_None)

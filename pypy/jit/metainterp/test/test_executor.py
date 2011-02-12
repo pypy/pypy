@@ -112,13 +112,13 @@ def test_execute_nonspec():
     box2 = boxfloat(222.2)
     fielddescr = FakeFieldDescr()
     execute_nonspec(cpu, None, rop.SETFIELD_GC, [box1, box2], fielddescr)
-    assert cpu.fakesetfield == (box1.value, box2.valuestorage, fielddescr)
+    assert cpu.fakesetfield == (box1.value, box2.value, fielddescr)
     # arity == 3
     box3 = BoxInt(33)
     arraydescr = FakeArrayDescr()
     execute_nonspec(cpu, None, rop.SETARRAYITEM_GC, [box1, box3, box2],
                     arraydescr)
-    assert cpu.fakesetarrayitem == (box1.value, box3.value, box2.valuestorage,
+    assert cpu.fakesetarrayitem == (box1.value, box3.value, box2.value,
                                     arraydescr)
     # cases without descr
     # arity == 1

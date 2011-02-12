@@ -425,6 +425,8 @@ class BaseBackendTest(Runner):
         assert x == ord('B')
         if cpu.supports_floats:
             def func(f, i):
+                assert isinstance(f, float)
+                assert isinstance(i, int)
                 return f - float(i)
             FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Signed],
                                           lltype.Float))

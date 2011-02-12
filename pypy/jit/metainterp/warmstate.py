@@ -142,8 +142,7 @@ def set_future_value(cpu, j, value, typecode):
         if lltype.typeOf(value) is lltype.Float:
             value = longlong.getfloatstorage(value)
         else:
-            assert lltype.typeOf(value) in (lltype.SignedLongLong,
-                                            lltype.UnsignedLongLong)
+            assert longlong.is_longlong(lltype.typeOf(value))
             value = rffi.cast(lltype.SignedLongLong, value)
         cpu.set_future_value_float(j, value)
     else:

@@ -144,6 +144,7 @@ class AbstractDescr(AbstractValue):
     def get_return_type(self):
         """ Implement in call descr.
         Must return INT, REF, FLOAT, or 'v' for void.
+        On 32-bit (hack) it can also be 'L' for longlongs.
         """
         raise NotImplementedError
 
@@ -308,38 +309,34 @@ CONST_TRUE  = ConstInt(1)
 
 class ConstFloat(Const):
     type = FLOAT
-    valuestorage = longlong.getfloatstorage(0.0)
-    _attrs_ = ('valuestorage',)
-
-    @property
-    def value(self):
-        XXX      # temporary
+    value = longlong.getfloatstorage(0.0)
+    _attrs_ = ('value',)
 
     def __init__(self, valuestorage):
         assert isinstance(valuestorage, longlong.r_float_storage)
-        self.valuestorage = valuestorage
+        self.value = valuestorage
 
     def clonebox(self):
-        return BoxFloat(self.valuestorage)
+        return BoxFloat(self.value)
 
     nonconstbox = clonebox
 
     def getfloatstorage(self):
-        return self.valuestorage
+        return self.value
 
     def _get_hash_(self):
-        return longlong.gethash(self.valuestorage)
+        return longlong.gethash(self.value)
 
     def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.valuestorage)
+        cpu.set_future_value_float(j, self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
-            return self.valuestorage == other.valuestorage
+            return self.value == other.value
         return False
 
     def nonnull(self):
-        return self.valuestorage != 0
+        return self.value != 0
 
     def _getrepr_(self):
         return self.getfloat()
@@ -555,36 +552,32 @@ class BoxInt(Box):
 
 class BoxFloat(Box):
     type = FLOAT
-    _attrs_ = ('valuestorage',)
-
-    @property
-    def value(self):
-        XXX      # temporary
+    _attrs_ = ('value',)
 
     def __init__(self, valuestorage=longlong.getfloatstorage(0.0)):
         assert isinstance(valuestorage, longlong.r_float_storage)
-        self.valuestorage = valuestorage
+        self.value = valuestorage
 
     def forget_value(self):
-        self.valuestorage = longlong.getfloatstorage(0.0)
+        self.value = longlong.getfloatstorage(0.0)
 
     def clonebox(self):
-        return BoxFloat(self.valuestorage)
+        return BoxFloat(self.value)
 
     def constbox(self):
-        return ConstFloat(self.valuestorage)
+        return ConstFloat(self.value)
 
     def getfloatstorage(self):
-        return self.valuestorage
+        return self.value
 
     def _get_hash_(self):
-        return longlong.gethash(self.valuestorage)
+        return longlong.gethash(self.value)
 
     def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.valuestorage)
+        cpu.set_future_value_float(j, self.value)
 
     def nonnull(self):
-        return self.valuestorage != 0
+        return self.value != 0
 
     def _getrepr_(self):
         return self.getfloat()

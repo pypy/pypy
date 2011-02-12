@@ -63,7 +63,7 @@ def do_call(cpu, metainterp, argboxes, descr):
             metainterp.execute_raised(e)
             result = NULL
         return BoxPtr(result)
-    if rettype == FLOAT:
+    if rettype == FLOAT or rettype == 'L':
         try:
             result = cpu.bh_call_f(func, descr, args_i, args_r, args_f)
         except Exception, e:

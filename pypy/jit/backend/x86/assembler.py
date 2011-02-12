@@ -38,6 +38,7 @@ from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.codewriter import longlong
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -71,7 +72,8 @@ class Assembler386(object):
         self.malloc_unicode_func_addr = 0
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
-        self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
+        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
+                                             failargs_limit)
         self.fail_ebp = 0
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
@@ -1801,11 +1803,13 @@ class Assembler386(object):
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
             # a float or a long long return
-            from pypy.jit.backend.llsupport.descr import LongLongCallDescr
-            if isinstance(op.getdescr(), LongLongCallDescr):
+            if op.getdescr().get_return_type() == 'L':
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
                 self.mc.MOV_br(resloc.value + 4, edx.value)
-                # XXX should ideally not move the result on the stack
+                # XXX should ideally not move the result on the stack,
+                #     but it's a mess to load eax/edx into a xmm register
+                #     and this way is simpler also because the result loc
+                #     can just be always a stack location
             else:
                 self.mc.FSTP_b(resloc.value)   # float return
         elif size == WORD:

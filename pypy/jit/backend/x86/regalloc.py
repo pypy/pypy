@@ -71,11 +71,13 @@ class X86XMMRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        xxxxxxxxx
         rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
         return ConstFloatLoc(adr)
 
     def convert_to_imm_16bytes_align(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        xxxxxxxxx
         rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
         rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[1] = 0.0
         return ConstFloatLoc(adr)
@@ -221,6 +223,7 @@ class RegAlloc(object):
                              selected_reg=None, need_lower_byte=False):
         if var.type == FLOAT:
             if isinstance(var, ConstFloat):
+                xxxxxxxxxxxxxx
                 return FloatImmedLoc(var.getfloat())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
                                                  selected_reg, need_lower_byte)
@@ -703,8 +706,7 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(1))
 
     def _loc_of_const_longlong(self, value64):
-        from pypy.rlib.longlong2float import longlong2float
-        c = ConstFloat(longlong2float(value64))
+        c = ConstFloat(value64)
         return self.xrm.convert_to_imm(c)
 
     def _consider_llong_from_int(self, op):

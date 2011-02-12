@@ -5,7 +5,7 @@ from pypy.jit.metainterp.history import getkind
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
-from pypy.jit.codewriter import support, heaptracker
+from pypy.jit.codewriter import support, heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
@@ -791,17 +791,6 @@ class Transformer(object):
     # and unsupported ones are turned into a call to a function from
     # jit.codewriter.support.
 
-    if lltype.SignedLongLong != lltype.Signed:
-        @staticmethod
-        def _is_longlong(TYPE):
-            return (TYPE == lltype.SignedLongLong or
-                    TYPE == lltype.UnsignedLongLong)
-    else:
-        # on 64-bit, _is_longlong() returns always False
-        @staticmethod
-        def _is_longlong(TYPE):
-            return False
-
     for _op, _oopspec in [('llong_invert',  'INVERT'),
                           ('ullong_invert', 'INVERT'),
                           ('llong_lt',      'LT'),
@@ -878,8 +867,8 @@ class Transformer(object):
     rewrite_op_ullong_is_true = rewrite_op_llong_is_true
 
     def rewrite_op_cast_primitive(self, op):
-        fromll = self._is_longlong(op.args[0].concretetype)
-        toll   = self._is_longlong(op.result.concretetype)
+        fromll = longlong.is_longlong(op.args[0].concretetype)
+        toll   = longlong.is_longlong(op.result.concretetype)
         if fromll != toll:
             args = op.args
             if fromll:
