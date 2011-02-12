@@ -526,6 +526,14 @@ class Transformer(object):
         return self._do_builtin_call(op, 'raw_free', [op.args[0]],
                                      extra = (ARRAY,), extrakey = ARRAY)
 
+    def rewrite_op_sse_float_add(self, op):
+        ARRAY = op.args[0].concretetype.TO
+        arraydescr = self.cpu.arraydescrof(ARRAY)
+        kind = getkind(op.result.concretetype)
+        assert kind == 'void'
+        return SpaceOperation('sse_float_add',
+                              [arraydescr] + op.args, op.result)
+
     def rewrite_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
         if self._array_of_voids(ARRAY):

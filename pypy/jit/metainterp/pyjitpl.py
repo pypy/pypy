@@ -394,6 +394,11 @@ class MIFrame(object):
     opimpl_getarrayitem_gc_r = _opimpl_getarrayitem_gc_any
     opimpl_getarrayitem_gc_f = _opimpl_getarrayitem_gc_any
 
+    @arguments("descr", "box", "box", "box", "box")
+    def opimpl_sse_float_add(self, arraydescr, array1, array2, arrayres, index):
+        return self.execute_with_descr(rop.SSE_FLOAT_ADD, arraydescr, array1,
+                                       array2, arrayres, index)
+
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_raw_any(self, arraybox, arraydescr, indexbox):
         return self.execute_with_descr(rop.GETARRAYITEM_RAW,

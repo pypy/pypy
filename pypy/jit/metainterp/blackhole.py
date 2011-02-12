@@ -1036,6 +1036,15 @@ class BlackholeInterpreter(object):
     def bhimpl_setarrayitem_raw_f(cpu, array, arraydescr, index, newvalue):
         cpu.bh_setarrayitem_raw_f(arraydescr, array, index, newvalue)
 
+    @arguments("cpu", "d", "i", "i", "i", "i")
+    def bhimpl_sse_float_add(cpu, arraydescr, array1, array2, array_res, index):
+        one = cpu.bh_getarrayitem_raw_f(arraydescr, array1, index)
+        two = cpu.bh_getarrayitem_raw_f(arraydescr, array2, index)
+        cpu.bh_setarrayitem_raw_f(arraydescr, array_res, index, one + two)
+        one = cpu.bh_getarrayitem_raw_f(arraydescr, array1, index + 1)
+        two = cpu.bh_getarrayitem_raw_f(arraydescr, array2, index + 1)
+        cpu.bh_setarrayitem_raw_f(arraydescr, array_res, index + 1, one + two)
+
     # note, there is no 'r' here, since it can't happen
 
     @arguments("cpu", "r", "d", returns="i")

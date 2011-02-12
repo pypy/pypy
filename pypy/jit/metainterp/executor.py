@@ -122,6 +122,17 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
     else:
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, itembox.getint())
 
+def do_sse_float_add(cpu, _, array1, array2, arrayres, indexbox, arraydescr):
+    onebox = do_getarrayitem_raw(cpu, _, array1, indexbox, arraydescr)
+    twobox = do_getarrayitem_raw(cpu, _, array2, indexbox, arraydescr)
+    res = onebox.getfloat() + twobox.getfloat()
+    do_setarrayitem_raw(cpu, _, arrayres, indexbox, BoxFloat(res), arraydescr)
+    indexbox = BoxInt(indexbox.getint() + 1)
+    onebox = do_getarrayitem_raw(cpu, _, array1, indexbox, arraydescr)
+    twobox = do_getarrayitem_raw(cpu, _, array2, indexbox, arraydescr)
+    res = onebox.getfloat() + twobox.getfloat()
+    do_setarrayitem_raw(cpu, _, arrayres, indexbox, BoxFloat(res), arraydescr)
+
 def do_getfield_gc(cpu, _, structbox, fielddescr):
     struct = structbox.getref_base()
     if fielddescr.is_pointer_field():

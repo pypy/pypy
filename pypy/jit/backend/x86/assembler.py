@@ -740,6 +740,14 @@ class Assembler386(object):
         else:
             self.mc.MOV(to_loc, from_loc)
 
+    def move_from_array_to_xmm(self, base_loc, ofs_loc, itemsize, ofs, xmmreg):
+        assert isinstance(xmmreg, RegLoc)
+        assert isinstance(ofs, ImmedLoc)
+        assert isinstance(itemsize, ImmedLoc)
+        scale = _get_scale(itemsize.value)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
+        self.mc.MOVAPD(xmmreg, src_addr)
+
     regalloc_mov = mov # legacy interface
 
     def regalloc_push(self, loc):
@@ -1120,6 +1128,17 @@ class Assembler386(object):
     def genop_uint_floordiv(self, op, arglocs, resloc):
         self.mc.XOR_rr(edx.value, edx.value)
         self.mc.DIV_r(ecx.value)
+
+    def genop_discard_sse_float_add(self, op, arglocs):
+        base_loc, ofs_loc, itemsize, ofs, loc1, loc2 = arglocs
+        assert isinstance(loc1, RegLoc)
+        assert isinstance(loc2, RegLoc)
+        assert isinstance(ofs, ImmedLoc)
+        assert isinstance(itemsize, ImmedLoc)
+        scale = _get_scale(itemsize.value)
+        dest_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
+        self.mc.ADDPD(loc1, loc2)
+        self.mc.MOVAPD(dest_addr, loc1)
 
     genop_llong_add = _binaryop("PADDQ", True)
     genop_llong_sub = _binaryop("PSUBQ")

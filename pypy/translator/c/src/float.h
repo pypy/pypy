@@ -43,3 +43,7 @@
 #define OP_CAST_FLOAT_TO_LONGLONG(x,r) r = (long long)(x)
 #define OP_CAST_FLOAT_TO_ULONGLONG(x,r) r = (unsigned long long)(x)
 #endif
+
+/*** those operations don't do anything because they're in
+     if we_are_jitted() path ***/
+#define OP_SSE_FLOAT_ADD(a, b, c, d, e)

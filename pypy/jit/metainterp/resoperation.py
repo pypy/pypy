@@ -466,6 +466,7 @@ _oplist = [
     'SETARRAYITEM_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
+    'SSE_FLOAT_ADD/4d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
     #'RUNTIMENEW/1',     # ootype operation    

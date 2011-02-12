@@ -161,6 +161,7 @@ TYPES = {
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
     'guard_not_forced': ((), None),
+    'sse_float_add'   : (('int', 'int', 'int', 'int'), None),
 }
 
 # ____________________________________________________________
@@ -734,6 +735,12 @@ class Frame(object):
             raise NotImplementedError
 
     op_getarrayitem_raw_pure = op_getarrayitem_raw
+
+    def op_sse_float_add(self, arraydescr, array1, array2, arrayres,
+                         index):
+        from pypy.jit.metainterp.blackhole import BlackholeInterpreter
+        return BlackholeInterpreter.bhimpl_sse_float_add.im_func(self.cpu,
+               arraydescr, array1, array2, arrayres, index)
 
     def op_getfield_gc(self, fielddescr, struct):
         if fielddescr.typeinfo == REF:

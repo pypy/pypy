@@ -443,7 +443,7 @@ LL_OPERATIONS = {
 
     # __________ vectorization ops _______
 
-    'sse_float_add': LLOp(sideeffects=False, canrun=True),
+    'sse_float_add': LLOp(canrun=True),
 
     # __________ GC operations __________
 
