@@ -19,6 +19,7 @@ class Module(Wrappable):
         self.w_name = w_name 
         if w_name is not None:
             space.setitem(w_dict, space.new_interned_str('__name__'), w_name)
+        space.setitem(w_dict, space.new_interned_str('__package__'), space.w_None)
         self.startup_called = False
 
     def setup_after_space_initialization(self):
@@ -63,6 +64,7 @@ class Module(Wrappable):
             w_doc = space.w_None
         space.setitem(self.w_dict, space.new_interned_str('__name__'), w_name)
         space.setitem(self.w_dict, space.new_interned_str('__doc__'), w_doc)
+        space.setitem(self.w_dict, space.new_interned_str('__package__'), space.w_None)
 
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.wrap('__name__'))
