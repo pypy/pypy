@@ -165,12 +165,13 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
             info = self.info[box]
         except KeyError:
             value = self.getvalue(box)
-            self.info[box] = info = value.make_virtual_info(self, None)
-            if box in self.fieldboxes:
-                info.fieldstate = [self.state(b) for b in self.fieldboxes[box]]
-                # FIXME: Do we realy want to add fields to the VirtualInfo's?
-            elif isinstance(value, AbstractVirtualValue):
-                info.fieldstate = []
+            if value.is_virtual():
+                info = value.make_virtual_info(self, None)
+                flds = self.fieldboxes[box]
+                info.fieldstate = [self.state(b) for b in flds]
+            else:
+                info = self.make_not_virtual(value)
+            self.info[box] = info 
         return info
 
     def get_virtual_state(self, jump_args):
@@ -187,7 +188,10 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
     def __init__(self, value):
         self.known_class = value.known_class
         self.level = value.level
-        self.intbound = value.intbound.clone()
+        if value.intbound is None:
+            self.intbound = IntBound(MININT, MAXINT)
+        else:
+            self.intbound = value.intbound.clone()
         if value.is_constant():
             self.constbox = value.box
         else:
@@ -661,11 +665,14 @@ class OptInlineShortPreamble(Optimization):
                         try:
                             self.inline(sh.operations, sh.inputargs,
                                         op.getarglist())
+                            jumpop = self.optimizer.newoperations.pop()
+                            assert jumpop.getopnum() == rop.JUMP
                             for guard in extra_guards:
                                 descr = sh.start_resumedescr.clone_if_mutable()
                                 self.inliner.inline_descr_inplace(descr)
                                 guard.setdescr(descr)
                                 self.emit_operation(guard)
+                            self.optimizer.newoperations.append(jumpop)
                         except InvalidLoop:
                             debug_print("Inlining failed unexpectedly",
                                         "jumping to preamble instead")
