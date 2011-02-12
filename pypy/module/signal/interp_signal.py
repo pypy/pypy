@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, exception_from_errno
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
@@ -303,6 +303,10 @@ def itimer_retval(space, val):
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+def get_itimer_error(space):
+    mod = space.getbuiltinmodule("signal")
+    return space.getattr(mod, space.wrap("ItimerError"))
+
 @jit.dont_look_inside
 @unwrap_spec(ObjSpace, int, float, float)
 def setitimer(space, which, first, interval=0):
@@ -313,7 +317,10 @@ def setitimer(space, which, first, interval=0):
 
         with lltype.scoped_alloc(itimervalP.TO, 1) as old:
 
-            c_setitimer(which, new, old)
+            ret = c_setitimer(which, new, old)
+            if ret != 0:
+                raise exception_from_errno(space, get_itimer_error(space))
+
 
             return itimer_retval(space, old[0])
 

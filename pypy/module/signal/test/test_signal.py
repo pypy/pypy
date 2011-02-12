@@ -255,3 +255,7 @@ class AppTestItimer:
         signal.pause()
         assert self.called
 
+    def test_itimer_exc(self):
+        import signal
+
+        raises(signal.ItimerError, signal.setitimer, -1, 0)
