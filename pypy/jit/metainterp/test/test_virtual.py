@@ -614,6 +614,45 @@ class VirtualTests:
         assert res == f(40, 3)
         self.check_loop_count(3)
 
+    def test_forced_virtual_assigned_different_class_in_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'node', 'node2'])
+        def externfn(node):
+            node.value += 1
+        class A(object):
+            def __init__(self, value):
+                self.value = value
+            def op(self, val):
+                return self.value + val
+        class B(A):
+            def op(self, val):
+                return self.value - val
+        def f(n, s, node2):
+            node = A(1)
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, s=s, node=node, node2=node2)
+                myjitdriver.jit_merge_point(n=n, s=s, node=node, node2=node2)
+                if (n>>s) & 1:
+                    node2.value += node.value
+                    node = node2
+                else:
+                    node.value = node.op(1)
+                    node = A(node.value + 7)
+                    externfn(node)
+                n -= 1
+            return node.value
+        def g1(n, s):
+            return f(n, s, A(2)) + f(n, s, B(2))
+        def g2(n, s):
+            return f(n, s, B(2)) + f(n, s, A(2))
+        res = self.meta_interp(g1, [40, 3], policy=StopAtXPolicy(externfn))
+        assert res == g1(40, 3)
+        res = self.meta_interp(g1, [48, 3], policy=StopAtXPolicy(externfn))
+        assert res == g1(48, 3)
+        res = self.meta_interp(g2, [40, 3], policy=StopAtXPolicy(externfn))
+        assert res == g2(40, 3)
+        res = self.meta_interp(g2, [48, 3], policy=StopAtXPolicy(externfn))
+        assert res == g2(48, 3)
+
     def test_empty_virtual_with_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'sa', 'node'])
         def f(n, s):
