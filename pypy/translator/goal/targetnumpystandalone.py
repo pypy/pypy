@@ -45,7 +45,8 @@ def entry_point(argv):
         floats.append(float(i + 1))
     t0 = time.time()
     compute(bytecode, arrays)
-    print "TOOK:", time.time() - t0
+    print "bytecode:", bytecode, "size:", size
+    print "took:", time.time() - t0
     return 0
 
 def target(*args):
