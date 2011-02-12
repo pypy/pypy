@@ -388,7 +388,7 @@ class GcPtrCallDescr(BaseCallDescr):
 class FloatCallDescr(BaseCallDescr):
     _clsname = 'FloatCallDescr'
     _return_type = history.FLOAT
-    call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0.0)
+    call_stub = staticmethod(lambda func,args_i,args_r,args_f: longlong.ZEROF)
     def get_result_size(self, translate_support_code):
         return symbolic.get_size(lltype.Float, translate_support_code)
 

@@ -238,7 +238,7 @@ if IS_X86_32:
 if IS_X86_64:
     def FloatImmedLoc(floatstorage):
         from pypy.rlib.longlong2float import float2longlong
-        value = intmask(float2longlong(floatvalue))
+        value = intmask(float2longlong(floatstorage))
         return ImmedLoc(value)
 
 
