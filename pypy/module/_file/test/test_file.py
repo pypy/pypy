@@ -198,6 +198,15 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert res == ".,."
         f.close()
 
+    def test_open_dir(self):
+        import os
+
+        exc = raises(IOError, self.file, os.curdir)
+        assert exc.value.filename == os.curdir
+        exc = raises(IOError, self.file, os.curdir, 'w')
+        assert exc.value.filename == os.curdir
+
+
 class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,
     # because on top of py.py the inner calls to os.write() don't
