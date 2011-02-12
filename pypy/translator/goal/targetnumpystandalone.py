@@ -20,7 +20,7 @@ def create_array(size):
     return a
 
 def entry_point(argv):
-    if len(argv) == 2:
+    if len(argv) != 3:
         print __doc__
         return 1
     bytecode = argv[1]
