@@ -726,36 +726,11 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc1, loc2], loc0)
         self.rm.possibly_free_var(box)
 
-    def _consider_llong_from_two_ints(self, op):
+    def _consider_llong_from_uint(self, op):
         assert IS_X86_32
-        box1 = op.getarg(1)
-        box2 = op.getarg(2)
         loc0 = self.xrm.force_allocate_reg(op.result)
-        #
-        if isinstance(box1, ConstInt) and isinstance(box2, ConstInt):
-            # all-constant arguments: load the result value in a single step
-            value64 = r_longlong(box2.value) << 32
-            value64 |= r_longlong(r_uint(box1.value))
-            loc1 = self._loc_of_const_longlong(value64)
-            loc2 = None    # unused
-            loc3 = None    # unused
-        #
-        else:
-            tmpxvar = TempBox()
-            loc3 = self.xrm.force_allocate_reg(tmpxvar, [op.result])
-            self.xrm.possibly_free_var(tmpxvar)
-            #
-            if isinstance(box1, ConstInt):
-                loc1 = self._loc_of_const_longlong(r_longlong(box1.value))
-            else:
-                loc1 = self.rm.make_sure_var_in_reg(box1)
-            #
-            if isinstance(box2, ConstInt):
-                loc2 = self._loc_of_const_longlong(r_longlong(box2.value))
-            else:
-                loc2 = self.rm.make_sure_var_in_reg(box2, [box1])
-        #
-        self.PerformLLong(op, [loc1, loc2, loc3], loc0)
+        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
+        self.PerformLLong(op, [loc1], loc0)
         self.rm.possibly_free_vars_for_op(op)
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
@@ -805,8 +780,8 @@ class RegAlloc(object):
                     return self._consider_llong_to_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_INT:
                     return self._consider_llong_from_int(op)
-                if oopspecindex == EffectInfo.OS_LLONG_FROM_TWO_INTS:
-                    return self._consider_llong_from_two_ints(op)
+                if oopspecindex == EffectInfo.OS_LLONG_FROM_UINT:
+                    return self._consider_llong_from_uint(op)
                 if (oopspecindex == EffectInfo.OS_LLONG_EQ or
                     oopspecindex == EffectInfo.OS_LLONG_NE):
                     return self._consider_llong_eq_ne_xx(op)

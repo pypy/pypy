@@ -1151,24 +1151,11 @@ class Assembler386(object):
             self.mc.MOVD_xr(loc2.value, edx.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
 
-    def genop_llong_from_two_ints(self, op, arglocs, resloc):
+    def genop_llong_from_uint(self, op, arglocs, resloc):
+        loc1, = arglocs
         assert isinstance(resloc, RegLoc)
-        loc1, loc2, loc3 = arglocs
-        #
-        if isinstance(loc1, ConstFloatLoc):
-            self.mc.MOVSD(resloc, loc1)
-        else:
-            assert isinstance(loc1, RegLoc)
-            self.mc.MOVD_xr(resloc.value, loc1.value)
-        #
-        if loc2 is not None:
-            assert isinstance(loc3, RegLoc)
-            if isinstance(loc2, ConstFloatLoc):
-                self.mc.MOVSD(loc3, loc2)
-            else:
-                assert isinstance(loc2, RegLoc)
-                self.mc.MOVD_xr(loc3.value, loc2.value)
-            self.mc.PUNPCKLDQ_xx(resloc.value, loc3.value)
+        assert isinstance(loc1, RegLoc)
+        self.mc.MOVD_xr(resloc.value, loc1.value)
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs

@@ -836,8 +836,7 @@ class Transformer(object):
                           ('truncate_longlong_to_int', 'TO_INT'),
                           ('cast_float_to_longlong',   'FROM_FLOAT'),
                           ('cast_longlong_to_float',   'TO_FLOAT'),
-                          # internal pseuso-operation:
-                          ('two_ints_to_longlong',     'FROM_TWO_INTS'),
+                          ('cast_uint_to_longlong',    'FROM_UINT'),
                           ]:
         exec py.code.Source('''
             def rewrite_op_%s(self, op):
@@ -890,9 +889,7 @@ class Transformer(object):
                 if rffi.cast(op.args[0].concretetype, -1) < 0:
                     opname = 'cast_int_to_longlong'
                 else:
-                    opname = 'two_ints_to_longlong'
-                    c_hi = Constant(0, lltype.Signed)
-                    args = [args[0], c_hi]
+                    opname = 'cast_uint_to_longlong'
             op1 = SpaceOperation(opname, args, op.result)
             return self.rewrite_operation(op1)
 
