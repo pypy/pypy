@@ -14,8 +14,14 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.rarithmetic import intmask
+
+def boxfloat(x):
+    return BoxFloat(longlong.getfloatstorage(x))
+
+def constfloat(x):
+    return ConstFloat(longlong.getfloatstorage(x))
 
 
 class Runner(object):
@@ -36,7 +42,7 @@ class Runner(object):
                 self.cpu.set_future_value_ref(j, box.getref_base())
                 j += 1
             elif isinstance(box, BoxFloat):
-                self.cpu.set_future_value_float(j, box.getfloat())
+                self.cpu.set_future_value_float(j, box.getfloatstorage())
                 j += 1
             else:
                 raise NotImplementedError(box)
@@ -344,7 +350,10 @@ class BaseBackendTest(Runner):
         from pypy.jit.metainterp.test.test_executor import get_float_tests
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
             res = self.execute_operation(opnum, boxargs, rettype)
-            assert res.value == retvalue
+            if isinstance(res, BoxFloat):
+                assert res.getfloat() == retvalue
+            else:
+                assert res.value == retvalue
 
     def test_ovf_operations(self, reversed=False):
         minint = -sys.maxint-1
@@ -416,6 +425,8 @@ class BaseBackendTest(Runner):
         assert x == ord('B')
         if cpu.supports_floats:
             def func(f, i):
+                assert isinstance(f, float)
+                assert isinstance(i, int)
                 return f - float(i)
             FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Signed],
                                           lltype.Float))
@@ -424,8 +435,8 @@ class BaseBackendTest(Runner):
             calldescr = cpu.calldescrof(FTP, FTP.ARGS, FTP.RESULT)
             x = cpu.bh_call_f(self.get_funcbox(cpu, func_ptr).value,
                               calldescr,
-                              [42], None, [3.5])
-            assert x == 3.5 - 42
+                              [42], None, [longlong.getfloatstorage(3.5)])
+            assert longlong.getrealfloat(x) == 3.5 - 42
 
     def test_call(self):
         from pypy.rlib.libffi import types
@@ -472,13 +483,13 @@ class BaseBackendTest(Runner):
             func_ptr = llhelper(FPTR, func)
             calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
-            args = ([BoxFloat(.1) for i in range(7)] +
-                    [BoxInt(1), BoxInt(2), BoxFloat(.2), BoxFloat(.3),
-                     BoxFloat(.4)])
+            args = ([boxfloat(.1) for i in range(7)] +
+                    [BoxInt(1), BoxInt(2), boxfloat(.2), boxfloat(.3),
+                     boxfloat(.4)])
             res = self.execute_operation(rop.CALL,
                                          [funcbox] + args,
                                          'float', descr=calldescr)
-            assert abs(res.value - 4.6) < 0.0001
+            assert abs(res.getfloat() - 4.6) < 0.0001
 
     def test_call_many_arguments(self):
         # Test calling a function with a large number of arguments (more than
@@ -540,6 +551,20 @@ class BaseBackendTest(Runner):
                                      descr=calldescr)
         assert res.value == ord('a')
 
+    def test_call_with_const_floats(self):
+        def func(f1, f2):
+            return f1 + f2
+
+        FUNC = self.FuncType([lltype.Float, lltype.Float], lltype.Float)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        func_ptr = llhelper(FPTR, func)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        res = self.execute_operation(rop.CALL, [funcbox, constfloat(1.5),
+                                                constfloat(2.5)], 'float',
+                                     descr=calldescr)
+        assert res.getfloat() == 4.0
+
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
@@ -592,17 +617,17 @@ class BaseBackendTest(Runner):
         assert res.value == null_const.value
         if self.cpu.supports_floats:
             floatdescr = self.cpu.fielddescrof(self.S, 'float')
-            self.execute_operation(rop.SETFIELD_GC, [t_box, BoxFloat(3.4)],
+            self.execute_operation(rop.SETFIELD_GC, [t_box, boxfloat(3.4)],
                                    'void', descr=floatdescr)
             res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                          'float', descr=floatdescr)
-            assert res.value == 3.4
+            assert res.getfloat() == 3.4
             #
-            self.execute_operation(rop.SETFIELD_GC, [t_box, ConstFloat(-3.6)],
+            self.execute_operation(rop.SETFIELD_GC, [t_box, constfloat(-3.6)],
                                    'void', descr=floatdescr)
             res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                          'float', descr=floatdescr)
-            assert res.value == -3.6
+            assert res.getfloat() == -3.6
 
 
     def test_passing_guards(self):
@@ -618,7 +643,7 @@ class BaseBackendTest(Runner):
                (rop.GUARD_ISNULL, [nullbox])
                ])
         if self.cpu.supports_floats:
-            all.append((rop.GUARD_VALUE, [BoxFloat(3.5), ConstFloat(3.5)]))
+            all.append((rop.GUARD_VALUE, [boxfloat(3.5), constfloat(3.5)]))
         for (opname, args) in all:
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
@@ -644,7 +669,7 @@ class BaseBackendTest(Runner):
                (rop.GUARD_NONNULL, [nullbox]),
                (rop.GUARD_ISNULL, [t_box])])
         if self.cpu.supports_floats:
-            all.append((rop.GUARD_VALUE, [BoxFloat(-1.0), ConstFloat(1.0)]))
+            all.append((rop.GUARD_VALUE, [boxfloat(-1.0), constfloat(1.0)]))
         for opname, args in all:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed
@@ -809,17 +834,17 @@ class BaseBackendTest(Runner):
             a_box, A = self.alloc_array_of(lltype.Float, 31)
             arraydescr = self.cpu.arraydescrof(A)
             self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(1),
-                                                         BoxFloat(3.5)],
+                                                         boxfloat(3.5)],
                                    'void', descr=arraydescr)
             self.execute_operation(rop.SETARRAYITEM_GC, [a_box, BoxInt(2),
-                                                         ConstFloat(4.5)],
+                                                         constfloat(4.5)],
                                    'void', descr=arraydescr)
             r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(1)],
                                        'float', descr=arraydescr)
-            assert r.value == 3.5
+            assert r.getfloat() == 3.5
             r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(2)],
                                        'float', descr=arraydescr)
-            assert r.value == 4.5
+            assert r.getfloat() == 4.5
 
         # For platforms where sizeof(INT) != sizeof(Signed) (ie, x86-64)
         a_box, A = self.alloc_array_of(rffi.INT, 342)
@@ -919,10 +944,10 @@ class BaseBackendTest(Runner):
         assert r.value == u_box.value
 
         if self.cpu.supports_floats:
-            r = self.execute_operation(rop.SAME_AS, [ConstFloat(5.5)], 'float')
-            assert r.value == 5.5
-            r = self.execute_operation(rop.SAME_AS, [BoxFloat(5.5)], 'float')
-            assert r.value == 5.5
+            r = self.execute_operation(rop.SAME_AS, [constfloat(5.5)], 'float')
+            assert r.getfloat() == 5.5
+            r = self.execute_operation(rop.SAME_AS, [boxfloat(5.5)], 'float')
+            assert r.getfloat() == 5.5
 
     def test_virtual_ref(self):
         pass   # VIRTUAL_REF must not reach the backend nowadays
@@ -993,7 +1018,7 @@ class BaseBackendTest(Runner):
                     p = lltype.malloc(S)
                     values.append(lltype.cast_opaque_ptr(llmemory.GCREF, p))
                 elif isinstance(box, BoxFloat):
-                    values.append(r.random())
+                    values.append(longlong.getfloatstorage(r.random()))
                 else:
                     assert 0
             values[index_counter] = 11
@@ -1041,7 +1066,7 @@ class BaseBackendTest(Runner):
         faildescr1 = BasicFailDescr(1)
         faildescr2 = BasicFailDescr(2)
         operations = [
-            ResOperation(rop.FLOAT_LE, [fboxes[0], ConstFloat(9.2)], i2),
+            ResOperation(rop.FLOAT_LE, [fboxes[0], constfloat(9.2)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
             ResOperation(rop.FINISH, fboxes, None, descr=faildescr2),
             ]
@@ -1052,20 +1077,22 @@ class BaseBackendTest(Runner):
         fboxes2 = [BoxFloat() for i in range(12)]
         f3 = BoxFloat()
         bridge = [
-            ResOperation(rop.FLOAT_SUB, [fboxes2[0], ConstFloat(1.0)], f3),
+            ResOperation(rop.FLOAT_SUB, [fboxes2[0], constfloat(1.0)], f3),
             ResOperation(rop.JUMP, [f3] + fboxes2[1:], None, descr=looptoken),
         ]
 
         self.cpu.compile_bridge(faildescr1, fboxes2, bridge, looptoken)
 
         for i in range(len(fboxes)):
-            self.cpu.set_future_value_float(i, 13.5 + 6.73 * i)
+            x = 13.5 + 6.73 * i
+            self.cpu.set_future_value_float(i, longlong.getfloatstorage(x))
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 2
         res = self.cpu.get_latest_value_float(0)
-        assert res == 8.5
+        assert longlong.getrealfloat(res) == 8.5
         for i in range(1, len(fboxes)):
-            assert self.cpu.get_latest_value_float(i) == 13.5 + 6.73 * i
+            got = longlong.getrealfloat(self.cpu.get_latest_value_float(i))
+            assert got == 13.5 + 6.73 * i
 
     def test_integers_and_guards(self):
         for opname, compare in [
@@ -1142,11 +1169,11 @@ class BaseBackendTest(Runner):
                     if combinaison[0] == 'b':
                         fbox1 = BoxFloat()
                     else:
-                        fbox1 = ConstFloat(-4.5)
+                        fbox1 = constfloat(-4.5)
                     if combinaison[1] == 'b':
                         fbox2 = BoxFloat()
                     else:
-                        fbox2 = ConstFloat(-4.5)
+                        fbox2 = constfloat(-4.5)
                     b1 = BoxInt()
                     faildescr1 = BasicFailDescr(1)
                     faildescr2 = BasicFailDescr(2)
@@ -1170,10 +1197,12 @@ class BaseBackendTest(Runner):
                                 if test2 == -4.5 or combinaison[1] == 'b':
                                     n = 0
                                     if combinaison[0] == 'b':
-                                        cpu.set_future_value_float(n, test1)
+                                        cpu.set_future_value_float(
+                                            n, longlong.getfloatstorage(test1))
                                         n += 1
                                     if combinaison[1] == 'b':
-                                        cpu.set_future_value_float(n, test2)
+                                        cpu.set_future_value_float(
+                                            n, longlong.getfloatstorage(test2))
                                         n += 1
                                     fail = cpu.execute_token(looptoken)
                                     #
@@ -1223,7 +1252,7 @@ class BaseBackendTest(Runner):
             if isinstance(box, BoxInt):
                 self.cpu.set_future_value_int(i, box.getint())
             elif isinstance(box, BoxFloat):
-                self.cpu.set_future_value_float(i, box.getfloat())
+                self.cpu.set_future_value_float(i, box.getfloatstorage())
             else:
                 assert 0
         #
@@ -1237,12 +1266,12 @@ class BaseBackendTest(Runner):
         from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
         from pypy.jit.metainterp.resoperation import opname
 
-        fzer = BoxFloat(0.0)
-        fone = BoxFloat(1.0)
-        fmqr = BoxFloat(-0.25)
-        finf = BoxFloat(INFINITY)
-        fmnf = BoxFloat(-INFINITY)
-        fnan = BoxFloat(NAN)
+        fzer = boxfloat(0.0)
+        fone = boxfloat(1.0)
+        fmqr = boxfloat(-0.25)
+        finf = boxfloat(INFINITY)
+        fmnf = boxfloat(-INFINITY)
+        fnan = boxfloat(NAN)
 
         all_cases_unary =  [(a,)   for a in [fzer,fone,fmqr,finf,fmnf,fnan]]
         all_cases_binary = [(a, b) for a in [fzer,fone,fmqr,finf,fmnf,fnan]
@@ -1252,7 +1281,7 @@ class BaseBackendTest(Runner):
 
         def nan_and_infinity(opnum, realoperation, testcases):
             for testcase in testcases:
-                realvalues = [b.value for b in testcase]
+                realvalues = [b.getfloat() for b in testcase]
                 expected = realoperation(*realvalues)
                 if isinstance(expected, float):
                     expectedtype = 'float'
@@ -1261,15 +1290,17 @@ class BaseBackendTest(Runner):
                 got = self.execute_operation(opnum, list(testcase),
                                              expectedtype)
                 if isnan(expected):
-                    ok = isnan(got.value)
+                    ok = isnan(got.getfloat())
                 elif isinf(expected):
-                    ok = isinf(got.value)
+                    ok = isinf(got.getfloat())
+                elif isinstance(got, BoxFloat):
+                    ok = (got.getfloat() == expected)
                 else:
-                    ok = (got.value == expected)
+                    ok = got.value == expected
                 if not ok:
                     raise AssertionError("%s(%s): got %r, expected %r" % (
                         opname[opnum], ', '.join(map(repr, realvalues)),
-                        got.value, expected))
+                        got.getfloat(), expected))
                 # if we expect a boolean, also check the combination with
                 # a GUARD_TRUE or GUARD_FALSE
                 if isinstance(expected, bool):
@@ -1289,7 +1320,8 @@ class BaseBackendTest(Runner):
                         self.cpu.compile_loop(unique_testcase_list, operations,
                                               looptoken)
                         for i, box in enumerate(unique_testcase_list):
-                            self.cpu.set_future_value_float(i, box.value)
+                            self.cpu.set_future_value_float(
+                                i, box.getfloatstorage())
                         fail = self.cpu.execute_token(looptoken)
                         if fail.identifier != 5 - (expected_id^expected):
                             if fail.identifier == 4:
@@ -1758,7 +1790,8 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.set_future_value_int(1, 0)
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 0
-        assert self.cpu.get_latest_value_float(0) == 42.5
+        x = self.cpu.get_latest_value_float(0)
+        assert longlong.getrealfloat(x) == 42.5
         assert values == []
 
         self.cpu.set_future_value_int(0, 10)
@@ -1766,7 +1799,8 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 1
         assert self.cpu.get_latest_value_int(0) == 1
-        assert self.cpu.get_latest_value_float(1) == 42.5
+        x = self.cpu.get_latest_value_float(1)
+        assert longlong.getrealfloat(x) == 42.5
         assert self.cpu.get_latest_value_int(2) == 10
         assert values == [1, 10]
 
@@ -1801,9 +1835,10 @@ class LLtypeBackendTest(BaseBackendTest):
             descr_C = cpu.arraydescrof(C)
             x = cpu.bh_getarrayitem_gc_f(
                 descr_C, lltype.cast_opaque_ptr(llmemory.GCREF, c), 3)
-            assert x == 3.5
+            assert longlong.getrealfloat(x) == 3.5
             cpu.bh_setarrayitem_gc_f(
-                descr_C, lltype.cast_opaque_ptr(llmemory.GCREF, c), 4, 4.5)
+                descr_C, lltype.cast_opaque_ptr(llmemory.GCREF, c), 4,
+                longlong.getfloatstorage(4.5))
             assert c[4] == 4.5
         s = rstr.mallocstr(6)
         x = cpu.bh_strlen(lltype.cast_opaque_ptr(llmemory.GCREF, s))
@@ -1857,13 +1892,13 @@ class LLtypeBackendTest(BaseBackendTest):
             descrfld_z = cpu.fielddescrof(S, 'z')
             cpu.bh_setfield_gc_f(
                 lltype.cast_opaque_ptr(llmemory.GCREF, s),
-                descrfld_z, 3.5)
+                descrfld_z, longlong.getfloatstorage(3.5))
             assert s.z == 3.5
             s.z = 3.2
             x = cpu.bh_getfield_gc_f(
                 lltype.cast_opaque_ptr(llmemory.GCREF, s),
                 descrfld_z)
-            assert x == 3.2
+            assert longlong.getrealfloat(x) == 3.2
         ### we don't support in the JIT for now GC pointers
         ### stored inside non-GC structs.
         #descrfld_ry = cpu.fielddescrof(RS, 'y')
@@ -2002,7 +2037,8 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_assembler_call_float(self):
         called = []
         def assembler_helper(failindex, virtualizable):
-            assert self.cpu.get_latest_value_float(0) == 1.2 + 3.2
+            x = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(x) == 1.2 + 3.2
             called.append(failindex)
             return 13.5
 
@@ -2028,10 +2064,11 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = LoopToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        self.cpu.set_future_value_float(0, 1.2)
-        self.cpu.set_future_value_float(1, 2.3)
+        self.cpu.set_future_value_float(0, longlong.getfloatstorage(1.2))
+        self.cpu.set_future_value_float(1, longlong.getfloatstorage(2.3))
         res = self.cpu.execute_token(looptoken)
-        assert self.cpu.get_latest_value_float(0) == 1.2 + 2.3
+        x = self.cpu.get_latest_value_float(0)
+        assert longlong.getrealfloat(x) == 1.2 + 2.3
         ops = '''
         [f4, f5]
         f3 = call_assembler(f4, f5, descr=looptoken)
@@ -2041,10 +2078,11 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse(ops, namespace=locals())
         othertoken = LoopToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
-        self.cpu.set_future_value_float(0, 1.2)
-        self.cpu.set_future_value_float(1, 3.2)
+        self.cpu.set_future_value_float(0, longlong.getfloatstorage(1.2))
+        self.cpu.set_future_value_float(1, longlong.getfloatstorage(3.2))
         res = self.cpu.execute_token(othertoken)
-        assert self.cpu.get_latest_value_float(0) == 13.5
+        x = self.cpu.get_latest_value_float(0)
+        assert longlong.getrealfloat(x) == 13.5
         assert called
 
         # test the fast path, which should not call assembler_helper()
@@ -2053,10 +2091,11 @@ class LLtypeBackendTest(BaseBackendTest):
         try:
             othertoken = LoopToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
-            self.cpu.set_future_value_float(0, 1.2)
-            self.cpu.set_future_value_float(1, 3.2)
+            self.cpu.set_future_value_float(0, longlong.getfloatstorage(1.2))
+            self.cpu.set_future_value_float(1, longlong.getfloatstorage(3.2))
             res = self.cpu.execute_token(othertoken)
-            assert self.cpu.get_latest_value_float(0) == 1.2 + 3.2
+            x = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(x) == 1.2 + 3.2
             assert not called
         finally:
             del self.cpu.done_with_this_frame_float_v
@@ -2088,7 +2127,8 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_redirect_call_assembler(self):
         called = []
         def assembler_helper(failindex, virtualizable):
-            assert self.cpu.get_latest_value_float(0) == 1.25 + 3.25
+            x = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(x) == 1.25 + 3.25
             called.append(failindex)
             return 13.5
 
@@ -2113,10 +2153,11 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = LoopToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        self.cpu.set_future_value_float(0, 1.25)
-        self.cpu.set_future_value_float(1, 2.35)
+        self.cpu.set_future_value_float(0, longlong.getfloatstorage(1.25))
+        self.cpu.set_future_value_float(1, longlong.getfloatstorage(2.35))
         res = self.cpu.execute_token(looptoken)
-        assert self.cpu.get_latest_value_float(0) == 1.25 + 2.35
+        x = self.cpu.get_latest_value_float(0)
+        assert longlong.getrealfloat(x) == 1.25 + 2.35
         assert not called
 
         ops = '''
@@ -2130,10 +2171,11 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
 
         # normal call_assembler: goes to looptoken
-        self.cpu.set_future_value_float(0, 1.25)
-        self.cpu.set_future_value_float(1, 3.25)
+        self.cpu.set_future_value_float(0, longlong.getfloatstorage(1.25))
+        self.cpu.set_future_value_float(1, longlong.getfloatstorage(3.25))
         res = self.cpu.execute_token(othertoken)
-        assert self.cpu.get_latest_value_float(0) == 13.5
+        x = self.cpu.get_latest_value_float(0)
+        assert longlong.getrealfloat(x) == 13.5
         assert called
         del called[:]
 
@@ -2151,10 +2193,12 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.redirect_call_assembler(looptoken, looptoken2)
 
         # now, our call_assembler should go to looptoken2
-        self.cpu.set_future_value_float(0, 6.0)
-        self.cpu.set_future_value_float(1, 1.5)    # 6.0-1.5 == 1.25+3.25
+        self.cpu.set_future_value_float(0, longlong.getfloatstorage(6.0))
+        self.cpu.set_future_value_float(1, longlong.getfloatstorage(1.5))
+                                                       # 6.0-1.5 == 1.25+3.25
         res = self.cpu.execute_token(othertoken)
-        assert self.cpu.get_latest_value_float(0) == 13.5
+        x = self.cpu.get_latest_value_float(0)
+        assert longlong.getrealfloat(x) == 13.5
         assert called
 
     def test_short_result_of_getfield_direct(self):
@@ -2361,7 +2405,6 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("longlong test")
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
         from pypy.rlib.rarithmetic import r_longlong
-        from pypy.rlib.longlong2float import longlong2float, float2longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
             long long fn_test_result_of_call(long long x)
@@ -2380,10 +2423,8 @@ class LLtypeBackendTest(BaseBackendTest):
         FUNC = self.FuncType([lltype.SignedLongLong], lltype.SignedLongLong)
         FPTR = self.Ptr(FUNC)
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-        valuef = longlong2float(value)
-        xf = self.cpu.bh_call_f(self.get_funcbox(self.cpu, f).value,
-                                calldescr, None, None, [valuef])
-        x = float2longlong(xf)
+        x = self.cpu.bh_call_f(self.get_funcbox(self.cpu, f).value,
+                               calldescr, None, None, [value])
         assert x == expected
 
     def test_longlong_result_of_call_compiled(self):
@@ -2391,7 +2432,6 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("test of longlong result")
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
         from pypy.rlib.rarithmetic import r_longlong
-        from pypy.rlib.longlong2float import longlong2float, float2longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
             long long fn_test_result_of_call(long long x)
@@ -2411,11 +2451,9 @@ class LLtypeBackendTest(BaseBackendTest):
         FPTR = self.Ptr(FUNC)
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
         funcbox = self.get_funcbox(self.cpu, f)
-        valuef = longlong2float(value)
-        resf = self.execute_operation(rop.CALL, [funcbox, BoxFloat(valuef)],
+        res = self.execute_operation(rop.CALL, [funcbox, BoxFloat(value)],
                                      'float', descr=calldescr)
-        x = float2longlong(resf.value)
-        assert x == expected
+        assert res.getfloatstorage() == expected
 
     def test_free_loop_and_bridges(self):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU

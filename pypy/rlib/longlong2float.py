@@ -1,6 +1,9 @@
 """
 This module exposes the functions longlong2float() and float2longlong(),
-which cast the bit pattern of a long long into a float and back.
+which cast the bit pattern of a float into a long long and back.
+Warning: don't use in the other direction, i.e. don't cast a random
+long long to a float and back to a long long.  There are corner cases
+in which it does not work.
 """
 from pypy.rpython.lltypesystem import lltype, rffi
 
