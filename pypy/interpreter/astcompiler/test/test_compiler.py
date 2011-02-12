@@ -819,3 +819,42 @@ class TestOptimizations:
         """
         # Just checking this doesn't crash out
         self.count_instructions(source)
+
+    def test_remove_dead_code(self):
+        source = """def f(x):
+            return 5
+            x += 1
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+
+    def test_remove_dead_jump_after_return(self):
+        source = """def f(x, y, z):
+            if x:
+                return y
+            else:
+                return z
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_FAST: 3,
+                          ops.POP_JUMP_IF_FALSE: 1,
+                          ops.RETURN_VALUE: 2}
+
+    def test_remove_dead_yield(self):
+        source = """def f(x):
+            return
+            yield 6
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+        #
+        space = self.space
+        w_generator = space.appexec([], """():
+            d = {}
+            exec '''def f(x):
+                return
+                yield 6
+            ''' in d
+            return d['f'](5)
+        """)
+        assert 'generator' in space.str_w(space.repr(w_generator))
