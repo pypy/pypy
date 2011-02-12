@@ -1,3 +1,5 @@
+from __future__ import with_statement
+
 import py
 from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
@@ -414,6 +416,19 @@ class AppTestBZ2File: #(CheckAllocation):
         bz2f.close()
         bz2f = BZ2File(self.temppath, 'r')
         assert bz2f.read() == self.random_data
+
+    def test_context_manager(self):
+        from bz2 import BZ2File
+
+        with BZ2File(self.temppath, 'w') as f:
+            assert not f.closed
+            f.write("abc")
+        assert f.closed
+        with BZ2File(self.temppath, 'r') as f:
+            data = f.read()
+            assert data == "abc"
+        assert f.closed
+
         
         
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
