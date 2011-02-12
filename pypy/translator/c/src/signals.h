@@ -119,7 +119,12 @@ static void signal_setflag_handler(int signum)
 
     if (wakeup_fd != -1) 
       {
-        ssize_t res = write(wakeup_fd, "\0", 1);
+#ifndef _WIN32
+        ssize_t res;
+#else
+        int res;
+#endif
+        res = write(wakeup_fd, "\0", 1);
         /* the return value is ignored here */
       }
 }

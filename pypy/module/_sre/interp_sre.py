@@ -289,7 +289,7 @@ class W_SRE_Pattern(Wrappable):
 
 def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
-    n = space.int_w(space.len(w_code))
+    n = space.len_w(w_code)
     code = [intmask(space.uint_w(space.getitem(w_code, space.wrap(i))))
             for i in range(n)]
     #

@@ -566,7 +566,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         pass
 
 
-def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
+def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -587,8 +587,9 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
         inline_short_preamble = True
     try:
         target_loop_token = state.optimize_bridge(metainterp_sd,
-                                                  old_loop_tokens,
-                                                  new_loop, inline_short_preamble)
+                                                  old_loop_tokens, new_loop,
+                                                  inline_short_preamble,
+                                                  retraced)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

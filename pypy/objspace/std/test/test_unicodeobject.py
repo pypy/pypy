@@ -471,7 +471,7 @@ class AppTestUnicodeString:
         # surrogates not supported
         raises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
 
-        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd'
+        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd\ufffd'
 
     def test_codecs_utf8(self):
         assert u''.encode('utf-8') == ''
@@ -523,6 +523,8 @@ class AppTestUnicodeString:
 
         # Error handling (truncated escape sequence)
         raises(UnicodeError, "\\".decode, "unicode-escape")
+
+        raises(UnicodeError, "\xc2".decode, "utf-8")
 
     def test_repr_bug(self):
         assert (repr(u'\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
@@ -579,6 +581,10 @@ class AppTestUnicodeString:
                 assert u[j+2] == u'3'
             assert u'123' * i == i * u'123'
 
+    def test_index(self):
+        assert u"rrarrrrrrrrra".index(u'a', 4, None) == 12
+        assert u"rrarrrrrrrrra".index(u'a', None, 6) == 2
+
     def test_rindex(self):
         from sys import maxint
         assert u'abcdefghiabc'.rindex(u'') == 12
@@ -586,6 +592,8 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rindex(u'abc') == 9
         assert u'abcdefghiabc'.rindex(u'abc', 0, -1) == 0
         assert u'abcdefghiabc'.rindex(u'abc', -4*maxint, 4*maxint) == 9
+        assert u'rrarrrrrrrrra'.rindex(u'a', 4, None) == 12
+
         raises(ValueError, u'abcdefghiabc'.rindex, u'hib')
         raises(ValueError, u'defghiabc'.rindex, u'def', 1)
         raises(ValueError, u'defghiabc'.rindex, u'abc', 0, -1)

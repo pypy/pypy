@@ -391,10 +391,9 @@ class TestInteraction:
         child.expect(re.escape('File: ' + p))
         child.expect(re.escape('Argv: ' + repr([p, 'extra'])))
         child.expect('>>> ')
-        #XXX the following doesn't work on CPython 2.5 either
-        #child.sendline('somevalue')
-        #child.expect(re.escape(repr("foobar")))
-        #child.expect('>>> ')
+        child.sendline('somevalue')
+        child.expect(re.escape(repr("foobar")))
+        child.expect('>>> ')
         child.sendline('import sys')
         child.sendline('"pypy.translator.goal.test2" in sys.modules')
         child.expect('True')

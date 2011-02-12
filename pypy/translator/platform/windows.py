@@ -89,7 +89,7 @@ class MsvcPlatform(Platform):
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
                                                      env=self.c_environ)
-        r = re.search('[Vv]ersion\W([0-9]+)\.([0-9]+)', stderr)
+        r = re.match(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
             self.version = int(''.join(r.groups())) / 10 - 60
         else:

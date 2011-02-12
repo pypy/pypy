@@ -206,7 +206,7 @@ def min_max_loop(space, args, implementation_of):
 def max(space, __args__):
     """max(iterable[, key=func]) -> value
     max(a, b, c, ...[, key=func]) -> value
-    
+
     With a single iterable argument, return its largest item.
     With two or more arguments, return the largest argument.
     """
@@ -430,7 +430,7 @@ def filter(space, w_func, w_seq):
 
 def _filter_tuple(space, w_func, w_tuple):
     none_func = space.is_w(w_func, space.w_None)
-    length = space.int_w(space.len(w_tuple))
+    length = space.len_w(w_tuple)
     result_w = []
     for i in range(length):
         w_item = space.getitem(w_tuple, space.wrap(i))
@@ -446,7 +446,7 @@ def _filter_string(space, w_func, w_string, w_str_type):
     none_func = space.is_w(w_func, space.w_None)
     if none_func and space.is_w(space.type(w_string), w_str_type):
         return w_string
-    length = space.int_w(space.len(w_string))
+    length = space.len_w(w_string)
     result_w = []
     for i in range(length):
         w_item = space.getitem(w_string, space.wrap(i))
@@ -558,7 +558,7 @@ reversed.unwrap_spec = [ObjSpace, W_Root]
 class W_ReversedIterator(Wrappable):
 
     def __init__(self, space, w_sequence):
-        self.remaining = space.int_w(space.len(w_sequence)) - 1
+        self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
             msg = "reversed() argument must be a sequence"
             raise OperationError(space.w_TypeError, space.wrap(msg))
@@ -631,12 +631,12 @@ class W_XRange(Wrappable):
         return space.wrap(obj)
 
     def descr_repr(self):
-        stop = self.start + self.len * self.step 
-        if self.start == 0 and self.step == 1: 
-            s = "xrange(%d)" % (stop,) 
-        elif self.step == 1: 
-            s = "xrange(%d, %d)" % (self.start, stop) 
-        else: 
+        stop = self.start + self.len * self.step
+        if self.start == 0 and self.step == 1:
+            s = "xrange(%d)" % (stop,)
+        elif self.step == 1:
+            s = "xrange(%d, %d)" % (self.start, stop)
+        else:
             s = "xrange(%d, %d, %d)" %(self.start, stop, self.step)
         return self.space.wrap(s)
 
@@ -646,7 +646,7 @@ class W_XRange(Wrappable):
     def descr_getitem(self, i):
         # xrange does NOT support slicing
         space = self.space
-        len = self.len 
+        len = self.len
         if i < 0:
             i += len
         if 0 <= i < len:
@@ -680,7 +680,7 @@ def _toint(space, w_obj):
 W_XRange.typedef = TypeDef("xrange",
     __new__          = interp2app(W_XRange.descr_new.im_func),
     __repr__         = interp2app(W_XRange.descr_repr),
-    __getitem__      = interp2app(W_XRange.descr_getitem, 
+    __getitem__      = interp2app(W_XRange.descr_getitem,
                                   unwrap_spec=['self', 'index']),
     __iter__         = interp2app(W_XRange.descr_iter),
     __len__          = interp2app(W_XRange.descr_len),

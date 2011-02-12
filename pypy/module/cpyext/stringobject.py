@@ -167,7 +167,7 @@ def PyString_Size(space, ref):
         return ref.c_size
     else:
         w_obj = from_ref(space, ref)
-        return space.int_w(space.len(w_obj))
+        return space.len_w(w_obj)
 
 @cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
 def _PyString_Resize(space, ref, newsize):
@@ -209,10 +209,10 @@ def PyString_Concat(space, ref, w_newpart):
     the old value of string will be stolen.  If the new string cannot be created,
     the old reference to string will still be discarded and the value of
     *string will be set to NULL; the appropriate exception will be set."""
-    
-    if not ref[0]: 
+
+    if not ref[0]:
         return
-    
+
     if w_newpart is None or not PyString_Check(space, ref[0]) or \
             not PyString_Check(space, w_newpart):
          Py_DecRef(space, ref[0])
@@ -244,4 +244,3 @@ def PyString_InternFromString(space, string):
     object with the same value."""
     s = rffi.charp2str(string)
     return space.new_interned_str(s)
-

@@ -465,7 +465,10 @@ LL_OPERATIONS = {
                                  # ^^^ but canunwindgc=False, as it is
                                  # allocating non-GC structures only
     'gc_thread_run'       : LLOp(),
+    'gc_thread_start'     : LLOp(),
     'gc_thread_die'       : LLOp(),
+    'gc_thread_before_fork':LLOp(),   # returns an opaque address
+    'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
     'gc_assume_young_pointers': LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canunwindgc=True),

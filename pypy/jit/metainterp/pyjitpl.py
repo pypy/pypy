@@ -1929,7 +1929,8 @@ class MetaInterp(object):
         try:
             target_loop_token = compile.compile_new_bridge(self,
                                                            [loop_token],
-                                                           self.resumekey)
+                                                           self.resumekey,
+                                                           True)
         except RetraceLoop:
             assert False
         assert target_loop_token is not None

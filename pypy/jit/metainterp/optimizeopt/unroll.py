@@ -139,6 +139,7 @@ class UnrollOptimizer(Optimization):
             self.cloned_operations.append(newop)
             
     def propagate_all_forward(self):
+        self.make_short_preamble = True
         loop = self.optimizer.loop
         jumpop = loop.operations[-1]
         if jumpop.getopnum() == rop.JUMP:
@@ -151,11 +152,12 @@ class UnrollOptimizer(Optimization):
 
         if jumpop:
             assert jumpop.getdescr() is loop.token
+            jump_args = jumpop.getarglist()
+            jumpop.initarglist([])
+            virtual_state = [self.getvalue(a).is_virtual() for a in jump_args]
+
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
-
-            jump_args = jumpop.getarglist()
-            jumpop.initarglist([])            
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
@@ -210,6 +212,7 @@ class UnrollOptimizer(Optimization):
                     loop.preamble.token.short_preamble.append(short_loop)
                 else:
                     loop.preamble.token.short_preamble = [short_loop]
+                short_loop.virtual_state = virtual_state
 
                 # Forget the values to allow them to be freed
                 for box in short_loop.inputargs:
@@ -233,6 +236,8 @@ class UnrollOptimizer(Optimization):
             for a in boxes:
                 if not isinstance(a, Const):
                     inputargs.append(a)
+                else:
+                    self.make_short_preamble = False
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -299,6 +304,8 @@ class UnrollOptimizer(Optimization):
         return True
 
     def create_short_preamble(self, preamble, loop):
+        if not self.make_short_preamble:
+            return None
         #return None # Dissable
 
         preamble_ops = preamble.operations
@@ -506,6 +513,10 @@ class BoxMap(object):
         return self.map[loopbox]
 
 class OptInlineShortPreamble(Optimization):
+    def __init__(self, retraced):
+        self.retraced = retraced
+        
+    
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return self
     
@@ -520,19 +531,34 @@ class OptInlineShortPreamble(Optimization):
             # handle and the inlining fails unexpectedly belwo.
             short = descr.short_preamble
             if short:
+                args = op.getarglist()
+                virtual_state = [self.getvalue(a).is_virtual() for a in args]
                 for sh in short:
-                    if self.inline(sh.operations, sh.inputargs,
-                                   op.getarglist(), dryrun=True):
-                        try:
-                            self.inline(sh.operations, sh.inputargs,
-                                        op.getarglist())
-                        except InvalidLoop:
-                            debug_print("Inlining failed unexpectedly",
-                                        "jumping to preamble instead")
-                            self.emit_operation(op)
-                        return
-                    
-                raise RetraceLoop
+                    assert len(virtual_state) == len(sh.virtual_state)
+                    for i in range(len(virtual_state)):
+                        if sh.virtual_state[i] and not virtual_state[i]:
+                            break
+                        elif not sh.virtual_state[i] and virtual_state[i]:
+                            # XXX Here, this bridge has made some box virtual
+                            # that is not virtual in the original loop. These
+                            # will be forced below. However we could choose
+                            # to raise RetraceLoop here to create a new 
+                            # specialized version of the loop where more
+                            # boxes will be virtual.
+                            pass
+                    else:
+                        if self.inline(sh.operations, sh.inputargs,
+                                       op.getarglist(), dryrun=True):
+                            try:
+                                self.inline(sh.operations, sh.inputargs,
+                                            op.getarglist())
+                            except InvalidLoop:
+                                debug_print("Inlining failed unexpectedly",
+                                            "jumping to preamble instead")
+                                self.emit_operation(op)
+                            return
+                if not self.retraced:    
+                    raise RetraceLoop
         self.emit_operation(op)
                 
         

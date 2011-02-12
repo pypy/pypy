@@ -44,7 +44,7 @@ class AppTestMMap:
         raises(TypeError, mmap, 0, "foo")
              
         if os.name == "posix":
-            raises(TypeError, mmap, 0, 1, 2, 3, 4, 5)
+            raises(ValueError, mmap, 0, 1, 2, 3, 4)
             raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
             raises(TypeError, mmap, 0, 1, foo="foo")
             raises((TypeError, OverflowError), mmap, 0, -1)
@@ -155,6 +155,61 @@ class AppTestMMap:
         assert m.find("o", 5) == -1
         assert m.find("ob") == 2
         assert m.find("\0") == 6
+        assert m.find("ob", 1) == 2
+        assert m.find("ob", 2) == 2
+        assert m.find("ob", 3) == -1
+        assert m.find("ob", -4) == -1
+        assert m.find("ob", -5) == 2
+        assert m.find("ob", -999999999) == 2
+        assert m.find("ob", 1, 3) == -1
+        assert m.find("ob", 1, 4) == 2
+        assert m.find("ob", 1, 999999999) == 2
+        assert m.find("ob", 1, 0) == -1
+        assert m.find("ob", 1, -1) == 2
+        assert m.find("ob", 1, -3) == 2
+        assert m.find("ob", 1, -4) == -1
+        #
+        data = m.read(2)
+        assert data == "fo"
+        assert m.find("o") == 2
+        assert m.find("oo") == -1
+        assert m.find("o", 0) == 1
+        m.close()
+        f.close()
+
+    def test_rfind(self):
+        from mmap import mmap
+        f = open(self.tmpname + "g", "w+")
+
+        f.write("foobarfoobar\0")
+        f.flush()
+        m = mmap(f.fileno(), 13)
+        raises(TypeError, m.rfind, 123)
+        raises(TypeError, m.rfind, "foo", "baz")
+        assert m.rfind("b") == 9
+        assert m.rfind("z") == -1
+        assert m.rfind("o", 11) == -1
+        assert m.rfind("ob") == 8
+        assert m.rfind("\0") == 12
+        assert m.rfind("ob", 7) == 8
+        assert m.rfind("ob", 8) == 8
+        assert m.rfind("ob", 9) == -1
+        assert m.rfind("ob", -4) == -1
+        assert m.rfind("ob", -5) == 8
+        assert m.rfind("ob", -999999999) == 8
+        assert m.rfind("ob", 1, 3) == -1
+        assert m.rfind("ob", 1, 4) == 2
+        assert m.rfind("ob", 1, 999999999) == 8
+        assert m.rfind("ob", 1, 0) == -1
+        assert m.rfind("ob", 1, -1) == 8
+        assert m.rfind("ob", 1, -3) == 8
+        assert m.rfind("ob", 1, -4) == 2
+        #
+        data = m.read(8)
+        assert data == "foobarfo"
+        assert m.rfind("o") == 8
+        assert m.rfind("oo") == -1
+        assert m.rfind("o", 0) == 8
         m.close()
         f.close()
 
@@ -463,6 +518,46 @@ class AppTestMMap:
         assert b[3] == "b"
         assert b[:] == "foobar"
 
+    def test_offset(self):
+        from mmap import mmap
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar" * 3000)
+        f.flush()
+        m = mmap(f.fileno(), 4, offset=8192)
+        assert m[:] == "obar"
+        assert len(m) == 4
+        m.close()
+        f.close()
+
+    def test_offset_more(self):
+        from mmap import mmap, ALLOCATIONGRANULARITY
+
+        with open(self.tmpname, "w+b") as f:
+            halfsize = ALLOCATIONGRANULARITY
+            f.write("\0" * halfsize)
+            f.write("foo")
+            f.write("\0" * (halfsize - 3))
+            m = mmap(f.fileno(), 0)
+            m.close()
+
+        with open(self.tmpname, "r+b") as f:
+            m = mmap(f.fileno(), halfsize, offset=halfsize)
+            assert m[0:3] == "foo"
+
+        try:
+            m.resize(512)
+        except SystemError:
+            pass
+        else:
+            assert len(m) == 512
+            raises(ValueError, m.seek, 513, 0)
+            assert m[0:3] == "foo"
+            with open(self.tmpname) as f:
+                f.seek(0, 2)
+                assert f.tell() == halfsize + 512
+            assert m.size() == halfsize + 512
+        m.close()
+
     def test_all(self):
         # this is a global test, ported from test_mmap.py
         import mmap
@@ -644,4 +739,3 @@ class AppTestMMap:
         assert m.read(10) == "ABCDEABCDE"
         m.close()
         f.close()
-

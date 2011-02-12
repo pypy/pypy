@@ -852,9 +852,6 @@ class Frame(object):
     def op_cast_ptr_to_int(self, descr, ptr):
         return cast_to_int(ptr)
 
-    def op_uint_xor(self, descr, arg1, arg2):
-        return arg1 ^ arg2
-
     def op_force_token(self, descr):
         opaque_frame = _to_opaque(self)
         return llmemory.cast_ptr_to_adr(opaque_frame)

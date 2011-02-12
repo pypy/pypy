@@ -382,6 +382,20 @@ class AppTestAFewExtra:
         assert len(somelines) > 200
         assert somelines == lines[:len(somelines)]
 
+    def test_nasty_writelines(self):
+        # The stream lock should be released between writes
+        fn = self.temptestfile
+        f = file(fn, 'w')
+        def nasty():
+            for i in range(5):
+                if i == 3:
+                    # should not raise because of acquired lock
+                    f.close()
+                yield str(i)
+        exc = raises(ValueError, f.writelines, nasty())
+        assert exc.value.message == "I/O operation on closed file"
+        f.close()
+
     def test_rw_bin(self):
         import random
         flags = 'w+b'

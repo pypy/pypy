@@ -33,7 +33,7 @@ you can then pass the `object space options`_ after
 There is an `overview`_ of all command line arguments that can be
 passed in either position.
 
-Many of the more interesting object space options enable optimzations,
+Many of the more interesting object space options enable optimizations,
 which are described in `Standard Interpreter Optimizations`_, or allow
 the creation of objects that can barely be imagined in CPython, which
 are documented in `What PyPy can do for your objects`_.

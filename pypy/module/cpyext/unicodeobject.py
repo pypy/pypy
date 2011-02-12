@@ -108,7 +108,7 @@ def PyUnicode_GET_SIZE(space, w_obj):
     """Return the size of the object.  o has to be a PyUnicodeObject (not
     checked)."""
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.CWCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_UNICODE(space, ref):
@@ -138,7 +138,7 @@ def PyUnicode_GetSize(space, ref):
         return ref.c_size
     else:
         w_obj = from_ref(space, ref)
-        return space.int_w(space.len(w_obj))
+        return space.len_w(w_obj)
 
 @cpython_api([PyUnicodeObject, rffi.CWCHARP, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_AsWideChar(space, ref, buf, size):
@@ -266,12 +266,12 @@ def PyUnicode_FromObject(space, w_obj):
 def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     """Coerce an encoded object obj to an Unicode object and return a reference with
     incremented refcount.
-    
+
     String and other char buffer compatible objects are decoded according to the
     given encoding and using the error handling defined by errors.  Both can be
     NULL to have the interface use the default values (see the next section for
     details).
-    
+
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
     w_encoding = space.wrap(rffi.charp2str(encoding))
@@ -341,27 +341,27 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-16 encoded buffer string and return the
     corresponding Unicode object.  errors (if non-NULL) defines the error
     handling. It defaults to "strict".
-    
+
     If byteorder is non-NULL, the decoder starts decoding using the given byte
     order:
-    
+
     *byteorder == -1: little endian
     *byteorder == 0:  native order
     *byteorder == 1:  big endian
-    
+
     If *byteorder is zero, and the first two bytes of the input data are a
     byte order mark (BOM), the decoder switches to this byte order and the BOM is
     not copied into the resulting Unicode string.  If *byteorder is -1 or
     1, any byte order mark is copied to the output (where it will result in
     either a \ufeff or a \ufffe character).
-    
+
     After completion, *byteorder is set to the current byte order at the end
     of input data.
-    
+
     If byteorder is NULL, the codec starts in native order mode.
-    
+
     Return NULL if an exception was raised by the codec.
-    
+
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
 
@@ -439,4 +439,3 @@ def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater
     than, respectively."""
     return space.int_w(space.cmp(w_left, w_right))
-

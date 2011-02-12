@@ -4,9 +4,12 @@ Module objects.
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
+from pypy.rlib.objectmodel import we_are_translated
 
 class Module(Wrappable):
     """A module."""
+
+    _frozen = False
 
     def __init__(self, space, w_name, w_dict=None):
         self.space = space
@@ -26,6 +29,12 @@ class Module(Wrappable):
         """This is called each time the module is imported or reloaded
         """
         if not self.startup_called:
+            if not we_are_translated():
+                # this special case is to handle the case, during annotation,
+                # of module A that gets frozen, then module B (e.g. during
+                # a getdict()) runs some code that imports A
+                if self._frozen:
+                    return
             self.startup_called = True
             self.startup(space)
 

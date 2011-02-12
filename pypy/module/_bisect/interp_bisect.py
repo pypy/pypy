@@ -15,7 +15,7 @@ slice of a to be searched."""
         raise OperationError(space.w_ValueError,
                              space.wrap("lo must be non-negative"))
     if hi == -1:
-        hi = space.int_w(space.len(w_a))
+        hi = space.len_w(w_a)
     while lo < hi:
         mid = (lo + hi) >> 1
         w_litem = space.getitem(w_a, space.wrap(mid))
@@ -40,7 +40,7 @@ slice of a to be searched."""
         raise OperationError(space.w_ValueError,
                              space.wrap("lo must be non-negative"))
     if hi == -1:
-        hi = space.int_w(space.len(w_a))
+        hi = space.len_w(w_a)
     while lo < hi:
         mid = (lo + hi) >> 1
         w_litem = space.getitem(w_a, space.wrap(mid))

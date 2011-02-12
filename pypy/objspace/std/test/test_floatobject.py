@@ -39,7 +39,7 @@ class TestW_FloatObject:
         from pypy.objspace.std.longobject import W_LongObject
         space = self.space
         saved = W_LongObject.__dict__['fromfloat']
-        W_LongObject.fromfloat = lambda x: disabled
+        W_LongObject.fromfloat = lambda space, x: disabled
         try:
             w_i = space.wrap(12)
             w_f = space.wrap(12.3)
@@ -204,6 +204,21 @@ class AppTestAppFloatTest:
             assert pw(0.0, float("-inf")) == float("inf")
             assert math.isnan(pw(-3, float("nan")))
             assert math.isnan(pw(-3., float("nan")))
+            assert pw(-1.0, -float('inf')) == 1.0
+            assert pw(-1.0, float('inf')) == 1.0
+            assert pw(float('inf'), 0) == 1.0
+            assert pw(float('nan'), 0) == 1.0
+
+            assert math.isinf(pw(-0.5, float('-inf')))
+            assert math.isinf(pw(+0.5, float('-inf')))
+            assert pw(-1.5, float('-inf')) == 0.0
+            assert pw(+1.5, float('-inf')) == 0.0
+
+            assert str(pw(float('-inf'), -0.5)) == '0.0'
+            assert str(pw(float('-inf'), -2.0)) == '0.0'
+            assert str(pw(float('-inf'), -1.0)) == '-0.0'
+            assert str(pw(float('-inf'), 1.0)) == '-inf'
+            assert str(pw(float('-inf'), 2.0)) == 'inf'
 
     def test_pow_neg_base(self):
         import math
@@ -397,6 +412,10 @@ class AppTestAppFloatTest:
 
     def test_from_string(self):
         raises(ValueError, float, "\0")
+
+    def test_format(self):
+        f = 1.1234e200
+        assert f.__format__("G") == "1.1234E+200"
 
 
 class AppTestFloatHex:

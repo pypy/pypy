@@ -51,7 +51,7 @@ Multimethods
 
 A "multimethod" is the generalization of the OOP notion of "method".
 Theoretically, a method is a "message name" and signature attached to a
-particular base class, which is implementated in the class or its subclasses.
+particular base class, which is implemented in the class or its subclasses.
 To do a "method call" means to send a message to an object, using a message
 name and actual arguments.  We call "message dispatch" the operation of
 finding which actual implementation is suitable for a particular call.  For
@@ -75,7 +75,7 @@ to call is no longer syntactically attached to classes.  In other words,
 whereas a method is called with ``obj.somemethod(args)``, a multimethod is
 called much like a function, e.g. ``dosomething(obj1, obj2, obj3...)``.  You
 have to find the MultiMethod object ``dosomething`` in some namespace; it is
-no longer implicitely looked up in the namespace of the "self" object.
+no longer implicitly looked up in the namespace of the "self" object.
 
 PyPy contains two different implementations of multimethods: a `quite general
 one`_ written in RPython_ for the purposes of the StdObjSpace_, and a `short

@@ -824,8 +824,17 @@ class LLFrame(object):
     def op_gc_thread_run(self):
         self.heap.thread_run()
 
+    def op_gc_thread_start(self):
+        self.heap.thread_start()
+
     def op_gc_thread_die(self):
         self.heap.thread_die()
+
+    def op_gc_thread_before_fork(self):
+        raise NotImplementedError
+
+    def op_gc_thread_after_fork(self):
+        raise NotImplementedError
 
     def op_gc_free(self, addr):
         # what can you do?

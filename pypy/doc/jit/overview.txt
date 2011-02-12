@@ -136,7 +136,7 @@ simplified subset of the language; no project has scaled up to anything close
 to the complete language.  This would be a major effort and be platform- and
 language-specific.  Moreover maintenance would be a headache: we believe that
 many changes that are trivial to implement in CPython, are likely to invalidate
-previous carefully-tuned optimisations.
+previous carefully-tuned optimizations.
 
 For major improvements in speed, JIT techniques are necessary.  For Python,
 Psyco gives typical speedups of 2 to 4 times - up to 100 times in algorithmic

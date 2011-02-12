@@ -6,7 +6,7 @@ from pypy.module._file.interp_stream import W_AbstractStream
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
+from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, make_weakref_descr
 from pypy.interpreter.typedef import interp_attrproperty_w
@@ -58,15 +58,17 @@ class W_File(W_AbstractStream):
             raise operationerrfmt(space.w_ValueError,
                                   "invalid mode: '%s'", mode)
 
+    def check_closed(self):
+        if self.stream is None:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("I/O operation on closed file")
+            )
+
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing
         (i.e. if the file is closed)."""
-        stream = self.stream
-        if stream is None:
-            space = self.space
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('I/O operation on closed file'))
-        return stream
+        self.check_closed()
+        return self.stream
 
     def _when_reading_first_flush(self, otherfile):
         """Flush otherfile before reading from self."""
@@ -93,14 +95,13 @@ class W_File(W_AbstractStream):
         self.fdopenstream(stream, fd, mode)
 
     def direct___enter__(self):
-        if self.stream is None:
-            space = self.space
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('I/O operation on closed file'))
+        self.check_closed()
         return self
 
-    def direct___exit__(self, __args__):
-        self.direct_close()
+    @unwrap_spec("self", Arguments)
+    def file__exit__(self, __args__):
+        """__exit__(*excinfo) -> None. Closes the file."""
+        self.space.call_method(self, "close")
         # can't return close() value
         return None
 
@@ -216,20 +217,6 @@ class W_File(W_AbstractStream):
         self.softspace = 0
         self.getstream().write(data)
 
-    def direct_writelines(self, w_lines):    # note: a wrapped list!
-        stream = self.getstream()
-        space = self.space
-        w_iterator = space.iter(w_lines)
-        self.softspace = 0
-        while True:
-            try:
-                w_line = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
-            stream.write(space.str_w(w_line))
-
     def direct___iter__(self):
         self.getstream()
         return self
@@ -297,9 +284,6 @@ class W_File(W_AbstractStream):
           """Opens a file.""")
 
     _decl(locals(), "__enter__", ['self'], """__enter__() -> self.""")
-
-    _decl(locals(), "__exit__", ['self', Arguments], 
-        """__exit__(*excinfo) -> None. Closes the file.""")
 
     _decl(locals(), "close", ['self'],
         """close() -> None or (perhaps) an integer.  Close the file.
@@ -374,12 +358,6 @@ Size defaults to the current file position, as returned by tell().""")
 Note that due to buffering, flush() or close() may be needed before
 the file on disk reflects the data written.""")
 
-    _decl(locals(), "writelines", ['self', W_Root],
-        """writelines(sequence_of_strings) -> None.  Write the strings to the file.
-
-Note that newlines are not added.  The sequence can be any iterable object
-producing strings. This is equivalent to calling write() for each string.""")
-
     _decl(locals(), "__iter__", ['self'],
         """Iterating over files, as in 'for line in f:', returns each line of
 the file one by one.""")
@@ -411,6 +389,25 @@ optimizations previously implemented in the xreadlines module.""")
             return "'%s'" % self.space.str_w(w_name) 
         else:
             return self.space.str_w(self.space.repr(w_name))
+
+    def file_writelines(self, w_lines):
+        """writelines(sequence_of_strings) -> None.  Write the strings to the file.
+
+Note that newlines are not added.  The sequence can be any iterable object
+producing strings. This is equivalent to calling write() for each string."""
+
+        space = self.space
+        self.check_closed()
+        w_iterator = space.iter(w_lines)
+        while True:
+            try:
+                w_line = space.next(w_iterator)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break  # done
+            self.file_write(space.str_w(w_line))
+    file_writelines.unwrap_spec = ['self', W_Root]
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
@@ -509,6 +506,8 @@ Note:  open() is an alias for file().
                               doc="Support for 'print'."),
     __repr__ = interp2app(W_File.file__repr__),
     readinto = interp2app(W_File.file_readinto),
+    writelines = interp2app(W_File.file_writelines),
+    __exit__ = interp2app(W_File.file__exit__),
     __weakref__ = make_weakref_descr(W_File),
     **dict([(name, interp2app(getattr(W_File, 'file_' + name)))
                 for name in W_File._exposed_method_names])

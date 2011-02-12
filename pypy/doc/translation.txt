@@ -469,10 +469,10 @@ know how compilers work.
 Function Inlining
 +++++++++++++++++
 
-To reduce the overhead of the many funtion calls that occur when running the
+To reduce the overhead of the many function calls that occur when running the
 PyPy interpreter we implemented function inlining. This is an optimization
 which takes a flow graph and a callsite and inserts a copy of the flow graph
-into the graph of the calling function, renaming occuring variables as
+into the graph of the calling function, renaming occurring variables as
 appropriate. This leads to problems if the original function was surrounded by
 a ``try: ... except: ...`` guard. In this case inlining is not always
 possible.  If the called function is not directly raising an exception (but an
@@ -487,7 +487,7 @@ one every operations is assigned a specific weight, the default being a weight
 of one. Some operations are considered to be more effort than others,
 e.g. memory allocation and calls; others are considered to be no effort at all
 (casts...). The size estimate is for one the sum of the weights of all
-operations occuring in the graph. This is called the "static instruction
+operations occurring in the graph. This is called the "static instruction
 count". The other part of the size estimate of a graph is the "median
 execution cost". This is again the sum of the weight of all operations in the
 graph, but this time weighted with a guess how often the operation is
@@ -667,7 +667,7 @@ The Object-Oriented Backends
 ----------------------------
 
 The Object-Oriented backends target platforms that are less C-like and support
-classes, instance etc. If such a platform is targetted, the `OO type system` is
+classes, instance etc. If such a platform is targeted, the `OO type system` is
 used while rtyping. Of the OO backends, both gencli and genjava can translate
 the full Python interpreter.
 
@@ -746,7 +746,7 @@ The following image summarizes the various parts of the tool chain as of the
 .. image:: image/pypy-translation-0.9.png
    :align: center
 
-A detail that has not yet been emphasised is the interaction of the
+A detail that has not yet been emphasized is the interaction of the
 various components.  It makes for a nice presentation to say that
 after the annotator has finished the RTyper processes the graphs and
 then the exception handling is made explicit and so on, but it's not
@@ -755,7 +755,7 @@ entirely true.  For example, the RTyper inserts calls to many
 transformer can use inlining (one of the `backend optimizations`_) of
 some of its small helper functions to improve performance.  The
 following picture attempts to summarize the components involved in
-perfoming each step of the default translation process:
+performing each step of the default translation process:
 
 .. image:: image/translation-detail-0.9.png
    :align: center

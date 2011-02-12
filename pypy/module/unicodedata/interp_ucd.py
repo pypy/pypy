@@ -65,7 +65,7 @@ if MAXUNICODE > 0xFFFF:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
         else:
-            if not space.int_w(space.len(w_unichr)) == 1:
+            if not space.len_w(w_unichr) == 1:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
             return space.int_w(space.ord(w_unichr))
@@ -85,7 +85,7 @@ else:
 
         if not we_are_translated() and sys.maxunicode > 0xFFFF:
             # Host CPython is wide build, forbid surrogates
-            if not space.int_w(space.len(w_unichr)) == 1:
+            if not space.len_w(w_unichr) == 1:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
             return space.int_w(space.ord(w_unichr))
@@ -119,9 +119,9 @@ class UCD(Wrappable):
         self._canon_decomposition = unicodedb.canon_decomposition
         self._compat_decomposition = unicodedb.compat_decomposition
         self._composition = unicodedb._composition
-        
+
         self.version = unicodedb.version
-        
+
     def _get_code(self, space, name):
         try:
             code = self._lookup(name.upper())
@@ -130,7 +130,7 @@ class UCD(Wrappable):
             raise OperationError(space.w_KeyError, msg)
         return space.wrap(code)
     _get_code.unwrap_spec = ['self', ObjSpace, str]
-    
+
     def lookup(self, space, name):
         try:
             code = self._lookup(name.upper())
@@ -226,7 +226,7 @@ class UCD(Wrappable):
         elif form == 'NFD':
             composed = False
             decomposition = self._canon_decomposition
-        elif form == 'NFKC': 
+        elif form == 'NFKC':
             composed = True
             decomposition = self._compat_decomposition
         elif form == 'NFKD':
@@ -236,7 +236,7 @@ class UCD(Wrappable):
             raise OperationError(space.w_ValueError,
                                  space.wrap('invalid normalization form'))
 
-        strlen = space.int_w(space.len(w_unistr))
+        strlen = space.len_w(w_unistr)
         result = [0] * (strlen + strlen / 10 + 10)
         j = 0
         resultlen = len(result)
@@ -350,7 +350,7 @@ class UCD(Wrappable):
 
         return space.wrap(u''.join([unichr(i) for i in result[:next_insert]]))
     normalize.unwrap_spec = ['self', ObjSpace, str, W_Root]
-    
+
 
 methods = {}
 for methodname in UCD.__dict__:
@@ -359,7 +359,7 @@ for methodname in UCD.__dict__:
         continue
     assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
     methods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
-    
+
 
 UCD.typedef = TypeDef("unicodedata.UCD",
                       __doc__ = "",
@@ -369,4 +369,3 @@ UCD.typedef = TypeDef("unicodedata.UCD",
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
 ucd_5_2_0 = UCD(unicodedb_5_2_0)
 ucd = ucd_5_2_0
-

@@ -152,6 +152,19 @@ unicode_zfill      = SMM('zfill', 2,
                              ' field\nof the specified width. The string x is'
                              ' never truncated.')
 
+unicode_formatter_parser           = SMM('_formatter_parser', 1)
+unicode_formatter_field_name_split = SMM('_formatter_field_name_split', 1)
+
+def unicode_formatter_parser__ANY(space, w_unicode):
+    from pypy.objspace.std.newformat import unicode_template_formatter
+    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
+    return tformat.formatter_parser()
+
+def unicode_formatter_field_name_split__ANY(space, w_unicode):
+    from pypy.objspace.std.newformat import unicode_template_formatter
+    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
+    return tformat.formatter_field_name_split()
+
 # stuff imported from stringtype for interoperability
 
 from pypy.objspace.std.stringtype import str_endswith as unicode_endswith
@@ -253,11 +266,13 @@ def decode_object(space, w_obj, encoding, errors):
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
             return space.wrap(str_decode_ascii(s, len(s), None,
+                                               final=True,
                                                errorhandler=eh)[0])
         if encoding == 'utf-8':
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
             return space.wrap(str_decode_utf_8(s, len(s), None,
+                                               final=True,
                                                errorhandler=eh)[0])
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.wrap("decode"))
