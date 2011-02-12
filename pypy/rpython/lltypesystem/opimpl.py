@@ -570,6 +570,10 @@ def op_gc_assume_young_pointers(addr):
 def op_shrink_array(array, smallersize):
     return False
 
+def op_sse_float_add(arr1, arr2, arr_res, index):
+    arr_res[index] = arr1[index] + arr2[index]
+    arr_res[index + 1] = arr1[index + 1] + arr2[index + 1]
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

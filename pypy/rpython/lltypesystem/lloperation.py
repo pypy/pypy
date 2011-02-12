@@ -441,6 +441,10 @@ LL_OPERATIONS = {
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
 
+    # __________ vectorization ops _______
+
+    'sse_float_add': LLOp(sideeffects=False, canrun=True),
+
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canunwindgc=True),
