@@ -197,11 +197,35 @@ class AppTestSignal:
         signal.signal(signal.SIGUSR1, signal.SIG_DFL)
 
     def test_siginterrupt(self):
-        import signal
+        import signal, os, time
         signum = signal.SIGUSR1
+        def readpipe_is_not_interrupted():
+            # from CPython's test_signal.readpipe_interrupted()
+            r, w = os.pipe()
+            ppid = os.getpid()
+            pid = os.fork()
+            if pid == 0:
+                try:
+                    time.sleep(1)
+                    os.kill(ppid, signum)
+                    time.sleep(1)
+                finally:
+                    os._exit(0)
+            else:
+                try:
+                    os.close(w)
+                    # we expect not to be interrupted.  If we are, the
+                    # following line raises OSError(EINTR).
+                    os.read(r, 1)
+                finally:
+                    os.waitpid(pid, 0)
+                    os.close(r)
+        #
         oldhandler = signal.signal(signum, lambda x,y: None)
         try:
             signal.siginterrupt(signum, 0)
+            readpipe_is_not_interrupted()
+            readpipe_is_not_interrupted()
         finally:
             signal.signal(signum, oldhandler)
 
