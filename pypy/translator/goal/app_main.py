@@ -550,10 +550,21 @@ def run_command_line(interactive,
         else:
             # handle the common case where a filename is specified
             # on the command-line.
-            mainmodule.__file__ = sys.argv[0]
-            scriptdir = resolvedirof(sys.argv[0])
-            sys.path.insert(0, scriptdir)
-            success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
+            filename = sys.argv[0]
+            mainmodule.__file__ = filename
+            sys.path.insert(0, resolvedirof(filename))
+            # assume it's a pyc file only if its name says so.
+            # CPython goes to great lengths to detect other cases
+            # of pyc file format, but I think it's ok not to care.
+            if IS_WINDOWS:
+                filename = filename.lower()
+            if filename.endswith('.pyc') or filename.endswith('.pyo'):
+                import imp
+                success = run_toplevel(imp._run_compiled_module, '__main__',
+                                       sys.argv[0], None, mainmodule)
+            else:
+                success = run_toplevel(execfile, sys.argv[0],
+                                       mainmodule.__dict__)
 
     except SystemExit, e:
         status = e.code
@@ -622,6 +633,19 @@ if __name__ == '__main__':
             return getinitialpath(s)
         except OSError:
             return None
+
+    # add an emulator for this pypy-only function
+    # (for test_pyc_commandline_argument)
+    import imp
+    def _run_compiled_module(modulename, filename, file, module):
+        import os
+        assert modulename == '__main__'
+        assert os.path.isfile(filename)
+        assert filename.endswith('.pyc')
+        assert file is None
+        assert module.__name__ == '__main__'
+        print 'in _run_compiled_module'
+    imp._run_compiled_module = _run_compiled_module
 
     # stick the current sys.path into $PYTHONPATH, so that CPython still
     # finds its own extension modules :-/
