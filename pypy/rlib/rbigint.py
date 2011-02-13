@@ -71,6 +71,7 @@ def _load_unsigned_digit(x):
     return rffi.cast(lltype.Unsigned, x)
 
 NULLDIGIT = _store_digit(0)
+ONEDIGIT  = _store_digit(1)
 
 def _check_digits(l):
     for x in l:
@@ -151,7 +152,7 @@ class rbigint(object):
 
     def frombool(b):
         if b:
-            return rbigint([1], 1)
+            return rbigint([ONEDIGIT], 1)
         return rbigint()
     frombool = staticmethod(frombool)
 
