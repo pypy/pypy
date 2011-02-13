@@ -551,7 +551,6 @@ class AbstractX86CodeBuilder(object):
 
     MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
-    PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
 
     # ------------------------------------------------------------
 
@@ -579,6 +578,8 @@ def invert_condition(cond_num):
 
 class X86_32_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 4
+
+    PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
 
 class X86_64_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 8

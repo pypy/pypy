@@ -19,6 +19,10 @@ class TestRLong(object):
                     r2 = getattr(operator, op)(op1, op2)
                     assert r1.tolong() == r2
 
+    def test_frombool(self):
+        assert rbigint.frombool(False).tolong() == 0
+        assert rbigint.frombool(True).tolong() == 1
+
     def test_str(self):
         for i in range(100):
             n = 3 ** i

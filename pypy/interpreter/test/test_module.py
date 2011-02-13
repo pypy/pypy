@@ -65,3 +65,11 @@ class AppTest_ModuleObject:
 
         m = type(_pypy_interact).__new__(type(_pypy_interact))
         assert repr(m).startswith("<module '?'")
+
+    def test_package(self):
+        import sys
+        import os
+
+        assert sys.__package__ is None
+        assert os.__package__ is None
+        assert not hasattr(type(sys)('foo'), '__package__')

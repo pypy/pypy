@@ -198,6 +198,15 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert res == ".,."
         f.close()
 
+    def test_open_dir(self):
+        import os
+
+        exc = raises(IOError, self.file, os.curdir)
+        assert exc.value.filename == os.curdir
+        exc = raises(IOError, self.file, os.curdir, 'w')
+        assert exc.value.filename == os.curdir
+
+
 class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,
     # because on top of py.py the inner calls to os.write() don't
@@ -312,21 +321,30 @@ class AppTestFile25:
         assert f.closed
 
     def test_file_and_with_statement(self):
-        s1 = """from __future__ import with_statement
-with self.file(self.temppath, 'w') as f:
-    f.write('foo')
-"""
-        exec s1
+        with self.file(self.temppath, 'w') as f:
+            f.write('foo')
         assert f.closed
         
-        s2 = """from __future__ import with_statement
-with self.file(self.temppath, 'r') as f:
-    s = f.readline()
-"""
-    
-        exec s2
+        with self.file(self.temppath, 'r') as f:
+            s = f.readline()
+
         assert s == "foo"
         assert f.closed
+    
+    def test_subclass_with(self):
+        file = self.file
+        class C(file):
+            def __init__(self, *args, **kwargs):
+                self.subclass_closed = False
+                file.__init__(self, *args, **kwargs)
+            
+            def close(self):
+                self.subclass_closed = True
+                file.close(self)
+        
+        with C(self.temppath, 'w') as f:
+            pass
+        assert f.subclass_closed
 
 def test_flush_at_exit():
     from pypy import conftest

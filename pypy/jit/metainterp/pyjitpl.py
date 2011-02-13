@@ -20,7 +20,7 @@ from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.metainterp.optimizeutil import RetraceLoop
 
 # ____________________________________________________________
@@ -1473,7 +1473,7 @@ class MetaInterp(object):
             elif result_type == history.REF:
                 raise sd.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
             elif result_type == history.FLOAT:
-                raise sd.DoneWithThisFrameFloat(resultbox.getfloat())
+                raise sd.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
                 assert False
 

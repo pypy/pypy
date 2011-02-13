@@ -184,12 +184,6 @@ class AbstractCPU(object):
     def typedescrof(TYPE):
         raise NotImplementedError
 
-    #def cast_adr_to_int(self, adr):
-    #    raise NotImplementedError
-
-    #def cast_int_to_adr(self, int):
-    #    raise NotImplementedError
-
     # ---------- the backend-dependent operations ----------
 
     # lltype specific operations

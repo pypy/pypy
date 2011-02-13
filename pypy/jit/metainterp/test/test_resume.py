@@ -8,7 +8,7 @@ from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from pypy.jit.metainterp.history import ConstPtr, ConstFloat
 from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 from pypy.jit.metainterp import executor
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 
 class Storage:
     rd_frame_info_list = None
@@ -114,7 +114,7 @@ class MyBlackholeInterp:
                         callback_i(index, count_i); count_i += 1
                     elif ARG == llmemory.GCREF:
                         callback_r(index, count_r); count_r += 1
-                    elif ARG == lltype.Float:
+                    elif ARG == longlong.FLOATSTORAGE:
                         callback_f(index, count_f); count_f += 1
                     else:
                         assert 0
@@ -137,7 +137,8 @@ def _next_section(reader, *expected):
     reader.consume_one_section(bh)
     expected_i = [x for x in expected if lltype.typeOf(x) == lltype.Signed]
     expected_r = [x for x in expected if lltype.typeOf(x) == llmemory.GCREF]
-    expected_f = [x for x in expected if lltype.typeOf(x) == lltype.Float]
+    expected_f = [x for x in expected if lltype.typeOf(x) ==
+                                                      longlong.FLOATSTORAGE]
     assert bh.written_i == expected_i
     assert bh.written_r == expected_r
     assert bh.written_f == expected_f
@@ -749,7 +750,7 @@ def test_ResumeDataLoopMemo_refs():
 
 def test_ResumeDataLoopMemo_other():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    const = ConstFloat(-1.0)
+    const = ConstFloat(longlong.getfloatstorage(-1.0))
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST

@@ -517,3 +517,10 @@ class AppTestSysModulePortedFromCPython:
             pass
         sys.settrace(None)
         assert found == ['call', 'line', 'exception', 'return']
+
+    def test_float_repr_style(self):
+        import sys
+
+        # If this ever actually becomes a compilation option this test should
+        # be changed.
+        assert sys.float_repr_style == "short"

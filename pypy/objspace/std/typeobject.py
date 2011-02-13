@@ -408,6 +408,18 @@ class W_TypeObject(W_Object):
                 return w_self.dict_w['__module__']
             return space.wrap('__builtin__')
 
+    def get_module_type_name(w_self):
+        space = w_self.space
+        w_mod = w_self.get_module()
+        if not space.is_true(space.isinstance(w_mod, space.w_str)):
+            mod = '__builtin__'
+        else:
+            mod = space.str_w(w_mod)
+        if mod !='__builtin__':
+            return '%s.%s' % (mod, w_self.name)
+        else:
+            return w_self.name
+
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
