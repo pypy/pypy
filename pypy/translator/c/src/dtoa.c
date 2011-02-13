@@ -130,11 +130,9 @@
 #include <string.h>
 #define PYPY_NOT_MAIN_FILE
 #include "src/allocator.h"
+#include "src/asm.h"
 #define PyMem_Malloc PyObject_Malloc
 #define PyMem_Free PyObject_Free
-#define _Py_dg_strtod _PyPy_dg_strtod
-#define _Py_dg_dtoa _PyPy_dg_dtoa
-#define _Py_dg_freedtoa _PyPy_dg_freedtoa
 /* End PYPY hacks */
 
 
@@ -1508,7 +1506,7 @@ bigcomp(U *rv, const char *s0, BCinfo *bc)
     return 0;
 }
 
-double
+static double
 _Py_dg_strtod(const char *s00, char **se)
 {
     int bb2, bb5, bbe, bd2, bd5, bs2, c, dsign, e, e1, error;
@@ -2286,7 +2284,7 @@ nrv_alloc(char *s, char **rve, int n)
  * when MULTIPLE_THREADS is not defined.
  */
 
-void
+static void
 _Py_dg_freedtoa(char *s)
 {
     Bigint *b = (Bigint *)((int *)s - 1);
@@ -2332,7 +2330,7 @@ _Py_dg_freedtoa(char *s)
    leakage, a successful call to _Py_dg_dtoa should always be matched by a
    call to _Py_dg_freedtoa. */
 
-char *
+static char *
 _Py_dg_dtoa(double dd, int mode, int ndigits,
             int *decpt, int *sign, char **rve)
 {
@@ -2933,6 +2931,47 @@ _Py_dg_dtoa(double dd, int mode, int ndigits,
         _Py_dg_freedtoa(s0);
     return NULL;
 }
+
+
+/* Begin PYPY hacks */
+#ifndef _PyPy_SET_53BIT_PRECISION_HEADER
+# define _PyPy_SET_53BIT_PRECISION_HEADER  /* nothing */
+#endif
+#ifndef _PyPy_SET_53BIT_PRECISION_START
+# define _PyPy_SET_53BIT_PRECISION_START   /* nothing */
+#endif
+#ifndef _PyPy_SET_53BIT_PRECISION_END
+# define _PyPy_SET_53BIT_PRECISION_END     /* nothing */
+#endif
+double _PyPy_dg_strtod(const char *s00, char **se)
+{
+    double result;
+    _PyPy_SET_53BIT_PRECISION_HEADER;
+
+    _PyPy_SET_53BIT_PRECISION_START;
+    result = _Py_dg_strtod(s00, se);
+    _PyPy_SET_53BIT_PRECISION_END;
+    return result;
+}
+
+char * _PyPy_dg_dtoa(double dd, int mode, int ndigits,
+                   int *decpt, int *sign, char **rve)
+{
+    char* result;
+    _PyPy_SET_53BIT_PRECISION_HEADER;
+
+    _PyPy_SET_53BIT_PRECISION_START;
+    result = _Py_dg_dtoa(dd, mode, ndigits, decpt, sign, rve);
+    _PyPy_SET_53BIT_PRECISION_END;
+    return result;
+}
+
+void _PyPy_dg_freedtoa(char *s)
+{
+    _Py_dg_freedtoa(s);
+}
+/* End PYPY hacks */
+
 #ifdef __cplusplus
 }
 #endif
