@@ -17,6 +17,8 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.backend.arm.opassembler import ResOpAssembler
+from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
+                             have_debug_prints)
 
 # XXX Move to llsupport
 from pypy.jit.backend.x86.support import values_array
@@ -229,7 +231,7 @@ class AssemblerARM(ResOpAssembler):
         # 1 separator byte
         # 4 bytes for the faildescr
         memsize = (len(arglocs)-1)*6+5
-        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, 
+        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                     self.blocks)
         memaddr = datablockwrapper.malloc_aligned(memsize, alignment=WORD)
         datablockwrapper.done()
@@ -336,8 +338,15 @@ class AssemblerARM(ResOpAssembler):
         self.mc.B_offs(loop_head)
         self._patch_sp_offset(sp_patch_location, regalloc)
 
+    def _dump(self, ops, type='loop'):
+        debug_start('jit-backend-ops')
+        debug_print(type)
+        for op in ops:
+            debug_print(op.repr())
+        debug_stop('jit-backend-ops')
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken, log):
+        self._dump(operations)
         self.setup()
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
@@ -376,6 +385,7 @@ class AssemblerARM(ResOpAssembler):
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
+        self._dump(operations, 'bridge')
         self.setup()
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code

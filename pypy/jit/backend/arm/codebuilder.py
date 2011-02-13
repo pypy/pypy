@@ -129,11 +129,12 @@ class AbstractARMv7Builder(object):
         raise NotImplementedError
 
     size_of_gen_load_int = 3 * WORD
-    def gen_load_int(self, r, value, c=cond.AL):
+    def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
-        if c != cond.AL or 0 <= value <= 0xFFFF:
-            self._load_by_shifting(r, value, c)
+        from pypy.jit.backend.arm.conditions import AL
+        if cond != AL or 0 <= value <= 0xFFFF:
+            self._load_by_shifting(r, value, cond)
         else:
             self.LDR_ri(r, reg.pc.value)
             self.MOV_rr(reg.pc.value, reg.pc.value)
