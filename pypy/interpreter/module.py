@@ -11,7 +11,7 @@ class Module(Wrappable):
 
     _frozen = False
 
-    def __init__(self, space, w_name, w_dict=None):
+    def __init__(self, space, w_name, w_dict=None, add_package=True):
         self.space = space
         if w_dict is None: 
             w_dict = space.newdict(module=True)
@@ -19,7 +19,11 @@ class Module(Wrappable):
         self.w_name = w_name 
         if w_name is not None:
             space.setitem(w_dict, space.new_interned_str('__name__'), w_name)
-        space.setitem(w_dict, space.new_interned_str('__package__'), space.w_None)
+        if add_package:
+            # add the __package__ attribute only when created from internal
+            # code, but not when created from Python code (as in CPython)
+            space.setitem(w_dict, space.new_interned_str('__package__'),
+                          space.w_None)
         self.startup_called = False
 
     def setup_after_space_initialization(self):
@@ -54,7 +58,7 @@ class Module(Wrappable):
 
     def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
-        Module.__init__(module, space, None)
+        Module.__init__(module, space, None, add_package=False)
         return space.wrap(module)
 
     def descr_module__init__(self, w_name, w_doc=None):
@@ -64,7 +68,6 @@ class Module(Wrappable):
             w_doc = space.w_None
         space.setitem(self.w_dict, space.new_interned_str('__name__'), w_name)
         space.setitem(self.w_dict, space.new_interned_str('__doc__'), w_doc)
-        space.setitem(self.w_dict, space.new_interned_str('__package__'), space.w_None)
 
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.wrap('__name__'))

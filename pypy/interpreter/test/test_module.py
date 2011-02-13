@@ -70,5 +70,6 @@ class AppTest_ModuleObject:
         import sys
         import os
 
-        assert type(sys)('foo').__package__ is None
+        assert sys.__package__ is None
         assert os.__package__ is None
+        assert not hasattr(type(sys)('foo'), '__package__')
