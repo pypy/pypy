@@ -18,6 +18,10 @@ Probably easy tasks
 
 - missing module pyexpat.errors
 
+- support for PYTHONIOENCODING, this needs a way to update file.encoding
+
+- implement format__Complex_ANY() in pypy/objspace/std/complexobject.py
+
 
 Medium tasks
 ------------
@@ -29,6 +33,12 @@ Medium tasks
   falls back to space.str(). (WHY?)
 
 - socket module has a couple of changes (including AF_TIPC packet range)
+
+- (test_lib2to3) When a "for" loop runs a generator function, if the loop is
+  exited before the end, the "finally" clause of the generator is not called
+  until the next gc collection.  In our case, in lib2to3/pytree.py,
+  WildcardPattern.match_seq() does not exhaust the generate_matches() generator,
+  and stderr is not restored.
 
 
 Longer tasks
