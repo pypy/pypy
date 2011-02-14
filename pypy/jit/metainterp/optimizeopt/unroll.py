@@ -664,6 +664,11 @@ class OptInlineShortPreamble(Optimization):
                         try:
                             self.inline(sh.operations, sh.inputargs,
                                         op.getarglist())
+                        except InvalidLoop:
+                            debug_print("Inlining failed unexpectedly",
+                                        "jumping to preamble instead")
+                            self.emit_operation(op)
+                        else:
                             jumpop = self.optimizer.newoperations.pop()
                             assert jumpop.getopnum() == rop.JUMP
                             for guard in extra_guards:
@@ -672,10 +677,6 @@ class OptInlineShortPreamble(Optimization):
                                 guard.setdescr(descr)
                                 self.emit_operation(guard)
                             self.optimizer.newoperations.append(jumpop)
-                        except InvalidLoop:
-                            debug_print("Inlining failed unexpectedly",
-                                        "jumping to preamble instead")
-                            self.emit_operation(op)
                         return
                 retraced_count = len(short)
                 if descr.failed_states:
