@@ -276,7 +276,8 @@ class ExternalCompilationInfo(object):
                 return self
             basepath = udir.join('module_cache')
         else:
-            basepath = py.path.local(self.separate_module_files[0]).dirpath()
+            #basepath = py.path.local(self.separate_module_files[0]).dirpath()
+            basepath = udir.join('shared_cache')
         if outputfilename is None:
             # find more or less unique name there
             pth = basepath.join('externmod').new(ext=host.so_ext)
@@ -285,7 +286,8 @@ class ExternalCompilationInfo(object):
                 pth = basepath.join(
                     'externmod_%d' % (num,)).new(ext=host.so_ext)
                 num += 1
-            outputfilename=pth.purebasename
+            basepath.ensure(dir=1)
+            outputfilename = str(pth.dirpath().join(pth.purebasename))
         lib = str(host.compile([], self, outputfilename=outputfilename,
                                standalone=False))
         d = self._copy_attributes()

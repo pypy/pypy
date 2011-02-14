@@ -222,8 +222,8 @@ class AppTestBytesArray:
         b = bytearray('mississippi')
         check(b.split('i'), ['m', 'ss', 'ss', 'pp', ''])
         check(b.split(memoryview('i')), ['m', 'ss', 'ss', 'pp', ''])
-        check(b.rsplit('i'), ['m', b'ss', b'ss', b'pp', b''])
-        check(b.rsplit(memoryview('i')), ['m', b'ss', b'ss', b'pp', b''])
+        check(b.rsplit('i'), ['m', 'ss', 'ss', 'pp', ''])
+        check(b.rsplit(memoryview('i')), ['m', 'ss', 'ss', 'pp', ''])
         check(b.rsplit('i', 2), ['mississ', 'pp', ''])
 
         check(bytearray('foo bar').split(), ['foo', 'bar'])
@@ -267,14 +267,14 @@ class AppTestBytesArray:
         assert b.pop(-2) == ord('r')
         raises(IndexError, b.pop, 10)
         raises(OverflowError, bytearray().pop)
-        assert bytearray(b'\xff').pop() == 0xff
+        assert bytearray('\xff').pop() == 0xff
 
     def test_remove(self):
         class Indexable:
             def __index__(self):
                 return ord('e')
 
-        b = bytearray(b'hello')
+        b = bytearray('hello')
         b.remove(ord('l'))
         assert b == 'helo'
         b.remove(ord('l'))
