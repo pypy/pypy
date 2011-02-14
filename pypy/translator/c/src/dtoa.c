@@ -129,10 +129,9 @@
 #include <stdio.h>
 #include <string.h>
 #define PYPY_NOT_MAIN_FILE
-#include "src/allocator.h"
 #include "src/asm.h"
-#define PyMem_Malloc PyObject_Malloc
-#define PyMem_Free PyObject_Free
+#define PyMem_Malloc malloc
+#define PyMem_Free free
 /* End PYPY hacks */
 
 
