@@ -43,10 +43,12 @@ def get_strategy_from_list_objects(list_w):
     return ObjectListStrategy()
 
 def is_W_IntObject(w_object):
-    return str(w_object.__class__) == "<class 'pypy.objspace.std.intobject.W_IntObject'>"
+    from pypy.objspace.std.intobject import W_IntObject
+    return type(w_object) is W_IntObject
 
 def is_W_StringObject(w_object):
-    return str(w_object.__class__) == "<class 'pypy.objspace.std.stringobject.W_StringObject'>"
+    from pypy.objspace.std.stringobject import W_StringObject
+    return type(w_object) is W_StringObject
 
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
@@ -159,7 +161,7 @@ class ObjectListStrategy(ListStrategy):
         return cast_from_void_star(w_list.storage, "object")
 
     def append(self,  w_list, w_item):
-        w_list.wrappeditems.append(w_item)
+        cast_from_void_star(w_list.storage, "object").append(w_item)
 
 class IntegerListStrategy(ListStrategy):
 
@@ -186,13 +188,15 @@ class IntegerListStrategy(ListStrategy):
         return cast_from_void_star(w_list.storage, "integer")
 
     def append(self,  w_list, w_item):
-        w_list.wrappeditems.append(w_item)
 
         if is_W_IntObject(w_item):
+            cast_from_void_star(w_list.storage, "integer").append(w_item)
             return
 
+        items_w = w_list.getitems()
         w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
+        w_list.strategy.init_from_list_w(w_list, items_w)
+        w_list.append(w_item)
 
 class StringListStrategy(ListStrategy):
 
@@ -219,13 +223,15 @@ class StringListStrategy(ListStrategy):
         return cast_from_void_star(w_list.storage, "string")
 
     def append(self, w_list, w_item):
-        w_list.wrappeditems.append(w_item)
 
         if is_W_StringObject(w_item):
+            cast_from_void_star(w_list.storage, "string").append(w_item)
             return
 
+        list_w = w_list.getitems()
         w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.append(w_item)
 
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
