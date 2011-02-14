@@ -19,6 +19,7 @@ class Module(MixedModule):
         'load_module':     'interp_imp.load_module',
         'load_source':     'interp_imp.load_source',
         'load_compiled':   'interp_imp.load_compiled',
+        '_run_compiled_module': 'interp_imp._run_compiled_module',
         #'run_module':      'interp_imp.run_module',
         'new_module':      'interp_imp.new_module',
         'init_builtin':    'interp_imp.init_builtin',
