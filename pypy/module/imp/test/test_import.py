@@ -975,6 +975,13 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
             sys.path_hooks.pop()
 
+    def test_run_compiled_module(self):
+        # XXX minimal test only
+        import imp, new
+        module = new.module('foobar')
+        raises(IOError, imp._run_compiled_module,
+               'foobar', 'this_file_does_not_exist', None, module)
+
 class AppTestNoPycFile(object):
     spaceconfig = {
         "objspace.usepycfiles": False,

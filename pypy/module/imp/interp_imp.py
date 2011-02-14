@@ -4,6 +4,7 @@ from pypy.rlib import streamio
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import NoneNotWrapped, W_Root, ObjSpace
+from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
 import struct
 
 def get_suffixes(space):
@@ -32,7 +33,13 @@ def get_magic(space):
 
 def get_file(space, w_file, filename, filemode):
     if w_file is None or space.is_w(w_file, space.w_None):
-        return streamio.open_file_as_stream(filename, filemode)
+        try:
+            return streamio.open_file_as_stream(filename, filemode)
+        except StreamErrors, e:
+            # XXX this is not quite the correct place, but it will do for now.
+            # XXX see the issue which I'm sure exists already but whose number
+            # XXX I cannot find any more...
+            raise wrap_streamerror(space, e)
     else:
         return space.interp_w(W_File, w_file).stream
 
