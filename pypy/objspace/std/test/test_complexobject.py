@@ -153,7 +153,7 @@ class AppTestAppComplexTest:
 
         raises(ZeroDivisionError, complex.__div__, 1+1j, 0+0j)
         # FIXME: The following currently crashes on Alpha
-        # raises(OverflowError, pow, 1e200+1j, 1e200+1j)
+        raises(OverflowError, pow, 1e200+1j, 1e200+1j)
 
     def test_truediv(self):
         assert self.almost_equal(complex.__truediv__(2+0j, 1+1j), 1-1j)
@@ -460,7 +460,6 @@ class AppTestAppComplexTest:
         assert complex(a) == 42j
 
     def test_format(self):
-        skip("FIXME")
         # empty format string is same as str()
         assert format(1+3j, '') == str(1+3j)
         assert format(1.5+3.5j, '') == str(1.5+3.5j)
@@ -471,9 +470,11 @@ class AppTestAppComplexTest:
 
         # empty presentation type should still be analogous to str,
         # even when format string is nonempty (issue #5920).
+
+        assert format(3.2, '-') == str(3.2)
         assert format(3.2+0j, '-') == str(3.2+0j)
         assert format(3.2+0j, '<') == str(3.2+0j)
-        z = 4/7. - 100j/7.
+        z = 10/7. - 100j/7.
         assert format(z, '') == str(z)
         assert format(z, '-') == str(z)
         assert format(z, '<') == str(z)
@@ -537,12 +538,16 @@ class AppTestAppComplexTest:
         raises(ValueError, (1.5+3j).__format__, '=20')
 
         # integer presentation types are an error
-        for t in 'bcdoxX':
+        for t in 'bcdoxX%':
             raises(ValueError, (1.5+0.5j).__format__, t)
 
         # make sure everything works in ''.format()
         assert '*{0:.3f}*'.format(3.14159+2.71828j) == '*3.142+2.718j*'
+        assert u'*{0:.3f}*'.format(3.14159+2.71828j) == u'*3.142+2.718j*'
+        assert u'{:-}'.format(1.5+3.5j) == u'(1.5+3.5j)'
 
+        INF = float("inf")
+        NAN = float("nan")
         # issue 3382: 'f' and 'F' with inf's and nan's
         assert '{0:f}'.format(INF+0j) == 'inf+0.000000j'
         assert '{0:F}'.format(INF+0j) == 'INF+0.000000j'

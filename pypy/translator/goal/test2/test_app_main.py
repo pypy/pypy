@@ -181,6 +181,11 @@ class TestParseCommandLine:
             self.check([opt, '-c', 'pass'], sys_argv=['-c'],
                        run_command='pass', **expected)
 
+    def test_sysflags_envvar(self, monkeypatch):
+        monkeypatch.setenv('PYTHONNOUSERSITE', '1')
+        expected = {"no_user_site": True}
+        self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass', **expected)
+        
 
 class TestInteraction:
     """
