@@ -1,9 +1,11 @@
 import py
 import os
+import stat
+import errno
 from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.module._file.interp_stream import W_AbstractStream
-from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
+from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror, wrap_oserror_as_ioerror
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments, unwrap_spec
@@ -51,6 +53,16 @@ class W_File(W_AbstractStream):
         if stream.flushable():
             getopenstreams(self.space)[stream] = None
 
+    def check_not_dir(self, fd):
+        try:
+            st = os.fstat(fd)
+        except OSError:
+            pass
+        else:
+            if (stat.S_ISDIR(st[0])):
+                ose = OSError(errno.EISDIR, '')
+                raise wrap_oserror_as_ioerror(self.space, ose, self.w_name)
+
     def check_mode_ok(self, mode):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
             ('U' in mode and ('w' in mode or 'a' in mode))):
@@ -92,6 +104,7 @@ class W_File(W_AbstractStream):
         stream = dispatch_filename(streamio.open_file_as_stream)(
             self.space, w_name, mode, buffering)
         fd = stream.try_to_find_file_descriptor()
+        self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
 
     def direct___enter__(self):
