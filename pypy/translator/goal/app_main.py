@@ -507,10 +507,8 @@ def run_command_line(interactive,
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
-            def run_it():
-                import runpy
-                runpy._run_module_as_main(sys.argv[0])
-            success = run_toplevel(run_it)
+            import runpy
+            success = run_toplevel(runpy._run_module_as_main, sys.argv[0])
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
@@ -559,15 +557,26 @@ def run_command_line(interactive,
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
+            import imp
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
-                import imp
-                success = run_toplevel(imp._run_compiled_module, '__main__',
-                                       sys.argv[0], None, mainmodule)
+                args = (imp._run_compiled_module, '__main__',
+                        sys.argv[0], None, mainmodule)
             else:
-                success = run_toplevel(execfile, sys.argv[0],
-                                       mainmodule.__dict__)
+                # maybe it's the name of a directory or a zip file
+                filename = sys.argv[0]
+                importer = imp._getimporter(filename)
+                if not isinstance(importer, imp.NullImporter):
+                    # yes.  put the filename in sys.path[0] and import
+                    # the module __main__
+                    import runpy
+                    sys.path.insert(0, filename)
+                    args = (runpy._run_module_as_main, '__main__')
+                else:
+                    # no.  That's the normal path, "pypy stuff.py".
+                    args = (execfile, filename, mainmodule.__dict__)
+            success = run_toplevel(*args)
 
     except SystemExit, e:
         status = e.code
@@ -637,9 +646,9 @@ if __name__ == '__main__':
         except OSError:
             return None
 
-    # add an emulator for this pypy-only function
+    # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
-    import imp
+    import imp, runpy
     def _run_compiled_module(modulename, filename, file, module):
         import os
         assert modulename == '__main__'
@@ -648,7 +657,20 @@ if __name__ == '__main__':
         assert file is None
         assert module.__name__ == '__main__'
         print 'in _run_compiled_module'
+    def _getimporter(path):
+        import os, imp
+        if os.path.isdir(path):
+            return None
+        else:
+            return imp.NullImporter()
+    def _run_module_as_main(module):
+        import sys, os
+        path = os.path.join(sys.path[0], module + '.py')
+        execfile(path, {'__name__': '__main__'})
+
     imp._run_compiled_module = _run_compiled_module
+    imp._getimporter = _getimporter
+    runpy._run_module_as_main = _run_module_as_main
 
     # stick the current sys.path into $PYTHONPATH, so that CPython still
     # finds its own extension modules :-/
