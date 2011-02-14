@@ -812,6 +812,14 @@ class AppTestUnicodeString:
 
         assert unicode(A()) == u'bar'
 
+    def test_format_unicode_subclass(self):
+        class U(unicode):
+            def __unicode__(self):
+                return u'__unicode__ overridden'
+        u = U(u'xxx')
+        assert repr("%s" % u) == "u'__unicode__ overridden'"
+        assert repr("{}".format(u)) == "'__unicode__ overridden'"
+
     def test_replace_with_buffer(self):
         assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'
         assert u'abc'.replace(buffer('b'), u'e') == u'aec'

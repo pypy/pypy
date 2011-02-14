@@ -927,6 +927,8 @@ def unicode_format__Unicode(space, w_unicode, __args__):
 def format__Unicode_ANY(space, w_unicode, w_format_spec):
     if not space.isinstance_w(w_format_spec, space.w_unicode):
         w_format_spec = space.call_function(space.w_unicode, w_format_spec)
+    from pypy.objspace.std.unicodetype import unicode_from_object
+    w_unicode = unicode_from_object(space, w_unicode)
     spec = space.unicode_w(w_format_spec)
     formatter = newformat.unicode_formatter(space, spec)
     return formatter.format_string(w_unicode._value)
