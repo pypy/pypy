@@ -115,13 +115,17 @@ class TestDecoding(UnicodeTests):
             if 0xd800 <= v <= 0xdfff:
                 continue
             uni = unichr(v)
-            for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
+            if sys.version >= "2.7":
+                self.checkdecode(uni, "utf-7")
+            for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkdecode(uni, encoding)
 
     def test_maxunicode(self):
         uni = unichr(sys.maxunicode)
-        for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
+        if sys.version >= "2.7":
+            self.checkdecode(uni, "utf-7")
+        for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
                          "utf-32 utf-32-be utf-32-le").split():
             self.checkdecode(uni, encoding)
 
@@ -345,7 +349,9 @@ class TestEncoding(UnicodeTests):
 
     def test_maxunicode(self):
         uni = unichr(sys.maxunicode)
-        for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
+        if sys.version >= "2.7":
+            self.checkencode(uni, "utf-7")
+        for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
                          "utf-32 utf-32-be utf-32-le").split():
             self.checkencode(uni, encoding)        
 
