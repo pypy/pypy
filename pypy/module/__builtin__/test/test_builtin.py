@@ -663,6 +663,9 @@ class AppTestBuiltinOptimized(object):
         assert repr(round(nan)) == repr(nan)
         #
         raises(OverflowError, round, 1.6e308, -308)
+        #
+        assert round(562949953421312.5, 1) == 562949953421312.5
+        assert round(56294995342131.5, 3) == 56294995342131.5
 
     def test_vars_obscure_case(self):
         class C_get_vars(object):
