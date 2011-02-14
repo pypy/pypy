@@ -730,9 +730,8 @@ if USE_SHORT_FLOAT_REPR:
         # round to a decimal string; use an extra place for halfway case
         strvalue = formatd(value, 'f', ndigits + halfway_case)
 
-        buf = [c for c in strvalue]
-
         if halfway_case:
+            buf = [c for c in strvalue]
             if ndigits >= 0:
                 endpos = len(buf) - 1
             else:
