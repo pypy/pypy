@@ -291,7 +291,8 @@ def find_in_meta_path(space, w_modulename, w_path):
         if space.is_true(w_loader):
             return w_loader
 
-def find_in_path_hooks(space, w_modulename, w_pathitem):
+def _getimporter(space, w_pathitem):
+    # the function 'imp._getimporter' is a pypy-only extension
     w_path_importer_cache = space.sys.get("path_importer_cache")
     w_importer = space.finditem(w_path_importer_cache, w_pathitem)
     if w_importer is None:
@@ -311,11 +312,15 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
                 )
             except OperationError, e:
                 if e.match(space, space.w_ImportError):
-                    return
+                    return None
                 raise
         if space.is_true(w_importer):
             space.setitem(w_path_importer_cache, w_pathitem, w_importer)
-    if space.is_true(w_importer):
+    return w_importer
+
+def find_in_path_hooks(space, w_modulename, w_pathitem):
+    w_importer = _getimporter(space, w_pathitem)
+    if w_importer is not None and space.is_true(w_importer):
         w_loader = space.call_method(w_importer, "find_module", w_modulename)
         if space.is_true(w_loader):
             return w_loader
