@@ -71,6 +71,37 @@ extern void op_int_overflowed(void)
 // I don't know how important it is, comment talks about time warps
 
 
+#ifndef PYPY_CPU_HAS_STANDARD_PRECISION
+/* On x86-32, we have to use the following hacks to set and restore
+ * the CPU's precision to 53 bits around calls to dtoa.c.  The macro
+ * PYPY_CPU_HAS_STANDARD_PRECISION is defined if we are compiling
+ * with -mss2 -mfpmath=sse anyway, in which case the precision is
+ * already ok.
+ */
+#define _PyPy_SET_53BIT_PRECISION_HEADER                          \
+    unsigned short old_387controlword, new_387controlword
+#define _PyPy_SET_53BIT_PRECISION_START                                 \
+    do {                                                                \
+        old_387controlword = _PyPy_get_387controlword();                \
+        new_387controlword = (old_387controlword & ~0x0f00) | 0x0200;   \
+        if (new_387controlword != old_387controlword)                   \
+            _PyPy_set_387controlword(new_387controlword);               \
+    } while (0)
+#define _PyPy_SET_53BIT_PRECISION_END                           \
+    if (new_387controlword != old_387controlword)               \
+        _PyPy_set_387controlword(old_387controlword)
+
+static unsigned short _PyPy_get_387controlword(void) {
+    unsigned short cw;
+    __asm__ __volatile__ ("fnstcw %0" : "=m" (cw));
+    return cw;
+}
+static void _PyPy_set_387controlword(unsigned short cw) {
+    __asm__ __volatile__ ("fldcw %0" : : "m" (cw));
+}
+#endif  /* !PYPY_CPU_HAS_STANDARD_PRECISION */
+
+
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE

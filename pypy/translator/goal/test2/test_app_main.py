@@ -14,14 +14,36 @@ app_main = os.path.join(autopath.this_dir, os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
 
 _counter = 0
-def getscript(source):
+def _get_next_path():
     global _counter
     p = udir.join('demo_test_app_main_%d.py' % (_counter,))
     _counter += 1
+    return p
+
+def getscript(source):
+    p = _get_next_path()
     p.write(str(py.code.Source(source)))
     # return relative path for testing purposes 
     return py.path.local().bestrelpath(p) 
 
+def getscriptpyc(space, source):
+    p = _get_next_path()
+    p.write(str(py.code.Source(source)))
+    w_dir = space.wrap(str(p.dirpath()))
+    w_modname = space.wrap(p.purebasename)
+    space.appexec([w_dir, w_modname], """(dir, modname):
+        import sys
+        d = sys.modules.copy()
+        sys.path.insert(0, dir)
+        __import__(modname)
+        sys.path.pop(0)
+        for key in sys.modules.keys():
+            if key not in d:
+                del sys.modules[key]
+    """)
+    p = str(p) + 'c'
+    assert os.path.isfile(p)   # the .pyc file should have been created above
+    return p
 
 demo_script = getscript("""
     print 'hello'
@@ -159,6 +181,11 @@ class TestParseCommandLine:
             self.check([opt, '-c', 'pass'], sys_argv=['-c'],
                        run_command='pass', **expected)
 
+    def test_sysflags_envvar(self, monkeypatch):
+        monkeypatch.setenv('PYTHONNOUSERSITE', '1')
+        expected = {"no_user_site": True}
+        self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass', **expected)
+        
 
 class TestInteraction:
     """
@@ -391,10 +418,9 @@ class TestInteraction:
         child.expect(re.escape('File: ' + p))
         child.expect(re.escape('Argv: ' + repr([p, 'extra'])))
         child.expect('>>> ')
-        #XXX the following doesn't work on CPython 2.5 either
-        #child.sendline('somevalue')
-        #child.expect(re.escape(repr("foobar")))
-        #child.expect('>>> ')
+        child.sendline('somevalue')
+        child.expect(re.escape(repr("foobar")))
+        child.expect('>>> ')
         child.sendline('import sys')
         child.sendline('"pypy.translator.goal.test2" in sys.modules')
         child.expect('True')
@@ -671,6 +697,12 @@ class TestNonInteractive:
 
         data = self.run('-c "import sys; print sys.path"')
         assert data.startswith("[''")
+
+    def test_pyc_commandline_argument(self):
+        p = getscriptpyc(self.space, "print 6*7\n")
+        assert p.endswith('.pyc')
+        data = self.run(p)
+        assert data == 'in _run_compiled_module\n'
 
 
 class AppTestAppMain:

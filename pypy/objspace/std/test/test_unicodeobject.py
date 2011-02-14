@@ -524,6 +524,9 @@ class AppTestUnicodeString:
         # Error handling (truncated escape sequence)
         raises(UnicodeError, "\\".decode, "unicode-escape")
 
+        raises(UnicodeError, "\xc2".decode, "utf-8")
+        assert '\xe1\x80'.decode('utf-8', 'replace') == u"\ufffd"
+
     def test_repr_bug(self):
         assert (repr(u'\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
                 "u'\\U00090418\\u027d\\U000582b9\\u54c3\\U000fcb6e'")
@@ -808,6 +811,14 @@ class AppTestUnicodeString:
                 return u'bar'
 
         assert unicode(A()) == u'bar'
+
+    def test_format_unicode_subclass(self):
+        class U(unicode):
+            def __unicode__(self):
+                return u'__unicode__ overridden'
+        u = U(u'xxx')
+        assert repr("%s" % u) == "u'__unicode__ overridden'"
+        assert repr("{}".format(u)) == "'__unicode__ overridden'"
 
     def test_replace_with_buffer(self):
         assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'

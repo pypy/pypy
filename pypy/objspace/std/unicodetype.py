@@ -266,11 +266,13 @@ def decode_object(space, w_obj, encoding, errors):
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
             return space.wrap(str_decode_ascii(s, len(s), None,
+                                               final=True,
                                                errorhandler=eh)[0])
         if encoding == 'utf-8':
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
             return space.wrap(str_decode_utf_8(s, len(s), None,
+                                               final=True,
                                                errorhandler=eh)[0])
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.wrap("decode"))
@@ -291,7 +293,9 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     return w_retval
 
 def unicode_from_object(space, w_obj):
-    if space.is_w(space.type(w_obj), space.w_str):
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return w_obj
+    elif space.is_w(space.type(w_obj), space.w_str):
         w_res = w_obj
     else:
         w_unicode_method = space.lookup(w_obj, "__unicode__")

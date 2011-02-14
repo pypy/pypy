@@ -15,7 +15,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib import rgc
 
 class MiniStats:
@@ -86,7 +86,7 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 
 class BaseCPU(model.AbstractCPU):
     supports_floats = True
-    supports_longlong = True
+    supports_longlong = llimpl.IS_32_BIT
 
     def __init__(self, rtyper, stats=None, opts=None,
                  translate_support_code=False,
@@ -305,8 +305,12 @@ class LLtypeCPU(BaseCPU):
         for ARG in ARGS:
             token = history.getkind(ARG)
             if token != 'void':
+                if token == 'float' and longlong.is_longlong(ARG):
+                    token = 'L'
                 arg_types.append(token[0])
         token = history.getkind(RESULT)
+        if token == 'float' and longlong.is_longlong(RESULT):
+            token = 'L'
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 
@@ -464,7 +468,7 @@ class LLtypeCPU(BaseCPU):
         self._prepare_call(REF, calldescr, args_i, args_r, args_f)
         return llimpl.do_call_ptr(func)
     def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call(FLOAT, calldescr, args_i, args_r, args_f)
+        self._prepare_call(FLOAT + 'L', calldescr, args_i, args_r, args_f)
         return llimpl.do_call_float(func)
     def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
         self._prepare_call('v', calldescr, args_i, args_r, args_f)
@@ -472,7 +476,7 @@ class LLtypeCPU(BaseCPU):
 
     def _prepare_call(self, resulttypeinfo, calldescr, args_i, args_r, args_f):
         assert isinstance(calldescr, Descr)
-        assert calldescr.typeinfo == resulttypeinfo
+        assert calldescr.typeinfo in resulttypeinfo
         if args_i is not None:
             for x in args_i:
                 llimpl.do_call_pushint(x)

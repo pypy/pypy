@@ -5,6 +5,7 @@ import string
 from pypy.interpreter.error import OperationError
 from pypy.rlib import rstring, runicode, rlocale, rarithmetic
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.rarithmetic import copysign, formatd
 
 
 @specialize.argtype(1)
@@ -366,6 +367,9 @@ class BaseFormatter(object):
     def format_float(self, w_num):
         raise NotImplementedError
 
+    def format_complex(self, w_num):
+        raise NotImplementedError
+
 
 INT_KIND = 1
 LONG_KIND = 2
@@ -380,6 +384,7 @@ class Formatter(BaseFormatter):
     """__format__ implementation for builtin types."""
 
     _annspecialcase_ = "specialize:ctr_location"
+    _grouped_digits = None
 
     def __init__(self, space, is_unicode, spec):
         self.space = space
@@ -478,6 +483,7 @@ class Formatter(BaseFormatter):
         return False
 
     def _calc_padding(self, string, length):
+        """compute left and right padding, return total width of string"""
         if self._width != -1 and length < self._width:
             total = self._width
         else:
@@ -568,6 +574,17 @@ class Formatter(BaseFormatter):
 
     def _calc_num_width(self, n_prefix, sign_char, to_number, n_number,
                         n_remainder, has_dec, digits):
+        """Calculate widths of all parts of formatted number.
+
+        Output will look like:
+
+            <lpadding> <sign> <prefix> <spadding> <grouped_digits> <decimal>
+            <remainder> <rpadding>
+
+        sign is computed from self._sign, and the sign of the number
+        prefix is given
+        digits is known
+        """
         spec = NumberSpec()
         spec.n_digits = n_number - n_remainder - has_dec
         spec.n_prefix = n_prefix
@@ -577,6 +594,7 @@ class Formatter(BaseFormatter):
         spec.n_spadding = 0
         spec.n_rpadding = 0
         spec.n_min_width = 0
+        spec.n_total = 0
         spec.sign = "\0"
         spec.n_sign = 0
         sign = self._sign
@@ -612,6 +630,9 @@ class Formatter(BaseFormatter):
                 spec.n_spadding = n_padding
             else:
                 raise AssertionError("shouldn't reach")
+        spec.n_total = spec.n_lpadding + spec.n_sign + spec.n_prefix + \
+                       spec.n_spadding + n_grouped_digits + \
+                       spec.n_decimal + spec.n_remainder + spec.n_rpadding
         return spec
 
     def _fill_digits(self, buf, digits, d_state, n_chars, n_zeros,
@@ -677,7 +698,7 @@ class Formatter(BaseFormatter):
 
 
     def _fill_number(self, spec, num, to_digits, to_prefix, fill_char,
-                     to_remainder, upper):
+                     to_remainder, upper, grouped_digits=None):
         out = self._builder()
         if spec.n_lpadding:
             out.append_multiple_char(fill_char[0], spec.n_lpadding)
@@ -696,7 +717,8 @@ class Formatter(BaseFormatter):
             out.append_multiple_char(fill_char[0], spec.n_spadding)
         if spec.n_digits != 0:
             if self._loc_thousands:
-                digits = self._grouped_digits
+                digits = grouped_digits if grouped_digits is not None \
+                         else self._grouped_digits
             else:
                 stop = to_digits + spec.n_digits
                 assert stop >= 0
@@ -710,7 +732,8 @@ class Formatter(BaseFormatter):
             out.append(num[to_remainder:])
         if spec.n_rpadding:
             out.append_multiple_char(fill_char[0], spec.n_rpadding)
-        return self.space.wrap(out.build())
+        #if complex, need to call twice - just retun the buffer
+        return out.build()
 
     def _format_int_or_long(self, w_num, kind):
         space = self.space
@@ -768,8 +791,8 @@ class Formatter(BaseFormatter):
                                     n_remainder, False, result)
         fill = self._lit(" ") if self._fill_char == "\0" else self._fill_char
         upper = self._type == "X"
-        return self._fill_number(spec, result, to_numeric, to_prefix,
-                                 fill, to_remainder, upper)
+        return self.space.wrap(self._fill_number(spec, result, to_numeric,
+                                 to_prefix, fill, to_remainder, upper))
 
     def _long_to_base(self, base, value):
         prefix = ""
@@ -855,6 +878,8 @@ class Formatter(BaseFormatter):
             self._unknown_presentation("int" if kind == INT_KIND else "long")
 
     def _parse_number(self, s, i):
+        """Determine if s has a decimal point, and the index of the first #
+        after the decimal, or the end of the number."""
         length = len(s)
         while i < length and "0" <= s[i] <= "9":
             i += 1
@@ -862,9 +887,11 @@ class Formatter(BaseFormatter):
         dec_point = i < length and s[i] == "."
         if dec_point:
             rest += 1
+        #differs from CPython method - CPython sets n_remainder
         return dec_point, rest
 
     def _format_float(self, w_float):
+        """helper for format_float"""
         space = self.space
         flags = 0
         default_precision = 6
@@ -909,8 +936,8 @@ class Formatter(BaseFormatter):
         spec = self._calc_num_width(0, sign, to_number, n_digits,
                                     n_remainder, have_dec_point, digits)
         fill = self._lit(" ") if self._fill_char == "\0" else self._fill_char
-        return self._fill_number(spec, digits, to_number, 0, fill,
-                                 to_remainder, False)
+        return self.space.wrap(self._fill_number(spec, digits, to_number, 0,
+                                  fill, to_remainder, False))
 
     def format_float(self, w_float):
         space = self.space
@@ -930,6 +957,168 @@ class Formatter(BaseFormatter):
             tp == "%"):
             return self._format_float(w_float)
         self._unknown_presentation("float")
+
+    def _format_complex(self, w_complex):
+        space = self.space
+        tp = self._type
+        self._get_locale(tp)
+        default_precision = 6
+        if self._align == "=":
+            # '=' alignment is invalid
+            msg = ("'=' alignment flag is not allowed in"
+                   " complex format specifier")
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        if self._fill_char == "0":
+            #zero padding is invalid
+            msg = "Zero padding is not allowed in complex format specifier"
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        if self._alternate:
+            #alternate is invalid
+            msg = "Alternate form %s not allowed in complex format specifier"
+            raise OperationError(space.w_ValueError,
+                                 space.wrap(msg % (self._alternate)))
+        skip_re = 0
+        add_parens = 0
+        if tp == "\0":
+            #should mirror str() output
+            tp = "g"
+            default_precision = 12
+            #test if real part is non-zero
+            if (w_complex.realval == 0 and
+                copysign(1., w_complex.realval) == 1.):
+                skip_re = 1
+            else:
+                add_parens = 1
+
+        if tp == "n":
+            #same as 'g' except for locale, taken care of later
+            tp = "g"
+
+        #check if precision not set
+        if self._precision == -1:
+            self._precision = default_precision
+
+        #might want to switch to double_to_string from formatd
+        #in CPython it's named 're' - clashes with re module
+        re_num = formatd(w_complex.realval, tp, self._precision)
+        im_num = formatd(w_complex.imagval, tp, self._precision)
+        n_re_digits = len(re_num)
+        n_im_digits = len(im_num)
+
+        to_real_number = 0
+        to_imag_number = 0
+        re_sign = im_sign = ''
+        #if a sign character is in the output, remember it and skip
+        if re_num[0] == "-":
+            re_sign = "-"
+            to_real_number = 1
+            n_re_digits -= 1
+        if im_num[0] == "-":
+            im_sign = "-"
+            to_imag_number = 1
+            n_im_digits -= 1
+
+        #turn off padding - do it after number composition
+        #calc_num_width uses self._width, so assign to temporary variable,
+        #calculate width of real and imag parts, then reassign padding, align
+        tmp_fill_char = self._fill_char
+        tmp_align = self._align
+        tmp_width = self._width
+        self._fill_char = "\0"
+        self._align = "<"
+        self._width = -1
+
+        #determine if we have remainder, might include dec or exponent or both
+        re_have_dec, re_remainder_ptr = self._parse_number(re_num,
+                                                           to_real_number)
+        im_have_dec, im_remainder_ptr = self._parse_number(im_num,
+                                                           to_imag_number)
+
+        if self.is_unicode:
+            re_num = re_num.decode("ascii")
+            im_num = im_num.decode("ascii")
+
+        #set remainder, in CPython _parse_number sets this
+        #using n_re_digits causes tests to fail
+        re_n_remainder = len(re_num) - re_remainder_ptr
+        im_n_remainder = len(im_num) - im_remainder_ptr
+        re_spec = self._calc_num_width(0, re_sign, to_real_number, n_re_digits,
+                                       re_n_remainder, re_have_dec,
+                                       re_num)
+
+        #capture grouped digits b/c _fill_number reads from self._grouped_digits
+        #self._grouped_digits will get overwritten in imaginary calc_num_width
+        re_grouped_digits = self._grouped_digits
+        if not skip_re:
+            self._sign = "+"
+        im_spec = self._calc_num_width(0, im_sign, to_imag_number, n_im_digits,
+                                       im_n_remainder, im_have_dec,
+                                       im_num)
+
+        im_grouped_digits = self._grouped_digits
+        if skip_re:
+            re_spec.n_total = 0
+
+        #reassign width, alignment, fill character
+        self._align = tmp_align
+        self._width = tmp_width
+        self._fill_char = tmp_fill_char
+
+        #compute L and R padding - stored in self._left_pad and self._right_pad
+        self._calc_padding(self.empty, re_spec.n_total + im_spec.n_total + 1 +
+                                       add_parens * 2)
+
+        out = self._builder()
+        fill = self._fill_char
+        if fill == "\0":
+            fill = self._lit(" ")[0]
+
+        #compose the string
+        #add left padding
+        out.append_multiple_char(fill, self._left_pad)
+        if add_parens:
+            out.append(self._lit('(')[0])
+
+        #if the no. has a real component, add it
+        if not skip_re:
+            out.append(self._fill_number(re_spec, re_num, to_real_number, 0,
+                                         fill, re_remainder_ptr, False,
+                                         re_grouped_digits))
+
+        #add imaginary component
+        out.append(self._fill_number(im_spec, im_num, to_imag_number, 0,
+                                     fill, im_remainder_ptr, False,
+                                     im_grouped_digits))
+
+        #add 'j' character
+        out.append(self._lit('j')[0])
+
+        if add_parens:
+            out.append(self._lit(')')[0])
+
+        #add right padding
+        out.append_multiple_char(fill, self._right_pad)
+
+        return self.space.wrap(out.build())
+
+
+    def format_complex(self, w_complex):
+        """return the string representation of a complex number"""
+        space = self.space
+        #parse format specification, set associated variables
+        if self._parse_spec("\0", ">"):
+            return space.str(w_complex)
+        tp = self._type
+        if (tp == "\0" or
+            tp == "e" or
+            tp == "E" or
+            tp == "f" or
+            tp == "F" or
+            tp == "g" or
+            tp == "G" or
+            tp == "n"):
+            return self._format_complex(w_complex)
+        self._unknown_presentation("complex")
 
 
 def unicode_formatter(space, spec):

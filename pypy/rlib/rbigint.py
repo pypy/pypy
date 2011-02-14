@@ -71,6 +71,7 @@ def _load_unsigned_digit(x):
     return rffi.cast(lltype.Unsigned, x)
 
 NULLDIGIT = _store_digit(0)
+ONEDIGIT  = _store_digit(1)
 
 def _check_digits(l):
     for x in l:
@@ -151,7 +152,7 @@ class rbigint(object):
 
     def frombool(b):
         if b:
-            return rbigint([1], 1)
+            return rbigint([ONEDIGIT], 1)
         return rbigint()
     frombool = staticmethod(frombool)
 
@@ -511,12 +512,12 @@ class rbigint(object):
         z._normalize()
         return z
 
-    def rshift(self, int_other):
+    def rshift(self, int_other, dont_invert=False):
         if int_other < 0:
             raise ValueError("negative shift count")
         elif int_other == 0:
             return self
-        if self.sign == -1:
+        if self.sign == -1 and not dont_invert:
             a1 = self.invert()
             a2 = a1.rshift(int_other)
             return a2.invert()
@@ -1497,7 +1498,7 @@ def _bigint_true_divide(a, b):
     if shift <= 0:
         x = a.lshift(-shift)
     else:
-        x = a.rshift(shift)
+        x = a.rshift(shift, dont_invert=True)
         # set inexact if any of the bits shifted out is nonzero
         if not a.eq(x.lshift(shift)):
             inexact = True

@@ -26,6 +26,8 @@ def wrap_oserror_as_ioerror(space, e, w_filename=None):
         msg = os.strerror(errno)
     except ValueError:
         msg = 'error %d' % errno
+    if w_filename is None:
+        w_filename = space.w_None
     w_error = space.call_function(space.w_IOError,
                                   space.wrap(errno),
                                   space.wrap(msg),

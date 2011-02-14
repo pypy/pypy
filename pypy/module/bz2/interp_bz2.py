@@ -290,7 +290,7 @@ same_attributes_as_in_file = list(W_File._exposed_method_names)
 same_attributes_as_in_file.remove('__init__')
 same_attributes_as_in_file.extend([
     'name', 'mode', 'encoding', 'closed', 'newlines', 'softspace',
-    '__weakref__'])
+    'writelines', '__exit__', '__weakref__'])
 
 W_BZ2File.typedef = TypeDef(
     "BZ2File",

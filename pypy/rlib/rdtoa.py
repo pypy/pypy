@@ -15,11 +15,6 @@ eci = ExternalCompilationInfo(
     includes = ['src/dtoa.h'],
     libraries = [],
     separate_module_files = [cdir / 'src' / 'dtoa.c'],
-    separate_module_sources = ['''
-       #include <stdlib.h>
-       #include <assert.h>
-       #include "src/allocator.h"
-    '''],
     export_symbols = ['_PyPy_dg_strtod',
                       '_PyPy_dg_dtoa',
                       '_PyPy_dg_freedtoa',

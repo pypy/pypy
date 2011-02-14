@@ -12,13 +12,13 @@ from pypy.rlib.jit import (PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL,
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp import history
-from pypy.jit.codewriter import support, heaptracker
+from pypy.jit.codewriter import support, heaptracker, longlong
 
 # ____________________________________________________________
 
 @specialize.arg(0)
 def specialize_value(TYPE, x):
-    """'x' must be a Signed, a GCREF or a Float.
+    """'x' must be a Signed, a GCREF or a FLOATSTORAGE.
     This function casts it to a more specialized type, like Char or Ptr(..).
     """
     INPUT = lltype.typeOf(x)
@@ -28,15 +28,15 @@ def specialize_value(TYPE, x):
             return rffi.cast(TYPE, x)
         else:
             return lltype.cast_primitive(TYPE, x)
-    elif INPUT is lltype.Float:
+    elif INPUT is longlong.FLOATSTORAGE:
         assert TYPE is lltype.Float
-        return x
+        return longlong.getrealfloat(x)
     else:
         return lltype.cast_opaque_ptr(TYPE, x)
 
 @specialize.ll()
 def unspecialize_value(value):
-    """Casts 'value' to a Signed, a GCREF or a Float."""
+    """Casts 'value' to a Signed, a GCREF or a FLOATSTORAGE."""
     if isinstance(lltype.typeOf(value), lltype.Ptr):
         if lltype.typeOf(value).TO._gckind == 'gc':
             return lltype.cast_opaque_ptr(llmemory.GCREF, value)
@@ -46,7 +46,7 @@ def unspecialize_value(value):
     elif isinstance(lltype.typeOf(value), ootype.OOType):
         return ootype.cast_to_object(value)
     elif isinstance(value, float):
-        return value
+        return longlong.getfloatstorage(value)
     else:
         return intmask(value)
 
@@ -83,6 +83,7 @@ def wrap(cpu, value, in_const_box=False):
         else:
             return history.BoxObj(value)
     elif isinstance(value, float):
+        value = longlong.getfloatstorage(value)
         if in_const_box:
             return history.ConstFloat(value)
         else:
@@ -138,7 +139,11 @@ def set_future_value(cpu, j, value, typecode):
         intvalue = lltype.cast_primitive(lltype.Signed, value)
         cpu.set_future_value_int(j, intvalue)
     elif typecode == 'float':
-        assert isinstance(value, float)
+        if lltype.typeOf(value) is lltype.Float:
+            value = longlong.getfloatstorage(value)
+        else:
+            assert longlong.is_longlong(lltype.typeOf(value))
+            value = rffi.cast(lltype.SignedLongLong, value)
         cpu.set_future_value_float(j, value)
     else:
         assert False

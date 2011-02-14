@@ -704,23 +704,33 @@ class Cursor(object):
             sql = sql.encode("utf-8")
         self._check_closed()
         statement = c_void_p()
-        next_char = c_char_p(sql)
+        c_sql = c_char_p(sql)
 
+        self.connection.commit()
         while True:
-            if not sqlite.sqlite3_complete(next_char):
-                raise OperationalError, "Incomplete statement '%s'" % next_char.value
-            ret = sqlite.sqlite3_prepare_v2(self.connection.db, next_char, -1, byref(statement), byref(next_char))
-            if ret != SQLITE_OK:
-                raise self.connection._get_exception(ret)
-            if statement.value is None:
-                break
-            ret = sqlite.sqlite3_step(statement)
-            sqlite.sqlite3_finalize(statement)
-            if ret not in (SQLITE_OK, SQLITE_DONE, SQLITE_ROW):
-                raise self.connection._get_exception(ret)
-            if next_char.value is None:
-                break
+            rc = sqlite.sqlite3_prepare(self.connection.db, c_sql, -1, byref(statement), byref(c_sql))
+            if rc != SQLITE_OK:
+                raise self.connection._get_exception(rc)
 
+            rc = SQLITE_ROW
+            while rc == SQLITE_ROW:
+                if not statement:
+                    rc = SQLITE_OK
+                else:
+                    rc = sqlite.sqlite3_step(statement)
+
+            if rc != SQLITE_DONE:
+                sqlite.sqlite3_finalize(statement)
+                if rc == SQLITE_OK:
+                    return self
+                else:
+                    raise self.connection._get_exception(rc)
+            rc = sqlite.sqlite3_finalize(statement)
+            if rc != SQLITE_OK:
+                raise self.connection._get_exception(rc)
+
+            if not c_sql.value:
+                break
         return self
 
     def __iter__(self):

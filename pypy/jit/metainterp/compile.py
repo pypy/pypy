@@ -15,7 +15,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.resume import NUMBERING
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
     from pypy.jit.metainterp.pyjitpl import SwitchToBlackhole
@@ -528,7 +528,7 @@ class ResumeGuardCountersRef(AbstractResumeGuardCounters):
 class ResumeGuardCountersFloat(AbstractResumeGuardCounters):
     def __init__(self):
         self.counters = [0] * 5
-        self.values = [0.0] * 5
+        self.values = [longlong.ZEROF] * 5
     see_float = func_with_new_name(_see, 'see_float')
 
 

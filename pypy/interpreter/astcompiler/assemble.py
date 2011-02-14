@@ -167,15 +167,22 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.use_block(block)
         return block
 
+    def is_dead_code(self):
+        """Return False if any code can be meaningfully added to the
+        current block, or True if it would be dead code."""
+        # currently only True after a RETURN_VALUE.
+        return self.current_block.have_return
+
     def emit_op(self, op):
         """Emit an opcode without an argument."""
         instr = Instruction(op)
         if not self.lineno_set:
             instr.lineno = self.lineno
             self.lineno_set = True
-        self.instrs.append(instr)
-        if op == ops.RETURN_VALUE:
-            self.current_block.have_return = True
+        if not self.is_dead_code():
+            self.instrs.append(instr)
+            if op == ops.RETURN_VALUE:
+                self.current_block.have_return = True
         return instr
 
     def emit_op_arg(self, op, arg):
@@ -184,7 +191,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         if not self.lineno_set:
             instr.lineno = self.lineno
             self.lineno_set = True
-        self.instrs.append(instr)
+        if not self.is_dead_code():
+            self.instrs.append(instr)
 
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""

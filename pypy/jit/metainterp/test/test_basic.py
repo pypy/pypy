@@ -9,6 +9,7 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
+from pypy.jit.codewriter import longlong
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
@@ -86,6 +87,7 @@ def _run_with_blackhole(testself, args):
             blackholeinterp.setarg_r(count_r, value)
             count_r += 1
         elif T == lltype.Float:
+            value = longlong.getfloatstorage(value)
             blackholeinterp.setarg_f(count_f, value)
             count_f += 1
         else:
@@ -192,6 +194,10 @@ class JitMixin:
         # try to run it by running the code compiled just before
         result3 = _run_with_machine_code(self, args)
         assert result1 == result3 or result3 == NotImplemented
+        #
+        if (longlong.supports_longlong and
+            isinstance(result1, longlong.r_float_storage)):
+            result1 = longlong.getrealfloat(result1)
         return result1
 
     def check_history(self, expected=None, **isns):

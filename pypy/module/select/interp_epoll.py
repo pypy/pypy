@@ -1,11 +1,10 @@
 from __future__ import with_statement
 
 import errno
-import os
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec, ObjSpace, W_Root
-from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
+from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.tool import rffi_platform
@@ -55,12 +54,6 @@ epoll_wait = rffi.llexternal(
     rffi.INT,
     compilation_info=eci,
 )
-
-def exception_from_errno(space, w_type):
-    errno = get_errno()
-    msg = os.strerror(errno)
-    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
-    return OperationError(w_type, w_error)
 
 class W_Epoll(Wrappable):
     def __init__(self, space, epfd):

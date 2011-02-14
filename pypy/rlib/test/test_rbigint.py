@@ -19,6 +19,10 @@ class TestRLong(object):
                     r2 = getattr(operator, op)(op1, op2)
                     assert r1.tolong() == r2
 
+    def test_frombool(self):
+        assert rbigint.frombool(False).tolong() == 0
+        assert rbigint.frombool(True).tolong() == 1
+
     def test_str(self):
         for i in range(100):
             n = 3 ** i
@@ -58,9 +62,15 @@ class TestRLong(object):
         f = op1.truediv(op2)
         assert f == 1.7976931348623157e+308     # exactly
 
+        op1 = rbigint.fromlong(overflowing-1)
         op2 = rbigint.fromlong(-1)
         f = op1.truediv(op2)
         assert f == -1.7976931348623157e+308    # exactly
+
+        op1 = rbigint.fromlong(-overflowing+1)
+        op2 = rbigint.fromlong(-1)
+        f = op1.truediv(op2)
+        assert f == +1.7976931348623157e+308    # exactly
 
         op1 = rbigint.fromlong(overflowing)
         op2 = rbigint.fromlong(1)

@@ -23,7 +23,7 @@ from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
-from pypy.jit.codewriter import support, codewriter
+from pypy.jit.codewriter import support, codewriter, longlong
 from pypy.jit.codewriter.policy import JitPolicy
 
 # ____________________________________________________________
@@ -345,7 +345,7 @@ class WarmRunnerDesc(object):
 
         class DoneWithThisFrameFloat(JitException):
             def __init__(self, result):
-                assert lltype.typeOf(result) is lltype.Float
+                assert lltype.typeOf(result) is longlong.FLOATSTORAGE
                 self.result = result
             def __str__(self):
                 return 'DoneWithThisFrameFloat(%s)' % (self.result,)

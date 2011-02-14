@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.runicode import UNICHR
-from pypy.rlib.rarithmetic import isnan, isinf
+from pypy.rlib.rarithmetic import isnan, isinf, round_double
 from pypy.rlib import rfloat
 import math
 import __builtin__
@@ -151,40 +151,11 @@ This always returns a floating point number.  Precision may be negative."""
         # return 0.0, but with sign of x
         return space.wrap(0.0 * number)
 
-    if ndigits >= 0:
-        if ndigits > 22:
-            # pow1 and pow2 are each safe from overflow, but
-            # pow1*pow2 ~= pow(10.0, ndigits) might overflow
-            pow1 = math.pow(10.0, ndigits - 22)
-            pow2 = 1e22
-        else:
-            pow1 = math.pow(10.0, ndigits)
-            pow2 = 1.0
-
-        y = (number * pow1) * pow2
-        # if y overflows, then rounded value is exactly x
-        if isinf(y):
-            return space.wrap(number)
-
-    else:
-        pow1 = math.pow(10.0, -ndigits);
-        pow2 = 1.0 # unused; for translation
-        y = number / pow1
-
-    if y >= 0.0:
-        z = math.floor(y + 0.5)
-    else:
-        z = math.ceil(y - 0.5)
-    if math.fabs(y-z) == 1.0:   # obscure case, see the test
-        z = y
-
-    if ndigits >= 0:
-        z = (z / pow2) / pow1
-    else:
-        z *= pow1
+    # finite x, and ndigits is not unreasonably large
+    z = round_double(number, ndigits)
     if isinf(z):
         raise OperationError(space.w_OverflowError,
-                            space.wrap("rounded value too large to represent"))
+                             space.wrap("rounded value too large to represent"))
     return space.wrap(z)
 #
 round.unwrap_spec = [ObjSpace, float, W_Root]

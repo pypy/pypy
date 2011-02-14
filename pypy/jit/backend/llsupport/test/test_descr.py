@@ -5,6 +5,7 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp import history
+from pypy.jit.codewriter import longlong
 import sys, struct, py
 
 def test_get_size_descr():
@@ -248,7 +249,7 @@ def test_get_call_descr_not_translated_longlong():
     #
     descr6 = get_call_descr(c0, [lltype.Signed], lltype.SignedLongLong)
     assert descr6.get_result_size(False) == 8
-    assert descr6.get_return_type() == history.FLOAT
+    assert descr6.get_return_type() == "L"
     assert descr6.arg_classes == "i"
 
 def test_get_call_descr_translated():
@@ -351,5 +352,5 @@ def test_call_stubs():
     opaquea = lltype.cast_opaque_ptr(llmemory.GCREF, a)
     a[0] = 1
     res = descr2.call_stub(rffi.cast(lltype.Signed, fnptr),
-                           [], [opaquea], [3.5])
-    assert res == 4.5
+                           [], [opaquea], [longlong.getfloatstorage(3.5)])
+    assert longlong.getrealfloat(res) == 4.5

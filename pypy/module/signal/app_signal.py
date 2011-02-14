@@ -8,3 +8,7 @@ def default_int_handler(signum, frame):
     It raises KeyboardInterrupt.
     """
     raise KeyboardInterrupt()
+
+
+class ItimerError(IOError):
+    pass

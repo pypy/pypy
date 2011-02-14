@@ -66,7 +66,10 @@ class stat_result:
 
 if osname == 'posix':
     def _validate_fd(fd):
-        import fcntl
+        try:
+            import fcntl
+        except ImportError:
+            return
         try:
             fcntl.fcntl(fd, fcntl.F_GETFD)
         except IOError, e:
