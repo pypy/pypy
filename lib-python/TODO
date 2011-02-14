@@ -91,3 +91,10 @@ as the various skips added to the test suite.
   to when parsing for a given target function, which occurs later).
 
   * Some "..." were added to doctests in test_extcall.py
+
+- CPython's builtin methods are both functions and unbound methods (for
+  example, `str.upper is dict(str.__dict__)['upper']`). This is not the case
+  in pypy, and assertions like `object.__str__ is object.__str__` are False
+  with pypy.  Use the `==` operator instead.
+
+  * pprint.py, _threading_local.py
