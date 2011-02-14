@@ -931,7 +931,7 @@ def format__Unicode_ANY(space, w_unicode, w_format_spec):
     w_unicode = unicode_from_object(space, w_unicode)
     spec = space.unicode_w(w_format_spec)
     formatter = newformat.unicode_formatter(space, spec)
-    return formatter.format_string(w_unicode._value)
+    return formatter.format_string(space.unicode_w(w_unicode))
 
 
 import unicodetype
