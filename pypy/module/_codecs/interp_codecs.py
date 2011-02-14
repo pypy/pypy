@@ -181,8 +181,10 @@ def replace_errors(space, w_exc):
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         text = '?' * size
         return space.newtuple([space.wrap(text), w_end])
-    elif (space.isinstance_w(w_exc, space.w_UnicodeDecodeError) or
-          space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
+    elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
+        text = u'\ufffd'
+        return space.newtuple([space.wrap(text), w_end])
+    elif space.isinstance_w(w_exc, space.w_UnicodeTranslateError):
         text = u'\ufffd' * size
         return space.newtuple([space.wrap(text), w_end])
     else:

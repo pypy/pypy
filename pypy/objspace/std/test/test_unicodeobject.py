@@ -525,6 +525,7 @@ class AppTestUnicodeString:
         raises(UnicodeError, "\\".decode, "unicode-escape")
 
         raises(UnicodeError, "\xc2".decode, "utf-8")
+        assert '\xe1\x80'.decode('utf-8', 'replace') == u"\ufffd"
 
     def test_repr_bug(self):
         assert (repr(u'\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
