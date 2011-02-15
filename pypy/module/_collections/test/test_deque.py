@@ -129,28 +129,25 @@ class AppTestBasic:
         assert original_d is d
 
     def test_extendleft(self):
+        from _collections import deque
         d = deque('a')
-        self.assertRaises(TypeError, d.extendleft, 1)
         d.extendleft('bcd')
-        self.assertEqual(list(d), list(reversed('abcd')))
+        assert list(d) == list(reversed('abcd'))
         d.extendleft(d)
-        self.assertEqual(list(d), list('abcddcba'))
-        d = deque()
-        d.extendleft(range(1000))
-        self.assertEqual(list(d), list(reversed(range(1000))))
-        self.assertRaises(SyntaxError, d.extendleft, fail())
+        assert list(d) == list('abcddcba')
 
     def test_getitem(self):
+        from _collections import deque
         n = 200
         d = deque(xrange(n))
         l = range(n)
         for i in xrange(n):
             d.popleft()
             l.pop(0)
-            if random.random() < 0.5:
+            if i & 1:
                 d.append(i)
                 l.append(i)
-            for j in xrange(1-len(l), len(l)):
+            for j in xrange(-len(l), len(l)):
                 assert d[j] == l[j]
 
         d = deque('superman')

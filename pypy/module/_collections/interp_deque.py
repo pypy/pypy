@@ -289,6 +289,15 @@ class W_Deque(Wrappable):
     def ge(self, w_other):
         return self.compare(w_other, 'ge')
 
+    @unwrap_spec('self', W_Root)
+    def getitem(self, w_index):
+        space = self.space
+        start, stop, step = space.decode_index(w_index, self.len)
+        if step == 0:  # index only
+            return space.wrap(self.mmap.getitem(start))
+        else:
+            xxx
+
     def get_maxlen(space, self):
         if self.maxlen == sys.maxint:
             return self.space.w_None
@@ -349,6 +358,7 @@ W_Deque.typedef = TypeDef("deque",
     __gt__ = interp2app(W_Deque.gt),
     __ge__ = interp2app(W_Deque.ge),
     __iadd__ = interp2app(W_Deque.iadd),
+    __getitem__ = interp2app(W_Deque.getitem),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 
