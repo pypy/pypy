@@ -3,7 +3,7 @@ Tests for the entry point of pypy-c, app_main.py.
 """
 from __future__ import with_statement
 import py
-import sys, os, re
+import sys, os, re, runpy
 import autopath
 from pypy.tool.udir import udir
 from contextlib import contextmanager
@@ -14,14 +14,43 @@ app_main = os.path.join(autopath.this_dir, os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
 
 _counter = 0
-def getscript(source):
+def _get_next_path(ext='.py'):
     global _counter
-    p = udir.join('demo_test_app_main_%d.py' % (_counter,))
+    p = udir.join('demo_test_app_main_%d%s' % (_counter, ext))
     _counter += 1
+    return p
+
+def getscript(source):
+    p = _get_next_path()
     p.write(str(py.code.Source(source)))
     # return relative path for testing purposes 
     return py.path.local().bestrelpath(p) 
 
+def getscript_pyc(space, source):
+    p = _get_next_path()
+    p.write(str(py.code.Source(source)))
+    w_dir = space.wrap(str(p.dirpath()))
+    w_modname = space.wrap(p.purebasename)
+    space.appexec([w_dir, w_modname], """(dir, modname):
+        import sys
+        d = sys.modules.copy()
+        sys.path.insert(0, dir)
+        __import__(modname)
+        sys.path.pop(0)
+        for key in sys.modules.keys():
+            if key not in d:
+                del sys.modules[key]
+    """)
+    p = str(p) + 'c'
+    assert os.path.isfile(p)   # the .pyc file should have been created above
+    return p
+
+def getscript_in_dir(source):
+    pdir = _get_next_path(ext='')
+    p = pdir.ensure(dir=1).join('__main__.py')
+    p.write(str(py.code.Source(source)))
+    # return relative path for testing purposes 
+    return py.path.local().bestrelpath(pdir)
 
 demo_script = getscript("""
     print 'hello'
@@ -159,6 +188,11 @@ class TestParseCommandLine:
             self.check([opt, '-c', 'pass'], sys_argv=['-c'],
                        run_command='pass', **expected)
 
+    def test_sysflags_envvar(self, monkeypatch):
+        monkeypatch.setenv('PYTHONNOUSERSITE', '1')
+        expected = {"no_user_site": True}
+        self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass', **expected)
+        
 
 class TestInteraction:
     """
@@ -381,6 +415,8 @@ class TestInteraction:
     def test_options_i_m(self):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
@@ -481,6 +517,8 @@ class TestInteraction:
         child.expect('A five ounce bird could not carry a one pound coconut.')
 
     def test_no_space_before_argument(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         child = self.spawn(['-cprint "hel" + "lo"'])
         child.expect('hello')
 
@@ -578,6 +616,8 @@ class TestNonInteractive:
             os.environ['PYTHONWARNINGS'] = old
 
     def test_option_m(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         data = self.run('-m pypy.translator.goal.test2.mymodule extra')
@@ -670,6 +710,21 @@ class TestNonInteractive:
 
         data = self.run('-c "import sys; print sys.path"')
         assert data.startswith("[''")
+
+    def test_pyc_commandline_argument(self):
+        p = getscript_pyc(self.space, "print 6*7\n")
+        assert os.path.isfile(p) and p.endswith('.pyc')
+        data = self.run(p)
+        assert data == 'in _run_compiled_module\n'
+
+    def test_main_in_dir_commandline_argument(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
+        p = getscript_in_dir('print 6*7\n')
+        data = self.run(p)
+        assert data == '42\n'
+        data = self.run(p + os.sep)
+        assert data == '42\n'
 
 
 class AppTestAppMain:

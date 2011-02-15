@@ -293,7 +293,9 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     return w_retval
 
 def unicode_from_object(space, w_obj):
-    if space.is_w(space.type(w_obj), space.w_str):
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return w_obj
+    elif space.is_w(space.type(w_obj), space.w_str):
         w_res = w_obj
     else:
         w_unicode_method = space.lookup(w_obj, "__unicode__")

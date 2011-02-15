@@ -124,10 +124,14 @@ class AppTestTermios(object):
         assert d == self.orig_module_dict
 
     def test_error(self):
-        # XXX not always true, but good assumption
-        import termios
-        raises(termios.error, "termios.tcgetattr(334)")
-        
+        import termios, errno, os
+        fd = os.open('.', 0)
+        try:
+            exc = raises(termios.error, termios.tcgetattr, fd)
+            assert exc.value.args[0] == errno.ENOTTY
+        finally:
+            os.close(fd)
+
     def test_error_tcsetattr(self):
         import termios
         raises(ValueError, termios.tcsetattr, 0, 1, (1, 2))

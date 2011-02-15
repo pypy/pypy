@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
 from pypy.jit.metainterp.compile import ResumeAtPositionDescr
 
@@ -204,7 +204,7 @@ class BlackholeInterpBuilder(object):
                 assert argcodes[next_argcode] == '>'
                 assert argcodes[next_argcode + 1] == 'f'
                 next_argcode = next_argcode + 2
-                assert lltype.typeOf(result) is lltype.Float
+                assert lltype.typeOf(result) is longlong.FLOATSTORAGE
                 self.registers_f[ord(code[position])] = result
                 position += 1
             elif resulttype == 'L':
@@ -252,7 +252,7 @@ class BlackholeInterpreter(object):
         if we_are_translated():
             default_i = 0
             default_r = NULL
-            default_f = 0.0
+            default_f = longlong.ZEROF
         else:
             default_i = MissingValue()
             default_r = MissingValue()
@@ -281,12 +281,15 @@ class BlackholeInterpreter(object):
         self.position = position
 
     def setarg_i(self, index, value):
+        assert lltype.typeOf(value) is lltype.Signed
         self.registers_i[index] = value
 
     def setarg_r(self, index, value):
+        assert lltype.typeOf(value) == llmemory.GCREF
         self.registers_r[index] = value
 
     def setarg_f(self, index, value):
+        assert lltype.typeOf(value) is longlong.FLOATSTORAGE
         self.registers_f[index] = value
 
     def run(self):
@@ -535,52 +538,82 @@ class BlackholeInterpreter(object):
 
     @arguments("f", returns="f")
     def bhimpl_float_neg(a):
-        return -a
+        a = longlong.getrealfloat(a)
+        x = -a
+        return longlong.getfloatstorage(x)
     @arguments("f", returns="f")
     def bhimpl_float_abs(a):
-        return abs(a)
+        a = longlong.getrealfloat(a)
+        x = abs(a)
+        return longlong.getfloatstorage(x)
 
     @arguments("f", "f", returns="f")
     def bhimpl_float_add(a, b):
-        return a + b
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        x = a + b
+        return longlong.getfloatstorage(x)
     @arguments("f", "f", returns="f")
     def bhimpl_float_sub(a, b):
-        return a - b
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        x = a - b
+        return longlong.getfloatstorage(x)
     @arguments("f", "f", returns="f")
     def bhimpl_float_mul(a, b):
-        return a * b
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        x = a * b
+        return longlong.getfloatstorage(x)
     @arguments("f", "f", returns="f")
     def bhimpl_float_truediv(a, b):
-        return a / b
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        x = a / b
+        return longlong.getfloatstorage(x)
 
     @arguments("f", "f", returns="i")
     def bhimpl_float_lt(a, b):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
         return a < b
     @arguments("f", "f", returns="i")
     def bhimpl_float_le(a, b):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
         return a <= b
     @arguments("f", "f", returns="i")
     def bhimpl_float_eq(a, b):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
         return a == b
     @arguments("f", "f", returns="i")
     def bhimpl_float_ne(a, b):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
         return a != b
     @arguments("f", "f", returns="i")
     def bhimpl_float_gt(a, b):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
         return a > b
     @arguments("f", "f", returns="i")
     def bhimpl_float_ge(a, b):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
         return a >= b
 
     @arguments("f", returns="i")
     def bhimpl_cast_float_to_int(a):
+        a = longlong.getrealfloat(a)
         # note: we need to call int() twice to care for the fact that
         # int(-2147483648.0) returns a long :-(
         return int(int(a))
 
     @arguments("i", returns="f")
     def bhimpl_cast_int_to_float(a):
-        return float(a)
+        x = float(a)
+        return longlong.getfloatstorage(x)
 
     # ----------
     # control flow operations
@@ -1262,10 +1295,13 @@ class BlackholeInterpreter(object):
     # connect the return of values from the called frame to the
     # 'xxx_call_yyy' instructions from the caller frame
     def _setup_return_value_i(self, result):
+        assert lltype.typeOf(result) is lltype.Signed
         self.registers_i[ord(self.jitcode.code[self.position-1])] = result
     def _setup_return_value_r(self, result):
+        assert lltype.typeOf(result) == llmemory.GCREF
         self.registers_r[ord(self.jitcode.code[self.position-1])] = result
     def _setup_return_value_f(self, result):
+        assert lltype.typeOf(result) is longlong.FLOATSTORAGE
         self.registers_f[ord(self.jitcode.code[self.position-1])] = result
 
     def _done_with_this_frame(self):
@@ -1329,7 +1365,7 @@ class BlackholeInterpreter(object):
         for i in range(self.jitcode.num_regs_f()):
             box = miframe.registers_f[i]
             if box is not None:
-                self.setarg_f(i, box.getfloat())
+                self.setarg_f(i, box.getfloatstorage())
 
 # ____________________________________________________________
 

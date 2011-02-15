@@ -464,3 +464,62 @@ def test_round_away():
     assert round_away(-.1) == 0.
     assert round_away(-.7) == -1.
     assert round_away(0.) == 0.
+
+def test_round_double():
+    def almost_equal(x, y):
+        assert round(abs(x-y), 7) == 0
+
+    almost_equal(round_double(0.125, 2), 0.13)
+    almost_equal(round_double(0.375, 2), 0.38)
+    almost_equal(round_double(0.625, 2), 0.63)
+    almost_equal(round_double(0.875, 2), 0.88)
+    almost_equal(round_double(-0.125, 2), -0.13)
+    almost_equal(round_double(-0.375, 2), -0.38)
+    almost_equal(round_double(-0.625, 2), -0.63)
+    almost_equal(round_double(-0.875, 2), -0.88)
+
+    almost_equal(round_double(0.25, 1), 0.3)
+    almost_equal(round_double(0.75, 1), 0.8)
+    almost_equal(round_double(-0.25, 1), -0.3)
+    almost_equal(round_double(-0.75, 1), -0.8)
+
+    round_double(-6.5, 0) == -7.0
+    round_double(-5.5, 0) == -6.0
+    round_double(-1.5, 0) == -2.0
+    round_double(-0.5, 0) == -1.0
+    round_double(0.5, 0) == 1.0
+    round_double(1.5, 0) == 2.0
+    round_double(2.5, 0) == 3.0
+    round_double(3.5, 0) == 4.0
+    round_double(4.5, 0) == 5.0
+    round_double(5.5, 0) == 6.0
+    round_double(6.5, 0) == 7.0
+
+    round_double(-25.0, -1) == -30.0
+    round_double(-15.0, -1) == -20.0
+    round_double(-5.0, -1) == -10.0
+    round_double(5.0, -1) == 10.0
+    round_double(15.0, -1) == 20.0
+    round_double(25.0, -1) == 30.0
+    round_double(35.0, -1) == 40.0
+    round_double(45.0, -1) == 50.0
+    round_double(55.0, -1) == 60.0
+    round_double(65.0, -1) == 70.0
+    round_double(75.0, -1) == 80.0
+    round_double(85.0, -1) == 90.0
+    round_double(95.0, -1) == 100.0
+    round_double(12325.0, -1) == 12330.0
+
+    round_double(350.0, -2) == 400.0
+    round_double(450.0, -2) == 500.0
+
+    almost_equal(round_double(0.5e21, -21), 1e21)
+    almost_equal(round_double(1.5e21, -21), 2e21)
+    almost_equal(round_double(2.5e21, -21), 3e21)
+    almost_equal(round_double(5.5e21, -21), 6e21)
+    almost_equal(round_double(8.5e21, -21), 9e21)
+
+    almost_equal(round_double(-1.5e22, -22), -2e22)
+    almost_equal(round_double(-0.5e22, -22), -1e22)
+    almost_equal(round_double(0.5e22, -22), 1e22)
+    almost_equal(round_double(1.5e22, -22), 2e22)

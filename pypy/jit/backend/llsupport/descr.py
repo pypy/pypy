@@ -5,9 +5,8 @@ from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
 from pypy.jit.metainterp.history import BasicFailDescr, LoopToken, BoxFloat
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
-from pypy.rlib.longlong2float import longlong2float, float2longlong
 
 # The point of the class organization in this file is to make instances
 # as compact as possible.  This is done by not storing the field size or
@@ -275,7 +274,10 @@ class BaseCallDescr(AbstractDescr):
     def create_call_stub(self, rtyper, RESULT):
         def process(c):
             if c == 'L':
-                return 'float2longlong(%s)' % (process('f'),)
+                assert longlong.supports_longlong
+                c = 'f'
+            elif c == 'f' and longlong.supports_longlong:
+                return 'longlong.getrealfloat(%s)' % (process('L'),)
             arg = 'args_%s[%d]' % (c, seen[c])
             seen[c] += 1
             return arg
@@ -302,7 +304,9 @@ class BaseCallDescr(AbstractDescr):
         elif self.get_return_type() == history.REF:
             result = 'lltype.cast_opaque_ptr(llmemory.GCREF, res)'
         elif self.get_return_type() == history.FLOAT:
-            result = 'cast_to_float(res)'
+            result = 'longlong.getfloatstorage(res)'
+        elif self.get_return_type() == 'L':
+            result = 'rffi.cast(lltype.SignedLongLong, res)'
         elif self.get_return_type() == history.VOID:
             result = 'None'
         else:
@@ -321,7 +325,7 @@ class BaseCallDescr(AbstractDescr):
         self.call_stub = d['call_stub']
 
     def verify_types(self, args_i, args_r, args_f, return_type):
-        assert self._return_type == return_type
+        assert self._return_type in return_type
         assert self.arg_classes.count('i') == len(args_i or ())
         assert self.arg_classes.count('r') == len(args_r or ())
         assert (self.arg_classes.count('f') +
@@ -329,15 +333,6 @@ class BaseCallDescr(AbstractDescr):
 
     def repr_of_descr(self):
         return '<%s>' % self._clsname
-
-def cast_to_float(x):
-    if isinstance(x, r_longlong):
-        return longlong2float(x)
-    if isinstance(x, r_ulonglong):
-        return longlong2float(rffi.cast(lltype.SignedLongLong, x))
-    assert isinstance(x, float)
-    return x
-cast_to_float._annspecialcase_ = 'specialize:argtype(0)'
 
 
 class BaseIntCallDescr(BaseCallDescr):
@@ -393,12 +388,13 @@ class GcPtrCallDescr(BaseCallDescr):
 class FloatCallDescr(BaseCallDescr):
     _clsname = 'FloatCallDescr'
     _return_type = history.FLOAT
-    call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0.0)
+    call_stub = staticmethod(lambda func,args_i,args_r,args_f: longlong.ZEROF)
     def get_result_size(self, translate_support_code):
         return symbolic.get_size(lltype.Float, translate_support_code)
 
 class LongLongCallDescr(FloatCallDescr):
     _clsname = 'LongLongCallDescr'
+    _return_type = 'L'
 
 class VoidCallDescr(BaseCallDescr):
     _clsname = 'VoidCallDescr'

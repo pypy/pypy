@@ -7,6 +7,7 @@ from pypy.rlib.rarithmetic import (
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.objspace.std.unicodetype import unicode_from_object
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -430,6 +431,8 @@ def make_formatter_subclass(do_unicode):
             else:
                 if not got_unicode:
                     w_value = space.call_function(space.w_unicode, w_value)
+                else:
+                    w_value = unicode_from_object(space, w_value)
                 s = space.unicode_w(w_value)
             self.std_wp(s)
 

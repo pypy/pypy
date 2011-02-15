@@ -14,8 +14,10 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.objspace.std.stringtype import wrapchar
 
 from pypy.rlib import rope
-from pypy.objspace.std.stringobject import mod__String_ANY as mod__Rope_ANY,\
-    _upper, _lower, DEFAULT_NOOP_TABLE
+from pypy.objspace.std.stringobject import (
+    mod__String_ANY as mod__Rope_ANY,
+    str_format__String as str_format__Rope,
+    _upper, _lower, DEFAULT_NOOP_TABLE)
 
 class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef

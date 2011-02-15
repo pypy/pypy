@@ -89,6 +89,9 @@ class BasicGcPolicy(object):
     def OP_GC_THREAD_RUN(self, funcgen, op):
         return ''
 
+    def OP_GC_THREAD_START(self, funcgen, op):
+        return ''
+
     def OP_GC_THREAD_DIE(self, funcgen, op):
         return ''
 

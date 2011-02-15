@@ -1,3 +1,4 @@
+import weakref
 from pypy.rlib import jit, objectmodel, debug
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -672,7 +673,6 @@ class MapDictIteratorImplementation(IteratorImplementation):
 # Magic caching
 
 class CacheEntry(object):
-    map = None
     version_tag = None
     index = 0
     w_method = None # for callmethod
@@ -683,8 +683,10 @@ class CacheEntry(object):
         map = w_obj._get_mapdict_map()
         return self.is_valid_for_map(map)
 
+    @jit.dont_look_inside
     def is_valid_for_map(self, map):
-        if map is self.map:
+        mymap = self.map_wref()
+        if mymap is map:     # also handles the case self.map_wref()->None
             version_tag = map.terminator.w_cls.version_tag()
             if version_tag is self.version_tag:
                 # everything matches, it's incredibly fast
@@ -693,22 +695,23 @@ class CacheEntry(object):
                 return True
         return False
 
+_invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
+_invalid_cache_entry_map.terminator = None
 INVALID_CACHE_ENTRY = CacheEntry()
-INVALID_CACHE_ENTRY.map = objectmodel.instantiate(AbstractAttribute)
-                             # different from any real map ^^^
-INVALID_CACHE_ENTRY.map.terminator = None
-
+INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
+                                 # different from any real map ^^^
 
 def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
+@jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, index, w_method=None):
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = entry
-    entry.map = map
+    entry.map_wref = weakref.ref(map)
     entry.version_tag = version_tag
     entry.index = index
     entry.w_method = w_method

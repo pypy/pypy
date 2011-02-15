@@ -1,5 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std import newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
@@ -207,11 +208,11 @@ def abs__Complex(space, w_complex):
         raise OperationError(space.w_OverflowError, space.wrap(str(e)))
 
 def eq__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1.realval == w_complex2.realval) and 
+    return space.newbool((w_complex1.realval == w_complex2.realval) and
             (w_complex1.imagval == w_complex2.imagval))
 
 def ne__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1.realval != w_complex2.realval) or 
+    return space.newbool((w_complex1.realval != w_complex2.realval) or
             (w_complex1.imagval != w_complex2.imagval))
 
 def eq__Complex_Long(space, w_complex1, w_long2):
@@ -287,6 +288,9 @@ def str__Complex(space, w_complex):
             isnan(w_complex.imagval)) and '+' or ''
     return space.wrap('(' + str_format(w_complex.realval)
                       + sign + str_format(w_complex.imagval) + 'j)')
+
+def format__Complex_ANY(space, w_complex, w_format_spec):
+    return newformat.run_formatter(space, w_format_spec, "format_complex", w_complex)
 
 from pypy.objspace.std import complextype
 register_all(vars(), complextype)

@@ -10,6 +10,7 @@ from pypy.jit.metainterp.history import BoxPtr, ConstPtr
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat
 from pypy.jit.metainterp.history import AbstractDescr, Box
 from pypy.jit.metainterp import history
+from pypy.jit.codewriter import longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.rpython.lltypesystem import  llmemory, rffi
 
@@ -59,10 +60,16 @@ class FakeCPU(AbstractCPU):
 
     def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
         self.fakecalled = (func, calldescr, args_i, args_r, args_f)
-        return 42.5
+        return longlong.getfloatstorage(42.5)
 
     def bh_strsetitem(self, string, index, newvalue):
         self.fakestrsetitem = (string, index, newvalue)
+
+def boxfloat(x):
+    return BoxFloat(longlong.getfloatstorage(x))
+
+def constfloat(x):
+    return ConstFloat(longlong.getfloatstorage(x))
 
 
 def test_execute():
@@ -76,12 +83,14 @@ def test_execute():
 def test_execute_varargs():
     cpu = FakeCPU()
     descr = FakeCallDescr()
-    argboxes = [BoxInt(99999), BoxInt(321), ConstFloat(2.25), ConstInt(123),
-                BoxPtr(), BoxFloat(5.5)]
+    argboxes = [BoxInt(99999), BoxInt(321), constfloat(2.25), ConstInt(123),
+                BoxPtr(), boxfloat(5.5)]
     box = execute_varargs(cpu, FakeMetaInterp(), rop.CALL, argboxes, descr)
-    assert box.value == 42.5
+    assert box.getfloat() == 42.5
     assert cpu.fakecalled == (99999, descr, [321, 123],
-                              [ConstPtr.value], [2.25, 5.5])
+                              [ConstPtr.value],
+                              [longlong.getfloatstorage(2.25),
+                               longlong.getfloatstorage(5.5)])
 
 def test_execute_nonspec():
     cpu = FakeCPU()
@@ -91,7 +100,7 @@ def test_execute_nonspec():
     argboxes = [BoxInt(321), ConstInt(123)]
     box = execute_nonspec(cpu, FakeMetaInterp(), rop.CALL,
                           argboxes, FakeCallDescr())
-    assert box.value == 42.5
+    assert box.getfloat() == 42.5
     # arity == 0
     box = execute_nonspec(cpu, None, rop.NEW, [], descr)
     assert box.value.fakeargs == ('new', descr)
@@ -100,7 +109,7 @@ def test_execute_nonspec():
     box = execute_nonspec(cpu, None, rop.ARRAYLEN_GC, [box1], descr)
     assert box.value == 55
     # arity == 2
-    box2 = BoxFloat(222.2)
+    box2 = boxfloat(222.2)
     fielddescr = FakeFieldDescr()
     execute_nonspec(cpu, None, rop.SETFIELD_GC, [box1, box2], fielddescr)
     assert cpu.fakesetfield == (box1.value, box2.value, fielddescr)
@@ -288,7 +297,7 @@ def get_float_tests(cpu):
         boxargs = []
         for x in args:
             if isinstance(x, float):
-                boxargs.append(BoxFloat(x))
+                boxargs.append(boxfloat(x))
             else:
                 boxargs.append(BoxInt(x))
         yield opnum, boxargs, rettype, retvalue
@@ -299,7 +308,7 @@ def get_float_tests(cpu):
             if (isinstance(args[0], float) and
                 isinstance(args[1], float) and
                 args[0] == args[1]):
-                commonbox = BoxFloat(args[0])
+                commonbox = boxfloat(args[0])
                 yield opnum, [commonbox, commonbox], rettype, retvalue
 
 def test_float_ops():
@@ -319,8 +328,8 @@ def make_args_for_op(op, a, b):
         arg1 = ConstInt(a)
         arg2 = ConstInt(b)
     elif n[0:5] == 'FLOAT':
-        arg1 = ConstFloat(float(a))
-        arg2 = ConstFloat(float(b))
+        arg1 = constfloat(float(a))
+        arg2 = constfloat(float(b))
     elif n[0:3] == 'PTR':
         arg1 = ConstPtr(rffi.cast(llmemory.GCREF, a))
         arg2 = ConstPtr(rffi.cast(llmemory.GCREF, b))

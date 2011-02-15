@@ -696,6 +696,8 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 cmd += ' --pdb'
             if self.config.option.capture == 'no':
                 status = os.system(cmd)
+                stdout.write('')
+                stderr.write('')
             else:
                 status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
             if os.WIFEXITED(status):
