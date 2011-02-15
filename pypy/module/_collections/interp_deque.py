@@ -162,8 +162,11 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', W_Root)
     def extend(self, w_iterable):
-        # XXX Handle case where id(deque) == id(iterable)
+        # Handle case where id(deque) == id(iterable)
         space = self.space
+        if space.is_w(space.wrap(self), w_iterable):
+            w_iterable = space.call_function(space.w_list, w_iterable)
+        #
         w_iter = space.iter(w_iterable)
         while True:
             try:
@@ -175,8 +178,17 @@ class W_Deque(Wrappable):
             self.append(w_obj)
 
     @unwrap_spec('self', W_Root)
+    def iadd(self, w_iterable):
+        self.extend(w_iterable)
+        return self.space.wrap(self)
+
+    @unwrap_spec('self', W_Root)
     def extendleft(self, w_iterable):
-        # XXX Handle case where id(deque) == id(iterable)
+        # Handle case where id(deque) == id(iterable)
+        space = self.space
+        if space.is_w(space.wrap(self), w_iterable):
+            w_iterable = space.call_function(space.w_list, w_iterable)
+        #
         space = self.space
         w_iter = space.iter(w_iterable)
         while True:
@@ -336,6 +348,7 @@ W_Deque.typedef = TypeDef("deque",
     __ne__ = interp2app(W_Deque.ne),
     __gt__ = interp2app(W_Deque.gt),
     __ge__ = interp2app(W_Deque.ge),
+    __iadd__ = interp2app(W_Deque.iadd),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 

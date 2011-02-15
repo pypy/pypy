@@ -111,19 +111,22 @@ class AppTestBasic:
                 assert cmp(x,y) == cmp(list(x),list(y))
 
     def test_extend(self):
+        from _collections import deque
         d = deque('a')
-        self.assertRaises(TypeError, d.extend, 1)
         d.extend('bcd')
-        self.assertEqual(list(d), list('abcd'))
+        assert list(d) == list('abcd')
         d.extend(d)
-        self.assertEqual(list(d), list('abcdabcd'))
+        assert list(d) == list('abcdabcd')
 
     def test_iadd(self):
+        from _collections import deque
         d = deque('a')
+        original_d = d
         d += 'bcd'
-        self.assertEqual(list(d), list('abcd'))
+        assert list(d) == list('abcd')
         d += d
-        self.assertEqual(list(d), list('abcdabcd'))
+        assert list(d) == list('abcdabcd')
+        assert original_d is d
 
     def test_extendleft(self):
         d = deque('a')
