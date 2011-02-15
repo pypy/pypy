@@ -192,20 +192,21 @@ class AppTestBasic:
         assert tuple(d) == tuple(s)
 
     def test_len(self):
+        from _collections import deque
         d = deque('ab')
-        self.assertEqual(len(d), 2)
+        assert len(d) == 2
         d.popleft()
-        self.assertEqual(len(d), 1)
+        assert len(d) == 1
         d.pop()
-        self.assertEqual(len(d), 0)
-        self.assertRaises(IndexError, d.pop)
-        self.assertEqual(len(d), 0)
+        assert len(d) == 0
+        raises(IndexError, d.pop)
+        assert len(d) == 0
         d.append('c')
-        self.assertEqual(len(d), 1)
+        assert len(d) == 1
         d.appendleft('d')
-        self.assertEqual(len(d), 2)
+        assert len(d) == 2
         d.clear()
-        self.assertEqual(len(d), 0)
+        assert len(d) == 0
 
     def test_underflow(self):
         d = deque()
