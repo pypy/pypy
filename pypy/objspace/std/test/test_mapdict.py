@@ -884,6 +884,20 @@ class AppTestWithMapDictAndCounters(object):
             return 42
         f()
 
+    def test_instance_keeps_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    42
+            r = weakref.ref(C)
+            c = C()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            return c.m()
+        val = f()
+        assert val == 42
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):
