@@ -47,6 +47,9 @@ class Block(object):
         self.rightlink = rightlink
         self.data = [None] * BLOCKLEN
 
+class Lock(object):
+    pass
+
 # ------------------------------------------------------------
 
 class W_Deque(Wrappable):
@@ -67,11 +70,16 @@ class W_Deque(Wrappable):
     def modified(self):
         self.lock = None
 
-    def getlock(self, iterator):
+    def getlock(self):
         if self.lock is None:
-            self.lock = iterator     # actually use the iterator itself,
-                                     # instead of some new empty object
+            self.lock = Lock()
         return self.lock
+
+    def checklock(self, lock):
+        if lock is not self.lock:
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.wrap("deque mutated during iteration"))
 
     @unwrap_spec('self', W_Root, W_Root)
     def init(self, w_iterable=NoneNotWrapped, w_maxlen=None):
@@ -132,6 +140,25 @@ class W_Deque(Wrappable):
         self.rightindex = CENTER
         self.len = 0
         self.modified()
+
+    @unwrap_spec('self', W_Root)
+    def count(self, w_x):
+        space = self.space
+        result = 0
+        block = self.leftblock
+        index = self.leftindex
+        lock = self.getlock()
+        for i in range(self.len):
+            w_item = block.data[index]
+            if space.eq_w(w_item, w_x):
+                result += 1
+            self.checklock(lock)
+            # Advance the block/index pair
+            index += 1
+            if index >= BLOCKLEN:
+                block = block.rightlink
+                index = 0
+        return space.wrap(result)
 
     @unwrap_spec('self', W_Root)
     def extend(self, w_iterable):
@@ -268,6 +295,7 @@ W_Deque.typedef = TypeDef("deque",
     append     = interp2app(W_Deque.append),
     appendleft = interp2app(W_Deque.appendleft),
     clear      = interp2app(W_Deque.clear),
+    count      = interp2app(W_Deque.count),
     extend     = interp2app(W_Deque.extend),
     extendleft = interp2app(W_Deque.extendleft),
     pop        = interp2app(W_Deque.pop),
@@ -288,7 +316,7 @@ class W_DequeIter(Wrappable):
         self.block = deque.leftblock
         self.index = deque.leftindex
         self.counter = deque.len
-        self.lock = deque.getlock(self)
+        self.lock = deque.getlock()
         check_nonneg(self.index)
 
     @unwrap_spec('self')
@@ -297,10 +325,7 @@ class W_DequeIter(Wrappable):
 
     @unwrap_spec('self')
     def next(self):
-        if self.lock is not self.deque.lock:
-            raise OperationError(
-                self.space.w_RuntimeError,
-                self.space.wrap("deque mutated during iteration"))
+        self.deque.checklock(self.lock)
         if self.counter == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         self.counter -= 1

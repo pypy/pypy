@@ -79,10 +79,10 @@ class AppTestBasic:
 
     def test_count(self):
         from _collections import deque
-        for s in ('', 'abracadabra', 'simsalabim'*500+'abc'):
+        for s in ('', 'abracadabra', 'simsalabim'*50+'abc'):
             s = list(s)
             d = deque(s)
-            for letter in 'abcdefghijklmnopqrstuvwxyz':
+            for letter in 'abcdeilmrs':
                 assert s.count(letter) == d.count(letter)
         class MutatingCompare:
             def __eq__(self, other):
