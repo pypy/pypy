@@ -246,6 +246,24 @@ class W_Deque(Wrappable):
         self.modified()
         return w_obj
 
+    @unwrap_spec('self', int)
+    def rotate(self, n):
+        len = self.len
+        if len == 0:
+            return
+        halflen = (len+1) >> 1
+        if n > halflen or n < -halflen:
+            n %= len
+            if n > halflen:
+                n -= len
+        i = 0
+        while i < n:
+            self.appendleft(self.pop())
+            i += 1
+        while i > n:
+            self.append(self.popleft())
+            i -= 1
+
     @unwrap_spec('self')
     def iter(self):
         return W_DequeIter(self)
@@ -335,6 +353,7 @@ class W_Deque(Wrappable):
         if step == 0:  # index only
             # delitem() implemented in terms of rotate for simplicity and
             # reasonable performance near the end points.
+            i = start
             self.rotate(-i)
             self.popleft()
             self.rotate(i)
@@ -391,6 +410,7 @@ W_Deque.typedef = TypeDef("deque",
     extendleft = interp2app(W_Deque.extendleft),
     pop        = interp2app(W_Deque.pop),
     popleft    = interp2app(W_Deque.popleft),
+    rotate     = interp2app(W_Deque.rotate),
     __weakref__ = make_weakref_descr(W_Deque),
     __iter__ = interp2app(W_Deque.iter),
     __len__ = interp2app(W_Deque.length),
