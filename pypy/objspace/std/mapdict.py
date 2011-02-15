@@ -683,6 +683,7 @@ class CacheEntry(object):
         map = w_obj._get_mapdict_map()
         return self.is_valid_for_map(map)
 
+    @jit.dont_look_inside
     def is_valid_for_map(self, map):
         mymap = self.map_wref()
         if mymap is map:     # also handles the case self.map_wref()->None
@@ -704,6 +705,7 @@ def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
+@jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, index, w_method=None):
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
