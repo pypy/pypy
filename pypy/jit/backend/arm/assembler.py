@@ -542,23 +542,23 @@ class AssemblerARM(ResOpAssembler):
         assert value.is_imm()
         self.mc.gen_load_int(loc.value, value.getint())
 
-    def regalloc_mov(self, prev_loc, loc):
+    def regalloc_mov(self, prev_loc, loc, cond=c.AL):
         if prev_loc.is_imm():
             if _check_imm_arg(ConstInt(prev_loc.getint())):
-                self.mc.MOV_ri(loc.value, prev_loc.getint())
+                self.mc.MOV_ri(loc.value, prev_loc.getint(), cond=cond)
             else:
-                self.mc.gen_load_int(loc.value, prev_loc.getint())
+                self.mc.gen_load_int(loc.value, prev_loc.getint(), cond=cond)
         elif loc.is_stack():
-            self.mc.STR_ri(prev_loc.value, r.fp.value, loc.position*-WORD)
+            self.mc.STR_ri(prev_loc.value, r.fp.value, loc.position*-WORD, cond=cond)
         elif prev_loc.is_stack():
-            self.mc.LDR_ri(loc.value, r.fp.value, prev_loc.position*-WORD)
+            self.mc.LDR_ri(loc.value, r.fp.value, prev_loc.position*-WORD, cond=cond)
         else:
-            self.mc.MOV_rr(loc.value, prev_loc.value)
+            self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
     mov_loc_loc = regalloc_mov
 
     def regalloc_push(self, loc):
         if loc.is_stack():
-            self.mc.LDR_ri(r.ip.value, r.fp.value, loc.position*-WORD)
+            self.regalloc_mov(loc, r.ip)
             self.mc.PUSH([r.ip.value])
         elif loc.is_reg():
             self.mc.PUSH([loc.value])
@@ -568,7 +568,7 @@ class AssemblerARM(ResOpAssembler):
     def regalloc_pop(self, loc):
         if loc.is_stack():
             self.mc.POP([r.ip.value])
-            self.mc.STR_ri(r.ip.value, r.fp.value, loc.position*-WORD)
+            self.regalloc_mov(r.ip, loc)
         elif loc.is_reg():
             self.mc.POP([loc.value])
         else:
