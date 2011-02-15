@@ -289,14 +289,58 @@ class W_Deque(Wrappable):
     def ge(self, w_other):
         return self.compare(w_other, 'ge')
 
+    def locate(self, i):
+        if i < (self.len >> 1):
+            i += self.leftindex
+            b = self.leftblock
+            while i >= BLOCKLEN:
+                b = b.rightlink
+                i -= BLOCKLEN
+        else:
+            i = i - self.len + 1     # then i <= 0
+            i += self.rightindex
+            b = self.rightblock
+            while i < 0:
+                b = b.leftlink
+                i += BLOCKLEN
+        assert i >= 0
+        return b, i
+
     @unwrap_spec('self', W_Root)
     def getitem(self, w_index):
         space = self.space
         start, stop, step = space.decode_index(w_index, self.len)
         if step == 0:  # index only
-            return space.wrap(self.mmap.getitem(start))
+            b, i = self.locate(start)
+            return b.data[i]
         else:
-            xxx
+            raise OperationError(self.w_TypeError,
+                                 self.wrap("deque[:] is not supported"))
+
+    @unwrap_spec('self', W_Root, W_Root)
+    def setitem(self, w_index, w_newobj):
+        space = self.space
+        start, stop, step = space.decode_index(w_index, self.len)
+        if step == 0:  # index only
+            b, i = self.locate(start)
+            b.data[i] = w_newobj
+        else:
+            raise OperationError(self.w_TypeError,
+                                 self.wrap("deque[:] is not supported"))
+
+    @unwrap_spec('self', W_Root)
+    def delitem(self, w_index):
+        space = self.space
+        start, stop, step = space.decode_index(w_index, self.len)
+        if step == 0:  # index only
+            # delitem() implemented in terms of rotate for simplicity and
+            # reasonable performance near the end points.
+            self.rotate(-i)
+            self.popleft()
+            self.rotate(i)
+        else:
+            raise OperationError(self.w_TypeError,
+                                 self.wrap("deque[:] is not supported"))
 
     def get_maxlen(space, self):
         if self.maxlen == sys.maxint:
@@ -359,6 +403,8 @@ W_Deque.typedef = TypeDef("deque",
     __ge__ = interp2app(W_Deque.ge),
     __iadd__ = interp2app(W_Deque.iadd),
     __getitem__ = interp2app(W_Deque.getitem),
+    __setitem__ = interp2app(W_Deque.setitem),
+    __delitem__ = interp2app(W_Deque.delitem),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 

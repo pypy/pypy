@@ -139,49 +139,31 @@ class AppTestBasic:
     def test_getitem(self):
         from _collections import deque
         n = 200
-        d = deque(xrange(n))
-        l = range(n)
-        for i in xrange(n):
-            d.popleft()
-            l.pop(0)
-            if i & 1:
-                d.append(i)
-                l.append(i)
-            for j in xrange(-len(l), len(l)):
-                assert d[j] == l[j]
-
-        d = deque('superman')
-        self.assertEqual(d[0], 's')
-        self.assertEqual(d[-1], 'n')
-        d = deque()
-        self.assertRaises(IndexError, d.__getitem__, 0)
-        self.assertRaises(IndexError, d.__getitem__, -1)
+        l = xrange(1000, 1000 + n)
+        d = deque(l)
+        for j in xrange(-n, n):
+            assert d[j] == l[j]
+        raises(IndexError, "d[-n-1]")
+        raises(IndexError, "d[n]")
 
     def test_setitem(self):
+        from _collections import deque
         n = 200
         d = deque(xrange(n))
         for i in xrange(n):
             d[i] = 10 * i
-        self.assertEqual(list(d), [10*i for i in xrange(n)])
+        assert list(d) == [10*i for i in xrange(n)]
         l = list(d)
-        for i in xrange(1-n, 0, -1):
+        for i in xrange(1-n, 0, -3):
             d[i] = 7*i
             l[i] = 7*i
-        self.assertEqual(list(d), l)
+        assert list(d) == l
 
     def test_delitem(self):
-        n = 500         # O(n**2) test, don't make this too big
-        d = deque(xrange(n))
-        self.assertRaises(IndexError, d.__delitem__, -n-1)
-        self.assertRaises(IndexError, d.__delitem__, n)
-        for i in xrange(n):
-            self.assertEqual(len(d), n-i)
-            j = random.randrange(-len(d), len(d))
-            val = d[j]
-            self.assertIn(val, d)
-            del d[j]
-            self.assertNotIn(val, d)
-        self.assertEqual(len(d), 0)
+        from _collections import deque
+        d = deque("abcdef")
+        del d[-2]
+        assert list(d) == list("abcdf")
 
     def test_reverse(self):
         n = 500         # O(n**2) test, don't make this too big
