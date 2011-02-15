@@ -866,6 +866,22 @@ class AppTestWithMapDictAndCounters(object):
         res = self.check(f, 'm')
         assert res == (0, 2, 1)
 
+    def test_dont_keep_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    pass
+            r = weakref.ref(C)
+            # Trigger cache.
+            C().m()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            assert r() is None
+            return 42
+        f() 
+
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):
         cls.space = gettestobjspace(
