@@ -401,6 +401,16 @@ class W_Deque(Wrappable):
             raise OperationError(self.w_TypeError,
                                  self.wrap("deque[:] is not supported"))
 
+    @unwrap_spec('self')
+    def copy(self):
+        space = self.space
+        w_self = space.wrap(self)
+        if self.maxlen == sys.maxint:
+            return space.call_function(space.type(w_self), w_self)
+        else:
+            return space.call_function(space.type(w_self), w_self,
+                                       space.wrap(self.maxint))
+
     def get_maxlen(space, self):
         if self.maxlen == sys.maxint:
             return self.space.w_None
@@ -468,6 +478,7 @@ W_Deque.typedef = TypeDef("deque",
     __getitem__ = interp2app(W_Deque.getitem),
     __setitem__ = interp2app(W_Deque.setitem),
     __delitem__ = interp2app(W_Deque.delitem),
+    __copy__ = interp2app(W_Deque.copy),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 

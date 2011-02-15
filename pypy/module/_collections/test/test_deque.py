@@ -232,110 +232,24 @@ class AppTestBasic:
         from _collections import deque
         raises(TypeError, hash, deque('abc'))
 
-    def test_long_steadystate_queue_popleft(self):
-        for size in (0, 1, 2, 100, 1000):
-            d = deque(xrange(size))
-            append, pop = d.append, d.popleft
-            for i in xrange(size, BIG):
-                append(i)
-                x = pop()
-                if x != i - size:
-                    self.assertEqual(x, i-size)
-            self.assertEqual(list(d), range(BIG-size, BIG))
-
-    def test_long_steadystate_queue_popright(self):
-        for size in (0, 1, 2, 100, 1000):
-            d = deque(reversed(xrange(size)))
-            append, pop = d.appendleft, d.pop
-            for i in xrange(size, BIG):
-                append(i)
-                x = pop()
-                if x != i - size:
-                    self.assertEqual(x, i-size)
-            self.assertEqual(list(reversed(list(d))), range(BIG-size, BIG))
-
-    def test_big_queue_popleft(self):
-        pass
-        d = deque()
-        append, pop = d.append, d.popleft
-        for i in xrange(BIG):
-            append(i)
-        for i in xrange(BIG):
-            x = pop()
-            if x != i:
-                self.assertEqual(x, i)
-
-    def test_big_queue_popright(self):
-        d = deque()
-        append, pop = d.appendleft, d.pop
-        for i in xrange(BIG):
-            append(i)
-        for i in xrange(BIG):
-            x = pop()
-            if x != i:
-                self.assertEqual(x, i)
-
-    def test_big_stack_right(self):
-        d = deque()
-        append, pop = d.append, d.pop
-        for i in xrange(BIG):
-            append(i)
-        for i in reversed(xrange(BIG)):
-            x = pop()
-            if x != i:
-                self.assertEqual(x, i)
-        self.assertEqual(len(d), 0)
-
-    def test_big_stack_left(self):
-        d = deque()
-        append, pop = d.appendleft, d.popleft
-        for i in xrange(BIG):
-            append(i)
-        for i in reversed(xrange(BIG)):
-            x = pop()
-            if x != i:
-                self.assertEqual(x, i)
-        self.assertEqual(len(d), 0)
-
     def test_roundtrip_iter_init(self):
+        from _collections import deque
         d = deque(xrange(200))
         e = deque(d)
-        self.assertNotEqual(id(d), id(e))
-        self.assertEqual(list(d), list(e))
-
-    def test_pickle(self):
-        d = deque(xrange(200))
-        for i in range(pickle.HIGHEST_PROTOCOL + 1):
-            s = pickle.dumps(d, i)
-            e = pickle.loads(s)
-            self.assertNotEqual(id(d), id(e))
-            self.assertEqual(list(d), list(e))
-
-##    def test_pickle_recursive(self):
-##        d = deque('abc')
-##        d.append(d)
-##        for i in range(pickle.HIGHEST_PROTOCOL + 1):
-##            e = pickle.loads(pickle.dumps(d, i))
-##            self.assertNotEqual(id(d), id(e))
-##            self.assertEqual(id(e), id(e[-1]))
-
-    def test_deepcopy(self):
-        mut = [10]
-        d = deque([mut])
-        e = copy.deepcopy(d)
-        self.assertEqual(list(d), list(e))
-        mut[0] = 11
-        self.assertNotEqual(id(d), id(e))
-        self.assertNotEqual(list(d), list(e))
+        assert d is not e
+        assert d == e
+        assert list(d) == list(e)
 
     def test_copy(self):
+        from _collections import deque
+        import copy
         mut = [10]
         d = deque([mut])
         e = copy.copy(d)
-        self.assertEqual(list(d), list(e))
+        assert d is not e
+        assert d == e
         mut[0] = 11
-        self.assertNotEqual(id(d), id(e))
-        self.assertEqual(list(d), list(e))
+        assert d == e
 
     def test_reversed(self):
         for s in ('abcd', xrange(2000)):
