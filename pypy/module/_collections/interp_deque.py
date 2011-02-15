@@ -283,7 +283,7 @@ class W_Deque(Wrappable):
         lb = self.leftblock
         ri = self.rightindex
         rb = self.rightblock
-        while lb is not rb or li < ri:
+        for i in range(self.len >> 1):
             lb.data[li], rb.data[ri] = rb.data[ri], lb.data[li]
             li += 1
             if li >= BLOCKLEN:

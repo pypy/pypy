@@ -170,6 +170,16 @@ class AppTestBasic:
         d = deque(xrange(1000, 1200))
         d.reverse()
         assert list(d) == list(reversed(range(1000, 1200)))
+        #
+        n = 100
+        data = map(str, range(n))
+        for i in range(n):
+            d = deque(data[:i])
+            r = d.reverse()
+            assert list(d) == list(reversed(data[:i]))
+            assert r is None
+            d.reverse()
+            assert list(d) == data[:i]
 
     def test_rotate(self):
         from _collections import deque
