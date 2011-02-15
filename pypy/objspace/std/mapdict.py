@@ -673,7 +673,6 @@ class MapDictIteratorImplementation(IteratorImplementation):
 # Magic caching
 
 class CacheEntry(object):
-    map_wref = None
     version_tag = None
     index = 0
     w_method = None # for callmethod
@@ -686,7 +685,7 @@ class CacheEntry(object):
 
     def is_valid_for_map(self, map):
         mymap = self.map_wref()
-        if mymap is not None and mymap is map:
+        if mymap is map:     # also handles the case self.map_wref()->None
             version_tag = map.terminator.w_cls.version_tag()
             if version_tag is self.version_tag:
                 # everything matches, it's incredibly fast
