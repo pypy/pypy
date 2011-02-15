@@ -338,18 +338,6 @@ class AppTestZipimport:
         import zipimport
         assert sys.path_hooks.count(zipimport.zipimporter) == 1
 
-    def test_co_filename(self):
-        self.writefile('mymodule.py', """
-def fn():
-    return fn.func_code.co_filename
-""")
-        import os
-        import mymodule
-        co_filename = mymodule.fn()
-        expected = self.zipfile + os.sep + 'mymodule.py'
-        assert co_filename == expected
-
-
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
 
