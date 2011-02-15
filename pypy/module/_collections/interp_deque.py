@@ -415,6 +415,29 @@ class W_Deque(Wrappable):
             return space.call_function(space.type(w_self), w_self,
                                        space.wrap(self.maxint))
 
+    @unwrap_spec('self')
+    def reduce(self):
+        space = self.space
+        w_self = space.wrap(self)
+        w_type = space.type(w_self)
+        w_dict = space.findattr(w_self, space.wrap('__dict__'))
+        w_list = space.call_function(space.w_list, w_self)
+        if w_dict is None:
+            if self.maxlen == sys.maxint:
+                result = [
+                    w_type, space.newtuple([w_list])]
+            else:
+                result = [
+                    w_type, space.newtuple([w_list, space.wrap(self.maxlen)])]
+        else:
+            if self.maxlen == sys.maxint:
+                w_len = space.w_None
+            else:
+                w_len = space.wrap(self.maxlen)
+            result = [
+                w_type, space.newtuple([w_list, w_len]), w_dict]
+        return space.newtuple(result)
+
     def get_maxlen(space, self):
         if self.maxlen == sys.maxint:
             return self.space.w_None
@@ -484,6 +507,7 @@ W_Deque.typedef = TypeDef("deque",
     __setitem__ = interp2app(W_Deque.setitem),
     __delitem__ = interp2app(W_Deque.delitem),
     __copy__ = interp2app(W_Deque.copy),
+    __reduce__ = interp2app(W_Deque.reduce),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 
