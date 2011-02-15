@@ -1,5 +1,8 @@
+import sys
+from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp2app, make_weakref_descr
+from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import ObjSpace, W_Root, unwrap_spec, Arguments
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.error import OperationError
@@ -49,16 +52,49 @@ class Block(object):
 class W_Deque(Wrappable):
     def __init__(self, space):
         self.space = space
+        self.maxlen = sys.maxint
         self.clear()
         check_nonneg(self.leftindex)
         check_nonneg(self.rightindex)
+        #
+        # lightweight locking: any modification to the content of the deque
+        # sets the lock to None.  Taking an iterator sets it to a non-None
+        # value.  The iterator can check if further modifications occurred
+        # by checking if the lock still has the same non-None value.
+        # (In CPython, this is implemented using d->state.)
+        self.lock = None
 
-    @unwrap_spec('self', W_Root)  #, W_Root)
-    def init(self, w_iterable=NoneNotWrapped):  #, w_maxlen=None):
+    def modified(self):
+        self.lock = None
+
+    def getlock(self, iterator):
+        if self.lock is None:
+            self.lock = iterator     # actually use the iterator itself,
+                                     # instead of some new empty object
+        return self.lock
+
+    @unwrap_spec('self', W_Root, W_Root)
+    def init(self, w_iterable=NoneNotWrapped, w_maxlen=None):
+        space = self.space
+        if space.is_w(w_maxlen, space.w_None):
+            maxlen = sys.maxint
+        else:
+            maxlen = space.gateway_nonnegint_w(w_maxlen)
+        self.maxlen = maxlen
         if self.len > 0:
             self.clear()
         if w_iterable is not None:
             self.extend(w_iterable)
+
+    def trimleft(self):
+        if self.len > self.maxlen:
+            self.popleft()
+            assert self.len == self.maxlen
+
+    def trimright(self):
+        if self.len > self.maxlen:
+            self.pop()
+            assert self.len == self.maxlen
 
     @unwrap_spec('self', W_Root)
     def append(self, w_x):
@@ -71,6 +107,8 @@ class W_Deque(Wrappable):
         self.rightindex = ri
         self.rightblock.data[ri] = w_x
         self.len += 1
+        self.trimleft()
+        self.modified()
 
     @unwrap_spec('self', W_Root)
     def appendleft(self, w_x):
@@ -83,6 +121,8 @@ class W_Deque(Wrappable):
         self.leftindex = li
         self.leftblock.data[li] = w_x
         self.len += 1
+        self.trimright()
+        self.modified()
 
     @unwrap_spec('self')
     def clear(self):
@@ -91,6 +131,7 @@ class W_Deque(Wrappable):
         self.leftindex = CENTER + 1
         self.rightindex = CENTER
         self.len = 0
+        self.modified()
 
     @unwrap_spec('self', W_Root)
     def extend(self, w_iterable):
@@ -140,6 +181,7 @@ class W_Deque(Wrappable):
                 b.rightlink = None
                 ri = BLOCKLEN - 1
         self.rightindex = ri
+        self.modified()
         return w_obj
 
     @unwrap_spec('self')
@@ -162,6 +204,7 @@ class W_Deque(Wrappable):
                 b.leftlink = None
                 li = 0
         self.leftindex = li
+        self.modified()
         return w_obj
 
     @unwrap_spec('self')
@@ -171,6 +214,46 @@ class W_Deque(Wrappable):
     @unwrap_spec('self')
     def length(self):
         return self.space.wrap(self.len)
+
+    @unwrap_spec('self')
+    def repr(self):
+        space = self.space
+        ec = space.getexecutioncontext()
+        w_currently_in_repr = ec._py_repr
+        if w_currently_in_repr is None:
+            w_currently_in_repr = ec._py_repr = space.newdict()
+        return dequerepr(space, w_currently_in_repr, space.wrap(self))
+
+    def get_maxlen(space, self):
+        if self.maxlen == sys.maxint:
+            return self.space.w_None
+        else:
+            return self.space.wrap(self.maxlen)
+
+
+app = gateway.applevel("""
+    def dequerepr(currently_in_repr, d):
+        'The app-level part of repr().'
+        deque_id = id(d)
+        if deque_id in currently_in_repr:
+            listrepr = '[...]'
+        else:
+            currently_in_repr[deque_id] = 1
+            try:
+                listrepr = "[" + ", ".join([repr(x) for x in d]) + ']'
+            finally:
+                try:
+                    del currently_in_repr[deque_id]
+                except:
+                    pass
+        if d.maxlen is None:
+            maxlenrepr = ''
+        else:
+            maxlenrepr = ', maxlen=%d' % (d.maxlen,)
+        return 'deque(%s%s)' % (listrepr, maxlenrepr)
+""", filename=__file__)
+
+dequerepr = app.interphook("dequerepr")
 
 
 @unwrap_spec(ObjSpace, W_Root, Arguments)
@@ -192,6 +275,8 @@ W_Deque.typedef = TypeDef("deque",
     __weakref__ = make_weakref_descr(W_Deque),
     __iter__ = interp2app(W_Deque.iter),
     __len__ = interp2app(W_Deque.length),
+    __repr__ = interp2app(W_Deque.repr),
+    maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 
 # ------------------------------------------------------------
@@ -203,6 +288,7 @@ class W_DequeIter(Wrappable):
         self.block = deque.leftblock
         self.index = deque.leftindex
         self.counter = deque.len
+        self.lock = deque.getlock(self)
         check_nonneg(self.index)
 
     @unwrap_spec('self')
@@ -211,6 +297,10 @@ class W_DequeIter(Wrappable):
 
     @unwrap_spec('self')
     def next(self):
+        if self.lock is not self.deque.lock:
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.wrap("deque mutated during iteration"))
         if self.counter == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         self.counter -= 1

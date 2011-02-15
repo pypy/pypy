@@ -26,95 +26,71 @@ class AppTestBasic:
         assert list(d) == range(50, 150)
 
     def test_maxlen(self):
-        self.assertRaises(ValueError, deque, 'abc', -1)
-        self.assertRaises(ValueError, deque, 'abc', -2)
+        from _collections import deque
+        raises(ValueError, deque, 'abc', -1)
+        raises(ValueError, deque, 'abc', -2)
         it = iter(range(10))
         d = deque(it, maxlen=3)
-        self.assertEqual(list(it), [])
-        self.assertEqual(repr(d), 'deque([7, 8, 9], maxlen=3)')
-        self.assertEqual(list(d), range(7, 10))
-        self.assertEqual(d, deque(range(10), 3))
-        d.append(10)
-        self.assertEqual(list(d), range(8, 11))
-        d.appendleft(7)
-        self.assertEqual(list(d), range(7, 10))
-        d.extend([10, 11])
-        self.assertEqual(list(d), range(9, 12))
-        d.extendleft([8, 7])
-        self.assertEqual(list(d), range(7, 10))
-        d = deque(xrange(200), maxlen=10)
-        d.append(d)
-        test_support.unlink(test_support.TESTFN)
-        fo = open(test_support.TESTFN, "wb")
-        try:
-            print >> fo, d,
-            fo.close()
-            fo = open(test_support.TESTFN, "rb")
-            self.assertEqual(fo.read(), repr(d))
-        finally:
-            fo.close()
-            test_support.unlink(test_support.TESTFN)
-
-        d = deque(range(10), maxlen=None)
-        self.assertEqual(repr(d), 'deque([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
-        fo = open(test_support.TESTFN, "wb")
-        try:
-            print >> fo, d,
-            fo.close()
-            fo = open(test_support.TESTFN, "rb")
-            self.assertEqual(fo.read(), repr(d))
-        finally:
-            fo.close()
-            test_support.unlink(test_support.TESTFN)
+        assert list(it) == []
+        assert repr(d) == 'deque([7, 8, 9], maxlen=3)'
+        assert list(d) == range(7, 10)
+        d.appendleft(3)
+        assert list(d) == [3, 7, 8]
+        d.extend([20, 21])
+        assert list(d) == [8, 20, 21]
+        d.extendleft([-7, -6])
+        assert list(d) == [-6, -7, 8]
 
     def test_maxlen_zero(self):
+        from _collections import deque
         it = iter(range(100))
-        deque(it, maxlen=0)
-        self.assertEqual(list(it), [])
-
-        it = iter(range(100))
-        d = deque(maxlen=0)
-        d.extend(it)
-        self.assertEqual(list(it), [])
-
-        it = iter(range(100))
-        d = deque(maxlen=0)
-        d.extendleft(it)
-        self.assertEqual(list(it), [])
+        d = deque(it, maxlen=0)
+        assert list(d) == []
+        assert list(it) == []
+        d.extend(range(100))
+        assert list(d) == []
+        d.extendleft(range(100))
+        assert list(d) == []
 
     def test_maxlen_attribute(self):
-        self.assertEqual(deque().maxlen, None)
-        self.assertEqual(deque('abc').maxlen, None)
-        self.assertEqual(deque('abc', maxlen=4).maxlen, 4)
-        self.assertEqual(deque('abc', maxlen=2).maxlen, 2)
-        self.assertEqual(deque('abc', maxlen=0).maxlen, 0)
-        ##with self.assertRaises(AttributeError):
-        ##    d = deque('abc')
-        ##    d.maxlen = 10
+        from _collections import deque
+        assert deque().maxlen is None
+        assert deque('abc').maxlen is None
+        assert deque('abc', maxlen=4).maxlen == 4
+        assert deque('abc', maxlen=0).maxlen == 0
+        raises((AttributeError, TypeError), "deque('abc').maxlen = 10")
+
+    def test_runtimeerror(self):
+        from _collections import deque
+        d = deque('abcdefg')
+        it = iter(d)
+        d.pop()
+        raises(RuntimeError, it.next)
+        #
+        d = deque('abcdefg')
+        it = iter(d)
+        d.append(d.pop())
+        raises(RuntimeError, it.next)
+        #
+        d = deque()
+        it = iter(d)
+        d.append(10)
+        raises(RuntimeError, it.next)
 
     def test_count(self):
+        from _collections import deque
         for s in ('', 'abracadabra', 'simsalabim'*500+'abc'):
             s = list(s)
             d = deque(s)
             for letter in 'abcdefghijklmnopqrstuvwxyz':
-                self.assertEqual(s.count(letter), d.count(letter), (s, d, letter))
-        self.assertRaises(TypeError, d.count)       # too few args
-        self.assertRaises(TypeError, d.count, 1, 2) # too many args
-        class BadCompare:
-            def __eq__(self, other):
-                raise ArithmeticError
-        d = deque([1, 2, BadCompare(), 3])
-        self.assertRaises(ArithmeticError, d.count, 2)
-        d = deque([1, 2, 3])
-        self.assertRaises(ArithmeticError, d.count, BadCompare())
+                assert s.count(letter) == d.count(letter)
         class MutatingCompare:
             def __eq__(self, other):
-                self.d.pop()
+                d.pop()
                 return True
         m = MutatingCompare()
         d = deque([1, 2, 3, m, 4, 5])
-        m.d = d
-        self.assertRaises(RuntimeError, d.count, 3)
+        raises(RuntimeError, d.count, 3)
 
     def test_comparisons(self):
         d = deque('xabc'); d.popleft()
