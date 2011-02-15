@@ -494,6 +494,7 @@ W_Deque.typedef = TypeDef("deque",
     __doc__ = """deque(iterable[, maxlen]) --> deque object
 
 Build an ordered collection accessible from endpoints only.""",
+    __module__ = '_collections',
     __new__ = interp2app(descr__new__),
     __init__ = interp2app(W_Deque.init),
     append     = interp2app(W_Deque.append),
