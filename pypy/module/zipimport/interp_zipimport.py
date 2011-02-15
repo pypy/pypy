@@ -237,6 +237,7 @@ class W_ZipImporter(Wrappable):
         last_exc = None
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
+            co_filename = self.filename + os.path.sep + fname
             try:
                 zip_file = RZipFile(self.filename, 'r')
                 try:
@@ -253,10 +254,10 @@ class W_ZipImporter(Wrappable):
                     pkgpath = None
                 try:
                     if compiled:
-                        return self.import_pyc_file(space, fullname, fname,
+                        return self.import_pyc_file(space, fullname, co_filename,
                                                     buf, pkgpath)
                     else:
-                        return self.import_py_file(space, fullname, fname,
+                        return self.import_py_file(space, fullname, co_filename,
                                                    buf, pkgpath)
                 except OperationError, e:
                     last_exc = e
