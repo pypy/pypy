@@ -246,6 +246,27 @@ class W_Deque(Wrappable):
         self.modified()
         return w_obj
 
+    @unwrap_spec('self', W_Root)
+    def remove(self, w_x):
+        space = self.space
+        block = self.leftblock
+        index = self.leftindex
+        lock = self.getlock()
+        for i in range(self.len):
+            w_item = block.data[index]
+            equal = space.eq_w(w_item, w_x)
+            self.checklock(lock)
+            if equal:
+                self.del_item(i)
+                return
+            # Advance the block/index pair
+            index += 1
+            if index >= BLOCKLEN:
+                block = block.rightlink
+                index = 0
+        raise OperationError(space.w_ValueError,
+                             space.wrap("deque.remove(x): x not in deque"))
+
     @unwrap_spec('self')
     def reverse(self):
         li = self.leftindex
@@ -341,6 +362,13 @@ class W_Deque(Wrappable):
         assert i >= 0
         return b, i
 
+    def del_item(self, i):
+        # delitem() implemented in terms of rotate for simplicity and
+        # reasonable performance near the end points.
+        self.rotate(-i)
+        self.popleft()
+        self.rotate(i)
+
     @unwrap_spec('self', W_Root)
     def getitem(self, w_index):
         space = self.space
@@ -368,12 +396,7 @@ class W_Deque(Wrappable):
         space = self.space
         start, stop, step = space.decode_index(w_index, self.len)
         if step == 0:  # index only
-            # delitem() implemented in terms of rotate for simplicity and
-            # reasonable performance near the end points.
-            i = start
-            self.rotate(-i)
-            self.popleft()
-            self.rotate(i)
+            self.del_item(start)
         else:
             raise OperationError(self.w_TypeError,
                                  self.wrap("deque[:] is not supported"))
@@ -427,6 +450,7 @@ W_Deque.typedef = TypeDef("deque",
     extendleft = interp2app(W_Deque.extendleft),
     pop        = interp2app(W_Deque.pop),
     popleft    = interp2app(W_Deque.popleft),
+    remove     = interp2app(W_Deque.remove),
     reverse    = interp2app(W_Deque.reverse),
     rotate     = interp2app(W_Deque.rotate),
     __weakref__ = make_weakref_descr(W_Deque),

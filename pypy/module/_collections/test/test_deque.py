@@ -200,6 +200,7 @@ class AppTestBasic:
         d.pop()
         assert len(d) == 0
         raises(IndexError, d.pop)
+        raises(IndexError, d.popleft)
         assert len(d) == 0
         d.append('c')
         assert len(d) == 1
@@ -207,44 +208,17 @@ class AppTestBasic:
         assert len(d) == 2
         d.clear()
         assert len(d) == 0
-
-    def test_underflow(self):
-        d = deque()
-        self.assertRaises(IndexError, d.pop)
-        self.assertRaises(IndexError, d.popleft)
-
-    def test_clear(self):
-        d = deque(xrange(100))
-        self.assertEqual(len(d), 100)
-        d.clear()
-        self.assertEqual(len(d), 0)
-        self.assertEqual(list(d), [])
-        d.clear()               # clear an emtpy deque
-        self.assertEqual(list(d), [])
+        assert list(d) == []
 
     def test_remove(self):
+        from _collections import deque
         d = deque('abcdefghcij')
         d.remove('c')
-        self.assertEqual(d, deque('abdefghcij'))
+        assert d == deque('abdefghcij')
         d.remove('c')
-        self.assertEqual(d, deque('abdefghij'))
-        self.assertRaises(ValueError, d.remove, 'c')
-        self.assertEqual(d, deque('abdefghij'))
-
-        # Handle comparison errors
-        d = deque(['a', 'b', BadCmp(), 'c'])
-        e = deque(d)
-        self.assertRaises(RuntimeError, d.remove, 'c')
-        for x, y in zip(d, e):
-            # verify that original order and values are retained.
-            self.assertTrue(x is y)
-
-        # Handle evil mutator
-        for match in (True, False):
-            d = deque(['ab'])
-            d.extend([MutateCmp(d, match), 'c'])
-            self.assertRaises(IndexError, d.remove, 'c')
-            self.assertEqual(d, deque())
+        assert d == deque('abdefghij')
+        raises(ValueError, d.remove, 'c')
+        assert d == deque('abdefghij')
 
     def test_repr(self):
         d = deque(xrange(200))
