@@ -647,11 +647,16 @@ class ForceOpAssembler(object):
     # from: ../x86/assembler.py:1668
     # XXX Split into some helper methods
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc, fcond):
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index)
+
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
+        assert op.numargs() == len(descr._arm_arglocs)
         resbox = TempBox()
         self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
-                                regalloc, fcond, result=resbox, spill_all_regs=True)
+                                regalloc, fcond, result=resbox)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
         else:
@@ -664,30 +669,35 @@ class ForceOpAssembler(object):
                 value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        assert value <= 0xff
-
         # check value
         resloc = regalloc.force_allocate_reg(resbox)
+        assert resloc is r.r0
         self.mc.gen_load_int(r.ip.value, value)
         self.mc.CMP_rr(resloc.value, r.ip.value)
 
+
         fast_jmp_pos = self.mc.currpos()
-        #fast_jmp_location = self.mc.curraddr()
         self.mc.NOP()
 
-        #if values are equal we take the fast pat
+        # Path A: use assembler helper
+        #if values are equal we take the fast path
         # Slow path, calling helper
         # jump to merge point
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self._emit_call(asm_helper_adr, [resbox, op.getarg(0)], regalloc, fcond, op.result)
-        regalloc.possibly_free_var(resbox)
+        self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+        # resbox is allready in r0
+        self.mov_loc_loc(arglocs[1], r.r1)
+        self.mc.BL(asm_helper_adr)
+        self.mc.POP([reg.value for reg in r.caller_resp][1:])
+        regalloc.after_call(op.result)
         # jump to merge point
         jmp_pos = self.mc.currpos()
         #jmp_location = self.mc.curraddr()
         self.mc.NOP()
 
+        # Path B: load return value and reset token
         # Fast Path using result boxes
         # patch the jump to the fast path
         offset = self.mc.currpos() - fast_jmp_pos
@@ -696,20 +706,15 @@ class ForceOpAssembler(object):
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
 
         # Reset the vable token --- XXX really too much special logic here:-(
-        # XXX Enable and fix this once the stange errors procuded by its
-        # presence are fixed
-        #if jd.index_of_virtualizable >= 0:
-        #    from pypy.jit.backend.llsupport.descr import BaseFieldDescr
-        #    size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
-        #    vable_index = jd.index_of_virtualizable
-        #    regalloc._sync_var(op.getarg(vable_index))
-        #    vable = regalloc.frame_manager.loc(op.getarg(vable_index))
-        #    fielddescr = jd.vable_token_descr
-        #    assert isinstance(fielddescr, BaseFieldDescr)
-        #    ofs = fielddescr.offset
-        #    self.mc.MOV(eax, arglocs[1])
-        #    self.mc.MOV_mi((eax.value, ofs), 0)
-        #    # in the line above, TOKEN_NONE = 0
+        if jd.index_of_virtualizable >= 0:
+            from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+            fielddescr = jd.vable_token_descr
+            assert isinstance(fielddescr, BaseFieldDescr)
+            ofs = fielddescr.offset
+            self.mov_loc_loc(arglocs[1], r.ip, cond=c.MI)
+            self.mc.MOV_ri(resloc.value, 0, cond=c.MI)
+            self.mc.STR_ri(resloc.value, r.ip.value, ofs*WORD, cond=c.MI)
+        regalloc.possibly_free_var(resbox)
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
@@ -736,6 +741,7 @@ class ForceOpAssembler(object):
         if op.result:
             regalloc.possibly_free_var(op.result)
         return fcond
+
 
     # ../x86/assembler.py:668
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):

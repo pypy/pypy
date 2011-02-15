@@ -675,10 +675,18 @@ class ARMRegisterManager(RegisterManager):
         return self._prepare_guard(guard_op)
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.assembler._write_fail_index(fail_index)
-        return []
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None
+        size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
+        vable_index = jd.index_of_virtualizable
+        if vable_index >= 0:
+            self._sync_var(op.getarg(vable_index))
+            vable = self.frame_manager.loc(op.getarg(vable_index))
+        else:
+            vable = imm(0)
+        return [imm(size), vable]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr

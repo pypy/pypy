@@ -71,7 +71,8 @@ class TestARM(LLtypeBackendTest):
             _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
             assembler_helper_adr = llmemory.cast_ptr_to_adr(
                 _assembler_helper_ptr)
-
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)), [lltype.Signed], lltype.Signed)
         lt1, lt2, lt3 = [LoopToken() for x in range(3)]
         lt2.outermost_jitdriver_sd = FakeJitDriverSD()
         loop1 = parse('''
