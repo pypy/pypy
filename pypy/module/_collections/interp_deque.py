@@ -121,6 +121,50 @@ class W_Deque(Wrappable):
             self.appendleft(w_obj)
 
     @unwrap_spec('self')
+    def pop(self):
+        if self.len == 0:
+            msg = "pop from an empty deque"
+            raise OperationError(self.space.w_IndexError, self.space.wrap(msg))
+        self.len -= 1
+        ri = self.rightindex
+        w_obj = self.rightblock.data[ri]
+        ri -= 1
+        if ri < 0:
+            if self.len == 0:
+                # re-center instead of freeing the last block
+                self.leftindex = CENTER + 1
+                ri = CENTER
+            else:
+                b = self.rightblock.leftlink
+                self.rightblock = b
+                b.rightlink = None
+                ri = BLOCKLEN - 1
+        self.rightindex = ri
+        return w_obj
+
+    @unwrap_spec('self')
+    def popleft(self):
+        if self.len == 0:
+            msg = "pop from an empty deque"
+            raise OperationError(self.space.w_IndexError, self.space.wrap(msg))
+        self.len -= 1
+        li = self.leftindex
+        w_obj = self.leftblock.data[li]
+        li += 1
+        if li >= BLOCKLEN:
+            if self.len == 0:
+                # re-center instead of freeing the last block
+                li = CENTER + 1
+                self.rightindex = CENTER
+            else:
+                b = self.leftblock.rightlink
+                self.leftblock = b
+                b.leftlink = None
+                li = 0
+        self.leftindex = li
+        return w_obj
+
+    @unwrap_spec('self')
     def iter(self):
         return W_DequeIter(self)
 
@@ -143,6 +187,8 @@ W_Deque.typedef = TypeDef("deque",
     clear      = interp2app(W_Deque.clear),
     extend     = interp2app(W_Deque.extend),
     extendleft = interp2app(W_Deque.extendleft),
+    pop        = interp2app(W_Deque.pop),
+    popleft    = interp2app(W_Deque.popleft),
     __weakref__ = make_weakref_descr(W_Deque),
     __iter__ = interp2app(W_Deque.iter),
     __len__ = interp2app(W_Deque.length),
