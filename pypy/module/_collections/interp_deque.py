@@ -1,6 +1,9 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp2app, make_weakref_descr
-from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
+from pypy.interpreter.gateway import ObjSpace, W_Root, unwrap_spec, Arguments
+from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.error import OperationError
+from pypy.rlib.debug import check_nonneg
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.
@@ -35,20 +38,29 @@ BLOCKLEN = 62
 CENTER   = ((BLOCKLEN - 1) / 2)
 
 class Block(object):
+    __slots__ = ('leftlink', 'rightlink', 'data')
     def __init__(self, leftlink, rightlink):
         self.leftlink = leftlink
         self.rightlink = rightlink
         self.data = [None] * BLOCKLEN
 
+# ------------------------------------------------------------
 
 class W_Deque(Wrappable):
     def __init__(self, space):
         self.space = space
-        self.len = 0
-        self.leftblock = self.rightblock = Block(None, None)
-        self.leftindex = CENTER + 1
-        self.rightindex = CENTER
+        self.clear()
+        check_nonneg(self.leftindex)
+        check_nonneg(self.rightindex)
 
+    @unwrap_spec('self', W_Root)  #, W_Root)
+    def init(self, w_iterable=NoneNotWrapped):  #, w_maxlen=None):
+        if self.len > 0:
+            self.clear()
+        if w_iterable is not None:
+            self.extend(w_iterable)
+
+    @unwrap_spec('self', W_Root)
     def append(self, w_x):
         ri = self.rightindex + 1
         if ri >= BLOCKLEN:
@@ -59,8 +71,8 @@ class W_Deque(Wrappable):
         self.rightindex = ri
         self.rightblock.data[ri] = w_x
         self.len += 1
-    append.unwrap_spec = ['self', W_Root]
 
+    @unwrap_spec('self', W_Root)
     def appendleft(self, w_x):
         li = self.leftindex - 1
         if li < 0:
@@ -71,18 +83,104 @@ class W_Deque(Wrappable):
         self.leftindex = li
         self.leftblock.data[li] = w_x
         self.len += 1
-    appendleft.unwrap_spec = ['self', W_Root]
+
+    @unwrap_spec('self')
+    def clear(self):
+        self.leftblock = Block(None, None)
+        self.rightblock = self.leftblock
+        self.leftindex = CENTER + 1
+        self.rightindex = CENTER
+        self.len = 0
+
+    @unwrap_spec('self', W_Root)
+    def extend(self, w_iterable):
+        # XXX Handle case where id(deque) == id(iterable)
+        space = self.space
+        w_iter = space.iter(w_iterable)
+        while True:
+            try:
+                w_obj = space.next(w_iter)
+            except OperationError, e:
+                if e.match(space, space.w_StopIteration):
+                    break
+                raise
+            self.append(w_obj)
+
+    @unwrap_spec('self', W_Root)
+    def extendleft(self, w_iterable):
+        # XXX Handle case where id(deque) == id(iterable)
+        space = self.space
+        w_iter = space.iter(w_iterable)
+        while True:
+            try:
+                w_obj = space.next(w_iter)
+            except OperationError, e:
+                if e.match(space, space.w_StopIteration):
+                    break
+                raise
+            self.appendleft(w_obj)
+
+    @unwrap_spec('self')
+    def iter(self):
+        return W_DequeIter(self)
+
+    @unwrap_spec('self')
+    def length(self):
+        return self.space.wrap(self.len)
 
 
+@unwrap_spec(ObjSpace, W_Root, Arguments)
 def descr__new__(space, w_subtype, args):
     w_self = space.allocate_instance(W_Deque, w_subtype)
     W_Deque.__init__(space.interp_w(W_Deque, w_self), space)
     return w_self
-descr__new__.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
 W_Deque.typedef = TypeDef("deque",
     __new__ = interp2app(descr__new__),
-    append = interp2app(W_Deque.append),
+    __init__ = interp2app(W_Deque.init),
+    append     = interp2app(W_Deque.append),
     appendleft = interp2app(W_Deque.appendleft),
+    clear      = interp2app(W_Deque.clear),
+    extend     = interp2app(W_Deque.extend),
+    extendleft = interp2app(W_Deque.extendleft),
     __weakref__ = make_weakref_descr(W_Deque),
+    __iter__ = interp2app(W_Deque.iter),
+    __len__ = interp2app(W_Deque.length),
 )
+
+# ------------------------------------------------------------
+
+class W_DequeIter(Wrappable):
+    def __init__(self, deque):
+        self.space = deque.space
+        self.deque = deque
+        self.block = deque.leftblock
+        self.index = deque.leftindex
+        self.counter = deque.len
+        check_nonneg(self.index)
+
+    @unwrap_spec('self')
+    def iter(self):
+        return self.space.wrap(self)
+
+    @unwrap_spec('self')
+    def next(self):
+        if self.counter == 0:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        self.counter -= 1
+        ri = self.index
+        w_x = self.block.data[ri]
+        ri += 1
+        if ri == BLOCKLEN:
+            self.block = self.block.rightlink
+            ri = 0
+        self.index = ri
+        return w_x
+
+W_DequeIter.typedef = TypeDef("deque_iterator",
+    __iter__ = interp2app(W_DequeIter.iter),
+    next = interp2app(W_DequeIter.next),
+)
+W_DequeIter.typedef.acceptable_as_base_class = False
+
+# ------------------------------------------------------------
