@@ -246,6 +246,23 @@ class W_Deque(Wrappable):
         self.modified()
         return w_obj
 
+    @unwrap_spec('self')
+    def reverse(self):
+        li = self.leftindex
+        lb = self.leftblock
+        ri = self.rightindex
+        rb = self.rightblock
+        while lb is not rb or li < ri:
+            lb.data[li], rb.data[ri] = rb.data[ri], lb.data[li]
+            li += 1
+            if li >= BLOCKLEN:
+                lb = lb.rightlink
+                li = 0
+            ri -= 1
+            if ri < 0:
+                rb = rb.leftlink
+                ri = BLOCKLEN - 1
+
     @unwrap_spec('self', int)
     def rotate(self, n):
         len = self.len
@@ -410,6 +427,7 @@ W_Deque.typedef = TypeDef("deque",
     extendleft = interp2app(W_Deque.extendleft),
     pop        = interp2app(W_Deque.pop),
     popleft    = interp2app(W_Deque.popleft),
+    reverse    = interp2app(W_Deque.reverse),
     rotate     = interp2app(W_Deque.rotate),
     __weakref__ = make_weakref_descr(W_Deque),
     __iter__ = interp2app(W_Deque.iter),

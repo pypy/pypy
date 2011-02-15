@@ -166,16 +166,10 @@ class AppTestBasic:
         assert list(d) == list("abcdf")
 
     def test_reverse(self):
-        n = 500         # O(n**2) test, don't make this too big
-        data = [random.random() for i in range(n)]
-        for i in range(n):
-            d = deque(data[:i])
-            r = d.reverse()
-            self.assertEqual(list(d), list(reversed(data[:i])))
-            self.assert_(r is None)
-            d.reverse()
-            self.assertEqual(list(d), data[:i])
-        self.assertRaises(TypeError, d.reverse, 1)          # Arity is zero
+        from _collections import deque
+        d = deque(xrange(1000, 1200))
+        d.reverse()
+        assert list(d) == list(reversed(range(1000, 1200)))
 
     def test_rotate(self):
         s = tuple('abcde')
