@@ -24,14 +24,12 @@ class Object(Object):
         hasdict = False
 
 def test_plain_attribute():
-    class FakeClass(object):
-        pass
-    w_cls = FakeClass
+    w_cls = "class"
     aa = PlainAttribute(("b", DICT),
                         PlainAttribute(("a", DICT),
                                        Terminator(space, w_cls)))
     assert aa.space is space
-    assert aa.terminator.get_w_cls() is w_cls
+    assert aa.terminator.w_cls is w_cls
     assert aa.get_terminator() is aa.terminator
 
     obj = Object()
@@ -867,23 +865,6 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 2, 1)
         res = self.check(f, 'm')
         assert res == (0, 2, 1)
-
-    def test_dont_keep_class_alive(self):
-        import weakref
-        import gc
-        def f():
-            class C(object):
-                def m(self):
-                    pass
-            r = weakref.ref(C)
-            # Trigger cache.
-            C().m()
-            del C
-            gc.collect(); gc.collect(); gc.collect()
-            assert r() is None
-            return 42
-        f()
-
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):
