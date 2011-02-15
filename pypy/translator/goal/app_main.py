@@ -662,7 +662,7 @@ if __name__ == '__main__':
         if os.path.isdir(path):
             return None
         else:
-            return imp.NullImporter()
+            return imp.NullImporter(path)
     def _run_module_as_main(module):
         import sys, os
         path = os.path.join(sys.path[0], module + '.py')
