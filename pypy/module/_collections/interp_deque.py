@@ -215,6 +215,7 @@ class W_Deque(Wrappable):
         self.len -= 1
         ri = self.rightindex
         w_obj = self.rightblock.data[ri]
+        self.rightblock.data[ri] = None
         ri -= 1
         if ri < 0:
             if self.len == 0:
@@ -239,6 +240,7 @@ class W_Deque(Wrappable):
         self.len -= 1
         li = self.leftindex
         w_obj = self.leftblock.data[li]
+        self.leftblock.data[li] = None
         li += 1
         if li >= BLOCKLEN:
             if self.len == 0:

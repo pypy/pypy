@@ -291,21 +291,18 @@ class AppTestBasic:
         for s in ('abcd', xrange(200)):
             assert list(reversed(deque(s))) == list(reversed(s))
 
-    def test_container_iterator(self):
-        # Bug #3680: tp_traverse was not implemented for deque iterator objects
-        class C(object):
-            pass
-        for i in range(2):
-            obj = C()
-            ref = weakref.ref(obj)
-            if i == 0:
-                container = deque([obj, 1])
-            else:
-                container = reversed(deque([obj, 1]))
-            obj.x = iter(container)
-            del obj, container
-            test_support.gc_collect()
-            self.assertTrue(ref() is None, "Cycle was not collected")
+    def test_free(self):
+        import gc
+        from _collections import deque
+        class X(object):
+            freed = False
+            def __del__(self):
+                X.freed = True
+        d = deque()
+        d.append(X())
+        d.pop()
+        gc.collect(); gc.collect(); gc.collect()
+        assert X.freed
 
 class XXXXXXXXXTestVariousIteratorArgs:
 
