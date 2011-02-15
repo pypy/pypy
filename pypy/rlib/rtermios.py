@@ -8,7 +8,10 @@ from termios import *
 
 def tcgetattr(fd):
     # NOT_RPYTHON
-    lst = list(termios.tcgetattr(fd))
+    try:
+        lst = list(termios.tcgetattr(fd))
+    except termios.error, e:
+        raise OSError(*e.args)
     cc = lst[-1]
     next_cc = []
     for c in cc:
@@ -29,4 +32,7 @@ def tcsetattr(fd, when, mode):
         cc[termios.VMIN] = ord(cc[termios.VMIN])
         cc[termios.VTIME] = ord(cc[termios.VTIME])
         mode_l[-1] = cc
-    return termios.tcsetattr(fd, when, mode_l)
+    try:
+        return termios.tcsetattr(fd, when, mode_l)
+    except termios.error, e:
+        raise OSError(*e.args)

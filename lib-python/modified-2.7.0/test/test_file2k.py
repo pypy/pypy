@@ -450,6 +450,9 @@ class FileThreadingTests(unittest.TestCase):
         self.close_count = 0
         self.close_success_count = 0
         self.use_buffering = False
+        # to prevent running out of file descriptors on PyPy,
+        # we only keep the 50 most recent files open
+        self.all_files = [None] * 50
 
     def tearDown(self):
         if self.f:
@@ -465,9 +468,14 @@ class FileThreadingTests(unittest.TestCase):
 
     def _create_file(self):
         if self.use_buffering:
-            self.f = open(self.filename, "w+", buffering=1024*16)
+            f = open(self.filename, "w+", buffering=1024*16)
         else:
-            self.f = open(self.filename, "w+")
+            f = open(self.filename, "w+")
+        self.f = f
+        self.all_files.append(f)
+        oldf = self.all_files.pop(0)
+        if oldf is not None:
+            oldf.close()
 
     def _close_file(self):
         with self._count_lock:

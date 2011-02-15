@@ -17,6 +17,9 @@ from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.objspace.std.formatting import mod_format
 
+from pypy.objspace.std.unicodeobject import (
+    format__Unicode_ANY as format__RopeUnicode_ANY)
+
 
 def wrapunicode(space, uni):
     return W_RopeUnicodeObject(rope.rope_from_unicode(uni))

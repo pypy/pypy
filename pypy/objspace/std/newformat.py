@@ -717,8 +717,11 @@ class Formatter(BaseFormatter):
             out.append_multiple_char(fill_char[0], spec.n_spadding)
         if spec.n_digits != 0:
             if self._loc_thousands:
-                digits = grouped_digits if grouped_digits is not None \
-                         else self._grouped_digits
+                if grouped_digits is not None:
+                    digits = grouped_digits
+                else:
+                    digits = self._grouped_digits
+                    assert digits is not None
             else:
                 stop = to_digits + spec.n_digits
                 assert stop >= 0

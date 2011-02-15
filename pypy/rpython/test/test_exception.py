@@ -125,7 +125,6 @@ class BaseTestException(BaseRtypingTest):
         assert res == 11
 
     def test_pop_inside_try(self):
-        py.test.skip('fixme!')
         class MyException(Exception):
             pass
         def f(n):
