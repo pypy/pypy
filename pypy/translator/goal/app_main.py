@@ -663,14 +663,9 @@ if __name__ == '__main__':
             return None
         else:
             return imp.NullImporter(path)
-    def _run_module_as_main(module):
-        import sys, os
-        path = os.path.join(sys.path[0], module + '.py')
-        execfile(path, {'__name__': '__main__'})
 
     imp._run_compiled_module = _run_compiled_module
     imp._getimporter = _getimporter
-    runpy._run_module_as_main = _run_module_as_main
 
     # stick the current sys.path into $PYTHONPATH, so that CPython still
     # finds its own extension modules :-/

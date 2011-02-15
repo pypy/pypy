@@ -3,7 +3,7 @@ Tests for the entry point of pypy-c, app_main.py.
 """
 from __future__ import with_statement
 import py
-import sys, os, re
+import sys, os, re, runpy
 import autopath
 from pypy.tool.udir import udir
 from contextlib import contextmanager
@@ -415,6 +415,8 @@ class TestInteraction:
     def test_options_i_m(self):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
