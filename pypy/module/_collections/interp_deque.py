@@ -393,8 +393,8 @@ class W_Deque(Wrappable):
             b, i = self.locate(start)
             return b.data[i]
         else:
-            raise OperationError(self.w_TypeError,
-                                 self.wrap("deque[:] is not supported"))
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("deque[:] is not supported"))
 
     @unwrap_spec('self', W_Root, W_Root)
     def setitem(self, w_index, w_newobj):
@@ -404,8 +404,8 @@ class W_Deque(Wrappable):
             b, i = self.locate(start)
             b.data[i] = w_newobj
         else:
-            raise OperationError(self.w_TypeError,
-                                 self.wrap("deque[:] is not supported"))
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("deque[:] is not supported"))
 
     @unwrap_spec('self', W_Root)
     def delitem(self, w_index):
@@ -414,8 +414,8 @@ class W_Deque(Wrappable):
         if step == 0:  # index only
             self.del_item(start)
         else:
-            raise OperationError(self.w_TypeError,
-                                 self.wrap("deque[:] is not supported"))
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("deque[:] is not supported"))
 
     @unwrap_spec('self')
     def copy(self):
