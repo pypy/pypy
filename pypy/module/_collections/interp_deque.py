@@ -106,6 +106,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', W_Root)
     def append(self, w_x):
+        "Add an element to the right side of the deque."
         ri = self.rightindex + 1
         if ri >= BLOCKLEN:
             b = Block(self.rightblock, None)
@@ -120,6 +121,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', W_Root)
     def appendleft(self, w_x):
+        "Add an element to the left side of the deque."
         li = self.leftindex - 1
         if li < 0:
             b = Block(None, self.leftblock)
@@ -134,6 +136,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self')
     def clear(self):
+        "Remove all elements from the deque."
         self.leftblock = Block(None, None)
         self.rightblock = self.leftblock
         self.leftindex = CENTER + 1
@@ -143,6 +146,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', W_Root)
     def count(self, w_x):
+        "Return number of occurrences of value."
         space = self.space
         result = 0
         block = self.leftblock
@@ -162,6 +166,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', W_Root)
     def extend(self, w_iterable):
+        "Extend the right side of the deque with elements from the iterable"
         # Handle case where id(deque) == id(iterable)
         space = self.space
         if space.is_w(space.wrap(self), w_iterable):
@@ -184,6 +189,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', W_Root)
     def extendleft(self, w_iterable):
+        "Extend the left side of the deque with elements from the iterable"
         # Handle case where id(deque) == id(iterable)
         space = self.space
         if space.is_w(space.wrap(self), w_iterable):
@@ -202,6 +208,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self')
     def pop(self):
+        "Remove and return the rightmost element."
         if self.len == 0:
             msg = "pop from an empty deque"
             raise OperationError(self.space.w_IndexError, self.space.wrap(msg))
@@ -225,6 +232,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self')
     def popleft(self):
+        "Remove and return the leftmost element."
         if self.len == 0:
             msg = "pop from an empty deque"
             raise OperationError(self.space.w_IndexError, self.space.wrap(msg))
@@ -248,6 +256,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', W_Root)
     def remove(self, w_x):
+        "Remove first occurrence of value."
         space = self.space
         block = self.leftblock
         index = self.leftindex
@@ -269,6 +278,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self')
     def reverse(self):
+        "Reverse *IN PLACE*."
         li = self.leftindex
         lb = self.leftblock
         ri = self.rightindex
@@ -286,6 +296,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self', int)
     def rotate(self, n=1):
+        "Rotate the deque n steps to the right (default n=1).  If n is negative, rotates left."
         len = self.len
         if len == 0:
             return
@@ -308,6 +319,7 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self')
     def reviter(self):
+        "Return a reverse iterator over the deque."
         return W_DequeRevIter(self)
 
     @unwrap_spec('self')
@@ -407,16 +419,18 @@ class W_Deque(Wrappable):
 
     @unwrap_spec('self')
     def copy(self):
+        "Return a shallow copy of a deque."
         space = self.space
         w_self = space.wrap(self)
         if self.maxlen == sys.maxint:
             return space.call_function(space.type(w_self), w_self)
         else:
             return space.call_function(space.type(w_self), w_self,
-                                       space.wrap(self.maxint))
+                                       space.wrap(self.maxlen))
 
     @unwrap_spec('self')
     def reduce(self):
+        "Return state information for pickling."
         space = self.space
         w_self = space.wrap(self)
         w_type = space.type(w_self)
@@ -477,6 +491,9 @@ def descr__new__(space, w_subtype, args):
     return w_self
 
 W_Deque.typedef = TypeDef("deque",
+    __doc__ = """deque(iterable[, maxlen]) --> deque object
+
+Build an ordered collection accessible from endpoints only.""",
     __new__ = interp2app(descr__new__),
     __init__ = interp2app(W_Deque.init),
     append     = interp2app(W_Deque.append),
