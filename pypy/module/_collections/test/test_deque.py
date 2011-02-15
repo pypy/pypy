@@ -93,21 +93,22 @@ class AppTestBasic:
         raises(RuntimeError, d.count, 3)
 
     def test_comparisons(self):
+        from _collections import deque
         d = deque('xabc'); d.popleft()
         for e in [d, deque('abc'), deque('ab'), deque(), list(d)]:
-            self.assertEqual(d==e, type(d)==type(e) and list(d)==list(e))
-            self.assertEqual(d!=e, not(type(d)==type(e) and list(d)==list(e)))
+            assert (d==e) == (type(d)==type(e) and list(d)==list(e))
+            assert (d!=e) == (not(type(d)==type(e) and list(d)==list(e)))
 
         args = map(deque, ('', 'a', 'b', 'ab', 'ba', 'abc', 'xba', 'xabc', 'cba'))
         for x in args:
             for y in args:
-                self.assertEqual(x == y, list(x) == list(y), (x,y))
-                self.assertEqual(x != y, list(x) != list(y), (x,y))
-                self.assertEqual(x <  y, list(x) <  list(y), (x,y))
-                self.assertEqual(x <= y, list(x) <= list(y), (x,y))
-                self.assertEqual(x >  y, list(x) >  list(y), (x,y))
-                self.assertEqual(x >= y, list(x) >= list(y), (x,y))
-                self.assertEqual(cmp(x,y), cmp(list(x),list(y)), (x,y))
+                assert (x == y) == (list(x) == list(y))
+                assert (x != y) == (list(x) != list(y))
+                assert (x <  y) == (list(x) <  list(y))
+                assert (x <= y) == (list(x) <= list(y))
+                assert (x >  y) == (list(x) >  list(y))
+                assert (x >= y) == (list(x) >= list(y))
+                assert cmp(x,y) == cmp(list(x),list(y))
 
     def test_extend(self):
         d = deque('a')

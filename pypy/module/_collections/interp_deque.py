@@ -251,6 +251,32 @@ class W_Deque(Wrappable):
             w_currently_in_repr = ec._py_repr = space.newdict()
         return dequerepr(space, w_currently_in_repr, space.wrap(self))
 
+    def compare(self, w_other, op):
+        space = self.space
+        if not isinstance(space.interpclass_w(w_other), W_Deque):
+            return space.w_NotImplemented
+        return space.compare_by_iteration(space.wrap(self), w_other, op)
+    compare._annspecialcase_ = 'specialize:arg(2)'
+
+    @unwrap_spec('self', W_Root)
+    def lt(self, w_other):
+        return self.compare(w_other, 'lt')
+    @unwrap_spec('self', W_Root)
+    def le(self, w_other):
+        return self.compare(w_other, 'le')
+    @unwrap_spec('self', W_Root)
+    def eq(self, w_other):
+        return self.compare(w_other, 'eq')
+    @unwrap_spec('self', W_Root)
+    def ne(self, w_other):
+        return self.compare(w_other, 'ne')
+    @unwrap_spec('self', W_Root)
+    def gt(self, w_other):
+        return self.compare(w_other, 'gt')
+    @unwrap_spec('self', W_Root)
+    def ge(self, w_other):
+        return self.compare(w_other, 'ge')
+
     def get_maxlen(space, self):
         if self.maxlen == sys.maxint:
             return self.space.w_None
@@ -304,6 +330,12 @@ W_Deque.typedef = TypeDef("deque",
     __iter__ = interp2app(W_Deque.iter),
     __len__ = interp2app(W_Deque.length),
     __repr__ = interp2app(W_Deque.repr),
+    __lt__ = interp2app(W_Deque.lt),
+    __le__ = interp2app(W_Deque.le),
+    __eq__ = interp2app(W_Deque.eq),
+    __ne__ = interp2app(W_Deque.ne),
+    __gt__ = interp2app(W_Deque.gt),
+    __ge__ = interp2app(W_Deque.ge),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 
