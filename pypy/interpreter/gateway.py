@@ -462,6 +462,8 @@ def build_unwrap_spec(func, argnames, self_type=None):
                 unwrap_spec.append('self')
             elif argname == 'space':
                 unwrap_spec.append(ObjSpace)
+            elif argname == '__args__':
+                unwrap_spec.append(Arguments)
             elif argname.startswith('w_'):
                 unwrap_spec.append(W_Root)
             else:
