@@ -161,10 +161,11 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
         return self.optimizer.getvalue(box)
 
     def state(self, box):
+        value = self.getvalue(box)
+        box = value.get_key_box()
         try:
             info = self.info[box]
         except KeyError:
-            value = self.getvalue(box)
             if value.is_virtual():
                 self.info[box] = info = value.make_virtual_info(self, None)
                 flds = self.fieldboxes[box]

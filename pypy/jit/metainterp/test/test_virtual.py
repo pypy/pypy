@@ -703,9 +703,63 @@ class VirtualTests:
                 n -= 1
             return node[0] + node[1]
         assert self.meta_interp(f, [40]) == f(40)
-        
+
+    def FIXME_why_does_this_force(self):
+        mydriver = JitDriver(reds = ['i', 'j'], greens = []) 
+        def f():
+            i = self._new()
+            i.value = 0
+            j = self._new()
+            while i.value < 10:
+                mydriver.can_enter_jit(i=i, j=j)
+                mydriver.jit_merge_point(i=i, j=j)
+                nxt = self._new()
+                nxt.value = i.value + 1
+                i = nxt
+                j = nxt
+            return i.value + j.value
+        assert self.meta_interp(f, []) == 20
+
+    def FIXME_why_does_this_force2(self):
+        mydriver = JitDriver(reds = ['i', 'j'], greens = []) 
+        def f():
+            i = self._new()
+            i.value = 0
+            j = self._new()
+            j.value = 0
+            while i.value < 10:
+                mydriver.can_enter_jit(i=i, j=j)
+                mydriver.jit_merge_point(i=i, j=j)
+                nxt = self._new()
+                nxt.value = i.value + 1
+                i = nxt
+                nxt = self._new()
+                nxt.value = i.value + 1
+                j = nxt
+                i = j
+            return i.value + j.value
+        assert self.meta_interp(f, []) == 20
+                
 
 class VirtualMiscTests:
+
+    def test_multiple_equal_virtuals(self):
+        mydriver = JitDriver(reds = ['i'], greens = [])
+        class A:
+            pass
+        def f():
+            i = A()
+            i.value = 0
+            while i.value < 10:
+                mydriver.can_enter_jit(i=i)
+                mydriver.jit_merge_point(i=i)
+                nxt = A()
+                nxt.value = i.value + 1
+                tmp = A()
+                tmp.ref = nxt
+                i = tmp.ref
+            return i.value
+        assert self.meta_interp(f, []) == 10
 
     def test_guards_around_forcing(self):
         class A(object):
@@ -755,6 +809,23 @@ class VirtualMiscTests:
         r = self.meta_interp(f, [70])
         expected = f(70)
         assert r == expected
+
+    def test_arraycopy_disappears(self):
+        mydriver = JitDriver(reds = ['i'], greens = []) 
+        def f():
+            i = 0
+            while i < 10:
+                mydriver.can_enter_jit(i=i)
+                mydriver.jit_merge_point(i=i)                
+                t = (1, 2, 3, i + 1)
+                t2 = t[:]
+                del t
+                i = t2[3]
+                del t2
+            return i
+        assert self.meta_interp(f, []) == 10
+        self.check_loops(new_array=0)
+
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class
