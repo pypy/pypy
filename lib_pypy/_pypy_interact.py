@@ -1,6 +1,7 @@
 """Imported by app_main.py when PyPy needs to fire up the interactive console.
 """
 import sys
+import os
 
 
 def interactive_console(mainmodule=None):
