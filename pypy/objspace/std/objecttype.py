@@ -80,12 +80,14 @@ def descr__new__(space, w_type, __args__):
 def descr__init__(space, w_obj, __args__):
     pass
 
+@gateway.unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):
     if proto >= 2:
         return reduce_2(space, w_obj)
     w_proto = space.wrap(proto)
     return reduce_1(space, w_obj, w_proto)
 
+@gateway.unwrap_spec(proto=int)
 def descr__reduce_ex__(space, w_obj, proto=0):
     w_st_reduce = space.wrap('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
@@ -203,17 +205,11 @@ object_typedef = StdTypeDef("object",
     __repr__ = gateway.interp2app(descr__repr__),
     __class__ = GetSetProperty(descr__class__, descr_set___class__),
     __doc__ = '''The most base type''',
-    __new__ = gateway.interp2app(descr__new__,
-    unwrap_spec = [gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__),
     __hash__ = gateway.interp2app(default_identity_hash),
-    __reduce_ex__ = gateway.interp2app(descr__reduce_ex__,
-                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),
-    __reduce__ = gateway.interp2app(descr__reduce__,
-                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),
-    __format__ = gateway.interp2app(descr___format__, unwrap_spec=[ObjSpace,
-                                   gateway.W_Root, gateway.W_Root]),
-    __subclasshook__ = gateway.interp2app(descr___subclasshook__, unwrap_spec=
-    [ObjSpace, Arguments], as_classmethod=True),
-    __init__ = gateway.interp2app(descr__init__,
-                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __reduce_ex__ = gateway.interp2app(descr__reduce_ex__),
+    __reduce__ = gateway.interp2app(descr__reduce__),
+    __format__ = gateway.interp2app(descr___format__),
+    __subclasshook__ = gateway.interp2app(descr___subclasshook__),
+    __init__ = gateway.interp2app(descr__init__),
     )

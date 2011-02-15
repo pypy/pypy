@@ -48,6 +48,7 @@ register_all(vars(), globals())
 
 # ____________________________________________________________
 
+@gateway.unwrap_spec(args_w='args_w')
 def descr__new__(space, w_slicetype, args_w):
     from pypy.objspace.std.sliceobject import W_SliceObject
     w_start = space.w_None
@@ -68,9 +69,6 @@ def descr__new__(space, w_slicetype, args_w):
     w_obj = space.allocate_instance(W_SliceObject, w_slicetype)
     W_SliceObject.__init__(w_obj, w_start, w_stop, w_step)
     return w_obj
-#
-descr__new__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root,
-                            'args_w']
 
 def descr__reduce__(space, w_self):
     from pypy.objspace.std.sliceobject import W_SliceObject
@@ -81,7 +79,6 @@ def descr__reduce__(space, w_self):
                         w_self.w_stop,
                         w_self.w_step]),
         ])
-descr__reduce__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root]
 
 # ____________________________________________________________
 
