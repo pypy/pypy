@@ -24,6 +24,11 @@ def interactive_console(mainmodule=None):
         pass
     #
     try:
+        if not os.isatty(sys.stdin.fileno()):
+            # Bail out if stdin is not tty-like, as pyrepl wouldn't be happy
+            # For example, with:
+            # subprocess.Popen(['pypy', '-i'], stdin=subprocess.PIPE)
+            raise ImportError
         from pyrepl.simple_interact import check
         if not check():
             raise ImportError
