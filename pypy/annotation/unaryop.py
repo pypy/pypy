@@ -646,7 +646,12 @@ class __extend__(SomeBuiltin):
     def _can_only_throw(bltn, *args):
         analyser_func = getattr(bltn.analyser, 'im_func', None)
         can_only_throw = getattr(analyser_func, 'can_only_throw', None)
-        return can_only_throw   # or None to mean "anything"
+        if can_only_throw is None or isinstance(can_only_throw, list):
+            return can_only_throw
+        if bltn.s_self is not None:
+            return can_only_throw(bltn.s_self, *args)
+        else:
+            return can_only_throw(*args)
 
     def simple_call(bltn, *args):
         if bltn.s_self is not None:
