@@ -186,10 +186,8 @@ class Function(Wrappable):
             raise OperationError( space.w_TypeError, space.wrap("setting function's dictionary to a non-dict") )
         self.w_func_dict = w_dict
 
-    # unwrapping is done through unwrap_specs in typedef.py
-
     def descr_function__new__(space, w_subtype, w_code, w_globals,
-                            w_name=None, w_argdefs=None, w_closure=None):
+                              w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
