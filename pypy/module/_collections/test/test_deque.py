@@ -221,11 +221,12 @@ class AppTestBasic:
         assert d == deque('abdefghij')
 
     def test_repr(self):
-        d = deque(xrange(200))
+        from _collections import deque
+        d = deque(xrange(20))
         e = eval(repr(d))
-        self.assertEqual(list(d), list(e))
+        assert d == e
         d.append(d)
-        self.assertIn('...', repr(d))
+        assert '...' in repr(d)
 
     def test_print(self):
         d = deque(xrange(200))
