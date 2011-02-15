@@ -517,6 +517,8 @@ class TestInteraction:
         child.expect('A five ounce bird could not carry a one pound coconut.')
 
     def test_no_space_before_argument(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         child = self.spawn(['-cprint "hel" + "lo"'])
         child.expect('hello')
 
@@ -614,6 +616,8 @@ class TestNonInteractive:
             os.environ['PYTHONWARNINGS'] = old
 
     def test_option_m(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         data = self.run('-m pypy.translator.goal.test2.mymodule extra')
@@ -714,6 +718,8 @@ class TestNonInteractive:
         assert data == 'in _run_compiled_module\n'
 
     def test_main_in_dir_commandline_argument(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         p = getscript_in_dir('print 6*7\n')
         data = self.run(p)
         assert data == '42\n'
