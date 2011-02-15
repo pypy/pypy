@@ -264,7 +264,7 @@ class W_Deque(Wrappable):
                 ri = BLOCKLEN - 1
 
     @unwrap_spec('self', int)
-    def rotate(self, n):
+    def rotate(self, n=1):
         len = self.len
         if len == 0:
             return

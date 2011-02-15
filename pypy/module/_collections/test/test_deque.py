@@ -172,57 +172,24 @@ class AppTestBasic:
         assert list(d) == list(reversed(range(1000, 1200)))
 
     def test_rotate(self):
+        from _collections import deque
         s = tuple('abcde')
         n = len(s)
 
         d = deque(s)
         d.rotate(1)             # verify rot(1)
-        self.assertEqual(''.join(d), 'eabcd')
+        assert ''.join(d) == 'eabcd'
 
         d = deque(s)
         d.rotate(-1)            # verify rot(-1)
-        self.assertEqual(''.join(d), 'bcdea')
+        assert ''.join(d) == 'bcdea'
         d.rotate()              # check default to 1
-        self.assertEqual(tuple(d), s)
+        assert tuple(d) == s
 
-        for i in xrange(n*3):
-            d = deque(s)
-            e = deque(d)
-            d.rotate(i)         # check vs. rot(1) n times
-            for j in xrange(i):
-                e.rotate(1)
-            self.assertEqual(tuple(d), tuple(e))
-            d.rotate(-i)        # check that it works in reverse
-            self.assertEqual(tuple(d), s)
-            e.rotate(n-i)       # check that it wraps forward
-            self.assertEqual(tuple(e), s)
-
-        for i in xrange(n*3):
-            d = deque(s)
-            e = deque(d)
-            d.rotate(-i)
-            for j in xrange(i):
-                e.rotate(-1)    # check vs. rot(-1) n times
-            self.assertEqual(tuple(d), tuple(e))
-            d.rotate(i)         # check that it works in reverse
-            self.assertEqual(tuple(d), s)
-            e.rotate(i-n)       # check that it wraps backaround
-            self.assertEqual(tuple(e), s)
-
-        d = deque(s)
-        e = deque(s)
-        e.rotate(BIG+17)        # verify on long series of rotates
-        dr = d.rotate
-        for i in xrange(BIG+17):
-            dr()
-        self.assertEqual(tuple(d), tuple(e))
-
-        self.assertRaises(TypeError, d.rotate, 'x')   # Wrong arg type
-        self.assertRaises(TypeError, d.rotate, 1, 10) # Too many args
-
-        d = deque()
-        d.rotate()              # rotate an empty deque
-        self.assertEqual(d, deque())
+        d.rotate(500000002)
+        assert tuple(d) == tuple('deabc')
+        d.rotate(-5000002)
+        assert tuple(d) == tuple(s)
 
     def test_len(self):
         d = deque('ab')
