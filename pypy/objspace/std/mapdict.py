@@ -163,15 +163,7 @@ class Terminator(AbstractAttribute):
 
     def __init__(self, space, w_cls):
         AbstractAttribute.__init__(self, space, self)
-        if w_cls is None:
-            self.w_cls_wref = None
-        else:
-            self.w_cls_wref = weakref.ref(w_cls)
-
-    def get_w_cls(self):
-        if self.w_cls_wref is None:
-            return None
-        return self.w_cls_wref()
+        self.w_cls = w_cls
 
     def _read_terminator(self, obj, selector):
         return None
@@ -405,7 +397,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         assert flag
 
     def getclass(self, space):
-        return self._get_mapdict_map().terminator.get_w_cls()
+        return self._get_mapdict_map().terminator.w_cls
 
     def setclass(self, space, w_cls):
         new_obj = self._get_mapdict_map().set_terminator(self, w_cls.terminator)
@@ -681,7 +673,6 @@ class MapDictIteratorImplementation(IteratorImplementation):
 # Magic caching
 
 class CacheEntry(object):
-    map = None
     version_tag = None
     index = 0
     w_method = None # for callmethod
@@ -692,12 +683,11 @@ class CacheEntry(object):
         map = w_obj._get_mapdict_map()
         return self.is_valid_for_map(map)
 
+    @jit.dont_look_inside
     def is_valid_for_map(self, map):
-        if map is self.map:
-            w_cls = map.terminator.get_w_cls()
-            if w_cls is None: # probably a dead weakref
-                return False
-            version_tag = w_cls.version_tag()
+        mymap = self.map_wref()
+        if mymap is map:     # also handles the case self.map_wref()->None
+            version_tag = map.terminator.w_cls.version_tag()
             if version_tag is self.version_tag:
                 # everything matches, it's incredibly fast
                 if map.space.config.objspace.std.withmethodcachecounter:
@@ -705,22 +695,23 @@ class CacheEntry(object):
                 return True
         return False
 
+_invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
+_invalid_cache_entry_map.terminator = None
 INVALID_CACHE_ENTRY = CacheEntry()
-INVALID_CACHE_ENTRY.map = objectmodel.instantiate(AbstractAttribute)
-                             # different from any real map ^^^
-INVALID_CACHE_ENTRY.map.terminator = None
-
+INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
+                                 # different from any real map ^^^
 
 def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
+@jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, index, w_method=None):
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = entry
-    entry.map = map
+    entry.map_wref = weakref.ref(map)
     entry.version_tag = version_tag
     entry.index = index
     entry.w_method = w_method
@@ -742,7 +733,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
     space = pycode.space
     w_name = pycode.co_names_w[nameindex]
     if map is not None:
-        w_type = map.terminator.get_w_cls()
+        w_type = map.terminator.w_cls
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
             return space._handle_getattribute(w_descr, w_obj, w_name)
