@@ -1,7 +1,6 @@
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
@@ -22,7 +21,6 @@ class W_BytesIO(W_BufferedIOBase):
         self.string_size = 0
         self.buf = None
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def descr_init(self, space, w_initial_bytes=None):
         # In case __init__ is called multiple times
         self.buf = []
@@ -39,7 +37,6 @@ class W_BytesIO(W_BufferedIOBase):
                 message = "I/O operation on closed file"
             raise OperationError(space.w_ValueError, space.wrap(message))
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
@@ -55,11 +52,9 @@ class W_BytesIO(W_BufferedIOBase):
         self.pos += size
         return space.wrap(output)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read1_w(self, space, w_size):
         return self.read_w(space, w_size)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
         rwbuffer = space.rwbuffer_w(w_buffer)
@@ -74,7 +69,6 @@ class W_BytesIO(W_BufferedIOBase):
         self.pos += length
         return space.wrap(length)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._check_closed(space)
         if space.isinstance_w(w_data, space.w_unicode):
@@ -111,7 +105,6 @@ class W_BytesIO(W_BufferedIOBase):
 
         return space.wrap(length)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
 
@@ -130,17 +123,15 @@ class W_BytesIO(W_BufferedIOBase):
 
         return space.wrap(size)
 
-    @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
         self._check_closed(space)
         return space.wrap(buffer2string(self.buf, 0, self.string_size))
 
-    @unwrap_spec('self', ObjSpace)
     def tell_w(self, space):
         self._check_closed(space)
         return space.wrap(self.pos)
 
-    @unwrap_spec('self', ObjSpace, r_longlong, int)
+    @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
         self._check_closed(space)
 
@@ -168,26 +159,21 @@ class W_BytesIO(W_BufferedIOBase):
             self.pos = 0
         return space.wrap(self.pos)
 
-    @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         return space.w_True
 
-    @unwrap_spec('self', ObjSpace)
     def writable_w(self, space):
         return space.w_True
 
-    @unwrap_spec('self', ObjSpace)
     def seekable_w(self, space):
         return space.w_True
 
-    @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         self.buf = None
 
     def closed_get_w(space, self):
         return space.wrap(self.buf is None)
 
-    @unwrap_spec('self', ObjSpace)
     def getstate_w(self, space):
         self._check_closed(space)
         w_content = space.wrap(buffer2string(self.buf, 0, self.string_size))
@@ -196,7 +182,6 @@ class W_BytesIO(W_BufferedIOBase):
             space.wrap(self.pos),
             self.getdict()])
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def setstate_w(self, space, w_state):
         self._check_closed(space)
 
