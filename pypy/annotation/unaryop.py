@@ -303,6 +303,7 @@ class __extend__(SomeList):
     def method_pop(lst, s_index=None):
         lst.listdef.resize()
         return lst.listdef.read_item()
+    method_pop.can_only_throw = [IndexError]
 
     def method_index(lst, s_value):
         getbookkeeper().count("list_index")
@@ -642,6 +643,11 @@ class __extend__(SomeInstance):
 
 
 class __extend__(SomeBuiltin):
+    def _can_only_throw(bltn, *args):
+        analyser_func = getattr(bltn.analyser, 'im_func', None)
+        can_only_throw = getattr(analyser_func, 'can_only_throw', None)
+        return can_only_throw   # or None to mean "anything"
+
     def simple_call(bltn, *args):
         if bltn.s_self is not None:
             return bltn.analyser(bltn.s_self, *args)
@@ -649,6 +655,7 @@ class __extend__(SomeBuiltin):
             if bltn.methodname:
                 getbookkeeper().count(bltn.methodname.replace('.', '_'), *args)
             return bltn.analyser(*args)
+    simple_call.can_only_throw = _can_only_throw
 
     def call(bltn, args, implicit_init=False):
         args_s, kwds = args.unpack()
