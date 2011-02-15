@@ -1,3 +1,4 @@
+import weakref
 from pypy.rlib import jit, objectmodel, debug
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -162,7 +163,15 @@ class Terminator(AbstractAttribute):
 
     def __init__(self, space, w_cls):
         AbstractAttribute.__init__(self, space, self)
-        self.w_cls = w_cls
+        if w_cls is None:
+            self.w_cls_wref = None
+        else:
+            self.w_cls_wref = weakref.ref(w_cls)
+
+    def get_w_cls(self):
+        if self.w_cls_wref is None:
+            return None
+        return self.w_cls_wref()
 
     def _read_terminator(self, obj, selector):
         return None
@@ -396,7 +405,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         assert flag
 
     def getclass(self, space):
-        return self._get_mapdict_map().terminator.w_cls
+        return self._get_mapdict_map().terminator.get_w_cls()
 
     def setclass(self, space, w_cls):
         new_obj = self._get_mapdict_map().set_terminator(self, w_cls.terminator)
@@ -685,7 +694,10 @@ class CacheEntry(object):
 
     def is_valid_for_map(self, map):
         if map is self.map:
-            version_tag = map.terminator.w_cls.version_tag()
+            w_cls = map.terminator.get_w_cls()
+            if w_cls is None: # probably a dead weakref
+                return False
+            version_tag = w_cls.version_tag()
             if version_tag is self.version_tag:
                 # everything matches, it's incredibly fast
                 if map.space.config.objspace.std.withmethodcachecounter:
@@ -730,7 +742,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
     space = pycode.space
     w_name = pycode.co_names_w[nameindex]
     if map is not None:
-        w_type = map.terminator.w_cls
+        w_type = map.terminator.get_w_cls()
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
             return space._handle_getattribute(w_descr, w_obj, w_name)
