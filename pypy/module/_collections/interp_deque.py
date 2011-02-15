@@ -307,6 +307,10 @@ class W_Deque(Wrappable):
         return W_DequeIter(self)
 
     @unwrap_spec('self')
+    def reviter(self):
+        return W_DequeRevIter(self)
+
+    @unwrap_spec('self')
     def length(self):
         return self.space.wrap(self.len)
 
@@ -465,6 +469,7 @@ W_Deque.typedef = TypeDef("deque",
     rotate     = interp2app(W_Deque.rotate),
     __weakref__ = make_weakref_descr(W_Deque),
     __iter__ = interp2app(W_Deque.iter),
+    __reversed__ = interp2app(W_Deque.reviter),
     __len__ = interp2app(W_Deque.length),
     __repr__ = interp2app(W_Deque.repr),
     __lt__ = interp2app(W_Deque.lt),
@@ -518,5 +523,42 @@ W_DequeIter.typedef = TypeDef("deque_iterator",
     next = interp2app(W_DequeIter.next),
 )
 W_DequeIter.typedef.acceptable_as_base_class = False
+
+# ------------------------------------------------------------
+
+class W_DequeRevIter(Wrappable):
+    def __init__(self, deque):
+        self.space = deque.space
+        self.deque = deque
+        self.block = deque.rightblock
+        self.index = deque.rightindex
+        self.counter = deque.len
+        self.lock = deque.getlock()
+        check_nonneg(self.index)
+
+    @unwrap_spec('self')
+    def iter(self):
+        return self.space.wrap(self)
+
+    @unwrap_spec('self')
+    def next(self):
+        self.deque.checklock(self.lock)
+        if self.counter == 0:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        self.counter -= 1
+        ri = self.index
+        w_x = self.block.data[ri]
+        ri -= 1
+        if ri < 0:
+            self.block = self.block.leftlink
+            ri = BLOCKLEN - 1
+        self.index = ri
+        return w_x
+
+W_DequeRevIter.typedef = TypeDef("deque_reverse_iterator",
+    __iter__ = interp2app(W_DequeRevIter.iter),
+    next = interp2app(W_DequeRevIter.next),
+)
+W_DequeRevIter.typedef.acceptable_as_base_class = False
 
 # ------------------------------------------------------------

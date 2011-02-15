@@ -252,17 +252,9 @@ class AppTestBasic:
         assert d == e
 
     def test_reversed(self):
-        for s in ('abcd', xrange(2000)):
-            self.assertEqual(list(reversed(deque(s))), list(reversed(s)))
-
-    def test_gc_doesnt_blowup(self):
-        import gc
-        # This used to assert-fail in deque_traverse() under a debug
-        # build, or run wild with a NULL pointer in a release build.
-        d = deque()
-        for i in xrange(100):
-            d.append(1)
-            gc.collect()
+        from _collections import deque
+        for s in ('abcd', xrange(200)):
+            assert list(reversed(deque(s))) == list(reversed(s))
 
     def test_container_iterator(self):
         # Bug #3680: tp_traverse was not implemented for deque iterator objects
