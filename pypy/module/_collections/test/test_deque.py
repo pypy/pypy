@@ -228,26 +228,9 @@ class AppTestBasic:
         d.append(d)
         assert '...' in repr(d)
 
-    def test_print(self):
-        d = deque(xrange(200))
-        d.append(d)
-        test_support.unlink(test_support.TESTFN)
-        fo = open(test_support.TESTFN, "wb")
-        try:
-            print >> fo, d,
-            fo.close()
-            fo = open(test_support.TESTFN, "rb")
-            self.assertEqual(fo.read(), repr(d))
-        finally:
-            fo.close()
-            test_support.unlink(test_support.TESTFN)
-
-    def test_init(self):
-        self.assertRaises(TypeError, deque, 'abc', 2, 3);
-        self.assertRaises(TypeError, deque, 1);
-
     def test_hash(self):
-        self.assertRaises(TypeError, hash, deque('abc'))
+        from _collections import deque
+        raises(TypeError, hash, deque('abc'))
 
     def test_long_steadystate_queue_popleft(self):
         for size in (0, 1, 2, 100, 1000):
