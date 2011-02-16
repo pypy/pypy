@@ -1,9 +1,7 @@
 import new
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import (ObjSpace, W_Root, NoneNotWrapped,
-    applevel, interp2app, ObjSpace, unwrap_spec)
+from pypy.interpreter.gateway import NoneNotWrapped, applevel, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
 from pypy.interpreter.typedef import descr_set_dict
@@ -233,18 +231,12 @@ def class_descr_call(space, w_self, __args__):
 
 W_ClassObject.typedef = TypeDef("classobj",
     __new__ = interp2app(descr_classobj_new),
-    __repr__ = interp2app(W_ClassObject.descr_repr,
-                          unwrap_spec=['self', ObjSpace]),
-    __str__ = interp2app(W_ClassObject.descr_str,
-                         unwrap_spec=['self', ObjSpace]),
-    __call__ = interp2app(class_descr_call,
-                          unwrap_spec=[ObjSpace, W_Root, Arguments]),
-    __getattribute__ = interp2app(W_ClassObject.descr_getattribute,
-                             unwrap_spec=['self', ObjSpace, W_Root]),
-    __setattr__ = interp2app(W_ClassObject.descr_setattr,
-                             unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
-    __delattr__ = interp2app(W_ClassObject.descr_delattr,
-                             unwrap_spec=['self', ObjSpace, W_Root]),
+    __repr__ = interp2app(W_ClassObject.descr_repr),
+    __str__ = interp2app(W_ClassObject.descr_str),
+    __call__ = interp2app(class_descr_call),
+    __getattribute__ = interp2app(W_ClassObject.descr_getattribute),
+    __setattr__ = interp2app(W_ClassObject.descr_setattr),
+    __delattr__ = interp2app(W_ClassObject.descr_delattr),
     __weakref__ = make_weakref_descr(W_ClassObject),
 )
 W_ClassObject.typedef.acceptable_as_base_class = False
@@ -454,7 +446,6 @@ class W_InstanceObject(Wrappable):
             return self.descr_str(space)
         return space.call_function(w_meth)
 
-    @unwrap_spec("self", ObjSpace, W_Root)
     def descr_format(self, space, w_format_spec):
         w_meth = self.getattr(space, "__format__", False)
         if w_meth is not None:
@@ -737,9 +728,7 @@ for op in "neg pos abs invert trunc float oct hex enter reversed".split():
         make_unary_instance_method(specialname),
         None,
         W_InstanceObject)
-    rawdict[specialname] = interp2app(
-        meth,
-        unwrap_spec=["self", ObjSpace])
+    rawdict[specialname] = interp2app(meth)
 
 # binary operations that return NotImplemented if they fail
 # e.g. rich comparisons, coerce and inplace ops
@@ -750,9 +739,7 @@ for op in 'eq ne gt lt ge le coerce imod iand ipow itruediv ilshift ixor irshift
         make_binary_returning_notimplemented_instance_method(specialname),
         None,
         W_InstanceObject)
-    rawdict[specialname] = interp2app(
-        meth,
-        unwrap_spec=["self", ObjSpace, W_Root])
+    rawdict[specialname] = interp2app(meth)
 
 for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv".split():
     specialname = "__%s__" % (op, )
@@ -760,13 +747,9 @@ for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv"
     func, rfunc = make_binary_instance_method(op)
     # fool the gateway logic by giving it a real unbound method
     meth = new.instancemethod(func, None, W_InstanceObject)
-    rawdict[specialname] = interp2app(
-        meth,
-        unwrap_spec=["self", ObjSpace, W_Root])
+    rawdict[specialname] = interp2app(meth)
     rmeth = new.instancemethod(rfunc, None, W_InstanceObject)
-    rawdict[rspecialname] = interp2app(
-        rmeth,
-        unwrap_spec=["self", ObjSpace, W_Root])
+    rawdict[rspecialname] = interp2app(meth)
 
 
 def descr_del_dict(space, w_inst):
@@ -778,62 +761,34 @@ dict_descr.name = '__dict__'
 
 W_InstanceObject.typedef = TypeDef("instance",
     __new__ = interp2app(descr_instance_new),
-    __getattribute__ = interp2app(W_InstanceObject.descr_getattribute,
-                                  unwrap_spec=['self', ObjSpace, W_Root]),
-    __setattr__ = interp2app(W_InstanceObject.descr_setattr,
-                             unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
-    __delattr__ = interp2app(W_InstanceObject.descr_delattr,
-                             unwrap_spec=['self', ObjSpace, W_Root]),
-    __repr__ = interp2app(W_InstanceObject.descr_repr,
-                          unwrap_spec=['self', ObjSpace]),
-    __str__ = interp2app(W_InstanceObject.descr_str,
-                         unwrap_spec=['self', ObjSpace]),
-    __unicode__ = interp2app(W_InstanceObject.descr_unicode,
-                         unwrap_spec=['self', ObjSpace]),
+    __getattribute__ = interp2app(W_InstanceObject.descr_getattribute),
+    __setattr__ = interp2app(W_InstanceObject.descr_setattr),
+    __delattr__ = interp2app(W_InstanceObject.descr_delattr),
+    __repr__ = interp2app(W_InstanceObject.descr_repr),
+    __str__ = interp2app(W_InstanceObject.descr_str),
+    __unicode__ = interp2app(W_InstanceObject.descr_unicode),
     __format__ = interp2app(W_InstanceObject.descr_format),
-    __len__ = interp2app(W_InstanceObject.descr_len,
-                         unwrap_spec=['self', ObjSpace]),
-    __getitem__ = interp2app(W_InstanceObject.descr_getitem,
-                             unwrap_spec=['self', ObjSpace, W_Root]),
-    __setitem__ = interp2app(W_InstanceObject.descr_setitem,
-                             unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
-    __delitem__ = interp2app(W_InstanceObject.descr_delitem,
-                             unwrap_spec=['self', ObjSpace, W_Root]),
-    __iter__ = interp2app(W_InstanceObject.descr_iter,
-                          unwrap_spec=['self', ObjSpace]),
-    __getslice__ = interp2app(W_InstanceObject.descr_getslice,
-                             unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
-    __setslice__ = interp2app(W_InstanceObject.descr_setslice,
-                             unwrap_spec=['self', ObjSpace, W_Root,
-                                          W_Root, W_Root]),
-    __delslice__ = interp2app(W_InstanceObject.descr_delslice,
-                             unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
-    __call__ = interp2app(W_InstanceObject.descr_call,
-                          unwrap_spec=['self', ObjSpace, Arguments]),
-    __nonzero__ = interp2app(W_InstanceObject.descr_nonzero,
-                             unwrap_spec=['self', ObjSpace]),
-    __cmp__ = interp2app(W_InstanceObject.descr_cmp,
-                         unwrap_spec=['self', ObjSpace, W_Root]),
-    __hash__ = interp2app(W_InstanceObject.descr_hash,
-                          unwrap_spec=['self', ObjSpace]),
-    __int__ = interp2app(W_InstanceObject.descr_int,
-                           unwrap_spec=['self', ObjSpace]),
-    __long__ = interp2app(W_InstanceObject.descr_long,
-                           unwrap_spec=['self', ObjSpace]),
-    __index__ = interp2app(W_InstanceObject.descr_index,
-                           unwrap_spec=['self', ObjSpace]),
-    __contains__ = interp2app(W_InstanceObject.descr_contains,
-                         unwrap_spec=['self', ObjSpace, W_Root]),
-    __pow__ = interp2app(W_InstanceObject.descr_pow,
-                         unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
-    __rpow__ = interp2app(W_InstanceObject.descr_rpow,
-                         unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
-    next = interp2app(W_InstanceObject.descr_next,
-                      unwrap_spec=['self', ObjSpace]),
-    __del__ = interp2app(W_InstanceObject.descr_del,
-                         unwrap_spec=['self', ObjSpace]),
-    __exit__ = interp2app(W_InstanceObject.descr_exit,
-                          unwrap_spec=['self', ObjSpace, W_Root, W_Root, W_Root]),
+    __len__ = interp2app(W_InstanceObject.descr_len),
+    __getitem__ = interp2app(W_InstanceObject.descr_getitem),
+    __setitem__ = interp2app(W_InstanceObject.descr_setitem),
+    __delitem__ = interp2app(W_InstanceObject.descr_delitem),
+    __iter__ = interp2app(W_InstanceObject.descr_iter),
+    __getslice__ = interp2app(W_InstanceObject.descr_getslice),
+    __setslice__ = interp2app(W_InstanceObject.descr_setslice),
+    __delslice__ = interp2app(W_InstanceObject.descr_delslice),
+    __call__ = interp2app(W_InstanceObject.descr_call),
+    __nonzero__ = interp2app(W_InstanceObject.descr_nonzero),
+    __cmp__ = interp2app(W_InstanceObject.descr_cmp),
+    __hash__ = interp2app(W_InstanceObject.descr_hash),
+    __int__ = interp2app(W_InstanceObject.descr_int),
+    __long__ = interp2app(W_InstanceObject.descr_long),
+    __index__ = interp2app(W_InstanceObject.descr_index),
+    __contains__ = interp2app(W_InstanceObject.descr_contains),
+    __pow__ = interp2app(W_InstanceObject.descr_pow),
+    __rpow__ = interp2app(W_InstanceObject.descr_rpow),
+    next = interp2app(W_InstanceObject.descr_next),
+    __del__ = interp2app(W_InstanceObject.descr_del),
+    __exit__ = interp2app(W_InstanceObject.descr_exit),
     __dict__ = dict_descr,
     **rawdict
 )

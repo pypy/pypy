@@ -1,8 +1,7 @@
 
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
-     Arguments
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.descroperation import object_getattribute, object_setattr
 from pypy.interpreter.function import StaticMethod, ClassMethod
@@ -24,8 +23,8 @@ class W_Super(Wrappable):
             #     XXX write a fast path for this common case
             w_selftype = space.type(w(self))
             return space.call_function(w_selftype, self.w_starttype, w_obj)
-    get.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
+    @unwrap_spec(name=str)
     def getattribute(self, space, name):
         w = space.wrap
         # only use a special logic for bound super objects and not for
@@ -49,7 +48,6 @@ class W_Super(Wrappable):
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space),
                                    w(self), w(name))
-    getattribute.unwrap_spec = ['self', ObjSpace, str]
 
 def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
     if space.is_w(w_obj_or_type, space.w_None):
@@ -77,7 +75,6 @@ def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
     w_result = space.allocate_instance(W_Super, w_subtype)
     W_Super.__init__(w_result, space, w_starttype, w_type, w_obj_or_type)
     return w_result
-descr_new_super.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 W_Super.typedef = TypeDef(
     'super',
@@ -115,12 +112,10 @@ class W_Property(Wrappable):
                     space.setattr(space.wrap(self), space.wrap("__doc__"),
                                   w_getter_doc)
                 self.getter_doc = True
-    init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, W_Root]
 
     def new(space, w_subtype, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         w_result = space.allocate_instance(W_Property, w_subtype)
         return w_result
-    new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root]
 
     def get(self, space, w_obj, w_objtype=None):
         if space.is_w(w_obj, space.w_None):
@@ -129,7 +124,6 @@ class W_Property(Wrappable):
             raise OperationError(space.w_AttributeError, space.wrap(
                 "unreadable attribute"))
         return space.call_function(self.w_fget, w_obj)
-    get.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def set(self, space, w_obj, w_value):
         if space.is_w(self.w_fset, space.w_None):
@@ -137,7 +131,6 @@ class W_Property(Wrappable):
                 "can't set attribute"))
         space.call_function(self.w_fset, w_obj, w_value)
         return space.w_None
-    set.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def delete(self, space, w_obj):
         if space.is_w(self.w_fdel, space.w_None):
@@ -145,19 +138,15 @@ class W_Property(Wrappable):
                 "can't delete attribute"))
         space.call_function(self.w_fdel, w_obj)
         return space.w_None
-    delete.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def getter(self, space, w_getter):
         return self._copy(space, w_getter=w_getter)
-    getter.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def setter(self, space, w_setter):
         return self._copy(space, w_setter=w_setter)
-    setter.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def deleter(self, space, w_deleter):
         return self._copy(space, w_deleter=w_deleter)
-    deleter.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def _copy(self, space, w_getter=None, w_setter=None, w_deleter=None):
         if w_getter is None:

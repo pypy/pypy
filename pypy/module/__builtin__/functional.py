@@ -4,11 +4,10 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import NoneNotWrapped, applevel
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.argument import Arguments
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
 from inspect import getsource, getfile
@@ -96,7 +95,6 @@ get a list in decending order."""
         res_w[idx] = space.wrap(v)
         v += step
     return space.newlist(res_w)
-range_int.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 
 def range_withspecialized_implementation(space, start, step, howmany):
@@ -211,7 +209,6 @@ def max(space, __args__):
     With two or more arguments, return the largest argument.
     """
     return min_max(space, __args__, "max")
-max.unwrap_spec = [ObjSpace, Arguments]
 
 def min(space, __args__):
     """Return the smallest item in a sequence.
@@ -219,8 +216,8 @@ def min(space, __args__):
     If more than one argument is passed, return the minimum of them.
     """
     return min_max(space, __args__, "min")
-min.unwrap_spec = [ObjSpace, Arguments]
 
+@unwrap_spec(collections_w="args_w")
 def map(space, w_func, collections_w):
     """does 3 separate things, hence this enormous docstring.
        1.  if function is None, return a list of tuples, each with one
@@ -250,7 +247,6 @@ def map(space, w_func, collections_w):
         result_w = map_multiple_collections(space, w_func, collections_w,
                                             none_func)
     return space.newlist(result_w)
-map.unwrap_spec = [ObjSpace, W_Root, "args_w"]
 
 def map_single_collection(space, w_func, w_collection):
     """Special case for 'map(func, coll)', where 'func' is not None and there
@@ -350,8 +346,8 @@ def sum(space, w_sequence, w_start=None):
             break
         w_last = space.add(w_last, w_next)
     return w_last
-sum.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+@unwrap_spec(sequences_w="args_w")
 def zip(space, sequences_w):
     """Return a list of tuples, where the nth tuple contains every nth item of
     each collection.
@@ -371,7 +367,6 @@ def zip(space, sequences_w):
                 raise
             return space.newlist(result_w)
         result_w.append(space.newtuple(items_w))
-zip.unwrap_spec = [ObjSpace, "args_w"]
 
 def reduce(space, w_func, w_sequence, w_initial=NoneNotWrapped):
     """ Apply function of two arguments cumulatively to the items of sequence,
@@ -397,7 +392,6 @@ def reduce(space, w_func, w_sequence, w_initial=NoneNotWrapped):
             break
         w_result = space.call_function(w_func, w_result, w_next)
     return w_result
-reduce.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 def filter(space, w_func, w_seq):
     """construct a list of those elements of collection for which function
@@ -473,7 +467,6 @@ Return True if bool(x) is True for all values x in the iterable."""
         if not space.is_true(w_next):
             return space.w_False
     return space.w_True
-all.unwrap_spec = [ObjSpace, W_Root]
 
 
 def any(space, w_S):
@@ -491,7 +484,6 @@ Return True if bool(x) is True for any x in the iterable."""
         if space.is_true(w_next):
             return space.w_True
     return space.w_False
-any.unwrap_spec = [ObjSpace, W_Root]
 
 
 class W_Enumerate(Wrappable):
@@ -511,14 +503,12 @@ class W_Enumerate(Wrappable):
 
     def descr___iter__(self, space):
         return space.wrap(self)
-    descr___iter__.unwrap_spec = ["self", ObjSpace]
 
     def descr_next(self, space):
         w_item = space.next(self.w_iter)
         w_index = self.w_index
         self.w_index = space.add(w_index, space.wrap(1))
         return space.newtuple([w_index, w_item])
-    descr_next.unwrap_spec = ["self", ObjSpace]
 
     def descr___reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -527,7 +517,6 @@ class W_Enumerate(Wrappable):
         w_new_inst = mod.get('enumerate_new')
         w_info = space.newtuple([self.w_iter, self.w_index])
         return space.newtuple([w_new_inst, w_info])
-    descr___reduce__.unwrap_spec = ["self", ObjSpace]
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter, w_index):
@@ -553,7 +542,6 @@ def reversed(space, w_sequence):
     if w_reversed is not None:
         return space.call_function(w_reversed)
     return space.wrap(W_ReversedIterator(space, w_sequence))
-reversed.unwrap_spec = [ObjSpace, W_Root]
 
 class W_ReversedIterator(Wrappable):
 
@@ -566,7 +554,6 @@ class W_ReversedIterator(Wrappable):
 
     def descr___iter__(self, space):
         return space.wrap(self)
-    descr___iter__.unwrap_spec = ["self", ObjSpace]
 
     def descr_next(self, space):
         if self.remaining >= 0:
@@ -583,7 +570,6 @@ class W_ReversedIterator(Wrappable):
         # Done
         self.remaining = -1
         raise OperationError(space.w_StopIteration, space.w_None)
-    descr_next.unwrap_spec = ["self", ObjSpace]
 
     def descr___reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -593,7 +579,6 @@ class W_ReversedIterator(Wrappable):
         info_w = [self.w_sequence, space.wrap(self.remaining)]
         w_info = space.newtuple(info_w)
         return space.newtuple([w_new_inst, w_info])
-    descr___reduce__.unwrap_spec = ["self", ObjSpace]
 
 W_ReversedIterator.typedef = TypeDef("reversed",
     __iter__=interp2app(W_ReversedIterator.descr___iter__),
@@ -643,6 +628,7 @@ class W_XRange(Wrappable):
     def descr_len(self):
         return self.space.wrap(self.len)
 
+    @unwrap_spec(i='index')
     def descr_getitem(self, i):
         # xrange does NOT support slicing
         space = self.space
@@ -680,8 +666,7 @@ def _toint(space, w_obj):
 W_XRange.typedef = TypeDef("xrange",
     __new__          = interp2app(W_XRange.descr_new.im_func),
     __repr__         = interp2app(W_XRange.descr_repr),
-    __getitem__      = interp2app(W_XRange.descr_getitem,
-                                  unwrap_spec=['self', 'index']),
+    __getitem__      = interp2app(W_XRange.descr_getitem),
     __iter__         = interp2app(W_XRange.descr_iter),
     __len__          = interp2app(W_XRange.descr_len),
     __reversed__     = interp2app(W_XRange.descr_reversed),

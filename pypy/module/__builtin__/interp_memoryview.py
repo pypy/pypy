@@ -3,7 +3,7 @@ Implementation of the 'buffer' and 'memoryview' types.
 """
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import gateway, buffer
-from pypy.interpreter.gateway import interp2app, unwrap_spec, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 import operator
@@ -39,7 +39,6 @@ class W_MemoryView(Wrappable):
                 str1 = self.as_str()
                 str2 = space.buffer_w(w_buf).as_str()
                 return space.wrap(getattr(operator, name)(str1, str2))
-        descr__cmp.unwrap_spec = ['self', ObjSpace, W_Root]
         descr__cmp.func_name = name
         return descr__cmp
 
@@ -69,15 +68,12 @@ class W_MemoryView(Wrappable):
             buf = buffer.SubBuffer(buf, start, size)
         return W_MemoryView(buf)
 
-    @unwrap_spec('self', ObjSpace)
     def descr_buffer(self, space):
         return space.wrap(self.buf)
 
-    @unwrap_spec('self', ObjSpace)
     def descr_tobytes(self, space):
         return space.wrap(self.as_str())
 
-    @unwrap_spec('self', ObjSpace)
     def descr_tolist(self, space):
         buf = self.buf
         result = []
@@ -85,7 +81,6 @@ class W_MemoryView(Wrappable):
             result.append(space.wrap(ord(buf.getitem(i))))
         return space.newlist(result)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def descr_getitem(self, space, w_index):
         start, stop, step = space.decode_index(w_index, self.getlength())
         if step == 0:  # index only
@@ -98,7 +93,7 @@ class W_MemoryView(Wrappable):
                 space.wrap("memoryview object does not support"
                            " slicing with a step"))
 
-    @unwrap_spec('self', ObjSpace, W_Root, 'bufferstr')
+    @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
         buf = self.buf
         if isinstance(buf, buffer.RWBuffer):
@@ -107,7 +102,6 @@ class W_MemoryView(Wrappable):
             raise OperationError(space.w_TypeError,
                                  space.wrap("cannot modify read-only memory"))
 
-    @unwrap_spec('self', ObjSpace)
     def descr_len(self, space):
         return self.buf.descr_len(space)
 
@@ -128,7 +122,6 @@ class W_MemoryView(Wrappable):
         return space.w_None
 
 
-@unwrap_spec(ObjSpace, W_Root, W_Root)
 def descr_new(space, w_subtype, w_object):
     memoryview = W_MemoryView(space.buffer(w_object))
     return space.wrap(memoryview)
