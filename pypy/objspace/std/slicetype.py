@@ -48,7 +48,6 @@ register_all(vars(), globals())
 
 # ____________________________________________________________
 
-@gateway.unwrap_spec(args_w='args_w')
 def descr__new__(space, w_slicetype, args_w):
     from pypy.objspace.std.sliceobject import W_SliceObject
     w_start = space.w_None

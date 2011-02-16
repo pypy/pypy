@@ -240,14 +240,9 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):
     """NOT_RPYTHON"""
-    unwrap_spec = [baseobjspace.ObjSpace] + [baseobjspace.W_Root]*multimethod.arity
-    if multimethod.extras.get('varargs_w', False):
-        unwrap_spec.append('args_w')
-    if multimethod.extras.get('general__args__', False):
-        unwrap_spec.append(argument.Arguments)
     if 'doc' in multimethod.extras:
         func.__doc__ = multimethod.extras['doc']
-    return gateway.interp2app(func, app_name=methname, unwrap_spec=unwrap_spec)
+    return gateway.interp2app(func, app_name=methname)
 
 def slicemultimethod(space, multimethod, typedef, result, local=False):
     """NOT_RPYTHON"""    
