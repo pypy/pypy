@@ -1,8 +1,8 @@
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import BuiltinFunction, Method, StaticMethod
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -153,7 +153,6 @@ class W_PyCWrapperObject(Wrappable):
         return self.space.wrap("<slot wrapper '%s' of '%s' objects>" % (self.method_name,
             self.w_objclass.getname(self.space, '?')))
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)
     args_w, kw_w = __args__.unpack()
@@ -165,7 +164,6 @@ def cwrapper_descr_call(space, w_self, __args__):
     return self.call(space, w_self, w_args, w_kw)
 
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def cfunction_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
@@ -176,7 +174,6 @@ def cfunction_descr_call(space, w_self, __args__):
     ret = self.call(space, None, w_args, w_kw)
     return ret
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def cmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
