@@ -1,4 +1,4 @@
-95a9f95cfa1bad8f87f5866edb8a06159c1f38c7 contrib/virtualenv-pypy
+792c971f4114520f0773e3474e2516600af60ee0 contrib/virtualenv-pypy
 80037 greenlet
 80348 lib_pypy/pyrepl
 80037 testrunner
