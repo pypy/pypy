@@ -19,7 +19,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import StaticMethod
 
@@ -348,8 +348,7 @@ def post_install(module):
 
 AppCoroutine.typedef = TypeDef("coroutine",
     __new__ = interp2app(AppCoroutine.descr_method__new__.im_func),
-    bind = interp2app(AppCoroutine.w_bind,
-                      unwrap_spec=['self', W_Root, Arguments]),
+    bind = interp2app(AppCoroutine.w_bind),
     switch = interp2app(AppCoroutine.w_switch),
     kill = interp2app(AppCoroutine.w_kill),
     throw = interp2app(AppCoroutine.w_throw),
@@ -362,10 +361,8 @@ AppCoroutine.typedef = TypeDef("coroutine",
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(AppCoroutine.w_getcurrent),
     getmain = interp2app(AppCoroutine.w_getmain),
-    __reduce__   = interp2app(AppCoroutine.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
-    __setstate__ = interp2app(AppCoroutine.descr__setstate__,
-                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __reduce__   = interp2app(AppCoroutine.descr__reduce__),
+    __setstate__ = interp2app(AppCoroutine.descr__setstate__),
     __module__ = '_stackless',
 )
 
@@ -401,12 +398,10 @@ class AppCoState(BaseCoState):
 
 def return_main(space):
     return AppCoroutine._get_state(space).main
-return_main.unwrap_spec = [ObjSpace]
 
 def get_stack_depth_limit(space):
     return space.wrap(rstack.get_stack_depth_limit())
-get_stack_depth_limit.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(limit=int)
 def set_stack_depth_limit(space, limit):
     rstack.set_stack_depth_limit(limit)
-set_stack_depth_limit.unwrap_spec = [ObjSpace, int]

@@ -1,5 +1,4 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 
 def create_filter(space, w_category, action):
@@ -307,7 +306,7 @@ def do_warn_explicit(space, w_category, w_message, context_w,
         space.call_function(
             w_show_fxn, w_message, w_category, w_filename, w_lineno)
 
-@unwrap_spec(ObjSpace, W_Root, W_Root, int)
+@unwrap_spec(stacklevel=int)
 def warn(space, w_message, w_category=None, stacklevel=1):
     w_category = get_category(space, w_message, w_category);
     do_warn(space, w_message, w_category, stacklevel)
@@ -346,7 +345,7 @@ def get_source_line(space, w_globals, lineno):
     w_source_line = space.getitem(w_source_list, space.wrap(lineno - 1))
     return w_source_line
 
-@unwrap_spec(ObjSpace, W_Root, W_Root, W_Root, int, W_Root, W_Root, W_Root)
+@unwrap_spec(lineno=int)
 def warn_explicit(space, w_message, w_category, w_filename, lineno,
                   w_module=None, w_registry=None, w_module_globals=None):
 
