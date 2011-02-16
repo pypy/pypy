@@ -90,6 +90,9 @@ class W_ListObject(W_Object):
     def inplace_mul(self, times):
         self.strategy.inplace_mul(self, times)
 
+    def deleteitem(self, index):
+        self.strategy.deleteitem(self, index)
+
 registerimplementation(W_ListObject)
 
 
@@ -113,6 +116,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def inplace_mul(self, w_list, times):
+        raise NotImplementedError
+
+    def deleteitem(self, w_list, index):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
@@ -148,6 +154,9 @@ class EmptyListStrategy(ListStrategy):
     def inplace_mul(self, w_list, times):
         return
 
+    def deleteitem(self, w_list, index):
+        raise IndexError
+
 class ObjectListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "object")
@@ -177,6 +186,10 @@ class ObjectListStrategy(ListStrategy):
     def inplace_mul(self, w_list, times):
         list_w = cast_from_void_star(w_list.storage, "object")
         list_w *= times
+
+    def deleteitem(self, w_list, index):
+        list_w = cast_from_void_star(w_list.storage, "object")
+        del list_w[index]
 
 class IntegerListStrategy(ListStrategy):
 
@@ -217,6 +230,10 @@ class IntegerListStrategy(ListStrategy):
         list_w = cast_from_void_star(w_list.storage, "integer")
         list_w *= times
 
+    def deleteitem(self, w_list, index):
+        list_w = cast_from_void_star(w_list.storage, "integer")
+        del list_w[index]
+
 class StringListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
@@ -255,6 +272,10 @@ class StringListStrategy(ListStrategy):
     def inplace_mul(self, w_list, times):
         list_w = cast_from_void_star(w_list.storage, "string")
         list_w *= times
+
+    def deleteitem(self, w_list, index):
+        list_w = cast_from_void_star(w_list.storage, "string")
+        del list_w[index]
 
 # _______________________________________________________
 
@@ -423,7 +444,7 @@ def gt__List_List(space, w_list1, w_list2):
 def delitem__List_ANY(space, w_list, w_idx):
     idx = get_list_index(space, w_idx)
     try:
-        del w_list.wrappeditems[idx]
+        w_list.deleteitem(idx)
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list deletion index out of range"))
