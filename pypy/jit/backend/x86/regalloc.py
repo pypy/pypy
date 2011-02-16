@@ -146,7 +146,7 @@ class RegAlloc(object):
         self._prepare(inputargs, operations)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
-        self.loop_consts = loop_consts
+        self.loop_consts = {}#loop_consts
         return self._process_inputargs(inputargs)
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
