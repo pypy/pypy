@@ -62,3 +62,35 @@ class TestW_ListStrategies(TestW_ListObject):
         l.setitem(0, self.space.wrap(2))
         assert isinstance(l.strategy, ObjectListStrategy)
 
+    def test_insert(self):
+        # no change
+        l = W_ListObject([self.space.wrap(1),self.space.wrap(2),self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.insert(3, self.space.wrap(4))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+        # StringStrategy
+        l = W_ListObject([self.space.wrap('a'),self.space.wrap('b'),self.space.wrap('c')])
+        assert isinstance(l.strategy, StringListStrategy)
+        l.insert(3, self.space.wrap(2))
+        assert isinstance(l.strategy, ObjectListStrategy)
+
+        # IntegerStrategy
+        l = W_ListObject([self.space.wrap(1),self.space.wrap(2),self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.insert(3, self.space.wrap('d'))
+        assert isinstance(l.strategy, ObjectListStrategy)
+
+        # EmptyStrategy
+        l = W_ListObject([])
+        assert isinstance(l.strategy, EmptyListStrategy)
+        l.insert(0, self.space.wrap('a'))
+        assert isinstance(l.strategy, StringListStrategy)
+
+        l = W_ListObject([])
+        assert isinstance(l.strategy, EmptyListStrategy)
+        l.insert(0, self.space.wrap(2))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+
+

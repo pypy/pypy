@@ -96,6 +96,9 @@ class W_ListObject(W_Object):
     def setitem(self, index, w_item):
         self.strategy.setitem(self, index, w_item)
 
+    def insert(self, index, w_item):
+        self.strategy.insert(self, index, w_item)
+
 registerimplementation(W_ListObject)
 
 
@@ -125,6 +128,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def setitem(self, w_list, index, w_item):
+        raise NotImplementedError
+
+    def insert(self, w_list, index, w_item):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
@@ -166,6 +172,9 @@ class EmptyListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_item):
         raise IndexError
 
+    def insert(self, w_list, index, w_item):
+        self.append(w_list, w_item)
+
 class ObjectListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "object")
@@ -203,6 +212,11 @@ class ObjectListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_item):
         list_w = cast_from_void_star(w_list.storage, "object")
         list_w[index] = w_item
+
+    def insert(self, w_list, index, w_item):
+        list_w = cast_from_void_star(w_list.storage, "object")
+        list_w.insert(index, w_item)
+
 
 class IntegerListStrategy(ListStrategy):
 
@@ -255,6 +269,15 @@ class IntegerListStrategy(ListStrategy):
             w_list.strategy = ObjectListStrategy()
             w_list.strategy.init_from_list_w(w_list, list_w)
 
+    def insert(self, w_list, index, w_item):
+        list_w = cast_from_void_star(w_list.storage, "integer")
+        list_w.insert(index, w_item)
+
+        if not is_W_IntObject(w_item):
+            w_list.strategy = ObjectListStrategy()
+            w_list.strategy.init_from_list_w(w_list, list_w)
+
+
 class StringListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
@@ -301,6 +324,14 @@ class StringListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_item):
         list_w = cast_from_void_star(w_list.storage, "string")
         list_w[index] = w_item
+
+        if not is_W_StringObject(w_item):
+            w_list.strategy = ObjectListStrategy()
+            w_list.strategy.init_from_list_w(w_list, list_w)
+
+    def insert(self, w_list, index, w_item):
+        list_w = cast_from_void_star(w_list.storage, "string")
+        list_w.insert(index, w_item)
 
         if not is_W_StringObject(w_item):
             w_list.strategy = ObjectListStrategy()
@@ -605,14 +636,14 @@ def repr__List(space, w_list):
 
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
     where = space.int_w(w_where)
-    length = len(w_list.wrappeditems)
+    length = w_list.length()
     if where < 0:
         where += length
         if where < 0:
             where = 0
     elif where > length:
         where = length
-    w_list.wrappeditems.insert(where, w_any)
+    w_list.insert(where, w_any)
     return space.w_None
 
 def list_append__List_ANY(space, w_list, w_any):
