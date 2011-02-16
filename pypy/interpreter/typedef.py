@@ -319,8 +319,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
         }
     if cls is None:
         source = """
-        def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
-            return %(name)s(%(closure)s space, w_obj, %(extra)s)
+        def descr_typecheck_%(name)s(closure, space, obj, %(extra)s):
+            return %(name)s(%(args)s, %(extra)s)
         """
     else:
         cls_name = cls.__name__
@@ -328,16 +328,24 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
         source = """
         def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
             obj = space.descr_self_interp_w(%(cls_name)s, w_obj)
-            return %(name)s(%(closure)s space, obj, %(extra)s)
+            return %(name)s(%(args)s, %(extra)s)
         """
         miniglobals[cls_name] = cls
     
     name = func.__name__
     extra = ', '.join(extraargs)
+    from pypy.interpreter import pycode
+    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
     if use_closure:
-        closure = "closure,"
+        if argnames[1] == 'space':
+            args = "closure, space, obj"
+        else:
+            args = "closure, obj, space"
     else:
-        closure = ""
+        if argnames[0] == 'space':
+            args = "space, obj"
+        else:
+            args = "obj, space"
     source = py.code.Source(source % locals())
     exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]
