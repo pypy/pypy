@@ -197,13 +197,13 @@ class W_OutputType(RStringIO, W_InputOutputType):
 
 # ____________________________________________________________
 
-def descr_closed(space, self):
+def descr_closed(self, space):
     return space.wrap(self.is_closed())
 
-def descr_softspace(space, self):
+def descr_softspace(self, space):
     return space.wrap(self.softspace)
 
-def descr_setsoftspace(space, self, w_newvalue):
+def descr_setsoftspace(self, space, w_newvalue):
     self.softspace = space.int_w(w_newvalue)
 
 common_descrs = {

@@ -140,10 +140,10 @@ class W_BaseException(Wrappable):
         clsname = self.getclass(space).getname(space, '?')
         return space.wrap(clsname + args_repr)
 
-    def descr_getargs(space, self):
+    def descr_getargs(self, space):
         return space.newtuple(self.args_w)
 
-    def descr_setargs(space, self, w_newargs):
+    def descr_setargs(self, space, w_newargs):
         self.args_w = space.fixedview(w_newargs)
 
     def descr_getitem(self, space, w_index):
@@ -169,7 +169,7 @@ class W_BaseException(Wrappable):
         w_olddict = self.getdict()
         space.call_method(w_olddict, 'update', w_dict)
 
-    def descr_message_get(space, self):
+    def descr_message_get(self, space):
         w_dict = self.w_dict
         if w_dict is not None:
             w_msg = space.finditem(w_dict, space.wrap("message"))
@@ -182,10 +182,10 @@ class W_BaseException(Wrappable):
                    space.w_DeprecationWarning)
         return self.w_message
 
-    def descr_message_set(space, self, w_new):
+    def descr_message_set(self, space, w_new):
         space.setitem(self.getdict(), space.wrap("message"), w_new)
 
-    def descr_message_del(space, self):
+    def descr_message_del(self, space):
         w_dict = self.w_dict
         if w_dict is not None:
             try:

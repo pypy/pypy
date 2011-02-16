@@ -67,10 +67,10 @@ class W_Hash(Wrappable):
             result.append(hexdigits[ ord(c)       & 0xf])
         return space.wrap(result.build())
 
-    def get_digest_size(space, self):
+    def get_digest_size(self, space):
         return space.wrap(self._digest_size())
 
-    def get_block_size(space, self):
+    def get_block_size(self, space):
         return space.wrap(self._block_size())
 
     def _digest(self, space):

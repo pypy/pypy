@@ -17,7 +17,7 @@ class W_StatsEntry(Wrappable):
         self.tt = tt
         self.w_calls = w_sublist
 
-    def get_calls(space, self):
+    def get_calls(self, space):
         return self.w_calls
 
     def repr(self, space):
@@ -30,7 +30,7 @@ class W_StatsEntry(Wrappable):
             frame_repr, self.callcount, self.reccallcount,
             self.tt, self.it, calls_repr))
 
-    def get_code(space, self):
+    def get_code(self, space):
         return self.frame
 
 W_StatsEntry.typedef = TypeDef(
@@ -57,7 +57,7 @@ class W_StatsSubEntry(Wrappable):
         return space.wrap('("%s", %d, %d, %f, %f)' % (
             frame_repr, self.callcount, self.reccallcount, self.tt, self.it))
 
-    def get_code(space, self):
+    def get_code(self, space):
         return self.frame
 
 W_StatsSubEntry.typedef = TypeDef(

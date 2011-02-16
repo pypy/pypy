@@ -267,7 +267,7 @@ class W_DataInstance(Wrappable):
                 ll_buf = rffi.cast(lltype.Signed, self.ll_buffer)
                 tracker.trace_allocation(ll_buf, self)
 
-    def getbuffer(space, self):
+    def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ll_buffer))
 
     def byptr(self, space):
@@ -370,18 +370,13 @@ class W_FuncPtr(Wrappable):
         self.argshapes = argshapes
         self.resshape = resshape
 
-    def getbuffer(space, self):
-        return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
-
-    # XXX exactly the same as previous one, but arguments are suitable
-    #     for calling with python
-    def _getbuffer(self, space):
+    def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
 
     def byptr(self, space):
         from pypy.module._rawffi.array import ARRAY_OF_PTRS
         array = ARRAY_OF_PTRS.allocate(space, 1)
-        array.setitem(space, 0, self._getbuffer(space))
+        array.setitem(space, 0, self.getbuffer(space))
         if tracker.DO_TRACING:
             # XXX this is needed, because functions tend to live forever
             #     hence our testing is not performing that well

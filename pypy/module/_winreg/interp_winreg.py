@@ -27,7 +27,7 @@ class W_HKEY(Wrappable):
     def descr_nonzero(self, space):
         return space.wrap(self.as_int() != 0)
 
-    def descr_handle_get(space, self):
+    def descr_handle_get(self, space):
         return space.wrap(self.as_int())
 
     def descr_repr(self, space):

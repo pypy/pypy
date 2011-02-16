@@ -104,7 +104,7 @@ class W_Epoll(Wrappable):
             if result < 0:
                 raise exception_from_errno(self.space, self.space.w_IOError)
 
-    def descr_get_closed(space, self):
+    def descr_get_closed(self, space):
         return space.wrap(self.epfd < 0)
 
     def descr_fileno(self, space):

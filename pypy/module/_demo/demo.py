@@ -58,10 +58,10 @@ class W_MyType(Wrappable):
         y = space.int_w(w_y)
         return space.wrap(self.x * y)
 
-    def fget_x(space, self):
+    def fget_x(self, space):
         return space.wrap(self.x)
 
-    def fset_x(space, self, w_value):
+    def fset_x(self, space, w_value):
         self.x = space.int_w(w_value)
 
 @unwrap_spec(x=int)

@@ -271,7 +271,7 @@ class W_ObjectType(Wrappable):
             self.attributes.append(attribute)
             self.attributesByName[attribute.name] = attribute
 
-    def get_attributes(space, self):
+    def get_attributes(self, space):
         return space.newlist([space.wrap(attr) for attr in self.attributes])
 
 W_ObjectType.typedef = TypeDef(

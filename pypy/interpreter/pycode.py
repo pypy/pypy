@@ -267,19 +267,19 @@ class PyCode(eval.Code):
         co = self._to_code()
         dis.dis(co)
 
-    def fget_co_consts(space, self):
+    def fget_co_consts(self, space):
         return space.newtuple(self.co_consts_w)
     
-    def fget_co_names(space, self):
+    def fget_co_names(self, space):
         return space.newtuple(self.co_names_w)
 
-    def fget_co_varnames(space, self):
+    def fget_co_varnames(self, space):
         return space.newtuple([space.wrap(name) for name in self.co_varnames])
 
-    def fget_co_cellvars(space, self):
+    def fget_co_cellvars(self, space):
         return space.newtuple([space.wrap(name) for name in self.co_cellvars])
 
-    def fget_co_freevars(space, self):
+    def fget_co_freevars(self, space):
         return space.newtuple([space.wrap(name) for name in self.co_freevars])    
 
     def descr_code__eq__(self, w_other):

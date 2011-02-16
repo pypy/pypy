@@ -53,11 +53,11 @@ class W_BaseConnection(Wrappable):
     def close(self):
         self.do_close()
 
-    def closed_get(space, self):
+    def closed_get(self, space):
         return space.newbool(not self.is_valid())
-    def readable_get(space, self):
+    def readable_get(self, space):
         return space.newbool(bool(self.flags & READABLE))
-    def writable_get(space, self):
+    def writable_get(self, space):
         return space.newbool(bool(self.flags & WRITABLE))
 
     def _check_readable(self, space):

@@ -600,21 +600,21 @@ information passed to the ExternalEntityRefHandler."""
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
 
-    def descr_ErrorCode(space, self):
+    def descr_ErrorCode(self, space):
         return space.wrap(XML_GetErrorCode(self.itself))
 
-    def descr_ErrorLineNumber(space, self):
+    def descr_ErrorLineNumber(self, space):
         return space.wrap(XML_GetErrorLineNumber(self.itself))
 
-    def descr_ErrorColumnNumber(space, self):
+    def descr_ErrorColumnNumber(self, space):
         return space.wrap(XML_GetErrorColumnNumber(self.itself))
 
-    def descr_ErrorByteIndex(space, self):
+    def descr_ErrorByteIndex(self, space):
         return space.wrap(XML_GetErrorByteIndex(self.itself))
 
-    def get_buffer_size(space, self):
+    def get_buffer_size(self, space):
         return space.wrap(self.buffer_size)
-    def set_buffer_size(space, self, w_value):
+    def set_buffer_size(self, space, w_value):
         value = space.getindex_w(w_value, space.w_TypeError)
         if value <= 0:
             raise OperationError(space.w_ValueError, space.wrap(
@@ -622,9 +622,9 @@ information passed to the ExternalEntityRefHandler."""
         self.flush_character_buffer(space)
         self.buffer_size = value
 
-    def get_buffer_text(space, self):
+    def get_buffer_text(self, space):
         return space.wrap(self.buffer_w is not None)
-    def set_buffer_text(space, self, w_value):
+    def set_buffer_text(self, space, w_value):
         if space.is_true(w_value):
             self.buffer_w = []
             self.buffer_used = 0
@@ -632,7 +632,7 @@ information passed to the ExternalEntityRefHandler."""
             self.flush_character_buffer(space)
             self.buffer_w = None
 
-    def get_intern(space, self):
+    def get_intern(self, space):
         if self.w_intern:
             return self.w_intern
         else:

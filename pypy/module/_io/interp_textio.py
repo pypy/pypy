@@ -964,7 +964,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         return space.wrap(self.chunk_size)
 
-    def chunk_size_set_w(space, self, w_size):
+    def chunk_size_set_w(self, space, w_size):
         self._check_init(space)
         size = space.int_w(w_size)
         if size <= 0:

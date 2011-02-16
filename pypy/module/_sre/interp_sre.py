@@ -431,7 +431,7 @@ class W_SRE_Match(Wrappable):
             return mark.gid // 2 + 1
         return -1
 
-    def fget_lastgroup(space, self):
+    def fget_lastgroup(self, space):
         lastindex = self._last_index()
         if lastindex < 0:
             return space.w_None
@@ -441,19 +441,19 @@ class W_SRE_Match(Wrappable):
             return space.w_None
         return w_result
 
-    def fget_lastindex(space, self):
+    def fget_lastindex(self, space):
         lastindex = self._last_index()
         if lastindex >= 0:
             return space.wrap(lastindex)
         return space.w_None
 
-    def fget_pos(space, self):
+    def fget_pos(self, space):
         return space.wrap(self.ctx.original_pos)
 
-    def fget_endpos(space, self):
+    def fget_endpos(self, space):
         return space.wrap(self.ctx.end)
 
-    def fget_regs(space, self):
+    def fget_regs(self, space):
         space = self.space
         fmarks = self.flatten_marks()
         num_groups = self.srepat.num_groups
@@ -466,7 +466,7 @@ class W_SRE_Match(Wrappable):
                                               space.wrap(fmarks[i*2+1])])
         return space.newtuple(result_w)
 
-    def fget_string(space, self):
+    def fget_string(self, space):
         return self.ctx._w_string(space)
 
 

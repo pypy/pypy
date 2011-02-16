@@ -294,15 +294,15 @@ for methname in StacklessFlags.__dict__:
         setattr(AppCoroutine, meth.__name__, meth.im_func)
 del meth, methname
 
-def w_get_is_zombie(space, self):
+def w_get_is_zombie(self, space):
     return space.wrap(self.get_is_zombie())
 AppCoroutine.w_get_is_zombie = w_get_is_zombie
 
-def w_get_is_alive(space, self):
+def w_get_is_alive(self, space):
     return space.wrap(self.is_alive())
 AppCoroutine.w_get_is_alive = w_get_is_alive
 
-def w_descr__framestack(space, self):
+def w_descr__framestack(self, space):
     assert isinstance(self, AppCoroutine)
     counter = 0
     f = self.subctx.topframe

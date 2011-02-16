@@ -117,7 +117,7 @@ class W_ZipImporter(Wrappable):
             space.getbuiltinmodule('zipimport'),
             space.wrap('ZipImportError'))
 
-    def getprefix(space, self):
+    def getprefix(self, space):
         return space.wrap(self.prefix)
 
     def _find_relative_path(self, filename):
@@ -331,7 +331,7 @@ class W_ZipImporter(Wrappable):
         raise operationerrfmt(self.w_ZipImportError,
             "Cannot find module %s in %s", filename, self.name)
 
-    def getarchive(space, self):
+    def getarchive(self, space):
         space = self.space
         return space.wrap(self.filename)
 

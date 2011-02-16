@@ -105,19 +105,19 @@ class W_MemoryView(Wrappable):
     def descr_len(self, space):
         return self.buf.descr_len(space)
 
-    def w_get_format(space, self):
+    def w_get_format(self, space):
         return space.wrap("B")
-    def w_get_itemsize(space, self):
+    def w_get_itemsize(self, space):
         return space.wrap(1)
-    def w_get_ndim(space, self):
+    def w_get_ndim(self, space):
         return space.wrap(1)
-    def w_is_readonly(space, self):
+    def w_is_readonly(self, space):
         return space.wrap(not isinstance(self.buf, buffer.RWBuffer))
-    def w_get_shape(space, self):
+    def w_get_shape(self, space):
         return space.newtuple([space.wrap(self.getlength())])
-    def w_get_strides(space, self):
+    def w_get_strides(self, space):
         return space.newtuple([space.wrap(1)])
-    def w_get_suboffsets(space, self):
+    def w_get_suboffsets(self, space):
         # I've never seen anyone filling this field
         return space.w_None
 

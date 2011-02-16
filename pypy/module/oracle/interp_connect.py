@@ -486,14 +486,14 @@ class W_Connection(Wrappable):
             rffi.keep_buffer_alive_until_here(charsetname_buf, charsetname)
         return space.wrap(charset)
 
-    def get_encoding(space, self):
+    def get_encoding(self, space):
         return self._getCharacterSetName(space, roci.OCI_ATTR_ENV_CHARSET_ID)
-    def get_nationalencoding(space, self):
+    def get_nationalencoding(self, space):
         return self._getCharacterSetName(space, roci.OCI_ATTR_ENV_CHARSET_ID)
-    def get_maxbytespercharacter(space, self):
+    def get_maxbytespercharacter(self, space):
         return space.wrap(self.environment.maxBytesPerCharacter)
 
-    def get_version(space, self):
+    def get_version(self, space):
         # if version has already been determined, no need to determine again
         if self.w_version:
             return self.w_version

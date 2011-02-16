@@ -402,11 +402,11 @@ class W_SemLock(Wrappable):
         self.count = 0
         self.maxvalue = maxvalue
 
-    def kind_get(space, self):
+    def kind_get(self, space):
         return space.newint(self.kind)
-    def maxvalue_get(space, self):
+    def maxvalue_get(self, space):
         return space.newint(self.maxvalue)
-    def handle_get(space, self):
+    def handle_get(self, space):
         return w_handle(space, self.handle)
 
     def get_count(self, space):

@@ -139,13 +139,13 @@ class AppGreenlet(Coroutine):
     def isdead(self):
         return self.thunk is None and not self.active
 
-    def w_get_is_dead(space, self):
+    def w_get_is_dead(self, space):
         return space.newbool(self.isdead())
 
     def descr__nonzero__(self):
         return self.space.newbool(self.active)
 
-    def w_get_run(space, self):
+    def w_get_run(self, space):
         w_run = self.w_callable
         if w_run is None:
             raise OperationError(space.w_AttributeError, space.wrap("run"))
@@ -159,15 +159,15 @@ class AppGreenlet(Coroutine):
                                             "after the start of the greenlet"))
         self.w_callable = w_run
 
-    def w_set_run(space, self, w_run):
+    def w_set_run(self, space, w_run):
         self.set_run(w_run)
 
-    def w_del_run(space, self):
+    def w_del_run(self, space):
         if self.w_callable is None:
             raise OperationError(space.w_AttributeError, space.wrap("run"))
         self.w_callable = None
 
-    def w_get_parent(space, self):
+    def w_get_parent(self, space):
         return space.wrap(self.parent)
 
     def set_parent(self, w_parent):
@@ -184,10 +184,10 @@ class AppGreenlet(Coroutine):
             curr = curr.parent
         self.parent = newparent
 
-    def w_set_parent(space, self, w_parent):
+    def w_set_parent(self, space, w_parent):
         self.set_parent(w_parent)
 
-    def w_get_frame(space, self):
+    def w_get_frame(self, space):
         if not self.active or self.costate.current is self:
             f = None
         else:

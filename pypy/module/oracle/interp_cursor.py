@@ -369,7 +369,7 @@ class W_Cursor(Wrappable):
 
         self.fetchVariables = None
 
-    def getDescription(space, self):
+    def getDescription(self, space):
         "Return a list of 7-tuples consisting of the description of "
         "the define variables"
 
@@ -1046,23 +1046,23 @@ class W_Cursor(Wrappable):
         self.outputSizeColumn = outputSizeColumn
 
 
-    def arraysize_get(space, self):
+    def arraysize_get(self, space):
         return space.wrap(self.arraySize)
-    def arraysize_set(space, self, w_value):
+    def arraysize_set(self, space, w_value):
         self.arraySize = space.int_w(w_value)
 
-    def bindarraysize_get(space, self):
+    def bindarraysize_get(self, space):
         return space.wrap(self.bindArraySize)
-    def bindarraysize_set(space, self, w_value):
+    def bindarraysize_set(self, space, w_value):
         self.bindArraySize = space.int_w(w_value)
 
-    def bindvars_get(space, self):
+    def bindvars_get(self, space):
         if self.bindList:
             return space.newlist(self.bindList)
         if self.bindDict:
             return self.bindDict
 
-    def fetchvars_get(space, self):
+    def fetchvars_get(self, space):
         return space.newlist(self.fetchVariables)
 
 W_Cursor.typedef = TypeDef(

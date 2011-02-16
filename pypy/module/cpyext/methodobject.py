@@ -102,7 +102,7 @@ class W_PyCFunctionObject(Wrappable):
                 w_arg = w_args
             return generic_cpy_call(space, func, w_self, w_arg)
 
-    def get_doc(space, self):
+    def get_doc(self, space):
         doc = self.ml.c_ml_doc
         if doc:
             return space.wrap(rffi.charp2str(doc))

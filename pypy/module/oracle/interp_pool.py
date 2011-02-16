@@ -172,7 +172,7 @@ class W_SessionPool(Wrappable):
         connection.handle = lltype.nullptr(roci.OCISvcCtx.TO)
 
 def computedProperty(oci_attr_code, oci_value_type):
-    def fget(space, self):
+    def fget(self, space):
         self.checkConnected(space)
 
         valueptr = lltype.malloc(rffi.CArrayPtr(oci_value_type).TO,
