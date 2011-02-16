@@ -1,8 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
