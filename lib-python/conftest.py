@@ -716,8 +716,10 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
         outcome = 'OK'
-        if not exit_status: 
-            if 'FAIL' in test_stdout or re.search('[^:]ERROR', test_stderr):
+        if not exit_status:
+            # match "FAIL" but not e.g. "FAILURE", which is in the output of a
+            # test in test_zipimport_support.py
+            if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
                 outcome = 'FAIL'
                 exit_status = 2  
         elif timedout: 
