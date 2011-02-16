@@ -343,7 +343,10 @@ class TestBasic(unittest.TestCase):
         for match in (True, False):
             d = deque(['ab'])
             d.extend([MutateCmp(d, match), 'c'])
-            self.assertRaises(IndexError, d.remove, 'c')
+            # On CPython we get IndexError: deque mutated during remove().
+            # Why is it an IndexError during remove() only???
+            # On PyPy it is a RuntimeError, as in the other operations.
+            self.assertRaises((IndexError, RuntimeError), d.remove, 'c')
             self.assertEqual(d, deque())
 
     def test_repr(self):
