@@ -685,8 +685,9 @@ class CacheEntry(object):
 
     @jit.dont_look_inside
     def is_valid_for_map(self, map):
+        # note that 'map' can be None here
         mymap = self.map_wref()
-        if mymap is map:     # also handles the case self.map_wref()->None
+        if mymap is not None and mymap is map:
             version_tag = map.terminator.w_cls.version_tag()
             if version_tag is self.version_tag:
                 # everything matches, it's incredibly fast
