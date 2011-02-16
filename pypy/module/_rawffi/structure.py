@@ -34,17 +34,16 @@ def unpack_fields(space, w_fields):
         tp = unpack_shape_with_length(space, l_w[1])
 
         if len_l == 3:
-            bitsize = space.int_w(l_w[2])
-
-            if bitsize <= 0 or bitsize > tp.size * 8:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "number of bits invalid for bit field"))
             for c in unroll_letters_for_numbers:
                 if c == tp.itemcode:
                     break
             else:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "bit fields not allowed for type"))
+            bitsize = space.int_w(l_w[2])
+            if bitsize <= 0 or bitsize > tp.size * 8:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "number of bits invalid for bit field"))
         else:
             bitsize = 0
 
