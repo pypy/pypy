@@ -109,7 +109,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(deque('abc', maxlen=4).maxlen, 4)
         self.assertEqual(deque('abc', maxlen=2).maxlen, 2)
         self.assertEqual(deque('abc', maxlen=0).maxlen, 0)
-        with self.assertRaises(AttributeError):
+        with self.assertRaises((AttributeError, TypeError)):
             d = deque('abc')
             d.maxlen = 10
 
