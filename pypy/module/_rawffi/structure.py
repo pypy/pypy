@@ -3,10 +3,8 @@
 to app-level with apropriate interface
 """
 
-from pypy.interpreter.baseobjspace import W_Root, Wrappable
-from pypy.interpreter.gateway import interp2app, ObjSpace
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -169,33 +167,32 @@ class W_Structure(W_DataShape):
             raise operationerrfmt(space.w_AttributeError,
                 "C Structure has no attribute %s", attr)
 
+    @unwrap_spec(autofree=bool)
     def descr_call(self, space, autofree=False):
         return space.wrap(self.allocate(space, 1, autofree))
-    descr_call.unwrap_spec = ['self', ObjSpace, int]
 
     def descr_repr(self, space):
         fieldnames = ' '.join(["'%s'" % name for name, _, _ in self.fields])
         return space.wrap("<_rawffi.Structure %s (%d, %d)>" % (fieldnames,
                                                                self.size,
                                                                self.alignment))
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(address=r_uint)
     def fromaddress(self, space, address):
         return space.wrap(W_StructureInstance(space, self, address))
-    fromaddress.unwrap_spec = ['self', ObjSpace, r_uint]
 
+    @unwrap_spec(attr=str)
     def descr_fieldoffset(self, space, attr):
         index = self.getindex(space, attr)
         return space.wrap(self.ll_positions[index])
-    descr_fieldoffset.unwrap_spec = ['self', ObjSpace, str]
 
+    @unwrap_spec(attr=str)
     def descr_fieldsize(self, space, attr):
         index = self.getindex(space, attr)
         if self.ll_bitsizes and index < len(self.ll_bitsizes):
             return space.wrap(self.ll_bitsizes[index])
         else:
             return space.wrap(self.fields[index][1].size)
-    descr_fieldsize.unwrap_spec = ['self', ObjSpace, str]
 
     # get the corresponding ffi_type
     ffi_struct = lltype.nullptr(clibffi.FFI_STRUCT_P.TO)
@@ -227,21 +224,20 @@ class W_Structure(W_DataShape):
     
 
 
-def descr_new_structure(space, w_type, w_shapeinfo, union=0, pack=0):
+@unwrap_spec(union=bool, pack=int)
+def descr_new_structure(space, w_type, w_shapeinfo, union=False, pack=0):
     if pack < 0:
         raise OperationError(space.w_ValueError, space.wrap(
             "_pack_ must be a non-negative integer"))
 
-    is_union = bool(union)
     if space.is_true(space.isinstance(w_shapeinfo, space.w_tuple)):
         w_size, w_alignment = space.fixedview(w_shapeinfo, expected_length=2)
         S = W_Structure(space, None, space.int_w(w_size),
-                                     space.int_w(w_alignment), is_union)
+                                     space.int_w(w_alignment), union)
     else:
         fields = unpack_fields(space, w_shapeinfo)
-        S = W_Structure(space, fields, 0, 0, is_union, pack)
+        S = W_Structure(space, fields, 0, 0, union, pack)
     return space.wrap(S)
-descr_new_structure.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int]
 
 W_Structure.typedef = TypeDef(
     'Structure',
@@ -321,29 +317,28 @@ class W_StructureInstance(W_DataInstance):
     def descr_repr(self, space):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
         return space.wrap("<_rawffi struct %x>" % (addr,))
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(attr=str)
     def getattr(self, space, attr):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
         i = self.shape.getindex(space, attr)
         _, tp, _ = self.shape.fields[i]
         return wrap_value(space, cast_pos, self, i, tp.itemcode)
-    getattr.unwrap_spec = ['self', ObjSpace, str]
 
+    @unwrap_spec(attr=str)
     def setattr(self, space, attr, w_value):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
         i = self.shape.getindex(space, attr)
         _, tp, _ = self.shape.fields[i]
         unwrap_value(space, push_field, self, i, tp.itemcode, w_value)
-    setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
+    @unwrap_spec(attr=str)
     def descr_fieldaddress(self, space, attr):
         i = self.shape.getindex(space, attr)
         ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
         return space.wrap(rffi.cast(lltype.Unsigned, ptr))
-    descr_fieldaddress.unwrap_spec = ['self', ObjSpace, str]
 
     def getrawsize(self):
         return self.shape.size

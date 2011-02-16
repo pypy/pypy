@@ -3,9 +3,7 @@
 to app-level with apropriate interface
 """
 
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable,\
-     Arguments
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
@@ -47,6 +45,7 @@ class W_Array(W_DataShape):
     def get_basic_ffi_type(self):
         return self.basicffitype
 
+    @unwrap_spec(length=int, autofree=bool)
     def descr_call(self, space, length, w_items=None, autofree=False):
         result = self.allocate(space, length, autofree)
         if not space.is_w(w_items, space.w_None):
@@ -66,11 +65,10 @@ class W_Array(W_DataShape):
         return space.wrap("<_rawffi.Array '%s' (%d, %d)>" % (self.itemcode,
                                                              self.size,
                                                              self.alignment))
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(address=r_uint, length=int)
     def fromaddress(self, space, address, length):
         return space.wrap(W_ArrayInstance(space, self, length, address))
-    fromaddress.unwrap_spec = ['self', ObjSpace, r_uint, int]
 
 PRIMITIVE_ARRAY_TYPES = {}
 for _code in TYPEMAP:
@@ -84,10 +82,8 @@ def descr_new_array(space, w_type, w_shape):
 
 W_Array.typedef = TypeDef(
     'Array',
-    __new__  = interp2app(descr_new_array,
-                          unwrap_spec=[ObjSpace, W_Root, W_Root]),
-    __call__ = interp2app(W_Array.descr_call,
-                          unwrap_spec=['self', ObjSpace, int, W_Root, int]),
+    __new__  = interp2app(descr_new_array),
+    __call__ = interp2app(W_Array.descr_call),
     __repr__ = interp2app(W_Array.descr_repr),
     fromaddress = interp2app(W_Array.fromaddress),
     size_alignment = interp2app(W_Array.descr_size_alignment)
@@ -113,7 +109,6 @@ class W_ArrayInstance(W_DataInstance):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
         return space.wrap("<_rawffi array %x of length %d>" % (addr,
                                                                self.length))
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
     # This only allows non-negative indexes.  Arrays of shape 'c' also
     # support simple slices.
@@ -135,7 +130,6 @@ class W_ArrayInstance(W_DataInstance):
             self.setslice(space, w_index, w_value)
         else:
             self.setitem(space, num, w_value)
-    descr_setitem.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def getitem(self, space, num):
         if not self.ll_buffer:
@@ -154,17 +148,15 @@ class W_ArrayInstance(W_DataInstance):
             return self.getslice(space, w_index)
         else:
             return self.getitem(space, num)
-    descr_getitem.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def getlength(self, space):
         return space.wrap(self.length)
-    getlength.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(num=int)
     def descr_itemaddress(self, space, num):
         itemsize = self.shape.size
         ptr = rffi.ptradd(self.ll_buffer, itemsize * num)
         return space.wrap(rffi.cast(lltype.Unsigned, ptr))
-    descr_itemaddress.unwrap_spec = ['self', ObjSpace, int]
 
     def getrawsize(self):
         itemsize = self.shape.size
