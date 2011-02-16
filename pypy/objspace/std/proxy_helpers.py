@@ -44,6 +44,8 @@ def install_mm_trampoline(type_, mm, is_local):
         return install_general_args_trampoline(type_, mm, is_local, op_name)
     if ['w_args'] == mm.argnames_after:
         return install_w_args_trampoline(type_, mm, is_local, op_name)
+    if ['args_w'] == mm.argnames_after:
+        return install_w_args_trampoline(type_, mm, is_local, op_name)
     assert not mm.argnames_after
     # we search here for special-cased stuff
     def function(space, w_transparent_list, *args_w):

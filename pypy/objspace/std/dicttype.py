@@ -20,7 +20,7 @@ dict_clear      = SMM('clear',         1,
 dict_get        = SMM('get',           3, defaults=(None,),
                       doc='D.get(k[,d]) -> D[k] if k in D, else d.  d defaults'
                           ' to None.')
-dict_pop        = SMM('pop',           2, w_varargs=True,
+dict_pop        = SMM('pop',           2, varargs_w=True,
                       doc='D.pop(k[,d]) -> v, remove specified key and return'
                           ' the corresponding value\nIf key is not found, d is'
                           ' returned if given, otherwise KeyError is raised')
