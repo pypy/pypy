@@ -1,3 +1,4 @@
 greenlet = [svn]http://codespeak.net/svn/greenlet/trunk/c
 testrunner = [svn]http://codespeak.net/svn/pypy/build/testrunner
 lib_pypy/pyrepl = [svn]http://codespeak.net/svn/pyrepl/trunk/pyrepl/pyrepl
+contrib/virtualenv-pypy = https://bitbucket.org/pypy/virtualenv-pypy
