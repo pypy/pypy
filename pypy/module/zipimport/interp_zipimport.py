@@ -149,7 +149,8 @@ class W_ZipImporter(Wrappable):
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
         importing._prepare_module(space, w_mod, real_name, pkgpath)
-        code_w = importing.parse_source_module(space, filename, buf)
+        co_filename = self.make_co_filename(filename)
+        code_w = importing.parse_source_module(space, co_filename, buf)
         importing.exec_code_module(space, w_mod, code_w)
         return w_mod
 
@@ -231,6 +232,14 @@ class W_ZipImporter(Wrappable):
         subname = fullname[startpos:]
         return self.prefix + subname.replace('.', '/')
 
+    def make_co_filename(self, filename):
+        """
+        Return the filename to be used for compiling the module, i.e. what
+        gets in code_object.co_filename. Something like
+        'myfile.zip/mymodule.py'
+        """
+        return self.filename + os.path.sep + filename
+
     def load_module(self, space, fullname):
         w = space.wrap
         filename = self.make_filename(fullname)
@@ -297,8 +306,9 @@ class W_ZipImporter(Wrappable):
                     code_w = importing.read_compiled_module(
                         space, filename + ext, source[8:])
                 else:
+                    co_filename = self.make_co_filename(filename+ext)
                     code_w = importing.parse_source_module(
-                        space, filename + ext, source)
+                        space, co_filename, source)
                 return space.wrap(code_w)
         raise operationerrfmt(self.w_ZipImportError,
             "Cannot find source or code for %s in %s", filename, self.name)
