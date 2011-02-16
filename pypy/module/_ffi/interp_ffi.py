@@ -81,7 +81,6 @@ class W_FuncPtr(Wrappable):
                 assert False, "Argument kind '%s' not supported" % kind
         return argchain
 
-    @unwrap_spec(args_w='args_w')
     def call(self, space, args_w):
         self = jit.hint(self, promote=True)
         argchain = self.build_argchain(space, self.func.argtypes, args_w)
