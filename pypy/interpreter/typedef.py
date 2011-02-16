@@ -317,21 +317,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
          func.__name__: func,
         'OperationError': OperationError
         }
-    if isinstance(cls, str):
-        assert 0, "unused?"
-        #print "<CHECK", func.__module__ or '?', func.__name__
-        assert cls.startswith('<'),"pythontype typecheck should begin with <"
-        source = """
-        def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
-            if not space.is_true(space.isinstance(w_obj, space.w_%(cls_name)s)):
-                # xxx improve msg
-                msg =  "descriptor is for '%(expected)s'"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
-            return %(name)s(%(closure)s space, w_obj, %(extra)s)
-        """
-        cls_name = cls[1:]
-        expected = repr(cls_name)
-    elif cls is None:
+    if cls is None:
         source = """
         def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
             return %(name)s(%(closure)s space, w_obj, %(extra)s)
