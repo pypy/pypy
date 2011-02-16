@@ -60,7 +60,7 @@ def traceback_new(space):
     tb = instantiate(PyTraceback)
     return space.wrap(tb)
 
-@unwrap_spec(runnint=int)
+@unwrap_spec(running=int)
 def generator_new(space, w_frame, running):
     frame = space.interp_w(PyFrame, w_frame, can_be_None=True)
     new_generator = GeneratorIterator(frame)
