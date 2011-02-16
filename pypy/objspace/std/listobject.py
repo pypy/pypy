@@ -85,6 +85,11 @@ class W_ListObject(W_Object):
     def getitems(self):
         return self.strategy.getitems(self)
 
+    # ___________________________________________________
+
+    def inplace_mul(self, times):
+        self.strategy.inplace_mul(self, times)
+
 registerimplementation(W_ListObject)
 
 
@@ -105,6 +110,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def append(self, w_list, w_item):
+        raise NotImplementedError
+
+    def inplace_mul(self, w_list, times):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
@@ -137,6 +145,9 @@ class EmptyListStrategy(ListStrategy):
         w_list.wrappeditems.append(w_item)
         w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
 
+    def inplace_mul(self, w_list, times):
+        return
+
 class ObjectListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "object")
@@ -162,6 +173,10 @@ class ObjectListStrategy(ListStrategy):
 
     def append(self,  w_list, w_item):
         cast_from_void_star(w_list.storage, "object").append(w_item)
+
+    def inplace_mul(self, w_list, times):
+        list_w = cast_from_void_star(w_list.storage, "object")
+        list_w *= times
 
 class IntegerListStrategy(ListStrategy):
 
@@ -198,6 +213,10 @@ class IntegerListStrategy(ListStrategy):
         w_list.strategy.init_from_list_w(w_list, items_w)
         w_list.append(w_item)
 
+    def inplace_mul(self, w_list, times):
+        list_w = cast_from_void_star(w_list.storage, "integer")
+        list_w *= times
+
 class StringListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
@@ -232,6 +251,12 @@ class StringListStrategy(ListStrategy):
         w_list.strategy = ObjectListStrategy()
         w_list.strategy.init_from_list_w(w_list, list_w)
         w_list.append(w_item)
+
+    def inplace_mul(self, w_list, times):
+        list_w = cast_from_void_star(w_list.storage, "string")
+        list_w *= times
+
+# _______________________________________________________
 
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
@@ -342,7 +367,7 @@ def inplace_mul__List_ANY(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    w_list.wrappeditems *= times
+    w_list.inplace_mul(times)
     return w_list
 
 def eq__List_List(space, w_list1, w_list2):
