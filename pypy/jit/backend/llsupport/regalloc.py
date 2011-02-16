@@ -324,6 +324,8 @@ class RegisterManager(object):
         """
         self._check_type(v)
         r = self.call_result_location(v)
+        if not we_are_translated():
+            assert r not in self.reg_bindings.values()
         self.reg_bindings[v] = r
         self.free_regs = [fr for fr in self.free_regs if fr is not r]
         return r

@@ -268,9 +268,13 @@ class OpAssembler(object):
             regalloc.before_call(save_all_regs=spill_all_regs)
         else:
             if result:
-                # XXX maybe move instance check to llsupport/regalloc
-                if reg_args > 0 and isinstance(args[0], Box) and regalloc.stays_alive(args[0]):
-                    regalloc.force_spill_var(args[0])
+                # XXX hack if the call has a result force the value in r0 to be
+                # spilled
+                if reg_args == 0 or (isinstance(args[0], Box) and
+                        regalloc.stays_alive(args[0])):
+                    t = TempBox()
+                    regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
+                    regalloc.possibly_free_var(t)
                 self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
             else:
                 self.mc.PUSH([reg.value for reg in r.caller_resp])
