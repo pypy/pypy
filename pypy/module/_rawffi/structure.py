@@ -36,7 +36,7 @@ def unpack_fields(space, w_fields):
         if len_l == 3:
             bitsize = space.int_w(l_w[2])
 
-            if bitsize < 0 or bitsize > tp.size * 8:
+            if bitsize <= 0 or bitsize > tp.size * 8:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "number of bits invalid for bit field"))
             for c in unroll_letters_for_numbers:

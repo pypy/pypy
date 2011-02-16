@@ -497,6 +497,7 @@ class AppTestFfi:
         raises(TypeError, _rawffi.Structure, [('A', 'c', 1)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
+        raises(ValueError, _rawffi.Structure, [('A', 'I', 0)])
 
     def test_packed_structure(self):
         import _rawffi
