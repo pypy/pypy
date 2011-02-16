@@ -13,6 +13,27 @@ import weakref
 
 TLS = tlsobject()
 
+class WeakValueDictionary(weakref.WeakValueDictionary):
+    """A subclass of weakref.WeakValueDictionary
+    which resets the 'nested_hash_level' when keys are being deleted.
+    """
+    def __init__(self, *args, **kwargs):
+        weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
+        remove_base = self._remove
+        def remove(*args):
+            nested_hash_level = TLS.nested_hash_level
+            try:
+                # The 'remove' function is called when an object dies.  This
+                # can happen anywhere when they are reference cycles,
+                # especially when we are already computing another __hash__
+                # value.  It's not really a recursion in this case, so we
+                # reset the counter; otherwise the hash value may be be
+                # incorrect and the key won't be deleted.
+                TLS.nested_hash_level = 0
+                remove_base(*args)
+            finally:
+                TLS.nested_hash_level = nested_hash_level
+        self._remove = remove
 
 class _uninitialized(object):
     def __init__(self, TYPE):
@@ -397,7 +418,7 @@ class FixedSizeArray(Struct):
     # behaves more or less like a Struct with fields item0, item1, ...
     # but also supports __getitem__(), __setitem__(), __len__().
 
-    _cache = weakref.WeakValueDictionary() # cache the length-1 FixedSizeArrays
+    _cache = WeakValueDictionary() # cache the length-1 FixedSizeArrays
     def __new__(cls, OF, length, **kwds):
         if length == 1 and not kwds:
             try:
@@ -620,7 +641,7 @@ UniChar  = Primitive("UniChar", u'\x00')
 class Ptr(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
 
-    _cache = weakref.WeakValueDictionary()  # cache the Ptrs
+    _cache = WeakValueDictionary()  # cache the Ptrs
     def __new__(cls, TO, use_cache=True):
         if not isinstance(TO, ContainerType):
             raise TypeError, ("can only point to a Container type, "
