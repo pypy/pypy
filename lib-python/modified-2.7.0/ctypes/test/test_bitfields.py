@@ -143,7 +143,6 @@ class BitFieldTest(unittest.TestCase):
         result = self.fail_fields(("a", Dummy, 1))
         self.assertEqual(result, (TypeError, 'bit fields not allowed for type Dummy'))
 
-    @xfail
     def test_single_bitfield_size(self):
         for c_typ in int_types:
             result = self.fail_fields(("a", c_typ, -1))
