@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
 

@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import ropenssl
@@ -33,20 +33,18 @@ class W_Hash(Wrappable):
         ropenssl.EVP_MD_CTX_cleanup(self.ctx)
         lltype.free(self.ctx, flavor='raw')
 
-    @unwrap_spec('self', ObjSpace)
     def descr_repr(self, space):
         addrstring = self.getaddrstring(space)
         return space.wrap("<%s HASH object at 0x%s>" % (
             self.name, addrstring))
 
-    @unwrap_spec('self', ObjSpace, 'bufferstr')
+    @unwrap_spec(string='bufferstr')
     def update(self, space, string):
         with rffi.scoped_nonmovingbuffer(string) as buf:
             with self.lock:
                 # XXX try to not release the GIL for small requests
                 ropenssl.EVP_DigestUpdate(self.ctx, buf, len(string))
 
-    @unwrap_spec('self', ObjSpace)
     def copy(self, space):
         "Return a copy of the hash object."
         w_hash = W_Hash(space, self.name)
@@ -54,13 +52,11 @@ class W_Hash(Wrappable):
             ropenssl.EVP_MD_CTX_copy(w_hash.ctx, self.ctx)
         return w_hash
 
-    @unwrap_spec('self', ObjSpace)
     def digest(self, space):
         "Return the digest value as a string of binary data."
         digest = self._digest(space)
         return space.wrap(digest)
 
-    @unwrap_spec('self', ObjSpace)
     def hexdigest(self, space):
         "Return the digest value as a string of hexadecimal digits."
         digest = self._digest(space)
@@ -132,7 +128,7 @@ W_Hash.typedef = TypeDef(
     block_size=GetSetProperty(W_Hash.get_block_size),
     )
 
-@unwrap_spec(ObjSpace, str, 'bufferstr')
+@unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
     w_hash.update(space, string)
@@ -141,7 +137,7 @@ def new(space, name, string=''):
 # shortcut functions
 def make_new_hash(name, funcname):
     @func_renamer(funcname)
-    @unwrap_spec(ObjSpace, 'bufferstr')
+    @unwrap_spec(string='bufferstr')
     def new_hash(space, string=''):
         return new(space, name, string)
     return new_hash
