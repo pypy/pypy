@@ -43,7 +43,7 @@ def unpack_fields(space, w_fields):
                 if c == tp.itemcode:
                     break
             else:
-                raise OperationError(space.w_ValueError, space.wrap(
+                raise OperationError(space.w_TypeError, space.wrap(
                     "bit fields not allowed for type"))
         else:
             bitsize = 0

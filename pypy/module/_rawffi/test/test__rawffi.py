@@ -494,7 +494,7 @@ class AppTestFfi:
 
     def test_invalid_bitfields(self):
         import _rawffi
-        raises(ValueError, _rawffi.Structure, [('A', 'c', 1)])
+        raises(TypeError, _rawffi.Structure, [('A', 'c', 1)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
 
