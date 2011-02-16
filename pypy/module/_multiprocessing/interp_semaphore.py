@@ -1,7 +1,7 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_uint
@@ -409,18 +409,15 @@ class W_SemLock(Wrappable):
     def handle_get(space, self):
         return w_handle(space, self.handle)
 
-    @unwrap_spec('self', ObjSpace)
     def get_count(self, space):
         return space.wrap(self.count)
 
     def _ismine(self):
         return self.count > 0 and ll_thread.get_ident() == self.last_tid
 
-    @unwrap_spec('self', ObjSpace)
     def is_mine(self, space):
         return space.wrap(self._ismine())
 
-    @unwrap_spec('self', ObjSpace)
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
@@ -428,7 +425,6 @@ class W_SemLock(Wrappable):
             raise wrap_oserror(space, e)
         return space.wrap(res)
 
-    @unwrap_spec('self', ObjSpace)
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
@@ -436,7 +432,7 @@ class W_SemLock(Wrappable):
             raise wrap_oserror(space, e)
         return space.wrap(val)
 
-    @unwrap_spec('self', ObjSpace, bool, W_Root)
+    @unwrap_spec(block=bool)
     def acquire(self, space, block=True, w_timeout=None):
         # check whether we already own the lock
         if self.kind == RECURSIVE_MUTEX and self._ismine():
@@ -455,7 +451,6 @@ class W_SemLock(Wrappable):
         else:
             return space.w_False
 
-    @unwrap_spec('self', ObjSpace)
     def release(self, space):
         if self.kind == RECURSIVE_MUTEX:
             if not self._ismine():
@@ -474,21 +469,19 @@ class W_SemLock(Wrappable):
 
         self.count -= 1
 
-    @unwrap_spec(ObjSpace, W_Root, W_Root, int, int)
+    @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
         self.__init__(handle_w(space, w_handle), kind, maxvalue)
         return space.wrap(self)
 
-    @unwrap_spec('self', ObjSpace)
     def enter(self, space):
         return self.acquire(space, w_timeout=space.w_None)
 
-    @unwrap_spec('self', ObjSpace, Arguments)
     def exit(self, space, __args__):
         self.release(space)
 
-@unwrap_spec(ObjSpace, W_Root, int, int, int)
+@unwrap_spec(kind=int, value=int, maxvalue=int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
         raise OperationError(space.w_ValueError,
