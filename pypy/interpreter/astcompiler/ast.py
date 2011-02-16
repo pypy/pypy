@@ -3069,10 +3069,10 @@ def Module_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Module_field_unroller = unrolling_iterable(['body'])
-def Module_init(space, w_self, args):
+def Module_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Module, w_self)
     w_self.w_body = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
             w_err = space.wrap("Module constructor takes 0 or 1 positional arguments")
@@ -3111,10 +3111,10 @@ def Interactive_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Interactive_field_unroller = unrolling_iterable(['body'])
-def Interactive_init(space, w_self, args):
+def Interactive_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Interactive, w_self)
     w_self.w_body = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
             w_err = space.wrap("Interactive constructor takes 0 or 1 positional arguments")
@@ -3146,9 +3146,9 @@ def Expression_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Expression_field_unroller = unrolling_iterable(['body'])
-def Expression_init(space, w_self, args):
+def Expression_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Expression, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
             w_err = space.wrap("Expression constructor takes 0 or 1 positional arguments")
@@ -3187,10 +3187,10 @@ def Suite_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Suite_field_unroller = unrolling_iterable(['body'])
-def Suite_init(space, w_self, args):
+def Suite_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Suite, w_self)
     w_self.w_body = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
             w_err = space.wrap("Suite constructor takes 0 or 1 positional arguments")
@@ -3294,11 +3294,11 @@ def FunctionDef_set_decorator_list(space, w_self, w_new_value):
     w_self.initialization_state |= 8
 
 _FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorator_list', 'lineno', 'col_offset'])
-def FunctionDef_init(space, w_self, args):
+def FunctionDef_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(FunctionDef, w_self)
     w_self.w_body = None
     w_self.w_decorator_list = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 6:
             w_err = space.wrap("FunctionDef constructor takes 0 or 6 positional arguments")
@@ -3384,12 +3384,12 @@ def ClassDef_set_decorator_list(space, w_self, w_new_value):
     w_self.initialization_state |= 8
 
 _ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'body', 'decorator_list', 'lineno', 'col_offset'])
-def ClassDef_init(space, w_self, args):
+def ClassDef_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(ClassDef, w_self)
     w_self.w_bases = None
     w_self.w_body = None
     w_self.w_decorator_list = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 6:
             w_err = space.wrap("ClassDef constructor takes 0 or 6 positional arguments")
@@ -3424,9 +3424,9 @@ def Return_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Return_field_unroller = unrolling_iterable(['value', 'lineno', 'col_offset'])
-def Return_init(space, w_self, args):
+def Return_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Return, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Return constructor takes 0 or 3 positional arguments")
@@ -3465,10 +3465,10 @@ def Delete_set_targets(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Delete_field_unroller = unrolling_iterable(['targets', 'lineno', 'col_offset'])
-def Delete_init(space, w_self, args):
+def Delete_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Delete, w_self)
     w_self.w_targets = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Delete constructor takes 0 or 3 positional arguments")
@@ -3517,10 +3517,10 @@ def Assign_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _Assign_field_unroller = unrolling_iterable(['targets', 'value', 'lineno', 'col_offset'])
-def Assign_init(space, w_self, args):
+def Assign_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Assign, w_self)
     w_self.w_targets = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("Assign constructor takes 0 or 4 positional arguments")
@@ -3574,9 +3574,9 @@ def AugAssign_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _AugAssign_field_unroller = unrolling_iterable(['target', 'op', 'value', 'lineno', 'col_offset'])
-def AugAssign_init(space, w_self, args):
+def AugAssign_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(AugAssign, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("AugAssign constructor takes 0 or 5 positional arguments")
@@ -3637,10 +3637,10 @@ def Print_set_nl(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _Print_field_unroller = unrolling_iterable(['dest', 'values', 'nl', 'lineno', 'col_offset'])
-def Print_init(space, w_self, args):
+def Print_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Print, w_self)
     w_self.w_values = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("Print constructor takes 0 or 5 positional arguments")
@@ -3718,11 +3718,11 @@ def For_set_orelse(space, w_self, w_new_value):
     w_self.initialization_state |= 8
 
 _For_field_unroller = unrolling_iterable(['target', 'iter', 'body', 'orelse', 'lineno', 'col_offset'])
-def For_init(space, w_self, args):
+def For_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(For, w_self)
     w_self.w_body = None
     w_self.w_orelse = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 6:
             w_err = space.wrap("For constructor takes 0 or 6 positional arguments")
@@ -3791,11 +3791,11 @@ def While_set_orelse(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _While_field_unroller = unrolling_iterable(['test', 'body', 'orelse', 'lineno', 'col_offset'])
-def While_init(space, w_self, args):
+def While_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(While, w_self)
     w_self.w_body = None
     w_self.w_orelse = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("While constructor takes 0 or 5 positional arguments")
@@ -3863,11 +3863,11 @@ def If_set_orelse(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _If_field_unroller = unrolling_iterable(['test', 'body', 'orelse', 'lineno', 'col_offset'])
-def If_init(space, w_self, args):
+def If_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(If, w_self)
     w_self.w_body = None
     w_self.w_orelse = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("If constructor takes 0 or 5 positional arguments")
@@ -3928,10 +3928,10 @@ def With_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _With_field_unroller = unrolling_iterable(['context_expr', 'optional_vars', 'body', 'lineno', 'col_offset'])
-def With_init(space, w_self, args):
+def With_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(With, w_self)
     w_self.w_body = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("With constructor takes 0 or 5 positional arguments")
@@ -3985,9 +3985,9 @@ def Raise_set_tback(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _Raise_field_unroller = unrolling_iterable(['type', 'inst', 'tback', 'lineno', 'col_offset'])
-def Raise_init(space, w_self, args):
+def Raise_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Raise, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("Raise constructor takes 0 or 5 positional arguments")
@@ -4062,12 +4062,12 @@ def TryExcept_set_orelse(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _TryExcept_field_unroller = unrolling_iterable(['body', 'handlers', 'orelse', 'lineno', 'col_offset'])
-def TryExcept_init(space, w_self, args):
+def TryExcept_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(TryExcept, w_self)
     w_self.w_body = None
     w_self.w_handlers = None
     w_self.w_orelse = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("TryExcept constructor takes 0 or 5 positional arguments")
@@ -4125,11 +4125,11 @@ def TryFinally_set_finalbody(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _TryFinally_field_unroller = unrolling_iterable(['body', 'finalbody', 'lineno', 'col_offset'])
-def TryFinally_init(space, w_self, args):
+def TryFinally_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(TryFinally, w_self)
     w_self.w_body = None
     w_self.w_finalbody = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("TryFinally constructor takes 0 or 4 positional arguments")
@@ -4172,9 +4172,9 @@ def Assert_set_msg(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _Assert_field_unroller = unrolling_iterable(['test', 'msg', 'lineno', 'col_offset'])
-def Assert_init(space, w_self, args):
+def Assert_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Assert, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("Assert constructor takes 0 or 4 positional arguments")
@@ -4214,10 +4214,10 @@ def Import_set_names(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Import_field_unroller = unrolling_iterable(['names', 'lineno', 'col_offset'])
-def Import_init(space, w_self, args):
+def Import_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Import, w_self)
     w_self.w_names = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Import constructor takes 0 or 3 positional arguments")
@@ -4279,10 +4279,10 @@ def ImportFrom_set_level(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _ImportFrom_field_unroller = unrolling_iterable(['module', 'names', 'level', 'lineno', 'col_offset'])
-def ImportFrom_init(space, w_self, args):
+def ImportFrom_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(ImportFrom, w_self)
     w_self.w_names = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("ImportFrom constructor takes 0 or 5 positional arguments")
@@ -4336,9 +4336,9 @@ def Exec_set_locals(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _Exec_field_unroller = unrolling_iterable(['body', 'globals', 'locals', 'lineno', 'col_offset'])
-def Exec_init(space, w_self, args):
+def Exec_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Exec, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("Exec constructor takes 0 or 5 positional arguments")
@@ -4379,10 +4379,10 @@ def Global_set_names(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Global_field_unroller = unrolling_iterable(['names', 'lineno', 'col_offset'])
-def Global_init(space, w_self, args):
+def Global_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Global, w_self)
     w_self.w_names = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Global constructor takes 0 or 3 positional arguments")
@@ -4414,9 +4414,9 @@ def Expr_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Expr_field_unroller = unrolling_iterable(['value', 'lineno', 'col_offset'])
-def Expr_init(space, w_self, args):
+def Expr_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Expr, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Expr constructor takes 0 or 3 positional arguments")
@@ -4438,9 +4438,9 @@ Expr.typedef = typedef.TypeDef("Expr",
 Expr.typedef.acceptable_as_base_class = False
 
 _Pass_field_unroller = unrolling_iterable(['lineno', 'col_offset'])
-def Pass_init(space, w_self, args):
+def Pass_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Pass, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
             w_err = space.wrap("Pass constructor takes 0 or 2 positional arguments")
@@ -4461,9 +4461,9 @@ Pass.typedef = typedef.TypeDef("Pass",
 Pass.typedef.acceptable_as_base_class = False
 
 _Break_field_unroller = unrolling_iterable(['lineno', 'col_offset'])
-def Break_init(space, w_self, args):
+def Break_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Break, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
             w_err = space.wrap("Break constructor takes 0 or 2 positional arguments")
@@ -4484,9 +4484,9 @@ Break.typedef = typedef.TypeDef("Break",
 Break.typedef.acceptable_as_base_class = False
 
 _Continue_field_unroller = unrolling_iterable(['lineno', 'col_offset'])
-def Continue_init(space, w_self, args):
+def Continue_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Continue, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
             w_err = space.wrap("Continue constructor takes 0 or 2 positional arguments")
@@ -4563,10 +4563,10 @@ def BoolOp_set_values(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _BoolOp_field_unroller = unrolling_iterable(['op', 'values', 'lineno', 'col_offset'])
-def BoolOp_init(space, w_self, args):
+def BoolOp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(BoolOp, w_self)
     w_self.w_values = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("BoolOp constructor takes 0 or 4 positional arguments")
@@ -4620,9 +4620,9 @@ def BinOp_set_right(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _BinOp_field_unroller = unrolling_iterable(['left', 'op', 'right', 'lineno', 'col_offset'])
-def BinOp_init(space, w_self, args):
+def BinOp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(BinOp, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("BinOp constructor takes 0 or 5 positional arguments")
@@ -4667,9 +4667,9 @@ def UnaryOp_set_operand(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _UnaryOp_field_unroller = unrolling_iterable(['op', 'operand', 'lineno', 'col_offset'])
-def UnaryOp_init(space, w_self, args):
+def UnaryOp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(UnaryOp, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("UnaryOp constructor takes 0 or 4 positional arguments")
@@ -4712,9 +4712,9 @@ def Lambda_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _Lambda_field_unroller = unrolling_iterable(['args', 'body', 'lineno', 'col_offset'])
-def Lambda_init(space, w_self, args):
+def Lambda_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Lambda, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("Lambda constructor takes 0 or 4 positional arguments")
@@ -4767,9 +4767,9 @@ def IfExp_set_orelse(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _IfExp_field_unroller = unrolling_iterable(['test', 'body', 'orelse', 'lineno', 'col_offset'])
-def IfExp_init(space, w_self, args):
+def IfExp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(IfExp, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("IfExp constructor takes 0 or 5 positional arguments")
@@ -4827,11 +4827,11 @@ def Dict_set_values(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _Dict_field_unroller = unrolling_iterable(['keys', 'values', 'lineno', 'col_offset'])
-def Dict_init(space, w_self, args):
+def Dict_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Dict, w_self)
     w_self.w_keys = None
     w_self.w_values = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("Dict constructor takes 0 or 4 positional arguments")
@@ -4871,10 +4871,10 @@ def Set_set_elts(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Set_field_unroller = unrolling_iterable(['elts', 'lineno', 'col_offset'])
-def Set_init(space, w_self, args):
+def Set_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Set, w_self)
     w_self.w_elts = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Set constructor takes 0 or 3 positional arguments")
@@ -4923,10 +4923,10 @@ def ListComp_set_generators(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _ListComp_field_unroller = unrolling_iterable(['elt', 'generators', 'lineno', 'col_offset'])
-def ListComp_init(space, w_self, args):
+def ListComp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(ListComp, w_self)
     w_self.w_generators = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("ListComp constructor takes 0 or 4 positional arguments")
@@ -4976,10 +4976,10 @@ def SetComp_set_generators(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _SetComp_field_unroller = unrolling_iterable(['elt', 'generators', 'lineno', 'col_offset'])
-def SetComp_init(space, w_self, args):
+def SetComp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(SetComp, w_self)
     w_self.w_generators = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("SetComp constructor takes 0 or 4 positional arguments")
@@ -5039,10 +5039,10 @@ def DictComp_set_generators(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _DictComp_field_unroller = unrolling_iterable(['key', 'value', 'generators', 'lineno', 'col_offset'])
-def DictComp_init(space, w_self, args):
+def DictComp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(DictComp, w_self)
     w_self.w_generators = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("DictComp constructor takes 0 or 5 positional arguments")
@@ -5093,10 +5093,10 @@ def GeneratorExp_set_generators(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _GeneratorExp_field_unroller = unrolling_iterable(['elt', 'generators', 'lineno', 'col_offset'])
-def GeneratorExp_init(space, w_self, args):
+def GeneratorExp_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(GeneratorExp, w_self)
     w_self.w_generators = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("GeneratorExp constructor takes 0 or 4 positional arguments")
@@ -5129,9 +5129,9 @@ def Yield_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Yield_field_unroller = unrolling_iterable(['value', 'lineno', 'col_offset'])
-def Yield_init(space, w_self, args):
+def Yield_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Yield, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Yield constructor takes 0 or 3 positional arguments")
@@ -5197,11 +5197,11 @@ def Compare_set_comparators(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _Compare_field_unroller = unrolling_iterable(['left', 'ops', 'comparators', 'lineno', 'col_offset'])
-def Compare_init(space, w_self, args):
+def Compare_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Compare, w_self)
     w_self.w_ops = None
     w_self.w_comparators = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("Compare constructor takes 0 or 5 positional arguments")
@@ -5289,11 +5289,11 @@ def Call_set_kwargs(space, w_self, w_new_value):
     w_self.initialization_state |= 16
 
 _Call_field_unroller = unrolling_iterable(['func', 'args', 'keywords', 'starargs', 'kwargs', 'lineno', 'col_offset'])
-def Call_init(space, w_self, args):
+def Call_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Call, w_self)
     w_self.w_args = None
     w_self.w_keywords = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 7:
             w_err = space.wrap("Call constructor takes 0 or 7 positional arguments")
@@ -5329,9 +5329,9 @@ def Repr_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Repr_field_unroller = unrolling_iterable(['value', 'lineno', 'col_offset'])
-def Repr_init(space, w_self, args):
+def Repr_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Repr, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Repr constructor takes 0 or 3 positional arguments")
@@ -5363,9 +5363,9 @@ def Num_set_n(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Num_field_unroller = unrolling_iterable(['n', 'lineno', 'col_offset'])
-def Num_init(space, w_self, args):
+def Num_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Num, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Num constructor takes 0 or 3 positional arguments")
@@ -5400,9 +5400,9 @@ def Str_set_s(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Str_field_unroller = unrolling_iterable(['s', 'lineno', 'col_offset'])
-def Str_init(space, w_self, args):
+def Str_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Str, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Str constructor takes 0 or 3 positional arguments")
@@ -5455,9 +5455,9 @@ def Attribute_set_ctx(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _Attribute_field_unroller = unrolling_iterable(['value', 'attr', 'ctx', 'lineno', 'col_offset'])
-def Attribute_init(space, w_self, args):
+def Attribute_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Attribute, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("Attribute constructor takes 0 or 5 positional arguments")
@@ -5512,9 +5512,9 @@ def Subscript_set_ctx(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _Subscript_field_unroller = unrolling_iterable(['value', 'slice', 'ctx', 'lineno', 'col_offset'])
-def Subscript_init(space, w_self, args):
+def Subscript_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Subscript, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("Subscript constructor takes 0 or 5 positional arguments")
@@ -5559,9 +5559,9 @@ def Name_set_ctx(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _Name_field_unroller = unrolling_iterable(['id', 'ctx', 'lineno', 'col_offset'])
-def Name_init(space, w_self, args):
+def Name_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Name, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("Name constructor takes 0 or 4 positional arguments")
@@ -5612,10 +5612,10 @@ def List_set_ctx(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _List_field_unroller = unrolling_iterable(['elts', 'ctx', 'lineno', 'col_offset'])
-def List_init(space, w_self, args):
+def List_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(List, w_self)
     w_self.w_elts = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("List constructor takes 0 or 4 positional arguments")
@@ -5666,10 +5666,10 @@ def Tuple_set_ctx(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _Tuple_field_unroller = unrolling_iterable(['elts', 'ctx', 'lineno', 'col_offset'])
-def Tuple_init(space, w_self, args):
+def Tuple_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Tuple, w_self)
     w_self.w_elts = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("Tuple constructor takes 0 or 4 positional arguments")
@@ -5702,9 +5702,9 @@ def Const_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Const_field_unroller = unrolling_iterable(['value', 'lineno', 'col_offset'])
-def Const_init(space, w_self, args):
+def Const_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Const, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Const constructor takes 0 or 3 positional arguments")
@@ -5780,9 +5780,9 @@ slice.typedef = typedef.TypeDef("slice",
 slice.typedef.acceptable_as_base_class = False
 
 _Ellipsis_field_unroller = unrolling_iterable([])
-def Ellipsis_init(space, w_self, args):
+def Ellipsis_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Ellipsis, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         w_err = space.wrap("Ellipsis constructor takes no  arguments")
         raise OperationError(space.w_TypeError, w_err)
@@ -5828,9 +5828,9 @@ def Slice_set_step(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _Slice_field_unroller = unrolling_iterable(['lower', 'upper', 'step'])
-def Slice_init(space, w_self, args):
+def Slice_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Slice, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("Slice constructor takes 0 or 3 positional arguments")
@@ -5871,10 +5871,10 @@ def ExtSlice_set_dims(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _ExtSlice_field_unroller = unrolling_iterable(['dims'])
-def ExtSlice_init(space, w_self, args):
+def ExtSlice_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(ExtSlice, w_self)
     w_self.w_dims = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
             w_err = space.wrap("ExtSlice constructor takes 0 or 1 positional arguments")
@@ -5906,9 +5906,9 @@ def Index_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 _Index_field_unroller = unrolling_iterable(['value'])
-def Index_init(space, w_self, args):
+def Index_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Index, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
             w_err = space.wrap("Index constructor takes 0 or 1 positional arguments")
@@ -6187,10 +6187,10 @@ def comprehension_set_ifs(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _comprehension_field_unroller = unrolling_iterable(['target', 'iter', 'ifs'])
-def comprehension_init(space, w_self, args):
+def comprehension_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(comprehension, w_self)
     w_self.w_ifs = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
             w_err = space.wrap("comprehension constructor takes 0 or 3 positional arguments")
@@ -6279,10 +6279,10 @@ def ExceptHandler_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 _ExceptHandler_field_unroller = unrolling_iterable(['type', 'name', 'body', 'lineno', 'col_offset'])
-def ExceptHandler_init(space, w_self, args):
+def ExceptHandler_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(ExceptHandler, w_self)
     w_self.w_body = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
             w_err = space.wrap("ExceptHandler constructor takes 0 or 5 positional arguments")
@@ -6366,11 +6366,11 @@ def arguments_set_defaults(space, w_self, w_new_value):
     w_self.initialization_state |= 8
 
 _arguments_field_unroller = unrolling_iterable(['args', 'vararg', 'kwarg', 'defaults'])
-def arguments_init(space, w_self, args):
+def arguments_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(arguments, w_self)
     w_self.w_args = None
     w_self.w_defaults = None
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
             w_err = space.wrap("arguments constructor takes 0 or 4 positional arguments")
@@ -6415,9 +6415,9 @@ def keyword_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _keyword_field_unroller = unrolling_iterable(['arg', 'value'])
-def keyword_init(space, w_self, args):
+def keyword_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(keyword, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
             w_err = space.wrap("keyword constructor takes 0 or 2 positional arguments")
@@ -6463,9 +6463,9 @@ def alias_set_asname(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 _alias_field_unroller = unrolling_iterable(['name', 'asname'])
-def alias_init(space, w_self, args):
+def alias_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(alias, w_self)
-    args_w, kwargs_w = args.unpack()
+    args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
             w_err = space.wrap("alias constructor takes 0 or 2 positional arguments")
