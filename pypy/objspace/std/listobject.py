@@ -519,7 +519,6 @@ def _delitem_slice_helper(space, items, start, step, slicelength):
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
     idx = get_list_index(space, w_index)
     try:
-        #w_list.wrappeditems[idx] = w_any
         w_list.setitem(idx, w_any)
     except IndexError:
         raise OperationError(space.w_IndexError,
@@ -596,7 +595,7 @@ app = gateway.applevel("""
 listrepr = app.interphook("listrepr")
 
 def repr__List(space, w_list):
-    if len(w_list.wrappeditems) == 0:
+    if w_list.length() == 0:
         return space.wrap('[]')
     ec = space.getexecutioncontext()
     w_currently_in_repr = ec._py_repr
@@ -617,7 +616,6 @@ def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
     return space.w_None
 
 def list_append__List_ANY(space, w_list, w_any):
-    #w_list.wrappeditems.append(w_any)
     w_list.append(w_any)
     return space.w_None
 
