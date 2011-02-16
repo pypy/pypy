@@ -199,7 +199,7 @@ class W_FileIO(W_RawIOBase):
         else:
             return 'wb'
 
-    def descr_get_mode(space, self):
+    def descr_get_mode(self, space):
         return space.wrap(self._mode())
 
     def _closed(self, space):

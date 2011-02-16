@@ -83,7 +83,7 @@ class W_IOBase(Wrappable):
             raise OperationError(
                 space.w_ValueError, space.wrap(message))
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         return space.newbool(self.__IOBase_closed)
 
     def close_w(self, space):

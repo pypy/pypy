@@ -256,13 +256,13 @@ class W_StringIO(W_TextIOBase):
     def close_w(self, space):
         self.buf = None
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         return space.wrap(self.buf is None)
 
-    def line_buffering_get_w(space, self):
+    def line_buffering_get_w(self, space):
         return space.w_False
 
-    def newlines_get_w(space, self):
+    def newlines_get_w(self, space):
         if self.w_decoder is None:
             return space.w_None
         return space.getattr(self.w_decoder, space.wrap("newlines"))

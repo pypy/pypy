@@ -171,7 +171,7 @@ class W_BytesIO(W_BufferedIOBase):
     def close_w(self, space):
         self.buf = None
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         return space.wrap(self.buf is None)
 
     def getstate_w(self, space):

@@ -54,7 +54,7 @@ class W_IncrementalNewlineDecoder(Wrappable):
         self.seennl = 0
         pendingcr = False
 
-    def newlines_get_w(space, self):
+    def newlines_get_w(self, space):
         return self.w_newlines_dict.get(self.seennl, space.w_None)
 
     @unwrap_spec(final=int)
@@ -214,7 +214,7 @@ class W_TextIOBase(W_IOBase):
     def detach_w(self, space):
         self._unsupportedoperation(space, "detach")
 
-    def errors_get_w(space, self):
+    def errors_get_w(self, space):
         return space.w_None
 
 
@@ -464,17 +464,17 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         return space.call_method(self.w_buffer, "fileno")
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         self._check_init(space)
         return space.getattr(self.w_buffer, space.wrap("closed"))
 
-    def newlines_get_w(space, self):
+    def newlines_get_w(self, space):
         self._check_init(space)
         if self.w_decoder is None:
             return space.w_None
         return space.findattr(self.w_decoder, space.wrap("newlines"))
 
-    def name_get_w(space, self):
+    def name_get_w(self, space):
         self._check_init(space)
         return space.getattr(self.w_buffer, space.wrap("name"))
 
@@ -960,7 +960,7 @@ class W_TextIOWrapper(W_TextIOBase):
         cookie.chars_to_skip = chars_to_skip
         return space.newlong_from_rbigint(cookie.pack())
 
-    def chunk_size_get_w(space, self):
+    def chunk_size_get_w(self, space):
         self._check_init(space)
         return space.wrap(self.chunk_size)
 

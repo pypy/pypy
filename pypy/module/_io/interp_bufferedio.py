@@ -150,14 +150,14 @@ class BufferedMixin:
         self.abs_pos = pos
         return pos
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("closed"))
 
-    def name_get_w(space, self):
+    def name_get_w(self, space):
         return space.getattr(self.w_raw, space.wrap("name"))
 
-    def mode_get_w(space, self):
+    def mode_get_w(self, space):
         return space.getattr(self.w_raw, space.wrap("mode"))
 
     def readable_w(self, space):
@@ -863,7 +863,7 @@ class W_BufferedRWPair(W_BufferedIOBase):
             return space.w_True
         return space.call_method(self.w_reader, "isatty")
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         return space.getattr(self.w_writer, space.wrap("closed"))
 
 methods = dict((method, interp2app(getattr(W_BufferedRWPair, method + '_w')))
