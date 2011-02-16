@@ -93,6 +93,9 @@ class W_ListObject(W_Object):
     def deleteitem(self, index):
         self.strategy.deleteitem(self, index)
 
+    def setitem(self, index, w_item):
+        self.strategy.setitem(self, index, w_item)
+
 registerimplementation(W_ListObject)
 
 
@@ -119,6 +122,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def deleteitem(self, w_list, index):
+        raise NotImplementedError
+
+    def setitem(self, w_list, index, w_item):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
@@ -157,6 +163,9 @@ class EmptyListStrategy(ListStrategy):
     def deleteitem(self, w_list, index):
         raise IndexError
 
+    def setitem(self, w_list, index, w_item):
+        raise IndexError
+
 class ObjectListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "object")
@@ -190,6 +199,10 @@ class ObjectListStrategy(ListStrategy):
     def deleteitem(self, w_list, index):
         list_w = cast_from_void_star(w_list.storage, "object")
         del list_w[index]
+
+    def setitem(self, w_list, index, w_item):
+        list_w = cast_from_void_star(w_list.storage, "object")
+        list_w[index] = w_item
 
 class IntegerListStrategy(ListStrategy):
 
@@ -234,6 +247,10 @@ class IntegerListStrategy(ListStrategy):
         list_w = cast_from_void_star(w_list.storage, "integer")
         del list_w[index]
 
+    def setitem(self, w_list, index, w_item):
+        list_w = cast_from_void_star(w_list.storage, "integer")
+        list_w[index] = w_item
+
 class StringListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
@@ -276,6 +293,10 @@ class StringListStrategy(ListStrategy):
     def deleteitem(self, w_list, index):
         list_w = cast_from_void_star(w_list.storage, "string")
         del list_w[index]
+
+    def setitem(self, w_list, index, w_item):
+        list_w = cast_from_void_star(w_list.storage, "string")
+        list_w[index] = w_item
 
 # _______________________________________________________
 
@@ -490,7 +511,8 @@ def _delitem_slice_helper(space, items, start, step, slicelength):
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
     idx = get_list_index(space, w_index)
     try:
-        w_list.wrappeditems[idx] = w_any
+        #w_list.wrappeditems[idx] = w_any
+        w_list.setitem(idx, w_any)
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))

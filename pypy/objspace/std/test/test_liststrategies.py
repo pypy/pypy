@@ -41,5 +41,17 @@ class TestW_ListStrategies(TestW_ListObject):
         l.append(self.space.wrap(3))
         assert isinstance(l.strategy, ObjectListStrategy)
 
+    def test_setitem(self):
+        # This should work if test_listobject.py passes
+        l = W_ListObject([self.space.wrap('a'),self.space.wrap('b'),self.space.wrap('c')])
+        assert self.space.eq_w(l.getitem(0), self.space.wrap('a'))
+        l.setitem(0, self.space.wrap('d'))
+        assert self.space.eq_w(l.getitem(0), self.space.wrap('d'))
+
+        # Test strategy change
+        l = W_ListObject([self.space.wrap(1),self.space.wrap(2),self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.setitem(0, self.space.wrap('d'))
+        assert isinstance(l.strategy, ObjectListStrategy)
 
 
