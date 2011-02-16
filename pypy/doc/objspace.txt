@@ -142,6 +142,9 @@ introduce them as shortcuts.
 ``hash_w(w_obj):``
   Shortcut for space.int_w(space.hash(w_obj))
 
+``len_w(w_obj):``
+  Shortcut for space.int_w(space.len(w_obj))
+
 ``not_(w_obj):``
   Shortcut for space.newbool(not space.is_true(w_obj))
 
