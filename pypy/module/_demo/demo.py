@@ -18,6 +18,7 @@ def get(space, name):
     return space.getattr(w_module, space.wrap(name))
 
 
+@unwrap_spec(repetitions=int)
 def measuretime(space, repetitions, w_callable):
     if repetitions <= 0:
         w_DemoError = get(space, 'DemoError')
@@ -28,8 +29,8 @@ def measuretime(space, repetitions, w_callable):
         space.call_function(w_callable)
     endtime = time(0)
     return space.wrap(endtime - starttime)
-measuretime.unwrap_spec = [ObjSpace, int, W_Root]
 
+@unwrap_spec(n=int)
 def sieve(space, n):
     lst = range(2, n + 1)
     head = 0
@@ -46,7 +47,6 @@ def sieve(space, n):
                 newlst.append(element)
         lst = newlst
         head += 1
-sieve.unwrap_spec = [ObjSpace, int]
  
 class W_MyType(Wrappable):
     def __init__(self, space, x=1):
@@ -64,11 +64,11 @@ class W_MyType(Wrappable):
     def fset_x(space, self, w_value):
         self.x = space.int_w(w_value)
 
+@unwrap_spec(x=int)
 def mytype_new(space, w_subtype, x):
     if x == 3:
         return space.wrap(MySubType(space, x))
     return space.wrap(W_MyType(space, x))
-mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
 
 getset_x = GetSetProperty(W_MyType.fget_x, W_MyType.fset_x, cls=W_MyType)
 
