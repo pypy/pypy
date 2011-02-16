@@ -48,10 +48,17 @@ class TestW_ListStrategies(TestW_ListObject):
         l.setitem(0, self.space.wrap('d'))
         assert self.space.eq_w(l.getitem(0), self.space.wrap('d'))
 
-        # Test strategy change
+        assert isinstance(l.strategy, StringListStrategy)
+
+        # IntStrategy to ObjectStrategy
         l = W_ListObject([self.space.wrap(1),self.space.wrap(2),self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
         l.setitem(0, self.space.wrap('d'))
         assert isinstance(l.strategy, ObjectListStrategy)
 
+        # StringStrategy to ObjectStrategy
+        l = W_ListObject([self.space.wrap('a'),self.space.wrap('b'),self.space.wrap('c')])
+        assert isinstance(l.strategy, StringListStrategy)
+        l.setitem(0, self.space.wrap(2))
+        assert isinstance(l.strategy, ObjectListStrategy)
 

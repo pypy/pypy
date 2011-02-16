@@ -251,6 +251,10 @@ class IntegerListStrategy(ListStrategy):
         list_w = cast_from_void_star(w_list.storage, "integer")
         list_w[index] = w_item
 
+        if not is_W_IntObject(w_item):
+            w_list.strategy = ObjectListStrategy()
+            w_list.strategy.init_from_list_w(w_list, list_w)
+
 class StringListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
@@ -297,6 +301,10 @@ class StringListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_item):
         list_w = cast_from_void_star(w_list.storage, "string")
         list_w[index] = w_item
+
+        if not is_W_StringObject(w_item):
+            w_list.strategy = ObjectListStrategy()
+            w_list.strategy.init_from_list_w(w_list, list_w)
 
 # _______________________________________________________
 
