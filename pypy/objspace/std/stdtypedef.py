@@ -171,8 +171,6 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
     wrapper_arglist = solid_arglist[:]
     if multimethod.extras.get('varargs_w', False):
         wrapper_arglist.append('args_w')
-    if multimethod.extras.get('w_varargs', False):
-        wrapper_arglist.append('w_args')        
     if multimethod.extras.get('keywords', False):
         raise Exception, "no longer supported, use __args__"
     if multimethod.extras.get('general__args__', False):
@@ -245,8 +243,6 @@ def wrap_trampoline_in_gateway(func, methname, multimethod):
     unwrap_spec = [baseobjspace.ObjSpace] + [baseobjspace.W_Root]*multimethod.arity
     if multimethod.extras.get('varargs_w', False):
         unwrap_spec.append('args_w')
-    if multimethod.extras.get('w_varargs', False):
-        unwrap_spec.append('w_args')        
     if multimethod.extras.get('general__args__', False):
         unwrap_spec.append(argument.Arguments)
     if 'doc' in multimethod.extras:
