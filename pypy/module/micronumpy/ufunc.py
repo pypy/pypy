@@ -19,4 +19,3 @@ def minimum(space, w_a, w_b):
         else:
             res.storage[i] = two
     return space.wrap(res)
-minimum.unwrap_spec = [ObjSpace, W_Root, W_Root]
