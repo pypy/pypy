@@ -9,7 +9,6 @@ from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from pypy.rlib.jit import current_trace_length
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import ObjSpace, Arguments, W_Root
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
@@ -119,13 +118,13 @@ class __extend__(PyCode):
 #
 # Public interface    
 
-def set_param(space, args):
+def set_param(space, __args__):
     '''Configure the tunable JIT parameters.
         * set_param(name=value, ...)            # as keyword arguments
         * set_param("name=value,name=value")    # as a user-supplied string
     '''
     # XXXXXXXXX
-    args_w, kwds_w = args.unpack()
+    args_w, kwds_w = __args__.unpack()
     if len(args_w) > 1:
         msg = "set_param() takes at most 1 non-keyword argument, %d given"
         raise operationerrfmt(space.w_TypeError, msg, len(args_w))
@@ -144,11 +143,8 @@ def set_param(space, args):
             raise operationerrfmt(space.w_TypeError,
                                   "no JIT parameter '%s'", key)
 
-set_param.unwrap_spec = [ObjSpace, Arguments]
-
 @dont_look_inside
-def residual_call(space, w_callable, args):
+def residual_call(space, w_callable, __args__):
     '''For testing.  Invokes callable(...), but without letting
     the JIT follow the call.'''
-    return space.call_args(w_callable, args)
-residual_call.unwrap_spec = [ObjSpace, W_Root, Arguments]
+    return space.call_args(w_callable, __args__)
