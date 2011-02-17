@@ -1,5 +1,6 @@
 
 import py, sys, re
+py.test.skip("in-progress?")
 import subprocess
 import disassembler
 from pypy.tool.udir import udir
