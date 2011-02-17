@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, new_exception_class
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
@@ -562,3 +562,11 @@ def sslwrap(space, w_socket, side, w_key_file=None, w_cert_file=None,
 sslwrap.unwrap_spec = [ObjSpace, W_Root, int, W_Root, W_Root,
                        int, int, W_Root, W_Root]
 
+class Cache:
+    def __init__(self, space):
+        w_socketerror = interp_socket.get_error(space, "error")
+        self.w_error = new_exception_class(
+            space, "_ssl.SSLError", w_socketerror)
+
+def get_error(space):
+    return space.fromcache(Cache).w_error

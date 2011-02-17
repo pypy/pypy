@@ -4,10 +4,12 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import new_exception_class
 from pypy.interpreter import gateway
 
 class SignalChecker:
@@ -451,10 +453,27 @@ descr_socket_new = interp2app(newsocket,
 # ____________________________________________________________
 # Error handling
 
+class SocketAPI:
+    def __init__(self, space):
+        self.w_error = new_exception_class(
+            space, "_socket.error", space.w_IOError)
+        self.w_herror = new_exception_class(
+            space, "_socket.herror", self.w_error)
+        self.w_gaierror = new_exception_class(
+            space, "_socket.gaierror", self.w_error)
+        self.w_timeout = new_exception_class(
+            space, "_socket.timeout", self.w_error)
+
+    @specialize.memo()
+    def get_exception(self, applevelerrcls):
+        return getattr(self, 'w_' + applevelerrcls)
+
+def get_error(space, name):
+    return space.fromcache(SocketAPI).get_exception(name)
+
 def converted_error(space, e):
     message = e.get_msg()
-    w_module = space.getbuiltinmodule('_socket')
-    w_exception_class = space.getattr(w_module, space.wrap(e.applevelerrcls))
+    w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
         w_exception = space.call_function(w_exception_class, space.wrap(e.errno),
                                       space.wrap(message))
