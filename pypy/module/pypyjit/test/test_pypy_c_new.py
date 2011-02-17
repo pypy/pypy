@@ -62,6 +62,7 @@ class BaseTestPyPyC(object):
         assert res == func()
         log = logparser.parse_log_file(str(logfile))
         parts = logparser.extract_category(log, 'jit-log-opt-')
+        import pdb;pdb.set_trace()
         log.xxx
         return Trace()
 
@@ -70,13 +71,16 @@ class TestInfrastructure(BaseTestPyPyC):
         def f():
             i = 0
             x = 0
-            # LOOP name
+            # LOOP my_loop
             z = x + 3
             return z
 
         res = self.parse_func(f)
         assert len(res) == 1
-        assert len(res['name']) == 6
+        my_loop = res['my_loop']
+        opcodes_names = [opcode.__class__.__name__ for opcode in my_loop]
+        assert opcodes_names == ['LOAD_CONST', 'STORE_FAST', 'LOAD_FAST',
+                                 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
     def test_full(self):
         py.test.skip('in-progress')
