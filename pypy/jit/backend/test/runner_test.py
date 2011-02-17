@@ -559,6 +559,8 @@ class BaseBackendTest(Runner):
         assert res.value == ord('a')
 
     def test_call_with_const_floats(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         def func(f1, f2):
             return f1 + f2
 
