@@ -1,8 +1,6 @@
-
 import py, sys, re
-py.test.skip("in-progress?")
 import subprocess
-import disassembler
+from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
 
@@ -11,6 +9,13 @@ class Trace(object):
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
+        from pypy.conftest import option
+        from pypy.module.pypyjit.test.test_pypy_c import has_info
+        if option.pypy_c is None:
+            py.test.skip("pass --pypy!")
+        if not has_info(option.pypy_c, 'translation.jit'):
+            py.test.skip("must give a pypy-c with the jit enabled")
+        cls.pypy_c = option.pypy_c
         cls.tmpdir = udir.join('test-pypy-jit')
         cls.tmpdir.ensure(dir=True)
 
@@ -46,7 +51,7 @@ class BaseTestPyPyC(object):
             f.write(str(py.code.Source(func)) + "\n")
             f.write("print %s()\n" % func.func_name)
         logfile = self.filepath.new(ext='.log')
-        pipe = subprocess.Popen([sys.executable, str(self.filepath)],
+        pipe = subprocess.Popen([self.pypy_c, str(self.filepath)],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 env={'PYPYLOG': "jit-log-opt,jit-summary:" + str(logfile)})
         pipe.wait()
@@ -74,6 +79,7 @@ class TestInfrastructure(BaseTestPyPyC):
         assert len(res['name']) == 6
 
     def test_full(self):
+        py.test.skip('in-progress')
         def f():
             i = 0
             while i < 1003:
