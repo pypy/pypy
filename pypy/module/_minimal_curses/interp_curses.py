@@ -1,5 +1,5 @@
 
-from pypy.interpreter.baseobjspace import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.module._minimal_curses import _curses
 

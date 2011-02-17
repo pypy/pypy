@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
