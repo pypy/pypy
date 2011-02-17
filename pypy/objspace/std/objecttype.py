@@ -210,6 +210,7 @@ object_typedef = StdTypeDef("object",
     __reduce_ex__ = gateway.interp2app(descr__reduce_ex__),
     __reduce__ = gateway.interp2app(descr__reduce__),
     __format__ = gateway.interp2app(descr___format__),
-    __subclasshook__ = gateway.interp2app(descr___subclasshook__),
+    __subclasshook__ = gateway.interp2app(descr___subclasshook__,
+                                          as_classmethod=True),
     __init__ = gateway.interp2app(descr__init__),
     )
