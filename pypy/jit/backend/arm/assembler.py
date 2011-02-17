@@ -476,26 +476,26 @@ class AssemblerARM(ResOpAssembler):
 
     def _walk_operations(self, operations, regalloc):
         fcond=c.AL
-        i = 0
-        while i < len(operations):
-            regalloc.position = i
+        while regalloc.position < len(operations) - 1:
+            regalloc.next_instruction()
+            i = regalloc.position
             op = operations[i]
             opnum = op.getopnum()
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
-                i += 1
                 regalloc.possibly_free_vars_for_op(op)
-                continue
             elif self.can_merge_with_next_guard(op, i, operations):
                 arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
                                         operations[i+1], fcond)
                 fcond = self.operations_with_guard[opnum](self, op,
                                         operations[i+1], arglocs, regalloc, fcond)
-                i += 1
-                regalloc.position = i
+                regalloc.next_instruction()
             else:
                 arglocs = regalloc.operations[opnum](regalloc, op, fcond)
                 fcond = self.operations[opnum](self, op, arglocs, regalloc, fcond)
-            i += 1
+            if op.result:
+                regalloc.possibly_free_var(op.result)
+            regalloc.possibly_free_vars_for_op(op)
+            regalloc._check_invariants()
 
     def can_merge_with_next_guard(self, op, i, operations):
         if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
