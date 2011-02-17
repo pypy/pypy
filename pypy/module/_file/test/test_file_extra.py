@@ -520,6 +520,14 @@ class AppTestAFewExtra:
         assert data == 'hel'
         f.close()
 
+        import errno, sys
+        f = open(fn)
+        exc = raises(OSError, f.truncate, 3)
+        assert exc.value.errno == errno.EACCES
+        if sys.platform == 'win32':
+            assert exc.value.winerror == 5 # ERROR_ACCESS_DENIED
+        f.close()
+
     def test_readinto(self):
         from array import array
         a = array('c')
