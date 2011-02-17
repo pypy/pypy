@@ -76,7 +76,7 @@ def test_wrap_oserror():
                                     ["test.py"])
 
 def test_new_exception(space):
-    w_error = new_exception_class(space, 'error', module="_socket")
+    w_error = new_exception_class(space, '_socket.error')
     assert w_error.getname(space) == 'error'
     assert space.str_w(space.repr(w_error)) == "<class '_socket.error'>"
     operr = OperationError(w_error, space.wrap("message"))

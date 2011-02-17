@@ -409,14 +409,17 @@ def exception_from_errno(space, w_type):
     w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
     return OperationError(w_type, w_error)
 
-def new_exception_class(space, name, w_bases=None, module=None, w_dict=None):
+def new_exception_class(space, name, w_bases=None, w_dict=None):
     """Create a new exception type.
     @param name: the name of the type.
     @param w_bases: Either an exception type, or a wrapped tuple of
                     exception types.  default is space.w_Exception.
-    @param module: optional module name.
     @param w_dict: an optional dictionary to populate the class __dict__.
     """
+    if '.' in name:
+        module, name = name.rsplit('.', 1)
+    else:
+        module = None
     if w_bases is None:
         w_bases = space.newtuple([space.w_Exception])
     elif not space.isinstance_w(w_bases, space.w_tuple):
@@ -425,6 +428,6 @@ def new_exception_class(space, name, w_bases=None, module=None, w_dict=None):
         w_dict = space.newdict()
     w_exc = space.call_function(
         space.w_type, space.wrap(name), w_bases, w_dict)
-    if module is not None:
+    if module:
         space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
     return w_exc
