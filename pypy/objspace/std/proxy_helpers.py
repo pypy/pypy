@@ -30,7 +30,7 @@ def install_general_args_trampoline(type_, mm, is_local, op_name):
 
 def install_args_w_trampoline(type_, mm, is_local, op_name):
     def function(space, w_transparent_list, *args_w):
-        args = Arguments(space, [space.wrap(op_name)] + list(args_w[:-1]), w_stararg=args_w[-1])
+        args = Arguments(space, [space.wrap(op_name)] + list(args_w[:-1]) + args_w[-1])
         return space.call_args(w_transparent_list.w_controller, args)
     
     function = func_with_new_name(function, mm.name)
