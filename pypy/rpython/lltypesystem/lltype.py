@@ -21,6 +21,8 @@ class WeakValueDictionary(weakref.WeakValueDictionary):
         weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
         remove_base = self._remove
         def remove(*args):
+            if TLS is None: # Happens when the interpreter is shutting down
+                return remove_base(*args)
             nested_hash_level = TLS.nested_hash_level
             try:
                 # The 'remove' function is called when an object dies.  This
