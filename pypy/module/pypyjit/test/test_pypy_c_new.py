@@ -28,20 +28,38 @@ class BaseTestPyPyC(object):
         except ValueError:
             return out
 
-    def parse_func(self, func):
-        # find lines such as # LOOP <name> is in a line
-        code = disassembler.dis(func)
+    def find_chunks_range(self, func):
+        """
+        Parse the given function and return a dictionary mapping "chunk
+        names" to "line ranges".  Chunks are identified by comments with a
+        special syntax::
+
+            # the chunk "myid" corresponds to the whole line
+            print 'foo' # ID: myid
+        """
         result = {}
+        start_lineno = func.func_code.co_firstlineno
         for i, line in enumerate(py.code.Source(func)):
-            m = re.search('# LOOP (\w+)', line)
+            m = re.search('# ID: (\w+)', line)
             if m:
                 name = m.group(1)
-                result[name] = []
-                for opcode in code.opcodes:
-                    no = opcode.lineno - func.func_code.co_firstlineno
-                    if i - 1 <= no <= i + 1:
-                        result[name].append(opcode)
+                lineno = start_lineno+i
+                result[name] = xrange(lineno, lineno+1)
         return result
+
+    def find_chunks(self, func):
+        """
+        Parse the given function and return a dictionary mapping "chunk names"
+        to "opcodes".
+        """
+        chunks = {}
+        code = disassembler.dis(func)
+        ranges = self.find_chunks_range(func)
+        for name, linerange in ranges.iteritems():
+            opcodes = [opcode for opcode in code.opcodes
+                       if opcode.lineno in linerange]
+            chunks[name] = opcodes
+        return chunks
     
     def run(self, func):
         with self.filepath.open("w") as f:
@@ -64,20 +82,30 @@ class BaseTestPyPyC(object):
         return Trace()
 
 class TestInfrastructure(BaseTestPyPyC):
-    def test_parse_func(self):
+
+    def test_find_chunks_range(self):
+        def f():
+            a = 0 # ID: myline
+            return a
+        #
+        start_lineno = f.func_code.co_firstlineno
+        ids = self.find_chunks_range(f)
+        assert len(ids) == 1
+        myline_range = ids['myline']
+        assert list(myline_range) == range(start_lineno+1, start_lineno+2)
+
+    def test_find_chunks(self):
         def f():
             i = 0
             x = 0
-            # LOOP my_loop
-            z = x + 3
+            z = x + 3 # ID: myline
             return z
-
-        res = self.parse_func(f)
-        assert len(res) == 1
-        my_loop = res['my_loop']
-        opcodes_names = [opcode.__class__.__name__ for opcode in my_loop]
-        assert opcodes_names == ['LOAD_CONST', 'STORE_FAST', 'LOAD_FAST',
-                                 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
+        #
+        chunks = self.find_chunks(f)
+        assert len(chunks) == 1
+        myline = chunks['myline']
+        opcodes_names = [opcode.__class__.__name__ for opcode in myline]
+        assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
     def test_full(self):
         py.test.skip('in-progress')
