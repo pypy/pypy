@@ -584,7 +584,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_false(i1) []
         jump(i0)
         """
-        self.optimize_loop(ops, 'Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_ooisnull_oononnull_2(self):
         ops = """
