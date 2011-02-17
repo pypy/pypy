@@ -158,7 +158,7 @@ class RegisterManager(object):
 
     def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
                                 need_lower_byte=False):
-        """ Silly algorithm.
+        """ Slightly less silly algorithm.
         """
         cur_max_age = -1
         candidate = None
