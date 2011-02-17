@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 import py
 
-from .. import datetime
+from lib_pypy import datetime
 
 def test_repr():
     print datetime
