@@ -749,7 +749,7 @@ for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv"
     meth = new.instancemethod(func, None, W_InstanceObject)
     rawdict[specialname] = interp2app(meth)
     rmeth = new.instancemethod(rfunc, None, W_InstanceObject)
-    rawdict[rspecialname] = interp2app(meth)
+    rawdict[rspecialname] = interp2app(rmeth)
 
 
 def descr_del_dict(space, w_inst):
