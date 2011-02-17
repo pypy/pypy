@@ -14,4 +14,5 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'deque' : 'interp_deque.W_Deque',
+        '__missing__': 'interp_defaultdict.missing',
         }

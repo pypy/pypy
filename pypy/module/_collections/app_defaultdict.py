@@ -4,7 +4,10 @@
 #
 # The issue is that for now we don't support writing interp-level
 # subclasses of Wrappable that inherit at app-level from a type like
-# 'dict'.
+# 'dict'.  But what we can do is write individual methods at
+# interp-level.
+
+import _collections
 
 
 class defaultdict(dict):
@@ -19,11 +22,8 @@ class defaultdict(dict):
         super(defaultdict, self).__init__(*args, **kwds)
  
     def __missing__(self, key):
-        # from defaultdict docs
-        if self.default_factory is None: 
-            raise KeyError(key)
-        self[key] = value = self.default_factory()
-        return value
+        pass    # this method is written at interp-level
+    __missing__.func_code = _collections.__missing__.func_code
 
     def __repr__(self, recurse=set()):
         # XXX not thread-safe, but good enough
