@@ -297,11 +297,10 @@ class OpAssembler(object):
             self._adjust_sp(-n, fcond=fcond)
 
         # restore the argumets stored on the stack
-        if spill_all_regs:
+        if result is not None:
             regalloc.after_call(result)
-        else:
+        if not spill_all_regs:
             if result is not None:
-                regalloc.after_call(result)
                 self.mc.POP([reg.value for reg in r.caller_resp][1:])
             else:
                 self.mc.POP([reg.value for reg in r.caller_resp])
@@ -678,7 +677,7 @@ class ForceOpAssembler(object):
         assert resloc is r.r0
         self.mc.gen_load_int(r.ip.value, value)
         self.mc.CMP_rr(resloc.value, r.ip.value)
-
+        regalloc.possibly_free_var(resbox)
 
         fast_jmp_pos = self.mc.currpos()
         self.mc.NOP()
@@ -695,7 +694,8 @@ class ForceOpAssembler(object):
         self.mov_loc_loc(arglocs[1], r.r1)
         self.mc.BL(asm_helper_adr)
         self.mc.POP([reg.value for reg in r.caller_resp][1:])
-        regalloc.after_call(op.result)
+        if op.result:
+            regalloc.after_call(op.result)
         # jump to merge point
         jmp_pos = self.mc.currpos()
         #jmp_location = self.mc.curraddr()
@@ -715,10 +715,11 @@ class ForceOpAssembler(object):
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, BaseFieldDescr)
             ofs = fielddescr.offset
+            resloc = regalloc.force_allocate_reg(resbox)
             self.mov_loc_loc(arglocs[1], r.ip, cond=c.MI)
             self.mc.MOV_ri(resloc.value, 0, cond=c.MI)
             self.mc.STR_ri(resloc.value, r.ip.value, ofs*WORD, cond=c.MI)
-        regalloc.possibly_free_var(resbox)
+            regalloc.possibly_free_var(resbox)
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
