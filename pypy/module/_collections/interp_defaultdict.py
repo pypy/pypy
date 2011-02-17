@@ -6,7 +6,7 @@ def missing(space, w_self, w_key):
     # threads.
     w_default_factory = space.getattr(w_self, space.wrap('default_factory'))
     if space.is_w(w_default_factory, space.w_None):
-        raise OperationError(space.w_KeyError, w_key)
+        raise OperationError(space.w_KeyError, space.newtuple([w_key]))
     w_value = space.call_function(w_default_factory)
     space.setitem(w_self, w_key, w_value)
     return w_value
