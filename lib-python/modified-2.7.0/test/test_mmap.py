@@ -168,9 +168,11 @@ class MmapTests(unittest.TestCase):
         else:
             self.fail("Able to resize readonly memory map")
         f.close()
+        m.close()
         del m, f
-        self.assertEqual(open(TESTFN, "rb").read(), 'a'*mapsize,
-               "Readonly memory map data file was modified")
+        with open(TESTFN, "rb") as f:
+            self.assertEqual(f.read(), 'a'*mapsize,
+                "Readonly memory map data file was modified")
 
         # Opening mmap with size too big
         import sys
@@ -220,11 +222,13 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m[:], 'd' * mapsize,
                "Copy-on-write memory map data not written correctly.")
         m.flush()
-        self.assertEqual(open(TESTFN, "rb").read(), 'c'*mapsize,
-               "Copy-on-write test data file should not be modified.")
+        f.close()
+        with open(TESTFN, "rb") as f:
+            self.assertEqual(f.read(), 'c'*mapsize,
+                "Copy-on-write test data file should not be modified.")
         # Ensuring copy-on-write maps cannot be resized
         self.assertRaises(TypeError, m.resize, 2*mapsize)
-        f.close()
+        m.close()
         del m, f
 
         # Ensuring invalid access parameter raises exception
@@ -279,6 +283,7 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m.find('one', 1), 8)
         self.assertEqual(m.find('one', 1, -1), 8)
         self.assertEqual(m.find('one', 1, -2), -1)
+        m.close()
 
 
     def test_rfind(self):
@@ -297,6 +302,7 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m.rfind('one', 0, -2), 0)
         self.assertEqual(m.rfind('one', 1, -1), 8)
         self.assertEqual(m.rfind('one', 1, -2), -1)
+        m.close()
 
 
     def test_double_close(self):
@@ -538,6 +544,7 @@ class MmapTests(unittest.TestCase):
         self.assertEquals(m[:], "012bar6789")
         m.seek(8)
         self.assertRaises(ValueError, m.write, "bar")
+        m.close()
 
     if os.name == 'nt':
         def test_tagname(self):
