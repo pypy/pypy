@@ -16,7 +16,7 @@ from pypy.tool.udir import udir
 from pypy.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
@@ -939,7 +939,7 @@ def setup_library(space):
     copy_header_files(trunk_include)
 
 initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
-@unwrap_spec(ObjSpace, str, str)
+@unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path

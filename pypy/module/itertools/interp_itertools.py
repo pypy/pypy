@@ -1,8 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root, unwrap_spec
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
@@ -51,7 +50,6 @@ def check_number(space, w_obj):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected a number"))
 
-@unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
     check_number(space, w_start)
     check_number(space, w_step)
@@ -63,10 +61,10 @@ W_Count.typedef = TypeDef(
         'count',
         __module__ = 'itertools',
         __new__ = interp2app(W_Count___new__),
-        __iter__ = interp2app(W_Count.iter_w, unwrap_spec=['self']),
-        next = interp2app(W_Count.next_w, unwrap_spec=['self']),
-        __reduce__ = interp2app(W_Count.reduce_w, unwrap_spec=['self']),
-        __repr__ = interp2app(W_Count.repr_w, unwrap_spec=['self']),
+        __iter__ = interp2app(W_Count.iter_w),
+        next = interp2app(W_Count.next_w),
+        __reduce__ = interp2app(W_Count.reduce_w),
+        __repr__ = interp2app(W_Count.repr_w),
         __doc__ = """Make an iterator that returns consecutive integers starting
     with n.  If not specified n defaults to zero. Does not currently
     support python long integers. Often used as an argument to imap()
@@ -123,10 +121,10 @@ def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
 W_Repeat.typedef = TypeDef(
         'repeat',
         __module__ = 'itertools',
-        __new__  = interp2app(W_Repeat___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-        __iter__ = interp2app(W_Repeat.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_Repeat.next_w, unwrap_spec=['self']),
-        __repr__ = interp2app(W_Repeat.repr_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_Repeat___new__),
+        __iter__ = interp2app(W_Repeat.iter_w),
+        next     = interp2app(W_Repeat.next_w),
+        __repr__ = interp2app(W_Repeat.repr_w),
         __doc__  = """Make an iterator that returns object over and over again.
     Runs indefinitely unless the times argument is specified.  Used
     as argument to imap() for invariant parameters to the called
@@ -176,9 +174,9 @@ def W_TakeWhile___new__(space, w_subtype, w_predicate, w_iterable):
 W_TakeWhile.typedef = TypeDef(
         'takewhile',
         __module__ = 'itertools',
-        __new__  = interp2app(W_TakeWhile___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-        __iter__ = interp2app(W_TakeWhile.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_TakeWhile.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_TakeWhile___new__),
+        __iter__ = interp2app(W_TakeWhile.iter_w),
+        next     = interp2app(W_TakeWhile.next_w),
         __doc__  = """Make an iterator that returns elements from the iterable as
     long as the predicate is true.
 
@@ -225,9 +223,9 @@ def W_DropWhile___new__(space, w_subtype, w_predicate, w_iterable):
 W_DropWhile.typedef = TypeDef(
         'dropwhile',
         __module__ = 'itertools',
-        __new__  = interp2app(W_DropWhile___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-        __iter__ = interp2app(W_DropWhile.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_DropWhile.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_DropWhile___new__),
+        __iter__ = interp2app(W_DropWhile.iter_w),
+        next     = interp2app(W_DropWhile.next_w),
         __doc__  = """Make an iterator that drops elements from the iterable as long
     as the predicate is true; afterwards, returns every
     element. Note, the iterator does not produce any output until the
@@ -282,9 +280,9 @@ def W_IFilter___new__(space, w_subtype, w_predicate, w_iterable):
 W_IFilter.typedef = TypeDef(
         'ifilter',
         __module__ = 'itertools',
-        __new__  = interp2app(W_IFilter___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-        __iter__ = interp2app(W_IFilter.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_IFilter.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_IFilter___new__),
+        __iter__ = interp2app(W_IFilter.iter_w),
+        next     = interp2app(W_IFilter.next_w),
         __doc__  = """Make an iterator that filters elements from iterable returning
     only those for which the predicate is True.  If predicate is
     None, return the items that are true.
@@ -310,9 +308,9 @@ def W_IFilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
 W_IFilterFalse.typedef = TypeDef(
         'ifilterfalse',
         __module__ = 'itertools',
-        __new__  = interp2app(W_IFilterFalse___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-        __iter__ = interp2app(W_IFilterFalse.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_IFilterFalse.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_IFilterFalse___new__),
+        __iter__ = interp2app(W_IFilterFalse.iter_w),
+        next     = interp2app(W_IFilterFalse.next_w),
         __doc__  = """Make an iterator that filters elements from iterable returning
     only those for which the predicate is False.  If predicate is
     None, return the items that are false.
@@ -401,9 +399,9 @@ def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
 W_ISlice.typedef = TypeDef(
         'islice',
         __module__ = 'itertools',
-        __new__  = interp2app(W_ISlice___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, 'args_w']),
-        __iter__ = interp2app(W_ISlice.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_ISlice.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_ISlice___new__),
+        __iter__ = interp2app(W_ISlice.iter_w),
+        next     = interp2app(W_ISlice.next_w),
         __doc__  = """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are
@@ -469,11 +467,10 @@ def chain_from_iterable(space, w_cls, w_arg):
 W_Chain.typedef = TypeDef(
         'chain',
         __module__ = 'itertools',
-        __new__  = interp2app(W_Chain___new__, unwrap_spec=[ObjSpace, W_Root, 'args_w']),
-        __iter__ = interp2app(W_Chain.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_Chain.next_w, unwrap_spec=['self']),
-        from_iterable = interp2app(chain_from_iterable, unwrap_spec=[ObjSpace, W_Root, W_Root],
-                                   as_classmethod=True),
+        __new__  = interp2app(W_Chain___new__),
+        __iter__ = interp2app(W_Chain.iter_w),
+        next     = interp2app(W_Chain.next_w),
+        from_iterable = interp2app(chain_from_iterable, as_classmethod=True),
         __doc__  = """Make an iterator that returns elements from the first iterable
     until it is exhausted, then proceeds to the next iterable, until
     all of the iterables are exhausted. Used for treating consecutive
@@ -550,9 +547,9 @@ def W_IMap___new__(space, w_subtype, w_fun, args_w):
 W_IMap.typedef = TypeDef(
         'imap',
         __module__ = 'itertools',
-        __new__  = interp2app(W_IMap___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, 'args_w']),
-        __iter__ = interp2app(W_IMap.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_IMap.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_IMap___new__),
+        __iter__ = interp2app(W_IMap.iter_w),
+        next     = interp2app(W_IMap.next_w),
         __doc__  = """Make an iterator that computes the function using arguments
     from each of the iterables. If function is set to None, then
     imap() returns the arguments as a tuple. Like map() but stops
@@ -595,9 +592,9 @@ def W_IZip___new__(space, w_subtype, args_w):
 W_IZip.typedef = TypeDef(
         'izip',
         __module__ = 'itertools',
-        __new__  = interp2app(W_IZip___new__, unwrap_spec=[ObjSpace, W_Root, 'args_w']),
-        __iter__ = interp2app(W_IZip.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_IZip.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_IZip___new__),
+        __iter__ = interp2app(W_IZip.iter_w),
+        next     = interp2app(W_IZip.next_w),
         __doc__  = """Make an iterator that aggregates elements from each of the
     iterables.  Like zip() except that it returns an iterator instead
     of a list. Used for lock-step iteration over several iterables at
@@ -643,7 +640,6 @@ class W_IZipLongest(W_IMap):
             objects_w[index] = w_value
         return space.newtuple(objects_w)
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def W_IZipLongest___new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
     w_fillvalue = space.w_None
@@ -666,8 +662,8 @@ W_IZipLongest.typedef = TypeDef(
         'izip_longest',
         __module__ = 'itertools',
         __new__  = interp2app(W_IZipLongest___new__),
-        __iter__ = interp2app(W_IZipLongest.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_IZipLongest.next_w, unwrap_spec=['self']),
+        __iter__ = interp2app(W_IZipLongest.iter_w),
+        next     = interp2app(W_IZipLongest.next_w),
         __doc__  = """Return an izip_longest object whose .next() method returns a tuple where
     the i-th element comes from the i-th iterable argument.  The .next()
     method continues until the longest iterable in the argument sequence
@@ -725,9 +721,9 @@ def W_Cycle___new__(space, w_subtype, w_iterable):
 W_Cycle.typedef = TypeDef(
         'cycle',
         __module__ = 'itertools',
-        __new__  = interp2app(W_Cycle___new__, unwrap_spec=[ObjSpace, W_Root, W_Root]),
-        __iter__ = interp2app(W_Cycle.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_Cycle.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_Cycle___new__),
+        __iter__ = interp2app(W_Cycle.iter_w),
+        next     = interp2app(W_Cycle.next_w),
         __doc__  = """Make an iterator returning elements from the iterable and
     saving a copy of each. When the iterable is exhausted, return
     elements from the saved copy. Repeats indefinitely.
@@ -766,10 +762,9 @@ def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
 W_StarMap.typedef = TypeDef(
         'starmap',
         __module__ = 'itertools',
-        __new__  = interp2app(W_StarMap___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-
-        __iter__ = interp2app(W_StarMap.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_StarMap.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_StarMap___new__),
+        __iter__ = interp2app(W_StarMap.iter_w),
+        next     = interp2app(W_StarMap.next_w),
         __doc__  = """Make an iterator that computes the function using arguments
     tuples obtained from the iterable. Used instead of imap() when
     argument parameters are already grouped in tuples from a single
@@ -786,6 +781,7 @@ W_StarMap.typedef = TypeDef(
     """)
 
 
+@unwrap_spec(n=int)
 def tee(space, w_iterable, n=2):
     """Return n independent iterators from a single iterable.
     Note : once tee() has made a split, the original iterable
@@ -825,7 +821,6 @@ def tee(space, w_iterable, n=2):
         tee_state = TeeState(space, w_iterable)
         iterators_w = [space.wrap(W_TeeIterable(space, tee_state)) for x in range(n)]
     return space.newtuple(iterators_w)
-tee.unwrap_spec = [ObjSpace, W_Root, int]
 
 class TeeState(object):
     def __init__(self, space, w_iterable):
@@ -872,11 +867,9 @@ def W_TeeIterable___new__(space, w_subtype, w_iterable):
 W_TeeIterable.typedef = TypeDef(
         '_tee',
         __module__ = 'itertools',
-        __new__ = interp2app(W_TeeIterable___new__, unwrap_spec=[ObjSpace,
-                                                                 W_Root,
-                                                                 W_Root]),
-        __iter__ = interp2app(W_TeeIterable.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_TeeIterable.next_w, unwrap_spec=['self']),
+        __new__ = interp2app(W_TeeIterable___new__),
+        __iter__ = interp2app(W_TeeIterable.iter_w),
+        next     = interp2app(W_TeeIterable.next_w),
         __weakref__ = make_weakref_descr(W_TeeIterable),
         )
 W_TeeIterable.typedef.acceptable_as_base_class = False
@@ -977,9 +970,9 @@ def W_GroupBy___new__(space, w_subtype, w_iterable, w_key=None):
 W_GroupBy.typedef = TypeDef(
         'groupby',
         __module__ = 'itertools',
-        __new__  = interp2app(W_GroupBy___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-        __iter__ = interp2app(W_GroupBy.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_GroupBy.next_w, unwrap_spec=['self']),
+        __new__  = interp2app(W_GroupBy___new__),
+        __iter__ = interp2app(W_GroupBy.iter_w),
+        next     = interp2app(W_GroupBy.next_w),
         __doc__  = """Make an iterator that returns consecutive keys and groups from the
     iterable. The key is a function computing a key value for each
     element. If not specified or is None, key defaults to an identity
@@ -1024,8 +1017,8 @@ class W_GroupByIterator(Wrappable):
 W_GroupByIterator.typedef = TypeDef(
         '_groupby',
         __module__ = 'itertools',
-        __iter__ = interp2app(W_GroupByIterator.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_GroupByIterator.next_w, unwrap_spec=['self']))
+        __iter__ = interp2app(W_GroupByIterator.iter_w),
+        next     = interp2app(W_GroupByIterator.next_w))
 W_GroupByIterator.typedef.acceptable_as_base_class = False
 
 
@@ -1056,10 +1049,9 @@ def W_Compress__new__(space, w_subtype, w_data, w_selectors):
 W_Compress.typedef = TypeDef(
     'compress',
     __module__ = 'itertools',
-    __new__ = interp2app(W_Compress__new__,
-                         unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
-    __iter__ = interp2app(W_Compress.iter_w, unwrap_spec=['self']),
-    next     = interp2app(W_Compress.next_w, unwrap_spec=['self']),
+    __new__ = interp2app(W_Compress__new__),
+    __iter__ = interp2app(W_Compress.iter_w),
+    next     = interp2app(W_Compress.next_w),
     __doc__ = """Make an iterator that filters elements from *data* returning
    only those that have a corresponding element in *selectors* that evaluates to
    ``True``.  Stops when either the *data* or *selectors* iterables has been
@@ -1115,11 +1107,9 @@ class W_Product(Wrappable):
             else:
                 break
 
-    @unwrap_spec("self", ObjSpace)
     def iter_w(self, space):
         return space.wrap(self)
 
-    @unwrap_spec("self", ObjSpace)
     def next_w(self, space):
         if not self.cont:
             raise OperationError(space.w_StopIteration, space.w_None)
@@ -1131,7 +1121,6 @@ class W_Product(Wrappable):
         return space.newtuple(l)
 
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def W_Product__new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
     w_repeat = space.wrap(1)
@@ -1197,11 +1186,9 @@ class W_Combinations(Wrappable):
     def max_index(self, j):
         return self.indices[j - 1] + 1
 
-    @unwrap_spec("self", ObjSpace)
     def descr__iter__(self, space):
         return self
 
-    @unwrap_spec("self", ObjSpace)
     def descr_next(self, space):
         if self.stopped:
             raise OperationError(space.w_StopIteration, space.w_None)
@@ -1242,7 +1229,7 @@ class W_Combinations(Wrappable):
         self.last_result_w = result_w
         return space.newtuple(result_w)
 
-@unwrap_spec(ObjSpace, W_Root, W_Root, int)
+@unwrap_spec(r=int)
 def W_Combinations__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
@@ -1278,7 +1265,7 @@ class W_CombinationsWithReplacement(W_Combinations):
     def max_index(self, j):
         return self.indices[j - 1]
 
-@unwrap_spec(ObjSpace, W_Root, W_Root, int)
+@unwrap_spec(r=int)
 def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
@@ -1316,11 +1303,9 @@ class W_Permutations(Wrappable):
             self.indices = range(n)
             self.cycles = range(n, n_minus_r, -1)
 
-    @unwrap_spec("self", ObjSpace)
     def descr__iter__(self, space):
         return self
 
-    @unwrap_spec("self", ObjSpace)
     def descr_next(self, space):
         if self.stopped:
             raise OperationError(space.w_StopIteration, space.w_None)
@@ -1347,7 +1332,6 @@ class W_Permutations(Wrappable):
         self.stopped = True
         return w_result
 
-@unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
     pool_w = space.fixedview(w_iterable)
     if space.is_w(w_r, space.w_None):

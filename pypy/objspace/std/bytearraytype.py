@@ -101,7 +101,6 @@ def makebytearraydata_w(space, w_source):
         data.append(value)
     return data
 
-@gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root)
 def descr_bytearray__reduce__(space, w_self):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     assert isinstance(w_self, W_BytearrayObject)
@@ -122,7 +121,6 @@ def _hex_digit_to_int(d):
         return val - 87
     return -1
 
-@gateway.unwrap_spec(ObjSpace, W_Root, W_Root)
 def descr_fromhex(space, w_type, w_hexstring):
     "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
     "from a string of hexadecimal numbers.\nSpaces between two numbers are "
@@ -164,9 +162,7 @@ bytearray_typedef = StdTypeDef("bytearray",
 bytearray(sequence) -> bytearray initialized from sequence\'s items
 
 If the argument is a bytearray, the return value is the same object.''',
-    __new__ = gateway.interp2app(descr__new__, unwrap_spec=[gateway.ObjSpace,
-                                               gateway.W_Root,
-                                               gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     __reduce__ = gateway.interp2app(descr_bytearray__reduce__),
     fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)

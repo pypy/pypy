@@ -87,6 +87,7 @@ def detect_floatformat():
 
 _double_format, _float_format = detect_floatformat()
 
+@gateway.unwrap_spec(kind=str)
 def descr___getformat__(space, w_cls, kind):
     if kind == "float":
         return space.wrap(_float_format)
@@ -111,6 +112,7 @@ def _hex_digit(s, j, co_end, float_digits):
         i = co_end - 1 - j
     return _hex_from_char(s[i])
 
+@gateway.unwrap_spec(s=str)
 def descr_fromhex(space, w_cls, s):
     length = len(s)
     i = 0
@@ -275,10 +277,8 @@ float_typedef = StdTypeDef("float",
 Convert a string or number to a floating point number, if possible.''',
     __new__ = gateway.interp2app(descr__new__),
     __getformat__ = gateway.interp2app(descr___getformat__,
-                                       unwrap_spec=[ObjSpace, W_Root, str],
                                        as_classmethod=True),
     fromhex = gateway.interp2app(descr_fromhex,
-                                 unwrap_spec=[ObjSpace, W_Root, str],
                                  as_classmethod=True),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),

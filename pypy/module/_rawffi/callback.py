@@ -1,7 +1,5 @@
 
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable,\
-     Arguments
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module._rawffi.array import get_elem, push_elem
@@ -93,13 +91,11 @@ class W_CallbackPtr(W_DataInstance):
             addr = rffi.cast(lltype.Signed, self.ll_callback.ll_closure)
             tracker.trace_free(addr)
         del self.global_counter.CallbackPtr_by_number[self.number]
-    free.unwrap_spec = ['self']
 
+@unwrap_spec(flags=int)
 def descr_new_callbackptr(space, w_type, w_callable, w_args, w_result,
                           flags=FUNCFLAG_CDECL):
     return W_CallbackPtr(space, w_callable, w_args, w_result, flags)
-descr_new_callbackptr.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root,
-                                     int]
 
 W_CallbackPtr.typedef = TypeDef(
     'CallbackPtr',

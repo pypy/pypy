@@ -1,15 +1,14 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
-from pypy.interpreter.gateway import Arguments
+from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib import rrandom
 
 import time
 
-def descr_new__(space, w_subtype, args):
-    w_anything = args.firstarg()
+def descr_new__(space, w_subtype, __args__):
+    w_anything = __args__.firstarg()
     x = space.allocate_instance(W_Random, w_subtype)
     x = space.interp_w(W_Random, x)
     W_Random.__init__(x, space, w_anything)
@@ -19,11 +18,9 @@ class W_Random(Wrappable):
     def __init__(self, space, w_anything):
         self._rnd = rrandom.Random()
         self.seed(space, w_anything)
-    __init__.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def random(self, space):
         return space.newfloat(self._rnd.random())
-    random.unwrap_spec = ['self', ObjSpace]
 
     def seed(self, space, w_n=NoneNotWrapped):
         if w_n is None:
@@ -51,7 +48,6 @@ class W_Random(Wrappable):
         if not key:
             key = [r_uint(0)]
         self._rnd.init_by_array(key)
-    seed.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def getstate(self, space):
         state = [None] * (rrandom.N + 1)
@@ -59,7 +55,6 @@ class W_Random(Wrappable):
             state[i] = space.newint(intmask(self._rnd.state[i]))
         state[rrandom.N] = space.newint(self._rnd.index)
         return space.newtuple(state)
-    getstate.unwrap_spec = ['self', ObjSpace]
 
     def setstate(self, space, w_state):
         if not space.is_true(space.isinstance(w_state, space.w_tuple)):
@@ -79,7 +74,6 @@ class W_Random(Wrappable):
             self._rnd.state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         self._rnd.index = space.int_w(w_item)
-    setstate.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def jumpahead(self, space, w_n):
         if space.is_true(space.isinstance(w_n, space.w_long)):
@@ -88,8 +82,8 @@ class W_Random(Wrappable):
         else:
             n = space.int_w(w_n)
         self._rnd.jumpahead(n)
-    jumpahead.unwrap_spec = ['self', ObjSpace, W_Root]
 
+    @unwrap_spec(k=int)
     def getrandbits(self, space, k):
         if k <= 0:
             strerror = space.wrap("number of bits must be greater than zero")
@@ -114,11 +108,10 @@ class W_Random(Wrappable):
             w_result = space.or_(space.lshift(w_result, w_eight),
                                  space.newint(intmask(byte)))
         return w_result
-    getrandbits.unwrap_spec = ['self', ObjSpace, int]
 
 
 W_Random.typedef = TypeDef("Random",
-    __new__ = interp2app(descr_new__, unwrap_spec=[ObjSpace, W_Root, Arguments]),
+    __new__ = interp2app(descr_new__),
     random = interp2app(W_Random.random),
     seed = interp2app(W_Random.seed),
     getstate = interp2app(W_Random.getstate),
