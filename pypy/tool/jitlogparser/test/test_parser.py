@@ -1,8 +1,7 @@
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import ConstInt, Const
 from pypy.tool.jitlogparser.parser import parse, Bytecode, Function,\
-     slice_debug_merge_points,\
-     adjust_bridges, cssclass
+     slice_debug_merge_points, adjust_bridges
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py
 
@@ -19,10 +18,9 @@ def test_parse():
     assert ops[1].name == 'guard_true'
     assert ops[1].descr is not None
     assert ops[0].res == 'i9'
-    assert ops[0].html_repr().plaintext() == 'i9 = i7 < 1003'
+    assert ops[0].repr() == 'i9 = int_lt(i7, 1003)'
     assert ops[2].descr is not None
     assert len(ops[2].args) == 1
-    assert ops[2].html_repr().plaintext() == 'i13 = ((pypysig_long_struct)151937600).value'
 
 def test_parse_non_code():
     ops = parse('''
@@ -31,7 +29,7 @@ def test_parse_non_code():
     ''')
     res = slice_debug_merge_points(ops.operations, LoopStorage())
     assert len(res.chunks) == 1
-    assert res.chunks[0].html_repr()
+    assert res.chunks[0].repr()
 
 def test_split():
     ops = parse('''
@@ -177,16 +175,3 @@ def test_parsing_strliteral():
     ops = slice_debug_merge_points(loop.operations, LoopStorage())
     chunk = ops.chunks[0]
     assert chunk.bytecode_name == 'StrLiteralSearch'
-
-
-def test_highlight_var():
-    ops = parse('''
-    [p0]
-    guard_class(p0, 144264192, descr=<Guard0>)
-    ''').operations
-    assert len(ops) == 1
-    op = ops[0]
-    assert op.name == 'guard_class'
-    html = op.html_repr()
-    p0 = cssclass('p0', 'p0', onmouseover="highlight_var(this)", onmouseout="disable_var(this)")
-    assert p0 in html
