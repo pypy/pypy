@@ -225,3 +225,23 @@ class TestUnicode(BaseApiTest):
 
     def test_compare(self, space, api):
         assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1
+
+    def test_copy(self, space, api):
+        w_x = space.wrap(u"abcd\u0660")
+        target_chunk, _ = rffi.alloc_unicodebuffer(space.int_w(space.len(w_x)))
+        #lltype.malloc(Py_UNICODE, space.int_w(space.len(w_x)), flavor='raw')
+
+        x_chunk = api.PyUnicode_AS_UNICODE(w_x)
+        api.Py_UNICODE_COPY(target_chunk, x_chunk, 4)
+        w_y = api.PyUnicode_FromUnicode(target_chunk, 4)
+
+        assert space.eq_w(w_y, space.wrap(u"abcd"))
+
+        size = api.PyUnicode_GET_SIZE(w_x)
+        api.Py_UNICODE_COPY(target_chunk, x_chunk, size)
+        w_y = api.PyUnicode_FromUnicode(target_chunk, size)
+
+        assert space.eq_w(w_y, w_x)
+
+        lltype.free(target_chunk, flavor='raw')
+
