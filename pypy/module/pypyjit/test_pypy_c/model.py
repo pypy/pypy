@@ -10,13 +10,12 @@ class Log(object):
         self.traces = [Trace(rawtrace, chunks) for rawtrace in rawtraces]
 
     @classmethod
-    def find_chunks_range(cls, func):
+    def find_ids_range(cls, func):
         """
-        Parse the given function and return a dictionary mapping "chunk
-        names" to "line ranges".  Chunks are identified by comments with a
-        special syntax::
+        Parse the given function and return a dictionary mapping "ids" to
+        "line ranges".  Ids are identified by comments with a special syntax::
 
-            # the chunk "myid" corresponds to the whole line
+            # "myid" corresponds to the whole line
             print 'foo' # ID: myid
         """
         result = {}
@@ -30,19 +29,19 @@ class Log(object):
         return result
 
     @classmethod
-    def find_chunks(cls, func):
+    def find_ids(cls, func):
         """
-        Parse the given function and return a dictionary mapping "chunk names"
-        to "opcodes".
+        Parse the given function and return a dictionary mapping "ids" to
+        "opcodes".
         """
-        chunks = {}
+        ids = {}
         code = disassembler.dis(func)
-        ranges = cls.find_chunks_range(func)
+        ranges = cls.find_ids_range(func)
         for name, linerange in ranges.iteritems():
             opcodes = [opcode for opcode in code.opcodes
                        if opcode.lineno in linerange]
-            chunks[name] = opcodes
-        return chunks
+            ids[name] = opcodes
+        return ids
 
 
 class Trace(object):
