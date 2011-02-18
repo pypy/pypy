@@ -3,9 +3,18 @@ import subprocess
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
+from pypy.jit.tool import oparser
+
+class Log(object):
+    def __init__(self, func, rawtraces):
+        traces = map(Trace, rawtraces)
 
 class Trace(object):
-    pass
+    def __init__(self, rawtrace):
+        # "low level trace", i.e. an instance of history.TreeLoop
+        self.lltrace = oparser.parse(rawtrace, no_namespace=True)
+        
+
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
@@ -18,15 +27,6 @@ class BaseTestPyPyC(object):
 
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
-
-    def parse_out(self, out):
-        out = out.strip("\n")
-        if out == 'None':
-            return None
-        try:
-            return int(out)
-        except ValueError:
-            return out
 
     def find_chunks_range(self, func):
         """
@@ -61,25 +61,33 @@ class BaseTestPyPyC(object):
             chunks[name] = opcodes
         return chunks
     
-    def run(self, func):
+    def run(self, func, threshold=1000):
+        # write the snippet
         with self.filepath.open("w") as f:
             f.write(str(py.code.Source(func)) + "\n")
-            f.write("print %s()\n" % func.func_name)
+            f.write("%s()\n" % func.func_name)
+        #
+        # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
-        pipe = subprocess.Popen([sys.executable, str(self.filepath)],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                env={'PYPYLOG': "jit-log-opt,jit-summary:" + str(logfile)})
+        env={'PYPYLOG': 'jit-log-opt,jit-summary:' + str(logfile)}
+        cmdline = [sys.executable,
+                   '--jit', 'threshold=%d' % threshold,
+                   str(self.filepath)]
+        pipe = subprocess.Popen(cmdline,
+                                env=env,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
         pipe.wait()
         stderr = pipe.stderr.read()
+        stdout = pipe.stdout.read()
         assert not stderr
-        res = self.parse_out(pipe.stdout.read())
-        bytecodes = self.parse_func(func)
-        assert res == func()
-        log = logparser.parse_log_file(str(logfile))
-        parts = logparser.extract_category(log, 'jit-log-opt-')
-        import pdb;pdb.set_trace()
-        log.xxx
-        return Trace()
+        #
+        # parse the JIT log
+        chunks = self.find_chunks(func)
+        rawlog = logparser.parse_log_file(str(logfile))
+        rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
+        log = Log(func, rawtraces)
+        return log
 
 class TestInfrastructure(BaseTestPyPyC):
 
@@ -106,6 +114,16 @@ class TestInfrastructure(BaseTestPyPyC):
         myline = chunks['myline']
         opcodes_names = [opcode.__class__.__name__ for opcode in myline]
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
+
+    def test_parse_jitlog(self):
+        def f():
+            i = 0
+            while i < 1003: # default threshold is 10
+                i += 1 # ID: increment
+            return i
+        #
+        trace = self.run(f)
+
 
     def test_full(self):
         py.test.skip('in-progress')
