@@ -464,10 +464,10 @@ class SocketAPI:
         self.w_timeout = new_exception_class(
             space, "_socket.timeout", self.w_error)
 
-    @specialize.memo()
     def get_exception(self, applevelerrcls):
         return getattr(self, 'w_' + applevelerrcls)
 
+@specialize.arg(1)
 def get_error(space, name):
     return space.fromcache(SocketAPI).get_exception(name)
 
