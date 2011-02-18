@@ -3,9 +3,8 @@ Interp-level implementation of the basic space operations.
 """
 
 from pypy.interpreter import gateway
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rarithmetic import isnan, isinf, round_double
@@ -27,6 +26,7 @@ def chr(space, w_ascii):
                              space.wrap("character code not in range(256)"))
     return space.wrap(char)
 
+@unwrap_spec(code=int)
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     # XXX range checking!
@@ -36,7 +36,6 @@ def unichr(space, code):
         raise OperationError(space.w_ValueError,
                              space.wrap("unichr() arg out of range"))
     return space.wrap(c)
-unichr.unwrap_spec = [ObjSpace, int]
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
@@ -128,6 +127,7 @@ def _issubtype(space, w_cls1, w_cls2):
 NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
 NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
+@unwrap_spec(number=float)
 def round(space, number, w_ndigits=0):
     """round(number[, ndigits]) -> floating point number
 
@@ -157,8 +157,6 @@ This always returns a floating point number.  Precision may be negative."""
         raise OperationError(space.w_OverflowError,
                              space.wrap("rounded value too large to represent"))
     return space.wrap(z)
-#
-round.unwrap_spec = [ObjSpace, float, W_Root]
 
 # ____________________________________________________________
 

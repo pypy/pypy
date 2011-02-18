@@ -105,6 +105,7 @@ class StructOrUnionMeta(_CDataMeta):
         res = type.__new__(self, name, cls, typedict)
         if "_abstract_" in typedict:
             return res
+        cls = cls or (object,)
         if isinstance(cls[0], StructOrUnionMeta):
             cls[0]._make_final()
         if '_fields_' in typedict:

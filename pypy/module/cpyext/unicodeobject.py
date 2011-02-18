@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import llmemory
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
@@ -439,3 +440,10 @@ def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater
     than, respectively."""
     return space.int_w(space.cmp(w_left, w_right))
+
+@cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
+def Py_UNICODE_COPY(space, target, source, length):
+    """Roughly equivalent to memcpy() only the base size is Py_UNICODE
+    copies sizeof(Py_UNICODE) * length bytes from source to target"""
+    for i in range(0, length):
+        target[i] = source[i]

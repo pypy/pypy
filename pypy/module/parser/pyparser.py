@@ -1,7 +1,6 @@
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import pyparse, pygram, error
 from pypy.interpreter.astcompiler.astbuilder import ast_from_node
@@ -36,22 +35,21 @@ class STType(Wrappable):
 
     def descr_issuite(self, space):
         return space.wrap(self.tree.type == pygram.syms.file_input)
-    descr_issuite.unwrap_spec = ["self", ObjSpace]
 
     def descr_isexpr(self, space):
         return space.wrap(self.tree.type == pygram.syms.eval_input)
-    descr_isexpr.unwrap_spec = ["self", ObjSpace]
 
+    @unwrap_spec(line_info=bool, col_info=bool)
     def descr_totuple(self, space, line_info=False, col_info=False):
         return self._build_app_tree(space, self.tree, space.newtuple,
                                     line_info, col_info)
-    descr_totuple.unwrap_spec = ["self", ObjSpace, bool, bool]
 
+    @unwrap_spec(line_info=bool, col_info=bool)
     def descr_tolist(self, space, line_info=False, col_info=False):
         return self._build_app_tree(space, self.tree, space.newlist,
                                     line_info, col_info)
-    descr_tolist.unwrap_spec = ["self", ObjSpace, bool, bool]
 
+    @unwrap_spec(filename=str)
     def descr_compile(self, space, filename="<syntax-tree>"):
         info = pyparse.CompileInfo(filename, self.mode)
         try:
@@ -64,7 +62,6 @@ class STType(Wrappable):
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return space.wrap(result)
-    descr_compile.unwrap_spec = ["self", ObjSpace, str]
 
 STType.typedef = TypeDef("parser.st",
     issuite=interp2app(STType.descr_issuite),
@@ -89,32 +86,32 @@ def parse_python(space, source, mode):
     return space.wrap(STType(tree, mode))
 
 
+@unwrap_spec(source=str)
 def suite(space, source):
     return parse_python(space, source, 'exec')
-suite.unwrap_spec = [ObjSpace, str]
 
 
+@unwrap_spec(source=str)
 def expr(space, source):
     return parse_python(space, source, 'eval')
-expr.unwrap_spec = [ObjSpace, str]
 
 
+@unwrap_spec(st=STType)
 def isexpr(space, st):
     return space.call_method(st, "isexpr")
-isexpr.unwrap_spec = [ObjSpace, STType]
 
+@unwrap_spec(st=STType)
 def issuite(space, st):
     return space.call_method(st, "issuite")
-issuite.unwrap_spec = [ObjSpace, STType]
 
+@unwrap_spec(st=STType)
 def st2tuple(space, st, __args__):
     return space.call_args(space.getattr(st, space.wrap("totuple")), __args__)
-st2tuple.unwrap_spec = [ObjSpace, STType, Arguments]
 
+@unwrap_spec(st=STType)
 def st2list(space, st, __args__):
     return space.call_args(space.getattr(st, space.wrap("tolist")), __args__)
-st2list.unwrap_spec = [ObjSpace, STType, Arguments]
 
+@unwrap_spec(st=STType)
 def compilest(space, st, __args__):
     return space.call_args(space.getattr(st, space.wrap("compile")), __args__)
-compilest.unwrap_spec = [ObjSpace, STType, Arguments]

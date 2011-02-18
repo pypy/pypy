@@ -2,7 +2,7 @@ from __future__ import absolute_import
 import py
 import sys
 import marshal as cpy_marshal
-from .. import _marshal as marshal
+from lib_pypy import _marshal as marshal
 
 from pypy.tool.udir import udir 
 

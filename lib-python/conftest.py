@@ -195,7 +195,7 @@ testmap = [
     RegrTest('test_dbm.py'),
     RegrTest('test_decimal.py'),
     RegrTest('test_decorators.py', core=True),
-    RegrTest('test_deque.py', core=True),
+    RegrTest('test_deque.py', core=True, usemodules='_collections'),
     RegrTest('test_descr.py', core=True, usemodules='_weakref'),
     RegrTest('test_descrtut.py', core=True),
     RegrTest('test_dict.py', core=True),
@@ -499,7 +499,7 @@ testmap = [
     RegrTest('test_complex_args.py'),
     RegrTest('test_contextlib.py', usemodules="thread"),
     RegrTest('test_ctypes.py', usemodules="_rawffi"),
-    RegrTest('test_defaultdict.py'),
+    RegrTest('test_defaultdict.py', usemodules='_collections'),
     RegrTest('test_email_renamed.py'),
     RegrTest('test_exception_variations.py'),
     RegrTest('test_float.py'),
@@ -716,8 +716,10 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
         outcome = 'OK'
-        if not exit_status: 
-            if 'FAIL' in test_stdout or re.search('[^:]ERROR', test_stderr):
+        if not exit_status:
+            # match "FAIL" but not e.g. "FAILURE", which is in the output of a
+            # test in test_zipimport_support.py
+            if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
                 outcome = 'FAIL'
                 exit_status = 2  
         elif timedout: 

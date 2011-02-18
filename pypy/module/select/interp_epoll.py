@@ -3,7 +3,7 @@ from __future__ import with_statement
 import errno
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app, unwrap_spec, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -60,7 +60,7 @@ class W_Epoll(Wrappable):
         self.space = space
         self.epfd = epfd
 
-    @unwrap_spec(ObjSpace, W_Root, int)
+    @unwrap_spec(sizehint=int)
     def descr__new__(space, w_subtype, sizehint=-1):
         if sizehint == -1:
             sizehint = FD_SETSIZE - 1
@@ -74,7 +74,7 @@ class W_Epoll(Wrappable):
 
         return space.wrap(W_Epoll(space, epfd))
 
-    @unwrap_spec(ObjSpace, W_Root, int)
+    @unwrap_spec(fd=int)
     def descr_fromfd(space, w_cls, fd):
         return space.wrap(W_Epoll(space, fd))
 
@@ -104,35 +104,32 @@ class W_Epoll(Wrappable):
             if result < 0:
                 raise exception_from_errno(self.space, self.space.w_IOError)
 
-    def descr_get_closed(space, self):
+    def descr_get_closed(self, space):
         return space.wrap(self.epfd < 0)
 
-    @unwrap_spec("self", ObjSpace)
     def descr_fileno(self, space):
         self.check_closed()
         return space.wrap(self.epfd)
 
-    @unwrap_spec("self", ObjSpace)
     def descr_close(self, space):
         self.check_closed()
         self.close()
 
-    @unwrap_spec("self", ObjSpace, W_Root, int)
+    @unwrap_spec(eventmask=int)
     def descr_register(self, space, w_fd, eventmask=-1):
         self.check_closed()
         self.epoll_ctl(EPOLL_CTL_ADD, w_fd, eventmask)
 
-    @unwrap_spec("self", ObjSpace, W_Root)
     def descr_unregister(self, space, w_fd):
         self.check_closed()
         self.epoll_ctl(EPOLL_CTL_DEL, w_fd, 0, ignore_ebadf=True)
 
-    @unwrap_spec("self", ObjSpace, W_Root, int)
+    @unwrap_spec(eventmask=int)
     def descr_modify(self, space, w_fd, eventmask=-1):
         self.check_closed()
         self.epoll_ctl(EPOLL_CTL_MOD, w_fd, eventmask)
 
-    @unwrap_spec("self", ObjSpace, float, int)
+    @unwrap_spec(timeout=float, maxevents=int)
     def descr_poll(self, space, timeout=-1.0, maxevents=-1):
         self.check_closed()
         if timeout < 0:

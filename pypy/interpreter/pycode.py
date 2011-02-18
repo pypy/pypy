@@ -9,8 +9,7 @@ import dis, imp, struct, types, new, sys
 from pypy.interpreter import eval
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
 from pypy.interpreter.astcompiler.consts import (CO_OPTIMIZED,
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
@@ -268,19 +267,19 @@ class PyCode(eval.Code):
         co = self._to_code()
         dis.dis(co)
 
-    def fget_co_consts(space, self):
+    def fget_co_consts(self, space):
         return space.newtuple(self.co_consts_w)
     
-    def fget_co_names(space, self):
+    def fget_co_names(self, space):
         return space.newtuple(self.co_names_w)
 
-    def fget_co_varnames(space, self):
+    def fget_co_varnames(self, space):
         return space.newtuple([space.wrap(name) for name in self.co_varnames])
 
-    def fget_co_cellvars(space, self):
+    def fget_co_cellvars(self, space):
         return space.newtuple([space.wrap(name) for name in self.co_cellvars])
 
-    def fget_co_freevars(space, self):
+    def fget_co_freevars(self, space):
         return space.newtuple([space.wrap(name) for name in self.co_freevars])    
 
     def descr_code__eq__(self, w_other):
@@ -330,14 +329,10 @@ class PyCode(eval.Code):
             w_result = space.xor(w_result, space.hash(w_const))
         return w_result
 
-    unwrap_spec =        [ObjSpace, W_Root, 
-                          int, int, int, int,
-                          str, W_Root, W_Root, 
-                          W_Root, str, str, int, 
-                          str, W_Root, 
-                          W_Root, int]
-
-
+    @unwrap_spec(argcount=int, nlocals=int, stacksize=int, flags=int,
+                 codestring=str,
+                 filename=str, name=str, firstlineno=int,
+                 lnotab=str, magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
@@ -369,7 +364,6 @@ class PyCode(eval.Code):
         PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
                       varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
         return space.wrap(code)
-    descr_code__new__.unwrap_spec = unwrap_spec 
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -402,4 +396,3 @@ class PyCode(eval.Code):
 
     def repr(self, space):
         return space.wrap(self.get_repr())
-    repr.unwrap_spec = ['self', ObjSpace]

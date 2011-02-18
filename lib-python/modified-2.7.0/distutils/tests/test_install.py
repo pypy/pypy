@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from test import test_support
 
 from distutils.command.install import install
 from distutils.core import Distribution
@@ -38,7 +39,7 @@ class InstallTestCase(support.TempdirManager, unittest.TestCase):
             expected = os.path.normpath(expected)
             self.assertEqual(got, expected)
 
-        if check_impl_detail():
+        if test_support.check_impl_detail():
             libdir = os.path.join(destination, "lib", "python")
             check_path(cmd.install_lib, libdir)
             check_path(cmd.install_platlib, libdir)

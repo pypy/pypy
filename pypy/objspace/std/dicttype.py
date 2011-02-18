@@ -1,4 +1,3 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter import gateway
@@ -21,7 +20,7 @@ dict_clear      = SMM('clear',         1,
 dict_get        = SMM('get',           3, defaults=(None,),
                       doc='D.get(k[,d]) -> D[k] if k in D, else d.  d defaults'
                           ' to None.')
-dict_pop        = SMM('pop',           2, w_varargs=True,
+dict_pop        = SMM('pop',           2, varargs_w=True,
                       doc='D.pop(k[,d]) -> v, remove specified key and return'
                           ' the corresponding value\nIf key is not found, d is'
                           ' returned if given, otherwise KeyError is raised')
@@ -57,7 +56,6 @@ def dict_reversed__ANY(space, w_dict):
 
 register_all(vars(), globals())
 
-@gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root)
 def descr_fromkeys(space, w_type, w_keys, w_fill=None):
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
@@ -126,10 +124,7 @@ dict(seq) -> new dictionary initialized as if via:
         d[k] = v
 dict(**kwargs) -> new dictionary initialized with the name=value pairs
     in the keyword argument list.  For example:  dict(one=1, two=2)''',
-    __new__ = gateway.interp2app(descr__new__,
-                                 unwrap_spec=
-                                 [gateway.ObjSpace,
-                                  gateway.W_Root,gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     __repr__ = gateway.interp2app(descr_repr),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
@@ -194,8 +189,7 @@ def descr_dictiter__reduce__(w_self, space):
 
 
 dictiter_typedef = StdTypeDef("dictionaryiterator",
-    __reduce__ = gateway.interp2app(descr_dictiter__reduce__,
-                           unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
+    __reduce__ = gateway.interp2app(descr_dictiter__reduce__),
     )
 
 # ____________________________________________________________

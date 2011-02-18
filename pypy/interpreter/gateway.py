@@ -426,13 +426,56 @@ def int_unwrapping_space_method(typ):
         return 'gateway_' + typ.__name__ + '_w'
 
 
-def unwrap_spec(*spec):
-    """A decorator which attaches the unwrap_spec attribute."""
+def unwrap_spec(*spec, **kwargs):
+    """A decorator which attaches the unwrap_spec attribute.
+    Use either positional or keyword arguments.
+    - positional arguments must be as many as the function parameters
+    - keywords arguments allow to change only some parameter specs
+    """
     def decorator(func):
-        func.unwrap_spec = spec
+        if kwargs:
+            if spec:
+                raise ValueError("Please specify either positional or "
+                                 "keywords arguments")
+            func.unwrap_spec = kwargs
+        else:
+            func.unwrap_spec = spec
         return func
     return decorator
 
+def build_unwrap_spec(func, argnames, self_type=None):
+    """build the list of parameter unwrap spec for the function.
+    """
+    unwrap_spec = getattr(func, 'unwrap_spec', None)
+
+    if isinstance(unwrap_spec, dict):
+        kw_spec = unwrap_spec
+        unwrap_spec = None
+    else:
+        kw_spec = {}
+
+    if unwrap_spec is None:
+        # build unwrap_spec after the name of arguments
+        unwrap_spec = []
+        for argname in argnames:
+            if argname == 'self':
+                unwrap_spec.append('self')
+            elif argname == 'space':
+                unwrap_spec.append(ObjSpace)
+            elif argname == '__args__':
+                unwrap_spec.append(Arguments)
+            elif argname == 'args_w':
+                unwrap_spec.append('args_w')
+            elif argname.startswith('w_'):
+                unwrap_spec.append(W_Root)
+            else:
+                unwrap_spec.append(None)
+
+    # apply kw_spec
+    for name, spec in kw_spec.items():
+        unwrap_spec[argnames.index(name)] = spec
+
+    return unwrap_spec
 
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
@@ -474,14 +517,8 @@ class BuiltinCode(eval.Code):
         argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
 
         if unwrap_spec is None:
-            unwrap_spec = getattr(func,'unwrap_spec',None)
+            unwrap_spec = build_unwrap_spec(func, argnames, self_type)
 
-        if unwrap_spec is None:
-            unwrap_spec = [ObjSpace]+ [W_Root] * (len(argnames)-1)
-
-            if self_type:
-                unwrap_spec = ['self'] + unwrap_spec[1:]
-            
         if self_type:
             assert unwrap_spec[0] == 'self',"self_type without 'self' spec element"
             unwrap_spec = list(unwrap_spec)

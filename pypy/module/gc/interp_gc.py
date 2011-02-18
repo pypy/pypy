@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rlib import rgc
 from pypy.rlib.streamio import open_file_as_stream
@@ -16,8 +16,6 @@ def collect(space):
             cache.clear()
     rgc.collect()
     return space.wrap(0)
-    
-collect.unwrap_spec = [ObjSpace]
 
 def enable_finalizers(space):
     if space.user_del_action.finalizers_lock_count == 0:
@@ -25,14 +23,13 @@ def enable_finalizers(space):
                              space.wrap("finalizers are already enabled"))
     space.user_del_action.finalizers_lock_count -= 1
     space.user_del_action.fire()
-enable_finalizers.unwrap_spec = [ObjSpace]
 
 def disable_finalizers(space):
     space.user_del_action.finalizers_lock_count += 1
-disable_finalizers.unwrap_spec = [ObjSpace]
 
 # ____________________________________________________________
 
+@unwrap_spec(filename=str)
 def dump_heap_stats(space, filename):
     tb = rgc._heap_stats()
     if not tb:
@@ -43,4 +40,3 @@ def dump_heap_stats(space, filename):
         f.write("%d %d " % (tb[i].count, tb[i].size))
         f.write(",".join([str(tb[i].links[j]) for j in range(len(tb))]) + "\n")
     f.close()
-dump_heap_stats.unwrap_spec = [ObjSpace, str]
