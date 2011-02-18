@@ -582,7 +582,8 @@ class MmapTests(unittest.TestCase):
             m.close()
 
             # Should not crash (Issue 5385)
-            open(TESTFN, "wb").write("x"*10)
+            with open(TESTFN, "wb") as f:
+                f.write("x"*10)
             f = open(TESTFN, "r+b")
             m = mmap.mmap(f.fileno(), 0)
             f.close()
