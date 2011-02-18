@@ -2,7 +2,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import ConstInt, Const
 from pypy.tool.jitlogparser.parser import parse, Bytecode, Function,\
      slice_debug_merge_points,\
-     adjust_bridges, parse_log_counts, cssclass
+     adjust_bridges, cssclass
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py
 
@@ -178,30 +178,6 @@ def test_parsing_strliteral():
     chunk = ops.chunks[0]
     assert chunk.bytecode_name == 'StrLiteralSearch'
 
-LINES = '''
-0:3
-1:3
-2:604
-3:396
-4:102
-5:2000
-6:3147
-7:2445
-8:2005
-9:2000
-10:1420
-11:40
-12:0
-'''.split("\n")
-
-def test_parse_log_count():
-    class Loop(object):
-        pass
-    
-    loops = [Loop() for i in range(13)]
-    nums = parse_log_counts(LINES, loops)
-    assert nums[5] == 2000
-    assert loops[9].count == 2000
 
 def test_highlight_var():
     ops = parse('''
