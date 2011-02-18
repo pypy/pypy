@@ -4,8 +4,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
-        'exit':                   'app_thread.exit',
-        'exit_thread':            'app_thread.exit',   # obsolete synonym
         'error':                  'app_thread.error',
     }
 
@@ -13,6 +11,8 @@ class Module(MixedModule):
         'start_new_thread':       'os_thread.start_new_thread',
         'start_new':              'os_thread.start_new_thread', # obsolete syn.
         'get_ident':              'os_thread.get_ident',
+        'exit':                   'os_thread.exit',
+        'exit_thread':            'os_thread.exit', # obsolete synonym
         'stack_size':             'os_thread.stack_size',
         '_count':                 'os_thread._count',
         'allocate_lock':          'os_lock.allocate_lock',

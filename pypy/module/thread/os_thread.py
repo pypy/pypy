@@ -244,3 +244,7 @@ This function is meant for internal and specialized purposes only.
 In most applications `threading.enumerate()` should be used instead."""
     return space.wrap(bootstrapper.nbthreads)
 
+def exit(space):
+    """This is synonymous to ``raise SystemExit''.  It will cause the current
+thread to exit silently unless the exception is caught."""
+    raise OperationError(space.w_SystemExit, space.w_None)
