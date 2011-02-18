@@ -12,7 +12,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'poll'  : 'interp_select.poll',
         'select': 'interp_select.select',
-        'error' : 'space.new_exception_class("select.error")',
+        'error' : 'space.fromcache(interp_select.Cache).w_error'
     }
 
     # TODO: this doesn't feel right...
