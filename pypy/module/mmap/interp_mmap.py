@@ -264,6 +264,9 @@ W_MMap.typedef = TypeDef("mmap",
 constants = rmmap.constants
 PAGESIZE = rmmap.PAGESIZE
 ALLOCATIONGRANULARITY = rmmap.ALLOCATIONGRANULARITY
+ACCESS_READ  = rmmap.ACCESS_READ
+ACCESS_WRITE = rmmap.ACCESS_WRITE
+ACCESS_COPY  = rmmap.ACCESS_COPY
 
 def mmap_error(space, e):
     w_module = space.getbuiltinmodule('mmap')
