@@ -4,7 +4,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
 from pypy.interpreter.typedef import descr_set_dict
-from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 
 
 class Local(Wrappable):
@@ -42,12 +41,10 @@ class Local(Wrappable):
         local = space.allocate_instance(Local, w_subtype)
         Local.__init__(local, space, __args__)
         return space.wrap(local)
-    descr_local__new__.unwrap_spec=[ObjSpace, W_Root, Arguments]
 
     def descr_local__init__(self, space):
         # No arguments allowed
         pass
-    descr_local__init__.unwrap_spec=['self', ObjSpace]
 
 Local.typedef = TypeDef("thread._local",
                         __doc__ = "Thread-local data",

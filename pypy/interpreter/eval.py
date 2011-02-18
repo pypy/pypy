@@ -76,10 +76,10 @@ class Frame(Wrappable):
     def getcode(self):
         return None
 
-    def fget_code(space, self):
+    def fget_code(self, space):
         return space.wrap(self.getcode())
 
-    def fget_getdictscope(space, self): # unwrapping through unwrap_spec in typedef.py
+    def fget_getdictscope(self, space):
         return self.getdictscope()
 
     def setdictscope(self, w_locals):

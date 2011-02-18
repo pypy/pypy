@@ -1,8 +1,7 @@
 import os
 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
-from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
 from pypy.module.exceptions.interp_exceptions import W_IOError
@@ -17,7 +16,7 @@ class W_BlockingIOError(W_IOError):
         W_IOError.__init__(self, space)
         self.written = 0
 
-    @unwrap_spec('self', ObjSpace, W_Root, W_Root, int)
+    @unwrap_spec(written=int)
     def descr_init(self, space, w_errno, w_strerror, written=0):
         W_IOError.descr_init(self, space, [w_errno, w_strerror])
         self.written = written
@@ -33,7 +32,9 @@ W_BlockingIOError.typedef = TypeDef(
 
 DEFAULT_BUFFER_SIZE = 8 * 1024
 
-@unwrap_spec(ObjSpace, W_Root, str, int, "str_or_None", "str_or_None", "str_or_None", bool)
+@unwrap_spec(mode=str, buffering=int,
+             encoding="str_or_None", errors="str_or_None",
+             newline="str_or_None", closefd=bool)
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     newline=None, closefd=True):
     from pypy.module._io.interp_bufferedio import (W_BufferedRandom,

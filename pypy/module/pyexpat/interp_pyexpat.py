@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.objspace.descroperation import object_setattr
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -357,6 +357,7 @@ class W_XMLParserType(Wrappable):
             global_storage.free_nonmoving_id(
                 rffi.cast(lltype.Signed, self.itself))
 
+    @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):
         """SetParamEntityParsing(flag) -> success
 Controls parsing of parameter entities (including the external DTD
@@ -365,7 +366,6 @@ XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE and
 XML_PARAM_ENTITY_PARSING_ALWAYS. Returns true if setting the flag
 was successful."""
         XML_SetParamEntityParsing(self.itself, flag)
-    SetParamEntityParsing.unwrap_spec = ['self', ObjSpace, int]
 
     def UseForeignDTD(self, space, w_flag=True):
         """UseForeignDTD([flag])
@@ -376,7 +376,6 @@ getting the advantage of providing document type information to the parser.
 'flag' defaults to True if not provided."""
         flag = space.is_true(w_flag)
         XML_UseForeignDTD(self.itself, flag)
-    UseForeignDTD.unwrap_spec = ['self', ObjSpace, W_Root]
 
     # Handlers management
 
@@ -499,6 +498,7 @@ getting the advantage of providing document type information to the parser.
         return True
 
 
+    @unwrap_spec(name=str)
     def setattr(self, space, name, w_value):
         if name == "namespace_prefixes":
             XML_SetReturnNSTriplet(self.itself, space.int_w(w_value))
@@ -513,15 +513,15 @@ getting the advantage of providing document type information to the parser.
         return space.call_function(
             object_setattr(space),
             space.wrap(self), space.wrap(name), w_value)
-    setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
     # Parse methods
 
+    @unwrap_spec(data=str, isfinal=bool)
     def Parse(self, space, data, isfinal=False):
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
 
-        res = XML_Parse(self.itself, data, len(data), bool(isfinal))
+        res = XML_Parse(self.itself, data, len(data), isfinal)
         if self._exc_info:
             e = self._exc_info
             self._exc_info = None
@@ -531,7 +531,6 @@ Parse XML data.  `isfinal' should be true at end of input."""
             raise exc
         self.flush_character_buffer(space)
         return space.wrap(res)
-    Parse.unwrap_spec = ['self', ObjSpace, str, int]
 
     def ParseFile(self, space, w_file):
         """ParseFile(file)
@@ -540,11 +539,10 @@ Parse XML data from file-like object."""
         w_data = space.call_method(w_file, 'read')
         data = space.str_w(w_data)
         return self.Parse(space, data, isfinal=True)
-    ParseFile.unwrap_spec = ['self', ObjSpace, W_Root]
 
+    @unwrap_spec(base=str)
     def SetBase(self, space, base):
         XML_SetBase(self.itself, base)
-    SetBase.unwrap_spec = ['self', ObjSpace, str]
 
     def ExternalEntityParserCreate(self, space, w_context, w_encoding=None):
         """ExternalEntityParserCreate(context[, encoding])
@@ -572,7 +570,6 @@ information passed to the ExternalEntityRefHandler."""
             parser.handlers[i] = self.handlers[i]
 
         return space.wrap(parser)
-    ExternalEntityParserCreate.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def flush_character_buffer(self, space):
         if not self.buffer_w:
@@ -603,21 +600,21 @@ information passed to the ExternalEntityRefHandler."""
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
 
-    def descr_ErrorCode(space, self):
+    def descr_ErrorCode(self, space):
         return space.wrap(XML_GetErrorCode(self.itself))
 
-    def descr_ErrorLineNumber(space, self):
+    def descr_ErrorLineNumber(self, space):
         return space.wrap(XML_GetErrorLineNumber(self.itself))
 
-    def descr_ErrorColumnNumber(space, self):
+    def descr_ErrorColumnNumber(self, space):
         return space.wrap(XML_GetErrorColumnNumber(self.itself))
 
-    def descr_ErrorByteIndex(space, self):
+    def descr_ErrorByteIndex(self, space):
         return space.wrap(XML_GetErrorByteIndex(self.itself))
 
-    def get_buffer_size(space, self):
+    def get_buffer_size(self, space):
         return space.wrap(self.buffer_size)
-    def set_buffer_size(space, self, w_value):
+    def set_buffer_size(self, space, w_value):
         value = space.getindex_w(w_value, space.w_TypeError)
         if value <= 0:
             raise OperationError(space.w_ValueError, space.wrap(
@@ -625,9 +622,9 @@ information passed to the ExternalEntityRefHandler."""
         self.flush_character_buffer(space)
         self.buffer_size = value
 
-    def get_buffer_text(space, self):
+    def get_buffer_text(self, space):
         return space.wrap(self.buffer_w is not None)
-    def set_buffer_text(space, self, w_value):
+    def set_buffer_text(self, space, w_value):
         if space.is_true(w_value):
             self.buffer_w = []
             self.buffer_used = 0
@@ -635,7 +632,7 @@ information passed to the ExternalEntityRefHandler."""
             self.flush_character_buffer(space)
             self.buffer_w = None
 
-    def get_intern(space, self):
+    def get_intern(self, space):
         if self.w_intern:
             return self.w_intern
         else:
@@ -676,9 +673,7 @@ W_XMLParserType.typedef = TypeDef(
     CurrentColumnNumber = GetSetProperty(W_XMLParserType.descr_ErrorColumnNumber, cls=W_XMLParserType),
     CurrentByteIndex = GetSetProperty(W_XMLParserType.descr_ErrorByteIndex, cls=W_XMLParserType),
 
-    **dict((name, interp2app(getattr(W_XMLParserType, name),
-                             unwrap_spec=getattr(W_XMLParserType,
-                                                 name).unwrap_spec))
+    **dict((name, interp2app(getattr(W_XMLParserType, name)))
            for name in XMLParser_methods)
     )
 
@@ -740,11 +735,10 @@ Return a new XML parser object."""
         parser.itself, UnknownEncodingHandlerData_callback,
         rffi.cast(rffi.VOIDP, parser.id))
     return space.wrap(parser)
-ParserCreate.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
+@unwrap_spec(code=int)
 def ErrorString(space, code):
     """ErrorString(errno) -> string
 Returns string error for given number."""
     return space.wrap(rffi.charp2str(XML_ErrorString(code)))
-ErrorString.unwrap_spec = [ObjSpace, int]
 

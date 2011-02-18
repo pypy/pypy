@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, new_exception_class
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 from pypy.rlib import rpoll, rsocket
 from pypy.rlib.ropenssl import *
@@ -78,6 +78,7 @@ def ssl_error(space, msg, errno=0):
 
 if HAVE_OPENSSL_RAND:
     # helper routines for seeding the SSL PRNG
+    @unwrap_spec(string=str, entropy=float)
     def RAND_add(space, string, entropy):
         """RAND_add(string, entropy)
 
@@ -90,7 +91,6 @@ if HAVE_OPENSSL_RAND:
             libssl_RAND_add(buf, len(string), entropy)
         finally:
             rffi.free_charp(buf)
-    RAND_add.unwrap_spec = [ObjSpace, str, float]
 
     def RAND_status(space):
         """RAND_status() -> 0 or 1
@@ -101,8 +101,8 @@ if HAVE_OPENSSL_RAND:
 
         res = libssl_RAND_status()
         return space.wrap(res)
-    RAND_status.unwrap_spec = [ObjSpace]
 
+    @unwrap_spec(path=str)
     def RAND_egd(space, path):
         """RAND_egd(path) -> bytes
 
@@ -120,7 +120,6 @@ if HAVE_OPENSSL_RAND:
             msg += " enough data to seed the PRNG"
             raise ssl_error(space, msg)
         return space.wrap(bytes)
-    RAND_egd.unwrap_spec = [ObjSpace, str]
 
 class SSLObject(Wrappable):
     def __init__(self, space):
@@ -137,11 +136,9 @@ class SSLObject(Wrappable):
     
     def server(self):
         return self.space.wrap(rffi.charp2str(self._server))
-    server.unwrap_spec = ['self']
     
     def issuer(self):
         return self.space.wrap(rffi.charp2str(self._issuer))
-    issuer.unwrap_spec = ['self']
     
     def __del__(self):
         if self.peer_cert:
@@ -153,6 +150,7 @@ class SSLObject(Wrappable):
         lltype.free(self._server, flavor='raw')
         lltype.free(self._issuer, flavor='raw')
     
+    @unwrap_spec(data='bufferstr')
     def write(self, data):
         """write(s) -> len
 
@@ -201,8 +199,8 @@ class SSLObject(Wrappable):
             return self.space.wrap(num_bytes)
         else:
             raise _ssl_seterror(self.space, self, num_bytes)
-    write.unwrap_spec = ['self', 'bufferstr']
-    
+
+    @unwrap_spec(num_bytes=int)
     def read(self, num_bytes=1024):
         """read([len]) -> string
 
@@ -256,7 +254,6 @@ class SSLObject(Wrappable):
         result = rffi.str_from_buffer(raw_buf, gc_buf, num_bytes, count)
         rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return self.space.wrap(result)
-    read.unwrap_spec = ['self', int]
 
     def _refresh_nonblocking(self, space):
         # just in case the blocking state of the socket has been changed
@@ -375,17 +372,12 @@ class SSLObject(Wrappable):
 
 
 SSLObject.typedef = TypeDef("SSLObject",
-    server = interp2app(SSLObject.server,
-        unwrap_spec=SSLObject.server.unwrap_spec),
-    issuer = interp2app(SSLObject.issuer,
-        unwrap_spec=SSLObject.issuer.unwrap_spec),
-    write = interp2app(SSLObject.write,
-        unwrap_spec=SSLObject.write.unwrap_spec),
-    read = interp2app(SSLObject.read, unwrap_spec=SSLObject.read.unwrap_spec),
-    do_handshake=interp2app(SSLObject.do_handshake,
-                            unwrap_spec=['self', ObjSpace]),
-    shutdown=interp2app(SSLObject.shutdown,
-                        unwrap_spec=['self', ObjSpace]),
+    server = interp2app(SSLObject.server),
+    issuer = interp2app(SSLObject.issuer),
+    write = interp2app(SSLObject.write),
+    read = interp2app(SSLObject.read),
+    do_handshake=interp2app(SSLObject.do_handshake),
+    shutdown=interp2app(SSLObject.shutdown),
 )
 
 
@@ -452,7 +444,6 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file):
 
     ss.w_socket = w_sock
     return ss
-new_sslobject.unwrap_spec = [ObjSpace, W_Root, str, str]
 
 def check_socket_and_wait_for_timeout(space, w_sock, writing):
     """If the socket has a timeout, do a select()/poll() on the socket.
@@ -553,14 +544,13 @@ def _ssl_seterror(space, ss, ret):
     return ssl_error(space, errstr, errval)
 
 
+@unwrap_spec(side=int, cert_mode=int, protocol=int)
 def sslwrap(space, w_socket, side, w_key_file=None, w_cert_file=None,
             cert_mode=PY_SSL_CERT_NONE, protocol=PY_SSL_VERSION_SSL23,
             w_cacerts_file=None, w_cipher=None):
     """sslwrap(socket, side, [keyfile, certfile]) -> sslobject"""
     return space.wrap(new_sslobject(
         space, w_socket, side, w_key_file, w_cert_file))
-sslwrap.unwrap_spec = [ObjSpace, W_Root, int, W_Root, W_Root,
-                       int, int, W_Root, W_Root]
 
 class Cache:
     def __init__(self, space):

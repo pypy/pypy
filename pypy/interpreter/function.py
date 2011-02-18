@@ -186,10 +186,8 @@ class Function(Wrappable):
             raise OperationError( space.w_TypeError, space.wrap("setting function's dictionary to a non-dict") )
         self.w_func_dict = w_dict
 
-    # unwrapping is done through unwrap_specs in typedef.py
-
     def descr_function__new__(space, w_subtype, w_code, w_globals,
-                            w_name=None, w_argdefs=None, w_closure=None):
+                              w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
@@ -326,13 +324,13 @@ class Function(Wrappable):
         self.defs_w    = space.fixedview(w_defs_w)
         self.w_module = w_module
 
-    def fget_func_defaults(space, self):
+    def fget_func_defaults(self, space):
         values_w = self.defs_w
         if not values_w or None in values_w:
             return space.w_None
         return space.newtuple(values_w)
 
-    def fset_func_defaults(space, self, w_defaults):
+    def fset_func_defaults(self, space, w_defaults):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
             return
@@ -340,21 +338,21 @@ class Function(Wrappable):
             raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None") )
         self.defs_w = space.fixedview(w_defaults)
 
-    def fdel_func_defaults(space, self):
+    def fdel_func_defaults(self, space):
         self.defs_w = []
 
-    def fget_func_doc(space, self):
+    def fget_func_doc(self, space):
         if self.w_doc is None:
             self.w_doc = self.code.getdocstring(space)
         return self.w_doc
 
-    def fset_func_doc(space, self, w_doc):
+    def fset_func_doc(self, space, w_doc):
         self.w_doc = w_doc
 
-    def fget_func_name(space, self):
+    def fget_func_name(self, space):
         return space.wrap(self.name)
 
-    def fset_func_name(space, self, w_name):
+    def fset_func_name(self, space, w_name):
         try:
             self.name = space.str_w(w_name)
         except OperationError, e:
@@ -365,10 +363,10 @@ class Function(Wrappable):
             raise
 
 
-    def fdel_func_doc(space, self):
+    def fdel_func_doc(self, space):
         self.w_doc = space.w_None
 
-    def fget___module__(space, self):
+    def fget___module__(self, space):
         if self.w_module is None:
             if self.w_func_globals is not None and not space.is_w(self.w_func_globals, space.w_None):
                 self.w_module = space.call_method( self.w_func_globals, "get", space.wrap("__name__") )
@@ -376,16 +374,16 @@ class Function(Wrappable):
                 self.w_module = space.w_None
         return self.w_module
 
-    def fset___module__(space, self, w_module):
+    def fset___module__(self, space, w_module):
         self.w_module = w_module
 
-    def fdel___module__(space, self):
+    def fdel___module__(self, space):
         self.w_module = space.w_None
 
-    def fget_func_code(space, self):
+    def fget_func_code(self, space):
         return space.wrap(self.code)
 
-    def fset_func_code(space, self, w_code):
+    def fset_func_code(self, space, w_code):
         from pypy.interpreter.pycode import PyCode
         if not self.can_change_code:
             raise OperationError(space.w_TypeError,
@@ -400,7 +398,7 @@ class Function(Wrappable):
                 self.name, closure_len, len(code.co_freevars))
         self.code = code
 
-    def fget_func_closure(space, self):
+    def fget_func_closure(self, space):
         if self.closure is not None:
             w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
         else:

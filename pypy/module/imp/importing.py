@@ -5,10 +5,10 @@ Implementation of the interpreter-level default import logic.
 import sys, os, stat
 
 from pypy.interpreter.module import Module
-from pypy.interpreter.gateway import Arguments, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.rlib import streamio, jit, rposix
 from pypy.rlib.streamio import StreamErrors
@@ -108,6 +108,7 @@ def check_sys_modules(space, w_modulename):
 def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
+@unwrap_spec(name=str, level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
@@ -186,8 +187,6 @@ def importhook(space, name, w_globals=None,
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
     space.timer.stop_name("importhook", modulename)
     return w_mod
-#
-importhook.unwrap_spec = [ObjSpace, str, W_Root, W_Root, W_Root, int]
 
 @jit.dont_look_inside
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
@@ -330,7 +329,7 @@ class W_NullImporter(Wrappable):
     def __init__(self, space):
         pass
 
-    @unwrap_spec('self', ObjSpace, str)
+    @unwrap_spec(path=str)
     def descr_init(self, space, path):
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(
@@ -346,7 +345,6 @@ class W_NullImporter(Wrappable):
                 raise OperationError(space.w_ImportError, space.wrap(
                     "existing directory"))
 
-    @unwrap_spec('self', ObjSpace, Arguments)
     def find_module_w(self, space, __args__):
         return space.wrap(None)
 

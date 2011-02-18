@@ -1,10 +1,9 @@
 import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, interp2app, make_weakref_descr
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.interpreter.gateway import ObjSpace, W_Root, unwrap_spec, Arguments
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.error import OperationError
 from pypy.rlib.debug import check_nonneg
 
@@ -81,7 +80,6 @@ class W_Deque(Wrappable):
                 self.space.w_RuntimeError,
                 self.space.wrap("deque mutated during iteration"))
 
-    @unwrap_spec('self', W_Root, W_Root)
     def init(self, w_iterable=NoneNotWrapped, w_maxlen=None):
         space = self.space
         if space.is_w(w_maxlen, space.w_None):
@@ -104,7 +102,6 @@ class W_Deque(Wrappable):
             self.pop()
             assert self.len == self.maxlen
 
-    @unwrap_spec('self', W_Root)
     def append(self, w_x):
         "Add an element to the right side of the deque."
         ri = self.rightindex + 1
@@ -119,7 +116,6 @@ class W_Deque(Wrappable):
         self.trimleft()
         self.modified()
 
-    @unwrap_spec('self', W_Root)
     def appendleft(self, w_x):
         "Add an element to the left side of the deque."
         li = self.leftindex - 1
@@ -134,7 +130,6 @@ class W_Deque(Wrappable):
         self.trimright()
         self.modified()
 
-    @unwrap_spec('self')
     def clear(self):
         "Remove all elements from the deque."
         self.leftblock = Block(None, None)
@@ -144,7 +139,6 @@ class W_Deque(Wrappable):
         self.len = 0
         self.modified()
 
-    @unwrap_spec('self', W_Root)
     def count(self, w_x):
         "Return number of occurrences of value."
         space = self.space
@@ -164,7 +158,6 @@ class W_Deque(Wrappable):
                 index = 0
         return space.wrap(result)
 
-    @unwrap_spec('self', W_Root)
     def extend(self, w_iterable):
         "Extend the right side of the deque with elements from the iterable"
         # Handle case where id(deque) == id(iterable)
@@ -182,12 +175,10 @@ class W_Deque(Wrappable):
                 raise
             self.append(w_obj)
 
-    @unwrap_spec('self', W_Root)
     def iadd(self, w_iterable):
         self.extend(w_iterable)
         return self.space.wrap(self)
 
-    @unwrap_spec('self', W_Root)
     def extendleft(self, w_iterable):
         "Extend the left side of the deque with elements from the iterable"
         # Handle case where id(deque) == id(iterable)
@@ -206,7 +197,6 @@ class W_Deque(Wrappable):
                 raise
             self.appendleft(w_obj)
 
-    @unwrap_spec('self')
     def pop(self):
         "Remove and return the rightmost element."
         if self.len == 0:
@@ -231,7 +221,6 @@ class W_Deque(Wrappable):
         self.modified()
         return w_obj
 
-    @unwrap_spec('self')
     def popleft(self):
         "Remove and return the leftmost element."
         if self.len == 0:
@@ -256,7 +245,6 @@ class W_Deque(Wrappable):
         self.modified()
         return w_obj
 
-    @unwrap_spec('self', W_Root)
     def remove(self, w_x):
         "Remove first occurrence of value."
         space = self.space
@@ -278,7 +266,6 @@ class W_Deque(Wrappable):
         raise OperationError(space.w_ValueError,
                              space.wrap("deque.remove(x): x not in deque"))
 
-    @unwrap_spec('self')
     def reverse(self):
         "Reverse *IN PLACE*."
         li = self.leftindex
@@ -296,7 +283,7 @@ class W_Deque(Wrappable):
                 rb = rb.leftlink
                 ri = BLOCKLEN - 1
 
-    @unwrap_spec('self', int)
+    @unwrap_spec(n=int)
     def rotate(self, n=1):
         "Rotate the deque n steps to the right (default n=1).  If n is negative, rotates left."
         len = self.len
@@ -315,20 +302,16 @@ class W_Deque(Wrappable):
             self.append(self.popleft())
             i -= 1
 
-    @unwrap_spec('self')
     def iter(self):
         return W_DequeIter(self)
 
-    @unwrap_spec('self')
     def reviter(self):
         "Return a reverse iterator over the deque."
         return W_DequeRevIter(self)
 
-    @unwrap_spec('self')
     def length(self):
         return self.space.wrap(self.len)
 
-    @unwrap_spec('self')
     def repr(self):
         space = self.space
         ec = space.getexecutioncontext()
@@ -344,22 +327,16 @@ class W_Deque(Wrappable):
         return space.compare_by_iteration(space.wrap(self), w_other, op)
     compare._annspecialcase_ = 'specialize:arg(2)'
 
-    @unwrap_spec('self', W_Root)
     def lt(self, w_other):
         return self.compare(w_other, 'lt')
-    @unwrap_spec('self', W_Root)
     def le(self, w_other):
         return self.compare(w_other, 'le')
-    @unwrap_spec('self', W_Root)
     def eq(self, w_other):
         return self.compare(w_other, 'eq')
-    @unwrap_spec('self', W_Root)
     def ne(self, w_other):
         return self.compare(w_other, 'ne')
-    @unwrap_spec('self', W_Root)
     def gt(self, w_other):
         return self.compare(w_other, 'gt')
-    @unwrap_spec('self', W_Root)
     def ge(self, w_other):
         return self.compare(w_other, 'ge')
 
@@ -387,7 +364,6 @@ class W_Deque(Wrappable):
         self.popleft()
         self.rotate(i)
 
-    @unwrap_spec('self', W_Root)
     def getitem(self, w_index):
         space = self.space
         start, stop, step = space.decode_index(w_index, self.len)
@@ -398,7 +374,6 @@ class W_Deque(Wrappable):
             raise OperationError(space.w_TypeError,
                                  space.wrap("deque[:] is not supported"))
 
-    @unwrap_spec('self', W_Root, W_Root)
     def setitem(self, w_index, w_newobj):
         space = self.space
         start, stop, step = space.decode_index(w_index, self.len)
@@ -409,7 +384,6 @@ class W_Deque(Wrappable):
             raise OperationError(space.w_TypeError,
                                  space.wrap("deque[:] is not supported"))
 
-    @unwrap_spec('self', W_Root)
     def delitem(self, w_index):
         space = self.space
         start, stop, step = space.decode_index(w_index, self.len)
@@ -419,7 +393,6 @@ class W_Deque(Wrappable):
             raise OperationError(space.w_TypeError,
                                  space.wrap("deque[:] is not supported"))
 
-    @unwrap_spec('self')
     def copy(self):
         "Return a shallow copy of a deque."
         space = self.space
@@ -430,7 +403,6 @@ class W_Deque(Wrappable):
             return space.call_function(space.type(w_self), w_self,
                                        space.wrap(self.maxlen))
 
-    @unwrap_spec('self')
     def reduce(self):
         "Return state information for pickling."
         space = self.space
@@ -486,8 +458,7 @@ app = gateway.applevel("""
 dequerepr = app.interphook("dequerepr")
 
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
-def descr__new__(space, w_subtype, args):
+def descr__new__(space, w_subtype, __args__):
     w_self = space.allocate_instance(W_Deque, w_subtype)
     W_Deque.__init__(space.interp_w(W_Deque, w_self), space)
     return w_self
@@ -543,11 +514,9 @@ class W_DequeIter(Wrappable):
         self.lock = deque.getlock()
         check_nonneg(self.index)
 
-    @unwrap_spec('self')
     def iter(self):
         return self.space.wrap(self)
 
-    @unwrap_spec('self')
     def next(self):
         self.deque.checklock(self.lock)
         if self.counter == 0:
@@ -580,11 +549,9 @@ class W_DequeRevIter(Wrappable):
         self.lock = deque.getlock()
         check_nonneg(self.index)
 
-    @unwrap_spec('self')
     def iter(self):
         return self.space.wrap(self)
 
-    @unwrap_spec('self')
     def next(self):
         self.deque.checklock(self.lock)
         if self.counter == 0:

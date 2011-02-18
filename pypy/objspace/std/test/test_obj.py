@@ -68,3 +68,4 @@ class AppTestObject:
         class x(object):
             pass
         assert x().__subclasshook__(object()) is NotImplemented
+        assert x.__subclasshook__(object()) is NotImplemented

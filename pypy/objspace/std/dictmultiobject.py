@@ -794,9 +794,8 @@ def dict_setdefault__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
         w_dict.setitem(w_key, w_default)
         return w_default
 
-def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
-    defaults = space.listview(w_defaults)
-    len_defaults = len(defaults)
+def dict_pop__DictMulti_ANY(space, w_dict, w_key, defaults_w):
+    len_defaults = len(defaults_w)
     if len_defaults > 1:
         raise operationerrfmt(space.w_TypeError,
                               "pop expected at most 2 arguments, got %d",
@@ -804,7 +803,7 @@ def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
     w_item = w_dict.getitem(w_key)
     if w_item is None:
         if len_defaults > 0:
-            return defaults[0]
+            return defaults_w[0]
         else:
             space.raise_key_error(w_key)
     else:

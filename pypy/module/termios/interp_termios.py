@@ -3,7 +3,7 @@
 little use of termios module on RPython level by itself
 """
 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.rpython.module import ll_termios
 from pypy.rlib.objectmodel import we_are_translated
@@ -20,6 +20,7 @@ def convert_error(space, error):
     w_exception_class = space.getattr(w_module, space.wrap('error'))
     return wrap_oserror(space, error, w_exception_class=w_exception_class)
 
+@unwrap_spec(fd=int, when=int)
 def tcsetattr(space, fd, when, w_attributes):
     w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
              space.unpackiterable(w_attributes, expected_length=7)
@@ -39,8 +40,8 @@ def tcsetattr(space, fd, when, w_attributes):
         rtermios.tcsetattr(fd, when, tup)
     except OSError, e:
         raise convert_error(space, e)
-tcsetattr.unwrap_spec = [ObjSpace, int, int, W_Root]
 
+@unwrap_spec(fd=int)
 def tcgetattr(space, fd):
     try:
         tup = rtermios.tcgetattr(fd)
@@ -56,32 +57,31 @@ def tcgetattr(space, fd):
     w_cc = space.newlist(cc_w)
     l_w.append(w_cc)
     return space.newlist(l_w)
-tcgetattr.unwrap_spec = [ObjSpace, int]
 
+@unwrap_spec(fd=int, duration=int)
 def tcsendbreak(space, fd, duration):
     try:
         termios.tcsendbreak(fd, duration)
     except OSError, e:
         raise convert_error(space, e)
-tcsendbreak.unwrap_spec = [ObjSpace, int, int]
 
+@unwrap_spec(fd=int)
 def tcdrain(space, fd):
     try:
         termios.tcdrain(fd)
     except OSError, e:
         raise convert_error(space, e)
-tcdrain.unwrap_spec = [ObjSpace, int]
 
+@unwrap_spec(fd=int, queue=int)
 def tcflush(space, fd, queue):
     try:
         termios.tcflush(fd, queue)
     except OSError, e:
         raise convert_error(space, e)
-tcflush.unwrap_spec = [ObjSpace, int, int]
 
+@unwrap_spec(fd=int, action=int)
 def tcflow(space, fd, action):
     try:
         termios.tcflow(fd, action)
     except OSError, e:
         raise convert_error(space, e)
-tcflow.unwrap_spec = [ObjSpace, int, int]

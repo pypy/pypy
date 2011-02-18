@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.gateway import interp2app, Arguments
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, wrap_windowserror
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -20,39 +20,32 @@ class W_HKEY(Wrappable):
 
     def descr_del(self, space):
         self.Close(space)
-    descr_del.unwrap_spec = ['self', ObjSpace]
 
     def as_int(self):
         return rffi.cast(rffi.SIZE_T, self.hkey)
 
     def descr_nonzero(self, space):
         return space.wrap(self.as_int() != 0)
-    descr_nonzero.unwrap_spec = ['self', ObjSpace]
 
-    def descr_handle_get(space, self):
+    def descr_handle_get(self, space):
         return space.wrap(self.as_int())
 
     def descr_repr(self, space):
         return space.wrap("<PyHKEY:0x%x>" % (self.as_int(),))
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
     def descr_int(self, space):
         return space.wrap(self.as_int())
-    descr_int.unwrap_spec = ['self', ObjSpace]
 
     def descr__enter__(self, space):
         return self
-    descr__enter__.unwrap_spec = ['self', ObjSpace]
 
     def descr__exit__(self, space, __args__):
         CloseKey(space, self)
-    descr__exit__.unwrap_spec = ['self', ObjSpace, Arguments]
 
     def Close(self, space):
         """key.Close() - Closes the underlying Windows handle.
 If the handle is already closed, no error is raised."""
         CloseKey(space, self)
-    Close.unwrap_spec = ['self', ObjSpace]
 
     def Detach(self, space):
         """int = key.Detach() - Detaches the Windows handle from the handle object.
@@ -68,13 +61,12 @@ On 64 bit windows, the result of this function is a long integer"""
         key = self.as_int()
         self.hkey = rwin32.NULL_HANDLE
         return space.wrap(key)
-    Detach.unwrap_spec = ['self', ObjSpace]
 
+@unwrap_spec(key=int)
 def new_HKEY(space, w_subtype, key):
     hkey = rffi.cast(rwinreg.HKEY, key)
     return space.wrap(W_HKEY(hkey))
-descr_HKEY_new = interp2app(new_HKEY,
-                            unwrap_spec=[ObjSpace, W_Root, int])
+descr_HKEY_new = interp2app(new_HKEY)
 
 W_HKEY.typedef = TypeDef(
     "_winreg.HKEYType",
@@ -139,7 +131,6 @@ closed when the hkey object is destroyed by Python."""
             raiseWindowsError(space, ret, 'RegCloseKey')
     if isinstance(w_hkey, W_HKEY):
         space.interp_w(W_HKEY, w_hkey).hkey = rwin32.NULL_HANDLE
-CloseKey.unwrap_spec = [ObjSpace, W_Root]
 
 def FlushKey(space, w_hkey):
     """FlushKey(key) - Writes all the attributes of a key to the registry.
@@ -158,8 +149,8 @@ If you don't know whether a FlushKey() call is required, it probably isn't."""
         ret = rwinreg.RegFlushKey(hkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegFlushKey')
-FlushKey.unwrap_spec = [ObjSpace, W_Root]
 
+@unwrap_spec(subkey=str, filename=str)
 def LoadKey(space, w_hkey, subkey, filename):
     """LoadKey(key, sub_key, file_name) - Creates a subkey under the specified key
 and stores registration information from a specified file into that subkey.
@@ -182,8 +173,8 @@ The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
     ret = rwinreg.RegLoadKey(hkey, subkey, filename)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegLoadKey')
-LoadKey.unwrap_spec = [ObjSpace, W_Root, str, str]
 
+@unwrap_spec(filename=str)
 def SaveKey(space, w_hkey, filename):
     """SaveKey(key, file_name) - Saves the specified key, and all its subkeys to the specified file.
 
@@ -202,8 +193,8 @@ This function passes NULL for security_attributes to the API."""
     ret = rwinreg.RegSaveKey(hkey, filename, None)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSaveKey')
-SaveKey.unwrap_spec = [ObjSpace, W_Root, str]
 
+@unwrap_spec(typ=int, value=str)
 def SetValue(space, w_hkey, w_subkey, typ, value):
     """SetValue(key, sub_key, type, value) - Associates a value with a specified key.
 
@@ -234,7 +225,6 @@ KEY_SET_VALUE access."""
         ret = rwinreg.RegSetValue(hkey, subkey, rwinreg.REG_SZ, dataptr, len(value))
         if ret != 0:
             raiseWindowsError(space, ret, 'RegSetValue')
-SetValue.unwrap_spec = [ObjSpace, W_Root, W_Root, int, str]
 
 def QueryValue(space, w_hkey, w_subkey):
     """string = QueryValue(key, sub_key) - retrieves the unnamed value for a key.
@@ -272,7 +262,6 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValue')
                 return space.wrap(rffi.charp2strn(buf, bufsize_p[0] - 1))
-QueryValue.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def convert_to_regdata(space, w_value, typ):
     buf = None
@@ -382,6 +371,7 @@ def convert_from_regdata(space, buf, buflen, typ):
     else: # REG_BINARY and all other types
         return space.wrap(rffi.charpsize2str(buf, buflen))
 
+@unwrap_spec(value_name=str, typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
     """SetValueEx(key, value_name, reserved, type, value) - Stores data in the value field of an open registry key.
 
@@ -421,7 +411,6 @@ the configuration registry.  This helps the registry perform efficiently."""
         lltype.free(buf, flavor='raw')
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSetValueEx')
-SetValueEx.unwrap_spec = [ObjSpace, W_Root, str, W_Root, int, W_Root]
 
 def QueryValueEx(space, w_hkey, w_subkey):
     """value,type_id = QueryValueEx(key, value_name) - Retrieves the type and data for a specified value name associated with an open registry key.
@@ -462,8 +451,7 @@ value_name is a string indicating the value to query"""
                         space.wrap(retType[0]),
                         ])
 
-QueryValueEx.unwrap_spec = [ObjSpace, W_Root, W_Root]
-
+@unwrap_spec(subkey=str)
 def CreateKey(space, w_hkey, subkey):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -482,8 +470,8 @@ If the function fails, an exception is raised."""
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKey')
         return space.wrap(W_HKEY(rethkey[0]))
-CreateKey.unwrap_spec = [ObjSpace, W_Root, str]
 
+@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
 def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -504,8 +492,8 @@ If the function fails, an exception is raised."""
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKeyEx')
         return space.wrap(W_HKEY(rethkey[0]))
-CreateKeyEx.unwrap_spec = [ObjSpace, W_Root, str, int, rffi.r_uint]
 
+@unwrap_spec(subkey=str)
 def DeleteKey(space, w_hkey, subkey):
     """DeleteKey(key, sub_key) - Deletes the specified key.
 
@@ -521,8 +509,8 @@ is removed.  If the method fails, an EnvironmentError exception is raised."""
     ret = rwinreg.RegDeleteKey(hkey, subkey)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteKey')
-DeleteKey.unwrap_spec = [ObjSpace, W_Root, str]
 
+@unwrap_spec(subkey=str)
 def DeleteValue(space, w_hkey, subkey):
     """DeleteValue(key, value) - Removes a named value from a registry key.
 
@@ -532,8 +520,8 @@ value is a string that identifies the value to remove."""
     ret = rwinreg.RegDeleteValue(hkey, subkey)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
-DeleteValue.unwrap_spec = [ObjSpace, W_Root, str]
 
+@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
 def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
     """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
 
@@ -551,8 +539,8 @@ If the function fails, an EnvironmentError exception is raised."""
         if ret != 0:
             raiseWindowsError(space, ret, 'RegOpenKeyEx')
         return space.wrap(W_HKEY(rethkey[0]))
-OpenKey.unwrap_spec = [ObjSpace, W_Root, str, int, rffi.r_uint]
 
+@unwrap_spec(index=int)
 def EnumValue(space, w_hkey, index):
     """tuple = EnumValue(key, index) - Enumerates values of an open registry key.
 key is an already open key, or any one of the predefined HKEY_* constants.
@@ -615,8 +603,7 @@ data_type is an integer that identifies the type of the value data."""
                                 space.wrap(retType[0]),
                                 ])
 
-EnumValue.unwrap_spec = [ObjSpace, W_Root, int]
-
+@unwrap_spec(index=int)
 def EnumKey(space, w_hkey, index):
     """string = EnumKey(key, index) - Enumerates subkeys of an open registry key.
 
@@ -645,8 +632,6 @@ raised, indicating no more values are available."""
                 raiseWindowsError(space, ret, 'RegEnumKeyEx')
             return space.wrap(rffi.charp2str(buf))
 
-EnumKey.unwrap_spec = [ObjSpace, W_Root, int]
-
 def QueryInfoKey(space, w_hkey):
     """tuple = QueryInfoKey(key) - Returns information about a key.
 
@@ -674,7 +659,6 @@ A long integer that identifies when the key was last modified (if available)
                 return space.newtuple([space.wrap(nSubKeys[0]),
                                        space.wrap(nValues[0]),
                                        space.wrap(l)])
-QueryInfoKey.unwrap_spec = [ObjSpace, W_Root]
 
 def str_or_None_w(space, w_obj):
     if space.is_w(w_obj, space.w_None):
@@ -699,15 +683,14 @@ If the function fails, an EnvironmentError exception is raised."""
         if ret != 0:
             raiseWindowsError(space, ret, 'RegConnectRegistry')
         return space.wrap(W_HKEY(rethkey[0]))
-ConnectRegistry.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+@unwrap_spec(source=unicode)
 def ExpandEnvironmentStrings(space, source):
     "string = ExpandEnvironmentStrings(string) - Expand environment vars."
     try:
         return space.wrap(rwinreg.ExpandEnvironmentStrings(source))
     except WindowsError, e:
         raise wrap_windowserror(space, e)
-ExpandEnvironmentStrings.unwrap_spec = [ObjSpace, unicode]
 
 def DisableReflectionKey(space, w_key):
     """Disables registry reflection for 32-bit processes running on a 64-bit
@@ -717,7 +700,6 @@ def DisableReflectionKey(space, w_key):
     Disabling reflection for a key does not affect reflection of any subkeys."""
     raise OperationError(space.w_NotImplementedError, space.wrap(
         "not implemented on this platform"))
-DisableReflectionKey.unwrap_spec = [ObjSpace, W_Root]
 
 def EnableReflectionKey(space, w_key):
     """Restores registry reflection for the specified disabled key.
@@ -725,15 +707,14 @@ def EnableReflectionKey(space, w_key):
     Restoring reflection for a key does not affect reflection of any subkeys."""
     raise OperationError(space.w_NotImplementedError, space.wrap(
         "not implemented on this platform"))
-EnableReflectionKey.unwrap_spec = [ObjSpace, W_Root]
 
 def QueryReflectionKey(space, w_key):
     """bool = QueryReflectionKey(hkey) - Determines the reflection state for the specified key.
     Will generally raise NotImplemented if executed on a 32-bit Operating System."""
     raise OperationError(space.w_NotImplementedError, space.wrap(
         "not implemented on this platform"))
-QueryReflectionKey.unwrap_spec = [ObjSpace, W_Root]
 
+@unwrap_spec(subkey=str)
 def DeleteKeyEx(space, w_key, subkey):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
@@ -750,4 +731,3 @@ def DeleteKeyEx(space, w_key, subkey):
     On unsupported Windows versions, NotImplementedError is raised."""
     raise OperationError(space.w_NotImplementedError, space.wrap(
         "not implemented on this platform"))
-DeleteKeyEx.unwrap_spec = [ObjSpace, W_Root, str]
