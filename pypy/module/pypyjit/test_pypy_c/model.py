@@ -11,7 +11,7 @@ class Log(object):
         storage.ids = self.find_ids(func)
         traces = [parse(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)
-        self.functions = [FunctionWithIds.from_trace(trace, storage) for trace in traces]
+        self.loops = [LoopWithIds.from_trace(trace, storage) for trace in traces]
 
     @classmethod
     def find_ids_range(cls, func):
@@ -47,14 +47,15 @@ class Log(object):
             ids[name] = opcodes
         return ids
 
-    def _filter(self, function, is_entry_bridge=False):
-        return is_entry_bridge == '*' or function.is_entry_bridge == is_entry_bridge
+    def _filter(self, loop, is_entry_bridge=False):
+        return is_entry_bridge == '*' or loop.is_entry_bridge == is_entry_bridge
 
     def by_filename(self, filename, **kwds):
-        return [func for func in self.functions
-                if func.filename == filename and self._filter(func, **kwds)]
+        return [loop for loop in self.loops
+                if loop.filename == filename and self._filter(loop, **kwds)]
 
-class FunctionWithIds(Function):
+
+class LoopWithIds(Function):
 
     is_entry_bridge = False
 
