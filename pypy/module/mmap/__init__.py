@@ -8,11 +8,11 @@ class Module(MixedModule):
         'ACCESS_READ' : 'space.wrap(interp_mmap.ACCESS_READ)',
         'ACCESS_WRITE': 'space.wrap(interp_mmap.ACCESS_WRITE)',
         'ACCESS_COPY' : 'space.wrap(interp_mmap.ACCESS_COPY)',
-        'mmap': 'interp_mmap.W_MMap'
+        'mmap': 'interp_mmap.W_MMap',
+        'error': 'space.fromcache(interp_mmap.Cache).w_error',
     }
 
     appleveldefs = {
-        'error': 'app_mmap.error'
     }
     
     def buildloaders(cls):

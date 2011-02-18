@@ -268,7 +268,11 @@ ACCESS_READ  = rmmap.ACCESS_READ
 ACCESS_WRITE = rmmap.ACCESS_WRITE
 ACCESS_COPY  = rmmap.ACCESS_COPY
 
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("mmap.error",
+                                                 space.w_EnvironmentError)
+
 def mmap_error(space, e):
-    w_module = space.getbuiltinmodule('mmap')
-    w_error = space.getattr(w_module, space.wrap('error'))
+    w_error = space.fromcache(Cache).w_error
     return wrap_oserror(space, e, w_exception_class=w_error)

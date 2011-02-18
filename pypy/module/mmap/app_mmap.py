@@ -1,2 +1,0 @@
-class error(EnvironmentError):
-    pass
