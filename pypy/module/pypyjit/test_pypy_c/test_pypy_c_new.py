@@ -3,16 +3,8 @@ import subprocess
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
-from pypy.jit.tool import oparser
+from pypy.module.pypyjit.test_pypy_c.model import Log
 
-class Log(object):
-    def __init__(self, func, rawtraces):
-        traces = map(Trace, rawtraces)
-
-class Trace(object):
-    def __init__(self, rawtrace):
-        # "low level trace", i.e. an instance of history.TreeLoop
-        self.lltrace = oparser.parse(rawtrace, no_namespace=True)
         
 
 
@@ -28,38 +20,6 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def find_chunks_range(self, func):
-        """
-        Parse the given function and return a dictionary mapping "chunk
-        names" to "line ranges".  Chunks are identified by comments with a
-        special syntax::
-
-            # the chunk "myid" corresponds to the whole line
-            print 'foo' # ID: myid
-        """
-        result = {}
-        start_lineno = func.func_code.co_firstlineno
-        for i, line in enumerate(py.code.Source(func)):
-            m = re.search('# ID: (\w+)', line)
-            if m:
-                name = m.group(1)
-                lineno = start_lineno+i
-                result[name] = xrange(lineno, lineno+1)
-        return result
-
-    def find_chunks(self, func):
-        """
-        Parse the given function and return a dictionary mapping "chunk names"
-        to "opcodes".
-        """
-        chunks = {}
-        code = disassembler.dis(func)
-        ranges = self.find_chunks_range(func)
-        for name, linerange in ranges.iteritems():
-            opcodes = [opcode for opcode in code.opcodes
-                       if opcode.lineno in linerange]
-            chunks[name] = opcodes
-        return chunks
     
     def run(self, func, threshold=1000):
         # write the snippet
@@ -83,37 +43,12 @@ class BaseTestPyPyC(object):
         assert not stderr
         #
         # parse the JIT log
-        chunks = self.find_chunks(func)
         rawlog = logparser.parse_log_file(str(logfile))
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(func, rawtraces)
         return log
 
 class TestInfrastructure(BaseTestPyPyC):
-
-    def test_find_chunks_range(self):
-        def f():
-            a = 0 # ID: myline
-            return a
-        #
-        start_lineno = f.func_code.co_firstlineno
-        ids = self.find_chunks_range(f)
-        assert len(ids) == 1
-        myline_range = ids['myline']
-        assert list(myline_range) == range(start_lineno+1, start_lineno+2)
-
-    def test_find_chunks(self):
-        def f():
-            i = 0
-            x = 0
-            z = x + 3 # ID: myline
-            return z
-        #
-        chunks = self.find_chunks(f)
-        assert len(chunks) == 1
-        myline = chunks['myline']
-        opcodes_names = [opcode.__class__.__name__ for opcode in myline]
-        assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
     def test_parse_jitlog(self):
         def f():
