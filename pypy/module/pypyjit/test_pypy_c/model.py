@@ -5,7 +5,8 @@ from pypy.jit.tool import oparser
 
 class Log(object):
     def __init__(self, func, rawtraces):
-        traces = map(Trace, rawtraces)
+        chunks = self.find_chunks(func)
+        self.traces = [Trace(rawtrace, chunks) for rawtrace in rawtraces]
 
     @classmethod
     def find_chunks_range(cls, func):
@@ -44,6 +45,19 @@ class Log(object):
 
 
 class Trace(object):
-    def __init__(self, rawtrace):
+    def __init__(self, rawtrace, chunks):
         # "low level trace", i.e. an instance of history.TreeLoop
         self.lltrace = oparser.parse(rawtrace, no_namespace=True)
+        self.split_into_opcodes()
+
+    def split_into_opcodes(self):
+        self.opcodes = []
+        for op in self.lltrace.operations:
+            if op.getopname() == "debug_merge_point":
+                opcode = TraceForOpcode(op) # XXX
+                self.opcodes.append(opcode)
+            else:
+                opcode.append(op)
+
+class TraceForOpcode(list):
+    pass
