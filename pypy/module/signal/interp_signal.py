@@ -208,6 +208,16 @@ def getsignal(space, signum):
         return action.handlers_w[signum]
     return space.wrap(SIG_DFL)
 
+def default_int_handler(space, w_signum, w_frame):
+    """
+    default_int_handler(...)
+
+    The default handler for SIGINT installed by Python.
+    It raises KeyboardInterrupt.
+    """
+    raise OperationError(space.w_KeyboardInterrupt,
+                         space.w_None)
+
 @jit.dont_look_inside
 @unwrap_spec(timeout=int)
 def alarm(space, timeout):

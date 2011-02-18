@@ -11,6 +11,7 @@ class Module(MixedModule):
         'NSIG':                'space.wrap(interp_signal.NSIG)',
         'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
+        'default_int_handler': 'interp_signal.default_int_handler',
     }
 
     if os.name == 'posix':
@@ -25,7 +26,6 @@ class Module(MixedModule):
             interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
 
     appleveldefs = {
-        'default_int_handler': 'app_signal.default_int_handler',
         'ItimerError': 'app_signal.ItimerError',
     }
 
