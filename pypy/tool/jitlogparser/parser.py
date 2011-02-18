@@ -140,6 +140,51 @@ class Function(object):
                 break
         self.storage = storage
 
+    @classmethod
+    def from_operations(cls, operations, storage, limit=None):
+        """ Slice given operation list into a chain of Bytecode chunks.
+        Also detect inlined functions and make them Function
+        """
+        stack = []
+
+        def getpath(stack):
+            return ",".join([str(len(v)) for v in stack])
+
+        def append_to_res(bc):
+            if not stack:
+                stack.append([])
+            else:
+                if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
+                    if bc.inline_level < len(stack):
+                        last = stack.pop()
+                        stack[-1].append(cls(last, getpath(stack), storage))
+                    else:
+                        stack.append([])
+            stack[-1].append(bc)
+
+        so_far = []
+        stack = []
+        for op in operations:
+            if op.name == 'debug_merge_point':
+                if so_far:
+                    append_to_res(Bytecode(so_far, storage))
+                    if limit:
+                        break
+                    so_far = []
+            so_far.append(op)
+        if so_far:
+            append_to_res(Bytecode(so_far, storage))
+        # wrap stack back up
+        if not stack:
+            # no ops whatsoever
+            return cls([], getpath(stack), storage)
+        while True:
+            next = stack.pop()
+            if not stack:
+                return cls(next, getpath(stack), storage)
+            stack[-1].append(cls(next, getpath(stack), storage))
+
+
     def getlinerange(self):
         if self._linerange is None:
             self._compute_linerange()
@@ -193,48 +238,6 @@ def parse(input):
     return SimpleParser(input, None, {}, 'lltype', None,
                         nonstrict=True).parse()
 
-def slice_debug_merge_points(operations, storage, limit=None):
-    """ Slice given operation list into a chain of Bytecode chunks.
-    Also detect inlined functions and make them Function
-    """
-    stack = []
-
-    def getpath(stack):
-        return ",".join([str(len(v)) for v in stack])
-
-    def append_to_res(bc):
-        if not stack:
-            stack.append([])
-        else:
-            if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
-                if bc.inline_level < len(stack):
-                    last = stack.pop()
-                    stack[-1].append(Function(last, getpath(stack), storage))
-                else:
-                    stack.append([])
-        stack[-1].append(bc)
-
-    so_far = []
-    stack = []
-    for op in operations:
-        if op.name == 'debug_merge_point':
-            if so_far:
-                append_to_res(Bytecode(so_far, storage))
-                if limit:
-                    break
-                so_far = []
-        so_far.append(op)
-    if so_far:
-        append_to_res(Bytecode(so_far, storage))
-    # wrap stack back up
-    if not stack:
-        # no ops whatsoever
-        return Function([], getpath(stack), storage)
-    while True:
-        next = stack.pop()
-        if not stack:
-            return Function(next, getpath(stack), storage)
-        stack[-1].append(Function(next, getpath(stack), storage))
 
 def adjust_bridges(loop, bridges):
     """ Slice given loop according to given bridges to follow. Returns a plain
