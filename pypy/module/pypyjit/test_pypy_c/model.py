@@ -1,7 +1,8 @@
 import py
 import re
 from lib_pypy import disassembler
-from pypy.jit.tool import oparser
+from pypy.tool.jitlogparser.parser import parse, slice_debug_merge_points
+from pypy.tool.jitlogparser.storage import LoopStorage
 
 class Log(object):
     def __init__(self, func, rawtraces):
@@ -47,7 +48,10 @@ class Log(object):
 class Trace(object):
     def __init__(self, rawtrace, chunks):
         # "low level trace", i.e. an instance of history.TreeLoop
-        self.lltrace = oparser.parse(rawtrace, no_namespace=True)
+        self.lltrace = parse(rawtrace)
+        storage = LoopStorage()
+        function = slice_debug_merge_points(self.lltrace.operations, storage)
+        import pdb;pdb.set_trace()
         self.split_into_opcodes()
 
     def split_into_opcodes(self):
