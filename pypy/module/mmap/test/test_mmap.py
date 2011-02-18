@@ -519,13 +519,15 @@ class AppTestMMap:
         assert b[:] == "foobar"
 
     def test_offset(self):
-        from mmap import mmap
+        from mmap import mmap, ALLOCATIONGRANULARITY
         f = open(self.tmpname + "y", "w+")
-        f.write("foobar" * 3000)
+        f.write("foobar" * ALLOCATIONGRANULARITY)
         f.flush()
-        m = mmap(f.fileno(), 4, offset=8192)
-        assert m[:] == "obar"
-        assert len(m) == 4
+        size = ALLOCATIONGRANULARITY
+        offset = 2 * ALLOCATIONGRANULARITY
+        m = mmap(f.fileno(), size, offset=offset)
+        assert m[:] == ("foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
+        assert len(m) == size
         m.close()
         f.close()
 
