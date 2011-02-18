@@ -208,6 +208,16 @@ def getsignal(space, signum):
         return action.handlers_w[signum]
     return space.wrap(SIG_DFL)
 
+def default_int_handler(space, w_signum, w_frame):
+    """
+    default_int_handler(...)
+
+    The default handler for SIGINT installed by Python.
+    It raises KeyboardInterrupt.
+    """
+    raise OperationError(space.w_KeyboardInterrupt,
+                         space.w_None)
+
 @jit.dont_look_inside
 @unwrap_spec(timeout=int)
 def alarm(space, timeout):
@@ -303,9 +313,13 @@ def itimer_retval(space, val):
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+class Cache:
+    def __init__(self, space):
+        self.w_itimererror = space.new_exception_class("signal.ItimerError",
+                                                       space.w_IOError)
+
 def get_itimer_error(space):
-    mod = space.getbuiltinmodule("signal")
-    return space.getattr(mod, space.wrap("ItimerError"))
+    return space.fromcache(Cache).w_itimererror
 
 @jit.dont_look_inside
 @unwrap_spec(which=int, first=float, interval=float)

@@ -8,11 +8,11 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'zipimporter':'interp_zipimport.W_ZipImporter',
-        '_zip_directory_cache' : 'space.wrap(interp_zipimport.zip_cache)'
+        '_zip_directory_cache' : 'space.wrap(interp_zipimport.zip_cache)',
+        'ZipImportError': 'space.fromcache(interp_zipimport.Cache).w_error',
     }
 
     appleveldefs = {
-        'ZipImportError'      : 'app_zipimport.ZipImportError',
     }
 
     def setup_after_space_initialization(self):

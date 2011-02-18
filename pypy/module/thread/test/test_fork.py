@@ -41,6 +41,9 @@ class AppTestFork(GenericTestThread):
         "Checks that a forked interpreter can start a thread"
         import os, thread, time
 
+        if not hasattr(os, 'fork'):
+            skip("No fork on this platform")
+
         # pre-allocate some locks
         thread.start_new_thread(lambda: None, ())
 
