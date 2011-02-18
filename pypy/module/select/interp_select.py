@@ -1,7 +1,7 @@
 import math
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import W_Root, ObjSpace, interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, operationerrfmt, wrap_oserror)
 from pypy.rlib import rpoll
@@ -18,18 +18,18 @@ class Poll(Wrappable):
     def __init__(self):
         self.fddict = {}
 
+    @unwrap_spec(events=int)
     def register(self, space, w_fd, events=defaultevents):
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
-    register.unwrap_spec = ['self', ObjSpace, W_Root, int]
 
+    @unwrap_spec(events=int)
     def modify(self, space, w_fd, events):
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
             raise wrap_oserror(space, OSError(errno.ENOENT, "poll.modify"),
                                exception_name='w_IOError')
         self.fddict[fd] = events
-    modify.unwrap_spec = ['self', ObjSpace, W_Root, int]
 
     def unregister(self, space, w_fd):
         fd = space.c_filedescriptor_w(w_fd)
@@ -38,7 +38,6 @@ class Poll(Wrappable):
         except KeyError:
             raise OperationError(space.w_KeyError,
                                  space.wrap(fd)) # XXX should this maybe be w_fd?
-    unregister.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def poll(self, space, w_timeout=None):
         if space.is_w(w_timeout, space.w_None):
@@ -68,14 +67,10 @@ class Poll(Wrappable):
             retval_w.append(space.newtuple([space.wrap(fd),
                                             space.wrap(revents)]))
         return space.newlist(retval_w)
-    poll.unwrap_spec = ['self', ObjSpace, W_Root]
 
 pollmethods = {}
 for methodname in 'register modify unregister poll'.split():
-    method = getattr(Poll, methodname)
-    assert hasattr(method,'unwrap_spec'), methodname
-    assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
-    pollmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
+    pollmethods[methodname] = interp2app(getattr(Poll, methodname))
 Poll.typedef = TypeDef('select.poll', **pollmethods)
 
 def select(space, w_iwtd, w_owtd, w_ewtd, w_timeout=None):

@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty_w, interp_attrproperty,
     generic_new_descr)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rarithmetic import intmask, r_ulonglong, r_uint
 from pypy.rlib.rbigint import rbigint
@@ -42,7 +42,7 @@ class W_IncrementalNewlineDecoder(Wrappable):
                 [space.wrap(u"\r"), space.wrap(u"\n"), space.wrap(u"\r\n")]),
             }
 
-    @unwrap_spec('self', ObjSpace, W_Root, int, W_Root)
+    @unwrap_spec(translate=int)
     def descr_init(self, space, w_decoder, translate, w_errors=None):
         self.w_decoder = w_decoder
         self.translate = translate
@@ -54,10 +54,10 @@ class W_IncrementalNewlineDecoder(Wrappable):
         self.seennl = 0
         pendingcr = False
 
-    def newlines_get_w(space, self):
+    def newlines_get_w(self, space):
         return self.w_newlines_dict.get(self.seennl, space.w_None)
 
-    @unwrap_spec('self', ObjSpace, W_Root, int)
+    @unwrap_spec(final=int)
     def decode_w(self, space, w_input, final=False):
         if self.w_decoder is None:
             raise OperationError(space.w_ValueError, space.wrap(
@@ -149,14 +149,12 @@ class W_IncrementalNewlineDecoder(Wrappable):
         self.seennl |= seennl
         return space.wrap(output)
 
-    @unwrap_spec('self', ObjSpace)
     def reset_w(self, space):
         self.seennl = 0
         self.pendingcr = False
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
             space.call_method(self.w_decoder, "reset")
 
-    @unwrap_spec('self', ObjSpace)
     def getstate_w(self, space):
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
             w_state = space.call_method(self.w_decoder, "getstate")
@@ -170,7 +168,6 @@ class W_IncrementalNewlineDecoder(Wrappable):
             flag |= 1
         return space.newtuple([w_buffer, space.wrap(flag)])
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
         flag = space.r_longlong_w(w_flag)
@@ -205,23 +202,19 @@ class W_TextIOBase(W_IOBase):
                               space.wrap('UnsupportedOperation'))
         raise OperationError(w_exc, space.wrap(message))
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._unsupportedoperation(space, "read")
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def readline_w(self, space, w_limit=None):
         self._unsupportedoperation(space, "readline")
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._unsupportedoperation(space, "write")
 
-    @unwrap_spec('self', ObjSpace)
     def detach_w(self, space):
         self._unsupportedoperation(space, "detach")
 
-    def errors_get_w(space, self):
+    def errors_get_w(self, space):
         return space.w_None
 
 
@@ -341,7 +334,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                               # of the stream
         self.snapshot = None
 
-    @unwrap_spec('self', ObjSpace, W_Root, "str_or_None", W_Root, W_Root, int)
+    @unwrap_spec(encoding="str_or_None", line_buffering=int)
     def descr_init(self, space, w_buffer, encoding=None,
                    w_errors=None, w_newline=None, line_buffering=0):
         self.state = STATE_ZERO
@@ -444,7 +437,6 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         W_TextIOBase._check_closed(self, space, message)
 
-    @unwrap_spec('self', ObjSpace)
     def descr_repr(self, space):
         w_name = space.findattr(self, space.wrap("name"))
         if w_name is None:
@@ -456,55 +448,48 @@ class W_TextIOWrapper(W_TextIOBase):
             space.wrap("<_io.TextIOWrapper %sencoding=%r>"), w_args
         )
 
-    @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_buffer, "readable")
 
-    @unwrap_spec('self', ObjSpace)
     def writable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_buffer, "writable")
 
-    @unwrap_spec('self', ObjSpace)
     def seekable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_buffer, "seekable")
 
-    @unwrap_spec('self', ObjSpace)
     def fileno_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_buffer, "fileno")
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         self._check_init(space)
         return space.getattr(self.w_buffer, space.wrap("closed"))
 
-    def newlines_get_w(space, self):
+    def newlines_get_w(self, space):
         self._check_init(space)
         if self.w_decoder is None:
             return space.w_None
         return space.findattr(self.w_decoder, space.wrap("newlines"))
 
-    def name_get_w(space, self):
+    def name_get_w(self, space):
         self._check_init(space)
         return space.getattr(self.w_buffer, space.wrap("name"))
 
-    @unwrap_spec('self', ObjSpace)
     def flush_w(self, space):
         self._check_closed(space)
         self.telling = self.seekable
         self._writeflush(space)
         space.call_method(self.w_buffer, "flush")
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def truncate_w(self, space, w_pos=None):
         self._check_init(space)
 
         space.call_method(self, "flush")
         return space.call_method(self.w_buffer, "truncate", w_pos)
 
-    @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         self._check_init(space)
         if not space.is_true(space.getattr(self.w_buffer,
@@ -581,7 +566,6 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return not eof
 
-    @unwrap_spec('self', ObjSpace)
     def next_w(self, space):
         self.telling = False
         try:
@@ -591,7 +575,6 @@ class W_TextIOWrapper(W_TextIOBase):
                 self.telling = self.seekable
             raise
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         if not self.w_decoder:
@@ -626,7 +609,6 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return space.wrap(builder.build())
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         self._writeflush(space)
@@ -717,7 +699,6 @@ class W_TextIOWrapper(W_TextIOBase):
     # _____________________________________________________________
     # write methods
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_text):
         self._check_init(space)
         self._check_closed(space)
@@ -778,7 +759,6 @@ class W_TextIOWrapper(W_TextIOBase):
 
         space.call_method(self.w_buffer, "write", space.wrap(pending_bytes))
 
-    @unwrap_spec('self', ObjSpace)
     def detach_w(self, space):
         self._check_init(space)
         space.call_method(self, "flush")
@@ -811,7 +791,7 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_encoder, "setstate", space.wrap(0))
             self.encoding_start_of_stream = False
 
-    @unwrap_spec('self', ObjSpace, W_Root, int)
+    @unwrap_spec(whence=int)
     def seek_w(self, space, w_pos, whence=0):
         self._check_closed(space)
 
@@ -891,7 +871,6 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return w_pos
 
-    @unwrap_spec('self', ObjSpace)
     def tell_w(self, space):
         self._check_closed(space)
 
@@ -981,11 +960,11 @@ class W_TextIOWrapper(W_TextIOBase):
         cookie.chars_to_skip = chars_to_skip
         return space.newlong_from_rbigint(cookie.pack())
 
-    def chunk_size_get_w(space, self):
+    def chunk_size_get_w(self, space):
         self._check_init(space)
         return space.wrap(self.chunk_size)
 
-    def chunk_size_set_w(space, self, w_size):
+    def chunk_size_set_w(self, space, w_size):
         self._check_init(space)
         size = space.int_w(w_size)
         if size <= 0:

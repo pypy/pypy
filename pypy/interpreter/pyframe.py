@@ -442,16 +442,14 @@ class PyFrame(eval.Frame):
 
     ### line numbers ###
 
-    # for f*_f_* unwrapping through unwrap_spec in typedef.py
-
-    def fget_f_lineno(space, self): 
+    def fget_f_lineno(self, space): 
         "Returns the line number of the instruction currently being executed."
         if self.w_f_trace is None:
             return space.wrap(self.get_last_lineno())
         else:
             return space.wrap(self.f_lineno)
 
-    def fset_f_lineno(space, self, w_new_lineno):
+    def fset_f_lineno(self, space, w_new_lineno):
         "Returns the line number of the instruction currently being executed."
         try:
             new_lineno = space.int_w(w_new_lineno)
@@ -585,19 +583,19 @@ class PyFrame(eval.Frame):
         "Returns the line number of the instruction currently being executed."
         return pytraceback.offset2lineno(self.pycode, self.last_instr)
 
-    def fget_f_builtins(space, self):
+    def fget_f_builtins(self, space):
         return self.get_builtin().getdict()
 
-    def fget_f_back(space, self):
+    def fget_f_back(self, space):
         return self.space.wrap(self.f_backref())
 
-    def fget_f_lasti(space, self):
+    def fget_f_lasti(self, space):
         return self.space.wrap(self.last_instr)
 
-    def fget_f_trace(space, self):
+    def fget_f_trace(self, space):
         return self.w_f_trace
 
-    def fset_f_trace(space, self, w_trace):
+    def fset_f_trace(self, space, w_trace):
         if space.is_w(w_trace, space.w_None):
             self.w_f_trace = None
         else:
@@ -605,10 +603,10 @@ class PyFrame(eval.Frame):
             self.f_lineno = self.get_last_lineno()
             space.frame_trace_action.fire()
 
-    def fdel_f_trace(space, self): 
+    def fdel_f_trace(self, space): 
         self.w_f_trace = None 
 
-    def fget_f_exc_type(space, self):
+    def fget_f_exc_type(self, space):
         if self.last_exception is not None:
             f = self.f_backref()
             while f is not None and f.last_exception is None:
@@ -617,7 +615,7 @@ class PyFrame(eval.Frame):
                 return f.last_exception.w_type
         return space.w_None
          
-    def fget_f_exc_value(space, self):
+    def fget_f_exc_value(self, space):
         if self.last_exception is not None:
             f = self.f_backref()
             while f is not None and f.last_exception is None:
@@ -626,7 +624,7 @@ class PyFrame(eval.Frame):
                 return f.last_exception.get_w_value(space)
         return space.w_None
 
-    def fget_f_exc_traceback(space, self):
+    def fget_f_exc_traceback(self, space):
         if self.last_exception is not None:
             f = self.f_backref()
             while f is not None and f.last_exception is None:
@@ -635,7 +633,7 @@ class PyFrame(eval.Frame):
                 return space.wrap(f.last_exception.application_traceback)
         return space.w_None
          
-    def fget_f_restricted(space, self):
+    def fget_f_restricted(self, space):
         if space.config.objspace.honor__builtins__:
             return space.wrap(self.builtin is not space.builtin)
         return space.w_False

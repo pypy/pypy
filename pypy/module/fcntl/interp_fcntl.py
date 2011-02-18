@@ -1,7 +1,7 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
@@ -100,6 +100,7 @@ def _check_flock_op(space, op):
     l.c_l_type = rffi.cast(rffi.SHORT, l_type)
     return l
 
+@unwrap_spec(op=int)
 def fcntl(space, w_fd, op, w_arg=0):
     """fcntl(fd, op, [arg])
 
@@ -144,8 +145,8 @@ def fcntl(space, w_fd, op, w_arg=0):
 
     raise OperationError(space.w_TypeError,
                          space.wrap("int or string or buffer required"))
-fcntl.unwrap_spec = [ObjSpace, W_Root, int, W_Root]
 
+@unwrap_spec(op=int)
 def flock(space, w_fd, op):
     """flock(fd, operation)
 
@@ -168,8 +169,8 @@ def flock(space, w_fd, op):
         op = rffi.cast(rffi.INT, op)        # C long => C int
         fcntl_flock(fd, op, l)
         lltype.free(l, flavor='raw')
-flock.unwrap_spec = [ObjSpace, W_Root, int]
 
+@unwrap_spec(op=int, length=int, start=int, whence=int)
 def lockf(space, w_fd, op, length=0, start=0, whence=0):
     """lockf (fd, operation, length=0, start=0, whence=0)
 
@@ -215,8 +216,8 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
         fcntl_flock(fd, op, l)
     finally:
         lltype.free(l, flavor='raw')
-lockf.unwrap_spec = [ObjSpace, W_Root, int, int, int, int]
 
+@unwrap_spec(op=int, mutate_flag=int)
 def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
     """ioctl(fd, opt[, arg[, mutate_flag]])
 
@@ -277,4 +278,3 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
 
     raise OperationError(space.w_TypeError,
                          space.wrap("int or string or buffer required"))
-ioctl.unwrap_spec = [ObjSpace, W_Root, int, W_Root, int]

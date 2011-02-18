@@ -4,7 +4,7 @@ from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf, isnan
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
+from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.module.cmath import Module, names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.module.cmath.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
@@ -49,7 +49,6 @@ def unaryfn(c_func):
     #
     name = c_func.func_name
     assert name.startswith('c_')
-    wrapper.unwrap_spec = [ObjSpace, W_Root]
     wrapper.func_doc = names_and_docstrings[name[2:]]
     fnname = 'wrapped_' + name[2:]
     globals()[fnname] = func_with_new_name(wrapper, fnname)
@@ -296,7 +295,6 @@ def wrapped_log(space, w_z, w_base=NoneNotWrapped):
         return space.truediv(w_logz, w_logbase)
     else:
         return w_logz
-wrapped_log.unwrap_spec = [ObjSpace, W_Root, W_Root]
 wrapped_log.func_doc = _inner_wrapped_log.func_doc
 
 
@@ -498,7 +496,6 @@ def wrapped_rect(space, w_x, w_y):
     y = space.float_w(w_y)
     resx, resy = call_c_func(c_rect, space, x, y)
     return space.newcomplex(resx, resy)
-wrapped_rect.unwrap_spec = [ObjSpace, W_Root, W_Root]
 wrapped_rect.func_doc = names_and_docstrings['rect']
 
 
@@ -530,7 +527,6 @@ def wrapped_phase(space, w_z):
     x, y = space.unpackcomplex(w_z)
     result = call_c_func(c_phase, space, x, y)
     return space.newfloat(result)
-wrapped_phase.unwrap_spec = [ObjSpace, W_Root]
 wrapped_phase.func_doc = names_and_docstrings['phase']
 
 
@@ -562,7 +558,6 @@ def wrapped_polar(space, w_z):
     x, y = space.unpackcomplex(w_z)
     resx, resy = call_c_func(c_polar, space, x, y)
     return space.newtuple([space.newfloat(resx), space.newfloat(resy)])
-wrapped_polar.unwrap_spec = [ObjSpace, W_Root]
 wrapped_polar.func_doc = names_and_docstrings['polar']
 
 
@@ -573,7 +568,6 @@ def wrapped_isinf(space, w_z):
     x, y = space.unpackcomplex(w_z)
     res = c_isinf(x, y)
     return space.newbool(res)
-wrapped_isinf.unwrap_spec = [ObjSpace, W_Root]
 wrapped_isinf.func_doc = names_and_docstrings['isinf']
 
 
@@ -584,5 +578,4 @@ def wrapped_isnan(space, w_z):
     x, y = space.unpackcomplex(w_z)
     res = c_isnan(x, y)
     return space.newbool(res)
-wrapped_isnan.unwrap_spec = [ObjSpace, W_Root]
 wrapped_isnan.func_doc = names_and_docstrings['isnan']
