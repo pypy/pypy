@@ -67,8 +67,7 @@ constants["OPENSSL_VERSION_INFO"] = (major, minor, fix, patch, status)
 constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
 def ssl_error(space, msg, errno=0):
-    w_module = space.getbuiltinmodule('_ssl')
-    w_exception_class = space.getattr(w_module, space.wrap('SSLError'))
+    w_exception_class = get_error(space)
     if errno:
         w_exception = space.call_function(w_exception_class,
                                           space.wrap(errno), space.wrap(msg))
