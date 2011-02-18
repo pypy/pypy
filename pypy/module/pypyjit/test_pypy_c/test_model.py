@@ -74,7 +74,6 @@ class TestLog(object):
 class TestRunPyPyC(BaseTestPyPyC):
 
     def test_parse_jitlog(self):
-        py.test.skip('in-progress')
         def f():
             i = 0
             while i < 1003: # default threshold is 10
@@ -82,3 +81,6 @@ class TestRunPyPyC(BaseTestPyPyC):
             return i
         #
         log = self.run(f)
+        loops = log.by_filename(self.filepath)
+        assert len(loops) == 2 # loop and entry bridge
+        

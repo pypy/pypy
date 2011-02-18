@@ -1,13 +1,17 @@
 import py
 import re
+import os.path
 from lib_pypy import disassembler
-from pypy.tool.jitlogparser.parser import parse, slice_debug_merge_points
+from pypy.tool.jitlogparser.parser import parse, Function
 from pypy.tool.jitlogparser.storage import LoopStorage
 
 class Log(object):
     def __init__(self, func, rawtraces):
-        chunks = self.find_chunks(func)
-        self.traces = [Trace(rawtrace, chunks) for rawtrace in rawtraces]
+        storage = LoopStorage()
+        storage.ids = self.find_ids(func)
+        traces = [parse(rawtrace) for rawtrace in rawtraces]
+        traces = storage.reconnect_loops(traces)
+        self.functions = [FunctionWithIds.from_trace(trace, storage) for trace in traces]
 
     @classmethod
     def find_ids_range(cls, func):
@@ -43,24 +47,11 @@ class Log(object):
             ids[name] = opcodes
         return ids
 
+    def by_filename(self, filename):
+        return [func for func in self.functions if func.filename == filename]
 
-class Trace(object):
-    def __init__(self, rawtrace, chunks):
-        # "low level trace", i.e. an instance of history.TreeLoop
-        self.lltrace = parse(rawtrace)
-        storage = LoopStorage()
-        function = slice_debug_merge_points(self.lltrace.operations, storage)
-        import pdb;pdb.set_trace()
-        self.split_into_opcodes()
+class FunctionWithIds(Function):
 
-    def split_into_opcodes(self):
-        self.opcodes = []
-        for op in self.lltrace.operations:
-            if op.getopname() == "debug_merge_point":
-                opcode = TraceForOpcode(op) # XXX
-                self.opcodes.append(opcode)
-            else:
-                opcode.append(op)
-
-class TraceForOpcode(list):
-    pass
+    @classmethod
+    def from_trace(cls, trace, storage):
+        return cls.from_operations(trace.operations, storage)
