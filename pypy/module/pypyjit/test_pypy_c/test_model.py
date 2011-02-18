@@ -79,8 +79,8 @@ class TestRunPyPyC(BaseTestPyPyC):
     def test_parse_jitlog(self):
         def f():
             i = 0
-            while i < 1003: # default threshold is 10
-                i += 1 # ID: increment
+            while i < 1003:
+                i += 1
             return i
         #
         log = self.run(f)
@@ -95,3 +95,15 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         loops = log.by_filename(self.filepath, is_entry_bridge='*')
         assert len(loops) == 2
+
+    def test_by_id(self):
+        def f():
+            i = 0
+            while i < 1003:
+                i += 1 # ID: increment
+            return i
+        #
+        log = self.run(f)
+        loop, = log.by_id('increment')
+        assert loop.filename == self.filepath
+        assert loop.code.co.co_name == 'f'
