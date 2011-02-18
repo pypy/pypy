@@ -1,9 +1,10 @@
 import sys
 import subprocess
 import py
+from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
-from pypy.module.pypyjit.test_pypy_c.model import Log
+from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
@@ -53,7 +54,8 @@ class TestLog(object):
             return a
         #
         start_lineno = f.func_code.co_firstlineno
-        ids = Log.find_ids_range(f)
+        code = disassembler.dis(f)
+        ids = find_ids_range(code)
         assert len(ids) == 1
         myline_range = ids['myline']
         assert list(myline_range) == range(start_lineno+1, start_lineno+2)
@@ -65,7 +67,8 @@ class TestLog(object):
             z = x + 3 # ID: myline
             return z
         #
-        ids = Log.find_ids(f)
+        code = disassembler.dis(f)
+        ids = find_ids(code)
         assert len(ids) == 1
         myline = ids['myline']
         opcodes_names = [opcode.__class__.__name__ for opcode in myline]
