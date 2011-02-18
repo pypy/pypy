@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.descroperation import object_getattribute, object_setattr
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
-     descr_set_dict, interp_attrproperty_w
+     descr_set_dict, interp_attrproperty_w, generic_new_descr
 
 class W_Super(Wrappable):
     def __init__(self, space, w_starttype, w_objtype, w_self):
@@ -98,6 +98,9 @@ class C(B):
 class W_Property(Wrappable):
     _immutable_fields_ = ["w_fget", "w_fset", "w_fdel"]
 
+    def __init__(self, space):
+        pass
+
     def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset
@@ -116,11 +119,6 @@ class W_Property(Wrappable):
                                   w_getter_doc)
                 self.getter_doc = True
     init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, W_Root]
-
-    def new(space, w_subtype, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
-        w_result = space.allocate_instance(W_Property, w_subtype)
-        return w_result
-    new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root]
 
     def get(self, space, w_obj, w_objtype=None):
         if space.is_w(w_obj, space.w_None):
@@ -185,7 +183,7 @@ class C(object):
     def setx(self, value): self.__x = value
     def delx(self): del self.__x
     x = property(getx, setx, delx, "I am the 'x' property.")''',
-    __new__ = interp2app(W_Property.new.im_func),
+    __new__ = generic_new_descr(W_Property),
     __init__ = interp2app(W_Property.init),
     __get__ = interp2app(W_Property.get),
     __set__ = interp2app(W_Property.set),
