@@ -4,7 +4,6 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.objectmodel import specialize
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
@@ -464,10 +463,15 @@ class SocketAPI:
         self.w_timeout = new_exception_class(
             space, "_socket.timeout", self.w_error)
 
-    def get_exception(self, applevelerrcls):
-        return getattr(self, 'w_' + applevelerrcls)
+        self.errors_w = {'error': self.w_error,
+                         'herror': self.w_herror,
+                         'gaierror': self.w_gaierror,
+                         'timeout': self.w_timeout,
+                         }
 
-@specialize.arg(1)
+    def get_exception(self, applevelerrcls):
+        return self.errors_w[applevelerrcls]
+
 def get_error(space, name):
     return space.fromcache(SocketAPI).get_exception(name)
 
