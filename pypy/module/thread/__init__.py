@@ -4,7 +4,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
-        'error':                  'app_thread.error',
     }
 
     interpleveldefs = {
@@ -19,6 +18,7 @@ class Module(MixedModule):
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.getlocktype(space)',
         '_local':                 'os_local.getlocaltype(space)',
+        'error':                  'space.fromcache(error.Cache).w_error',
     }
 
     def __init__(self, space, *args):
