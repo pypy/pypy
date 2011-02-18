@@ -12,7 +12,7 @@ from pypy.rlib import rtermios
 import termios
 
 class Cache:
-    def __init__(self):
+    def __init__(self, space):
         self.w_error = space.new_exception_class("termios.error")
 
 def convert_error(space, error):
