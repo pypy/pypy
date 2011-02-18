@@ -47,11 +47,20 @@ class Log(object):
             ids[name] = opcodes
         return ids
 
-    def by_filename(self, filename):
-        return [func for func in self.functions if func.filename == filename]
+    def _filter(self, function, is_entry_bridge=False):
+        return is_entry_bridge == '*' or function.is_entry_bridge == is_entry_bridge
+
+    def by_filename(self, filename, **kwds):
+        return [func for func in self.functions
+                if func.filename == filename and self._filter(func, **kwds)]
 
 class FunctionWithIds(Function):
 
+    is_entry_bridge = False
+
     @classmethod
     def from_trace(cls, trace, storage):
-        return cls.from_operations(trace.operations, storage)
+        res = cls.from_operations(trace.operations, storage)
+        if 'entry bridge' in trace.comment:
+            res.is_entry_bridge = True
+        return res

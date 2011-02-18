@@ -82,5 +82,13 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         log = self.run(f)
         loops = log.by_filename(self.filepath)
-        assert len(loops) == 2 # loop and entry bridge
-        
+        assert len(loops) == 1
+        assert loops[0].filename == self.filepath
+        assert not loops[0].is_entry_bridge
+        #
+        loops = log.by_filename(self.filepath, is_entry_bridge=True)
+        assert len(loops) == 1
+        assert loops[0].is_entry_bridge
+        #
+        loops = log.by_filename(self.filepath, is_entry_bridge='*')
+        assert len(loops) == 2
