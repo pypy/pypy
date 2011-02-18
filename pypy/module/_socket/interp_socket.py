@@ -7,7 +7,6 @@ from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class
 from pypy.interpreter import gateway
 
 class SignalChecker:
@@ -435,14 +434,14 @@ descr_socket_new = interp2app(newsocket)
 
 class SocketAPI:
     def __init__(self, space):
-        self.w_error = new_exception_class(
-            space, "_socket.error", space.w_IOError)
-        self.w_herror = new_exception_class(
-            space, "_socket.herror", self.w_error)
-        self.w_gaierror = new_exception_class(
-            space, "_socket.gaierror", self.w_error)
-        self.w_timeout = new_exception_class(
-            space, "_socket.timeout", self.w_error)
+        self.w_error = space.new_exception_class(
+            "_socket.error", space.w_IOError)
+        self.w_herror = space.new_exception_class(
+            "_socket.herror", self.w_error)
+        self.w_gaierror = space.new_exception_class(
+            "_socket.gaierror", self.w_error)
+        self.w_timeout = space.new_exception_class(
+            "_socket.timeout", self.w_error)
 
         self.errors_w = {'error': self.w_error,
                          'herror': self.w_herror,

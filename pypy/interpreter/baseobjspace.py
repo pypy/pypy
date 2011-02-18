@@ -3,6 +3,7 @@ import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import new_exception_class
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
@@ -957,6 +958,10 @@ class ObjSpace(object):
 
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.is_true(self.issubtype(w_cls1, w_cls2))
+
+    def new_exception_class(self, *args, **kwargs):
+        "NOT_RPYTHON; convenience method to create excceptions in modules"
+        return new_exception_class(self, *args, **kwargs)
 
     # end of special support code
 
