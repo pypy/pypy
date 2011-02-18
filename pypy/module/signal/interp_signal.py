@@ -313,9 +313,13 @@ def itimer_retval(space, val):
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+class Cache:
+    def __init__(self, space):
+        self.w_itimererror = space.new_exception_class("signal.ItimerError",
+                                                       space.w_IOError)
+
 def get_itimer_error(space):
-    mod = space.getbuiltinmodule("signal")
-    return space.getattr(mod, space.wrap("ItimerError"))
+    return space.fromcache(Cache).w_itimererror
 
 @jit.dont_look_inside
 @unwrap_spec(which=int, first=float, interval=float)

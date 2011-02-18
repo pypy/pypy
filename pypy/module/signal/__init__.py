@@ -12,6 +12,7 @@ class Module(MixedModule):
         'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
         'default_int_handler': 'interp_signal.default_int_handler',
+        'ItimerError':         'interp_signal.get_itimer_error(space)',
     }
 
     if os.name == 'posix':
@@ -26,7 +27,6 @@ class Module(MixedModule):
             interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
 
     appleveldefs = {
-        'ItimerError': 'app_signal.ItimerError',
     }
 
     def buildloaders(cls):

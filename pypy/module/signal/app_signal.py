@@ -1,2 +1,0 @@
-class ItimerError(IOError):
-    pass
