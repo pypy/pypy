@@ -195,21 +195,18 @@ class ARMRegisterManager(RegisterManager):
         return [reg1, reg2, res]
 
     def prepare_guard_int_mul_ovf(self, op, guard, fcond):
-        args = []
         boxes = list(op.getarglist())
         a0, a1 = boxes
 
-        reg1, box = self._ensure_value_is_boxed(a0,forbidden_vars=boxes)
+        reg1, box = self._ensure_value_is_boxed(a0, forbidden_vars=boxes)
         boxes.append(box)
-        reg2, box = self._ensure_value_is_boxed(a1,forbidden_vars=boxes)
+        reg2, box = self._ensure_value_is_boxed(a1, forbidden_vars=boxes)
         boxes.append(box)
-        res = self.force_allocate_reg(op.result, boxes)
+        res = self.force_allocate_reg(op.result)
+        args = self._prepare_guard(guard, [reg1, reg2, res])
 
-        args.append(reg1)
-        args.append(reg2)
-        args.append(res)
-        args = self._prepare_guard(guard, args)
         self.possibly_free_vars(boxes)
+        self.possibly_free_vars_for_op(op)
         self.possibly_free_var(op.result)
         self.possibly_free_vars(guard.getfailargs())
         return args
