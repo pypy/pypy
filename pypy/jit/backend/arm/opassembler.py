@@ -237,11 +237,11 @@ class OpAssembler(object):
         self._gen_path_to_exit_path(op, op.getarglist(), arglocs, c.AL)
         return fcond
 
-    def emit_op_call(self, op, args, regalloc, fcond, spill_all_regs=False):
+    def emit_op_call(self, op, args, regalloc, fcond):
         adr = args[0].value
         arglist = op.getarglist()[1:]
         cond =  self._emit_call(adr, arglist, regalloc, fcond,
-                                op.result, spill_all_regs=spill_all_regs)
+                                op.result)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
@@ -252,10 +252,9 @@ class OpAssembler(object):
         return cond
 
     # XXX improve this interface
-    # XXX and get rid of spill_all_regs in favor of pushing them in
     # emit_op_call_may_force
     # XXX improve freeing of stuff here
-    def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None, spill_all_regs=False):
+    def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
         n = 0
         n_args = len(args)
         reg_args = min(n_args, 4)
@@ -264,20 +263,17 @@ class OpAssembler(object):
             l = regalloc.make_sure_var_in_reg(args[i],
                                             selected_reg=r.all_regs[i])
         # save caller saved registers
-        if spill_all_regs:
-            regalloc.before_call(save_all_regs=spill_all_regs)
+        if result:
+            # XXX hack if the call has a result force the value in r0 to be
+            # spilled
+            if reg_args == 0 or (isinstance(args[0], Box) and
+                    regalloc.stays_alive(args[0])):
+                t = TempBox()
+                regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
+                regalloc.possibly_free_var(t)
+            self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
         else:
-            if result:
-                # XXX hack if the call has a result force the value in r0 to be
-                # spilled
-                if reg_args == 0 or (isinstance(args[0], Box) and
-                        regalloc.stays_alive(args[0])):
-                    t = TempBox()
-                    regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
-                    regalloc.possibly_free_var(t)
-                self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
-            else:
-                self.mc.PUSH([reg.value for reg in r.caller_resp])
+            self.mc.PUSH([reg.value for reg in r.caller_resp])
 
         # all arguments past the 4th go on the stack
         if n_args > 4:
@@ -299,11 +295,9 @@ class OpAssembler(object):
         # restore the argumets stored on the stack
         if result is not None:
             regalloc.after_call(result)
-        if not spill_all_regs:
-            if result is not None:
-                self.mc.POP([reg.value for reg in r.caller_resp][1:])
-            else:
-                self.mc.POP([reg.value for reg in r.caller_resp])
+            self.mc.POP([reg.value for reg in r.caller_resp][1:])
+        else:
+            self.mc.POP([reg.value for reg in r.caller_resp])
         return fcond
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):

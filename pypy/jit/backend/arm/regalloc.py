@@ -190,6 +190,7 @@ class ARMRegisterManager(RegisterManager):
         boxes.append(box)
 
         self.possibly_free_vars(boxes)
+        self.possibly_free_vars_for_op(op)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
@@ -675,9 +676,10 @@ class ARMRegisterManager(RegisterManager):
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.assembler._write_fail_index(fail_index)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        # force all reg values to be spilled when calling
-        self.assembler.emit_op_call(op, args, self, fcond, spill_all_regs=True)
-
+        for v in guard_op.getfailargs():
+            if v in self.reg_bindings:
+                self.force_spill_var(v)
+        self.assembler.emit_op_call(op, args, self, fcond)
         locs = self._prepare_guard(guard_op)
         self.possibly_free_vars(guard_op.getfailargs())
         return locs
