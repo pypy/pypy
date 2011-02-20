@@ -39,15 +39,15 @@ class OptHeap(Optimization):
             newd = {}
             new.cached_fields[descr] = newd
             for value, fieldvalue in d.items():
-                newd[value.get_reconstructed(optimizer, valuemap)] = \
-                                       fieldvalue.get_reconstructed(optimizer, valuemap)
+                newd[value.get_cloned(optimizer, valuemap)] = \
+                                       fieldvalue.get_cloned(optimizer, valuemap)
             
         for descr, d in self.known_heap_fields.items():
             newd = {}
             new.known_heap_fields[descr] = newd
             for value, fieldvalue in d.items():
-                newd[value.get_reconstructed(optimizer, valuemap)] = \
-                                       fieldvalue.get_reconstructed(optimizer, valuemap)
+                newd[value.get_cloned(optimizer, valuemap)] = \
+                                       fieldvalue.get_cloned(optimizer, valuemap)
             
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():
@@ -55,16 +55,16 @@ class OptHeap(Optimization):
             new.cached_arrayitems[descr] = newd
             for value, cache in d.items():
                 newcache = CachedArrayItems()
-                newd[value.get_reconstructed(optimizer, valuemap)] = newcache
+                newd[value.get_cloned(optimizer, valuemap)] = newcache
                 if cache.var_index_item:
                     newcache.var_index_item = \
-                          cache.var_index_item.get_reconstructed(optimizer, valuemap)
+                          cache.var_index_item.get_cloned(optimizer, valuemap)
                 if cache.var_index_indexvalue:
                     newcache.var_index_indexvalue = \
-                          cache.var_index_indexvalue.get_reconstructed(optimizer, valuemap)
+                          cache.var_index_indexvalue.get_cloned(optimizer, valuemap)
                 for index, fieldvalue in cache.fixed_index_items.items():
                     newcache.fixed_index_items[index] = \
-                           fieldvalue.get_reconstructed(optimizer, valuemap)
+                           fieldvalue.get_cloned(optimizer, valuemap)
 
         return new
 

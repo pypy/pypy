@@ -46,7 +46,7 @@ class AbstractVirtualValue(optimizer.OptValue):
     def _really_force(self):
         raise NotImplementedError("abstract base")
 
-    def reconstruct_for_next_iteration(self, _optimizer):
+    def clone_for_next_iteration(self, _optimizer):
         return optimizer.OptValue(self.force_box())
 
 def get_fielddescrlist_cache(cpu):
@@ -144,17 +144,16 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         else:
             boxes.append(self.box)
 
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
+    def clone_for_next_iteration(self, optimizer):
+        raise NotImplementedError
 
-    def reconstruct_childs(self, new, valuemap):
+    def clone_childs(self, new, valuemap):
         assert isinstance(new, AbstractVirtualStructValue)
         if new.box is None:
             lst = self._get_field_descr_list()
             for ofs in lst:
                 new._fields[ofs] = \
-                      self._fields[ofs].get_reconstructed(new.optimizer, valuemap)
+                      self._fields[ofs].get_cloned(new.optimizer, valuemap)
 
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
@@ -175,6 +174,13 @@ class VirtualValue(AbstractVirtualStructValue):
         field_names = [field.name for field in self._fields]
         return "<VirtualValue cls=%s fields=%s>" % (cls_name, field_names)
 
+    def clone_for_next_iteration(self, optimizer):
+        new = VirtualValue(optimizer, self.known_class, self.keybox,
+                           self.source_op)
+        new.box = self.box
+        return new
+            
+
 class VStructValue(AbstractVirtualStructValue):
 
     def __init__(self, optimizer, structdescr, keybox, source_op=None):
@@ -185,6 +191,13 @@ class VStructValue(AbstractVirtualStructValue):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_vstruct(self.structdescr, fielddescrs)
 
+    def clone_for_next_iteration(self, optimizer):
+        new = VStructValue(optimizer, self.structdescr, self.keybox,
+                           self.source_op)
+        new.box = self.box
+        return new
+
+    
 class VArrayValue(AbstractVirtualValue):
 
     def __init__(self, optimizer, arraydescr, size, keybox, source_op=None):
@@ -247,16 +260,18 @@ class VArrayValue(AbstractVirtualValue):
         else:
             boxes.append(self.box)
 
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
+    def clone_for_next_iteration(self, optimizer):
+        new = VArrayValue(optimizer, self.arraydescr, len(self._items),
+                          self.keybox, self.source_op)
+        new.box = self.box
+        return new        
 
-    def reconstruct_childs(self, new, valuemap):
+    def clone_childs(self, new, valuemap):
         assert isinstance(new, VArrayValue)
         if new.box is None:
             for i in range(len(self._items)):
-                new._items[i] = self._items[i].get_reconstructed(new.optimizer,
-                                                                 valuemap)
+                new._items[i] = self._items[i].get_cloned(new.optimizer,
+                                                          valuemap)
 
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
