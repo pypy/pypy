@@ -23,7 +23,7 @@ def _optimize_loop(metainterp_sd, old_loop_tokens, loop):
 # ____________________________________________________________
 
 def optimize_bridge(metainterp_sd, old_loop_tokens, bridge,
-                    inline_short_preamble=True, retraced=False):
+                    inline_short_preamble=True, retraced=None):
     debug_start("jit-optimize")
     try:
         return _optimize_bridge(metainterp_sd, old_loop_tokens, bridge,
@@ -32,7 +32,7 @@ def optimize_bridge(metainterp_sd, old_loop_tokens, bridge,
         debug_stop("jit-optimize")
 
 def _optimize_bridge(metainterp_sd, old_loop_tokens, bridge,
-                     inline_short_preamble, retraced=False):
+                     inline_short_preamble, retraced=None):
     cpu = metainterp_sd.cpu
     metainterp_sd.logger_noopt.log_loop(bridge.inputargs, bridge.operations)
     if old_loop_tokens:

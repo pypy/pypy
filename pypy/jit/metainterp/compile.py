@@ -80,19 +80,17 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
+def compile_new_loop(metainterp, old_loop_tokens, greenkey, inputargs, h_ops,
                      start_resumedescr, full_preamble_needed=True):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
-    history = metainterp.history
     loop = create_empty_loop(metainterp)
-    loop.inputargs = history.inputargs
+    loop.inputargs = inputargs
     for box in loop.inputargs:
         assert isinstance(box, Box)
     # make a copy, because optimize_loop can mutate the ops and descrs
-    h_ops = history.operations
-    loop.operations = [h_ops[i].clone() for i in range(start, len(h_ops))]
+    loop.operations = [h_ops[i].clone() for i in range(len(h_ops))]
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     loop_token = make_loop_token(len(loop.inputargs), jitdriver_sd)
@@ -566,7 +564,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         pass
 
 
-def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
+def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retrace=None):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -589,7 +587,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
         target_loop_token = state.optimize_bridge(metainterp_sd,
                                                   old_loop_tokens, new_loop,
                                                   inline_short_preamble,
-                                                  retraced)
+                                                  retrace)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

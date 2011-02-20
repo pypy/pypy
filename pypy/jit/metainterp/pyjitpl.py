@@ -1878,7 +1878,10 @@ class MetaInterp(object):
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop_token = compile.compile_new_loop(self, old_loop_tokens,
-                                              greenkey, start, start_resumedescr)
+                                              greenkey,
+                                              self.history.inputargs,
+                                              self.history.operations[start:],
+                                              start_resumedescr)
         if loop_token is not None: # raise if it *worked* correctly
             self.set_compiled_merge_points(greenkey, old_loop_tokens)
             raise GenerateMergePoint(live_arg_boxes, loop_token)
@@ -1913,14 +1916,11 @@ class MetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, [], greenkey, start,
-                                              start_resumedescr, False)
+        retrace = RetraceCompiler(self, greenkey,
+                                  original_boxes[num_green_args:],
+                                  self.history.operations[start:],
+                                  start_resumedescr, old_loop_tokens[0])
         self.history.operations.pop()     # remove the JUMP
-        if loop_token is None:
-            return
-
-        if loop_token.short_preamble:
-            old_loop_tokens[0].short_preamble.extend(loop_token.short_preamble)
 
         self.history.inputargs = original_inputargs
         self.history.operations = self.history.operations[:start]
@@ -1931,7 +1931,7 @@ class MetaInterp(object):
                                                            #[loop_token],
                                                            old_loop_tokens,
                                                            self.resumekey,
-                                                           True)
+                                                           retrace)
         except RetraceLoop:
             assert False
         assert target_loop_token is not None
@@ -2469,3 +2469,29 @@ def put_back_list_of_boxes3(frame, position, newvalue):
     frame._put_back_list_of_boxes(newvalue, 0, position)
     frame._put_back_list_of_boxes(newvalue, length1, position2)
     frame._put_back_list_of_boxes(newvalue, length1 + length2, position3)
+
+class RetraceCompiler(object):
+    def __init__(self, metainterp, greenkey, inputargs, h_ops,
+                 start_resumedescr, parent):
+        self.metainterp = metainterp
+        self.greenkey = greenkey
+        self.inputargs = inputargs
+        self.h_ops = h_ops
+        self.start_resumedescr = start_resumedescr
+        self.parent = parent
+
+    def compile(self, values):
+        assert len(values) == len(self.inputargs)
+        loop_token = compile.compile_new_loop(self.metainterp, [],
+                                              self.greenkey,
+                                              self.inputargs, self.h_ops,
+                                              self.start_resumedescr, False)
+        if loop_token is None:
+            return
+
+        if loop_token.short_preamble:
+            self.parent.short_preamble.extend(loop_token.short_preamble)
+        
+
+        
+        

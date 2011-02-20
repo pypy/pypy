@@ -621,8 +621,8 @@ class BoxMap(object):
         return self.map[loopbox]
 
 class OptInlineShortPreamble(Optimization):
-    def __init__(self, retraced):
-        self.retraced = retraced
+    def __init__(self, retrace):
+        self.retrace = retrace
         self.inliner = None
         
     
@@ -638,6 +638,10 @@ class OptInlineShortPreamble(Optimization):
             # memory. This should also allow better behaviour in
             # situations that the is_emittable() chain currently cant
             # handle and the inlining fails unexpectedly belwo.
+            if self.retrace:
+                jump_args = op.getarglist()
+                jump_values = [self.getvalue(a) for a in jump_args]
+                self.retrace.compile(jump_values)
             short = descr.short_preamble
             if short:
                 args = op.getarglist()
@@ -683,7 +687,7 @@ class OptInlineShortPreamble(Optimization):
                 if descr.failed_states:
                     retraced_count += len(descr.failed_states)
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
-                if not self.retraced and retraced_count<limit:
+                if not self.retrace and retraced_count<limit:
                     if not descr.failed_states:
                         raise RetraceLoop
                     for failed in descr.failed_states:

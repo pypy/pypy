@@ -7,7 +7,7 @@ from pypy.jit.metainterp.optimizeopt.string import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 
 def optimize_loop_1(metainterp_sd, loop, unroll=True,
-                    inline_short_preamble=True, retraced=False):
+                    inline_short_preamble=True, retraced=None):
     """Optimize loop.operations to remove internal overheadish operations. 
     """
     opt_str = OptString()
@@ -35,7 +35,7 @@ def optimize_loop_1(metainterp_sd, loop, unroll=True,
         optimizer.propagate_all_forward()
 
 def optimize_bridge_1(metainterp_sd, bridge, inline_short_preamble=True,
-                      retraced=False):
+                      retraced=None):
     """The same, but for a bridge. """
     optimize_loop_1(metainterp_sd, bridge, False, inline_short_preamble,
                     retraced)
