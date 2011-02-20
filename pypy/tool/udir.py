@@ -14,7 +14,7 @@
 #
 # The default value for $PYPY_USESSION_DIR is the system tmp.
 # The default value for $PYPY_USESSION_BASENAME is the name
-# of the current subversion branch.
+# of the current Mercurial branch.
 #
 
 import autopath
